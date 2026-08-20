@@ -1,6 +1,7 @@
 import { Box, HStack, Image, Text } from "@chakra-ui/react"
 import React from "react"
 import type { MetadataSourceTrackWithSource } from "@repo/types"
+import { artistsLabel, releaseYear } from "../lib/albumHeaderFields"
 import { SourceBadge } from "./SourceBadge"
 import { FRAMED_ARTWORK_TRACK_PX } from "./artworkFrames/frameStyles"
 
@@ -48,6 +49,7 @@ const TrackItem = ({
   const albumImage = album.images.find((img) => img.type === "image")
   const unframedPx = size === "row" ? UNFRAMED_ROW_PX : FRAMED_ARTWORK_TRACK_PX
   const durationLabel = formatTrackDuration(duration)
+  const albumYear = releaseYear(album.releaseDate)
 
   const leadingVisual = (() => {
     if (!showArtwork) return null
@@ -100,10 +102,10 @@ const TrackItem = ({
           {source && sourcePlacement === "inline" && <SourceBadge source={source} />}
         </HStack>
         <Text fontSize="sm" lineClamp={1} wordBreak="break-word">
-          {artists.map((artist) => artist.title).join(", ")}
+          {artistsLabel(artists)}
         </Text>
         <Text fontSize="xs" as="i" truncate>
-          {album.title} {album.releaseDate ? `(${album.releaseDate.split("-")[0]})` : null}
+          {album.title} {albumYear ? `(${albumYear})` : null}
         </Text>
         {source && sourcePlacement === "below" && (
           <Box mt={1} hideFrom="md">

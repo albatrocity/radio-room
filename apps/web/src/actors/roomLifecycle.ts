@@ -27,6 +27,7 @@ import { screenEffectsActor } from "./screenEffectsActor"
 import { pollActor } from "./pollActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 import { addToQueueUiActor } from "./addToQueueUiActor"
+import { gameStateNavActor } from "./gameStateNavActor"
 import { mediaBridgeActor } from "./mediaBridgeActor"
 import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
@@ -161,6 +162,9 @@ export function teardownRoom(): void {
   pollActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
   addToQueueUiActor.send({ type: "DEACTIVATE" })
+  // Activated by the Game State modal, not by room entry; reset here so detail
+  // frames never outlive the room they came from.
+  gameStateNavActor.send({ type: "RESET" })
   mediaBridgeActor.send({ type: "DEACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })
   teardownPluginComponentActors()

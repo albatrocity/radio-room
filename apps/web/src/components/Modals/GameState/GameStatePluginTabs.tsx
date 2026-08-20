@@ -21,11 +21,14 @@ interface GameStatePluginTabTriggersProps {
   tabs: PluginTabEntry[]
   /** Plugin tab ids that appeared since last visit and have not been opened yet */
   unseenTabIds?: ReadonlySet<string>
+  /** Also fires for the tab already selected, which `onValueChange` does not. */
+  onSelect?: (tabId: string) => void
 }
 
 export function GameStatePluginTabTriggers({
   tabs,
   unseenTabIds,
+  onSelect,
 }: GameStatePluginTabTriggersProps) {
   return (
     <>
@@ -39,6 +42,7 @@ export function GameStatePluginTabTriggers({
             position="relative"
             pr={showNew ? 2 : undefined}
             whiteSpace="nowrap"
+            onClick={() => onSelect?.(entry.id)}
           >
             <HStack gap={1} align="center">
               {TabIcon ? <Icon as={TabIcon} /> : null}

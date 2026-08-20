@@ -3,12 +3,6 @@ import { assign, setup } from "xstate"
 import { getIsAdmin } from "../actors/authActor"
 import { emitToSocket } from "../actors/socketActor"
 import { canAddToQueue as canDjAddToQueue } from "../actors/djActor"
-import type { GameStateDetailFrame } from "../types/GameStateDetail"
-
-export type GameStateItemDetailDeepLink = {
-  tabId: string
-  frame: GameStateDetailFrame
-}
 
 type Context = {
   /**
@@ -16,8 +10,6 @@ type Context = {
    * the inventory deep-links into a held record.
    */
   queueBrowseMediaKey: string | null
-  /** One-shot Game State item detail deep-link (ADR 0104). */
-  gameStateDetailDeepLink: GameStateItemDetailDeepLink | null
 }
 
 export type Event =
@@ -29,12 +21,6 @@ export type Event =
   | { type: "VIEW_LISTENERS" }
   | { type: "VIEW_SCHEDULE" }
   | { type: "VIEW_GAME_STATE" }
-  | {
-      type: "OPEN_GAME_STATE_ITEM_DETAIL"
-      tabId?: string
-      frame: GameStateDetailFrame
-    }
-  | { type: "CLEAR_GAME_STATE_ITEM_DETAIL_DEEP_LINK" }
   | { type: "VIEW_POLL_HISTORY" }
   | { type: "CLOSE" }
   | { type: "CREATE_ROOM" }
@@ -92,23 +78,11 @@ export const modalsMachine = setup({
       queueBrowseMediaKey: event.type === "EDIT_QUEUE" ? event.browseMediaKey ?? null : null,
     })),
     clearQueueBrowseMediaKey: assign({ queueBrowseMediaKey: null }),
-    setGameStateDetailDeepLink: assign(({ event }) => {
-      if (event.type !== "OPEN_GAME_STATE_ITEM_DETAIL") {
-        return { gameStateDetailDeepLink: null }
-      }
-      return {
-        gameStateDetailDeepLink: {
-          tabId: event.tabId?.trim() || "inventory",
-          frame: event.frame,
-        },
-      }
-    }),
-    clearGameStateDetailDeepLink: assign({ gameStateDetailDeepLink: null }),
   },
 }).createMachine({
   id: "modals",
   initial: "closed",
-  context: { queueBrowseMediaKey: null, gameStateDetailDeepLink: null },
+  context: { queueBrowseMediaKey: null },
   on: {
     EDIT_USERNAME: ".username",
     EDIT_QUEUE: {
@@ -158,19 +132,12 @@ export const modalsMachine = setup({
     VIEW_GAME_STATE: {
       target: ".gameState",
     },
-    OPEN_GAME_STATE_ITEM_DETAIL: {
-      target: ".gameState",
-      actions: "setGameStateDetailDeepLink",
-    },
-    CLEAR_GAME_STATE_ITEM_DETAIL_DEEP_LINK: {
-      actions: "clearGameStateDetailDeepLink",
-    },
     VIEW_POLL_HISTORY: {
       target: ".pollHistory",
     },
     CLOSE: {
       target: ".closed",
-      actions: ["clearQueueBrowseMediaKey", "clearGameStateDetailDeepLink"],
+      actions: "clearQueueBrowseMediaKey",
     },
     CREATE_ROOM: ".createRoom",
     NUKE_USER: ".nukeUser",

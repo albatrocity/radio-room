@@ -27,6 +27,7 @@ import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
 import PathBreadcrumb from "./PathBreadcrumb"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
+import { artistsLabel, releaseYear } from "../lib/albumHeaderFields"
 
 type BrowseRowButtonProps = {
   disabled?: boolean
@@ -458,16 +459,10 @@ function CatalogBrowse({
   const albumHeader = useMemo((): AlbumViewHeader | null => {
     if (level !== "tracks") return null
     if (selectedMedia) {
-      const artists =
-        firstTrack?.artists
-          ?.map((a) => a.title)
-          .filter(Boolean)
-          .join(", ") || undefined
-      const year = firstTrack?.album?.releaseDate?.split("-")[0] || undefined
       return {
         title: selectedMedia.name,
-        artists,
-        year,
+        artists: artistsLabel(firstTrack?.artists),
+        year: releaseYear(firstTrack?.album?.releaseDate),
         sourceId: "local",
         images: physicalMediaImages(selectedMedia),
         imageUrl: selectedMedia.imageUrl,
@@ -476,17 +471,8 @@ function CatalogBrowse({
       }
     }
     if (browseAlbum) {
-      const artists =
-        browseAlbum.artists
-          ?.map((a) => a.title)
-          .filter(Boolean)
-          .join(", ") ||
-        firstTrack?.artists
-          ?.map((a) => a.title)
-          .filter(Boolean)
-          .join(", ") ||
-        undefined
-      const year = browseAlbum.year || firstTrack?.album?.releaseDate?.split("-")[0] || undefined
+      const artists = artistsLabel(browseAlbum.artists) ?? artistsLabel(firstTrack?.artists)
+      const year = browseAlbum.year || releaseYear(firstTrack?.album?.releaseDate)
       const images =
         browseAlbum.images && browseAlbum.images.length > 0
           ? browseAlbum.images
@@ -502,12 +488,8 @@ function CatalogBrowse({
     if (firstTrack) {
       return {
         title: firstTrack.album.title,
-        artists:
-          firstTrack.artists
-            .map((a) => a.title)
-            .filter(Boolean)
-            .join(", ") || undefined,
-        year: firstTrack.album.releaseDate?.split("-")[0] || undefined,
+        artists: artistsLabel(firstTrack.artists),
+        year: releaseYear(firstTrack.album.releaseDate),
         sourceId: firstTrack.source ?? sourceId,
         images: firstTrack.album.images,
       }

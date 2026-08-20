@@ -10,6 +10,7 @@ import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
 import { stopTrackPreview, toggleTrackPreview } from "../../../actors/trackPreviewActor"
 import { useCanAddToQueue, useIsAdmin } from "../../../hooks/useActors"
 import { useSocketMachine } from "../../../hooks/useSocketMachine"
+import { artistsLabel, releaseYear } from "../../../lib/albumHeaderFields"
 import {
   MEDIA_ITEM_TRACKS_EVENT_TYPES,
   mediaItemTracksMachine,
@@ -52,6 +53,8 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
 
     sendTracks({ type: "FETCH", mediaKey })
 
+    // `gameStateNavMachine` stops preview audio on every nav transition; this
+    // covers the rest — unmounting because the game session or payload went away.
     return () => {
       stopTrackPreview()
     }
@@ -62,16 +65,10 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
   const firstTrack = tracks[0]
 
   const albumHeader = useMemo((): AlbumViewHeader => {
-    const artists =
-      firstTrack?.artists
-        ?.map((a) => a.title)
-        .filter(Boolean)
-        .join(", ") || undefined
-    const year = firstTrack?.album?.releaseDate?.split("-")[0] || undefined
     return {
       title: name,
-      artists,
-      year,
+      artists: artistsLabel(firstTrack?.artists),
+      year: releaseYear(firstTrack?.album?.releaseDate),
       sourceId: "local",
       imageUrl: definition?.imageUrl,
       imageUrlLarge: definition?.imageUrlLarge,

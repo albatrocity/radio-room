@@ -109,8 +109,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) | Queue-add undo: cancel held picks and restore Round Robin turns | Accepted |
 | [0102](0102-handwritten-disc-label-for-coverless-jewel-cases.md) | Handwritten disc label for coverless jewel cases | Accepted |
 | [0103](0103-physical-media-track-previews.md) | Physical Media track previews (ffmpeg RPC, Redis cache, client ducking) | Accepted |
-| [0104](0104-game-state-item-detail-subroute.md) | Game State item detail subroute (`detailView`, per-tab stack) | Accepted |
+| [0104](0104-game-state-item-detail-subroute.md) | Game State item detail subroute (`detailView`, per-tab stack) | Accepted (point 1 superseded by [0106](0106-game-state-nav-machine.md)) |
 | [0105](0105-add-to-queue-ui-session-persistence.md) | Add to Queue UI session persistence (mode, source, browse location) | Accepted |
+| [0106](0106-game-state-nav-machine.md) | Game State nav stack in a machine (tab + detail frames, preview teardown) | Accepted |
 
 ## Creating a New ADR
 

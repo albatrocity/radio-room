@@ -48,6 +48,8 @@ import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
 import { addToQueueUiActor } from "../actors/addToQueueUiActor"
+import { gameStateNavActor } from "../actors/gameStateNavActor"
+import { currentDetailFrame } from "../machines/gameStateNavMachine"
 import { mediaBridgeActor } from "../actors/mediaBridgeActor"
 import {
   effectiveMetadataSourcesActor,
@@ -98,6 +100,7 @@ const sendToPoll = boundSendRef(pollActor)
 const sendToQuickAccessPanels = boundSendRef(quickAccessPanelsActor)
 const sendToAddToQueueUi = boundSendRef(addToQueueUiActor)
 const sendToMediaBridge = boundSendRef(mediaBridgeActor)
+const sendToGameStateNav = boundSendRef(gameStateNavActor)
 
 // ============================================================================
 // Auth Hooks
@@ -653,12 +656,27 @@ export const useQueueBrowseMediaKey = (): string | null => {
   return useSelector(modalsActor, (s) => s.context.queueBrowseMediaKey)
 }
 
-/** One-shot Game State item detail deep-link (ADR 0104). */
-export const useGameStateDetailDeepLink = () => {
-  return useSelector(modalsActor, (s) => s.context.gameStateDetailDeepLink)
+export const useModalsSend = () => sendToModals
+
+// ============================================================================
+// Game State Nav Hooks (ADR 0106)
+// ============================================================================
+
+export const useGameStateActiveTab = (): string => {
+  return useSelector(gameStateNavActor, (s) => s.context.activeTabId)
 }
 
-export const useModalsSend = () => sendToModals
+/** The frame being viewed, or null on a tab index. */
+export const useGameStateDetailFrame = () => {
+  return useSelector(gameStateNavActor, (s) => currentDetailFrame(s.context))
+}
+
+/** True while the Game State modal is showing, i.e. detail frames go on its stack. */
+export const useIsGameStateNavActive = (): boolean => {
+  return useSelector(gameStateNavActor, (s) => s.matches("active"))
+}
+
+export const useGameStateNavSend = () => sendToGameStateNav
 
 // ============================================================================
 // Theme Hooks

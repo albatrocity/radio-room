@@ -39,6 +39,9 @@ export {
   openGameStateItemDetail,
 } from "./modalsActor"
 
+// Game State Nav Actor
+export { gameStateNavActor } from "./gameStateNavActor"
+
 // Theme Actor
 export { themeActor, getCurrentTheme, setTheme } from "./themeActor"
 
