@@ -1,23 +1,10 @@
-import { Box, HStack, Image, Text, Badge } from "@chakra-ui/react"
+import { Box, HStack, Image, Text } from "@chakra-ui/react"
 import React from "react"
-import type { ArtworkFrame } from "@repo/types"
-import { labelForMetadataSource, MetadataSourceTrack } from "@repo/types"
-import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
-import FramedArtwork from "./artworkFrames/FramedArtwork"
+import type { MetadataSourceTrackWithSource } from "@repo/types"
+import { SourceBadge } from "./SourceBadge"
 import { FRAMED_ARTWORK_TRACK_PX } from "./artworkFrames/frameStyles"
 
-type TrackWithSource = MetadataSourceTrack & { source?: string }
-
-type ArtworkOverride = {
-  imageUrl?: string
-  imageUrlLarge?: string
-  artworkFrame?: ArtworkFrame
-  name?: string
-}
-
-type Props = TrackWithSource & {
-  /** When set (Physical Media item browse), show the sleeve instead of track album art. */
-  artworkOverride?: ArtworkOverride
+type Props = MetadataSourceTrackWithSource & {
   /** Search hits use `"track"` (100px); drilled-in browse lists use `"row"` (40px). */
   size?: "row" | "track"
   /** When false, omit the leading cover (e.g. item detail track list under a hero sleeve). */
@@ -47,48 +34,23 @@ function formatTrackDuration(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`
 }
 
-function SourceBadge({ source }: { source: string }) {
-  return (
-    <Badge size="sm" variant="subtle" flexShrink={0}>
-      {labelForMetadataSource(source)}
-    </Badge>
-  )
-}
-
 const TrackItem = ({
   title,
   album,
   artists,
   source,
   duration,
-  artworkOverride,
   size = "track",
   showArtwork = true,
   detailLevel = "full",
   sourcePlacement = "inline",
 }: Props) => {
   const albumImage = album.images.find((img) => img.type === "image")
-  const art = toPhysicalMediaArt(artworkOverride ?? {})
   const unframedPx = size === "row" ? UNFRAMED_ROW_PX : FRAMED_ARTWORK_TRACK_PX
   const durationLabel = formatTrackDuration(duration)
 
   const leadingVisual = (() => {
     if (!showArtwork) return null
-    if (art) {
-      return <FramedArtwork art={art} size={size} squareSlot alt="" />
-    }
-    if (artworkOverride?.imageUrl) {
-      return (
-        <Image
-          w={`${unframedPx}px`}
-          h={`${unframedPx}px`}
-          flexShrink={0}
-          src={artworkOverride.imageUrl}
-          loading="lazy"
-          alt=""
-        />
-      )
-    }
     if (albumImage) {
       return (
         <Image

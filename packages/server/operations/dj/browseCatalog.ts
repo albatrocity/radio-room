@@ -4,8 +4,8 @@ import type {
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSource,
-  MetadataSourceTrack,
   PhysicalMediaItem,
+  TaggedMetadataSourceTrack,
 } from "@repo/types"
 import {
   isMetadataSourceAuthFailure,
@@ -299,7 +299,7 @@ export async function browseAlbum(params: {
       ok: true
       source: string
       album: MetadataBrowseAlbum
-      tracks: Array<MetadataSourceTrack & { source: string }>
+      tracks: TaggedMetadataSourceTrack[]
     }
   | BrowseFailure
 > {
@@ -355,7 +355,7 @@ export async function browseMediaItem(params: {
       source: "local"
       mediaKey: string
       name: string
-      tracks: Array<MetadataSourceTrack & { source: string }>
+      tracks: TaggedMetadataSourceTrack[]
     }
   | BrowseFailure
 > {

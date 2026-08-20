@@ -55,6 +55,20 @@ export const metadataSourceTrackSchema = metadataSourceExternalResourceSchema.ex
 })
 export type MetadataSourceTrack = z.infer<typeof metadataSourceTrackSchema>
 
+/**
+ * A track tagged with the metadata source that returned it (`"spotify"`,
+ * `"local"`, …). Search and browse merge several sources into one list, and the
+ * tag drives badges, preview keys, and dedupe downstream.
+ *
+ * `source` is optional because a row can reach the client untagged — the schema
+ * itself has no such field. Use {@link TaggedMetadataSourceTrack} where the
+ * producer always applies the tag.
+ */
+export type MetadataSourceTrackWithSource = MetadataSourceTrack & { source?: string }
+
+/** A track whose producer guarantees the source tag (e.g. server operations). */
+export type TaggedMetadataSourceTrack = MetadataSourceTrack & { source: string }
+
 // =============================================================================
 // MetadataSource Lifecycle Callbacks (not schema-based)
 // =============================================================================

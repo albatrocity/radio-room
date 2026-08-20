@@ -1,23 +1,14 @@
 import type { Ref } from "react"
-import { Badge, HStack, Text } from "@chakra-ui/react"
-import { labelForMetadataSource, type ArtworkFrame, type MetadataSourceTrack } from "@repo/types"
+import { HStack, Text } from "@chakra-ui/react"
+import type { MetadataSourceTrackWithSource } from "@repo/types"
+import { SourceBadge } from "./SourceBadge"
 import TrackItem from "./TrackItem"
 import { TrackRowActions } from "./TrackRowActions"
-
-type TrackWithSource = MetadataSourceTrack & { source?: string }
-
-type ArtworkOverride = {
-  imageUrl?: string
-  imageUrlLarge?: string
-  artworkFrame?: ArtworkFrame
-  name?: string
-}
 
 export type TrackPreviewStatus = "idle" | "loading" | "playing"
 
 type Props = {
-  track: TrackWithSource
-  artworkOverride?: ArtworkOverride
+  track: MetadataSourceTrackWithSource
   disabled?: boolean
   previewStatus: TrackPreviewStatus
   /** When false, the play control is omitted (e.g. Spotify/Tidal browse rows). */
@@ -44,7 +35,6 @@ type Props = {
 
 function TrackActionRow({
   track,
-  artworkOverride,
   disabled = false,
   previewStatus,
   canPreview = true,
@@ -92,17 +82,12 @@ function TrackActionRow({
         <TrackItem
           {...track}
           size={size}
-          artworkOverride={artworkOverride}
           showArtwork={showArtwork}
           detailLevel={detailLevel}
           sourcePlacement={compact ? "none" : "below"}
         />
       </HStack>
-      {!compact && track.source && (
-        <Badge size="sm" variant="subtle" flexShrink={0} hideBelow="md">
-          {labelForMetadataSource(track.source)}
-        </Badge>
-      )}
+      {!compact && track.source && <SourceBadge source={track.source} hideBelow="md" />}
       <TrackRowActions
         previewStatus={previewStatus}
         canPreview={canPreview}

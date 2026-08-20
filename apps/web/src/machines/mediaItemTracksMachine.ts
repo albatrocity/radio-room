@@ -1,8 +1,6 @@
 import { assign, setup } from "xstate"
-import type { MetadataSourceTrack } from "@repo/types"
+import type { MetadataSourceTrackWithSource } from "@repo/types"
 import { emitToSocket } from "../actors/socketActor"
-
-export type MediaItemTrack = MetadataSourceTrack & { source?: string }
 
 /** SERVER_EVENT allowlist for `useSocketMachine` (ADR 0093). */
 export const MEDIA_ITEM_TRACKS_EVENT_TYPES = [
@@ -13,7 +11,7 @@ export const MEDIA_ITEM_TRACKS_EVENT_TYPES = [
 export interface MediaItemTracksContext {
   mediaKey: string | null
   name: string | null
-  tracks: MediaItemTrack[]
+  tracks: MetadataSourceTrackWithSource[]
   error: string | null
 }
 
@@ -22,7 +20,7 @@ type MediaItemTracksEvent =
   | { type: "RESET" }
   | {
       type: "LIST_MEDIA_ITEM_TRACKS_RESULTS"
-      data?: { mediaKey?: string; name?: string; tracks?: MediaItemTrack[] }
+      data?: { mediaKey?: string; name?: string; tracks?: MetadataSourceTrackWithSource[] }
     }
   | { type: "LIST_MEDIA_ITEM_TRACKS_FAILURE"; data?: { message?: string } }
 

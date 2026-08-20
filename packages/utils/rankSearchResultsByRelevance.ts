@@ -1,14 +1,12 @@
 import Fuse from "fuse.js"
-import type { MetadataSourceTrack } from "@repo/types"
-
-export type RankableSearchTrack = MetadataSourceTrack & { source?: string }
+import type { MetadataSourceTrackWithSource } from "@repo/types"
 
 /**
  * Rank multi-source DJ search results by fuzzy relevance to the query.
  * Uses Fuse.js (lower score = better). Non-matches (if any) keep original
  * relative order at the end. Ties break by original index.
  */
-export function rankSearchResultsByRelevance<T extends RankableSearchTrack>(
+export function rankSearchResultsByRelevance<T extends MetadataSourceTrackWithSource>(
   query: string,
   items: T[],
 ): T[] {

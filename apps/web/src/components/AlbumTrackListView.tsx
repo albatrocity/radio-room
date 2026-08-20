@@ -10,7 +10,12 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import type { ArtworkFrame, ItemRarity, MetadataSourceTrack, MetadataSourceUrl } from "@repo/types"
+import type {
+  ArtworkFrame,
+  ItemRarity,
+  MetadataSourceTrackWithSource,
+  MetadataSourceUrl,
+} from "@repo/types"
 import { labelForMetadataSource } from "@repo/types"
 import ItemArtwork from "./ItemArtwork"
 import { LinkifiedText } from "./LinkifiedText"
@@ -20,8 +25,6 @@ import TrackActionRow from "./TrackActionRow"
 import { useTrackPreviewStatus } from "../hooks/useActors"
 import { firstImageUrl, largestImageUrl } from "../lib/metadataImages"
 import { trackPreviewKey } from "../lib/trackPreviewKey"
-
-export type AlbumViewTrack = MetadataSourceTrack & { source?: string }
 
 /** Header fields for the compact album / Physical Media row. */
 export type AlbumViewHeader = {
@@ -41,7 +44,7 @@ export type AlbumViewHeader = {
 
 type Props = {
   header: AlbumViewHeader | null
-  tracks: AlbumViewTrack[]
+  tracks: MetadataSourceTrackWithSource[]
   loading?: boolean
   error?: string | null
   emptyMessage?: string
@@ -54,11 +57,11 @@ type Props = {
   fillHeight?: boolean
   disabled?: boolean
   defaultSourceId?: string
-  canPreviewTrack?: (track: AlbumViewTrack) => boolean
+  canPreviewTrack?: (track: MetadataSourceTrackWithSource) => boolean
   /** `previewKey` is the row's `trackPreviewActor` identity — pass it straight to `toggleTrackPreview`. */
-  onPreview: (track: AlbumViewTrack, previewKey: string) => void
-  onAddToQueue?: (track: AlbumViewTrack) => void
-  showAddToQueue?: boolean | ((track: AlbumViewTrack) => boolean)
+  onPreview: (track: MetadataSourceTrackWithSource, previewKey: string) => void
+  onAddToQueue?: (track: MetadataSourceTrackWithSource) => void
+  showAddToQueue?: boolean | ((track: MetadataSourceTrackWithSource) => boolean)
 }
 
 function AlbumTrackRow({
@@ -69,7 +72,7 @@ function AlbumTrackRow({
   onPreview,
   onAddToQueue,
 }: {
-  track: AlbumViewTrack
+  track: MetadataSourceTrackWithSource
   previewKey: string
   disabled?: boolean
   canPreview: boolean

@@ -1,4 +1,4 @@
-import type { AppContext, MetadataSourceTrack } from "@repo/types"
+import type { AppContext, TaggedMetadataSourceTrack } from "@repo/types"
 import generateId from "../../lib/generateId"
 import {
   getCachedTrackPreview,
@@ -21,7 +21,7 @@ export async function listMediaItemTracks(params: {
       ok: true
       mediaKey: string
       name: string
-      tracks: Array<MetadataSourceTrack & { source: string }>
+      tracks: TaggedMetadataSourceTrack[]
     }
   | BrowseFailure
 > {

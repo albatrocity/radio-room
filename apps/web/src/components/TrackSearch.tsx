@@ -18,7 +18,7 @@ import { useSocketMachine } from "../hooks/useSocketMachine"
 import { trackSearchMachine } from "../machines/trackSearchMachine"
 import { createDebouncedInputMachine } from "../machines/debouncedInputMachine"
 import { takeTopByTitleRelevance } from "@repo/utils"
-import type { MetadataSourceTrack } from "@repo/types"
+import type { MetadataSourceTrack, MetadataSourceTrackWithSource } from "@repo/types"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
 import EntityThumb from "./EntityThumb"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
@@ -27,8 +27,6 @@ import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActo
 import { useTrackPreviewStatus } from "../hooks/useActors"
 import { trackPreviewKey } from "../lib/trackPreviewKey"
 import type { CatalogBrowseNavigation } from "./CatalogBrowse"
-
-type TrackWithSource = MetadataSourceTrack & { source?: string }
 
 /** Search hits carry their own `source`; this only guards a malformed payload. */
 const SEARCH_FALLBACK_SOURCE = "unknown"
@@ -56,7 +54,7 @@ function SearchTrackRow({
   onActivate,
   rowRef,
 }: {
-  track: TrackWithSource
+  track: MetadataSourceTrackWithSource
   disabled?: boolean
   isActive: boolean
   optionId: string
@@ -129,7 +127,7 @@ function TrackSearch({
   const searchValue = inputState.context.value ?? ""
   const hasQuery = searchValue.trim() !== ""
 
-  const results = state.context.results as TrackWithSource[]
+  const results = state.context.results as MetadataSourceTrackWithSource[]
   const filteredResults = useMemo(() => {
     if (sourceFilter === "all") return results
     return results.filter((track) => track.source === sourceFilter)
@@ -168,7 +166,7 @@ function TrackSearch({
   }, [activeIndex])
 
   const chooseTrack = useCallback(
-    (track: TrackWithSource) => {
+    (track: MetadataSourceTrackWithSource) => {
       onChoose(track)
       setActiveIndex(-1)
     },

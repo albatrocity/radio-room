@@ -6,9 +6,10 @@ vi.mock("../actors/socketActor", () => ({
 }))
 
 import { emitToSocket } from "../actors/socketActor"
-import { mediaItemTracksMachine, type MediaItemTrack } from "./mediaItemTracksMachine"
+import type { MetadataSourceTrackWithSource } from "@repo/types"
+import { mediaItemTracksMachine } from "./mediaItemTracksMachine"
 
-function track(id: string): MediaItemTrack {
+function track(id: string): MetadataSourceTrackWithSource {
   return {
     id,
     title: `Track ${id}`,
@@ -16,7 +17,7 @@ function track(id: string): MediaItemTrack {
     artists: [{ id: "a1", title: "Artist" }],
     album: { id: "al1", title: "Album", images: [] },
     source: "local",
-  } as MediaItemTrack
+  } as MetadataSourceTrackWithSource
 }
 
 describe("mediaItemTracksMachine", () => {

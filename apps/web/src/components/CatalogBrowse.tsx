@@ -16,6 +16,7 @@ import type {
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSourceTrack,
+  MetadataSourceTrackWithSource,
   PhysicalMediaItem,
 } from "@repo/types"
 import { useSocketMachine } from "../hooks/useSocketMachine"
@@ -26,8 +27,6 @@ import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
 import PathBreadcrumb from "./PathBreadcrumb"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
-
-type TrackWithSource = MetadataSourceTrack & { source?: string }
 
 type BrowseRowButtonProps = {
   disabled?: boolean
@@ -150,7 +149,7 @@ function CatalogBrowse({
     }
   }, [level])
 
-  const handlePreview = (track: TrackWithSource, previewKey: string) => {
+  const handlePreview = (track: MetadataSourceTrackWithSource, previewKey: string) => {
     toggleTrackPreview({
       trackKey: previewKey,
       trackId: track.id,
@@ -350,7 +349,7 @@ function CatalogBrowse({
   const artists = state.context.artists
   const rootAlbums = state.context.rootAlbums
   const artistAlbums = state.context.albums
-  const tracks = state.context.tracks as TrackWithSource[]
+  const tracks = state.context.tracks as MetadataSourceTrackWithSource[]
 
   const breadcrumb = useMemo(() => {
     const crumbs: { label: string; onClick?: () => void }[] = []

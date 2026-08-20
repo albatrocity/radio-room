@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
-import type { MetadataSourceTrack } from "@repo/types"
+import type { MetadataSourceTrack, MetadataSourceTrackWithSource } from "@repo/types"
 import { rankSearchResultsByRelevance } from "./rankSearchResultsByRelevance"
 
 function track(
   partial: Pick<MetadataSourceTrack, "title"> &
     Partial<Pick<MetadataSourceTrack, "artists" | "album">> & { source?: string; id?: string },
-): MetadataSourceTrack & { source?: string } {
+): MetadataSourceTrackWithSource {
   return {
     id: partial.id ?? partial.title,
     title: partial.title,

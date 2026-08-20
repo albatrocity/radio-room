@@ -1,4 +1,4 @@
-import type { MetadataSourceTrack } from "@repo/types"
+import type { TaggedMetadataSourceTrack } from "@repo/types"
 
 /** Daemon offline or never linked: the room has no bridge RPC client. */
 export const BRIDGE_UNREACHABLE_MESSAGE =
@@ -14,7 +14,7 @@ export const BRIDGE_TRACK_LISTING_FAILED_MESSAGE =
 export type MediaItemTracksFailure = { ok: false; message: string }
 
 export type MediaItemTracksResult =
-  | { ok: true; tracks: Array<MetadataSourceTrack & { source: string }> }
+  | { ok: true; tracks: TaggedMetadataSourceTrack[] }
   | MediaItemTracksFailure
 
 /**

@@ -2,7 +2,7 @@ import { assign, setup } from "xstate"
 import type {
   MetadataBrowseAlbum,
   MetadataBrowseArtist,
-  MetadataSourceTrack,
+  MetadataSourceTrackWithSource,
 } from "@repo/types"
 import { emitToSocket } from "../actors/socketActor"
 
@@ -24,7 +24,7 @@ export interface CatalogBrowseContext {
   album: MetadataBrowseAlbum | null
   mediaKey: string | null
   mediaName: string | null
-  tracks: (MetadataSourceTrack & { source?: string })[]
+  tracks: MetadataSourceTrackWithSource[]
   error: RequestError | null
 }
 
@@ -58,7 +58,7 @@ type CatalogBrowseEvent =
       data: {
         source: string
         album: MetadataBrowseAlbum
-        tracks: (MetadataSourceTrack & { source?: string })[]
+        tracks: MetadataSourceTrackWithSource[]
       }
     }
   | { type: "BROWSE_ALBUM_FAILURE"; data: RequestError }
@@ -68,7 +68,7 @@ type CatalogBrowseEvent =
         source: string
         mediaKey: string
         name: string
-        tracks: (MetadataSourceTrack & { source?: string })[]
+        tracks: MetadataSourceTrackWithSource[]
       }
     }
   | { type: "BROWSE_MEDIA_ITEM_FAILURE"; data: RequestError }
