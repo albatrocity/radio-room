@@ -14,18 +14,12 @@ import {
 } from "@repo/utils"
 import { AdapterService } from "../../services/AdapterService"
 import { findRoom } from "../data"
+import { fetchResolvedMediaItemTracks } from "./mediaItemTracks"
 import { publishMetadataAuthError } from "./metadataAuthError"
 
 export type ResolveBrowseSourceResult =
   | { ok: true; metadataSource: MetadataSource }
   | { ok: false; message: string }
-
-/**
- * Shown when a Physical Media item resolves but the daemon never answers — most
- * often a DJ Mac daemon that is offline or running an older build.
- */
-const BRIDGE_UNREACHABLE_MESSAGE =
-  "The Media Bridge didn't return this record's tracks. Ask the host to reconnect the DJ Mac daemon."
 
 export async function resolveBrowseMetadata(params: {
   adapterService: AdapterService
@@ -390,34 +384,18 @@ export async function browseMediaItem(params: {
     return { ok: false, message: "You don't have that item" }
   }
 
-  try {
-    const { getBridgeRpcClient, fetchLocalPlaylistTracks } = await import("@repo/adapter-bridge")
-    const rpc = getBridgeRpcClient(roomId)
-    if (!rpc) {
-      return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
-    }
-    const listed = await fetchLocalPlaylistTracks({ rpc, playlistId: resolved.playlistId })
-    if (!listed.ok) {
-      console.warn(
-        `[browseMediaItem] listPlaylistTracks failed for ${resolved.playlistId}: ${listed.error}`,
-      )
-      return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
-    }
-    const tracks = listed.tracks.map((track) => ({
-      ...track,
-      source: "local",
-    }))
-    return {
-      ok: true,
-      source: "local",
-      mediaKey: resolved.item.mediaKey,
-      name: resolved.item.name,
-      tracks,
-    }
-  } catch (error: unknown) {
-    console.error("Failed to browse media item", error)
-    const message =
-      error instanceof Error && error.message ? error.message : "Failed to browse media item"
-    return { ok: false, message }
+  const listed = await fetchResolvedMediaItemTracks({
+    roomId,
+    playlistId: resolved.playlistId,
+    logLabel: "browseMediaItem",
+  })
+  if (!listed.ok) return listed
+
+  return {
+    ok: true,
+    source: "local",
+    mediaKey: resolved.item.mediaKey,
+    name: resolved.item.name,
+    tracks: listed.tracks,
   }
 }

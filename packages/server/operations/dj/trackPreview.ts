@@ -7,9 +7,7 @@ import {
   setInFlightPreviewGeneration,
   storeTrackPreview,
 } from "../data/trackPreviews"
-
-const BRIDGE_UNREACHABLE_MESSAGE =
-  "Media Bridge is not connected. Ask the host to start the bridge on the DJ Mac."
+import { BRIDGE_UNREACHABLE_MESSAGE, fetchResolvedMediaItemTracks } from "./mediaItemTracks"
 
 type BrowseFailure = { ok: false; message: string }
 
@@ -40,34 +38,18 @@ export async function listMediaItemTracks(params: {
     return { ok: false, message: "You can't preview that item" }
   }
 
-  try {
-    const { getBridgeRpcClient, fetchLocalPlaylistTracks } = await import("@repo/adapter-bridge")
-    const rpc = getBridgeRpcClient(roomId)
-    if (!rpc) {
-      return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
-    }
-    const listed = await fetchLocalPlaylistTracks({ rpc, playlistId: resolved.playlistId })
-    if (!listed.ok) {
-      console.warn(
-        `[listMediaItemTracks] listPlaylistTracks failed for ${resolved.playlistId}: ${listed.error}`,
-      )
-      return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
-    }
-    const tracks = listed.tracks.map((track) => ({
-      ...track,
-      source: "local",
-    }))
-    return {
-      ok: true,
-      mediaKey: resolved.item.mediaKey,
-      name: resolved.item.name,
-      tracks,
-    }
-  } catch (error: unknown) {
-    console.error("Failed to list media item tracks", error)
-    const message =
-      error instanceof Error && error.message ? error.message : "Failed to list media item tracks"
-    return { ok: false, message }
+  const listed = await fetchResolvedMediaItemTracks({
+    roomId,
+    playlistId: resolved.playlistId,
+    logLabel: "listMediaItemTracks",
+  })
+  if (!listed.ok) return listed
+
+  return {
+    ok: true,
+    mediaKey: resolved.item.mediaKey,
+    name: resolved.item.name,
+    tracks: listed.tracks,
   }
 }
 
@@ -130,15 +112,13 @@ async function authorizeMediaItemTrackPreview(params: {
     return { ok: false, message: "You can't preview that item" }
   }
 
-  const { getBridgeRpcClient, fetchLocalPlaylistTracks } = await import("@repo/adapter-bridge")
-  const rpc = getBridgeRpcClient(roomId)
-  if (!rpc) {
-    return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
-  }
-  const listed = await fetchLocalPlaylistTracks({ rpc, playlistId: resolved.playlistId })
-  if (!listed.ok) {
-    return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
-  }
+  const listed = await fetchResolvedMediaItemTracks({
+    roomId,
+    playlistId: resolved.playlistId,
+    logLabel: "authorizeMediaItemTrackPreview",
+  })
+  if (!listed.ok) return listed
+
   const onPlaylist = listed.tracks.some((t) => t.id === trackId)
   if (!onPlaylist) {
     return { ok: false, message: "You can't preview that track" }
