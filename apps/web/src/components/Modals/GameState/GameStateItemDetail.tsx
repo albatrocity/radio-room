@@ -100,9 +100,9 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
         maxH="min(60vh, 28rem)"
         defaultSourceId="local"
         canPreviewTrack={() => true}
-        onPreview={(track) =>
+        onPreview={(track, previewKey) =>
           toggleTrackPreview({
-            trackKey: `${track.source ?? "local"}-${track.id}`,
+            trackKey: previewKey,
             trackId: track.id,
             mediaKey,
             source: "local",

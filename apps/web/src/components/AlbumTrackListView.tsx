@@ -19,6 +19,7 @@ import ScrollShadowViewport from "./ScrollShadowViewport"
 import TrackActionRow from "./TrackActionRow"
 import { useTrackPreviewStatus } from "../hooks/useActors"
 import { firstImageUrl, largestImageUrl } from "../lib/metadataImages"
+import { trackPreviewKey } from "../lib/trackPreviewKey"
 
 export type AlbumViewTrack = MetadataSourceTrack & { source?: string }
 
@@ -54,25 +55,28 @@ type Props = {
   disabled?: boolean
   defaultSourceId?: string
   canPreviewTrack?: (track: AlbumViewTrack) => boolean
-  onPreview: (track: AlbumViewTrack) => void
+  /** `previewKey` is the row's `trackPreviewActor` identity — pass it straight to `toggleTrackPreview`. */
+  onPreview: (track: AlbumViewTrack, previewKey: string) => void
   onAddToQueue?: (track: AlbumViewTrack) => void
   showAddToQueue?: boolean | ((track: AlbumViewTrack) => boolean)
 }
 
 function AlbumTrackRow({
   track,
+  previewKey,
   disabled,
   canPreview,
   onPreview,
   onAddToQueue,
 }: {
   track: AlbumViewTrack
+  previewKey: string
   disabled?: boolean
   canPreview: boolean
   onPreview: () => void
   onAddToQueue?: () => void
 }) {
-  const previewStatus = useTrackPreviewStatus(`${track.source ?? "local"}-${track.id}`)
+  const previewStatus = useTrackPreviewStatus(previewKey)
   return (
     <TrackActionRow
       track={track}
@@ -192,13 +196,15 @@ export default function AlbumTrackListView({
               tracks.map((track, index) => {
                 const source = track.source ?? defaultSourceId
                 const canPreview = canPreviewTrack?.(track) ?? source === "local"
+                const previewKey = trackPreviewKey(track, defaultSourceId)
                 return (
                   <AlbumTrackRow
                     key={`${source}-${track.id}-${index}`}
                     track={track}
+                    previewKey={previewKey}
                     disabled={disabled}
                     canPreview={canPreview}
-                    onPreview={() => onPreview(track)}
+                    onPreview={() => onPreview(track, previewKey)}
                     onAddToQueue={
                       onAddToQueue && allowAdd(track) ? () => onAddToQueue(track) : undefined
                     }

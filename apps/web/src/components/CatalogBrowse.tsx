@@ -150,11 +150,9 @@ function CatalogBrowse({
     }
   }, [level])
 
-  const previewTrackKey = (track: TrackWithSource) => `${track.source ?? sourceId}-${track.id}`
-
-  const handlePreview = (track: TrackWithSource) => {
+  const handlePreview = (track: TrackWithSource, previewKey: string) => {
     toggleTrackPreview({
-      trackKey: previewTrackKey(track),
+      trackKey: previewKey,
       trackId: track.id,
       source: track.source ?? sourceId,
       ...(selectedMedia?.mediaKey ? { mediaKey: selectedMedia.mediaKey } : {}),

@@ -25,9 +25,13 @@ import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
 import TrackActionRow from "./TrackActionRow"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
 import { useTrackPreviewStatus } from "../hooks/useActors"
+import { trackPreviewKey } from "../lib/trackPreviewKey"
 import type { CatalogBrowseNavigation } from "./CatalogBrowse"
 
 type TrackWithSource = MetadataSourceTrack & { source?: string }
+
+/** Search hits carry their own `source`; this only guards a malformed payload. */
+const SEARCH_FALLBACK_SOURCE = "unknown"
 
 type Props = {
   onChoose: (item: MetadataSourceTrack) => void
@@ -177,8 +181,6 @@ function TrackSearch({
       ? `${listboxId}-option-${activeIndex}`
       : undefined
 
-  const previewTrackKey = (track: TrackWithSource) => `${track.source ?? "unknown"}-${track.id}`
-
   function SearchTrackRow({
     track,
     index,
@@ -188,7 +190,8 @@ function TrackSearch({
     index: number
     isActive: boolean
   }) {
-    const previewStatus = useTrackPreviewStatus(previewTrackKey(track))
+    const previewKey = trackPreviewKey(track, SEARCH_FALLBACK_SOURCE)
+    const previewStatus = useTrackPreviewStatus(previewKey)
     return (
       <TrackActionRow
         track={track}
@@ -198,7 +201,7 @@ function TrackSearch({
         canPreview={track.source === "local"}
         onPreview={() =>
           toggleTrackPreview({
-            trackKey: previewTrackKey(track),
+            trackKey: previewKey,
             trackId: track.id,
             source: track.source ?? "local",
           })
@@ -235,7 +238,7 @@ function TrackSearch({
           const isActive = index === activeIndex
           return (
             <SearchTrackRow
-              key={`${track.source ?? "unknown"}-${track.id}-${index}`}
+              key={`${track.source ?? SEARCH_FALLBACK_SOURCE}-${track.id}-${index}`}
               track={track}
               index={index}
               isActive={isActive}
