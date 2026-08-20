@@ -96,7 +96,7 @@ Recommended tags for library managers:
 | Best (FLAC) | Vorbis **`PURCHASEURL`** or **`BANDCAMP`** | same |
 | Also fine | **WXXX** with description `Bandcamp`, **WOAF**, **WPAY** | |
 | Artist site | **WOAR** / Vorbis **WEBSITE** | Lower priority by default |
-| Fragile | Comment field containing only a URL | Used only if nothing else matches |
+| Fragile | Comment field containing a public URL anywhere in the text | First public URL is used only if nothing else matches |
 
 `publicUrlTagPriority` controls which tag wins when several are present. Default is purchase-oriented (`wcom` first). To prefer official artist pages after testing:
 
@@ -108,6 +108,15 @@ Recommended tags for library managers:
 ```
 
 Tokens: `wcom`, `wpay`, `woaf`, `woas`, `wxxx`, `woar`, `purchaseurl`, `bandcamp`, `url`, `website`, `comment`, `musicbrainz`. Omit the array to use the default. Without `musicFolder`, file tags are skipped (OpenSubsonic comment / MusicBrainz id can still supply a URL).
+
+**Track previews (ADR 0103):** Physical Media / Local track previews encode a ~15s mid-track MP3 clip with **ffmpeg** from the file on disk. This is separate from mpv playback (which uses Navidrome `stream.view` and does not require `musicFolder`). For previews you must:
+
+1. Install **ffmpeg** on the DJ Mac and ensure it is on `PATH` (`ffmpeg -version`).
+2. Set **`navidrome.musicFolder`** to the same absolute MusicFolder Navidrome scans (required so the daemon can resolve each song’s `path` to a file).
+
+If either is missing, preview RPC returns a clear host-facing error instead of falling back to streaming.
+
+When `musicFolder` is unset or the song path does not resolve on disk, the daemon falls back to the same authenticated **`stream.view`** URL mpv uses for playback, then ffmpeg encodes the mid-track clip from that stream. Setting `musicFolder` correctly is still recommended (faster, no HTTP hop).
 
 **Spotify Web Playback SDK (opt-in):** Include `"spotify"` in `services` to host a Connect device in bridge Chrome (see [ADR 0078](adrs/0078-spotify-web-playback-sdk-device.md)). The room creator must **re-link Spotify** once so the OAuth token includes the `streaming` scope. Without `"spotify"` in services, behavior stays on Spotify.app. SDK audio is ~256kbps AAC (fine for a transcoded stream).
 
@@ -201,6 +210,17 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 7. (Optional) **Browse / hybrid Search**: Add to Queue → **Browse** (Library index or Spotify search-entry) → album → track; or Search and click an Artist/Album row to deep-link into Browse ([ADR 0090](adrs/0090-hybrid-metadata-catalog-browse.md)).
 8. Empty the queue and trigger a democracy skip / scratched-cd — active daemon source should **stop**
 9. As room admin, use the **Now Playing scrubber** to seek within the track; with Volume Manager enabled, use its **broadcast volume** slider in Now Playing to change driver volume
+
+## 7b. Thrift Store Local shelves (optional)
+
+Restricted Local + inventory grants ([ADR 0098](adrs/0098-inventory-scoped-local-library-catalog-filters.md)):
+
+1. In Navidrome, create curated playlists; keep them selective.
+2. Room admin → Item Shops → enable → **Local library grants**: pick playlists from the dropdown (Media Bridge must be connected) or paste ids; set Library to **Admins + plugin grants only**.
+3. Start a game session; give yourself a shelf grant (or buy from Thrift Store on a bridge room).
+4. Add to Queue → Library should appear; Browse/Search should only show artists/albums/tracks on that playlist. Queuing a matching track consumes the grant. A full-library grant row unlocks the entire catalog.
+
+Playlists are never shown as a browse mode in the client.
 
 ## 8. Export / publish
 

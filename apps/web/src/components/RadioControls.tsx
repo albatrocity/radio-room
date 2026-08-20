@@ -9,6 +9,7 @@ import {
   useIsAudioLoading,
   useIsMuted,
   useIsPlaying,
+  useIsPreviewDucked,
   useVolume,
 } from "../hooks/useActors"
 
@@ -23,8 +24,10 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
   const audioSend = useAudioSend()
   const playing = useIsPlaying()
   const muted = useIsMuted()
+  const previewDucked = useIsPreviewDucked()
   const volume = useVolume()
   const loading = useIsAudioLoading()
+  const streamMuted = muted || previewDucked
   const handleVolume = (v: number) => audioSend({ type: "CHANGE_VOLUME", volume: v })
 
   const handlePlayPause = () => audioSend({ type: "TOGGLE" })
@@ -62,7 +65,8 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
         <RadioPlayer
           volume={volume}
           playing={playing}
-          muted={muted}
+          muted={streamMuted}
+          volumeMuted={muted}
           onVolume={handleVolume}
           onPlayPause={handlePlayPause}
           onLoad={handleLoad}

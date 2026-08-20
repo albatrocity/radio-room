@@ -58,6 +58,71 @@ export interface DefenseSpec {
 // ============================================================================
 
 /**
+ * CSS/SVG overlay token for Physical Media cover art (ADR 0099). Derived from
+ * the Navidrome playlist prefix only — never inferred from display name/icon.
+ */
+export type ArtworkFrame = "jewel-case" | "record-jacket" | "die-cut-jacket" | "cassette-case"
+
+export const ARTWORK_FRAMES: readonly ArtworkFrame[] = [
+  "jewel-case",
+  "record-jacket",
+  "die-cut-jacket",
+  "cassette-case",
+] as const
+
+export function isArtworkFrame(value: string): value is ArtworkFrame {
+  return parseArtworkFrame(value) != null
+}
+
+/** Normalize a wire/token value, including the retired `"j-card"` alias. */
+export function parseArtworkFrame(value: string): ArtworkFrame | undefined {
+  const trimmed = value.trim()
+  if (trimmed === "j-card") return "cassette-case"
+  if ((ARTWORK_FRAMES as readonly string[]).includes(trimmed)) return trimmed as ArtworkFrame
+  return undefined
+}
+
+/** pluginData payload Item Shops attaches on Local tracks that live on a derived record. */
+export type PhysicalMediaNowPlayingFrame = {
+  /** ~384px playlist cover when Navidrome has one; omitted so the client can fall back to track art. */
+  imageUrl?: string
+  /** ~1200px playlist cover for feature-sized display (Now Playing). */
+  imageUrlLarge?: string
+  artworkFrame: ArtworkFrame
+}
+
+/** Hosted playlist-sleeve URLs from `PluginAPI.getLocalPlaylistArtwork` (ADR 0099). */
+export type LocalPlaylistArtwork = {
+  imageUrl?: string
+  imageUrlLarge?: string
+}
+
+export const PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY = "physicalMediaFrame" as const
+
+/**
+ * Opt-in Game State item detail (ADR 0104). Presence shows a Details secondary
+ * action; `layout` chooses the built-in detail body.
+ */
+export type ItemDetailViewLayout = "default" | "trackList"
+
+export type ItemDetailView = {
+  /** Button label; default "Details". Also used as tooltip when `iconOnly`. */
+  actionLabel?: string
+  /** Optional Lucide icon on the Details button (PascalCase name). */
+  actionIcon?: LucideIconName
+  /**
+   * When `true` with `actionIcon`, render an icon-only control; tooltip uses
+   * `actionLabel` (or "Details").
+   */
+  iconOnly?: boolean
+  /**
+   * `default` — name, large artwork/icon, full description.
+   * `trackList` — default plus a track list keyed by `mediaKey` on the nav frame.
+   */
+  layout?: ItemDetailViewLayout
+}
+
+/**
  * Static definition of an item kind, registered by the owning plugin during
  * `register()`. The `id` is namespaced as `<plugin-name>:<short-id>`.
  */
@@ -73,6 +138,20 @@ export interface ItemDefinition {
   description: string
   /** Optional emoji or icon name surfaced by the UI. */
   icon?: LucideIconName
+  /**
+   * Artwork URL rendered instead of `icon` when present (e.g. Physical Media
+   * cover art served from the room image store — ADR 0099). Row-sized (~384px).
+   */
+  imageUrl?: string
+  /** Feature-sized (~1200px) cover for Now Playing; falls back to `imageUrl`. */
+  imageUrlLarge?: string
+  /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
+  artworkFrame?: ArtworkFrame
+  /**
+   * When set, Inventory / shop UIs show a Details action that opens the Game
+   * State item detail subroute (ADR 0104).
+   */
+  detailView?: ItemDetailView
 
   /** When `true`, multiple acquisitions combine into a single stack. */
   stackable: boolean
@@ -88,6 +167,11 @@ export interface ItemDefinition {
    * Weighted shop sampling / UX (e.g. item shops). Undefined means `"common"`.
    */
   rarity?: ItemRarity
+  /**
+   * Which session slot pool this item occupies. `"inventory"` (default) is the
+   * consumable/tool bag; `"collection"` is durable holdings (Physical Media).
+   */
+  slotPool?: "inventory" | "collection"
   /**
    * When `"user"`, the inventory UI opens a target picker and sends `targetUserId`
    * with `USE_INVENTORY_ITEM`; plugins read it from `onItemUsed` `callContext`.
@@ -129,6 +213,8 @@ export interface UserInventory {
   items: InventoryItem[]
   /** Effective slot cap for this session (mirrors `GameSessionConfig.maxInventorySlots`). */
   maxSlots: number
+  /** Effective collection slot cap (mirrors `GameSessionConfig.maxCollectionSlots`). */
+  maxCollectionSlots: number
 }
 
 // ============================================================================

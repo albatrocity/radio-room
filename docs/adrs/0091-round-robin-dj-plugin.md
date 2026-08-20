@@ -1,7 +1,7 @@
 # 0091. Round Robin DJ Plugin
 
 **Date:** 2026-08-03
-**Status:** Accepted
+**Status:** Partially superseded by [0101](0101-queue-add-undo-and-round-robin-turn-restore.md)
 
 ## Context
 
@@ -40,3 +40,4 @@ Individual deputize/undepetize previously emitted only socket `START/END_DEPUTY_
 - [0092. Plugin showWhen membership and `addToQueue` area](0092-plugin-showwhen-membership-and-add-to-queue-area.md) — Add to Queue entitlement messages
 - [`packages/plugin-round-robin-dj/`](../../packages/plugin-round-robin-dj/)
 - [`packages/server/operations/dj/publishDeputyDjChanged.ts`](../../packages/server/operations/dj/publishDeputyDjChanged.ts)
+- [0101. Queue-add undo and Round Robin turn restore](0101-queue-add-undo-and-round-robin-turn-restore.md)

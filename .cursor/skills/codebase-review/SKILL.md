@@ -1,11 +1,12 @@
 ---
 name: codebase-review
 description: >-
-  Post-feature maintainability review for Listening Room: pattern adherence,
-  architectural integrity, DRY, modularity, and documentation drift. Produces a
-  prioritized refactor plan with opt-outable items. Use after significant feature
-  work, when the user asks for a codebase review, refactor suggestions, sprawl
-  check, spaghetti audit, or maintainability pass for humans and AI agents.
+  Post-feature maintainability review for Listening Room: pattern adherence
+  (including XState over orchestrating useState), architectural integrity, DRY,
+  modularity, and documentation drift. Produces a prioritized refactor plan with
+  opt-outable items. Use after significant feature work, when the user asks for a
+  codebase review, refactor suggestions, sprawl check, spaghetti audit, or
+  maintainability pass for humans and AI agents.
 ---
 
 # Codebase Review (Listening Room)
@@ -70,7 +71,7 @@ Review progress:
 - [ ] AGENTS.md / CLAUDE.md skimmed for touched layers
 - [ ] Relevant ADRs identified and read
 - [ ] Diff / target paths inventoried
-- [ ] Pattern + architecture pass
+- [ ] Pattern + architecture pass (incl. XState vs orchestrating `useState`)
 - [ ] DRY + modularity pass
 - [ ] Documentation drift pass
 - [ ] Plan written with opt-outable items
@@ -99,12 +100,55 @@ Check only what the boundary touches:
 | SystemEvents / broadcasters | No ad-hoc Socket emits that bypass the pattern ([ADR 0008](docs/adrs/0008-system-events-and-broadcaster-pattern.md)) |
 | Controllers | HOF + closure / AppContext DI ([ADR 0010](docs/adrs/0010-controller-hof-closure-pattern.md), [ADR 0011](docs/adrs/0011-dependency-injection-via-app-context.md)) |
 | Room-type branching | `roomTypeHelpers` (server + web), not scattered `room.type ===` |
-| Frontend state | XState v5 `setup()`, machines in `machines/`, actors in `actors/`; room-scoped ACTIVATE/DEACTIVATE |
+| Frontend state | XState v5 `setup()`, machines in `machines/`, actors in `actors/` ([ADR 0004](docs/adrs/0004-state-machines-for-ui-and-socket-events.md)); room-scoped ACTIVATE/DEACTIVATE. Prefer machines over React `useState` when the state orchestrates multiple components — see **XState vs `useState`** below |
 | Socket hub | New server→client traffic via `socketActor` broadcast patterns, not one-off wiring |
 | Plugins | Extend `BasePlugin`; Zod config; declarative components; Redis storage via plugin APIs |
 | Adapters | `MediaSourceAdapter` shape; registered in api + `configureAdaptersForRoomType` |
 | Events naming | SCREAMING_SNAKE_CASE on the wire ([ADR 0009](docs/adrs/0009-screaming-snake-case-for-socket-events.md)) |
 | Game Studio | Room UI / socket surface changes mirrored in `apps/studio-bridge` when applicable |
+
+#### XState vs `useState` (web app)
+
+The web client’s default for **non-trivial UI state** is XState, not React local state
+([ADR 0004](docs/adrs/0004-state-machines-for-ui-and-socket-events.md),
+[apps/web/README.md](apps/web/README.md)). Reviewers should treat lifted / shared
+`useState` as a smell when it is really an **orchestrator** for many components.
+
+**Prefer a machine (existing actor, new domain actor, or component-local machine)** when:
+
+- The state is a **feature orchestrator**: open/selected/step, which pane is showing,
+  which item is inspected, multi-step flow, or “who owns this view” — and **more than
+  one component** reads or writes it (props drilling, context-as-store, or a parent
+  `useState` that siblings all depend on).
+- Transitions have **invalid combinations** (e.g. detail view without a selected id,
+  shop open while another modal owns the stack) that a machine would make impossible.
+- Multiple surfaces need to **trigger the same flow** (modals, admin panels, plugin
+  components, inventory → item detail). Prefer sending events to an existing actor
+  (`modalsActor`, etc.) over a new island of `useState`.
+- The state is **room-scoped**, socket-driven, or must survive unmount of the widget
+  that first opened it (ACTIVATE/DEACTIVATE, `socketActor` subscriptions).
+- The same concern is already modeled as a machine nearby; a parallel `useState`
+  path is a second pattern.
+
+**Leave `useState` / local refs** when they are truly component-private:
+
+- Ephemeral presentation: hover, focus, one-off animation, a single accordion open.
+- Uncontrolled-adjacent form field values that never leave the widget.
+- Derived UI that is not a domain (e.g. “is this tooltip mounted”).
+
+**Do not** propose a new singleton actor for every toggle. Prefer, in order:
+(1) events on an existing actor, (2) a small machine colocated with the feature
+(`useMachine` / `useSocketMachine`) when the tree is local but the flow is real,
+(3) a new `machines/` + `actors/` pair when the domain is app- or room-wide.
+
+**Out of scope unless the boundary includes them:** `apps/scheduler` uses TanStack
+Query + Form, not XState, for CRUD ([ADR 0017](docs/adrs/0017-scheduling-app-for-show-programming.md)).
+Do not apply this preference there.
+
+Flag as a finding when a parent (or ad-hoc context) holds orchestrating `useState`
+that several children coordinate through, instead of explicit machine states and
+events. Severity: **P1** if the flow is already multi-surface or growing; **P2** if
+it is still one tree but clearly heading that way; skip isolated widgets.
 
 ### 3. Architectural integrity
 
@@ -112,7 +156,7 @@ Flag:
 
 - Layer leaks (UI → Redis/DB; handler → external API; plugin → deep server internals)
 - Parallel patterns for the same problem (second event bus, ad-hoc global, duplicate room-type predicates)
-- Missing ownership (logic stranded in components, one-off utils with no home)
+- Missing ownership (logic stranded in components, one-off utils with no home; orchestrating UI state living in React `useState` instead of an XState machine — see **XState vs `useState`**)
 - Features that needed an ADR but lack one (new pattern, boundary, or dependency)
 - Broken symmetry (server helper exists, client re-implements; types duplicated across packages)
 - New functionality landed in core (`packages/server`, `apps/web`, etc.) that should be a plugin unless it is truly core to the experience ([ADR 0006](docs/adrs/0006-plugin-system-for-room-features.md))

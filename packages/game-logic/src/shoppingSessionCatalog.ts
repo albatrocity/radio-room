@@ -109,6 +109,16 @@ export type ShopCatalogEntry = {
   availableItems: ShopAvailableItem[]
   listedBuybackRate: number
   unlistedBuybackRate: number
+  /**
+   * When set, this shop is only eligible for shopping-session assignment if the
+   * room's `playbackControllerId` matches (e.g. `"bridge"`).
+   */
+  requiresPlaybackControllerId?: string
+  /**
+   * When true, sampled offers never repeat a shortId within a visit
+   * (`pickWeightedDistinctShortIds`).
+   */
+  distinctOffers?: boolean
   /** Called after a successful purchase. Use for shop-specific follow-up behaviors. */
   onBuy?: (ctx: ShopBuyContext) => void | Promise<void>
   /** Called after a shopping round starts for this shop (subset of eligible shops for the round). */
@@ -120,8 +130,18 @@ export type ShopCatalogEntry = {
   onSessionEnd?: (ctx: ShopSessionContext) => void | Promise<void>
 }
 
+export type LocalLibraryGrant =
+  | { scope: "library"; redemption?: "durable" | "perQueue" }
+  | { scope: "playlist"; playlistKey: string; redemption?: "durable" | "perQueue" }
+
 export type ItemCatalogEntry = {
   definition: Omit<ItemDefinition, "id" | "sourcePlugin">
+  /**
+   * When set, holding this item can unlock restricted Local (library) access.
+   * `library` = full catalog; `playlist` = scoped to a Navidrome playlist key
+   * resolved via Item Shops `localLibraryPlaylists` config.
+   */
+  localLibraryGrant?: LocalLibraryGrant
 }
 
 export const DEFAULT_RARITY_WEIGHTS: Record<ItemRarity, number> = {
@@ -237,13 +257,24 @@ export function buildShoppingInstance(
     if (!entry) {
       throw new Error(`Unknown catalog item in instance: ${sid}`)
     }
-    const { name, description, icon = "package" as LucideIconName, rarity } = entry.definition
+    const {
+      name,
+      description,
+      icon = "package" as LucideIconName,
+      imageUrl,
+      imageUrlLarge,
+      artworkFrame,
+      rarity,
+    } = entry.definition
     return {
       offerId: index,
       shortId: sid,
       name,
       description,
       icon,
+      ...(imageUrl ? { imageUrl } : {}),
+      ...(imageUrlLarge ? { imageUrlLarge } : {}),
+      ...(artworkFrame ? { artworkFrame } : {}),
       price: resolveShopItemPrice(shop, sid, catalogByShortId),
       available: true,
       rarity: rarity ?? "common",

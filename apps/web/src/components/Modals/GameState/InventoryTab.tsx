@@ -16,16 +16,23 @@ import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
 import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
+import ItemArtwork from "../../ItemArtwork"
+import { LinkifiedText } from "../../LinkifiedText"
+import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
 import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
 import { InventoryUseButton } from "./InventoryUseButton"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
-import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
+import { ItemDetailActionButton } from "./ItemDetailActionButton"
+import { itemDetailClickableProps } from "./itemDetailClickableProps"
+import { buildItemDetailFrame } from "./itemDetailFrame"
+import { useOpenItemDetail } from "./useOpenItemDetail"
 
 interface InventoryTabProps {
   items: InventoryItem[]
   maxSlots: number
+  maxCollectionSlots: number
   definitionMap: Map<string, ItemDefinition>
   coinBalance: number
 }
@@ -78,22 +85,20 @@ function InventoryRow({
   coinBalance,
 }: InventoryRowProps) {
   const gameState = useUserGameState()
+  const openDetail = useOpenItemDetail("inventory")
   const name = definition?.name ?? item.definitionId
   const description = definition?.description
-  const icon = definition?.icon
   const consumable = definition?.consumable ?? false
   const tradeable = definition?.tradeable ?? false
   const coinValue = definition?.coinValue ?? 0
   const sellable = tradeable && coinValue > 0
-  const itemIconColor = definition?.rarity
-    ? getItemRarityColorPalette(definition.rarity)
-    : "fg.muted"
   const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
   const shopInstance =
     gameState?.getPluginState<ItemShopsUserGameState>(ITEM_SHOPS_PLUGIN_NAME)
       ?.currentShopInstance ?? null
   const shopVisitOpen = shopInstance != null
   const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
+  const detailView = definition?.detailView
   const sellButtonLabel = (() => {
     if (isItemShopsItem && shopVisitOpen && definition && shopInstance) {
       if (item.sellbackValue != null) {
@@ -111,7 +116,6 @@ function InventoryRow({
     }
     return "Sell"
   })()
-  const IconGlyph = icon ? getIcon(icon) : undefined
 
   const [pending, setPending] = useState<PendingAction>(null)
   const subscriptionIdRef = useRef<string | null>(null)
@@ -191,26 +195,44 @@ function InventoryRow({
     }, 10000)
   }
 
+  const handleDetails = () => {
+    if (!definition?.shortId || !detailView) return
+    openDetail(
+      buildItemDetailFrame({
+        shortId: definition.shortId,
+        title: name,
+        source: "inventory",
+        detailView,
+        definitionId: definition.id,
+        inventoryItemId: item.itemId,
+      }),
+    )
+  }
+
   return (
     <HStack {...inventorySlotFrameProps}>
       <VStack align="center" justify="center" h="100%" minW="4rem">
-        {IconGlyph ? (
-          <Icon
-            as={IconGlyph}
-            boxSize={7}
-            colorPalette={itemIconColor}
-            color={itemRarityIconColor}
-            flexShrink={0}
-            aria-hidden
-          />
-        ) : (
-          <Box boxSize={7} flexShrink={0} aria-hidden />
-        )}
+        <ItemArtwork
+          imageUrl={definition?.imageUrl}
+          imageUrlLarge={definition?.imageUrlLarge}
+          icon={definition?.icon}
+          rarity={definition?.rarity}
+          artworkFrame={definition?.artworkFrame}
+          boxSize={definition?.slotPool === "collection" ? FRAMED_ARTWORK_BOX_SIZE : 7}
+          alt={name}
+          onClick={detailView ? handleDetails : undefined}
+        />
         {definition != null && (
           <ItemRarityTag size={["xs", "sm"]} rarity={resolveItemRarity(definition)} />
         )}
       </VStack>
-      <VStack align="start" gap={0} flex="1" minW={0}>
+      <VStack
+        align="start"
+        gap={0}
+        flex="1"
+        minW={0}
+        {...itemDetailClickableProps({ detailView, name, onOpen: handleDetails })}
+      >
         <HStack gap={2} flexWrap="wrap">
           <Text fontWeight="medium">{name}</Text>
           {item.quantity > 1 && (
@@ -220,12 +242,13 @@ function InventoryRow({
           )}
         </HStack>
         {description && (
-          <Text fontSize="xs" color="fg.muted">
+          <LinkifiedText fontSize="xs" color="fg.muted">
             {description}
-          </Text>
+          </LinkifiedText>
         )}
       </VStack>
       <Stack direction="column" gap={2} flexShrink={0}>
+        {detailView && <ItemDetailActionButton detailView={detailView} onClick={handleDetails} />}
         {consumable && (
           <InventoryUseButton
             itemId={item.itemId}
@@ -244,7 +267,6 @@ function InventoryRow({
             loading={pending?.itemId === item.itemId && pending.action === "sell"}
             onClick={() => dispatch("sell")}
           >
-            {/* <Icon as={getIcon("Coins")} boxSize="0.8rem" /> */}
             {sellButtonLabel}
           </Button>
         )}
@@ -253,30 +275,45 @@ function InventoryRow({
   )
 }
 
-function InventoryTab({ items, maxSlots, definitionMap, coinBalance }: InventoryTabProps) {
-  const emptySlotCount = maxSlots > 0 ? Math.max(0, maxSlots - items.length) : 0
-  const showSlotGrid = maxSlots > 0
+function InventoryTab({
+  items,
+  maxSlots,
+  maxCollectionSlots,
+  definitionMap,
+  coinBalance,
+}: InventoryTabProps) {
+  const inventoryItems = items.filter(
+    (item) => (definitionMap.get(item.definitionId)?.slotPool ?? "inventory") !== "collection",
+  )
+  const collectionItems = items.filter(
+    (item) => definitionMap.get(item.definitionId)?.slotPool === "collection",
+  )
+  const emptyInventory = maxSlots > 0 ? Math.max(0, maxSlots - inventoryItems.length) : 0
+  const showInventoryGrid = maxSlots > 0
+  // The collection only exists once something is in it, and unlike the inventory
+  // bag it never advertises empty slots.
+  const showCollection = collectionItems.length > 0
 
   return (
     <Box>
       <HStack justify="space-between" align="baseline" mb={2}>
         <Heading size="sm">Inventory</Heading>
-        {showSlotGrid && (
+        {showInventoryGrid && (
           <Text fontSize="xs" color="fg.muted">
-            {items.length} / {maxSlots} slots
+            {inventoryItems.length} / {maxSlots} slots
           </Text>
         )}
       </HStack>
 
-      {!showSlotGrid && items.length === 0 && (
+      {!showInventoryGrid && inventoryItems.length === 0 && (
         <Text fontSize="sm" color="fg.muted">
           Your inventory is empty.
         </Text>
       )}
 
-      {(items.length > 0 || showSlotGrid) && (
+      {(inventoryItems.length > 0 || showInventoryGrid) && (
         <Stack gap={2}>
-          {items.map((item) => (
+          {inventoryItems.map((item) => (
             <InventoryRow
               key={item.itemId}
               item={item}
@@ -286,11 +323,36 @@ function InventoryTab({ items, maxSlots, definitionMap, coinBalance }: Inventory
               coinBalance={coinBalance}
             />
           ))}
-          {showSlotGrid &&
-            Array.from({ length: emptySlotCount }).map((_, i) => (
-              <EmptyInventorySlot key={`empty-${i}`} />
+          {showInventoryGrid &&
+            Array.from({ length: emptyInventory }).map((_, i) => (
+              <EmptyInventorySlot key={`empty-inv-${i}`} />
             ))}
         </Stack>
+      )}
+
+      {showCollection && (
+        <Box mt={6}>
+          <HStack justify="space-between" align="baseline" mb={2}>
+            <Heading size="sm">Collection</Heading>
+            {maxCollectionSlots > 0 && (
+              <Text fontSize="xs" color="fg.muted">
+                {collectionItems.length} / {maxCollectionSlots} slots
+              </Text>
+            )}
+          </HStack>
+          <Stack gap={2}>
+            {collectionItems.map((item) => (
+              <InventoryRow
+                key={item.itemId}
+                item={item}
+                definition={definitionMap.get(item.definitionId)}
+                allItems={items}
+                definitionMap={definitionMap}
+                coinBalance={coinBalance}
+              />
+            ))}
+          </Stack>
+        </Box>
       )}
     </Box>
   )

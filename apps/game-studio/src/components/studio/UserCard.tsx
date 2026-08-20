@@ -24,6 +24,7 @@ import type { StudioRoom } from "../../studio/studioRoom"
 import { StudioCoinAmountStoragePopover } from "./StudioCoinAmountStoragePopover"
 import { StudioInventoryItemStoragePopover } from "./StudioInventoryItemStoragePopover"
 import { toaster } from "../ui/toaster"
+import { LinkifiedText } from "./LinkifiedText"
 
 function toastResult(title: string, ok: boolean, detail?: string): void {
   toaster.create({
@@ -417,9 +418,9 @@ export function UserCard({
                       {row.quantity > 1 ? ` ×${row.quantity}` : ""}
                     </Text>
                     {def?.description ? (
-                      <Text fontSize="xs" color="fg.muted" mt="1">
+                      <LinkifiedText fontSize="xs" color="fg.muted" mt="1">
                         {def.description}
-                      </Text>
+                      </LinkifiedText>
                     ) : null}
                     {rt ? (
                       <Text fontSize="xs" color="fg.muted" mt={def?.description ? "1" : undefined}>

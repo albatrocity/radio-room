@@ -1,8 +1,5 @@
 import { Box, Center, Table, Text, VStack } from "@chakra-ui/react"
-import {
-  getItemRarityColorPalette,
-  itemRarityIconColor,
-} from "../../../lib/itemRarityPalette"
+import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 import type {
   ShopOfferTableComponentProps,
   ShopOfferTableRow,
@@ -14,6 +11,7 @@ import { SvgIcon } from "../../ui/svg-icon"
 import { AnimatedShopQty } from "./AnimatedShopQty"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
+import { LinkifiedText } from "../../LinkifiedText"
 
 function ShopOfferTableRowView({
   row,
@@ -39,9 +37,7 @@ function ShopOfferTableRowView({
         <Center width="full" height="full">
           {IconComponent ? (
             <Box
-              colorPalette={
-                row.itemRarity ? getItemRarityColorPalette(row.itemRarity) : undefined
-              }
+              colorPalette={row.itemRarity ? getItemRarityColorPalette(row.itemRarity) : undefined}
             >
               <SvgIcon
                 icon={IconComponent}
@@ -57,9 +53,9 @@ function ShopOfferTableRowView({
       <Table.Cell verticalAlign="middle">
         <VStack align="start" gap={0}>
           <Text fontWeight="bold">{row.name}</Text>
-          <Text fontSize="xs" color="fg.muted" lineHeight="short">
+          <LinkifiedText fontSize="xs" color="fg.muted" lineHeight="short">
             {row.description}
-          </Text>
+          </LinkifiedText>
         </VStack>
       </Table.Cell>
       <Table.Cell verticalAlign="middle" textAlign="end">

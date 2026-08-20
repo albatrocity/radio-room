@@ -44,6 +44,8 @@ import { greenPeas } from "./green-peas"
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
  * `../../items` depending on depth — then use `items.boostPedal.shortId`.
+ * Local library grant SKUs: Physical Media is derived from Navidrome playlists
+ * (see `localLibrary/` and ADR 0099).
  */
 export const items = {
   scratchedCd,

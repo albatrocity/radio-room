@@ -9,6 +9,8 @@
 
 import { useSelector } from "@xstate/react"
 
+import { physicalMediaFramesEnabled } from "../lib/physicalMediaArtwork"
+
 // Import all actors
 import { authActor, sendAuthEvent } from "../actors/authActor"
 import { chatActor } from "../actors/chatActor"
@@ -19,6 +21,8 @@ import { reactionsActor } from "../actors/reactionsActor"
 import { settingsActor } from "../actors/settingsActor"
 import { roomActor } from "../actors/roomActor"
 import { audioActor } from "../actors/audioActor"
+import { trackPreviewActor } from "../actors/trackPreviewActor"
+import type { TrackPreviewStatus } from "../machines/trackPreviewMachine"
 import { djActor } from "../actors/djActor"
 import { adminActor } from "../actors/adminActor"
 import { gameSessionActor } from "../actors/gameSessionActor"
@@ -45,9 +49,15 @@ import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
+import { addToQueueUiActor } from "../actors/addToQueueUiActor"
+import { gameStateNavActor } from "../actors/gameStateNavActor"
+import { currentDetailFrame } from "../machines/gameStateNavMachine"
 import { mediaBridgeActor } from "../actors/mediaBridgeActor"
-import { effectiveMetadataSourcesActor } from "../actors/effectiveMetadataSourcesActor"
-import type { MetadataBrowseCapabilities } from "@repo/types"
+import {
+  effectiveMetadataSourcesActor,
+  refreshEffectiveMetadataSources,
+} from "../actors/effectiveMetadataSourcesActor"
+import type { MetadataBrowseCapabilities, PhysicalMediaItem } from "@repo/types"
 import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
@@ -90,7 +100,9 @@ const sendToLobby = boundSendRef(lobbyActor)
 const sendToAdminListener = boundSendRef(adminListenerStateActor)
 const sendToPoll = boundSendRef(pollActor)
 const sendToQuickAccessPanels = boundSendRef(quickAccessPanelsActor)
+const sendToAddToQueueUi = boundSendRef(addToQueueUiActor)
 const sendToMediaBridge = boundSendRef(mediaBridgeActor)
+const sendToGameStateNav = boundSendRef(gameStateNavActor)
 
 // ============================================================================
 // Auth Hooks
@@ -188,7 +200,9 @@ export const useSortedChatMessages = () => {
       cachedExpiryBucket = expiryBucket
       cachedHasExpirable = messages.some((m) => m.expiresAt != null)
       cachedSorted = cachedHasExpirable
-        ? [...messages].filter((m) => m.expiresAt == null || m.expiresAt > now).sort(sortByTimestamp)
+        ? [...messages]
+            .filter((m) => m.expiresAt == null || m.expiresAt > now)
+            .sort(sortByTimestamp)
         : [...messages].sort(sortByTimestamp)
       return cachedSorted
     }
@@ -355,6 +369,14 @@ export const usePluginConfigs = () => {
   return useSelector(settingsActor, (s) => s.context.pluginConfigs)
 }
 
+/**
+ * Item Shops' Physical Media sleeve toggle, as a boolean so per-row artwork
+ * hooks do not re-render on unrelated plugin config changes.
+ */
+export const usePhysicalMediaFramesEnabled = () => {
+  return useSelector(settingsActor, (s) => physicalMediaFramesEnabled(s.context.pluginConfigs))
+}
+
 export const useSettingsSend = () => sendToSettings
 
 // ============================================================================
@@ -420,6 +442,17 @@ export const useIsPlaying = () => {
 
 export const useIsMuted = () => {
   return useSelector(audioActor, (s) => s.matches({ active: { online: { volume: "muted" } } }))
+}
+
+export const useIsPreviewDucked = () => {
+  return useSelector(audioActor, (s) => s.context.previewDucked)
+}
+
+export const useTrackPreviewStatus = (trackKey: string): TrackPreviewStatus => {
+  return useSelector(trackPreviewActor, (s) => {
+    if (s.context.trackKey !== trackKey) return "idle"
+    return s.context.status
+  })
 }
 
 export const useIsAudioOnline = () => {
@@ -522,9 +555,7 @@ export const useUserGameStatePayload = () => {
 }
 
 export const useUserGameStateLoading = () => {
-  return useSelector(userGameStateActor, (s) =>
-    s.matches("loading") || s.matches("refreshing"),
-  )
+  return useSelector(userGameStateActor, (s) => s.matches("loading") || s.matches("refreshing"))
 }
 
 export const useUserGameStateError = () => {
@@ -630,7 +661,32 @@ export const useIsAnyModalOpen = () => {
   return useSelector(modalsActor, (s) => !s.matches("closed"))
 }
 
+/** Physical Media item to preselect in Add to Queue → Browse, when deep-linked. */
+export const useQueueBrowseMediaKey = (): string | null => {
+  return useSelector(modalsActor, (s) => s.context.queueBrowseMediaKey)
+}
+
 export const useModalsSend = () => sendToModals
+
+// ============================================================================
+// Game State Nav Hooks (ADR 0106)
+// ============================================================================
+
+export const useGameStateActiveTab = (): string => {
+  return useSelector(gameStateNavActor, (s) => s.context.activeTabId)
+}
+
+/** The frame being viewed, or null on a tab index. */
+export const useGameStateDetailFrame = () => {
+  return useSelector(gameStateNavActor, (s) => currentDetailFrame(s.context))
+}
+
+/** True while the Game State modal is showing, i.e. detail frames go on its stack. */
+export const useIsGameStateNavActive = (): boolean => {
+  return useSelector(gameStateNavActor, (s) => s.matches("active"))
+}
+
+export const useGameStateNavSend = () => sendToGameStateNav
 
 // ============================================================================
 // Theme Hooks
@@ -746,6 +802,16 @@ export const useQuickAccessPanels = () => {
 export const useQuickAccessPanelsSend = () => sendToQuickAccessPanels
 
 // ============================================================================
+// Add to Queue UI Hooks (ADR 0105)
+// ============================================================================
+
+export const useAddToQueueUi = () => {
+  return useSelector(addToQueueUiActor, (s) => s.context)
+}
+
+export const useAddToQueueUiSend = () => sendToAddToQueueUi
+
+// ============================================================================
 // Media Bridge Hooks
 // ============================================================================
 
@@ -773,12 +839,18 @@ export const useEffectiveMetadataSourceIds = (): string[] | null => {
   return useSelector(effectiveMetadataSourcesActor, (s) => s.context.metadataSourceIds)
 }
 
+export { refreshEffectiveMetadataSources }
+
 export const useBrowseableMetadataSourceIds = (): string[] | null => {
   return useSelector(effectiveMetadataSourcesActor, (s) => s.context.browseableSourceIds)
 }
 
 export const useBrowseSourceCapabilities = (): Record<string, MetadataBrowseCapabilities> => {
   return useSelector(effectiveMetadataSourcesActor, (s) => s.context.browseSourceCapabilities)
+}
+
+export const useMyMedia = (): PhysicalMediaItem[] => {
+  return useSelector(effectiveMetadataSourcesActor, (s) => s.context.myMedia)
 }
 
 // ============================================================================

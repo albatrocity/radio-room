@@ -24,6 +24,8 @@ export {
   bridgeControlMessageSchema,
   bridgeDaemonPresenceSchema,
   lastEndedKey,
+  capabilitiesKey,
+  parseStoredBridgeCapabilities,
   spotifyTokenKey,
   spotifyDeviceKey,
 } from "./lib/protocol"
@@ -52,7 +54,9 @@ export { requestBridgeLink, listOnlineBridgeDaemons } from "./lib/requestBridgeL
 export type { RequestBridgeLinkResult } from "./lib/requestBridgeLink"
 export { parseBridgeMediaId } from "./lib/parseBridgeMediaId"
 export { youtubeMetadataSource, createYoutubeMetadataApi } from "./lib/youtubeMetadata"
-export { localMetadataSource, registerLocalMetadataForRoom } from "./lib/localMetadata"
+export { localMetadataSource, registerLocalMetadataForRoom, checkLocalTrackPlaylistMembership, listLocalPlaylists, listLocalPlaylistTracks, fetchLocalPlaylistTracks, fetchTrackPreview, getLocalPlaylistCoverArt, invalidateLocalLibraryCache, normalizePlaylistCoverArtResult } from "./lib/localMetadata"
+export type { TrackPreviewRpcResult } from "./lib/localMetadata"
+export type { LocalPlaylistTracksResult } from "./lib/localMetadata"
 export { BridgeRpcClient } from "./lib/rpcClient"
 export {
   getOrCreateCapabilityCache,

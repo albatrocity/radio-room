@@ -1,4 +1,4 @@
-import type { MetadataSourceTrack } from "@repo/types"
+import type { MetadataSourceTrack, MetadataSourceTrackWithSource } from "@repo/types"
 
 /**
  * Score catalog search results against title/artist/(optional) album.
@@ -62,7 +62,7 @@ export function findBestMatch(
  * Collapse overlapping Spotify/Tidal search rows by priority.
  * youtube/local pass through unless includeDistinct is true and they fuzzy-match.
  */
-export function dedupeSearchResultsByPriority<T extends MetadataSourceTrack & { source?: string }>(
+export function dedupeSearchResultsByPriority<T extends MetadataSourceTrackWithSource>(
   items: T[],
   priority: string[] = ["spotify", "tidal"],
   options?: { collapseDistinct?: boolean },

@@ -101,16 +101,15 @@ async grantMetadataSourceAccess(params) {
 
 ## Recipe: one-shot local library queue
 
-1. Sell/give a consumable inventory item that records a charge in plugin storage (or rely on inventory quantity).
-2. `grantMetadataSourceAccess`: if user has a charge and `sourceId` is the configured local/library id → `"grant"` for `search` and `queue`.
-3. `validateQueueRequest`: when `params.mediaSourceType` matches and the queue is allowed by access, consume the charge (decrement storage / `onItemUsed` pattern). Prefer consuming only after you would allow the request so failed hygiene checks do not spend the pass.
+1. Configure Item Shops **Local library grants** (full-library and/or playlist shelves — [ADR 0098](../adrs/0098-inventory-scoped-local-library-catalog-filters.md)). Bind Navidrome playlists via the admin playlist picker when the Media Bridge is connected.
+2. `grantMetadataSourceAccess`: if the user holds a **resolved** grant (full library or mapped playlist id) and `sourceId` is `local` → `"grant"` for `search` and `queue`.
+3. Optional `resolveLocalLibraryCatalogFilter`: return `{ mode: "unrestricted" }` or `{ mode: "playlists", playlistIds }` so Local search/browse RPC can filter without exposing playlists in the client.
+4. `validateQueueRequest`: when `params.mediaSourceType` is `local` and Local is restricted, consume the preferred grant (shelf if the track is in that playlist, else full-library). Prefer consuming only after access would allow the request.
 
 ```typescript
 async validateQueueRequest(params: QueueValidationParams) {
   if (params.mediaSourceType !== "local") return allowQueueRequest()
-  const charges = Number((await this.storage.get(`localPass:${params.userId}`)) ?? 0)
-  if (charges < 1) return allowQueueRequest() // access layer already denied if restricted
-  await this.storage.set(`localPass:${params.userId}`, String(charges - 1))
+  // Resolve held grants → checkLocalTrackPlaylistMembership → pickGrantToConsume → removeItem
   return allowQueueRequest()
 }
 ```
@@ -121,6 +120,8 @@ async validateQueueRequest(params: QueueValidationParams) {
 
 Admins set **Admins + plugin grants only** per enabled source under Content → Media sources (bridge playback controller). That writes `metadataSourceAccess` on the room.
 
+For playlist shelves, use Item Shops → Local library grants (`object-array`). Playlist rows use a `remote-select` fed by `LIST_BRIDGE_LOCAL_PLAYLISTS`. See ADR 0098 ops runbook.
+
 ## Catalog browse
 
 Optional `MetadataSourceApi` methods `listArtists` / `getArtist` / `getAlbum` (and optional `listAlbums` / `getBrowseCapabilities`) power Add to Queue **Browse** and Search artist/album rows that deep-link into Browse ([ADR 0089](../adrs/0089-metadata-source-content-browse.md), [ADR 0090](../adrs/0090-hybrid-metadata-catalog-browse.md)).
@@ -128,3 +129,12 @@ Optional `MetadataSourceApi` methods `listArtists` / `getArtist` / `getAlbum` (a
 - Browse is gated by the same **`search`** action as text search—no separate grant.
 - Clients learn browseability via `browseableSourceIds` and `browseSourceCapabilities` on `EFFECTIVE_METADATA_SOURCES` / INIT.
 - **Local** uses index-entry browse; **Spotify** uses search-entry browse. Text Search may return additive `artists` / `albums` on `TRACK_SEARCH_RESULTS`.
+- Playlist-scoped grants still use artists → albums → tracks; raw playlists are never a client browse mode ([ADR 0098](../adrs/0098-inventory-scoped-local-library-catalog-filters.md)).
+
+## Physical Media items
+
+Plugins that hand out playlist-scoped grants can expose them as browsable Physical Media ([ADR 0099](../adrs/0099-physical-media-personal-libraries.md)):
+
+- Implement `listPhysicalMediaItems` (held items for a user) and `resolvePhysicalMediaItem` (item → playlist id). Items are `{ mediaKey, name, icon?, imageUrl?, imageUrlLarge? }`, where `mediaKey` is the item `shortId`. They ride `EFFECTIVE_METADATA_SOURCES` / INIT as `myMedia` and become the **Physical Media** browse tab.
+- `BROWSE_MEDIA_ITEM` takes only `mediaKey`; the server resolves the playlist id from the caller's own grants, so a client can never name a playlist.
+- For cover art, call `api.getLocalPlaylistArtwork(roomId, playlistIds)`. It re-hosts Navidrome playlist art in the room image store and returns `{ imageUrl, imageUrlLarge? }` urls keyed by playlist id, suitable for `ItemDefinition.imageUrl` (the UI prefers `imageUrl` over `icon`; Now Playing prefers `imageUrlLarge`). Skip it when no playlists qualify — an unlinked bridge just returns `{}`.

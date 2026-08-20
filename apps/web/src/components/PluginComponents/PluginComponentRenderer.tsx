@@ -1,16 +1,12 @@
 import React, { useMemo, useCallback } from "react"
 import { useSelector } from "@xstate/react"
 import { Box } from "@chakra-ui/react"
-import {
-  checkShowWhenConditions,
-  interpolatePropsRecursively,
-} from "@repo/utils"
-import { useCurrentUser, useIsAdmin } from "../../hooks/useActors"
+import { checkShowWhenConditions, interpolatePropsRecursively } from "@repo/utils"
 import {
   ensurePluginComponentActor,
   getPluginComponentActor,
 } from "../../actors/pluginComponentRegistry"
-import { PluginComponentContext, usePluginModalApi } from "./context"
+import { PluginComponentContext, usePluginModalApi, usePluginViewer } from "./context"
 import { TEMPLATE_COMPONENT_MAP } from "./templates"
 import type { PluginComponentDefinition } from "../../types/PluginComponent"
 
@@ -74,15 +70,8 @@ interface PluginComponentRendererProps {
  */
 export function PluginComponentRenderer({ component }: PluginComponentRendererProps) {
   const { config, store, itemContext, pluginName } = React.useContext(PluginComponentContext)!
-  const isAdmin = useIsAdmin()
-  const currentUser = useCurrentUser()
-  const viewerContext = useMemo(
-    () => ({
-      userId: currentUser?.userId,
-      isAdmin,
-    }),
-    [currentUser?.userId, isAdmin],
-  )
+  const viewerContext = usePluginViewer()
+  const { isAdmin } = viewerContext
 
   // Hide adminOnly buttons and sliders from non-admins
   if (
@@ -174,7 +163,9 @@ export function PluginComponentProvider({
   )
 
   return (
-    <PluginComponentContext.Provider value={contextValue}>{children}</PluginComponentContext.Provider>
+    <PluginComponentContext.Provider value={contextValue}>
+      {children}
+    </PluginComponentContext.Provider>
   )
 }
 

@@ -601,7 +601,12 @@ export class AdminHandlers {
    */
   startGameSession = async (
     { socket }: HandlerConnections,
-    data: { name: string; initialCoins?: number },
+    data: {
+      name: string
+      initialCoins?: number
+      maxInventorySlots?: number
+      maxCollectionSlots?: number
+    },
   ) => {
     if (!data?.name?.trim()) {
       socket.emit("event", {
@@ -632,9 +637,36 @@ export class AdminHandlers {
       initialCoins = Math.floor(raw)
     }
 
+    const parseSlot = (
+      raw: unknown,
+      label: string,
+    ): { ok: true; value?: number } | { ok: false } => {
+      if (raw == null) return { ok: true }
+      const n = Number(raw)
+      if (!Number.isFinite(n) || n < 0) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 400,
+            error: "Bad Request",
+            message: `${label} must be a non-negative number.`,
+          },
+        })
+        return { ok: false }
+      }
+      return { ok: true, value: Math.floor(n) }
+    }
+
+    const inventorySlots = parseSlot(data.maxInventorySlots, "Inventory slots")
+    if (!inventorySlots.ok) return
+    const collectionSlots = parseSlot(data.maxCollectionSlots, "Collection slots")
+    if (!collectionSlots.ok) return
+
     const result = await this.adminService.startGameSession(socket.data.roomId, socket.data.userId, {
       name: data.name.trim(),
       ...(initialCoins != null ? { initialValues: { coin: initialCoins } } : {}),
+      ...(inventorySlots.value != null ? { maxInventorySlots: inventorySlots.value } : {}),
+      ...(collectionSlots.value != null ? { maxCollectionSlots: collectionSlots.value } : {}),
     })
 
     if (result.error) {

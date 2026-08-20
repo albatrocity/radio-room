@@ -16,6 +16,9 @@
 import type { UserGameStatePayload } from "@repo/types"
 import { setup, assign } from "xstate"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+import { getCurrentUser } from "../actors/authActor"
+import { isGameEventForUser, type UserScopedEventData } from "../lib/gameEventRelevance"
+import { createTrailingDebounce } from "../lib/trailingDebounce"
 
 export type { UserGameStatePayload }
 
@@ -33,47 +36,23 @@ type UserGameStateEvent =
   | { type: "INIT"; data?: unknown }
   | { type: "USER_GAME_STATE"; data: UserGameStatePayload }
   | { type: "USER_GAME_STATE_INVALIDATED"; data?: { roomId?: string; pluginName?: string } }
-  | { type: "GAME_STATE_CHANGED"; data: { userId?: string } }
-  | { type: "GAME_MODIFIER_APPLIED"; data: { userId?: string } }
-  | { type: "GAME_MODIFIER_REMOVED"; data: { userId?: string } }
-  | { type: "INVENTORY_ITEM_ACQUIRED"; data: { userId?: string } }
-  | { type: "INVENTORY_ITEM_REMOVED"; data: { userId?: string } }
-  | { type: "INVENTORY_ITEM_USED"; data: { userId?: string } }
-  | { type: "INVENTORY_ITEM_TRANSFERRED"; data: { userId?: string } }
+  | { type: "GAME_STATE_CHANGED"; data: UserScopedEventData }
+  | { type: "GAME_MODIFIER_APPLIED"; data: UserScopedEventData }
+  | { type: "GAME_MODIFIER_REMOVED"; data: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_ACQUIRED"; data: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_REMOVED"; data: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_USED"; data: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_TRANSFERRED"; data: UserScopedEventData }
   | { type: "GAME_SESSION_STARTED"; data: unknown }
   | { type: "GAME_SESSION_ENDED"; data: unknown }
   | { type: "ERROR_OCCURRED"; data: { message?: string } }
 
-const EVENTS_THAT_TRIGGER_REFRESH = new Set([
-  "GAME_STATE_CHANGED",
-  "GAME_MODIFIER_APPLIED",
-  "GAME_MODIFIER_REMOVED",
-  "INVENTORY_ITEM_ACQUIRED",
-  "INVENTORY_ITEM_REMOVED",
-  "INVENTORY_ITEM_USED",
-  "INVENTORY_ITEM_TRANSFERRED",
-])
-
 /** Trailing debounce so bursts of invalidation collapse into one refetch. */
 const REQUEST_DEBOUNCE_MS = 150
-let requestDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-function scheduleRequestGameState() {
-  if (requestDebounceTimer) {
-    clearTimeout(requestDebounceTimer)
-  }
-  requestDebounceTimer = setTimeout(() => {
-    requestDebounceTimer = null
-    emitToSocket("GET_MY_GAME_STATE", {})
-  }, REQUEST_DEBOUNCE_MS)
-}
-
-function clearRequestDebounce() {
-  if (requestDebounceTimer) {
-    clearTimeout(requestDebounceTimer)
-    requestDebounceTimer = null
-  }
-}
+const debouncedRequest = createTrailingDebounce(() => {
+  emitToSocket("GET_MY_GAME_STATE", {})
+}, REQUEST_DEBOUNCE_MS)
 
 let subscriptionCounter = 0
 
@@ -83,10 +62,10 @@ export const userGameStateMachine = setup({
     events: {} as UserGameStateEvent,
   },
   guards: {
-    isRelevantUserEvent: ({ event }, { currentUserId }: { currentUserId: string | undefined }) => {
-      if (!EVENTS_THAT_TRIGGER_REFRESH.has(event.type)) return false
-      const data = (event as { data?: { userId?: string } }).data
-      return !currentUserId || !data?.userId || data.userId === currentUserId
+    /** Room-wide game/inventory events name their subject; skip everyone else's. */
+    isMyGameEvent: ({ event }) => {
+      const data = (event as { data?: UserScopedEventData }).data
+      return isGameEventForUser(data, getCurrentUser()?.userId)
     },
   },
   actions: {
@@ -116,16 +95,16 @@ export const userGameStateMachine = setup({
       if (context.subscriptionId) {
         unsubscribeById(context.subscriptionId)
       }
-      clearRequestDebounce()
+      debouncedRequest.cancel()
     },
     /** Immediate request (ACTIVATE / REFRESH / INIT) — no debounce. */
     requestGameState: () => {
-      clearRequestDebounce()
+      debouncedRequest.cancel()
       emitToSocket("GET_MY_GAME_STATE", {})
     },
     /** Debounced request for socket-driven invalidation bursts. */
     scheduleRequestGameState: () => {
-      scheduleRequestGameState()
+      debouncedRequest.schedule()
     },
     setPayload: assign(({ event }) => {
       if (event.type !== "USER_GAME_STATE") return {}
@@ -223,25 +202,32 @@ export const userGameStateMachine = setup({
           actions: ["clearPayload"],
         },
         GAME_STATE_CHANGED: {
-          actions: ["requestGameState"],
+          guard: "isMyGameEvent",
+          actions: ["scheduleRequestGameState"],
         },
         GAME_MODIFIER_APPLIED: {
-          actions: ["requestGameState"],
+          guard: "isMyGameEvent",
+          actions: ["scheduleRequestGameState"],
         },
         GAME_MODIFIER_REMOVED: {
-          actions: ["requestGameState"],
+          guard: "isMyGameEvent",
+          actions: ["scheduleRequestGameState"],
         },
         INVENTORY_ITEM_ACQUIRED: {
-          actions: ["requestGameState"],
+          guard: "isMyGameEvent",
+          actions: ["scheduleRequestGameState"],
         },
         INVENTORY_ITEM_REMOVED: {
-          actions: ["requestGameState"],
+          guard: "isMyGameEvent",
+          actions: ["scheduleRequestGameState"],
         },
         INVENTORY_ITEM_USED: {
-          actions: ["requestGameState"],
+          guard: "isMyGameEvent",
+          actions: ["scheduleRequestGameState"],
         },
         INVENTORY_ITEM_TRANSFERRED: {
-          actions: ["requestGameState"],
+          guard: "isMyGameEvent",
+          actions: ["scheduleRequestGameState"],
         },
       },
     },

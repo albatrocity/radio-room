@@ -46,6 +46,7 @@ import {
 import { exportRoom } from "./controllers/exportController"
 import { streamHealth } from "./controllers/streamHealthController"
 import { getImage } from "./operations/data"
+import { getTrackPreviewByPreviewId, PREVIEW_TTL_SEC } from "./operations/data/trackPreviews"
 import { upload, uploadImages, uploadArtwork } from "./controllers/imageController"
 import { getPublicReadyShowById, getPublicReadyShows } from "./routes/publicSchedulingRoutes"
 import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/schedulingRouter"
@@ -160,7 +161,9 @@ export class RadioRoomServer {
         cors({
           origin: [
             "http://127.0.0.1:8000",
+            "http://localhost:8000",
             "http://127.0.0.1:8001",
+            "http://localhost:8001",
             "https://listen.show",
             "https://www.listen.show",
             "https://listeningroom.club",
@@ -244,6 +247,26 @@ export class RadioRoomServer {
           "Content-Type": imageData.mimeType,
           "Content-Length": buffer.length,
           "Cache-Control": "public, max-age=31536000", // Cache for 1 year
+        })
+
+        return res.send(buffer)
+      })
+      .get("/api/rooms/:roomId/track-previews/:previewId", async (req, res) => {
+        const { roomId, previewId } = req.params
+        const context = (req as any).context as AppContext
+
+        const previewData = await getTrackPreviewByPreviewId({ roomId, previewId, context })
+
+        if (!previewData) {
+          return res.status(404).json({ error: "Preview not found" })
+        }
+
+        const buffer = Buffer.from(previewData.data, "base64")
+
+        res.set({
+          "Content-Type": previewData.mimeType,
+          "Content-Length": buffer.length,
+          "Cache-Control": `private, max-age=${PREVIEW_TTL_SEC}`,
         })
 
         return res.send(buffer)

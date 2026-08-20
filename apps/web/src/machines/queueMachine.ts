@@ -1,7 +1,9 @@
 import { assign, setup } from "xstate"
 import { toast } from "../lib/toasts"
-import { MetadataSourceTrack } from "@repo/types"
+import { queuedAddUndoTrackId, undoHeldQueue, undoQueuedTrack } from "../lib/queueToastUndo"
+import { MetadataSourceTrack, QueueItem } from "@repo/types"
 import { getIsAdmin } from "../actors/authActor"
+import { getCurrentRoom } from "../actors/roomActor"
 import { canAddToQueue } from "../actors/djActor"
 import { emitToSocket } from "../actors/socketActor"
 
@@ -9,9 +11,12 @@ export interface QueueContext {
   queuedTrack: MetadataSourceTrack | null | undefined
 }
 
+/** SERVER_EVENT allowlist for `useSocketMachine` (ADR 0093) — keep in sync with `QueueEvent`. */
+export const QUEUE_EVENT_TYPES = ["SONG_QUEUED", "SONG_QUEUE_HELD", "SONG_QUEUE_FAILURE"]
+
 type QueueEvent =
   | { type: "SEND_TO_QUEUE"; track: MetadataSourceTrack }
-  | { type: "SONG_QUEUED" }
+  | { type: "SONG_QUEUED"; data?: QueueItem }
   | { type: "SONG_QUEUE_HELD"; data?: { message: string } }
   | { type: "SONG_QUEUE_FAILURE"; data?: { message: string } }
 
@@ -41,27 +46,39 @@ export const queueMachine = setup({
         emitToSocket("QUEUE_SONG", source ? { trackId: event.track.id, source } : event.track.id)
       }
     },
-    notifyQueued: ({ context }) => {
+    notifyQueued: ({ context, event }) => {
+      if (event.type !== "SONG_QUEUED") return
+      const undoTrackId = queuedAddUndoTrackId({
+        playbackMode: getCurrentRoom()?.playbackMode,
+        queuedItem: event.data,
+        queuedTrack: context.queuedTrack,
+      })
       toast({
         title: `Added to Queue`,
         description: `${context.queuedTrack?.title} has been added to the queue`,
         status: "success",
         duration: 4000,
         isClosable: true,
+        ...(undoTrackId
+          ? { action: { label: "Undo", onClick: () => undoQueuedTrack(undoTrackId) } }
+          : {}),
       })
     },
     notifyQueueHeld: ({ event, context }) => {
-      if (event.type === "SONG_QUEUE_HELD") {
-        toast({
-          title: "Song saved for your turn",
-          description:
-            event.data?.message ||
-            `${context.queuedTrack?.title ?? "Your song"} will be added when it's your turn`,
-          status: "info",
-          duration: 5000,
-          isClosable: true,
-        })
-      }
+      if (event.type !== "SONG_QUEUE_HELD") return
+      const undoTrackId = context.queuedTrack?.id?.trim() || null
+      toast({
+        title: "Song saved for your turn",
+        description:
+          event.data?.message ||
+          `${context.queuedTrack?.title ?? "Your song"} will be added when it's your turn`,
+        status: "info",
+        duration: 5000,
+        isClosable: true,
+        ...(undoTrackId
+          ? { action: { label: "Undo", onClick: () => undoHeldQueue(undoTrackId) } }
+          : {}),
+      })
     },
     notifyQueueFailure: ({ event }) => {
       if (event.type === "SONG_QUEUE_FAILURE") {

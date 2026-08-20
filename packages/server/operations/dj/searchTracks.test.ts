@@ -80,7 +80,7 @@ describe("searchTracksAcrossSources", () => {
       searchSource,
     })
 
-    expect(searchSource).toHaveBeenCalledWith(spotifySource, "Neon Lights")
+    expect(searchSource).toHaveBeenCalledWith(spotifySource, "Neon Lights", undefined)
     expect(result.success).toBe(true)
     if (!result.success) return
     expect(result.items[0]).toEqual(
@@ -145,6 +145,38 @@ describe("searchTracksAcrossSources", () => {
     })
 
     expect(searchSource).toHaveBeenCalledTimes(1)
-    expect(searchSource).toHaveBeenCalledWith(tidal, "x")
+    expect(searchSource).toHaveBeenCalledWith(tidal, "x", undefined)
+  })
+
+  test("forwards playlistIds to searchSource for scoped local catalog users", async () => {
+    const localSource = {
+      name: "local",
+      api: { search: vi.fn() },
+    } as unknown as MetadataSource
+    adapterService.getRoomMetadataSources.mockResolvedValue(new Map([["local", localSource]]))
+    const context = {
+      ...mockContext,
+      metadataSourceAccess: {
+        getEffectiveSourceIdsForUser: vi.fn().mockResolvedValue(["local"]),
+        getLocalCatalogPlaylistIds: vi.fn().mockResolvedValue(["pl-shelf-1", "pl-shelf-2"]),
+      },
+    } as unknown as AppContext
+
+    const searchSource = vi.fn().mockResolvedValue({
+      success: true,
+      data: [{ id: "in-shelf", title: "Scoped", artists: [], urls: [] }],
+    })
+    await searchTracksAcrossSources({
+      context,
+      adapterService: adapterService as any,
+      roomId,
+      userId,
+      query: "loveless",
+      searchSource,
+    })
+
+    expect(searchSource).toHaveBeenCalledWith(localSource, "loveless", {
+      playlistIds: ["pl-shelf-1", "pl-shelf-2"],
+    })
   })
 })

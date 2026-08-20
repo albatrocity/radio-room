@@ -29,6 +29,8 @@ export default function GameSessions() {
 
   const [sessionName, setSessionName] = useState("")
   const [initialCoinsInput, setInitialCoinsInput] = useState("")
+  const [inventorySlotsInput, setInventorySlotsInput] = useState("3")
+  const [collectionSlotsInput, setCollectionSlotsInput] = useState("12")
   const [activeSession, setActiveSession] = useState<GameSession | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [statusLoading, setStatusLoading] = useState(true)
@@ -177,11 +179,33 @@ export default function GameSessions() {
       initialCoins = Math.floor(parsed)
     }
 
+    const parseSlots = (raw: string, label: string): number | undefined => {
+      const trimmed = raw.trim()
+      if (!trimmed) return undefined
+      const parsed = Number(trimmed)
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        toaster.create({
+          title: `Invalid ${label}`,
+          description: "Enter a non-negative number, or leave blank for the default.",
+          type: "warning",
+          duration: 3000,
+        })
+        return Number.NaN
+      }
+      return Math.floor(parsed)
+    }
+    const maxInventorySlots = parseSlots(inventorySlotsInput, "inventory slots")
+    if (Number.isNaN(maxInventorySlots)) return
+    const maxCollectionSlots = parseSlots(collectionSlotsInput, "collection slots")
+    if (Number.isNaN(maxCollectionSlots)) return
+
     actionPendingRef.current = true
     setActionLoading(true)
     emitToSocket("START_GAME_SESSION", {
       name,
       ...(initialCoins != null ? { initialCoins } : {}),
+      ...(maxInventorySlots != null ? { maxInventorySlots } : {}),
+      ...(maxCollectionSlots != null ? { maxCollectionSlots } : {}),
     })
   }
 
@@ -318,6 +342,38 @@ export default function GameSessions() {
             />
             <Field.HelperText>
               Each user starts the session with this many coins. Leave blank for 0.
+            </Field.HelperText>
+          </Field.Root>
+
+          <Field.Root>
+            <Field.Label>Inventory slots</Field.Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={inventorySlotsInput}
+              onChange={(e) => setInventorySlotsInput(e.target.value)}
+              disabled={actionLoading || statusLoading}
+            />
+            <Field.HelperText>
+              Consumable / tool bag size. Default is 3.
+            </Field.HelperText>
+          </Field.Root>
+
+          <Field.Root>
+            <Field.Label>Collection slots</Field.Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={collectionSlotsInput}
+              onChange={(e) => setCollectionSlotsInput(e.target.value)}
+              disabled={actionLoading || statusLoading}
+            />
+            <Field.HelperText>
+              Durable Physical Media holdings. Default is 12.
             </Field.HelperText>
           </Field.Root>
 

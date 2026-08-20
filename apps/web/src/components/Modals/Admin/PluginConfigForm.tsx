@@ -409,12 +409,50 @@ export default function PluginConfigForm({
   allValues,
   pluginName,
 }: PluginConfigFormProps) {
+  const loadRemoteOptions = React.useCallback(
+    (remoteSource: string): Promise<{ value: string; label: string }[]> => {
+      if (remoteSource !== "bridgeLocalPlaylists") {
+        return Promise.resolve([])
+      }
+      return new Promise((resolve) => {
+        const subscriptionId = `list-bridge-playlists-${Date.now()}`
+        const timeout = window.setTimeout(() => {
+          unsubscribeById(subscriptionId)
+          resolve([])
+        }, 8000)
+        subscribeById(subscriptionId, {
+          send: (event: { type: string; data?: unknown }) => {
+            if (event.type !== "BRIDGE_LOCAL_PLAYLISTS") return
+            window.clearTimeout(timeout)
+            unsubscribeById(subscriptionId)
+            const data = event.data as
+              | { playlists?: Array<{ id: string; name: string; songCount?: number }> }
+              | undefined
+            const playlists = data?.playlists ?? []
+            resolve(
+              playlists.map((p) => ({
+                value: p.id,
+                label:
+                  typeof p.songCount === "number"
+                    ? `${p.name} (${p.songCount})`
+                    : p.name,
+              })),
+            )
+          },
+        })
+        emitToSocket("LIST_BRIDGE_LOCAL_PLAYLISTS", {})
+      })
+    },
+    [],
+  )
+
   return (
     <SharedPluginConfigForm
       schema={schema}
       values={values}
       onChange={onChange}
       allValues={allValues}
+      loadRemoteOptions={loadRemoteOptions}
       renderAction={(element) => {
         if (!pluginName) {
           console.warn("PluginConfigForm: pluginName is required to render action buttons")

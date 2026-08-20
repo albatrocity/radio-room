@@ -193,6 +193,9 @@ const config = defineConfig({
         "3xs": { value: "0.5rem" },
         "2xs": { value: "0.625rem" },
       },
+      fonts: {
+        handwriting: { value: '"Caveat", cursive' },
+      },
       colors: colorTokens,
     },
     semanticTokens: {

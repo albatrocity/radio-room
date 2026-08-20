@@ -81,13 +81,13 @@ sequenceDiagram
   Plugin->>Web: remove from uploadingUserIds
 ```
 
-| Layer | Responsibility |
-|-------|----------------|
-| **Infra** [`infra/cdn/main.tf`](infra/cdn/main.tf) | 30-day lifecycle on `uploads/`; restrict CloudFront `Resource` to non-`uploads` keys (or dual statements: allow `newsletter/*` + `assets/*` only); expand `cors_allowed_origins` for web app |
-| **Service** new `MusicUploadService` | Key builder, MIME/size validation, presign (no CDN URL), reuse S3 client/env from assets |
-| **Routes** `POST /api/rooms/:roomId/music-uploads/presign` and `.../complete` (and fail) | Guest/session auth like images ([ADR 0022](docs/adrs/0022-rest-guest-authentication.md) / [0058](docs/adrs/0058-client-session-localstorage.md)); max body for JSON only; enforce persona via `PersonaService` |
-| **Plugin** `packages/plugin-music-upload` | Register `uploader` persona (`assignableByAdmin`, `decoratesUser`); sync `uploaderUserIds` / `uploadingUserIds` in component store; badge on `userListItem`; button opens core upload UI |
-| **Web** | Core `MusicUpload` control (mirror [`ImageUpload.tsx`](apps/web/src/components/ImageUpload.tsx) pattern): progress bar, XHR/`fetch` PUT with `Content-Length` / `Content-Type`; call complete/fail; show only when viewer ∈ `uploaderUserIds` |
+| Layer                                                                                    | Responsibility                                                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Infra** [`infra/cdn/main.tf`](infra/cdn/main.tf)                                       | 30-day lifecycle on `uploads/`; restrict CloudFront `Resource` to non-`uploads` keys (or dual statements: allow `newsletter/*` + `assets/*` only); expand `cors_allowed_origins` for web app                                                  |
+| **Service** new `MusicUploadService`                                                     | Key builder, MIME/size validation, presign (no CDN URL), reuse S3 client/env from assets                                                                                                                                                      |
+| **Routes** `POST /api/rooms/:roomId/music-uploads/presign` and `.../complete` (and fail) | Guest/session auth like images ([ADR 0022](docs/adrs/0022-rest-guest-authentication.md) / [0058](docs/adrs/0058-client-session-localstorage.md)); max body for JSON only; enforce persona via `PersonaService`                                |
+| **Plugin** `packages/plugin-music-upload`                                                | Register `uploader` persona (`assignableByAdmin`, `decoratesUser`); sync `uploaderUserIds` / `uploadingUserIds` in component store; badge on `userListItem`; button opens core upload UI                                                      |
+| **Web**                                                                                  | Core `MusicUpload` control (mirror [`ImageUpload.tsx`](apps/web/src/components/ImageUpload.tsx) pattern): progress bar, XHR/`fetch` PUT with `Content-Length` / `Content-Type`; call complete/fail; show only when viewer ∈ `uploaderUserIds` |
 
 **Why not modifiers for “uploading”:** modifiers require an active game session ([ADR 0042](docs/adrs/0042-game-sessions-and-inventory.md)). Plugin store + `userListItem` badge with `{ field: "uploadingUserIds", includes: "item.userId" }` works in any room and is visible to admins.
 
@@ -188,13 +188,13 @@ Files: [`docs/PLUGIN_DEVELOPMENT.md`](docs/PLUGIN_DEVELOPMENT.md) or plugins ind
 
 ## Risks and tradeoffs
 
-| Risk | Mitigation |
-|------|------------|
-| CloudFront currently allows GetObject on entire bucket — private uploads would leak by URL | Phase 1 narrows CF policy to non-`uploads` prefixes |
-| Single PUT of 800MB may fail on flaky networks | v1 accept; document; multipart is a follow-up |
-| Username optional / unstable | Sanitize; always include `userId` segment in key |
-| Plugin button cannot host file input | Core React control + plugin action/event to open it |
-| Badge stuck if client never calls complete/fail | Redis TTL + optional server cleanup job/timer clearing `uploadingUserIds` |
+| Risk                                                                                       | Mitigation                                                                |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| CloudFront currently allows GetObject on entire bucket — private uploads would leak by URL | Phase 1 narrows CF policy to non-`uploads` prefixes                       |
+| Single PUT of 800MB may fail on flaky networks                                             | v1 accept; document; multipart is a follow-up                             |
+| Username optional / unstable                                                               | Sanitize; always include `userId` segment in key                          |
+| Plugin button cannot host file input                                                       | Core React control + plugin action/event to open it                       |
+| Badge stuck if client never calls complete/fail                                            | Redis TTL + optional server cleanup job/timer clearing `uploadingUserIds` |
 
 ## Open questions
 

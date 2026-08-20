@@ -4,7 +4,8 @@ import type {
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSource,
-  MetadataSourceTrack,
+  PhysicalMediaItem,
+  TaggedMetadataSourceTrack,
 } from "@repo/types"
 import {
   isMetadataSourceAuthFailure,
@@ -13,6 +14,7 @@ import {
 } from "@repo/utils"
 import { AdapterService } from "../../services/AdapterService"
 import { findRoom } from "../data"
+import { fetchResolvedMediaItemTracks } from "./mediaItemTracks"
 import { publishMetadataAuthError } from "./metadataAuthError"
 
 export type ResolveBrowseSourceResult =
@@ -87,6 +89,7 @@ export async function getEffectiveMetadataSources(params: {
   metadataSourceIds: string[]
   browseableSourceIds: string[]
   browseSourceCapabilities: Record<string, MetadataBrowseCapabilities>
+  myMedia: PhysicalMediaItem[]
 }> {
   const { context, adapterService, roomId, userId } = params
   let metadataSourceIds: string[]
@@ -106,7 +109,11 @@ export async function getEffectiveMetadataSources(params: {
     roomId,
     metadataSourceIds,
   })
-  return { metadataSourceIds, ...browse }
+  const myMedia =
+    metadataSourceIds.includes("local") && context.pluginRegistry?.listPhysicalMediaItems
+      ? await context.pluginRegistry.listPhysicalMediaItems({ roomId, userId })
+      : []
+  return { metadataSourceIds, ...browse, myMedia }
 }
 
 type BrowseFailure = { ok: false; message: string; authFailure?: { status: 401; source: string } }
@@ -158,6 +165,11 @@ export async function browseArtists(params: {
   const resolved = await resolveBrowseSource({ context, adapterService, roomId, userId, source })
   if (!resolved.ok) return resolved
 
+  const playlistIds =
+    source === "local" && context.metadataSourceAccess?.getLocalCatalogPlaylistIds
+      ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+      : undefined
+
   const result = await withBrowseAuthHandling({
     context,
     roomId,
@@ -168,6 +180,7 @@ export async function browseArtists(params: {
         query,
         offset,
         limit,
+        ...(playlistIds?.length ? { playlistIds } : {}),
       })
       return {
         ok: true as const,
@@ -198,6 +211,11 @@ export async function browseAlbums(params: {
     return { ok: false, message: "Metadata source does not support album browse" }
   }
 
+  const playlistIds =
+    source === "local" && context.metadataSourceAccess?.getLocalCatalogPlaylistIds
+      ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+      : undefined
+
   const result = await withBrowseAuthHandling({
     context,
     roomId,
@@ -208,6 +226,7 @@ export async function browseAlbums(params: {
         query,
         offset,
         limit,
+        ...(playlistIds?.length ? { playlistIds } : {}),
       })
       return {
         ok: true as const,
@@ -239,13 +258,21 @@ export async function browseArtist(params: {
     return { ok: false, message: "artistId is required" }
   }
 
+  const playlistIds =
+    source === "local" && context.metadataSourceAccess?.getLocalCatalogPlaylistIds
+      ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+      : undefined
+
   const result = await withBrowseAuthHandling({
     context,
     roomId,
     source,
     failureMessage: "Failed to browse artist",
     run: async () => {
-      const got = await resolved.metadataSource.api.getArtist!(artistId)
+      const got = await resolved.metadataSource.api.getArtist!(
+        artistId,
+        playlistIds?.length ? { playlistIds } : undefined,
+      )
       if (!got) {
         return { ok: false as const, message: "Artist not found" }
       }
@@ -272,7 +299,7 @@ export async function browseAlbum(params: {
       ok: true
       source: string
       album: MetadataBrowseAlbum
-      tracks: Array<MetadataSourceTrack & { source: string }>
+      tracks: TaggedMetadataSourceTrack[]
     }
   | BrowseFailure
 > {
@@ -284,13 +311,21 @@ export async function browseAlbum(params: {
     return { ok: false, message: "albumId is required" }
   }
 
+  const playlistIds =
+    source === "local" && context.metadataSourceAccess?.getLocalCatalogPlaylistIds
+      ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+      : undefined
+
   const result = await withBrowseAuthHandling({
     context,
     roomId,
     source,
     failureMessage: "Failed to browse album",
     run: async () => {
-      const got = await resolved.metadataSource.api.getAlbum!(albumId)
+      const got = await resolved.metadataSource.api.getAlbum!(
+        albumId,
+        playlistIds?.length ? { playlistIds } : undefined,
+      )
       if (!got) {
         return { ok: false as const, message: "Album not found" }
       }
@@ -307,4 +342,60 @@ export async function browseAlbum(params: {
     },
   })
   return result
+}
+
+export async function browseMediaItem(params: {
+  context: AppContext
+  roomId: string
+  userId: string
+  mediaKey: string
+}): Promise<
+  | {
+      ok: true
+      source: "local"
+      mediaKey: string
+      name: string
+      tracks: TaggedMetadataSourceTrack[]
+    }
+  | BrowseFailure
+> {
+  const { context, roomId, userId, mediaKey } = params
+  const key = mediaKey?.trim() ?? ""
+  if (!key) {
+    return { ok: false, message: "mediaKey is required" }
+  }
+
+  if (context.metadataSourceAccess) {
+    const allowed = await context.metadataSourceAccess.canAccess({
+      roomId,
+      userId,
+      sourceId: "local",
+      action: "search",
+    })
+    if (!allowed) {
+      return { ok: false, message: "You do not have access to this metadata source" }
+    }
+  }
+
+  const resolved = context.pluginRegistry?.resolvePhysicalMediaItem
+    ? await context.pluginRegistry.resolvePhysicalMediaItem({ roomId, userId, mediaKey: key })
+    : null
+  if (!resolved) {
+    return { ok: false, message: "You don't have that item" }
+  }
+
+  const listed = await fetchResolvedMediaItemTracks({
+    roomId,
+    playlistId: resolved.playlistId,
+    logLabel: "browseMediaItem",
+  })
+  if (!listed.ok) return listed
+
+  return {
+    ok: true,
+    source: "local",
+    mediaKey: resolved.item.mediaKey,
+    name: resolved.item.name,
+    tracks: listed.tracks,
+  }
 }

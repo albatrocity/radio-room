@@ -37,6 +37,10 @@ export interface PluginConfigFormProps {
   onConfigImportSuccess?: (message: string) => void
   /** Optional override for composite-template component parts. Defaults to an emoji renderer. */
   renderTemplateComponent?: (name: string, props: Record<string, string>, key: string) => React.ReactNode
+  /** Host loader for `remote-select` fields (`meta.remoteSource`). */
+  loadRemoteOptions?: (
+    remoteSource: string,
+  ) => Promise<{ value: string; label: string }[]>
 }
 
 export type { ApplyConfigImportFn }
@@ -121,6 +125,7 @@ export function PluginConfigForm({
   onConfigImportError,
   onConfigImportSuccess,
   renderTemplateComponent = defaultTemplateComponent,
+  loadRemoteOptions,
 }: PluginConfigFormProps) {
   const effectiveValues = allValues || values
 
@@ -133,7 +138,14 @@ export function PluginConfigForm({
           if (!shouldShow(meta.showWhen, effectiveValues)) return null
           return (
             <Field.Root key={item}>
-              {renderField(item, meta, values[item], (value) => onChange(item, value), schema.jsonSchema)}
+              {renderField(
+                item,
+                meta,
+                values[item],
+                (value) => onChange(item, value),
+                schema.jsonSchema,
+                loadRemoteOptions,
+              )}
               {meta.description && <Field.HelperText>{meta.description}</Field.HelperText>}
             </Field.Root>
           )

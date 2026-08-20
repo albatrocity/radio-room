@@ -7,6 +7,9 @@
 
 import { createActor } from "xstate"
 import { modalsMachine, Event as ModalsEvent } from "../machines/modalsMachine"
+import { GAME_STATE_DEFAULT_TAB } from "../machines/gameStateNavMachine"
+import type { GameStateDetailFrame } from "../types/GameStateDetail"
+import { gameStateNavActor } from "./gameStateNavActor"
 
 // ============================================================================
 // Actor Instance
@@ -56,4 +59,22 @@ export function sendModalsEvent(event: ModalsEvent): void {
  */
 export function closeModal(): void {
   modalsActor.send({ type: "CLOSE" })
+}
+
+/**
+ * Open Game State on an item detail frame (ADR 0104/0106).
+ *
+ * The frame goes to the nav actor first so it is already in place when the
+ * modal mounts.
+ */
+export function openGameStateItemDetail(params: {
+  tabId?: string
+  frame: GameStateDetailFrame
+}): void {
+  gameStateNavActor.send({
+    type: "OPEN_DETAIL_ON_TAB",
+    tabId: params.tabId?.trim() || GAME_STATE_DEFAULT_TAB,
+    frame: params.frame,
+  })
+  modalsActor.send({ type: "VIEW_GAME_STATE" })
 }

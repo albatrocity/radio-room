@@ -57,6 +57,8 @@ function defaultForField(meta: PluginFieldMeta): unknown {
     case "checkbox-group":
     case "object-array":
       return []
+    case "enum":
+      return meta.options?.[0]?.value ?? ""
     default:
       return ""
   }

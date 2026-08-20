@@ -31,6 +31,13 @@ export type HeldQueueTrack = {
   heldAt: number
 }
 
+/** Bookmark of the last recorded live enqueue, used to rewind auto-advance on undo (ADR 0101). */
+export type RoundRobinLastTurn = {
+  userId: string
+  completedRound: number
+  roundAdvanced: boolean
+}
+
 export type RoundRobinPhase = "open" | "locked" | "roundComplete"
 
 export interface RoundRobinState {
@@ -45,6 +52,7 @@ export interface RoundRobinState {
   adminForcedUserId: string | null
   round: number
   orderLocked: boolean
+  lastTurn?: RoundRobinLastTurn
 }
 
 export const STATE_KEY = "state"

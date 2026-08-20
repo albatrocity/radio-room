@@ -788,7 +788,7 @@ describe("DJService", () => {
 
       const result = await djService.searchForTrack(mockMetadataSource, "test query")
 
-      expect(mockMetadataSource.api.search).toHaveBeenCalledWith("test query")
+      expect(mockMetadataSource.api.search).toHaveBeenCalledWith("test query", undefined)
 
       expect(result).toEqual({
         success: true,
@@ -807,7 +807,7 @@ describe("DJService", () => {
 
       const result = await djService.searchForTrack(mockMetadataSource, "test query")
 
-      expect(mockMetadataSource.api.search).toHaveBeenCalledWith("test query")
+      expect(mockMetadataSource.api.search).toHaveBeenCalledWith("test query", undefined)
 
       expect(result).toEqual({
         success: false,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
 import { HStack, ScrollArea, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
 import type {
   GameAttributeName,
@@ -18,6 +18,9 @@ import {
   refreshUserGameState,
   useIsAdmin,
   useAdminListenerSend,
+  useGameStateActiveTab,
+  useGameStateDetailFrame,
+  useGameStateNavSend,
 } from "../../hooks/useActors"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
@@ -32,6 +35,7 @@ import StoredItemsTab from "./GameState/StoredItemsTab"
 import AdminListenersTab from "./GameState/AdminListenersTab"
 import { UserModifiersList } from "../UserModifiersList"
 import ScrollShadowViewport from "../ScrollShadowViewport"
+import GameStateItemDetail, { GameStateDetailBreadcrumb } from "./GameState/GameStateItemDetail"
 
 function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
@@ -50,13 +54,190 @@ const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
 const EMPTY_ITEM_DEFINITIONS: ItemDefinition[] = []
 const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
 
+function resolveDefinition(
+  frame: { definitionId?: string; shortId: string },
+  definitionMap: Map<string, ItemDefinition>,
+  definitions: ItemDefinition[],
+): ItemDefinition | undefined {
+  if (frame.definitionId) {
+    const byId = definitionMap.get(frame.definitionId)
+    if (byId) return byId
+  }
+  return definitions.find((d) => d.shortId === frame.shortId)
+}
+
+type TabsBodyProps = {
+  gameStateTab: string
+  setGameStateTab: (v: string) => void
+  pluginTabs: ReturnType<typeof useGameStateNewPluginTabs>["pluginTabs"]
+  unseenPluginTabIds: ReadonlySet<string>
+  markPluginTabViewed: (id: string) => void
+  showStoredTab: boolean
+  isAdmin: boolean
+  enabledAttributes: GameAttributeName[]
+  attributes: Record<GameAttributeName, number>
+  inventoryEnabled: boolean
+  inventoryItems: InventoryItem[]
+  maxSlots: number
+  maxCollectionSlots: number
+  definitionMap: Map<string, ItemDefinition>
+  itemDefinitions: ItemDefinition[]
+  storedArtifacts: StoredArtifactPublic[]
+  refreshStoredArtifacts: () => void
+  tabScrollRef: RefObject<HTMLDivElement | null>
+}
+
+function GameStateTabsBody({
+  gameStateTab,
+  setGameStateTab,
+  pluginTabs,
+  unseenPluginTabIds,
+  markPluginTabViewed,
+  showStoredTab,
+  isAdmin,
+  enabledAttributes,
+  attributes,
+  inventoryEnabled,
+  inventoryItems,
+  maxSlots,
+  maxCollectionSlots,
+  definitionMap,
+  itemDefinitions,
+  storedArtifacts,
+  refreshStoredArtifacts,
+  tabScrollRef,
+}: TabsBodyProps) {
+  const sendNav = useGameStateNavSend()
+  const currentFrame = useGameStateDetailFrame()
+
+  const tabLabel = useMemo(() => {
+    if (gameStateTab === "inventory") return "Inventory"
+    if (gameStateTab === "stored") return "Stored Items"
+    if (gameStateTab === ADMIN_LISTENERS_TAB) return "Big Brother"
+    return pluginTabs.find((t) => t.id === gameStateTab)?.label ?? "Back"
+  }, [gameStateTab, pluginTabs])
+
+  const detailDefinition = currentFrame
+    ? resolveDefinition(currentFrame, definitionMap, itemDefinitions)
+    : undefined
+
+  // Bound to each trigger's click as well as `onValueChange`, which does not
+  // fire for the tab already selected — that click is how a viewer leaves a
+  // detail frame by tapping the tab they are on.
+  const selectTab = (tabId: string) => {
+    setGameStateTab(tabId)
+    if (pluginTabs.some((t) => t.id === tabId)) {
+      markPluginTabViewed(tabId)
+    }
+  }
+
+  return (
+    <Tabs.Root
+      value={gameStateTab}
+      onValueChange={(d) => selectTab(d.value)}
+      variant="line"
+      colorPalette="action"
+    >
+      <ScrollArea.Root width="full" size="xs">
+        <ScrollShadowViewport
+          ref={tabScrollRef as RefObject<HTMLDivElement>}
+          orientation="horizontal"
+        >
+          <ScrollArea.Content>
+            <Tabs.List flexWrap="nowrap">
+              <Tabs.Trigger
+                value="inventory"
+                flexWrap="nowrap"
+                onClick={() => selectTab("inventory")}
+              >
+                {PACKAGE_ICON ? <SvgIcon icon={PACKAGE_ICON} mr={1} /> : null}
+                Inventory
+              </Tabs.Trigger>
+              {showStoredTab ? (
+                <Tabs.Trigger
+                  value="stored"
+                  whiteSpace="nowrap"
+                  onClick={() => selectTab("stored")}
+                >
+                  {STORED_ICON ? <SvgIcon icon={STORED_ICON} mr={1} /> : null}
+                  Stored Items
+                </Tabs.Trigger>
+              ) : null}
+              <GameStatePluginTabTriggers
+                tabs={pluginTabs}
+                unseenTabIds={unseenPluginTabIds}
+                onSelect={selectTab}
+              />
+              {isAdmin ? (
+                <Tabs.Trigger
+                  value={ADMIN_LISTENERS_TAB}
+                  whiteSpace="nowrap"
+                  onClick={() => selectTab(ADMIN_LISTENERS_TAB)}
+                >
+                  {EYE_ICON ? <SvgIcon icon={EYE_ICON} mr={1} /> : null}
+                  Big Brother
+                </Tabs.Trigger>
+              ) : null}
+            </Tabs.List>
+          </ScrollArea.Content>
+        </ScrollShadowViewport>
+        <ScrollArea.Scrollbar orientation="horizontal" />
+      </ScrollArea.Root>
+
+      {currentFrame ? (
+        <Stack gap={4}>
+          <GameStateDetailBreadcrumb
+            tabLabel={tabLabel}
+            detailTitle={detailDefinition?.name ?? currentFrame.title}
+            onBack={() => sendNav({ type: "POP_TO_INDEX" })}
+          />
+          <GameStateItemDetail frame={currentFrame} definition={detailDefinition} />
+        </Stack>
+      ) : (
+        <>
+          <Tabs.Content value="inventory">
+            <GameStateInventoryContent
+              enabledAttributes={enabledAttributes}
+              attributes={attributes}
+              inventoryEnabled={inventoryEnabled}
+              inventoryItems={inventoryItems}
+              maxSlots={maxSlots}
+              maxCollectionSlots={maxCollectionSlots}
+              definitionMap={definitionMap}
+            />
+          </Tabs.Content>
+
+          {showStoredTab ? (
+            <Tabs.Content value="stored">
+              <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
+            </Tabs.Content>
+          ) : null}
+
+          <GameStatePluginTabContents tabs={pluginTabs} />
+
+          {isAdmin ? (
+            <Tabs.Content value={ADMIN_LISTENERS_TAB}>
+              <AdminListenersTab />
+            </Tabs.Content>
+          ) : null}
+        </>
+      )}
+    </Tabs.Root>
+  )
+}
+
 function ModalUserGameState() {
   const modalSend = useModalsSend()
   const isOpen = useIsModalOpen("gameState")
   const isAdmin = useIsAdmin()
   const sendAdminListener = useAdminListenerSend()
   const { pluginTabs, unseenPluginTabIds, markPluginTabViewed } = useGameStateNewPluginTabs()
-  const [gameStateTab, setGameStateTab] = useState("inventory")
+  const sendNav = useGameStateNavSend()
+  const gameStateTab = useGameStateActiveTab()
+  const setGameStateTab = useCallback(
+    (tabId: string) => sendNav({ type: "SET_ACTIVE_TAB", tabId }),
+    [sendNav],
+  )
   const tabScrollRef = useRef<HTMLDivElement>(null)
 
   const payload = useUserGameStatePayload()
@@ -68,6 +249,12 @@ function ModalUserGameState() {
       refreshUserGameState()
     }
   }, [isOpen])
+
+  // Driven by `isOpen` rather than mount/unmount so a Strict Mode double effect
+  // cannot deactivate over a frame a deep-link just queued.
+  useEffect(() => {
+    sendNav({ type: isOpen ? "ACTIVATE" : "DEACTIVATE" })
+  }, [isOpen, sendNav])
 
   useEffect(() => {
     if (isOpen && isAdmin && gameStateTab === ADMIN_LISTENERS_TAB) {
@@ -99,6 +286,7 @@ function ModalUserGameState() {
   const inventoryItems =
     rawInventoryItems && rawInventoryItems.length > 0 ? rawInventoryItems : EMPTY_INVENTORY_ITEMS
   const maxSlots = payload?.inventory?.maxSlots ?? 0
+  const maxCollectionSlots = payload?.inventory?.maxCollectionSlots ?? 0
 
   const [storedArtifacts, setStoredArtifacts] = useState<StoredArtifactPublic[]>([])
 
@@ -225,73 +413,26 @@ function ModalUserGameState() {
           )}
 
           {!loading && !error && payload?.session && (
-            <Tabs.Root
-              value={gameStateTab}
-              onValueChange={(d) => {
-                const v = d.value
-                setGameStateTab(v)
-                if (pluginTabs.some((t) => t.id === v)) {
-                  markPluginTabViewed(v)
-                }
-              }}
-              variant="line"
-              colorPalette="action"
-            >
-              <ScrollArea.Root width="full" size="xs">
-                <ScrollShadowViewport ref={tabScrollRef} orientation="horizontal">
-                  <ScrollArea.Content>
-                    <Tabs.List flexWrap="nowrap">
-                      <Tabs.Trigger value="inventory" flexWrap="nowrap">
-                        {PACKAGE_ICON ? <SvgIcon icon={PACKAGE_ICON} mr={1} /> : null}
-                        Inventory
-                      </Tabs.Trigger>
-                      {showStoredTab ? (
-                        <Tabs.Trigger value="stored" whiteSpace="nowrap">
-                          {STORED_ICON ? <SvgIcon icon={STORED_ICON} mr={1} /> : null}
-                          Stored Items
-                        </Tabs.Trigger>
-                      ) : null}
-                      <GameStatePluginTabTriggers
-                        tabs={pluginTabs}
-                        unseenTabIds={unseenPluginTabIds}
-                      />
-                      {isAdmin ? (
-                        <Tabs.Trigger value={ADMIN_LISTENERS_TAB} whiteSpace="nowrap">
-                          {EYE_ICON ? <SvgIcon icon={EYE_ICON} mr={1} /> : null}
-                          Big Brother
-                        </Tabs.Trigger>
-                      ) : null}
-                    </Tabs.List>
-                  </ScrollArea.Content>
-                </ScrollShadowViewport>
-                <ScrollArea.Scrollbar orientation="horizontal" />
-              </ScrollArea.Root>
-
-              <Tabs.Content value="inventory">
-                <GameStateInventoryContent
-                  enabledAttributes={enabledAttributes}
-                  attributes={attributes}
-                  inventoryEnabled={inventoryEnabled}
-                  inventoryItems={inventoryItems}
-                  maxSlots={maxSlots}
-                  definitionMap={definitionMap}
-                />
-              </Tabs.Content>
-
-              {showStoredTab ? (
-                <Tabs.Content value="stored">
-                  <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
-                </Tabs.Content>
-              ) : null}
-
-              <GameStatePluginTabContents tabs={pluginTabs} />
-
-              {isAdmin ? (
-                <Tabs.Content value={ADMIN_LISTENERS_TAB}>
-                  <AdminListenersTab />
-                </Tabs.Content>
-              ) : null}
-            </Tabs.Root>
+            <GameStateTabsBody
+              gameStateTab={gameStateTab}
+              setGameStateTab={setGameStateTab}
+              pluginTabs={pluginTabs}
+              unseenPluginTabIds={unseenPluginTabIds}
+              markPluginTabViewed={markPluginTabViewed}
+              showStoredTab={showStoredTab}
+              isAdmin={isAdmin}
+              enabledAttributes={enabledAttributes}
+              attributes={attributes}
+              inventoryEnabled={inventoryEnabled}
+              inventoryItems={inventoryItems}
+              maxSlots={maxSlots}
+              maxCollectionSlots={maxCollectionSlots}
+              definitionMap={definitionMap}
+              itemDefinitions={payload?.itemDefinitions ?? EMPTY_ITEM_DEFINITIONS}
+              storedArtifacts={storedArtifacts}
+              refreshStoredArtifacts={refreshStoredArtifacts}
+              tabScrollRef={tabScrollRef}
+            />
           )}
         </Stack>
       </UserGameStateContext.Provider>

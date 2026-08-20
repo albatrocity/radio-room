@@ -36,7 +36,11 @@ export {
   getCurrentModal,
   sendModalsEvent,
   closeModal,
+  openGameStateItemDetail,
 } from "./modalsActor"
+
+// Game State Nav Actor
+export { gameStateNavActor } from "./gameStateNavActor"
 
 // Theme Actor
 export { themeActor, getCurrentTheme, setTheme } from "./themeActor"
@@ -100,6 +104,15 @@ export {
   changeVolume,
   toggleMute,
 } from "./audioActor"
+
+// Track Preview Actor
+export {
+  trackPreviewActor,
+  toggleTrackPreview,
+  stopTrackPreview,
+  getActivePreviewTrackKey,
+  getTrackPreviewStatusForKey,
+} from "./trackPreviewActor"
 
 // Sound Effects Actor
 export {
@@ -187,6 +200,10 @@ export {
 
 // Quick Access Panels Actor
 export { quickAccessPanelsActor } from "./quickAccessPanelsActor"
+
+// Add to Queue UI Actor
+export { addToQueueUiActor } from "./addToQueueUiActor"
+
 export {
   mediaBridgeActor,
   linkMediaBridge,

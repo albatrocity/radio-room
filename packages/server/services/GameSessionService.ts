@@ -23,6 +23,7 @@ import { DefenseService } from "./DefenseService"
 // ============================================================================
 
 const DEFAULT_INVENTORY_SLOTS = 3
+const DEFAULT_COLLECTION_SLOTS = 12
 
 /**
  * Fill in defaults for an incoming session config. The plan keeps the
@@ -60,6 +61,7 @@ export function buildSessionConfig(
     segmentId: partial.segmentId,
     inventoryEnabled: partial.inventoryEnabled ?? true,
     maxInventorySlots: partial.maxInventorySlots ?? DEFAULT_INVENTORY_SLOTS,
+    maxCollectionSlots: partial.maxCollectionSlots ?? DEFAULT_COLLECTION_SLOTS,
     allowTrading: partial.allowTrading ?? false,
     allowSelling: partial.allowSelling ?? false,
   }

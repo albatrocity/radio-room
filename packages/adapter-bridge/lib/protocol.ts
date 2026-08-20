@@ -20,6 +20,12 @@ export const bridgeRequestSchema = z.object({
     "getArtist",
     "getAlbum",
     "notifyNowPlaying",
+    "checkPlaylistMembership",
+    "listPlaylists",
+    "listPlaylistTracks",
+    "getPlaylistCoverArt",
+    "getTrackPreview",
+    "invalidatePlaylistCache",
   ]),
   params: z.record(z.string(), z.unknown()).default({}),
 })
@@ -76,6 +82,22 @@ export function eventChannel(roomId: string) {
 
 export function presenceKey(roomId: string) {
   return `bridge:${roomId}:presence`
+}
+
+/** Durable CAPABILITIES — pub/sub is missed when the API starts after the daemon. */
+export function capabilitiesKey(roomId: string) {
+  return `bridge:${roomId}:capabilities`
+}
+
+export function parseStoredBridgeCapabilities(raw: string | null | undefined): string[] | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed) || parsed.some((s) => typeof s !== "string")) return null
+    return parsed as string[]
+  } catch {
+    return null
+  }
 }
 
 /** Durable ENDED signal — pub/sub alone is unreliable across Docker/host Redis clients. */

@@ -15,6 +15,7 @@ import {
   useIsAdmin,
   useIsMuted,
   useIsPlaying,
+  useIsPreviewDucked,
   useVolume,
 } from "../hooks/useActors"
 import { useLiveTransport } from "../hooks/useLiveTransport"
@@ -38,6 +39,7 @@ const LivePlayer = ({
   const audioSend = useAudioSend()
   const playing = useIsPlaying()
   const muted = useIsMuted()
+  const previewDucked = useIsPreviewDucked()
   const volume = useVolume()
   const loading = useIsAudioLoading()
   const isAdmin = useIsAdmin()
@@ -53,9 +55,9 @@ const LivePlayer = ({
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = muted ? 0 : volume
+      audioRef.current.volume = muted || previewDucked ? 0 : volume
     }
-  }, [volume, muted, audioRef])
+  }, [volume, muted, previewDucked, audioRef])
 
   useEffect(() => {
     if (!audioRef.current) return

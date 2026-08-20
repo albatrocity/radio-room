@@ -73,6 +73,11 @@ export function createItem<TShortId extends string>(config: {
   /** Item properties (name, description, icon, rarity, etc). */
   definition: ItemDefinitionInput
   /**
+   * Restricted Local library grant (full catalog or playlist-scoped shelf).
+   * See ADR 0098 / Item Shops `localLibraryPlaylists` config.
+   */
+  localLibraryGrant?: ItemCatalogEntry["localLibraryGrant"]
+  /**
    * Called when a user activates this item from inventory.
    * Omit for passive/defense items that only apply via game rules.
    * Use `timedModifierEffect()` for pedal-style timed chat modifiers.
@@ -94,6 +99,7 @@ export function createItem<TShortId extends string>(config: {
     shortId: config.shortId,
     catalogEntry: {
       definition: { shortId: config.shortId, ...config.definition },
+      ...(config.localLibraryGrant ? { localLibraryGrant: config.localLibraryGrant } : {}),
     },
     use: config.use,
     onDefenseTriggered: config.onDefenseTriggered,

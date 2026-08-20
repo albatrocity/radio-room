@@ -55,6 +55,10 @@ export function isMuted(): boolean {
   return audioActor.getSnapshot().matches({ active: { online: { volume: "muted" } } })
 }
 
+export function isPreviewDucked(): boolean {
+  return audioActor.getSnapshot().context.previewDucked
+}
+
 /**
  * Check if audio is online.
  */

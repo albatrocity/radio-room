@@ -8,11 +8,51 @@ import type {
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSourceTrack,
+  PhysicalMediaItem,
 } from "@repo/types"
 
 export const STUB_METADATA_SOURCE_IDS = ["spotify", "local"] as const
 
 export const STUB_BROWSEABLE_SOURCE_IDS = ["local"] as const
+
+/** Inline cover art so the preview works offline, no image store required. */
+export const STUB_MEDIA_ARTWORK =
+  "data:image/svg+xml;utf8," +
+  "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'>" +
+  "<rect width='64' height='64' fill='%23412a5b'/>" +
+  "<circle cx='32' cy='32' r='22' fill='%23111111'/>" +
+  "<circle cx='32' cy='32' r='5' fill='%23e8d6ff'/></svg>"
+
+export const STUB_MY_MEDIA: PhysicalMediaItem[] = [
+  {
+    mediaKey: "pm-studio-lp",
+    name: "LP: Studio Pressing",
+    icon: "Disc3",
+    imageUrl: STUB_MEDIA_ARTWORK,
+    artworkFrame: "record-jacket",
+  },
+  {
+    mediaKey: "pm-studio-cd",
+    name: "CD: Studio Album",
+    icon: "Disc",
+    imageUrl: STUB_MEDIA_ARTWORK,
+    artworkFrame: "jewel-case",
+  },
+  {
+    mediaKey: "pm-studio-45",
+    name: "45: Studio Single",
+    icon: "DiscAlbum",
+    imageUrl: STUB_MEDIA_ARTWORK,
+    artworkFrame: "die-cut-jacket",
+  },
+  {
+    mediaKey: "pm-studio-tape",
+    name: "Cassette: Studio Demo",
+    icon: "CassetteTape",
+    imageUrl: STUB_MEDIA_ARTWORK,
+    artworkFrame: "cassette-case",
+  },
+]
 
 export const STUB_BROWSE_SOURCE_CAPABILITIES: Record<string, MetadataBrowseCapabilities> = {
   local: { entryMode: "index", albumSearch: true },
@@ -70,6 +110,7 @@ export function buildEffectiveMetadataSourcesEvent() {
       metadataSourceIds: [...STUB_METADATA_SOURCE_IDS],
       browseableSourceIds: [...STUB_BROWSEABLE_SOURCE_IDS],
       browseSourceCapabilities: STUB_BROWSE_SOURCE_CAPABILITIES,
+      myMedia: STUB_MY_MEDIA,
     },
   }
 }
@@ -120,6 +161,47 @@ export function stubBrowseAlbum(albumId: string) {
   return {
     type: "BROWSE_ALBUM_RESULTS" as const,
     data: { source: "local", album: stubAlbum, tracks },
+  }
+}
+
+export function stubBrowseMediaItem(mediaKey: string) {
+  const match = STUB_MY_MEDIA.find((s) => s.mediaKey === mediaKey)
+  if (!match) {
+    return {
+      type: "BROWSE_MEDIA_ITEM_FAILURE" as const,
+      data: { message: "You don't have that item" },
+    }
+  }
+  const tracks = stubTracks.map((t) => ({ ...t, source: "local" }))
+  return {
+    type: "BROWSE_MEDIA_ITEM_RESULTS" as const,
+    data: { source: "local", mediaKey: match.mediaKey, name: match.name, tracks },
+  }
+}
+
+export function stubListMediaItemTracks(mediaKey: string) {
+  const match = STUB_MY_MEDIA.find((s) => s.mediaKey === mediaKey)
+  if (!match) {
+    return {
+      type: "LIST_MEDIA_ITEM_TRACKS_FAILURE" as const,
+      data: { message: "You can't preview that item" },
+    }
+  }
+  const tracks = stubTracks.map((t) => ({ ...t, source: "local" }))
+  return {
+    type: "LIST_MEDIA_ITEM_TRACKS_RESULTS" as const,
+    data: { mediaKey: match.mediaKey, name: match.name, tracks },
+  }
+}
+
+export function stubGetTrackPreview() {
+  return {
+    type: "GET_TRACK_PREVIEW_RESULTS" as const,
+    data: {
+      url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+      durationMs: 15000,
+      cached: false,
+    },
   }
 }
 

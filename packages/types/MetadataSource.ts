@@ -55,6 +55,20 @@ export const metadataSourceTrackSchema = metadataSourceExternalResourceSchema.ex
 })
 export type MetadataSourceTrack = z.infer<typeof metadataSourceTrackSchema>
 
+/**
+ * A track tagged with the metadata source that returned it (`"spotify"`,
+ * `"local"`, …). Search and browse merge several sources into one list, and the
+ * tag drives badges, preview keys, and dedupe downstream.
+ *
+ * `source` is optional because a row can reach the client untagged — the schema
+ * itself has no such field. Use {@link TaggedMetadataSourceTrack} where the
+ * producer always applies the tag.
+ */
+export type MetadataSourceTrackWithSource = MetadataSourceTrack & { source?: string }
+
+/** A track whose producer guarantees the source tag (e.g. server operations). */
+export type TaggedMetadataSourceTrack = MetadataSourceTrack & { source: string }
+
 // =============================================================================
 // MetadataSource Lifecycle Callbacks (not schema-based)
 // =============================================================================
@@ -117,6 +131,11 @@ export type MetadataListArtistsParams = {
   query?: string
   offset?: number
   limit?: number
+  /**
+   * When set, Local/bridge catalog ops restrict to the union of these Navidrome
+   * playlist ids (invisible shelf grants). Omitted = full library (ADR 0098).
+   */
+  playlistIds?: string[]
 }
 
 export type MetadataListArtistsResult = {
@@ -151,10 +170,34 @@ export type MetadataBrowseCapabilities = {
   albumSearch: boolean
 }
 
+import type { ArtworkFrame } from "./Inventory"
+
+/**
+ * A held Physical Media item in Add to Queue. `mediaKey` is the inventory
+ * shortId (never a Navidrome playlist id — ADR 0099).
+ */
+export type PhysicalMediaItem = {
+  mediaKey: string
+  name: string
+  icon?: string
+  /** Cover artwork URL, preferred over `icon` when present. Row-sized (~384px). */
+  imageUrl?: string
+  /** Feature-sized (~1200px) cover; omitted when the record has no large variant. */
+  imageUrlLarge?: string
+  /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
+  artworkFrame?: ArtworkFrame
+}
+
 export interface MetadataSourceApi {
-  search: (query: string) => Promise<MetadataSourceTrack[]>
+  search: (
+    query: string,
+    options?: { playlistIds?: string[] },
+  ) => Promise<MetadataSourceTrack[]>
   searchByParams: (params: MetadataSourceSearchParameters) => Promise<MetadataSourceTrack[]>
-  findById: (id: string) => Promise<MetadataSourceTrack | null>
+  findById: (
+    id: string,
+    options?: { playlistIds?: string[] },
+  ) => Promise<MetadataSourceTrack | null>
   createPlaylist?: (params: {
     title: string
     trackIds: MetadataSourceTrack["id"][]
@@ -172,8 +215,14 @@ export interface MetadataSourceApi {
   /** Optional catalog browse: Artists → Albums → Tracks (ADR 0089 / 0090). */
   listArtists?: (params?: MetadataListArtistsParams) => Promise<MetadataListArtistsResult>
   listAlbums?: (params?: MetadataListAlbumsParams) => Promise<MetadataListAlbumsResult>
-  getArtist?: (artistId: string) => Promise<MetadataGetArtistResult | null>
-  getAlbum?: (albumId: string) => Promise<MetadataGetAlbumResult | null>
+  getArtist?: (
+    artistId: string,
+    options?: { playlistIds?: string[] },
+  ) => Promise<MetadataGetArtistResult | null>
+  getAlbum?: (
+    albumId: string,
+    options?: { playlistIds?: string[] },
+  ) => Promise<MetadataGetAlbumResult | null>
   getBrowseCapabilities?: () => MetadataBrowseCapabilities
 }
 

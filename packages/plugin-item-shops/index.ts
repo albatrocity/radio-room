@@ -14,11 +14,18 @@ import {
   type ItemDefinition,
   type ItemSellResult,
   type ItemUseResult,
+  type MetadataSourceAccessGrantParams,
+  type MetadataSourceAccessGrantResult,
+  type PhysicalMediaItem,
   type Plugin,
   type PluginActionInitiator,
+  type PluginAugmentationData,
   type PluginComponentSchema,
   type PluginConfigSchema,
   type InventoryItem,
+  type QueueItem,
+  type QueueValidationParams,
+  type QueueValidationResult,
   type ShoppingSessionInstance,
   type SystemEventPayload,
 } from "@repo/types"
@@ -30,16 +37,44 @@ import {
   ITEM_DEFENSE_TRIGGERED_BEHAVIORS,
   ITEM_SELLBACK_VALUE_BEHAVIORS,
   TEXT_EFFECT_KINDS,
+  items,
 } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
+import { buildEffectiveShopCatalog } from "./localLibrary/catalog"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
+import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
+import {
+  itemDefinitionAuthoringFieldMetas,
+  LOCAL_LIBRARY_GRANT_USE_MESSAGE,
+} from "./catalogFromConfig"
+import { isLocalLibraryGrantShortId } from "./localLibraryGrants"
+import { LocalLibraryModule } from "./localLibrary"
+import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
 
-function getEligibleShops(config: ItemShopsConfig): ItemShopsShopCatalogEntry[] {
-  const knownIds = new Set(SHOP_CATALOG.map((s) => s.shopId))
+/**
+ * Shops eligible for random assignment. `playbackControllerId` drops shops that
+ * declare `requiresPlaybackControllerId` when the room controller does not match.
+ */
+export function getEligibleShops(
+  config: ItemShopsConfig,
+  playbackControllerId?: string | null,
+  derivedPhysicalMedia: readonly ItemCatalogEntry[] = [],
+): ItemShopsShopCatalogEntry[] {
+  const shopCatalog = buildEffectiveShopCatalog(
+    config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,
+    derivedPhysicalMedia,
+  )
+  const knownIds = new Set(shopCatalog.map((s) => s.shopId))
   const selected = new Set(config.enabledShopIds.filter((id) => knownIds.has(id)))
-  return SHOP_CATALOG.filter((s) => selected.has(s.shopId))
+  return shopCatalog.filter((s) => {
+    if (!selected.has(s.shopId)) return false
+    if (s.requiresPlaybackControllerId && s.requiresPlaybackControllerId !== playbackControllerId) {
+      return false
+    }
+    return true
+  })
 }
 
 export type { ItemShopsConfig } from "./types"
@@ -57,15 +92,55 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private shopping!: ShoppingSessionHelper
 
+  private readonly localLibrary = new LocalLibraryModule(PLUGIN_NAME, () => this.context ?? undefined)
+
+  /** Static + config + derived grant catalog. */
+  private get grantCatalog(): ItemCatalogEntry[] {
+    return this.localLibrary.grantCatalog
+  }
+
   /** Per-shop state stores for `onBuy` callbacks (keyed by shopId, then by arbitrary key). */
   private shopStateStores = new Map<string, Map<string, unknown>>()
 
   async register(context: import("@repo/types").PluginContext): Promise<void> {
     await super.register(context)
-    this.shopping = new ShoppingSessionHelper(this.name, context, ITEM_CATALOG, SHOP_CATALOG)
-    this.context!.inventory.registerItemDefinitions(ITEM_CATALOG.map((e) => e.definition))
+    const config = await this.getConfig()
+    await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [])
+    const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
+    const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
+    this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog)
+    this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
+    this.on("MEDIA_BRIDGE_STATUS_CHANGED", this.handleMediaBridgeStatusChanged.bind(this))
+    this.onConfigChange(async () => {
+      await this.applyLocalLibraryGrantConfig()
+    })
+  }
+
+  private async handleMediaBridgeStatusChanged(): Promise<void> {
+    await this.applyLocalLibraryGrantConfig()
+  }
+
+  private async applyLocalLibraryGrantConfig(): Promise<void> {
+    if (!this.context || !this.shopping) return
+    const config = await this.getConfig()
+    await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [])
+    const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
+    const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
+    this.shopping.replaceCatalogs({ itemCatalog, shopCatalog })
+    this.context.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
+  }
+
+  private effectiveCatalogForGive(): ItemCatalogEntry[] {
+    const seen = new Set<string>()
+    const out: ItemCatalogEntry[] = []
+    for (const e of [...ITEM_CATALOG, ...this.grantCatalog]) {
+      if (seen.has(e.definition.shortId)) continue
+      seen.add(e.definition.shortId)
+      out.push(e)
+    }
+    return out
   }
 
   private async handleGameSessionEnded(
@@ -264,11 +339,22 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     // Skip if user already has an assignment (e.g. page refresh during session)
     const existing = await this.shopping.getInstance(data.user.userId)
     if (existing) return
-    const eligible = getEligibleShops(config)
+    const eligible = await this.resolveEligibleShops(config)
     if (eligible.length === 0) return
     await this.shopping.assignInstanceForUserId(data.user.userId, Date.now(), eligible)
     await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
     await this.requestShopTabAttention(data.user.userId)
+  }
+
+  private async resolveEligibleShops(
+    config: ItemShopsConfig,
+  ): Promise<ItemShopsShopCatalogEntry[]> {
+    const room = await this.context!.getRoom()
+    return getEligibleShops(
+      config,
+      room?.playbackControllerId,
+      this.localLibrary.derivedPhysicalMedia,
+    )
   }
 
   /** Badge the Item Shop game-state tab until the user opens it. */
@@ -307,9 +393,18 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             "Defines master items and shops in code. Start a shopping session to give each listener a random shop with 3 weighted offers. Items expire when the game session ends.",
           variant: "info",
         },
+        {
+          type: "text-block",
+          content:
+            "Record Store (Physical Media) only appears in Media Bridge rooms. Prefix Navidrome playlists with [CD], [LP], [TAPE], or [45] to stock it. Set Library to “Admins + plugin grants only” under Content → Media sources if you want Local access to flow through held items.",
+          variant: "info",
+        },
         "enabled",
         "enabledShopIds",
         "assignShopOnJoin",
+        "showPhysicalMediaFrameInNowPlaying",
+        "localLibraryGrants",
+        "physicalMediaOverrides",
         {
           type: "action",
           action: "startShoppingSession",
@@ -330,7 +425,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
               label: "Item",
               type: "select",
               required: true,
-              options: ITEM_CATALOG.map((e) => ({
+              options: this.effectiveCatalogForGive().map((e) => ({
                 value: e.definition.shortId,
                 label: e.definition.name,
               })),
@@ -353,6 +448,16 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           confirmText: "End all",
           showWhen: { field: "enabled", value: true },
         },
+        {
+          type: "action",
+          action: "refreshLocalLibrary",
+          label: "Refresh local library",
+          variant: "outline",
+          confirmMessage:
+            "Clear the Media Bridge playlist cache so the next browse/search reloads from Navidrome?",
+          confirmText: "Refresh",
+          showWhen: { field: "enabled", value: true },
+        },
       ],
       fieldMeta: {
         enabled: {
@@ -366,7 +471,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           label: "Shops in rotation",
           description:
             "Only checked shops are eligible when randomly assigning a shop for a shopping session.",
-          options: SHOP_CATALOG.map((s) => ({ value: s.shopId, label: s.name })),
+          options: [
+            ...SHOP_CATALOG.map((s) => ({ value: s.shopId, label: s.name })),
+            { value: "record-store", label: "Record Store" },
+          ],
           showWhen: { field: "enabled", value: true },
         },
         assignShopOnJoin: {
@@ -376,8 +484,101 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             "If a shopping round is active, give late joiners their own random shop instance.",
           showWhen: { field: "enabled", value: true },
         },
+        showPhysicalMediaFrameInNowPlaying: {
+          type: "boolean",
+          label: "Show Physical Media sleeves in the room",
+          description:
+            "When a Local track lives on a derived record (LP, CD, cassette, or 45), Now Playing, the Queue, and the Playlist use that sleeve or case. If the record has no cover, the track's album art fills the frame.",
+          showWhen: { field: "enabled", value: true },
+        },
+        localLibraryGrants: {
+          type: "object-array",
+          label: "Extra local library grants",
+          description:
+            "Optional extra SKUs beyond derived Physical Media. Playlist shelves need a Navidrome playlist id.",
+          itemLabel: "Grant",
+          showWhen: { field: "enabled", value: true },
+          itemFields: [
+            ...itemDefinitionAuthoringFieldMetas(),
+            {
+              name: "scope",
+              meta: {
+                type: "enum",
+                label: "Access scope",
+                options: [
+                  { value: "playlist", label: "Playlist shelf" },
+                  { value: "library", label: "Full library" },
+                ],
+              },
+            },
+            {
+              name: "redemption",
+              meta: {
+                type: "enum",
+                label: "Redemption",
+                options: [
+                  { value: "perQueue", label: "Per queue (consumable)" },
+                  { value: "durable", label: "Durable (session collection)" },
+                ],
+              },
+            },
+            {
+              name: "playlistId",
+              meta: {
+                type: "remote-select",
+                label: "Navidrome playlist",
+                description: "Required for playlist shelves. Loaded from the Media Bridge when connected.",
+                remoteSource: "bridgeLocalPlaylists",
+                showWhen: { field: "scope", value: "playlist" },
+              },
+            },
+          ],
+        },
+        physicalMediaOverrides: {
+          type: "object-array",
+          label: "Physical Media overrides",
+          description:
+            "Optional name/price/rarity/icon overrides for derived Record Store items, keyed by Navidrome playlist id. Use Blank disc for jewel-case CDs without a real sleeve.",
+          itemLabel: "Override",
+          showWhen: { field: "enabled", value: true },
+          itemFields: [
+            {
+              name: "playlistId",
+              meta: {
+                type: "remote-select",
+                label: "Navidrome playlist",
+                remoteSource: "bridgeLocalPlaylists",
+              },
+            },
+            { name: "name", meta: { type: "string", label: "Display name" } },
+            { name: "coinValue", meta: { type: "number", label: "Shop price (coins)" } },
+            {
+              name: "rarity",
+              meta: {
+                type: "enum",
+                label: "Rarity",
+                options: [
+                  { value: "common", label: "Common" },
+                  { value: "uncommon", label: "Uncommon" },
+                  { value: "rare", label: "Rare" },
+                  { value: "legendary", label: "Legendary" },
+                ],
+              },
+            },
+            { name: "icon", meta: { type: "string", label: "Icon (Lucide)" } },
+            {
+              name: "blankDisc",
+              meta: {
+                type: "boolean",
+                label: "Blank disc",
+                description:
+                  "Ignore Navidrome playlist art and show the title hand-lettered on the CD (jewel case only).",
+              },
+            },
+          ],
+        },
       },
-      quickAccess: ["startShoppingSession", "endShoppingSessions"],
+      quickAccess: ["startShoppingSession", "endShoppingSessions", "refreshLocalLibrary"],
     }
   }
 
@@ -425,14 +626,23 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!itemShortId || !userIdParam) {
         return { success: false, message: "Select an item and recipient." }
       }
-      const known = ITEM_CATALOG.some((e) => e.definition.shortId === itemShortId)
+      const known = this.effectiveCatalogForGive().some((e) => e.definition.shortId === itemShortId)
       if (!known) {
         return { success: false, message: `Unknown item: ${itemShortId}` }
       }
+      if (this.localLibrary.isGrantShortId(itemShortId)) {
+        const room = await this.context.getRoom()
+        if (room?.playbackControllerId !== "bridge") {
+          return {
+            success: false,
+            message: "Local library grant items can only be given in Media Bridge rooms.",
+          }
+        }
+      }
       const defId = this.shopping.getDefinitionId(itemShortId)
       const itemName =
-        ITEM_CATALOG.find((e) => e.definition.shortId === itemShortId)?.definition.name ??
-        itemShortId
+        this.effectiveCatalogForGive().find((e) => e.definition.shortId === itemShortId)?.definition
+          .name ?? itemShortId
 
       if (userIdParam === "__all__") {
         const users = await this.context.api.getUsers(this.context.roomId)
@@ -477,7 +687,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
       }
-      const eligible = getEligibleShops(config)
+      const eligible = await this.resolveEligibleShops(config)
       if (eligible.length === 0) {
         return {
           success: false,
@@ -503,6 +713,20 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
       return { success: true, message: "All shopping sessions ended." }
     }
+    if (action === "refreshLocalLibrary") {
+      const room = await this.context.getRoom()
+      if (room?.playbackControllerId !== "bridge") {
+        return {
+          success: false,
+          message: "Refresh local library is only available in Media Bridge rooms.",
+        }
+      }
+      const ok = await this.context.api.invalidateLocalLibraryCache(this.context.roomId)
+      await this.applyLocalLibraryGrantConfig()
+      return ok
+        ? { success: true, message: "Local library cache cleared and Record Store restocked from Navidrome." }
+        : { success: false, message: "Could not reach the Media Bridge to refresh the library." }
+    }
     /** Game Studio / sandbox: assign shops to users who joined before the shopping round (same rules as USER_JOINED). */
     if (action === "replayShopAssignmentsForExistingUsers") {
       if (!config?.enabled) {
@@ -521,7 +745,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Start a shopping round first (toolbar → Start shopping).",
         }
       }
-      const eligible = getEligibleShops(config)
+      const eligible = await this.resolveEligibleShops(config)
       if (eligible.length === 0) {
         return {
           success: false,
@@ -599,6 +823,13 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
     const handler = ITEM_USE_BEHAVIORS[definition.shortId]
     if (!handler) {
+      if (isLocalLibraryGrantShortId(definition.shortId, this.grantCatalog)) {
+        return {
+          success: false,
+          consumed: false,
+          message: LOCAL_LIBRARY_GRANT_USE_MESSAGE,
+        }
+      }
       return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
     }
 
@@ -613,6 +844,106 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       definition,
       callContext,
     )
+  }
+
+  async grantMetadataSourceAccess(
+    params: MetadataSourceAccessGrantParams,
+  ): Promise<MetadataSourceAccessGrantResult> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    return this.localLibrary.grantMetadataSourceAccess(params, config)
+  }
+
+  /**
+   * Catalog filter for restricted Local search/browse (ADR 0098).
+   * `unrestricted` = full library; `playlists` = Navidrome playlist id union.
+   */
+  async resolveLocalLibraryCatalogFilter(params: {
+    roomId: string
+    userId: string
+  }): Promise<
+    | { mode: "unrestricted" }
+    | { mode: "playlists"; playlistIds: string[] }
+    | "abstain"
+  > {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    return this.localLibrary.resolveLocalLibraryCatalogFilter({
+      ...params,
+      enabled: config.enabled,
+      grants: config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,
+    })
+  }
+
+  async listPhysicalMediaItems(params: { roomId: string; userId: string }): Promise<PhysicalMediaItem[]> {
+    return this.localLibrary.listPhysicalMediaItems(params.userId)
+  }
+
+  async resolvePhysicalMediaItem(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    return this.localLibrary.resolveHeldPhysicalMediaItem(
+      params.userId,
+      params.mediaKey,
+      config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,
+    )
+  }
+
+  async resolvePreviewableMediaItem(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
+    let shopOfferShortIds: string[] | undefined
+    if (this.shopping && (await this.shopping.isActive())) {
+      const inst = await this.shopping.getInstance(params.userId)
+      if (inst) {
+        shopOfferShortIds = inst.offers.map((o) => o.shortId)
+      }
+    }
+    return this.localLibrary.resolvePreviewablePhysicalMediaItem(
+      params.userId,
+      params.mediaKey,
+      grants,
+      shopOfferShortIds,
+    )
+  }
+
+  async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    return this.localLibrary.validateQueueRequest(params, config)
+  }
+
+  private async augmentPhysicalMediaFrames(
+    items: QueueItem[],
+  ): Promise<PluginAugmentationData[]> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    if (!config.enabled || items.length === 0) return items.map(() => ({}))
+
+    const localIds = items.map((item) =>
+      item.mediaSource?.type === "local" ? (item.mediaSource.trackId?.trim() ?? "") : "",
+    )
+    const frames = await this.localLibrary.resolveNowPlayingFrames(localIds.filter(Boolean))
+    return localIds.map((id) => {
+      const physicalMediaFrame = id ? frames.get(id) : undefined
+      return physicalMediaFrame ? { physicalMediaFrame } : {}
+    })
+  }
+
+  async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
+    const [augmentation] = await this.augmentPhysicalMediaFrames([item])
+    return augmentation ?? {}
+  }
+
+  async augmentQueueBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+    return this.augmentPhysicalMediaFrames(items)
+  }
+
+  async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
+    return this.augmentPhysicalMediaFrames(items)
   }
 
   async getSellbackValues(

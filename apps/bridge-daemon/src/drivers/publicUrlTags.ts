@@ -43,6 +43,17 @@ function setCandidate(out: PublicUrlCandidates, token: PublicUrlTagToken, value:
   if (isValidPublicHttpUrl(value)) out[token] = value.trim()
 }
 
+const EMBEDDED_HTTP_URL_RE = /https?:\/\/[^\s<>"')\]]+/gi
+
+function firstEmbeddedPublicHttpUrl(text: string | undefined): string | undefined {
+  if (!text) return undefined
+  for (const match of text.matchAll(EMBEDDED_HTTP_URL_RE)) {
+    const url = match[0]?.trim()
+    if (isValidPublicHttpUrl(url)) return url
+  }
+  return undefined
+}
+
 function collectFromNative(metadata: IAudioMetadata, out: PublicUrlCandidates) {
   for (const tags of Object.values(metadata.native ?? {})) {
     if (!Array.isArray(tags)) continue
@@ -78,9 +89,7 @@ function collectFromCommon(metadata: IAudioMetadata, out: PublicUrlCandidates) {
       ? metadata.common.comment.map((c) => (typeof c === "string" ? c : (c as { text?: string })?.text))
       : [metadata.common?.comment]),
   )
-  if (comment && isValidPublicHttpUrl(comment)) {
-    setCandidate(out, "comment", comment)
-  }
+  setCandidate(out, "comment", firstEmbeddedPublicHttpUrl(comment))
 }
 
 export function collectPublicUrlCandidates(params: {
@@ -94,10 +103,7 @@ export function collectPublicUrlCandidates(params: {
     collectFromCommon(params.metadata, out)
   }
 
-  const apiComment = params.comment?.trim()
-  if (apiComment && isValidPublicHttpUrl(apiComment)) {
-    setCandidate(out, "comment", apiComment)
-  }
+  setCandidate(out, "comment", firstEmbeddedPublicHttpUrl(params.comment?.trim()))
 
   const mbid = params.musicBrainzId?.trim()
   if (mbid && /^[0-9a-f-]{36}$/i.test(mbid)) {
@@ -112,11 +118,21 @@ export function resolveSongFilePath(
   relativePath: string | undefined | null,
 ): string | null {
   if (!relativePath?.trim()) return null
-  const path = relativePath.trim()
+  let path = relativePath.trim()
+  try {
+    path = decodeURIComponent(path)
+  } catch {
+    /* keep raw path */
+  }
+  path = path.replace(/\\/g, "/")
   if (isAbsolute(path) && existsSync(path)) return path
   if (!musicFolder?.trim()) return null
-  const abs = join(musicFolder.trim(), path)
-  return existsSync(abs) ? abs : null
+  const root = musicFolder.trim()
+  const candidates = [join(root, path), join(root, path.replace(/^\/+/, ""))]
+  for (const abs of candidates) {
+    if (existsSync(abs)) return abs
+  }
+  return null
 }
 
 export async function readPublicUrlCandidatesFromFile(

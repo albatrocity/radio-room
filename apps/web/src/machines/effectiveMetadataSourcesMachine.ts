@@ -1,6 +1,9 @@
 import { setup, assign } from "xstate"
-import type { MetadataBrowseCapabilities } from "@repo/types"
+import type { MetadataBrowseCapabilities, PhysicalMediaItem } from "@repo/types"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+import { getCurrentUser } from "../actors/authActor"
+import { isGameEventForUser, type UserScopedEventData } from "../lib/gameEventRelevance"
+import { createTrailingDebounce } from "../lib/trailingDebounce"
 
 export interface EffectiveMetadataSourcesContext {
   subscriptionId: string | null
@@ -8,6 +11,7 @@ export interface EffectiveMetadataSourcesContext {
   metadataSourceIds: string[] | null
   browseableSourceIds: string[] | null
   browseSourceCapabilities: Record<string, MetadataBrowseCapabilities>
+  myMedia: PhysicalMediaItem[]
 }
 
 type EffectiveMetadataSourcesEvent =
@@ -20,6 +24,7 @@ type EffectiveMetadataSourcesEvent =
         metadataSourceIds?: string[]
         browseableSourceIds?: string[]
         browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
+        myMedia?: PhysicalMediaItem[]
       }
     }
   | {
@@ -28,18 +33,35 @@ type EffectiveMetadataSourcesEvent =
         effectiveMetadataSourceIds?: string[]
         browseableSourceIds?: string[]
         browseSourceCapabilities?: Record<string, MetadataBrowseCapabilities>
+        myMedia?: PhysicalMediaItem[]
       }
     }
   | { type: "ROOM_SETTINGS_UPDATED"; data?: unknown }
   | { type: "MEDIA_BRIDGE_STATUS_CHANGED"; data?: unknown }
+  | { type: "INVENTORY_ITEM_ACQUIRED"; data?: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_REMOVED"; data?: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_USED"; data?: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_TRANSFERRED"; data?: UserScopedEventData }
 
 let subscriptionCounter = 0
+
+/**
+ * Inventory events arrive room-wide, so a shopping round can deliver a burst.
+ * Only the holder's own grants can change what they may search, and one refetch
+ * settles the whole burst.
+ */
+const INVENTORY_REFETCH_DEBOUNCE_MS = 200
+
+const debouncedFetch = createTrailingDebounce(() => {
+  emitToSocket("GET_EFFECTIVE_METADATA_SOURCES", {})
+}, INVENTORY_REFETCH_DEBOUNCE_MS)
 
 const defaultContext: EffectiveMetadataSourcesContext = {
   subscriptionId: null,
   metadataSourceIds: null,
   browseableSourceIds: null,
   browseSourceCapabilities: {},
+  myMedia: [],
 }
 
 export const effectiveMetadataSourcesMachine = setup({
@@ -57,6 +79,10 @@ export const effectiveMetadataSourcesMachine = setup({
           "EFFECTIVE_METADATA_SOURCES",
           "ROOM_SETTINGS_UPDATED",
           "MEDIA_BRIDGE_STATUS_CHANGED",
+          "INVENTORY_ITEM_ACQUIRED",
+          "INVENTORY_ITEM_REMOVED",
+          "INVENTORY_ITEM_USED",
+          "INVENTORY_ITEM_TRANSFERRED",
         ],
       })
       return { subscriptionId: id }
@@ -65,9 +91,14 @@ export const effectiveMetadataSourcesMachine = setup({
       if (context.subscriptionId) {
         unsubscribeById(context.subscriptionId)
       }
+      debouncedFetch.cancel()
     },
     fetchEffective: () => {
+      debouncedFetch.cancel()
       emitToSocket("GET_EFFECTIVE_METADATA_SOURCES", {})
+    },
+    scheduleFetchEffective: () => {
+      debouncedFetch.schedule()
     },
     assignFromEffectiveEvent: assign(({ event }) => {
       if (event.type !== "EFFECTIVE_METADATA_SOURCES") return {}
@@ -81,6 +112,7 @@ export const effectiveMetadataSourcesMachine = setup({
         ...(event.data?.browseSourceCapabilities
           ? { browseSourceCapabilities: event.data.browseSourceCapabilities }
           : {}),
+        ...(Array.isArray(event.data?.myMedia) ? { myMedia: event.data.myMedia } : {}),
       }
     }),
     assignFromInit: assign(({ event }) => {
@@ -95,9 +127,16 @@ export const effectiveMetadataSourcesMachine = setup({
         ...(event.data?.browseSourceCapabilities
           ? { browseSourceCapabilities: event.data.browseSourceCapabilities }
           : {}),
+        ...(Array.isArray(event.data?.myMedia) ? { myMedia: event.data.myMedia } : {}),
       }
     }),
     resetContext: assign(() => defaultContext),
+  },
+  guards: {
+    isMyInventoryEvent: ({ event }) => {
+      const data = (event as { data?: UserScopedEventData }).data
+      return isGameEventForUser(data, getCurrentUser()?.userId)
+    },
   },
 }).createMachine({
   id: "effectiveMetadataSources",
@@ -119,6 +158,22 @@ export const effectiveMetadataSourcesMachine = setup({
         INIT: { actions: ["assignFromInit"] },
         ROOM_SETTINGS_UPDATED: { actions: ["fetchEffective"] },
         MEDIA_BRIDGE_STATUS_CHANGED: { actions: ["fetchEffective"] },
+        INVENTORY_ITEM_ACQUIRED: {
+          guard: "isMyInventoryEvent",
+          actions: ["scheduleFetchEffective"],
+        },
+        INVENTORY_ITEM_REMOVED: {
+          guard: "isMyInventoryEvent",
+          actions: ["scheduleFetchEffective"],
+        },
+        INVENTORY_ITEM_USED: {
+          guard: "isMyInventoryEvent",
+          actions: ["scheduleFetchEffective"],
+        },
+        INVENTORY_ITEM_TRANSFERRED: {
+          guard: "isMyInventoryEvent",
+          actions: ["scheduleFetchEffective"],
+        },
       },
     },
   },

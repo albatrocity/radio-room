@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo } from "react"
 import {
   Box,
   createListCollection,
@@ -7,40 +7,67 @@ import {
   Select,
   Stack,
   Tabs,
-  Text,
 } from "@chakra-ui/react"
 import TrackSearch from "./TrackSearch"
-import CatalogBrowse, { type CatalogBrowseNavigation } from "./CatalogBrowse"
+import CatalogBrowse, { type CatalogBrowseLocation } from "./CatalogBrowse"
 import type { MetadataSourceTrack } from "@repo/types"
 import { filterMetadataSourcesByBridgeCapability } from "@repo/utils"
 import {
+  useAddToQueueUi,
+  useAddToQueueUiSend,
   useBrowseableMetadataSourceIds,
   useBrowseSourceCapabilities,
   useCurrentRoom,
   useEffectiveMetadataSourceIds,
+  useIsModalOpen,
   useMediaBridgeConnected,
   useMediaBridgeServices,
+  useMyMedia,
+  useQueueBrowseMediaKey,
 } from "../hooks/useActors"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
+import type {
+  AddToQueueBrowseLocation,
+  AddToQueueMode,
+  AddToQueueNavigation,
+} from "../machines/addToQueueUiMachine"
 
 type Props = {
   onAddToQueue: (track: MetadataSourceTrack) => void
   isDisabled?: boolean
   onSearchActiveChange?: (isActive: boolean) => void
+  /** Stretch Search/Browse lists to fill a flex parent (Add to Queue modal). */
+  fillHeight?: boolean
 }
 
-type Mode = "search" | "browse"
+function toBrowseLocation(location: CatalogBrowseLocation): AddToQueueBrowseLocation {
+  return {
+    source: location.source,
+    rootKind: location.rootKind,
+    level: location.level,
+    ...(location.artistId ? { artistId: location.artistId, artistTitle: location.artistTitle } : {}),
+    ...(location.albumId ? { albumId: location.albumId, albumTitle: location.albumTitle } : {}),
+    ...(location.mediaKey ? { mediaKey: location.mediaKey } : {}),
+  }
+}
 
-const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Props) => {
+const FormAddToQueue = ({
+  onAddToQueue,
+  isDisabled,
+  onSearchActiveChange,
+  fillHeight = false,
+}: Props) => {
   const room = useCurrentRoom()
   const bridgeConnected = useMediaBridgeConnected()
   const bridgeServices = useMediaBridgeServices()
   const effectiveSourceIds = useEffectiveMetadataSourceIds()
   const browseableSourceIds = useBrowseableMetadataSourceIds()
   const browseSourceCapabilities = useBrowseSourceCapabilities()
-  const [mode, setMode] = useState<Mode>("search")
-  const [browseNav, setBrowseNav] = useState<CatalogBrowseNavigation | null>(null)
-  const [sourceFilter, setSourceFilter] = useState("all")
+  const myMedia = useMyMedia()
+  const queueBrowseMediaKey = useQueueBrowseMediaKey()
+  const isQueueModalOpen = useIsModalOpen("queue")
+  const { mode, sourceFilter, pendingNavigation, canBrowse } = useAddToQueueUi()
+  const send = useAddToQueueUiSend()
 
   const fallbackSourceIds = useMemo(() => {
     const policy = (room?.metadataSourceIds ?? []).filter(Boolean)
@@ -55,34 +82,34 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
   }, [room?.metadataSourceIds, room?.playbackControllerId, bridgeConnected, bridgeServices])
 
   const metadataSourceIds = effectiveSourceIds ?? fallbackSourceIds
-
-  const canBrowse = (browseableSourceIds?.length ?? 0) > 0
+  const canBrowseLocal = (browseableSourceIds ?? []).includes("local")
 
   useEffect(() => {
-    if (!canBrowse && mode === "browse") {
-      setMode("search")
-    }
-  }, [canBrowse, mode])
+    if (browseableSourceIds === null) return
+    send({
+      type: "SET_CAPABILITIES",
+      canBrowse: browseableSourceIds.length > 0,
+      browseableSourceIds,
+      metadataSourceIds,
+    })
+  }, [browseableSourceIds, metadataSourceIds, send])
+
+  // Before CatalogBrowse's mount effects: re-apply saved album/artist when the dialog remounts.
+  useLayoutEffect(() => {
+    if (!isQueueModalOpen) return
+    send({ type: "RESTORE_BROWSE_VIEW" })
+  }, [isQueueModalOpen, send])
+
+  useEffect(() => {
+    if (!queueBrowseMediaKey || !canBrowseLocal) return
+    send({ type: "DEEP_LINK_MEDIA", mediaKey: queueBrowseMediaKey })
+  }, [queueBrowseMediaKey, canBrowseLocal, send])
 
   useEffect(() => {
     if (mode === "browse") {
       onSearchActiveChange?.(true)
     }
   }, [mode, onSearchActiveChange])
-
-  // Keep source selection valid for the active mode
-  useEffect(() => {
-    if (mode === "browse") {
-      const browseSources = browseableSourceIds ?? []
-      if (sourceFilter !== "all" && browseSources.includes(sourceFilter)) return
-      if (browseSources[0]) setSourceFilter(browseSources[0])
-      return
-    }
-    if (sourceFilter === "all") return
-    if (!metadataSourceIds.includes(sourceFilter)) {
-      setSourceFilter("all")
-    }
-  }, [mode, sourceFilter, browseableSourceIds, metadataSourceIds])
 
   const sourceCollection = useMemo(() => {
     if (mode === "browse") {
@@ -107,39 +134,55 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
   const showSourceSelect =
     mode === "browse" ? (browseableSourceIds?.length ?? 0) >= 2 : metadataSourceIds.length >= 2
 
-  const handleSelect = (track: MetadataSourceTrack) => {
-    onAddToQueue(track)
-  }
+  const handleSelect = useCallback(
+    (track: MetadataSourceTrack) => {
+      onAddToQueue(track)
+    },
+    [onAddToQueue],
+  )
 
-  const handleOpenBrowse = useCallback((nav: CatalogBrowseNavigation) => {
-    setSourceFilter(nav.source)
-    setBrowseNav(nav)
-    setMode("browse")
-  }, [])
+  // CatalogBrowse's deep-link effect (ADR 0105) depends on these, so an unstable
+  // identity would re-run it on every render of this form.
+  const handleSourceIdChange = useCallback(
+    (id: string) => {
+      send({ type: "SET_SOURCE", sourceFilter: id })
+    },
+    [send],
+  )
 
-  const clearBrowseNav = useCallback(() => {
-    setBrowseNav(null)
-  }, [])
+  const handleNavigationApplied = useCallback(() => {
+    send({ type: "NAVIGATION_APPLIED" })
+  }, [send])
 
-  const handleModeChange = (next: Mode) => {
-    if (next === "browse") {
-      const browseSources = browseableSourceIds ?? []
-      if (sourceFilter === "all" || !browseSources.includes(sourceFilter)) {
-        const fallback = browseSources[0]
-        if (fallback) setSourceFilter(fallback)
-      }
-    }
-    setMode(next)
-  }
+  const handleOpenBrowse = useCallback(
+    (nav: AddToQueueNavigation) => {
+      send({ type: "OPEN_BROWSE", nav })
+    },
+    [send],
+  )
+
+  const handleBrowseLocationChange = useCallback(
+    (location: CatalogBrowseLocation) => {
+      send({ type: "BROWSE_LOCATION", location: toBrowseLocation(location) })
+    },
+    [send],
+  )
 
   return (
-    <Stack direction="column" gap={2} textStyle="body">
+    <Stack
+      direction="column"
+      gap={2}
+      textStyle="body"
+      {...(fillHeight ? { flex: "1", minH: 0, h: "100%" } : {})}
+    >
       {(canBrowse || showSourceSelect) && (
-        <HStack gap={3} align="center" justify="space-between" flexWrap="wrap">
+        <HStack gap={3} align="center" justify="space-between" flexWrap="wrap" flexShrink={0}>
           {canBrowse ? (
             <Tabs.Root
               value={mode}
-              onValueChange={(details) => handleModeChange(details.value as Mode)}
+              onValueChange={(details) =>
+                send({ type: "SET_MODE", mode: details.value as AddToQueueMode })
+              }
               variant="enclosed"
               colorPalette="action"
               size="sm"
@@ -163,7 +206,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
               disabled={isDisabled}
               onValueChange={(details) => {
                 const next = details.value[0]
-                if (next) setSourceFilter(next)
+                if (next) send({ type: "SET_SOURCE", sourceFilter: next })
               }}
               positioning={{ sameWidth: true }}
             >
@@ -196,7 +239,13 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
       )}
 
       {/* Keep both mounted so Search/Browse state survives mode switches (ADR 0090). */}
-      <Box hidden={mode !== "search"} aria-hidden={mode !== "search"}>
+      <Box
+        hidden={mode !== "search"}
+        aria-hidden={mode !== "search"}
+        {...(fillHeight && mode === "search"
+          ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
+          : {})}
+      >
         <TrackSearch
           onChoose={handleSelect}
           onOpenBrowse={canBrowse ? handleOpenBrowse : undefined}
@@ -205,20 +254,30 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
           disabled={isDisabled}
           onSearchActiveChange={mode === "search" ? onSearchActiveChange : undefined}
           autoFocus={mode === "search"}
+          fillHeight={fillHeight}
         />
       </Box>
 
       {canBrowse && (
-        <Box hidden={mode !== "browse"} aria-hidden={mode !== "browse"}>
+        <Box
+          hidden={mode !== "browse"}
+          aria-hidden={mode !== "browse"}
+          {...(fillHeight && mode === "browse"
+            ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
+            : {})}
+        >
           <CatalogBrowse
             browseableSourceIds={browseableSourceIds ?? []}
             browseSourceCapabilities={browseSourceCapabilities}
+            myMedia={myMedia}
             sourceId={sourceFilter === "all" ? browseableSourceIds?.[0] ?? "" : sourceFilter}
-            onSourceIdChange={setSourceFilter}
-            initialNavigation={browseNav}
-            onNavigationApplied={clearBrowseNav}
+            onSourceIdChange={handleSourceIdChange}
+            initialNavigation={pendingNavigation}
+            onNavigationApplied={handleNavigationApplied}
+            onBrowseLocationChange={handleBrowseLocationChange}
             onChoose={handleSelect}
             disabled={isDisabled}
+            fillHeight={fillHeight}
           />
         </Box>
       )}

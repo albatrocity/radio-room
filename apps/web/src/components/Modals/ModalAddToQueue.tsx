@@ -14,6 +14,7 @@ import {
   useIsAdmin,
   useCurrentUser,
   useCurrentRoom,
+  refreshEffectiveMetadataSources,
 } from "../../hooks/useActors"
 
 function ModalAddToQueue() {
@@ -27,6 +28,13 @@ function ModalAddToQueue() {
   const currentUser = useCurrentUser()
   const room = useCurrentRoom()
   const hideEditForm = () => modalSend({ type: "CLOSE" })
+
+  // Re-evaluate plugin grants (e.g. Library Card / Physical Media) when the modal opens.
+  useEffect(() => {
+    if (isAddingToQueue) {
+      refreshEffectiveMetadataSources()
+    }
+  }, [isAddingToQueue])
 
   // Initialize auth check when modal opens (use primary metadata source)
   const primaryMetadataSourceId = room?.metadataSourceIds?.[0]
@@ -66,18 +74,36 @@ function ModalAddToQueue() {
           Add to play queue
         </Heading>
       }
+      contentProps={{
+        h: "min(90dvh, 44rem)",
+        maxH: "90dvh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+      bodyProps={{
+        flex: "1",
+        minH: 0,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
-      <Stack direction="column" gap={8}>
+      <Stack direction="column" gap={8} flex="1" minH={0} h="100%">
         <PluginArea area="addToQueue" direction="column" />
-        <Box>
+        <Box flex="1" minH={0} display="flex" flexDirection="column">
           <FormAddToQueue
             onAddToQueue={addToQueue}
             isDisabled={isLoading}
             onSearchActiveChange={setSearchActive}
+            fillHeight
           />
         </Box>
         {canViewSavedTracks && !searchActive && (
           <Box
+            flexShrink={0}
+            maxH="28%"
+            overflowY="auto"
             opacity={searchActive ? 0.1 : isLoading ? 0.5 : 1}
             transition="opacity 0.2s"
             pointerEvents={searchActive ? "none" : "auto"}

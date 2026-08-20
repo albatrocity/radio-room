@@ -14,6 +14,7 @@ function clone(state: RoundRobinState): RoundRobinState {
     order: [...state.order],
     participants: [...state.participants],
     queuedThisRound: [...state.queuedThisRound],
+    lastTurn: state.lastTurn ? { ...state.lastTurn } : undefined,
   }
 }
 
@@ -244,6 +245,11 @@ export function recordSuccessfulQueue(
 
   const completed = maybeCompleteRound(next, autoAdvanceRounds)
   next = completed.state
+  next.lastTurn = {
+    userId,
+    completedRound: completed.roundAdvanced ? next.round - 1 : next.round,
+    roundAdvanced: completed.roundAdvanced,
+  }
 
   return {
     state: next,
@@ -373,6 +379,7 @@ export function advanceRound(state: RoundRobinState): StateTransition {
   }
 
   const advanced = startNextRound(next)
+  advanced.lastTurn = undefined
   const eligible = getEligibleUserIds(advanced)
   return {
     state: advanced,
@@ -407,4 +414,92 @@ export function rejectionReason(state: RoundRobinState): string {
     return "Round Robin: wait for your turn to queue"
   }
   return "Round Robin: you have already queued this round"
+}
+
+export type QueueOwnerRef = { addedBy?: { userId?: string } | null }
+
+function pointAtEligible(state: RoundRobinState, preferId?: string): RoundRobinState {
+  if (state.mode !== "sequential" || !state.orderLocked || state.order.length === 0) {
+    return state
+  }
+  const next = clone(state)
+  if (
+    preferId &&
+    next.participants.includes(preferId) &&
+    !next.queuedThisRound.includes(preferId)
+  ) {
+    const idx = next.order.indexOf(preferId)
+    if (idx >= 0) {
+      next.currentIndex = idx
+      return next
+    }
+  }
+  const idx = next.order.findIndex(
+    (id) => next.participants.includes(id) && !next.queuedThisRound.includes(id),
+  )
+  next.currentIndex = idx >= 0 ? idx : 0
+  return next
+}
+
+/**
+ * Restore a deputy’s spent turn to the end of the current round after their
+ * queued track is removed (ADR 0101). No-ops return the same state reference.
+ */
+export function restoreTurnToEndOfRound(
+  state: RoundRobinState,
+  userId: string,
+  remainingQueue: readonly QueueOwnerRef[],
+): StateTransition {
+  const noop: StateTransition = {
+    state,
+    turnStartedFor: [],
+    roundAdvanced: false,
+    roundCompleted: false,
+  }
+
+  if (!state.participants.includes(userId)) return noop
+  if (remainingQueue.some((item) => item.addedBy?.userId === userId)) return noop
+
+  const rewind =
+    state.lastTurn?.userId === userId &&
+    state.lastTurn.roundAdvanced === true &&
+    state.lastTurn.completedRound + 1 === state.round &&
+    state.queuedThisRound.length === 0
+
+  const spentThisRound = state.queuedThisRound.includes(userId)
+  if (!rewind && !spentThisRound) return noop
+
+  const beforeEligible = new Set(getEligibleUserIds(state))
+  let next = clone(state)
+  const currentId =
+    next.mode === "sequential" && next.orderLocked ? next.order[next.currentIndex] : undefined
+
+  if (rewind) {
+    next.round = state.lastTurn!.completedRound
+    next.queuedThisRound = next.participants.filter((id) => id !== userId)
+    next.phase = next.orderLocked ? "locked" : "open"
+  } else {
+    next.queuedThisRound = next.queuedThisRound.filter((id) => id !== userId)
+    if (next.phase === "roundComplete") {
+      next.phase = next.mode === "sequential" && next.orderLocked ? "locked" : "open"
+    }
+  }
+
+  if (next.mode === "sequential" && !next.orderLocked) {
+    next.order = next.order.filter((id) => id !== userId)
+  } else if (next.mode === "sequential" && next.orderLocked) {
+    next.order = [...next.order.filter((id) => id !== userId), userId]
+    const onlyRemaining =
+      next.participants.filter((id) => !next.queuedThisRound.includes(id)).length === 1
+    next = pointAtEligible(next, onlyRemaining || rewind ? userId : currentId)
+  }
+
+  next.lastTurn = undefined
+
+  return {
+    state: next,
+    turnStartedFor: singleNewEligible(beforeEligible, getEligibleUserIds(next), userId),
+    roundAdvanced: false,
+    roundCompleted: false,
+  }
 }

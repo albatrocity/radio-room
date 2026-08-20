@@ -25,16 +25,25 @@ export class MetadataSourceAccessService {
 
   /**
    * Per-user effective source ids for search tabs / fan-out.
+   *
+   * Pass `room` when the caller already loaded it; every source is then decided
+   * against that one snapshot instead of re-reading the room per source.
    */
   async getEffectiveSourceIdsForUser(
     roomId: string,
     userId: string,
     action: MetadataSourceAccessAction,
+    room?: Room | null,
   ): Promise<string[]> {
-    const enabled = await this.getEnabledSourceIds(roomId)
+    const resolved = room ?? (await findRoom({ context: this.context, roomId }))
+    if (!resolved) return []
+
+    const enabled = await this.getEnabledSourceIds(roomId, resolved)
+    const evaluate = this.buildAccessEvaluator({ room: resolved, roomId, userId, enabled })
+
     const allowed: string[] = []
     for (const sourceId of enabled) {
-      if (await this.canAccess({ roomId, userId, sourceId, action })) {
+      if (await evaluate(sourceId, action)) {
         allowed.push(sourceId)
       }
     }
@@ -46,16 +55,64 @@ export class MetadataSourceAccessService {
     userId: string
     sourceId: string
     action: MetadataSourceAccessAction
+    room?: Room | null
   }): Promise<boolean> {
     const { roomId, userId, sourceId, action } = params
-    const room = await findRoom({ context: this.context, roomId })
+    const room = params.room ?? (await findRoom({ context: this.context, roomId }))
     if (!room) return false
 
     const enabled = await this.getEnabledSourceIds(roomId, room)
-    if (!enabled.includes(sourceId)) return false
+    return this.buildAccessEvaluator({ room, roomId, userId, enabled })(sourceId, action)
+  }
 
-    // Non-bridge: no restricted baseline
-    if (room.playbackControllerId !== "bridge") return true
+  /**
+   * Decides one or many sources against a single room snapshot, resolving the
+   * admin lookup at most once per call.
+   */
+  private buildAccessEvaluator(params: {
+    room: Room
+    roomId: string
+    userId: string
+    enabled: string[]
+  }): (sourceId: string, action: MetadataSourceAccessAction) => Promise<boolean> {
+    const { room, roomId, userId, enabled } = params
+    let adminLookup: Promise<boolean> | undefined
+    const isAdmin = () =>
+      (adminLookup ??= isRoomAdmin({
+        context: this.context,
+        roomId,
+        userId,
+        roomCreator: room.creator,
+      }))
+
+    return async (sourceId, action) => {
+      if (!enabled.includes(sourceId)) return false
+
+      // Non-bridge: no restricted baseline
+      if (room.playbackControllerId !== "bridge") return true
+
+      if (await isAdmin()) return true
+
+      const mode = room.metadataSourceAccess?.[sourceId] ?? "open"
+      if (mode !== "restricted") return true
+
+      return this.anyPluginGrants({ roomId, userId, sourceId, action })
+    }
+  }
+
+  /**
+   * Playlist ids to pass into Local search/browse when the user has shelf-scoped grants.
+   * Returns undefined for full library (admin, open, unrestricted coupon, or no filter).
+   *
+   * Pass `room` when already loaded; non-bridge rooms then cost nothing.
+   */
+  async getLocalCatalogPlaylistIds(
+    roomId: string,
+    userId: string,
+    preloadedRoom?: Room | null,
+  ): Promise<string[] | undefined> {
+    const room = preloadedRoom ?? (await findRoom({ context: this.context, roomId }))
+    if (!room || room.playbackControllerId !== "bridge") return undefined
 
     const admin = await isRoomAdmin({
       context: this.context,
@@ -63,12 +120,22 @@ export class MetadataSourceAccessService {
       userId,
       roomCreator: room.creator,
     })
-    if (admin) return true
+    if (admin) return undefined
 
-    const mode = room.metadataSourceAccess?.[sourceId] ?? "open"
-    if (mode !== "restricted") return true
+    const mode = room.metadataSourceAccess?.local ?? "open"
+    if (mode !== "restricted") return undefined
 
-    return this.anyPluginGrants({ roomId, userId, sourceId, action })
+    const registry = this.context.pluginRegistry
+    if (!registry?.resolveLocalLibraryCatalogFilter) return undefined
+    try {
+      const filter = await registry.resolveLocalLibraryCatalogFilter({ roomId, userId })
+      if (!filter) return undefined
+      if (filter.mode === "unrestricted") return undefined
+      return filter.playlistIds.length > 0 ? filter.playlistIds : undefined
+    } catch (e) {
+      console.warn("[MetadataSourceAccess] local catalog filter failed:", e)
+      return undefined
+    }
   }
 
   private async anyPluginGrants(params: {
@@ -105,10 +172,7 @@ export class MetadataSourceAccessService {
           availableServices: capability.getAvailableServices(),
         })
       } catch (e) {
-        console.warn(
-          "[MetadataSourceAccess] bridge capability filter failed; using policy set:",
-          e,
-        )
+        console.warn("[MetadataSourceAccess] bridge capability filter failed; using policy set:", e)
       }
     }
 

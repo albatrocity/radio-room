@@ -59,7 +59,6 @@ const TrackDisplay = memo(function TrackDisplay({ item, size = "sm" }: Props) {
             src={artThumb}
             alt={preferredTrack.album?.title}
             boxSize={boxSize}
-            borderRadius="sm"
             objectFit="cover"
           />
         ) : (

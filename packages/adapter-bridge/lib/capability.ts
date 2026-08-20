@@ -1,5 +1,12 @@
 import type { RedisClientType } from "redis"
-import { bridgeEventSchema, eventChannel, presenceKey, type BridgeEvent } from "./protocol"
+import {
+  bridgeEventSchema,
+  capabilitiesKey,
+  eventChannel,
+  parseStoredBridgeCapabilities,
+  presenceKey,
+  type BridgeEvent,
+} from "./protocol"
 
 type RedisLike = RedisClientType<any, any, any>
 
@@ -121,9 +128,19 @@ export class BridgeCapabilityCache {
       }
     })
 
-    // Seed connected from presence key
+    // Seed connected from presence; seed services from durable CAPABILITIES
+    // (pub/sub is missed when this process starts after the daemon).
     const ttl = await this.redis.ttl(presenceKey(this.roomId))
     this.connected = ttl > 0
+    if (this.connected) {
+      const stored = parseStoredBridgeCapabilities(
+        await this.redis.get(capabilitiesKey(this.roomId)),
+      )
+      if (stored) {
+        this.services = new Set(stored)
+        this.capabilitiesKnown = true
+      }
+    }
   }
 
   async stop(): Promise<void> {

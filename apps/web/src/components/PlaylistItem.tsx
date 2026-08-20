@@ -32,6 +32,8 @@ import { playlistItemRecipe } from "../theme/playlistItemRecipe"
 import type { Room } from "../types/Room"
 import { usePluginElementProps } from "../hooks/usePluginElementProps"
 import { getTrackExternalUrl } from "../lib/getTrackExternalUrl"
+import { usePhysicalMediaArt } from "../hooks/usePhysicalMediaArt"
+import FramedArtwork from "./artworkFrames/FramedArtwork"
 
 const shimmerCss = {
   "@keyframes playlistItemShimmer": {
@@ -165,6 +167,12 @@ const PlaylistItem = memo(function PlaylistItem({
     return imageUrl
   }, [preferredTrack?.album?.images])
 
+  const framedArt = usePhysicalMediaArt({
+    pluginData: item.pluginData as Record<string, unknown> | undefined,
+    trackArtUrl: artThumb,
+    disabled: artworkElementProps.obscured,
+  })
+
   const users = useUsers()
   const djUsername = useMemo(
     () => users.find((x) => x.userId === item.addedBy?.userId)?.username ?? item.addedBy?.username,
@@ -206,8 +214,8 @@ const PlaylistItem = memo(function PlaylistItem({
       >
         <LinkBox css={styles.trackInfo}>
           <Stack direction="row">
-            {artThumb && (
-              <Box css={styles.artwork}>
+            {(artThumb || framedArt) && (
+              <Box css={styles.artwork} overflow={framedArt ? "visible" : undefined}>
                 {artworkElementProps.obscured ? (
                   <Box
                     width="100%"
@@ -216,8 +224,10 @@ const PlaylistItem = memo(function PlaylistItem({
                     borderRadius="sm"
                     css={shimmerCss}
                   />
+                ) : framedArt ? (
+                  <FramedArtwork art={framedArt} size="row" squareSlot alt="" />
                 ) : (
-                  <Image loading="lazy" src={artThumb} />
+                  <Image loading="lazy" src={artThumb!} />
                 )}
               </Box>
             )}

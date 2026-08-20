@@ -2,6 +2,7 @@ import { shuffleQueueItems } from "@repo/game-logic"
 import { queueItemFactory } from "@repo/factories/queueItem"
 import type {
   ChatMessage,
+  LocalPlaylistArtwork,
   MetadataSourceAccessAction,
   MoveTrackResult,
   PluginAPI,
@@ -334,5 +335,37 @@ export class MockStudioPluginApi implements PluginAPI {
     recipientUserId?: string
   }): Promise<void> {
     this.room.logEvent("SCREEN_EFFECT", _params)
+  }
+
+  async checkLocalTrackPlaylistMembership(_params: {
+    roomId: string
+    trackId: string
+    playlistIds: string[]
+  }): Promise<string[]> {
+    return []
+  }
+
+  async listLocalPlaylists(
+    _roomId: string,
+  ): Promise<Array<{ id: string; name: string; songCount?: number }>> {
+    return []
+  }
+
+  async getLocalPlaylistArtwork(
+    _roomId: string,
+    _playlistIds: string[],
+  ): Promise<Record<string, LocalPlaylistArtwork>> {
+    return {}
+  }
+
+  async invalidateLocalLibraryCache(_roomId: string): Promise<boolean> {
+    return false
+  }
+
+  async listLocalPlaylistTracks(
+    _roomId: string,
+    _playlistId: string,
+  ): Promise<import("@repo/types").MetadataSourceTrack[]> {
+    return []
   }
 }

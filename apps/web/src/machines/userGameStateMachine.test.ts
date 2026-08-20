@@ -8,6 +8,9 @@ vi.mock("../actors/socketActor", () => ({
   unsubscribeById: vi.fn(),
   emitToSocket: vi.fn(),
 }))
+vi.mock("../actors/authActor", () => ({
+  getCurrentUser: () => ({ userId: "me" }),
+}))
 
 const emptyPayload = {
   session: null,
@@ -72,6 +75,49 @@ describe("userGameStateMachine refetch characterization", () => {
     })
     actor.send({ type: "GAME_SESSION_ENDED", data: {} })
     expect(actor.getSnapshot().context.payload?.session).toBeNull()
+  })
+
+  it("collapses the current user's own inventory burst into one refetch", async () => {
+    vi.useFakeTimers()
+    try {
+      activateReady()
+      vi.mocked(emitToSocket).mockClear()
+
+      actor.send({ type: "INVENTORY_ITEM_ACQUIRED", data: { userId: "me" } })
+      actor.send({ type: "INVENTORY_ITEM_USED", data: { userId: "me" } })
+      actor.send({ type: "GAME_STATE_CHANGED", data: { userId: "me" } })
+      expect(emitToSocket).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(200)
+      expect(emitToSocket).toHaveBeenCalledTimes(1)
+      expect(emitToSocket).toHaveBeenCalledWith("GET_MY_GAME_STATE", {})
+    } finally {
+      actor.send({ type: "DEACTIVATE" })
+      await vi.runOnlyPendingTimersAsync()
+      vi.useRealTimers()
+    }
+  })
+
+  it("ignores game and inventory events for other users", async () => {
+    vi.useFakeTimers()
+    try {
+      activateReady()
+      vi.mocked(emitToSocket).mockClear()
+
+      actor.send({ type: "INVENTORY_ITEM_ACQUIRED", data: { userId: "someone-else" } })
+      actor.send({ type: "GAME_MODIFIER_APPLIED", data: { userId: "someone-else" } })
+      actor.send({
+        type: "INVENTORY_ITEM_TRANSFERRED",
+        data: { fromUserId: "someone-else", toUserId: "a-third-party" },
+      })
+
+      await vi.advanceTimersByTimeAsync(200)
+      expect(emitToSocket).not.toHaveBeenCalled()
+    } finally {
+      actor.send({ type: "DEACTIVATE" })
+      await vi.runOnlyPendingTimersAsync()
+      vi.useRealTimers()
+    }
   })
 
   it("refetches on USER_GAME_STATE_INVALIDATED (debounced)", async () => {

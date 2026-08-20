@@ -10,10 +10,12 @@ import type { QueueItem } from "@repo/types/Queue"
 import type { RoomMeta } from "@repo/types/Room"
 import { toAdminAssignablePersonas } from "@repo/types"
 import type { User } from "@repo/types/User"
+import { STUB_MY_MEDIA } from "./stubMetadataCatalog.js"
 import type { BridgeSnapshot } from "./types.js"
 
 /** Align with `apps/game-studio/src/studio/buildSessionConfig.ts` (`maxInventorySlots` default). */
 const DEFAULT_MAX_INVENTORY_SLOTS = 3
+const DEFAULT_MAX_COLLECTION_SLOTS = 12
 
 /** Mirrors `packages/server/lib/getRoomPath`. */
 export function roomSocketPath(roomId: string): string {
@@ -122,6 +124,8 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
           userId,
           items,
           maxSlots,
+          maxCollectionSlots:
+            snap.activeSession?.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS,
         }
       : null,
     itemDefinitions: snap.itemDefinitions,
@@ -142,7 +146,7 @@ export function buildAllListenerGameStatesPayload(snap: BridgeSnapshot) {
         userId: string
         username: string
         state: UserGameState
-        inventory: { userId: string; items: InventoryItem[]; maxSlots: number }
+        inventory: { userId: string; items: InventoryItem[]; maxSlots: number; maxCollectionSlots: number }
       }>,
       itemDefinitions: snap.itemDefinitions,
     }
@@ -171,7 +175,12 @@ export function buildAllListenerGameStatesPayload(snap: BridgeSnapshot) {
       userId,
       username: u.username?.trim() || userId,
       state,
-      inventory: { userId, items, maxSlots },
+      inventory: {
+        userId,
+        items,
+        maxSlots,
+        maxCollectionSlots: session.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS,
+      },
     }
   })
 
@@ -232,5 +241,6 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
     browseSourceCapabilities: {
       local: { entryMode: "index" as const, albumSearch: true },
     },
+    myMedia: STUB_MY_MEDIA,
   }
 }

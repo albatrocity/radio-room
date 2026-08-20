@@ -769,6 +769,11 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   async augmentPlaylistBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
 
   /**
+   * Optional method to augment queued tracks at read-time (INIT / QUEUE_CHANGED).
+   */
+  async augmentQueueBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
+
+  /**
    * Optional method to augment now playing track with plugin-specific metadata and style hints.
    * Override this method to add custom data and style modifications to the now playing track.
    *

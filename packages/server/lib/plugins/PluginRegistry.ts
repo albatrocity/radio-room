@@ -22,6 +22,8 @@ import {
   BeforePlayQueuedTrackParams,
   QueueValidationParams,
   QueueValidationResult,
+  PhysicalMediaItem,
+  parseArtworkFrame,
   isChatMessageTransformDrop,
   isDeferredQueueRequest,
 } from "@repo/types"
@@ -376,6 +378,268 @@ export class PluginRegistry {
   }
 
   /**
+   * Aggregate plugin Local catalog filters (ADR 0098).
+   * Any `unrestricted` wins; else union of playlist ids; all abstain → null.
+   */
+  async resolveLocalLibraryCatalogFilter(params: {
+    roomId: string
+    userId: string
+  }): Promise<
+    | { mode: "unrestricted" }
+    | { mode: "playlists"; playlistIds: string[] }
+    | null
+  > {
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+
+    if (!roomPluginMap || roomPluginMap.size === 0) {
+      return null
+    }
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.resolveLocalLibraryCatalogFilter === "function",
+    )
+
+    if (pluginsWithHook.length === 0) {
+      return null
+    }
+
+    const playlistIds = new Set<string>()
+    let sawPlaylists = false
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        const result = await Promise.race([
+          plugin.resolveLocalLibraryCatalogFilter!(params),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+
+        if (result === "abstain") continue
+        if (result.mode === "unrestricted") {
+          return { mode: "unrestricted" }
+        }
+        if (result.mode === "playlists") {
+          sawPlaylists = true
+          for (const id of result.playlistIds) {
+            const trimmed = id.trim()
+            if (trimmed) playlistIds.add(trimmed)
+          }
+        }
+      } catch (error) {
+        console.warn(
+          `[PluginRegistry] resolveLocalLibraryCatalogFilter ${pluginName} failed (abstain):`,
+          error,
+        )
+      }
+    }
+
+    if (sawPlaylists && playlistIds.size > 0) {
+      return { mode: "playlists", playlistIds: [...playlistIds] }
+    }
+    return null
+  }
+
+  /**
+   * Aggregate held Physical Media items from plugins (ADR 0099). First writer of a
+   * `mediaKey` wins. Fail-open to [] on errors/timeouts.
+   */
+  async listPhysicalMediaItems(params: {
+    roomId: string
+    userId: string
+  }): Promise<PhysicalMediaItem[]> {
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return []
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.listPhysicalMediaItems === "function",
+    )
+    if (pluginsWithHook.length === 0) return []
+
+    const byKey = new Map<string, PhysicalMediaItem>()
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        const items = await Promise.race([
+          plugin.listPhysicalMediaItems!(params),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+        if (!Array.isArray(items)) continue
+        for (const item of items) {
+          const mediaKey = typeof item?.mediaKey === "string" ? item.mediaKey.trim() : ""
+          if (!mediaKey || byKey.has(mediaKey)) continue
+          const name =
+            typeof item.name === "string" && item.name.trim() ? item.name.trim() : mediaKey
+          const artworkFrame =
+            typeof item.artworkFrame === "string" ? parseArtworkFrame(item.artworkFrame) : undefined
+          byKey.set(mediaKey, {
+            mediaKey,
+            name,
+            ...(typeof item.icon === "string" && item.icon.trim()
+              ? { icon: item.icon.trim() }
+              : {}),
+            ...(typeof item.imageUrl === "string" && item.imageUrl.trim()
+              ? { imageUrl: item.imageUrl.trim() }
+              : {}),
+            ...(typeof item.imageUrlLarge === "string" && item.imageUrlLarge.trim()
+              ? { imageUrlLarge: item.imageUrlLarge.trim() }
+              : {}),
+            ...(artworkFrame ? { artworkFrame } : {}),
+          })
+        }
+      } catch (error) {
+        console.warn(`[PluginRegistry] listPhysicalMediaItems ${pluginName} failed:`, error)
+      }
+    }
+    return Array.from(byKey.values())
+  }
+
+  /**
+   * Resolve a client `mediaKey` to a Navidrome playlist id from held grants only.
+   * First plugin that returns a playlist id wins. Never trusts a client playlist id.
+   */
+  async resolvePhysicalMediaItem(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+    const mediaKey = params.mediaKey.trim()
+    if (!mediaKey) return null
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return null
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.resolvePhysicalMediaItem === "function",
+    )
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        const result = await Promise.race([
+          plugin.resolvePhysicalMediaItem!({ ...params, mediaKey }),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+        if (!result) continue
+        const playlistId =
+          typeof result.playlistId === "string" ? result.playlistId.trim() : ""
+        if (!playlistId) continue
+        const itemKey =
+          typeof result.item?.mediaKey === "string" && result.item.mediaKey.trim()
+            ? result.item.mediaKey.trim()
+            : mediaKey
+        const name =
+          typeof result.item?.name === "string" && result.item.name.trim()
+            ? result.item.name.trim()
+            : itemKey
+        const artworkFrame =
+          typeof result.item?.artworkFrame === "string"
+            ? parseArtworkFrame(result.item.artworkFrame)
+            : undefined
+        return {
+          playlistId,
+          item: {
+            mediaKey: itemKey,
+            name,
+            ...(typeof result.item?.icon === "string" && result.item.icon.trim()
+              ? { icon: result.item.icon.trim() }
+              : {}),
+            ...(typeof result.item?.imageUrl === "string" && result.item.imageUrl.trim()
+              ? { imageUrl: result.item.imageUrl.trim() }
+              : {}),
+            ...(typeof result.item?.imageUrlLarge === "string" && result.item.imageUrlLarge.trim()
+              ? { imageUrlLarge: result.item.imageUrlLarge.trim() }
+              : {}),
+            ...(artworkFrame ? { artworkFrame } : {}),
+          },
+        }
+      } catch (error) {
+        console.warn(`[PluginRegistry] resolvePhysicalMediaItem ${pluginName} failed:`, error)
+      }
+    }
+    return null
+  }
+
+  /**
+   * Resolve a client `mediaKey` for preview authz (held item or current shop offer).
+   * First plugin that returns a playlist id wins.
+   */
+  async resolvePreviewableMediaItem(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+    const mediaKey = params.mediaKey.trim()
+    if (!mediaKey) return null
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return null
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.resolvePreviewableMediaItem === "function",
+    )
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        const result = await Promise.race([
+          plugin.resolvePreviewableMediaItem!({ ...params, mediaKey }),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+        if (!result) continue
+        const playlistId =
+          typeof result.playlistId === "string" ? result.playlistId.trim() : ""
+        if (!playlistId) continue
+        const itemKey =
+          typeof result.item?.mediaKey === "string" && result.item.mediaKey.trim()
+            ? result.item.mediaKey.trim()
+            : mediaKey
+        const name =
+          typeof result.item?.name === "string" && result.item.name.trim()
+            ? result.item.name.trim()
+            : itemKey
+        const artworkFrame =
+          typeof result.item?.artworkFrame === "string"
+            ? parseArtworkFrame(result.item.artworkFrame)
+            : undefined
+        return {
+          playlistId,
+          item: {
+            mediaKey: itemKey,
+            name,
+            ...(typeof result.item?.icon === "string" && result.item.icon.trim()
+              ? { icon: result.item.icon.trim() }
+              : {}),
+            ...(typeof result.item?.imageUrl === "string" && result.item.imageUrl.trim()
+              ? { imageUrl: result.item.imageUrl.trim() }
+              : {}),
+            ...(typeof result.item?.imageUrlLarge === "string" && result.item.imageUrlLarge.trim()
+              ? { imageUrlLarge: result.item.imageUrlLarge.trim() }
+              : {}),
+            ...(artworkFrame ? { artworkFrame } : {}),
+          },
+        }
+      } catch (error) {
+        console.warn(`[PluginRegistry] resolvePreviewableMediaItem ${pluginName} failed:`, error)
+      }
+    }
+    return null
+  }
+
+  /**
    * Run beforePlayQueuedTrack on all plugins that implement it.
    * Called immediately before app-controlled playTrack(uri).
    * Fail-open on errors/timeouts.
@@ -409,6 +673,80 @@ export class PluginRegistry {
       } catch (error) {
         console.warn(
           `[PluginRegistry] beforePlayQueuedTrack ${pluginName} failed (continuing):`,
+          error,
+        )
+      }
+    }
+  }
+
+  /**
+   * Cancel a deferred queue pick (ADR 0101). First plugin returning
+   * `{ cancelled: true }` wins. Errors/timeouts fail-open (`false`).
+   */
+  async cancelHeldQueue(params: {
+    roomId: string
+    userId: string
+    trackId: string
+  }): Promise<{ cancelled: boolean }> {
+    const trackId = params.trackId.trim()
+    if (!trackId) return { cancelled: false }
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return { cancelled: false }
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.cancelHeldQueue === "function",
+    )
+    if (pluginsWithHook.length === 0) return { cancelled: false }
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        const result = await Promise.race([
+          plugin.cancelHeldQueue!({ ...params, trackId }),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+        if (result?.cancelled === true) return { cancelled: true }
+      } catch (error) {
+        console.warn(`[PluginRegistry] cancelHeldQueue ${pluginName} failed:`, error)
+      }
+    }
+    return { cancelled: false }
+  }
+
+  /**
+   * Notify plugins after a successful Redis queue removal (ADR 0101). Fail-open.
+   */
+  async notifyQueueItemRemoved(params: {
+    roomId: string
+    item: QueueItem
+    remainingQueue: QueueItem[]
+  }): Promise<void> {
+    const roomPluginMap = this.roomPlugins.get(params.roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return
+
+    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
+      ([, { plugin }]) => typeof plugin.onQueueItemRemoved === "function",
+    )
+    if (pluginsWithHook.length === 0) return
+
+    for (const [pluginName, { plugin }] of pluginsWithHook) {
+      try {
+        await Promise.race([
+          plugin.onQueueItemRemoved!(params),
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error("timeout")),
+              PluginRegistry.VALIDATION_TIMEOUT_MS,
+            ),
+          ),
+        ])
+      } catch (error) {
+        console.warn(
+          `[PluginRegistry] onQueueItemRemoved ${pluginName} failed (continuing):`,
           error,
         )
       }
@@ -505,6 +843,22 @@ export class PluginRegistry {
    * @returns Items with merged pluginData from all plugins
    */
   async augmentPlaylistItems(roomId: string, items: QueueItem[]): Promise<QueueItem[]> {
+    return this.augmentItemsWithPluginBatch(roomId, items, "augmentPlaylistBatch")
+  }
+
+  /**
+   * Augment queued tracks for INIT / QUEUE_CHANGED. Does not persist to Redis.
+   * Calls augmentQueueBatch on plugins that implement it (not playlist-history hooks).
+   */
+  async augmentQueueItems(roomId: string, items: QueueItem[]): Promise<QueueItem[]> {
+    return this.augmentItemsWithPluginBatch(roomId, items, "augmentQueueBatch")
+  }
+
+  private async augmentItemsWithPluginBatch(
+    roomId: string,
+    items: QueueItem[],
+    method: "augmentPlaylistBatch" | "augmentQueueBatch",
+  ): Promise<QueueItem[]> {
     if (items.length === 0) {
       return items
     }
@@ -514,32 +868,26 @@ export class PluginRegistry {
       return items
     }
 
-    // Get plugins for this room that have augmentation
     const pluginsWithAugmentation = Array.from(roomPluginMap.entries()).filter(
-      ([, { plugin }]) => typeof plugin.augmentPlaylistBatch === "function",
+      ([, { plugin }]) => typeof plugin[method] === "function",
     )
 
     if (pluginsWithAugmentation.length === 0) {
       return items
     }
 
-    // Call all augmentation methods in parallel
     const augmentationResults = await Promise.all(
       pluginsWithAugmentation.map(async ([pluginName, { plugin }]) => {
         try {
-          const augmentations = await plugin.augmentPlaylistBatch!(items)
+          const augmentations = await plugin[method]!(items)
           return { pluginName, augmentations }
         } catch (error) {
-          console.error(
-            `[PluginRegistry] Error in augmentPlaylistBatch for plugin ${pluginName}:`,
-            error,
-          )
+          console.error(`[PluginRegistry] Error in ${method} for plugin ${pluginName}:`, error)
           return { pluginName, augmentations: items.map(() => ({})) }
         }
       }),
     )
 
-    // Merge augmentation data into items
     return items.map((item, index) => {
       const pluginData: Record<string, any> = { ...(item.pluginData || {}) }
 
@@ -550,7 +898,6 @@ export class PluginRegistry {
         }
       }
 
-      // Only add pluginData if there's data to add
       if (Object.keys(pluginData).length > 0) {
         return { ...item, pluginData }
       }

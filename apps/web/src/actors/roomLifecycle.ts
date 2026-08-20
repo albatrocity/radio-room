@@ -22,9 +22,12 @@ import { userGameStateActor } from "./userGameStateActor"
 import { roomGameStateActor } from "./roomGameStateActor"
 import { metadataSourceAuthActor } from "./metadataSourceAuthActor"
 import { soundEffectsActor } from "./soundEffectsActor"
+import { trackPreviewActor } from "./trackPreviewActor"
 import { screenEffectsActor } from "./screenEffectsActor"
 import { pollActor } from "./pollActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
+import { addToQueueUiActor } from "./addToQueueUiActor"
+import { gameStateNavActor } from "./gameStateNavActor"
 import { mediaBridgeActor } from "./mediaBridgeActor"
 import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
@@ -98,9 +101,11 @@ export function initializeRoom(roomId: string): void {
   roomGameStateActor.send({ type: "ACTIVATE" })
   metadataSourceAuthActor.send({ type: "ACTIVATE" })
   soundEffectsActor.send({ type: "ACTIVATE" })
+  trackPreviewActor.send({ type: "ACTIVATE" })
   screenEffectsActor.send({ type: "ACTIVATE" })
   pollActor.send({ type: "ACTIVATE" })
   quickAccessPanelsActor.send({ type: "ACTIVATE", roomId })
+  addToQueueUiActor.send({ type: "ACTIVATE", roomId })
   mediaBridgeActor.send({ type: "ACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "ACTIVATE" })
 
@@ -152,9 +157,14 @@ export function teardownRoom(): void {
   roomGameStateActor.send({ type: "DEACTIVATE" })
   metadataSourceAuthActor.send({ type: "DEACTIVATE" })
   soundEffectsActor.send({ type: "DEACTIVATE" })
+  trackPreviewActor.send({ type: "DEACTIVATE" })
   screenEffectsActor.send({ type: "DEACTIVATE" })
   pollActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
+  addToQueueUiActor.send({ type: "DEACTIVATE" })
+  // Activated by the Game State modal, not by room entry; reset here so detail
+  // frames never outlive the room they came from.
+  gameStateNavActor.send({ type: "RESET" })
   mediaBridgeActor.send({ type: "DEACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })
   teardownPluginComponentActors()

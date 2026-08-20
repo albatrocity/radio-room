@@ -1,4 +1,5 @@
 import type { LucideIconName } from "./LucideIconKey"
+import type { ArtworkFrame } from "./Inventory"
 
 /**
  * Shopping session instances (per-user, ephemeral to a "shopping round").
@@ -17,6 +18,12 @@ export interface ShopOffer {
   name: string
   description: string
   icon: LucideIconName
+  /** Artwork URL rendered instead of `icon` when present (e.g. record covers). Row-sized (~384px). */
+  imageUrl?: string
+  /** Feature-sized (~1200px) cover; omitted when the record has no large variant. */
+  imageUrlLarge?: string
+  /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
+  artworkFrame?: ArtworkFrame
   price: number
   /** false after the user purchased the single available unit. */
   available: boolean

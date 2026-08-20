@@ -41,6 +41,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
     await handlers.getEffectiveMetadataSources(connections)
   })
 
+  socket.on("LIST_BRIDGE_LOCAL_PLAYLISTS", async () => {
+    await handlers.listBridgeLocalPlaylists(connections)
+  })
+
   socket.on(
     "BROWSE_ARTISTS",
     async (payload: { source: string; query?: string; offset?: number; limit?: number }) => {
@@ -62,6 +66,21 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   socket.on("BROWSE_ALBUM", async (payload: { source: string; albumId: string }) => {
     await handlers.browseAlbum(connections, payload)
   })
+
+  socket.on("BROWSE_MEDIA_ITEM", async (payload: { mediaKey: string }) => {
+    await handlers.browseMediaItem(connections, payload)
+  })
+
+  socket.on("LIST_MEDIA_ITEM_TRACKS", async (payload: { mediaKey: string }) => {
+    await handlers.listMediaItemTracks(connections, payload)
+  })
+
+  socket.on(
+    "GET_TRACK_PREVIEW",
+    async (payload: { mediaKey?: string; trackId: string; source?: string }) => {
+      await handlers.getTrackPreview(connections, payload)
+    },
+  )
 
   /**
    * Legacy event name for backward compatibility
@@ -150,6 +169,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
    */
   socket.on("REMOVE_FROM_QUEUE", async ({ trackId }: { trackId: string }) => {
     await handlers.removeFromQueueDirect(connections, { trackId })
+  })
+
+  socket.on("CANCEL_HELD_QUEUE", async ({ trackId }: { trackId: string }) => {
+    await handlers.cancelHeldQueue(connections, { trackId })
   })
 
   socket.on("PLAY_QUEUED_TRACK", async ({ trackId }: { trackId: string }) => {

@@ -50,6 +50,9 @@ import {
   stubBrowseAlbums,
   stubBrowseArtist,
   stubBrowseArtists,
+  stubBrowseMediaItem,
+  stubGetTrackPreview,
+  stubListMediaItemTracks,
   stubSearchTracks,
 } from "./stubMetadataCatalog.js"
 import {
@@ -765,6 +768,14 @@ function wireSocketHandlers(io: IOServer): void {
       /** Success/failure is emitted by Game Studio via POST `/preview/queue-remove-result`. */
     })
 
+    socket.on("CANCEL_HELD_QUEUE", async (data: { trackId?: string }) => {
+      const trackId = typeof data?.trackId === "string" ? data.trackId : ""
+      socket.emit("event", {
+        type: "CANCEL_HELD_QUEUE_SUCCESS",
+        data: { trackId },
+      })
+    })
+
     socket.on("SET_QUEUE_SPLIT", async (data: { belowKey?: string }) => {
       const roomId = socket.data.roomId as string | undefined
       const userId = socket.data.userId as string | undefined
@@ -1058,6 +1069,45 @@ function wireSocketHandlers(io: IOServer): void {
       }
       socket.emit("event", stubBrowseAlbum(payload.albumId))
     })
+
+    socket.on("BROWSE_MEDIA_ITEM", (payload: { mediaKey?: string }) => {
+      const mediaKey = typeof payload?.mediaKey === "string" ? payload.mediaKey : ""
+      if (!mediaKey) {
+        socket.emit("event", {
+          type: "BROWSE_MEDIA_ITEM_FAILURE",
+          data: { message: "mediaKey is required" },
+        })
+        return
+      }
+      socket.emit("event", stubBrowseMediaItem(mediaKey))
+    })
+
+    socket.on("LIST_MEDIA_ITEM_TRACKS", (payload: { mediaKey?: string }) => {
+      const mediaKey = typeof payload?.mediaKey === "string" ? payload.mediaKey : ""
+      if (!mediaKey) {
+        socket.emit("event", {
+          type: "LIST_MEDIA_ITEM_TRACKS_FAILURE",
+          data: { message: "mediaKey is required" },
+        })
+        return
+      }
+      socket.emit("event", stubListMediaItemTracks(mediaKey))
+    })
+
+    socket.on(
+      "GET_TRACK_PREVIEW",
+      (payload: { trackId?: string; mediaKey?: string; source?: string }) => {
+        const trackId = typeof payload?.trackId === "string" ? payload.trackId : ""
+        if (!trackId) {
+          socket.emit("event", {
+            type: "GET_TRACK_PREVIEW_FAILURE",
+            data: { message: "trackId is required" },
+          })
+          return
+        }
+        socket.emit("event", stubGetTrackPreview())
+      },
+    )
 
     socket.on("SEARCH_TRACK", (payload: { query?: string }) => {
       const query = typeof payload?.query === "string" ? payload.query : ""

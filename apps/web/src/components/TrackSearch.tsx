@@ -15,17 +15,21 @@ import {
 } from "@chakra-ui/react"
 
 import { useSocketMachine } from "../hooks/useSocketMachine"
-import { trackSearchMachine } from "../machines/trackSearchMachine"
+import { TRACK_SEARCH_EVENT_TYPES, trackSearchMachine } from "../machines/trackSearchMachine"
 import { createDebouncedInputMachine } from "../machines/debouncedInputMachine"
 import { takeTopByTitleRelevance } from "@repo/utils"
-import type { MetadataSourceTrack } from "@repo/types"
+import type { MetadataSourceTrack, MetadataSourceTrackWithSource } from "@repo/types"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
 import EntityThumb from "./EntityThumb"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
-import TrackItem from "./TrackItem"
+import TrackActionRow from "./TrackActionRow"
+import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
+import { useTrackPreviewStatus } from "../hooks/useActors"
+import { trackPreviewKey } from "../lib/trackPreviewKey"
 import type { CatalogBrowseNavigation } from "./CatalogBrowse"
 
-type TrackWithSource = MetadataSourceTrack & { source?: string }
+/** Search hits carry their own `source`; this only guards a malformed payload. */
+const SEARCH_FALLBACK_SOURCE = "unknown"
 
 type Props = {
   onChoose: (item: MetadataSourceTrack) => void
@@ -37,6 +41,52 @@ type Props = {
   placeholder?: string
   disabled?: boolean
   autoFocus?: boolean
+  /** Stretch result lists to fill a flex parent (Add to Queue modal). */
+  fillHeight?: boolean
+}
+
+function SearchTrackRow({
+  track,
+  disabled,
+  isActive,
+  optionId,
+  onChoose,
+  onActivate,
+  rowRef,
+}: {
+  track: MetadataSourceTrackWithSource
+  disabled?: boolean
+  isActive: boolean
+  optionId: string
+  onChoose: () => void
+  onActivate: () => void
+  rowRef: (el: HTMLDivElement | null) => void
+}) {
+  const previewKey = trackPreviewKey(track, SEARCH_FALLBACK_SOURCE)
+  const previewStatus = useTrackPreviewStatus(previewKey)
+  return (
+    <TrackActionRow
+      track={track}
+      size="track"
+      disabled={disabled}
+      previewStatus={previewStatus}
+      canPreview={track.source === "local"}
+      onPreview={() =>
+        toggleTrackPreview({
+          trackKey: previewKey,
+          trackId: track.id,
+          source: track.source ?? "local",
+        })
+      }
+      onAddToQueue={onChoose}
+      isActive={isActive}
+      optionId={optionId}
+      role="option"
+      aria-selected={isActive}
+      onMouseEnter={onActivate}
+      rowRef={rowRef}
+    />
+  )
 }
 
 function TrackSearch({
@@ -47,12 +97,17 @@ function TrackSearch({
   placeholder = "Search for a track",
   disabled = false,
   autoFocus = true,
+  fillHeight = false,
 }: Props) {
   const listboxId = useId()
-  const [state, send] = useSocketMachine(trackSearchMachine)
+  const [state, send] = useSocketMachine(trackSearchMachine, undefined, TRACK_SEARCH_EVENT_TYPES)
   const [resultTab, setResultTab] = useState<"tracks" | "artists" | "albums">("tracks")
   const [activeIndex, setActiveIndex] = useState(-1)
-  const optionRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const optionRefs = useRef<(HTMLDivElement | null)[]>([])
+
+  useEffect(() => {
+    return () => stopTrackPreview()
+  }, [])
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -72,7 +127,7 @@ function TrackSearch({
   const searchValue = inputState.context.value ?? ""
   const hasQuery = searchValue.trim() !== ""
 
-  const results = state.context.results as TrackWithSource[]
+  const results = state.context.results as MetadataSourceTrackWithSource[]
   const filteredResults = useMemo(() => {
     if (sourceFilter === "all") return results
     return results.filter((track) => track.source === sourceFilter)
@@ -83,13 +138,9 @@ function TrackSearch({
     const artistsRaw = state.context.artists ?? []
     const albumsRaw = state.context.albums ?? []
     const artistsFiltered =
-      sourceFilter === "all"
-        ? artistsRaw
-        : artistsRaw.filter((a) => a.source === sourceFilter)
+      sourceFilter === "all" ? artistsRaw : artistsRaw.filter((a) => a.source === sourceFilter)
     const albumsFiltered =
-      sourceFilter === "all"
-        ? albumsRaw
-        : albumsRaw.filter((a) => a.source === sourceFilter)
+      sourceFilter === "all" ? albumsRaw : albumsRaw.filter((a) => a.source === sourceFilter)
 
     if (sourceFilter === "all") {
       return {
@@ -115,7 +166,7 @@ function TrackSearch({
   }, [activeIndex])
 
   const chooseTrack = useCallback(
-    (track: TrackWithSource) => {
+    (track: MetadataSourceTrackWithSource) => {
       onChoose(track)
       setActiveIndex(-1)
     },
@@ -187,37 +238,20 @@ function TrackSearch({
           {sourceFilter !== "all" ? ` in ${metadataSourceLabel(sourceFilter)}` : ""}.
         </Text>
       ) : (
-        filteredResults.map((track, index) => {
-          const isActive = index === activeIndex
-          return (
-            <Button
-              key={`${track.source ?? "unknown"}-${track.id}-${index}`}
-              ref={(el: HTMLButtonElement | null) => {
-                optionRefs.current[index] = el
-              }}
-              id={`${listboxId}-option-${index}`}
-              role="option"
-              aria-selected={isActive}
-              type="button"
-              variant="ghost"
-              disabled={disabled}
-              justifyContent="flex-start"
-              h="auto"
-              w="100%"
-              minW={0}
-              overflow="hidden"
-              p={2}
-              textAlign="left"
-              borderRadius="md"
-              bg={isActive ? "actionBgLite" : "transparent"}
-              _hover={{ bg: "actionBgLite" }}
-              onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => chooseTrack(track)}
-            >
-              <TrackItem {...track} />
-            </Button>
-          )
-        })
+        filteredResults.map((track, index) => (
+          <SearchTrackRow
+            key={`${track.source ?? SEARCH_FALLBACK_SOURCE}-${track.id}-${index}`}
+            track={track}
+            disabled={disabled}
+            isActive={index === activeIndex}
+            optionId={`${listboxId}-option-${index}`}
+            onChoose={() => chooseTrack(track)}
+            onActivate={() => setActiveIndex(index)}
+            rowRef={(el) => {
+              optionRefs.current[index] = el
+            }}
+          />
+        ))
       )}
     </VStack>
   )
@@ -240,7 +274,6 @@ function TrackSearch({
             w="100%"
             p={2}
             textAlign="left"
-            borderRadius="md"
             _hover={{ bg: "actionBgLite" }}
             onClick={() =>
               onOpenBrowse?.({
@@ -252,7 +285,7 @@ function TrackSearch({
           >
             <HStack justify="space-between" w="100%" minW={0} gap={2}>
               <HStack gap={2} minW={0} flex={1}>
-                <EntityThumb images={artist.images} shape="circle" alt="" />
+                <EntityThumb images={artist.images} shape="circle" alt="" size="track" />
                 <Text fontWeight="medium" truncate>
                   {artist.title}
                 </Text>
@@ -287,7 +320,6 @@ function TrackSearch({
             w="100%"
             p={2}
             textAlign="left"
-            borderRadius="md"
             _hover={{ bg: "actionBgLite" }}
             onClick={() =>
               onOpenBrowse?.({
@@ -301,7 +333,7 @@ function TrackSearch({
           >
             <HStack justify="space-between" w="100%" minW={0} gap={2}>
               <HStack gap={2} minW={0} flex={1}>
-                <EntityThumb images={album.images} shape="square" alt="" />
+                <EntityThumb images={album.images} shape="square" alt="" size="track" />
                 <VStack align="start" gap={0} minW={0}>
                   <Text fontWeight="medium" truncate>
                     {album.title}
@@ -326,7 +358,12 @@ function TrackSearch({
   )
 
   return (
-    <VStack align="stretch" gap={3} w="100%">
+    <VStack
+      align="stretch"
+      gap={3}
+      w="100%"
+      {...(fillHeight ? { flex: "1", minH: 0, h: "100%" } : {})}
+    >
       {state.matches("failure") && (
         <Text color="red.500" fontSize="sm">
           {state.context.error?.message ?? "Search failed"}
@@ -346,6 +383,7 @@ function TrackSearch({
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
+        flexShrink={0}
       />
 
       {showResults && authErrorSources.length > 0 && (
@@ -353,7 +391,9 @@ function TrackSearch({
       )}
 
       {showResults && (
-        <Box>
+        <Box
+          {...(fillHeight ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" } : {})}
+        >
           {isLoading && !hasAnyResults && authErrorSources.length === 0 ? (
             <Center py={6}>
               <Spinner size="sm" />
@@ -368,14 +408,25 @@ function TrackSearch({
               variant="line"
               colorPalette="action"
               size="sm"
+              {...(fillHeight
+                ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
+                : {})}
             >
-              <Tabs.List>
+              <Tabs.List flexShrink={0}>
                 <Tabs.Trigger value="tracks">Tracks</Tabs.Trigger>
                 <Tabs.Trigger value="artists">Artists</Tabs.Trigger>
                 <Tabs.Trigger value="albums">Albums</Tabs.Trigger>
               </Tabs.List>
-              <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%" mt={2}>
-                <ScrollArea.Viewport>
+              <ScrollArea.Root
+                size="sm"
+                variant="hover"
+                w="100%"
+                mt={2}
+                {...(fillHeight
+                  ? { flex: "1 1 auto", minH: 0, height: "100%" }
+                  : { maxH: "320px" })}
+              >
+                <ScrollArea.Viewport {...(fillHeight ? { height: "100%" } : {})}>
                   <ScrollArea.Content>
                     <Tabs.Content value="tracks" pt={0}>
                       {tracksList}
@@ -395,8 +446,13 @@ function TrackSearch({
               </ScrollArea.Root>
             </Tabs.Root>
           ) : (
-            <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%">
-              <ScrollArea.Viewport>
+            <ScrollArea.Root
+              size="sm"
+              variant="hover"
+              w="100%"
+              {...(fillHeight ? { flex: "1 1 auto", minH: 0, height: "100%" } : { maxH: "320px" })}
+            >
+              <ScrollArea.Viewport {...(fillHeight ? { height: "100%" } : {})}>
                 <ScrollArea.Content>{tracksList}</ScrollArea.Content>
               </ScrollArea.Viewport>
               <ScrollArea.Scrollbar>

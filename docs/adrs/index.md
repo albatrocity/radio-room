@@ -96,13 +96,22 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Accepted |
 | [0089](0089-metadata-source-content-browse.md) | Metadata source content browse (artists → albums → tracks) | Partially superseded by [0090](0090-hybrid-metadata-catalog-browse.md) |
 | [0090](0090-hybrid-metadata-catalog-browse.md) | Hybrid metadata catalog browse (search-entry + Search entity rows) | Accepted |
-| [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Accepted |
+| [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Partially superseded by [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) |
 | [0092](0092-plugin-showwhen-membership-and-add-to-queue-area.md) | Plugin showWhen membership operators and `addToQueue` area | Accepted |
 | [0093](0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md) | Client socket event allowlists + shared plugin component actors | Accepted |
 | [0094](0094-reaction-add-remove-delta-payloads.md) | Reaction add/remove emit delta only (`reaction` required; full store on INIT) | Accepted |
 | [0095](0095-room-plugin-config-name-index.md) | Room plugin config name index SET (`room:{id}:plugins:index`) | Accepted |
 | [0096](0096-playlist-bingo-per-user-cards.md) | Playlist Bingo per-user cards via GET_MY_GAME_STATE | Partially superseded by [0097](0097-plugin-contribute-to-user-game-state.md) |
 | [0097](0097-plugin-contribute-to-user-game-state.md) | Plugin `contributeToUserGameState` for private per-user payloads | Accepted |
+| [0098](0098-inventory-scoped-local-library-catalog-filters.md) | Inventory-scoped Local library catalog filters (playlist shelves) | Partially superseded by [0099](0099-physical-media-personal-libraries.md) |
+| [0099](0099-physical-media-personal-libraries.md) | Physical Media personal libraries (derived items, Record Store, myMedia) | Accepted |
+| [0100](0100-dual-inventory-slot-pools.md) | Dual inventory slot pools (`inventory` vs `collection`) | Accepted |
+| [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) | Queue-add undo: cancel held picks and restore Round Robin turns | Accepted |
+| [0102](0102-handwritten-disc-label-for-coverless-jewel-cases.md) | Handwritten disc label for coverless jewel cases | Accepted |
+| [0103](0103-physical-media-track-previews.md) | Physical Media track previews (ffmpeg RPC, Redis cache, client ducking) | Accepted |
+| [0104](0104-game-state-item-detail-subroute.md) | Game State item detail subroute (`detailView`, per-tab stack) | Accepted (point 1 superseded by [0106](0106-game-state-nav-machine.md)) |
+| [0105](0105-add-to-queue-ui-session-persistence.md) | Add to Queue UI session persistence (mode, source, browse location) | Accepted |
+| [0106](0106-game-state-nav-machine.md) | Game State nav stack in a machine (tab + detail frames, preview teardown) | Accepted |
 
 ## Creating a New ADR
 

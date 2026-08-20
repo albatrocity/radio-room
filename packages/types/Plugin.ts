@@ -29,6 +29,7 @@ import type {
   ItemDefinition,
   ItemSellResult,
   ItemUseResult,
+  LocalPlaylistArtwork,
   UserInventory,
 } from "./Inventory"
 import type {
@@ -39,6 +40,7 @@ import type {
 } from "./Artifacts"
 import type { PersonaDefinition, UserPersona, UserPersonaAssignment } from "./Persona"
 import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
+import type { MetadataSourceTrack, PhysicalMediaItem } from "./MetadataSource"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -62,6 +64,11 @@ export type PluginFieldType =
   | "checkbox-group" // Multi-select: value is string[]; use `options` in field meta
   | "datetime" // Datetime picker (stored in epoch ms)
   | "object-array" // Repeatable group: value is Record<string, unknown>[]; see `itemFields`
+  /**
+   * Async options loaded by the host (e.g. bridge Navidrome playlists).
+   * Use `remoteSource` on field meta; falls back to string input when offline.
+   */
+  | "remote-select"
 
 /**
  * Condition for conditional visibility.
@@ -237,6 +244,11 @@ export interface PluginFieldMeta {
   minItems?: number
   /** For `object-array`: maximum number of rows allowed. */
   maxItems?: number
+  /**
+   * For `remote-select`: host-known source id (e.g. `"bridgeLocalPlaylists"`).
+   * The admin form loads options via socket / PluginAPI.
+   */
+  remoteSource?: string
 }
 
 /**
@@ -526,6 +538,50 @@ export interface PluginAPI {
     userId: string,
     action: MetadataSourceAccessAction,
   ): Promise<string[]>
+
+  /**
+   * Which Navidrome playlist ids contain a Local track (Media Bridge RPC).
+   * Used by inventory grant redeem logic (ADR 0098). Returns [] when offline / unknown.
+   */
+  checkLocalTrackPlaylistMembership(params: {
+    roomId: string
+    trackId: string
+    playlistIds: string[]
+  }): Promise<string[]>
+
+  /**
+   * List Navidrome playlists on the room's Media Bridge (admin config picker).
+   * Returns [] when offline / not bridge.
+   */
+  listLocalPlaylists(
+    roomId: string,
+  ): Promise<Array<{ id: string; name: string; songCount?: number; comment?: string }>>
+
+  /**
+   * Cover artwork URLs for Navidrome playlists, keyed by playlist id. Art is
+   * cached in the room image store so wire payloads carry a short URL rather
+   * than a data URI (ADR 0099). Playlists without art are omitted. Each entry
+   * may include a row-sized `imageUrl` (~384px) and a feature-sized
+   * `imageUrlLarge` (~1200px).
+   */
+  getLocalPlaylistArtwork(
+    roomId: string,
+    playlistIds: string[],
+  ): Promise<Record<string, LocalPlaylistArtwork>>
+
+  /**
+   * Drop the Media Bridge daemon's playlist membership + cover-art caches
+   * so the next browse/search refetches from Navidrome.
+   */
+  invalidateLocalLibraryCache(roomId: string): Promise<boolean>
+
+  /**
+   * Full track list for a Navidrome playlist (Physical Media item browse).
+   */
+  listLocalPlaylistTracks(
+    roomId: string,
+    playlistId: string,
+  ): Promise<MetadataSourceTrack[]>
 
   /**
    * Emit a custom plugin event.
@@ -1160,11 +1216,71 @@ export interface Plugin {
   }): Promise<"grant" | "abstain">
 
   /**
+   * Optional catalog filter for restricted Local library search/browse (ADR 0098).
+   * Inventory grants may unlock the full library or a union of Navidrome playlist ids.
+   * Aggregation: any `unrestricted` wins; else union of `playlists`; all abstain → no plugin filter.
+   */
+  resolveLocalLibraryCatalogFilter?(params: {
+    roomId: string
+    userId: string
+  }): Promise<
+    | { mode: "unrestricted" }
+    | { mode: "playlists"; playlistIds: string[] }
+    | "abstain"
+  >
+
+  /**
+   * Physical Media items the user currently holds (ADR 0099).
+   * `mediaKey` is an inventory shortId — never a Navidrome playlist id.
+   */
+  listPhysicalMediaItems?(params: { roomId: string; userId: string }): Promise<PhysicalMediaItem[]>
+
+  /**
+   * Resolve a held `mediaKey` to a Navidrome playlist id for BROWSE_MEDIA_ITEM.
+   * Returns null if the caller does not hold that item.
+   */
+  resolvePhysicalMediaItem?(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null>
+
+  /**
+   * Resolve a `mediaKey` for track preview listing/generation when the caller
+   * holds the item or it is on their current shopping-instance offers (ADR 0103).
+   */
+  resolvePreviewableMediaItem?(params: {
+    roomId: string
+    userId: string
+    mediaKey: string
+  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null>
+
+  /**
    * Called immediately before app-controlled playTrack(uri) in core play paths.
    * Plugins may perform side effects (e.g. set volume) before playback starts.
    * Fail-open on errors/timeouts (like validateQueueRequest).
    */
   beforePlayQueuedTrack?(params: BeforePlayQueuedTrackParams): Promise<void>
+
+  /**
+   * Clear a deferred / held queue pick (ADR 0101). Return `{ cancelled: true }`
+   * only when this plugin owned a hold matching `trackId`.
+   */
+  cancelHeldQueue?(params: {
+    roomId: string
+    userId: string
+    trackId: string
+  }): Promise<{ cancelled: boolean }>
+
+  /**
+   * After a successful app-controlled `REMOVE_FROM_QUEUE` (ADR 0101).
+   * Fail-open on errors/timeouts (like `validateQueueRequest`).
+   */
+  onQueueItemRemoved?(params: {
+    roomId: string
+    item: QueueItem
+    remainingQueue: QueueItem[]
+  }): Promise<void>
 
   /**
    * Transform a chat message before it is persisted and broadcast.
@@ -1198,6 +1314,15 @@ export interface Plugin {
    * }
    */
   augmentPlaylistBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
+
+  /**
+   * Optional method to augment queued tracks with plugin-specific metadata.
+   * Called at read-time for INIT / QUEUE_CHANGED wire payloads (not persisted).
+   *
+   * @param items - Array of queue items to augment
+   * @returns Array of augmentation data objects, one per item (in same order)
+   */
+  augmentQueueBatch?(items: QueueItem[]): Promise<PluginAugmentationData[]>
 
   /**
    * Augment the now playing track with plugin-specific data and style hints.

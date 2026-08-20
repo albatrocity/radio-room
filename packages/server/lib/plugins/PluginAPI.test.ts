@@ -28,6 +28,11 @@ const adapterApiMocks = vi.hoisted(() => {
   }
 })
 
+const bridgeMocks = vi.hoisted(() => ({
+  getBridgeRpcClient: vi.fn(),
+  getLocalPlaylistCoverArt: vi.fn(),
+}))
+
 vi.mock("../../operations/data", () => ({
   getRoomCurrent: vi.fn(),
   findRoom: vi.fn(),
@@ -35,10 +40,16 @@ vi.mock("../../operations/data", () => ({
   setDispatchedTrack: vi.fn(),
   buildQueueChangedData: vi.fn(),
   clearDispatchedTrack: vi.fn(),
+  storeImage: vi.fn(),
 }))
 
 vi.mock("../../services/AdapterService", () => ({
   AdapterService: adapterApiMocks.MockAdapterService,
+}))
+
+vi.mock("@repo/adapter-bridge", () => ({
+  getBridgeRpcClient: bridgeMocks.getBridgeRpcClient,
+  getLocalPlaylistCoverArt: bridgeMocks.getLocalPlaylistCoverArt,
 }))
 
 import {
@@ -48,6 +59,7 @@ import {
   setDispatchedTrack,
   buildQueueChangedData,
   clearDispatchedTrack,
+  storeImage,
 } from "../../operations/data"
 
 describe("PluginAPIImpl.skipTrack", () => {
@@ -308,5 +320,42 @@ describe("PluginAPIImpl metadata source access queries", () => {
       "local",
     ])
     expect(getEffectiveSourceIdsForUser).toHaveBeenCalledWith(roomId, userId, "queue")
+  })
+})
+
+describe("PluginAPIImpl.getLocalPlaylistArtwork", () => {
+  test("stores sm and lg variants and returns both URLs", async () => {
+    bridgeMocks.getBridgeRpcClient.mockReturnValue({})
+    bridgeMocks.getLocalPlaylistCoverArt.mockResolvedValue({
+      "nd-lp": {
+        sm: "data:image/jpeg;base64,aaa",
+        lg: "data:image/jpeg;base64,bbb",
+      },
+    })
+    vi.mocked(storeImage).mockResolvedValue({ success: true })
+
+    const mockContext = appContextFactory.build()
+    mockContext.apiUrl = "https://api.example"
+    const api = new PluginAPIImpl(mockContext, {} as Server)
+
+    await expect(api.getLocalPlaylistArtwork("room-1", ["nd-lp"])).resolves.toEqual({
+      "nd-lp": {
+        imageUrl: expect.stringMatching(
+          /^https:\/\/api\.example\/api\/rooms\/room-1\/images\/pl-cover-nd-lp-[0-9a-f]{8}$/,
+        ),
+        imageUrlLarge: expect.stringMatching(
+          /^https:\/\/api\.example\/api\/rooms\/room-1\/images\/pl-cover-nd-lp-[0-9a-f]{8}-lg$/,
+        ),
+      },
+    })
+    expect(storeImage).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(storeImage).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ imageId: expect.stringMatching(/^pl-cover-nd-lp-[0-9a-f]{8}$/) }),
+    )
+    expect(vi.mocked(storeImage).mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        imageId: expect.stringMatching(/^pl-cover-nd-lp-[0-9a-f]{8}-lg$/),
+      }),
+    )
   })
 })

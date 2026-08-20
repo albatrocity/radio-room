@@ -69,7 +69,7 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
       api: createMockPluginAPI(),
       artifacts: createMockArtifacts(),
       inventory: {
-        getInventory: vi.fn().mockResolvedValue({ userId: "", items: [], maxSlots: 20 }),
+        getInventory: vi.fn().mockResolvedValue({ userId: "", items: [], maxSlots: 20, maxCollectionSlots: 20 }),
         getItemDefinition: vi.fn().mockResolvedValue(null),
         removeItem: vi.fn().mockResolvedValue(true),
         giveItem: vi.fn().mockResolvedValue(null),

@@ -2,6 +2,7 @@ import type { RedisClientType } from "redis"
 import {
   BRIDGE_LAST_ENDED_TTL_SEC,
   BRIDGE_PRESENCE_TTL_SEC,
+  capabilitiesKey,
   eventChannel,
   lastEndedKey,
   presenceKey,
@@ -12,6 +13,7 @@ type RedisLike = RedisClientType<any, any, any>
 
 export class Presence {
   private timer: NodeJS.Timeout | null = null
+  private services: string[] = []
 
   constructor(
     private readonly redis: RedisLike,
@@ -19,13 +21,17 @@ export class Presence {
   ) {}
 
   async start(services: string[]): Promise<void> {
+    this.services = [...services]
     await this.refresh()
     this.timer = setInterval(() => void this.refresh(), 3000)
-    await this.publish({ type: "CAPABILITIES", services })
+    await this.publish({ type: "CAPABILITIES", services: this.services })
   }
 
   async refresh(): Promise<void> {
     await this.redis.set(presenceKey(this.roomId), "1", { EX: BRIDGE_PRESENCE_TTL_SEC })
+    await this.redis.set(capabilitiesKey(this.roomId), JSON.stringify(this.services), {
+      EX: BRIDGE_PRESENCE_TTL_SEC,
+    })
   }
 
   async publish(event: BridgeEvent): Promise<void> {
@@ -53,5 +59,6 @@ export class Presence {
     this.timer = null
     await this.publish({ type: "DISCONNECTING" })
     await this.redis.del(presenceKey(this.roomId))
+    await this.redis.del(capabilitiesKey(this.roomId))
   }
 }

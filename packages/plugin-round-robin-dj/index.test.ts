@@ -641,4 +641,59 @@ describe("RoundRobinDjPlugin", () => {
     expect(state.phase).toBe("locked")
     expect(state.queuedThisRound).toEqual([])
   })
+
+  it("cancels a matching hold and ignores a mismatched trackId", async () => {
+    const { plugin, context, storage } = setup({
+      enabled: true,
+      mode: "sequential",
+      deferOutOfTurnQueues: true,
+    })
+    await plugin.register(context)
+    await storage.set(
+      "hold:b",
+      JSON.stringify({
+        trackId: "held-b",
+        mediaSourceType: "spotify",
+        username: "B",
+        heldAt: Date.now(),
+      }),
+    )
+
+    await expect(
+      plugin.cancelHeldQueue({ roomId: ROOM, userId: "b", trackId: "other" }),
+    ).resolves.toEqual({ cancelled: false })
+    expect(await storage.get("hold:b")).toContain("held-b")
+
+    await expect(
+      plugin.cancelHeldQueue({ roomId: ROOM, userId: "b", trackId: "held-b" }),
+    ).resolves.toEqual({ cancelled: true })
+    expect(await storage.get("hold:b")).toBeNull()
+  })
+
+  it("restores a spent turn when the queued item is removed", async () => {
+    const { plugin, context, storage } = setup({ enabled: true, mode: "sequential" })
+    await plugin.register(context)
+
+    let state = createInitialState("sequential", ["a", "b", "c"])
+    state.order = ["a", "b", "c"]
+    state.orderLocked = true
+    state.phase = "locked"
+    state.round = 2
+    state.queuedThisRound = ["a"]
+    state.currentIndex = 1
+    await writeState(plugin, storage, state)
+
+    const item = {
+      addedAt: Date.now(),
+      addedBy: { userId: "a", username: "A" },
+      mediaSource: { type: "spotify", trackId: "t-a" },
+      track: { id: "t-a", title: "A" },
+    } as unknown as QueueItem
+
+    await plugin.onQueueItemRemoved({ roomId: ROOM, item, remainingQueue: [] })
+    state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.queuedThisRound).toEqual([])
+    expect(state.order).toEqual(["b", "c", "a"])
+    expect(state.order[state.currentIndex]).toBe("b")
+  })
 })

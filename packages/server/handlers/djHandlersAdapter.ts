@@ -15,8 +15,13 @@ import {
   browseAlbums as browseAlbumsOp,
   browseArtist as browseArtistOp,
   browseArtists as browseArtistsOp,
+  browseMediaItem as browseMediaItemOp,
   getEffectiveMetadataSources as getEffectiveMetadataSourcesOp,
 } from "../operations/dj/browseCatalog"
+import {
+  getTrackPreview as getTrackPreviewOp,
+  listMediaItemTracks as listMediaItemTracksOp,
+} from "../operations/dj/trackPreview"
 import { searchTracksAcrossSources } from "../operations/dj/searchTracks"
 
 /**
@@ -298,6 +303,41 @@ export class DJHandlers {
     })
   }
 
+  /**
+   * Admin-only: list Navidrome playlists from the connected Media Bridge (shelf config picker).
+   */
+  listBridgeLocalPlaylists = async ({ socket }: HandlerConnections) => {
+    const { roomId, userId } = socket.data
+    try {
+      const { findRoom, isRoomAdmin } = await import("../operations/data")
+      const room = await findRoom({ context: this.context, roomId })
+      if (!room) {
+        socket.emit("event", { type: "BRIDGE_LOCAL_PLAYLISTS", data: { playlists: [] } })
+        return
+      }
+      const admin = await isRoomAdmin({
+        context: this.context,
+        roomId,
+        userId,
+        roomCreator: room.creator,
+      })
+      if (!admin) {
+        socket.emit("event", { type: "BRIDGE_LOCAL_PLAYLISTS", data: { playlists: [] } })
+        return
+      }
+      const { getBridgeRpcClient, listLocalPlaylists } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      const playlists = rpc ? await listLocalPlaylists({ rpc }) : []
+      socket.emit("event", {
+        type: "BRIDGE_LOCAL_PLAYLISTS",
+        data: { playlists },
+      })
+    } catch (e) {
+      console.warn("[listBridgeLocalPlaylists] failed:", e)
+      socket.emit("event", { type: "BRIDGE_LOCAL_PLAYLISTS", data: { playlists: [] } })
+    }
+  }
+
   browseArtists = async (
     { socket }: HandlerConnections,
     payload: { source: string; query?: string; offset?: number; limit?: number },
@@ -435,6 +475,97 @@ export class DJHandlers {
   }
 
   /**
+   * Browse tracks on a held Physical Media item. `mediaKey` is resolved from
+   * the caller's inventory grants — never a client-supplied playlist id (ADR 0099).
+   */
+  browseMediaItem = async (
+    { socket }: HandlerConnections,
+    payload: { mediaKey: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await browseMediaItemOp({
+      context: this.context,
+      roomId,
+      userId,
+      mediaKey: payload.mediaKey,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "BROWSE_MEDIA_ITEM_FAILURE",
+        data: { message: result.message },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "BROWSE_MEDIA_ITEM_RESULTS",
+      data: {
+        source: result.source,
+        mediaKey: result.mediaKey,
+        name: result.name,
+        tracks: result.tracks,
+      },
+    })
+  }
+
+  listMediaItemTracks = async (
+    { socket }: HandlerConnections,
+    payload: { mediaKey: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await listMediaItemTracksOp({
+      context: this.context,
+      roomId,
+      userId,
+      mediaKey: payload.mediaKey,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "LIST_MEDIA_ITEM_TRACKS_FAILURE",
+        data: { message: result.message },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "LIST_MEDIA_ITEM_TRACKS_RESULTS",
+      data: {
+        mediaKey: result.mediaKey,
+        name: result.name,
+        tracks: result.tracks,
+      },
+    })
+  }
+
+  getTrackPreview = async (
+    { socket }: HandlerConnections,
+    payload: { mediaKey?: string; trackId: string; source?: string },
+  ) => {
+    const { roomId, userId } = socket.data
+    const result = await getTrackPreviewOp({
+      context: this.context,
+      roomId,
+      userId,
+      trackId: payload.trackId,
+      mediaKey: payload.mediaKey,
+      source: payload.source,
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "GET_TRACK_PREVIEW_FAILURE",
+        data: { message: result.message },
+      })
+      return
+    }
+    socket.emit("event", {
+      type: "GET_TRACK_PREVIEW_RESULTS",
+      data: {
+        url: result.url,
+        durationMs: result.durationMs,
+        cached: result.cached,
+      },
+    })
+  }
+
+  /**
    * Search for tracks across all room metadata sources (fan-out).
    * Bridge rooms apply cross-source dedup by mediaSourcePriority.
    */
@@ -446,7 +577,7 @@ export class DJHandlers {
       roomId,
       userId,
       query,
-      searchSource: (src, q) => this.djService.searchForTrack(src, q),
+      searchSource: (src, q, options) => this.djService.searchForTrack(src, q, options),
     })
 
     if (!result.success) {
@@ -707,6 +838,52 @@ export class DJHandlers {
         type: "REMOVE_FROM_QUEUE_FAILURE",
         data: {
           message: error?.message || "Failed to remove track from queue",
+          trackId,
+        },
+      })
+    }
+  }
+
+  /**
+   * Cancel a plugin-held (deferred) queue pick (ADR 0101).
+   */
+  cancelHeldQueue = async (
+    { socket }: HandlerConnections,
+    { trackId }: { trackId: string },
+  ) => {
+    try {
+      const { roomId, userId } = socket.data
+      const key = typeof trackId === "string" ? trackId.trim() : ""
+      if (!key) {
+        socket.emit("event", {
+          type: "CANCEL_HELD_QUEUE_FAILURE",
+          data: { trackId: trackId ?? "", message: "Missing track id" },
+        })
+        return
+      }
+
+      const result = this.context.pluginRegistry?.cancelHeldQueue
+        ? await this.context.pluginRegistry.cancelHeldQueue({ roomId, userId, trackId: key })
+        : { cancelled: false }
+
+      if (!result.cancelled) {
+        socket.emit("event", {
+          type: "CANCEL_HELD_QUEUE_FAILURE",
+          data: { trackId: key, message: "No held song to undo" },
+        })
+        return
+      }
+
+      socket.emit("event", {
+        type: "CANCEL_HELD_QUEUE_SUCCESS",
+        data: { trackId: key },
+      })
+    } catch (error: any) {
+      console.error("Error cancelling held queue:", error)
+      socket.emit("event", {
+        type: "CANCEL_HELD_QUEUE_FAILURE",
+        data: {
+          message: error?.message || "Failed to undo held song",
           trackId,
         },
       })

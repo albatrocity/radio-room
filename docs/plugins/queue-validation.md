@@ -180,10 +180,10 @@ async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidati
   const queue = await this.context!.api.getQueue(this.context!.roomId)
   const lastTrack = queue[queue.length - 1]
 
-  if (lastTrack?.addedBy?.userId === params.userId) {
-    return rejectQueueRequest("Please wait for another DJ to add a song first")
-  }
-
   return allowQueueRequest()
 }
 ```
+
+### Cancelling a held pick (ADR 0101)
+
+`deferQueueRequest` does not enqueue. To undo that pick, implement `cancelHeldQueue({ roomId, userId, trackId })` and return `{ cancelled: true }` only when the stored hold matches `trackId`. The client emits `CANCEL_HELD_QUEUE`. After a live `REMOVE_FROM_QUEUE`, `onQueueItemRemoved` runs so plugins can restore a spent turn (Round Robin moves the deputy to the end of the round).
