@@ -11,6 +11,8 @@ import {
   DialogCloseTrigger,
   CloseButton,
   Portal,
+  type DialogContentProps,
+  type DialogBodyProps,
 } from "@chakra-ui/react"
 
 interface Props {
@@ -23,6 +25,10 @@ interface Props {
   showFooter?: boolean
   // Legacy prop support
   isOpen?: boolean
+  /** Forwarded to `DialogContent` (e.g. viewport-capped height). */
+  contentProps?: DialogContentProps
+  /** Forwarded to `DialogBody`. */
+  bodyProps?: DialogBodyProps
 }
 
 const Modal = ({
@@ -34,6 +40,8 @@ const Modal = ({
   isOpen,
   footer = null,
   showFooter = true,
+  contentProps,
+  bodyProps,
 }: Props) => {
   // Support both legacy isOpen and new open prop
   const isDialogOpen = open ?? isOpen ?? false
@@ -43,16 +51,16 @@ const Modal = ({
       <Portal>
         <DialogBackdrop />
         <DialogPositioner>
-          <DialogContent mx={2} bg="appBg" layerStyle="themeTransition">
-            {heading && <DialogHeader>{heading}</DialogHeader>}
+          <DialogContent mx={2} bg="appBg" layerStyle="themeTransition" {...contentProps}>
+            {heading && <DialogHeader flexShrink={0}>{heading}</DialogHeader>}
 
             {canClose && (
               <DialogCloseTrigger asChild position="absolute" top="2" right="2" zIndex={1}>
                 <CloseButton size="sm" />
               </DialogCloseTrigger>
             )}
-            <DialogBody>{children}</DialogBody>
-            {showFooter && <DialogFooter>{footer}</DialogFooter>}
+            <DialogBody {...bodyProps}>{children}</DialogBody>
+            {showFooter && <DialogFooter flexShrink={0}>{footer}</DialogFooter>}
           </DialogContent>
         </DialogPositioner>
       </Portal>

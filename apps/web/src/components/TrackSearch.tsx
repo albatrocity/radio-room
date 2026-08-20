@@ -39,6 +39,8 @@ type Props = {
   placeholder?: string
   disabled?: boolean
   autoFocus?: boolean
+  /** Stretch result lists to fill a flex parent (Add to Queue modal). */
+  fillHeight?: boolean
 }
 
 function TrackSearch({
@@ -49,6 +51,7 @@ function TrackSearch({
   placeholder = "Search for a track",
   disabled = false,
   autoFocus = true,
+  fillHeight = false,
 }: Props) {
   const listboxId = useId()
   const [state, send] = useSocketMachine(trackSearchMachine)
@@ -345,7 +348,12 @@ function TrackSearch({
   )
 
   return (
-    <VStack align="stretch" gap={3} w="100%">
+    <VStack
+      align="stretch"
+      gap={3}
+      w="100%"
+      {...(fillHeight ? { flex: "1", minH: 0, h: "100%" } : {})}
+    >
       {state.matches("failure") && (
         <Text color="red.500" fontSize="sm">
           {state.context.error?.message ?? "Search failed"}
@@ -365,6 +373,7 @@ function TrackSearch({
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
+        flexShrink={0}
       />
 
       {showResults && authErrorSources.length > 0 && (
@@ -372,7 +381,11 @@ function TrackSearch({
       )}
 
       {showResults && (
-        <Box>
+        <Box
+          {...(fillHeight
+            ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
+            : {})}
+        >
           {isLoading && !hasAnyResults && authErrorSources.length === 0 ? (
             <Center py={6}>
               <Spinner size="sm" />
@@ -387,14 +400,25 @@ function TrackSearch({
               variant="line"
               colorPalette="action"
               size="sm"
+              {...(fillHeight
+                ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
+                : {})}
             >
-              <Tabs.List>
+              <Tabs.List flexShrink={0}>
                 <Tabs.Trigger value="tracks">Tracks</Tabs.Trigger>
                 <Tabs.Trigger value="artists">Artists</Tabs.Trigger>
                 <Tabs.Trigger value="albums">Albums</Tabs.Trigger>
               </Tabs.List>
-              <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%" mt={2}>
-                <ScrollArea.Viewport>
+              <ScrollArea.Root
+                size="sm"
+                variant="hover"
+                w="100%"
+                mt={2}
+                {...(fillHeight
+                  ? { flex: "1 1 auto", minH: 0, height: "100%" }
+                  : { maxH: "320px" })}
+              >
+                <ScrollArea.Viewport {...(fillHeight ? { height: "100%" } : {})}>
                   <ScrollArea.Content>
                     <Tabs.Content value="tracks" pt={0}>
                       {tracksList}
@@ -414,8 +438,15 @@ function TrackSearch({
               </ScrollArea.Root>
             </Tabs.Root>
           ) : (
-            <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%">
-              <ScrollArea.Viewport>
+            <ScrollArea.Root
+              size="sm"
+              variant="hover"
+              w="100%"
+              {...(fillHeight
+                ? { flex: "1 1 auto", minH: 0, height: "100%" }
+                : { maxH: "320px" })}
+            >
+              <ScrollArea.Viewport {...(fillHeight ? { height: "100%" } : {})}>
                 <ScrollArea.Content>{tracksList}</ScrollArea.Content>
               </ScrollArea.Viewport>
               <ScrollArea.Scrollbar>

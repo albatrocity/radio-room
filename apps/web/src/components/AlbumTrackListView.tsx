@@ -43,8 +43,13 @@ type Props = {
   loading?: boolean
   error?: string | null
   emptyMessage?: string
-  /** Scrollport max height (CatalogBrowse default). */
+  /**
+   * Cap scrollport height. Ignored when `fillHeight` is set (parent flex layout
+   * supplies the height).
+   */
   maxH?: string | number
+  /** Grow to fill a flex parent instead of using a fixed `maxH`. */
+  fillHeight?: boolean
   disabled?: boolean
   defaultSourceId?: string
   canPreviewTrack?: (track: AlbumViewTrack) => boolean
@@ -144,6 +149,7 @@ export default function AlbumTrackListView({
   error = null,
   emptyMessage = "No tracks found.",
   maxH = "320px",
+  fillHeight = false,
   disabled = false,
   defaultSourceId = "local",
   canPreviewTrack,
@@ -155,8 +161,15 @@ export default function AlbumTrackListView({
     typeof showAddToQueue === "function" ? showAddToQueue : () => showAddToQueue === true
 
   return (
-    <ScrollArea.Root maxH={maxH} size="sm" variant="hover" w="100%">
-      <ScrollShadowViewport>
+    <ScrollArea.Root
+      size="sm"
+      variant="hover"
+      w="100%"
+      {...(fillHeight
+        ? { flex: "1 1 auto", minH: 0, height: "100%" }
+        : { maxH })}
+    >
+      <ScrollShadowViewport {...(fillHeight ? { height: "100%" } : {})}>
         <ScrollArea.Content>
           <VStack align="stretch" gap={0} w="100%" pr={1} separator={<StackSeparator />}>
             {header ? <AlbumHeader header={header} /> : null}

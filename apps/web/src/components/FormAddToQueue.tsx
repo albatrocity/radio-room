@@ -29,11 +29,18 @@ type Props = {
   onAddToQueue: (track: MetadataSourceTrack) => void
   isDisabled?: boolean
   onSearchActiveChange?: (isActive: boolean) => void
+  /** Stretch Search/Browse lists to fill a flex parent (Add to Queue modal). */
+  fillHeight?: boolean
 }
 
 type Mode = "search" | "browse"
 
-const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Props) => {
+const FormAddToQueue = ({
+  onAddToQueue,
+  isDisabled,
+  onSearchActiveChange,
+  fillHeight = false,
+}: Props) => {
   const room = useCurrentRoom()
   const bridgeConnected = useMediaBridgeConnected()
   const bridgeServices = useMediaBridgeServices()
@@ -146,9 +153,14 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
   }
 
   return (
-    <Stack direction="column" gap={2} textStyle="body">
+    <Stack
+      direction="column"
+      gap={2}
+      textStyle="body"
+      {...(fillHeight ? { flex: "1", minH: 0, h: "100%" } : {})}
+    >
       {(canBrowse || showSourceSelect) && (
-        <HStack gap={3} align="center" justify="space-between" flexWrap="wrap">
+        <HStack gap={3} align="center" justify="space-between" flexWrap="wrap" flexShrink={0}>
           {canBrowse ? (
             <Tabs.Root
               value={mode}
@@ -209,7 +221,13 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
       )}
 
       {/* Keep both mounted so Search/Browse state survives mode switches (ADR 0090). */}
-      <Box hidden={mode !== "search"} aria-hidden={mode !== "search"}>
+      <Box
+        hidden={mode !== "search"}
+        aria-hidden={mode !== "search"}
+        {...(fillHeight && mode === "search"
+          ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
+          : {})}
+      >
         <TrackSearch
           onChoose={handleSelect}
           onOpenBrowse={canBrowse ? handleOpenBrowse : undefined}
@@ -218,11 +236,18 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
           disabled={isDisabled}
           onSearchActiveChange={mode === "search" ? onSearchActiveChange : undefined}
           autoFocus={mode === "search"}
+          fillHeight={fillHeight}
         />
       </Box>
 
       {canBrowse && (
-        <Box hidden={mode !== "browse"} aria-hidden={mode !== "browse"}>
+        <Box
+          hidden={mode !== "browse"}
+          aria-hidden={mode !== "browse"}
+          {...(fillHeight && mode === "browse"
+            ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
+            : {})}
+        >
           <CatalogBrowse
             browseableSourceIds={browseableSourceIds ?? []}
             browseSourceCapabilities={browseSourceCapabilities}
@@ -233,6 +258,7 @@ const FormAddToQueue = ({ onAddToQueue, isDisabled, onSearchActiveChange }: Prop
             onNavigationApplied={clearBrowseNav}
             onChoose={handleSelect}
             disabled={isDisabled}
+            fillHeight={fillHeight}
           />
         </Box>
       )}

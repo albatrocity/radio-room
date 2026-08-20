@@ -102,6 +102,8 @@ type Props = {
   onNavigationApplied?: () => void
   onChoose: (track: MetadataSourceTrack) => void
   disabled?: boolean
+  /** Stretch list scrollports to fill a flex parent (Add to Queue modal). */
+  fillHeight?: boolean
 }
 
 function CatalogBrowse({
@@ -114,6 +116,7 @@ function CatalogBrowse({
   onNavigationApplied,
   onChoose,
   disabled = false,
+  fillHeight = false,
 }: Props) {
   const [state, send] = useSocketMachine(catalogBrowseMachine)
   const [level, setLevel] = useState<BrowseLevel>("root")
@@ -444,7 +447,12 @@ function CatalogBrowse({
   }, [level, selectedMedia, browseAlbum, firstTrack, sourceId])
 
   return (
-    <VStack align="stretch" gap={3} w="100%">
+    <VStack
+      align="stretch"
+      gap={3}
+      w="100%"
+      {...(fillHeight ? { flex: "1", minH: 0, h: "100%" } : {})}
+    >
       {showRootTabs && (
         <Tabs.Root
           value={rootKind}
@@ -461,6 +469,7 @@ function CatalogBrowse({
           variant="line"
           colorPalette="action"
           size="sm"
+          flexShrink={0}
         >
           <Tabs.List>
             <Tabs.Trigger value="artists">Artists</Tabs.Trigger>
@@ -470,7 +479,7 @@ function CatalogBrowse({
         </Tabs.Root>
       )}
 
-      <PathBreadcrumb items={breadcrumb} size="xs" />
+      <PathBreadcrumb items={breadcrumb} size="xs" flexShrink={0} />
 
       {level === "root" && (
         <Input
@@ -489,6 +498,7 @@ function CatalogBrowse({
           disabled={disabled}
           onChange={(e) => setFilter(e.target.value)}
           size="sm"
+          flexShrink={0}
         />
       )}
 
@@ -519,9 +529,12 @@ function CatalogBrowse({
           canPreviewTrack={(track) => (track.source ?? sourceId) === "local"}
           onPreview={handlePreview}
           onAddToQueue={onChoose}
+          fillHeight={fillHeight}
         />
       ) : (
-        <Box>
+        <Box
+          {...(fillHeight ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" } : {})}
+        >
           {isLoading &&
           ((level === "root" && rootKind === "artists" && artists.length === 0) ||
             (level === "root" && rootKind === "albums" && rootAlbums.length === 0) ||
@@ -530,8 +543,15 @@ function CatalogBrowse({
               <Spinner size="sm" />
             </Center>
           ) : (
-            <ScrollArea.Root maxH="320px" size="sm" variant="hover" w="100%">
-              <ScrollShadowViewport>
+            <ScrollArea.Root
+              size="sm"
+              variant="hover"
+              w="100%"
+              {...(fillHeight
+                ? { flex: "1 1 auto", minH: 0, height: "100%" }
+                : { maxH: "320px" })}
+            >
+              <ScrollShadowViewport {...(fillHeight ? { height: "100%" } : {})}>
                 <ScrollArea.Content>
                   <VStack align="stretch" gap={0} w="100%">
                     {level === "root" &&
