@@ -1,4 +1,5 @@
-import { createContext, useContext } from "react"
+import { createContext, useContext, useMemo } from "react"
+import { getCurrentUser, getIsAdmin } from "../../actors/authActor"
 import type { PluginComponentState } from "../../types/PluginComponent"
 
 // ============================================================================
@@ -43,4 +44,34 @@ export function usePluginModalApi(): PluginModalApi {
     throw new Error("usePluginModalApi must be used within PluginComponentsRoomProvider")
   }
   return ctx
+}
+
+/**
+ * Who is looking at the plugin components, resolved once per room rather than
+ * per area and per component. `showWhen` conditions and `adminOnly` gating read
+ * this instead of subscribing to the auth actor from every playlist and
+ * listener row.
+ */
+// A type alias (not an interface) so it satisfies the `Record<string, unknown>`
+// that `checkShowWhenConditions` takes for `viewer.*` lookups.
+export type PluginViewerContextValue = {
+  userId?: string
+  isAdmin: boolean
+}
+
+export const PluginViewerContext = createContext<PluginViewerContextValue | null>(null)
+
+export function usePluginViewer(): PluginViewerContextValue {
+  const ctx = useContext(PluginViewerContext)
+  // Rendering plugin components outside a room is not a supported path today;
+  // degrade to a non-reactive read rather than throwing mid-render.
+  const fallback = useMemo(() => ({ userId: getCurrentUser()?.userId, isAdmin: getIsAdmin() }), [])
+  return ctx ?? fallback
+}
+
+/** Resolved `pluginName → config` for the room, shared by every `PluginArea`. */
+export const PluginConfigsContext = createContext<Record<string, Record<string, unknown>>>({})
+
+export function usePluginAreaConfigs(): Record<string, Record<string, unknown>> {
+  return useContext(PluginConfigsContext)
 }

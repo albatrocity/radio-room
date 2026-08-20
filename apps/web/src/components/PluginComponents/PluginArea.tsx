@@ -2,9 +2,8 @@ import React, { useMemo } from "react"
 import { Wrap } from "@chakra-ui/react"
 import { checkShowWhenConditions } from "@repo/utils"
 import { PluginComponentProvider, PluginComponentRenderer } from "./PluginComponentRenderer"
-import { usePluginComponentContext } from "./context"
+import { usePluginAreaConfigs, usePluginComponentContext, usePluginViewer } from "./context"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
-import { useCurrentUser, useIsAdmin, usePluginConfigs } from "../../hooks/useActors"
 import type { PluginComponentArea, PluginComponentDefinition } from "../../types/PluginComponent"
 
 interface PluginAreaProps {
@@ -53,8 +52,8 @@ export function PluginArea({
   itemContext,
 }: PluginAreaProps) {
   const { schemas, isLoading } = usePluginSchemas()
-  const pluginConfigs = usePluginConfigs() || {}
-  const isAdmin = useIsAdmin()
+  const pluginConfigs = usePluginAreaConfigs()
+  const { isAdmin } = usePluginViewer()
 
   const pluginsForArea = useMemo(() => {
     const result: PluginComponents[] = []
@@ -118,21 +117,9 @@ export function PluginArea({
   )
 }
 
-function VisiblePluginComponents({
-  components,
-}: {
-  components: PluginComponentDefinition[]
-}) {
+function VisiblePluginComponents({ components }: { components: PluginComponentDefinition[] }) {
   const { config, store, itemContext } = usePluginComponentContext()
-  const isAdmin = useIsAdmin()
-  const currentUser = useCurrentUser()
-  const viewerContext = useMemo(
-    () => ({
-      userId: currentUser?.userId,
-      isAdmin,
-    }),
-    [currentUser?.userId, isAdmin],
-  )
+  const viewerContext = usePluginViewer()
 
   const visibleComponents = useMemo(
     () =>

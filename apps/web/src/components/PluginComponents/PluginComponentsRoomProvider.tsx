@@ -20,14 +20,19 @@ import {
 } from "@chakra-ui/react"
 import { useSelector } from "@xstate/react"
 import { interpolateTemplate } from "@repo/utils"
-import { useCurrentRoom, usePluginConfigs } from "../../hooks/useActors"
+import { useCurrentRoom, useCurrentUser, useIsAdmin, usePluginConfigs } from "../../hooks/useActors"
 import { usePluginSchemas } from "../../hooks/usePluginSchemas"
 import {
   ensurePluginComponentActor,
   getPluginComponentActor,
   setPluginComponentRoomId,
 } from "../../actors/pluginComponentRegistry"
-import { PluginComponentContext, PluginModalApiContext } from "./context"
+import {
+  PluginComponentContext,
+  PluginConfigsContext,
+  PluginModalApiContext,
+  PluginViewerContext,
+} from "./context"
 import { PluginComponentRenderer } from "./PluginComponentRenderer"
 import type { PluginModalComponent } from "../../types/PluginComponent"
 
@@ -106,7 +111,14 @@ export function PluginComponentsRoomProvider({ children }: { children: ReactNode
   const roomId = room?.id
   const { schemas, isLoading } = usePluginSchemas()
   const pluginConfigs = usePluginConfigs() || {}
+  const currentUser = useCurrentUser()
+  const isAdmin = useIsAdmin()
   const [openModals, setOpenModals] = useState<Record<string, Set<string>>>({})
+
+  const viewer = useMemo(
+    () => ({ userId: currentUser?.userId, isAdmin }),
+    [currentUser?.userId, isAdmin],
+  )
 
   // Ensure shared actors exist as soon as schemas are known (sync during render)
   const pluginsWithComponents = useMemo(() => {
@@ -132,6 +144,14 @@ export function PluginComponentsRoomProvider({ children }: { children: ReactNode
     }
     return result
   }, [schemas, isLoading, pluginConfigs])
+
+  const configsByPlugin = useMemo(() => {
+    const map: Record<string, Record<string, unknown>> = {}
+    for (const { pluginName, config } of pluginsWithComponents) {
+      map[pluginName] = config
+    }
+    return map
+  }, [pluginsWithComponents])
 
   useEffect(() => {
     if (!roomId) return
@@ -169,23 +189,27 @@ export function PluginComponentsRoomProvider({ children }: { children: ReactNode
   )
 
   return (
-    <PluginModalApiContext.Provider value={modalApi}>
-      {children}
-      {pluginsWithComponents.map(({ pluginName, config, modals }) => {
-        if (modals.length === 0) return null
-        return (
-          <PluginModalHost
-            key={pluginName}
-            pluginName={pluginName}
-            config={config}
-            modals={modals}
-            isOpen={(modalId) => isModalOpen(pluginName, modalId)}
-            onClose={(modalId) => closeModal(pluginName, modalId)}
-            openModal={(modalId) => openModal(pluginName, modalId)}
-            closeModal={(modalId) => closeModal(pluginName, modalId)}
-          />
-        )
-      })}
-    </PluginModalApiContext.Provider>
+    <PluginViewerContext.Provider value={viewer}>
+      <PluginConfigsContext.Provider value={configsByPlugin}>
+        <PluginModalApiContext.Provider value={modalApi}>
+          {children}
+          {pluginsWithComponents.map(({ pluginName, config, modals }) => {
+            if (modals.length === 0) return null
+            return (
+              <PluginModalHost
+                key={pluginName}
+                pluginName={pluginName}
+                config={config}
+                modals={modals}
+                isOpen={(modalId) => isModalOpen(pluginName, modalId)}
+                onClose={(modalId) => closeModal(pluginName, modalId)}
+                openModal={(modalId) => openModal(pluginName, modalId)}
+                closeModal={(modalId) => closeModal(pluginName, modalId)}
+              />
+            )
+          })}
+        </PluginModalApiContext.Provider>
+      </PluginConfigsContext.Provider>
+    </PluginViewerContext.Provider>
   )
 }
