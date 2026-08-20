@@ -302,27 +302,22 @@ export async function activateRoomSegment(params: {
   }
 
   // ---------------------------------------------------------------------------
-  // Game session integration
+  // Game session integration (ADR 0107)
   //
-  // If the segment defines a `gameSessionPreset`, activating it auto-ends any
-  // currently-active session (whose lifetime is implicitly bound to the
-  // previous segment) and starts a new one tagged with this segment id.
+  // Game sessions are independent of segment plugin activation. Merge/replace
+  // of plugin presets must not end an open session.
   //
-  // If the segment has no preset, we still end the previous session so games
-  // don't bleed across segments.
+  // Only an explicit `gameSessionPreset` on the segment starts a new session
+  // (when presetMode is not "skip"). `startSession` ends any prior active
+  // session as part of its own contract — we never call endSession here.
   // ---------------------------------------------------------------------------
   const gameSessions = context.gameSessions as
-    | { startSession: (...args: any[]) => Promise<any>; endSession: (roomId: string) => Promise<any> }
+    | { startSession: (...args: any[]) => Promise<any> }
     | undefined
 
-  if (gameSessions) {
+  if (gameSessions && presetMode !== "skip" && gamePreset) {
     try {
-      // Always end the previous session — the previous segment "owned" it.
-      await gameSessions.endSession(roomId)
-
-      if (presetMode !== "skip" && gamePreset) {
-        await gameSessions.startSession(roomId, { ...gamePreset, segmentId: resolvedSegmentId })
-      }
+      await gameSessions.startSession(roomId, { ...gamePreset, segmentId: resolvedSegmentId })
     } catch (e) {
       console.error("[activateRoomSegment] game session sync failed:", e)
     }

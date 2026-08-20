@@ -605,4 +605,220 @@ describe("activateRoomSegment", () => {
     expect(r.ok).toBe(false)
     if (!r.ok) expect(r.error.status).toBe(400)
   })
+
+  it("does not end an open game session when merging plugin presets without gameSessionPreset", async () => {
+    const endSession = vi.fn()
+    const startSession = vi.fn()
+    const ctx = {
+      ...context,
+      gameSessions: { endSession, startSession },
+    } as unknown as AppContext
+
+    m.findShowById.mockReset().mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          id: "placement-1",
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Quiz",
+            pluginPreset: {
+              presetName: "Quiz night",
+              exportedAt: "2026-07-06T00:00:00.000Z",
+              version: 1,
+              pluginConfigs: { "quiz-sessions": { enabled: true } },
+            },
+            gameSessionPreset: null,
+            roomSettingsOverride: null,
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, announceActiveSegment: false }))
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: "seg-1", announceActiveSegment: false }))
+    m.getAllPluginConfigs.mockResolvedValue({ "quiz-sessions": { enabled: true } })
+
+    const r = await activateRoomSegment({
+      context: ctx,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "merge",
+    })
+
+    expect(r.ok).toBe(true)
+    expect(endSession).not.toHaveBeenCalled()
+    expect(startSession).not.toHaveBeenCalled()
+  })
+
+  it("does not end an open game session when replacing plugin presets without gameSessionPreset", async () => {
+    const endSession = vi.fn()
+    const startSession = vi.fn()
+    const ctx = {
+      ...context,
+      gameSessions: { endSession, startSession },
+    } as unknown as AppContext
+
+    m.findShowById.mockReset().mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          id: "placement-1",
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Block",
+            pluginPreset: {
+              presetName: "Replace me",
+              exportedAt: "2026-07-06T00:00:00.000Z",
+              version: 1,
+              pluginConfigs: { "special-words": { words: ["hi"] } },
+            },
+            roomSettingsOverride: null,
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, announceActiveSegment: false }))
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: "seg-1", announceActiveSegment: false }))
+    m.getAllPluginConfigs.mockResolvedValue({ "special-words": { words: ["hi"] } })
+
+    const r = await activateRoomSegment({
+      context: ctx,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "replace",
+    })
+
+    expect(r.ok).toBe(true)
+    expect(endSession).not.toHaveBeenCalled()
+    expect(startSession).not.toHaveBeenCalled()
+  })
+
+  it("starts a game session from gameSessionPreset without calling endSession directly", async () => {
+    const endSession = vi.fn()
+    const startSession = vi.fn().mockResolvedValue({ id: "gs-1" })
+    const ctx = {
+      ...context,
+      gameSessions: { endSession, startSession },
+    } as unknown as AppContext
+
+    m.findShowById.mockReset().mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          id: "placement-1",
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Contest",
+            pluginPreset: null,
+            gameSessionPreset: { name: "Round 1", mode: "individual" },
+            roomSettingsOverride: null,
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, announceActiveSegment: false }))
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: "seg-1", announceActiveSegment: false }))
+
+    const r = await activateRoomSegment({
+      context: ctx,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "merge",
+    })
+
+    expect(r.ok).toBe(true)
+    expect(endSession).not.toHaveBeenCalled()
+    expect(startSession).toHaveBeenCalledWith(
+      "r1",
+      expect.objectContaining({ name: "Round 1", mode: "individual", segmentId: "seg-1" }),
+    )
+  })
+
+  it("skips gameSessionPreset start when presetMode is skip", async () => {
+    const startSession = vi.fn()
+    const ctx = {
+      ...context,
+      gameSessions: { startSession, endSession: vi.fn() },
+    } as unknown as AppContext
+
+    m.findShowById.mockReset().mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          id: "placement-1",
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Contest",
+            pluginPreset: null,
+            gameSessionPreset: { name: "Round 1" },
+            roomSettingsOverride: null,
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, announceActiveSegment: false }))
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: "seg-1", announceActiveSegment: false }))
+
+    const r = await activateRoomSegment({
+      context: ctx,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(r.ok).toBe(true)
+    expect(startSession).not.toHaveBeenCalled()
+  })
 })

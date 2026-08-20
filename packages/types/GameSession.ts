@@ -261,7 +261,7 @@ export interface GameSessionConfig {
   mode: GameSessionMode
   teams?: TeamConfig[]
 
-  /** Segment that owns the session (auto-start/end on activation). */
+  /** Segment that started the session (correlating tag; see ADR 0107). */
   segmentId?: string
 
   /** Inventory settings. */

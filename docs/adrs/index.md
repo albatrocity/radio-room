@@ -47,7 +47,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0039](0039-plugin-element-properties-for-now-playing.md) | Plugin `elementProps` for Now Playing (obscure / bypass roles) | Accepted |
 | [0040](0040-app-controlled-playback-and-ordered-queue.md) | App-Controlled Spotify Playback and Ordered Redis Queue | Accepted |
 | [0041](0041-queue-drag-reorder-authorization.md) | App-controlled queue reorder authorization and UX | Accepted |
-| [0042](0042-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Accepted |
+| [0042](0042-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Partially superseded by [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) |
 | [0043](0043-game-state-tabs-and-composable-shop-helper.md) | Game State Tabs and Composable Shop Helper | Partially superseded by [0047](0047-shop-plugin-base-class.md) |
 | [0044](0044-plugin-chat-message-transform-and-text-segments.md) | Plugin Chat Message Transform + Structured Text Segments | Accepted |
 | [0045](0045-inventory-item-targeting.md) | Inventory Item Targeting via `requiresTarget` | Accepted |
@@ -112,6 +112,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0104](0104-game-state-item-detail-subroute.md) | Game State item detail subroute (`detailView`, per-tab stack) | Accepted (point 1 superseded by [0106](0106-game-state-nav-machine.md)) |
 | [0105](0105-add-to-queue-ui-session-persistence.md) | Add to Queue UI session persistence (mode, source, browse location) | Accepted |
 | [0106](0106-game-state-nav-machine.md) | Game State nav stack in a machine (tab + detail frames, preview teardown) | Accepted |
+| [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) | Game sessions independent of segment plugin activation | Accepted |
 
 ## Creating a New ADR
 

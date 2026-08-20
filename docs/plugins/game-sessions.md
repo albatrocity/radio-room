@@ -263,11 +263,11 @@ Emitters use `SystemEvents` (same pipeline as other domain events). Useful paylo
 | `INVENTORY_ITEM_REMOVED`     | Partial/full stack removal                                        |
 | `INVENTORY_ITEM_TRANSFERRED` | Player-to-player transfer                                         |
 
-### Segment-bound sessions (scheduling)
+### Segment-started sessions (scheduling)
 
-If a show segment includes **`gameSessionPreset`** on `SegmentDTO`, activating that segment **ends** any prior game session for the room and **starts** a new one from the preset (when preset apply mode is not `"skip"`). Presets are partial configs plus a required `name`; optional `segmentId` is filled at activation.
+Game sessions are **independent** of segment plugin preset merge/replace ([ADR 0107](../adrs/0107-game-sessions-independent-of-segment-plugin-activation.md)). Activating a segment only to apply plugin configs does **not** end an open session.
 
-This ties session lifetime to segment changes without extra plugin code.
+If a show segment includes **`gameSessionPreset`** on `SegmentDTO` and preset apply mode is not `"skip"`, activation **starts** a new session from that preset. `startSession` ends any prior active session as part of starting the new one. Presets are partial configs plus a required `name`; optional `segmentId` is filled at activation as a correlating tag only.
 
 ### UI components (declarative)
 
