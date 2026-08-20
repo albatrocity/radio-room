@@ -115,8 +115,7 @@ export class InventoryService {
       }
     }
 
-    const maxSlots = await this.resolveMaxSlots(roomId)
-    const maxCollectionSlots = await this.resolveMaxCollectionSlots(roomId)
+    const { maxSlots, maxCollectionSlots } = await this.resolveSlotCaps(roomId)
     return { userId, items, maxSlots, maxCollectionSlots }
   }
 
@@ -472,16 +471,26 @@ export class InventoryService {
     )
   }
 
-  private async resolveMaxSlots(roomId: string): Promise<number> {
-    if (!this.context.gameSessions) return DEFAULT_MAX_SLOTS
-    const session = await this.context.gameSessions.getActiveSession(roomId)
-    return session?.config.maxInventorySlots ?? DEFAULT_MAX_SLOTS
-  }
+  /**
+   * Both caps come from the same session, so read it once — `getActiveSession`
+   * is two uncached Redis GETs and `getInventory` runs on every purchase check.
+   */
+  private async resolveSlotCaps(
+    roomId: string,
+  ): Promise<{ maxSlots: number; maxCollectionSlots: number }> {
+    const defaults = {
+      maxSlots: DEFAULT_MAX_SLOTS,
+      maxCollectionSlots: DEFAULT_MAX_COLLECTION_SLOTS,
+    }
+    if (!this.context.gameSessions) return defaults
 
-  private async resolveMaxCollectionSlots(roomId: string): Promise<number> {
-    if (!this.context.gameSessions) return DEFAULT_MAX_COLLECTION_SLOTS
     const session = await this.context.gameSessions.getActiveSession(roomId)
-    return session?.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS
+    if (!session) return defaults
+
+    return {
+      maxSlots: session.config.maxInventorySlots ?? DEFAULT_MAX_SLOTS,
+      maxCollectionSlots: session.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS,
+    }
   }
 
   private async countPoolSlots(
@@ -489,6 +498,8 @@ export class InventoryService {
     items: InventoryItem[],
     pool: "inventory" | "collection",
   ): Promise<number> {
+    if (items.length === 0) return 0
+
     const defs = await this.getAllItemDefinitions(roomId)
     const byId = new Map(defs.map((d) => [d.id, d]))
     let n = 0

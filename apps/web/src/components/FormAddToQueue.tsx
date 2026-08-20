@@ -134,9 +134,25 @@ const FormAddToQueue = ({
   const showSourceSelect =
     mode === "browse" ? (browseableSourceIds?.length ?? 0) >= 2 : metadataSourceIds.length >= 2
 
-  const handleSelect = (track: MetadataSourceTrack) => {
-    onAddToQueue(track)
-  }
+  const handleSelect = useCallback(
+    (track: MetadataSourceTrack) => {
+      onAddToQueue(track)
+    },
+    [onAddToQueue],
+  )
+
+  // CatalogBrowse's deep-link effect (ADR 0105) depends on these, so an unstable
+  // identity would re-run it on every render of this form.
+  const handleSourceIdChange = useCallback(
+    (id: string) => {
+      send({ type: "SET_SOURCE", sourceFilter: id })
+    },
+    [send],
+  )
+
+  const handleNavigationApplied = useCallback(() => {
+    send({ type: "NAVIGATION_APPLIED" })
+  }, [send])
 
   const handleOpenBrowse = useCallback(
     (nav: AddToQueueNavigation) => {
@@ -255,9 +271,9 @@ const FormAddToQueue = ({
             browseSourceCapabilities={browseSourceCapabilities}
             myMedia={myMedia}
             sourceId={sourceFilter === "all" ? browseableSourceIds?.[0] ?? "" : sourceFilter}
-            onSourceIdChange={(id) => send({ type: "SET_SOURCE", sourceFilter: id })}
+            onSourceIdChange={handleSourceIdChange}
             initialNavigation={pendingNavigation}
-            onNavigationApplied={() => send({ type: "NAVIGATION_APPLIED" })}
+            onNavigationApplied={handleNavigationApplied}
             onBrowseLocationChange={handleBrowseLocationChange}
             onChoose={handleSelect}
             disabled={isDisabled}

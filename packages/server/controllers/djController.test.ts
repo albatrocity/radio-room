@@ -53,6 +53,8 @@ describe("DJController", () => {
       expect(mockSocket.on).toHaveBeenCalledWith("BROWSE_ARTIST", expect.any(Function))
       expect(mockSocket.on).toHaveBeenCalledWith("BROWSE_ALBUM", expect.any(Function))
       expect(mockSocket.on).toHaveBeenCalledWith("BROWSE_MEDIA_ITEM", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("LIST_MEDIA_ITEM_TRACKS", expect.any(Function))
+      expect(mockSocket.on).toHaveBeenCalledWith("GET_TRACK_PREVIEW", expect.any(Function))
       expect(mockSocket.on).toHaveBeenCalledWith("SEARCH_SPOTIFY_TRACK", expect.any(Function))
       expect(mockSocket.on).toHaveBeenCalledWith("SAVE_PLAYLIST", expect.any(Function))
       expect(mockSocket.on).toHaveBeenCalledWith("CHECK_SAVED_TRACKS", expect.any(Function))
@@ -70,10 +72,10 @@ describe("DJController", () => {
       expect(mockSocket.on).toHaveBeenCalledWith("SET_PLAYBACK_VOLUME", expect.any(Function))
     })
 
-    test("should register exactly 29 socket events", () => {
+    test("should register exactly 31 socket events", () => {
       createDJController(mockSocket, mockIo)
 
-      expect(mockSocket.on).toHaveBeenCalledTimes(29)
+      expect(mockSocket.on).toHaveBeenCalledTimes(31)
     })
   })
 
@@ -144,7 +146,7 @@ describe("DJController", () => {
       createDJController(mockSocket, mockIo)
 
       // Verify that handlers were registered - if they were, the closure is working
-      expect(socketEventHandlers.size).toBe(29)
+      expect(socketEventHandlers.size).toBe(31)
     })
   })
 
@@ -156,7 +158,7 @@ describe("DJController", () => {
 
       createDJController(mockSocket, mockIo)
 
-      expect(mockSocket.on).toHaveBeenCalledTimes(29)
+      expect(mockSocket.on).toHaveBeenCalledTimes(31)
     })
 
     test("shows handler reuse through closure", () => {
@@ -166,7 +168,7 @@ describe("DJController", () => {
       createDJController(mockSocket, mockIo)
 
       // All events are registered using the same handler instance
-      expect(socketEventHandlers.size).toBe(29)
+      expect(socketEventHandlers.size).toBe(31)
     })
   })
 })
