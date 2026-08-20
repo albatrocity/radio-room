@@ -9,6 +9,7 @@ import {
   JEWEL_CASE_BEVEL_INNER_MM,
   JEWEL_CASE_INSERT_MM,
   JEWEL_CASE_MM,
+  JEWEL_CASE_SPINE_MM,
 } from "./frameStyles"
 
 type Props = {
@@ -23,7 +24,7 @@ const INSERT = JEWEL_CASE_INSERT_MM
 const INSERT_RIGHT = INSERT.x + INSERT.width
 const INSERT_BOTTOM = INSERT.y + INSERT.height
 
-const SPINE_WIDTH = INSERT.x
+const SPINE_WIDTH = JEWEL_CASE_SPINE_MM
 const FRONT_PANEL = {
   x: SPINE_WIDTH,
   y: 0,

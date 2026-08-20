@@ -1,5 +1,10 @@
 import OverlaySvg from "./OverlaySvg"
-import { JEWEL_CASE_BEVEL_MM, JEWEL_CASE_INSERT_MM, JEWEL_CASE_MM } from "./frameStyles"
+import {
+  JEWEL_CASE_BEVEL_MM,
+  JEWEL_CASE_INSERT_MM,
+  JEWEL_CASE_MM,
+  JEWEL_CASE_SPINE_MM,
+} from "./frameStyles"
 
 type Props = {
   /** Unique id prefix for SVG defs (gradients). */
@@ -13,16 +18,22 @@ const INSERT = JEWEL_CASE_INSERT_MM
 const INSERT_RIGHT = INSERT.x + INSERT.width
 const INSERT_BOTTOM = INSERT.y + INSERT.height
 
-/** Opaque hinge spine; artwork insert starts at `INSERT.x`. */
-const SPINE_WIDTH = INSERT.x
+/** Opaque hinge spine; the clear lid starts at `SPINE_WIDTH`. */
+const SPINE_WIDTH = JEWEL_CASE_SPINE_MM
 const SPINE_BASE = "#23262b"
 const SPINE_RIDGE = "#14171c"
 const SPINE_RIDGE_SPACING = 1.05
 
+/**
+ * Outer shell bevel frames the lid only. Its left stroke edge sits on the spine
+ * seam; top/right/bottom use the usual inset from the case edge.
+ */
+const BEVEL_LEFT = SPINE_WIDTH + JEWEL_CASE_BEVEL_MM.width / 2
+
 const BEVEL_RECT = {
-  x: JEWEL_CASE_BEVEL_MM.offset,
+  x: BEVEL_LEFT,
   y: JEWEL_CASE_BEVEL_MM.offset,
-  width: CASE.width - JEWEL_CASE_BEVEL_MM.offset * 2,
+  width: CASE.width - JEWEL_CASE_BEVEL_MM.offset - BEVEL_LEFT,
   height: CASE.height - JEWEL_CASE_BEVEL_MM.offset * 2,
 } as const
 
@@ -84,43 +95,20 @@ export default function JewelCaseOverlay({ idPrefix = "jc", coverless = false }:
         strokeOpacity="0.18"
         strokeWidth={JEWEL_CASE_BEVEL_MM.width}
       />
-      <rect
-        {...BEVEL_RECT}
-        fill="none"
-        stroke="#000"
-        strokeOpacity="0.28"
-        strokeWidth="0.7"
-      />
+      <rect {...BEVEL_RECT} fill="none" stroke="#000" strokeOpacity="0.28" strokeWidth="0.7" />
 
       {!coverless && (
         <>
-          <rect
-            x={INSERT.x}
-            y={INSERT.y}
-            width={INSERT.width}
-            height={INSERT.height}
-            fill="none"
-            stroke="#fff"
-            strokeOpacity="0.18"
-            strokeWidth="1.2"
-          />
-          <rect
-            x={INSERT.x}
-            y={INSERT.y}
-            width={INSERT.width}
-            height={INSERT.height}
-            fill="none"
-            stroke="#000"
-            strokeOpacity="0.2"
-            strokeWidth="0.6"
-          />
-
           <polygon
-            points={`${INSERT.x},${INSERT.y} ${INSERT_RIGHT},${INSERT.y} ${INSERT_RIGHT - 25},${INSERT.y + 48} ${INSERT.x},${INSERT.y + 48}`}
+            points={`${INSERT.x},${INSERT.y} ${INSERT_RIGHT},${INSERT.y} ${INSERT_RIGHT - 25},${
+              INSERT.y + 48
+            } ${INSERT.x},${INSERT.y + 48}`}
             fill={`url(#${sheenId})`}
           />
           <polygon
-            points={`${INSERT.x},${INSERT_BOTTOM - 48} ${INSERT.x + 60},${INSERT_BOTTOM - 48} ${INSERT.x + 40},${INSERT_BOTTOM - 25} ${INSERT.x},${INSERT_BOTTOM - 25}`}
+            points={`${INSERT.x},${INSERT_BOTTOM - 48} ${INSERT.x + 60},${INSERT_BOTTOM - 48} ${
+              INSERT.x + 40
+            },${INSERT_BOTTOM - 25} ${INSERT.x},${INSERT_BOTTOM - 25}`}
             fill="#fff"
             opacity="0.08"
           />

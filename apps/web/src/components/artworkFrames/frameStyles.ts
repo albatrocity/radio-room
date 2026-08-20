@@ -50,26 +50,26 @@ export const framedMediaShadow: SystemStyleObject = {
 export const CASSETTE_CASE_MM = { width: 70, height: 110 } as const
 
 /**
- * Square front booklet plus the margins around it, in mm; `JewelCaseOverlay`
- * draws in these units. The case is only as wide as the booklet plus the hinge
- * spine, because the leftover width on this axis *is* the spine: a square insert
- * tight against the top/right/bottom edges leaves nothing else for it to be. A
- * real case is 142mm wide, but that forces a spine thick enough to dominate the
- * artwork at list sizes, so it is trimmed to stay legible.
+ * Square front booklet plus equal plastic margins around it, in mm;
+ * `JewelCaseOverlay` draws in these units. The hinge spine sits to the left of
+ * the lid; the booklet is inset by the same margin on every lid edge so it reads
+ * centred in the clear window. A real case is 142mm wide, but that forces a spine
+ * thick enough to dominate the artwork at list sizes, so it is trimmed to stay
+ * legible.
  */
-const JEWEL_CASE_BOOKLET_MM = 120
-const JEWEL_CASE_MARGIN_MM = 2.5
-const JEWEL_CASE_SPINE_MM = 13
+const JEWEL_CASE_BOOKLET_MM = 122
+const JEWEL_CASE_MARGIN_MM = 1.5
+export const JEWEL_CASE_SPINE_MM = 13
 
 export const JEWEL_CASE_INSERT_MM = {
-  x: JEWEL_CASE_SPINE_MM,
+  x: JEWEL_CASE_SPINE_MM + JEWEL_CASE_MARGIN_MM,
   y: JEWEL_CASE_MARGIN_MM,
   width: JEWEL_CASE_BOOKLET_MM,
   height: JEWEL_CASE_BOOKLET_MM,
 } as const
 
 export const JEWEL_CASE_MM = {
-  width: JEWEL_CASE_SPINE_MM + JEWEL_CASE_BOOKLET_MM + JEWEL_CASE_MARGIN_MM,
+  width: JEWEL_CASE_SPINE_MM + JEWEL_CASE_MARGIN_MM * 2 + JEWEL_CASE_BOOKLET_MM,
   height: JEWEL_CASE_MARGIN_MM * 2 + JEWEL_CASE_BOOKLET_MM,
 } as const
 
