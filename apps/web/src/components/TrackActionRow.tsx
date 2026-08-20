@@ -84,7 +84,7 @@ function TrackActionRow({
       onMouseEnter={onMouseEnter}
     >
       <HStack align="flex-start" gap={2} flex="1">
-        {track.trackNumber ? (
+        {!!track.trackNumber && compact ? (
           <Text fontSize="xs" color="fg.subtle" flexShrink={0}>
             {track.trackNumber}
           </Text>

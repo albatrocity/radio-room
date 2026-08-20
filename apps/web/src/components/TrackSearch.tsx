@@ -47,6 +47,50 @@ type Props = {
   fillHeight?: boolean
 }
 
+function SearchTrackRow({
+  track,
+  disabled,
+  isActive,
+  optionId,
+  onChoose,
+  onActivate,
+  rowRef,
+}: {
+  track: TrackWithSource
+  disabled?: boolean
+  isActive: boolean
+  optionId: string
+  onChoose: () => void
+  onActivate: () => void
+  rowRef: (el: HTMLDivElement | null) => void
+}) {
+  const previewKey = trackPreviewKey(track, SEARCH_FALLBACK_SOURCE)
+  const previewStatus = useTrackPreviewStatus(previewKey)
+  return (
+    <TrackActionRow
+      track={track}
+      size="track"
+      disabled={disabled}
+      previewStatus={previewStatus}
+      canPreview={track.source === "local"}
+      onPreview={() =>
+        toggleTrackPreview({
+          trackKey: previewKey,
+          trackId: track.id,
+          source: track.source ?? "local",
+        })
+      }
+      onAddToQueue={onChoose}
+      isActive={isActive}
+      optionId={optionId}
+      role="option"
+      aria-selected={isActive}
+      onMouseEnter={onActivate}
+      rowRef={rowRef}
+    />
+  )
+}
+
 function TrackSearch({
   onChoose,
   onOpenBrowse,
@@ -181,44 +225,6 @@ function TrackSearch({
       ? `${listboxId}-option-${activeIndex}`
       : undefined
 
-  function SearchTrackRow({
-    track,
-    index,
-    isActive,
-  }: {
-    track: TrackWithSource
-    index: number
-    isActive: boolean
-  }) {
-    const previewKey = trackPreviewKey(track, SEARCH_FALLBACK_SOURCE)
-    const previewStatus = useTrackPreviewStatus(previewKey)
-    return (
-      <TrackActionRow
-        track={track}
-        size="track"
-        disabled={disabled}
-        previewStatus={previewStatus}
-        canPreview={track.source === "local"}
-        onPreview={() =>
-          toggleTrackPreview({
-            trackKey: previewKey,
-            trackId: track.id,
-            source: track.source ?? "local",
-          })
-        }
-        onAddToQueue={() => chooseTrack(track)}
-        isActive={isActive}
-        optionId={`${listboxId}-option-${index}`}
-        role="option"
-        aria-selected={isActive}
-        onMouseEnter={() => setActiveIndex(index)}
-        rowRef={(el: HTMLDivElement | null) => {
-          optionRefs.current[index] = el
-        }}
-      />
-    )
-  }
-
   const tracksList = (
     <VStack
       id={listboxId}
@@ -234,17 +240,20 @@ function TrackSearch({
           {sourceFilter !== "all" ? ` in ${metadataSourceLabel(sourceFilter)}` : ""}.
         </Text>
       ) : (
-        filteredResults.map((track, index) => {
-          const isActive = index === activeIndex
-          return (
-            <SearchTrackRow
-              key={`${track.source ?? SEARCH_FALLBACK_SOURCE}-${track.id}-${index}`}
-              track={track}
-              index={index}
-              isActive={isActive}
-            />
-          )
-        })
+        filteredResults.map((track, index) => (
+          <SearchTrackRow
+            key={`${track.source ?? SEARCH_FALLBACK_SOURCE}-${track.id}-${index}`}
+            track={track}
+            disabled={disabled}
+            isActive={index === activeIndex}
+            optionId={`${listboxId}-option-${index}`}
+            onChoose={() => chooseTrack(track)}
+            onActivate={() => setActiveIndex(index)}
+            rowRef={(el) => {
+              optionRefs.current[index] = el
+            }}
+          />
+        ))
       )}
     </VStack>
   )
