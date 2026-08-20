@@ -651,6 +651,11 @@ export const useQueueBrowseMediaKey = (): string | null => {
   return useSelector(modalsActor, (s) => s.context.queueBrowseMediaKey)
 }
 
+/** One-shot Game State item detail deep-link (ADR 0104). */
+export const useGameStateDetailDeepLink = () => {
+  return useSelector(modalsActor, (s) => s.context.gameStateDetailDeepLink)
+}
+
 export const useModalsSend = () => sendToModals
 
 // ============================================================================

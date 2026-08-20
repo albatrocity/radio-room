@@ -3,10 +3,30 @@ import type { ArtworkFrame, ItemRarity, LucideIconName } from "@repo/types"
 import type { PhysicalMediaOverride } from "./config"
 
 export const PHYSICAL_MEDIA_PREFIXES = [
-  { prefix: "[CD]", format: "CD", icon: "Disc" as LucideIconName, artworkFrame: "jewel-case" as ArtworkFrame },
-  { prefix: "[LP]", format: "LP", icon: "Disc3" as LucideIconName, artworkFrame: "record-jacket" as ArtworkFrame },
-  { prefix: "[TAPE]", format: "Cassette", icon: "CassetteTape" as LucideIconName, artworkFrame: "cassette-case" as ArtworkFrame },
-  { prefix: "[45]", format: "45", icon: "DiscAlbum" as LucideIconName, artworkFrame: "die-cut-jacket" as ArtworkFrame },
+  {
+    prefix: "[CD]",
+    format: "CD",
+    icon: "Disc" as LucideIconName,
+    artworkFrame: "jewel-case" as ArtworkFrame,
+  },
+  {
+    prefix: "[LP]",
+    format: "LP",
+    icon: "Disc3" as LucideIconName,
+    artworkFrame: "record-jacket" as ArtworkFrame,
+  },
+  {
+    prefix: "[TAPE]",
+    format: "Cassette",
+    icon: "CassetteTape" as LucideIconName,
+    artworkFrame: "cassette-case" as ArtworkFrame,
+  },
+  {
+    prefix: "[45]",
+    format: "45",
+    icon: "DiscAlbum" as LucideIconName,
+    artworkFrame: "die-cut-jacket" as ArtworkFrame,
+  },
 ] as const
 
 export type PhysicalMediaPlaylist = {
@@ -90,6 +110,12 @@ export function derivePhysicalMediaItems(
         coinValue: override?.coinValue ?? priceFromSongCount(songCount),
         rarity: override?.rarity ?? rarityFromSongCount(songCount),
         slotPool: "collection",
+        detailView: {
+          actionIcon: "Eye",
+          actionLabel: "View",
+          iconOnly: true,
+          layout: "trackList",
+        },
       },
       localLibraryGrant: {
         scope: "playlist",

@@ -20,6 +20,15 @@ export const itemDefinitionAuthoringSchema = z.object({
   coinValue: z.number().int().nonnegative().optional(),
   rarity: itemRaritySchema.optional(),
   slotPool: z.enum(["inventory", "collection"]).optional(),
+  detailView: z
+    .object({
+      actionLabel: z.string().optional(),
+      /** Lucide icon name (PascalCase). */
+      actionIcon: z.string().optional(),
+      iconOnly: z.boolean().optional(),
+      layout: z.enum(["default", "trackList"]).optional(),
+    })
+    .optional(),
 })
 
 export type ItemDefinitionAuthoring = z.infer<typeof itemDefinitionAuthoringSchema>

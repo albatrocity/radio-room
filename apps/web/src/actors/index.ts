@@ -36,6 +36,7 @@ export {
   getCurrentModal,
   sendModalsEvent,
   closeModal,
+  openGameStateItemDetail,
 } from "./modalsActor"
 
 // Theme Actor

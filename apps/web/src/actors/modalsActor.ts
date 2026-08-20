@@ -57,3 +57,17 @@ export function sendModalsEvent(event: ModalsEvent): void {
 export function closeModal(): void {
   modalsActor.send({ type: "CLOSE" })
 }
+
+/**
+ * Open Game State and push an item detail frame (ADR 0104).
+ */
+export function openGameStateItemDetail(params: {
+  tabId?: string
+  frame: import("../types/GameStateDetail").GameStateDetailFrame
+}): void {
+  modalsActor.send({
+    type: "OPEN_GAME_STATE_ITEM_DETAIL",
+    tabId: params.tabId,
+    frame: params.frame,
+  })
+}

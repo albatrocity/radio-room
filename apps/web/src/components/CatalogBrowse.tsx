@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import {
+  Badge,
   Box,
-  Button,
   Center,
   chakra,
   HStack,
@@ -13,16 +13,21 @@ import {
   VStack,
 } from "@chakra-ui/react"
 import type {
+  ArtworkFrame,
   MetadataBrowseAlbum,
   MetadataBrowseArtist,
   MetadataBrowseCapabilities,
   MetadataSourceTrack,
+  MetadataSourceUrl,
   PhysicalMediaItem,
 } from "@repo/types"
+import { labelForMetadataSource } from "@repo/types"
 import { useSocketMachine } from "../hooks/useSocketMachine"
 import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
 import EntityThumb from "./EntityThumb"
+import ItemArtwork from "./ItemArtwork"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
+import PathBreadcrumb from "./PathBreadcrumb"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import TrackActionRow from "./TrackActionRow"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
@@ -77,6 +82,60 @@ function physicalMediaImages(item: PhysicalMediaItem) {
   return item.imageUrl
     ? [{ type: "image" as const, url: item.imageUrl, id: item.mediaKey }]
     : undefined
+}
+
+type TracksHeroModel = {
+  title: string
+  artists?: string
+  year?: string
+  sourceId: string
+  images?: MetadataSourceUrl[]
+  imageUrl?: string
+  imageUrlLarge?: string
+  artworkFrame?: ArtworkFrame
+}
+
+/** Album / Physical Media header above the track list (ADR-style album browse). */
+function CatalogTracksHero({ hero }: { hero: TracksHeroModel }) {
+  const framed = hero.artworkFrame != null
+
+  return (
+    <HStack align="start" gap={3} px={1} pb={2} w="100%" minW={0}>
+      <Box w="28" flexShrink={0}>
+        {framed ? (
+          <ItemArtwork
+            imageUrl={hero.imageUrl}
+            imageUrlLarge={hero.imageUrlLarge}
+            artworkFrame={hero.artworkFrame}
+            size="feature"
+            alt={hero.title}
+          />
+        ) : (
+          <EntityThumb images={hero.images} shape="square" size="track" alt={hero.title} />
+        )}
+      </Box>
+      <VStack align="start" gap={1} minW={0} flex="1" pt={1}>
+        <Text fontWeight="semibold" lineClamp={2}>
+          {hero.title}
+        </Text>
+        {hero.artists ? (
+          <Text fontSize="sm" color="fg.muted" lineClamp={2}>
+            {hero.artists}
+          </Text>
+        ) : null}
+        <HStack gap={2} flexWrap="wrap" align="center">
+          {hero.year ? (
+            <Text fontSize="xs" color="fg.muted">
+              {hero.year}
+            </Text>
+          ) : null}
+          <Badge size="sm" variant="subtle">
+            {labelForMetadataSource(hero.sourceId)}
+          </Badge>
+        </HStack>
+      </VStack>
+    </HStack>
+  )
 }
 
 export type CatalogBrowseNavigation = {
@@ -143,20 +202,15 @@ function CatalogBrowse({
     })
   }
 
-  function CatalogBrowseTrackRow({
-    track,
-    index,
-  }: {
-    track: TrackWithSource
-    index: number
-  }) {
+  function CatalogBrowseTrackRow({ track, index }: { track: TrackWithSource; index: number }) {
     const id = previewTrackKey(track)
     const previewStatus = useTrackPreviewStatus(id)
     return (
       <TrackActionRow
         key={`${track.source ?? sourceId}-${track.id}-${index}`}
         track={track}
-        artworkOverride={selectedMedia ? mediaArtworkOverride : undefined}
+        showArtwork={false}
+        detailLevel="titleDuration"
         disabled={disabled}
         previewStatus={previewStatus}
         canPreview={(track.source ?? sourceId) === "local"}
@@ -196,7 +250,10 @@ function CatalogBrowse({
   // Source / capability change → reset to root (unless deep-link will apply)
   useEffect(() => {
     if (!sourceId) return
-    if (initialNavigation?.source === sourceId && appliedNavKey.current !== JSON.stringify(initialNavigation)) {
+    if (
+      initialNavigation?.source === sourceId &&
+      appliedNavKey.current !== JSON.stringify(initialNavigation)
+    ) {
       return
     }
     setLevel("root")
@@ -271,9 +328,7 @@ function CatalogBrowse({
       setLevel("tracks")
       send({ type: "FETCH_MEDIA", mediaKey })
     } else if (albumId) {
-      setSelectedArtist(
-        artistId ? { id: artistId, title: artistTitle ?? artistId } : null,
-      )
+      setSelectedArtist(artistId ? { id: artistId, title: artistTitle ?? artistId } : null)
       setSelectedAlbum({
         id: albumId,
         title: albumTitle ?? albumId,
@@ -358,7 +413,17 @@ function CatalogBrowse({
     }
     return crumbs
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, rootKind, selectedArtist, selectedAlbum, selectedMedia, sourceId, searchEntry, filter, send])
+  }, [
+    level,
+    rootKind,
+    selectedArtist,
+    selectedAlbum,
+    selectedMedia,
+    sourceId,
+    searchEntry,
+    filter,
+    send,
+  ])
 
   const openArtist = (artist: MetadataBrowseArtist) => {
     if (!sourceId || disabled) return
@@ -394,16 +459,67 @@ function CatalogBrowse({
     ? myMedia.filter((s) => s.name.toLowerCase().includes(mediaFilter))
     : myMedia
 
-  const mediaArtworkOverride =
-    selectedMedia?.artworkFrame != null &&
-    (selectedMedia.imageUrl != null || selectedMedia.artworkFrame === "jewel-case")
-      ? {
-          ...(selectedMedia.imageUrl ? { imageUrl: selectedMedia.imageUrl } : {}),
-          ...(selectedMedia.imageUrlLarge ? { imageUrlLarge: selectedMedia.imageUrlLarge } : {}),
-          artworkFrame: selectedMedia.artworkFrame,
-          name: selectedMedia.name,
-        }
-      : undefined
+  const browseAlbum = state.context.album ?? selectedAlbum
+  const firstTrack = tracks[0]
+  const tracksHero = useMemo((): TracksHeroModel | null => {
+    if (level !== "tracks") return null
+    if (selectedMedia) {
+      const artists =
+        firstTrack?.artists
+          ?.map((a) => a.title)
+          .filter(Boolean)
+          .join(", ") || undefined
+      const year = firstTrack?.album?.releaseDate?.split("-")[0] || undefined
+      return {
+        title: selectedMedia.name,
+        artists,
+        year,
+        sourceId: "local",
+        images: physicalMediaImages(selectedMedia),
+        imageUrl: selectedMedia.imageUrl,
+        imageUrlLarge: selectedMedia.imageUrlLarge,
+        artworkFrame: selectedMedia.artworkFrame,
+      }
+    }
+    if (browseAlbum) {
+      const artists =
+        browseAlbum.artists
+          ?.map((a) => a.title)
+          .filter(Boolean)
+          .join(", ") ||
+        firstTrack?.artists
+          ?.map((a) => a.title)
+          .filter(Boolean)
+          .join(", ") ||
+        undefined
+      const year = browseAlbum.year || firstTrack?.album?.releaseDate?.split("-")[0] || undefined
+      const images =
+        browseAlbum.images && browseAlbum.images.length > 0
+          ? browseAlbum.images
+          : firstTrack?.album?.images
+      return {
+        title: browseAlbum.title,
+        artists,
+        year,
+        sourceId: sourceId || firstTrack?.source || "local",
+        images,
+      }
+    }
+    if (firstTrack) {
+      return {
+        title: firstTrack.album.title,
+        artists:
+          firstTrack.artists
+            .map((a) => a.title)
+            .filter(Boolean)
+            .join(", ") || undefined,
+        year: firstTrack.album.releaseDate?.split("-")[0] || undefined,
+        sourceId: firstTrack.source ?? sourceId,
+        images: firstTrack.album.images,
+      }
+    }
+    return null
+  }, [level, selectedMedia, browseAlbum, firstTrack, sourceId])
 
   return (
     <VStack align="stretch" gap={3} w="100%">
@@ -432,35 +548,7 @@ function CatalogBrowse({
         </Tabs.Root>
       )}
 
-      <HStack gap={1} flexWrap="wrap" fontSize="sm">
-        {breadcrumb.map((crumb, i) => (
-          <HStack key={`${crumb.label}-${i}`} gap={1}>
-            {i > 0 && (
-              <Text color="fg.muted" aria-hidden>
-                /
-              </Text>
-            )}
-            {crumb.onClick ? (
-              <Button
-                type="button"
-                variant="plain"
-                size="xs"
-                colorPalette="action"
-                onClick={crumb.onClick}
-                px={1}
-                minW={0}
-                h="auto"
-              >
-                {crumb.label}
-              </Button>
-            ) : (
-              <Text fontWeight={i === breadcrumb.length - 1 ? "semibold" : "normal"}>
-                {crumb.label}
-              </Text>
-            )}
-          </HStack>
-        ))}
-      </HStack>
+      <PathBreadcrumb items={breadcrumb} size="xs" />
 
       {level === "root" && (
         <Input
@@ -470,10 +558,10 @@ function CatalogBrowse({
                 ? "Search albums"
                 : "Search artists"
               : rootKind === "albums"
-                ? "Filter albums"
-                : rootKind === "media"
-                  ? "Filter your collection"
-                  : "Filter artists"
+              ? "Filter albums"
+              : rootKind === "media"
+              ? "Filter your collection"
+              : "Filter artists"
           }
           value={filter}
           disabled={disabled}
@@ -500,6 +588,7 @@ function CatalogBrowse({
         </Text>
       ) : (
         <Box>
+          {tracksHero ? <CatalogTracksHero hero={tracksHero} /> : null}
           {isLoading &&
           ((level === "root" && rootKind === "artists" && artists.length === 0) ||
             (level === "root" && rootKind === "albums" && rootAlbums.length === 0) ||
@@ -621,7 +710,11 @@ function CatalogBrowse({
                         )
                       ) : (
                         tracks.map((track, index) => (
-                          <CatalogBrowseTrackRow key={`${track.source ?? sourceId}-${track.id}-${index}`} track={track} index={index} />
+                          <CatalogBrowseTrackRow
+                            key={`${track.source ?? sourceId}-${track.id}-${index}`}
+                            track={track}
+                            index={index}
+                          />
                         ))
                       ))}
                   </VStack>

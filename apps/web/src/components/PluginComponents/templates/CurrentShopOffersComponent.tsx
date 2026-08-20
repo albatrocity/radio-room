@@ -1,22 +1,30 @@
-import { useState } from "react"
-import { Box, Button, Center, Heading, HStack, Stack, Table, Text, VStack } from "@chakra-ui/react"
-import type { ItemShopsUserGameState, ShopOffer, ShoppingSessionInstance } from "@repo/types"
+import { Box, Center, Heading, HStack, Stack, Table, Text, VStack } from "@chakra-ui/react"
+import type { KeyboardEvent, MouseEvent } from "react"
+import type {
+  ItemDefinition,
+  ItemShopsUserGameState,
+  ShopOffer,
+  ShoppingSessionInstance,
+} from "@repo/types"
+import { ITEM_SHOPS_PLUGIN_NAME, ITEM_SHOPS_TAB_ID } from "@repo/types"
 import type { CurrentShopOffersComponentProps } from "../../../types/PluginComponent"
+import { openGameStateItemDetail } from "../../../actors/modalsActor"
 import { useUserGameState } from "../../Modals/UserGameStateContext"
+import { useGameStateNavOptional } from "../../Modals/GameState/GameStateNavContext"
+import { ItemDetailActionButton } from "../../Modals/GameState/ItemDetailActionButton"
 import { usePluginComponentContext } from "../context"
 import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import ItemArtwork from "../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
-import {
-  MediaItemPreviewDialog,
-  shopOfferPreviewTarget,
-} from "../../MediaItemPreviewDialog"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
 import { LinkifiedText } from "../../LinkifiedText"
+import type { GameStateDetailFrame } from "../../../types/GameStateDetail"
 
 type Props = CurrentShopOffersComponentProps
+
+const SHOP_TAB_ID = `${ITEM_SHOPS_PLUGIN_NAME}:${ITEM_SHOPS_TAB_ID}`
 
 /** Human-readable percentage (rate is a multiplier on base coin value). */
 function formatBuybackPercent(rate: number): string {
@@ -27,6 +35,24 @@ function formatBuybackPercent(rate: number): string {
 
 const COINS_ICON = getIcon("Coins")
 
+function definitionForOffer(
+  offer: ShopOffer,
+  definitions: ItemDefinition[],
+): ItemDefinition | undefined {
+  return definitions.find((d) => d.shortId === offer.shortId)
+}
+
+function openShopItemDetail(
+  nav: ReturnType<typeof useGameStateNavOptional>,
+  frame: GameStateDetailFrame,
+) {
+  if (nav) {
+    nav.pushDetail(frame)
+    return
+  }
+  openGameStateItemDetail({ tabId: SHOP_TAB_ID, frame })
+}
+
 /**
  * Renders the current user's shop instance from `pluginUserState` (ADR 0097).
  * (Props are intentionally empty — data comes from `UserGameStateContext`.)
@@ -34,11 +60,15 @@ const COINS_ICON = getIcon("Coins")
 export function CurrentShopOffersTemplateComponent(_props: Props) {
   const { pluginName } = usePluginComponentContext()!
   const gameState = useUserGameState()
-  const bag = gameState?.getPluginState<ItemShopsUserGameState>(pluginName) ?? null
+  const nav = useGameStateNavOptional()
+  const bag =
+    pluginName != null
+      ? (gameState?.getPluginState<ItemShopsUserGameState>(pluginName) ?? null)
+      : null
   const instance: ShoppingSessionInstance | null = bag?.currentShopInstance ?? null
-  const [previewOffer, setPreviewOffer] = useState<ShopOffer | null>(null)
+  const definitions = gameState?.itemDefinitions ?? []
 
-  if (!instance) {
+  if (!pluginName || !instance) {
     return (
       <Text fontSize="sm" color="fg.muted">
         No shop is open for you right now. Wait for the next shopping session, or ask a host to
@@ -95,6 +125,22 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
             const outOfStock = !row.available
             const offerId = row.offerId ?? index
             const action = `buy:${offerId}`
+            const definition = definitionForOffer(row, definitions)
+            const detailView = definition?.detailView
+            const openOfferDetail = detailView
+              ? () => {
+                  const frame: GameStateDetailFrame = {
+                    kind: "item",
+                    shortId: row.shortId,
+                    title: row.name,
+                    source: "shop",
+                    definitionId: definition?.id,
+                    shopOfferId: offerId,
+                    ...(detailView.layout === "trackList" ? { mediaKey: row.shortId } : {}),
+                  }
+                  openShopItemDetail(nav, frame)
+                }
+              : undefined
 
             return (
               <Table.Row key={offerId} opacity={outOfStock ? 0.55 : 1}>
@@ -109,13 +155,36 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                         artworkFrame={row.artworkFrame}
                         boxSize={row.artworkFrame ? FRAMED_ARTWORK_BOX_SIZE : 5}
                         alt={row.name}
+                        onClick={openOfferDetail}
                       />
                     </Center>
                     {row.rarity && <ItemRarityTag size={["xs", "sm"]} rarity={row.rarity} />}
                   </VStack>
                 </Table.Cell>
                 <Table.Cell verticalAlign="middle">
-                  <VStack align="start" gap={0}>
+                  <VStack
+                    align="start"
+                    gap={0}
+                    {...(openOfferDetail
+                      ? {
+                          cursor: "pointer",
+                          role: "button",
+                          tabIndex: 0,
+                          "aria-label":
+                            detailView?.actionLabel ?? `View details for ${row.name}`,
+                          onClick: (event: MouseEvent) => {
+                            if ((event.target as HTMLElement).closest("a")) return
+                            openOfferDetail()
+                          },
+                          onKeyDown: (event: KeyboardEvent) => {
+                            if (event.key !== "Enter" && event.key !== " ") return
+                            event.preventDefault()
+                            openOfferDetail()
+                          },
+                          _hover: { opacity: 0.9 },
+                        }
+                      : {})}
+                  >
                     <Text fontWeight="bold">{row.name}</Text>
                     <LinkifiedText fontSize="xs" color="fg.muted" lineHeight="short">
                       {row.description}
@@ -147,15 +216,14 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                       confirmText="Buy"
                       disabled={cannotAfford || outOfStock}
                     />
-                    {row.artworkFrame && (
-                      <Button
+                    {detailView && openOfferDetail ? (
+                      <ItemDetailActionButton
+                        detailView={detailView}
+                        onClick={openOfferDetail}
                         size="sm"
                         variant="outline"
-                        onClick={() => setPreviewOffer(row)}
-                      >
-                        Preview
-                      </Button>
-                    )}
+                      />
+                    ) : null}
                   </Stack>
                 </Table.Cell>
               </Table.Row>
@@ -163,13 +231,6 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
           })}
         </Table.Body>
       </Table.Root>
-      <MediaItemPreviewDialog
-        open={previewOffer != null}
-        onOpenChange={(next) => {
-          if (!next) setPreviewOffer(null)
-        }}
-        item={previewOffer ? shopOfferPreviewTarget(previewOffer) : null}
-      />
     </Box>
   )
 }

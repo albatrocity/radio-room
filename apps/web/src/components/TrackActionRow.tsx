@@ -26,6 +26,13 @@ type Props = {
   onAddToQueue?: () => void
   /** browse/dialog row vs search hit (larger art). */
   size?: "row" | "track"
+  /** When false, omit the leading cover (item detail / album browse track list). */
+  showArtwork?: boolean
+  /**
+   * `full` — title/artists/album (default; TrackSearch).
+   * `titleDuration` — title + duration under an album hero (CatalogBrowse tracks).
+   */
+  detailLevel?: "full" | "titleDuration"
   /** TrackSearch listbox option chrome — not a row click target. */
   isActive?: boolean
   optionId?: string
@@ -44,6 +51,8 @@ function TrackActionRow({
   onPreview,
   onAddToQueue,
   size = "row",
+  showArtwork = true,
+  detailLevel = "full",
   isActive = false,
   optionId,
   role,
@@ -57,6 +66,7 @@ function TrackActionRow({
       : previewStatus === "loading"
         ? `Loading preview of ${track.title}`
         : `Preview ${track.title}`
+  const compact = detailLevel === "titleDuration"
 
   return (
     <HStack
@@ -77,9 +87,11 @@ function TrackActionRow({
         {...track}
         size={size}
         artworkOverride={artworkOverride}
-        sourcePlacement="below"
+        showArtwork={showArtwork}
+        detailLevel={detailLevel}
+        sourcePlacement={compact ? "none" : "below"}
       />
-      {track.source && (
+      {!compact && track.source && (
         <Badge size="sm" variant="subtle" flexShrink={0} hideBelow="md">
           {labelForMetadataSource(track.source)}
         </Badge>

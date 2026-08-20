@@ -1,8 +1,5 @@
 import { Box, Center, Table, Text, VStack } from "@chakra-ui/react"
-import {
-  getItemRarityColorPalette,
-  itemRarityIconColor,
-} from "../../../lib/itemRarityPalette"
+import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 import type {
   ShopOfferTableComponentProps,
   ShopOfferTableRow,
@@ -40,9 +37,7 @@ function ShopOfferTableRowView({
         <Center width="full" height="full">
           {IconComponent ? (
             <Box
-              colorPalette={
-                row.itemRarity ? getItemRarityColorPalette(row.itemRarity) : undefined
-              }
+              colorPalette={row.itemRarity ? getItemRarityColorPalette(row.itemRarity) : undefined}
             >
               <SvgIcon
                 icon={IconComponent}

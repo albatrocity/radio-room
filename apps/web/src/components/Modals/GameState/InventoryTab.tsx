@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react"
 import {
   Badge,
   Box,
@@ -15,7 +15,6 @@ import type { InventoryItem, ItemDefinition, ItemShopsUserGameState } from "@rep
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
-import { useCanAddToQueue, useIsAdmin, useModalsSend, useMyMedia } from "../../../hooks/useActors"
 import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
 import ItemArtwork from "../../ItemArtwork"
 import { LinkifiedText } from "../../LinkifiedText"
@@ -25,6 +24,10 @@ import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
 import { InventoryUseButton } from "./InventoryUseButton"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
+import { useGameStateNavOptional } from "./GameStateNavContext"
+import { ItemDetailActionButton } from "./ItemDetailActionButton"
+import { openGameStateItemDetail } from "../../../actors/modalsActor"
+import type { GameStateDetailFrame } from "../../../types/GameStateDetail"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -40,8 +43,6 @@ interface InventoryRowProps {
   allItems: InventoryItem[]
   definitionMap: Map<string, ItemDefinition>
   coinBalance: number
-  /** Physical Media item key when this item can be browsed in Add to Queue. */
-  mediaKey?: string
 }
 
 /**
@@ -76,16 +77,26 @@ function EmptyInventorySlot() {
   )
 }
 
+function openInventoryItemDetail(
+  nav: ReturnType<typeof useGameStateNavOptional>,
+  frame: GameStateDetailFrame,
+) {
+  if (nav) {
+    nav.pushDetail(frame)
+    return
+  }
+  openGameStateItemDetail({ tabId: "inventory", frame })
+}
+
 function InventoryRow({
   item,
   definition,
   allItems,
   definitionMap,
   coinBalance,
-  mediaKey,
 }: InventoryRowProps) {
   const gameState = useUserGameState()
-  const modalSend = useModalsSend()
+  const nav = useGameStateNavOptional()
   const name = definition?.name ?? item.definitionId
   const description = definition?.description
   const consumable = definition?.consumable ?? false
@@ -98,6 +109,7 @@ function InventoryRow({
       ?.currentShopInstance ?? null
   const shopVisitOpen = shopInstance != null
   const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
+  const detailView = definition?.detailView
   const sellButtonLabel = (() => {
     if (isItemShopsItem && shopVisitOpen && definition && shopInstance) {
       if (item.sellbackValue != null) {
@@ -194,6 +206,20 @@ function InventoryRow({
     }, 10000)
   }
 
+  const handleDetails = () => {
+    if (!definition?.shortId || !detailView) return
+    const frame: GameStateDetailFrame = {
+      kind: "item",
+      shortId: definition.shortId,
+      title: name,
+      source: "inventory",
+      definitionId: definition.id,
+      inventoryItemId: item.itemId,
+      ...(detailView.layout === "trackList" ? { mediaKey: definition.shortId } : {}),
+    }
+    openInventoryItemDetail(nav, frame)
+  }
+
   return (
     <HStack {...inventorySlotFrameProps}>
       <VStack align="center" justify="center" h="100%" minW="4rem">
@@ -205,12 +231,36 @@ function InventoryRow({
           artworkFrame={definition?.artworkFrame}
           boxSize={definition?.slotPool === "collection" ? FRAMED_ARTWORK_BOX_SIZE : 7}
           alt={name}
+          onClick={detailView ? handleDetails : undefined}
         />
         {definition != null && (
           <ItemRarityTag size={["xs", "sm"]} rarity={resolveItemRarity(definition)} />
         )}
       </VStack>
-      <VStack align="start" gap={0} flex="1" minW={0}>
+      <VStack
+        align="start"
+        gap={0}
+        flex="1"
+        minW={0}
+        {...(detailView
+          ? {
+              cursor: "pointer",
+              role: "button",
+              tabIndex: 0,
+              "aria-label": detailView.actionLabel ?? `View details for ${name}`,
+              onClick: (event: MouseEvent) => {
+                if ((event.target as HTMLElement).closest("a")) return
+                handleDetails()
+              },
+              onKeyDown: (event: KeyboardEvent) => {
+                if (event.key !== "Enter" && event.key !== " ") return
+                event.preventDefault()
+                handleDetails()
+              },
+              _hover: { opacity: 0.9 },
+            }
+          : {})}
+      >
         <HStack gap={2} flexWrap="wrap">
           <Text fontWeight="medium">{name}</Text>
           {item.quantity > 1 && (
@@ -226,17 +276,7 @@ function InventoryRow({
         )}
       </VStack>
       <Stack direction="column" gap={2} flexShrink={0}>
-        {mediaKey && (
-          <Button
-            size="xs"
-            variant="solid"
-            colorPalette="action"
-            onClick={() => modalSend({ type: "EDIT_QUEUE", browseMediaKey: mediaKey })}
-          >
-            <Icon as={getIcon("ListMusic")} boxSize="0.9rem" />
-            Queue a track
-          </Button>
-        )}
+        {detailView && <ItemDetailActionButton detailView={detailView} onClick={handleDetails} />}
         {consumable && (
           <InventoryUseButton
             itemId={item.itemId}
@@ -255,7 +295,6 @@ function InventoryRow({
             loading={pending?.itemId === item.itemId && pending.action === "sell"}
             onClick={() => dispatch("sell")}
           >
-            {/* <Icon as={getIcon("Coins")} boxSize="0.8rem" /> */}
             {sellButtonLabel}
           </Button>
         )}
@@ -271,11 +310,6 @@ function InventoryTab({
   definitionMap,
   coinBalance,
 }: InventoryTabProps) {
-  const myMedia = useMyMedia()
-  const isAdmin = useIsAdmin()
-  const canAddToQueue = useCanAddToQueue()
-  // Browsing a record only helps if the viewer is allowed to queue from it.
-  const mediaKeys = new Set(isAdmin || canAddToQueue ? myMedia.map((item) => item.mediaKey) : [])
   const inventoryItems = items.filter(
     (item) => (definitionMap.get(item.definitionId)?.slotPool ?? "inventory") !== "collection",
   )
@@ -287,10 +321,6 @@ function InventoryTab({
   // The collection only exists once something is in it, and unlike the inventory
   // bag it never advertises empty slots.
   const showCollection = collectionItems.length > 0
-  const mediaKeyForItem = (item: InventoryItem): string | undefined => {
-    const shortId = definitionMap.get(item.definitionId)?.shortId
-    return shortId && mediaKeys.has(shortId) ? shortId : undefined
-  }
 
   return (
     <Box>
@@ -347,7 +377,6 @@ function InventoryTab({
                 allItems={items}
                 definitionMap={definitionMap}
                 coinBalance={coinBalance}
-                mediaKey={mediaKeyForItem(item)}
               />
             ))}
           </Stack>

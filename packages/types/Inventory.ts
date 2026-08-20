@@ -100,6 +100,29 @@ export type LocalPlaylistArtwork = {
 export const PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY = "physicalMediaFrame" as const
 
 /**
+ * Opt-in Game State item detail (ADR 0104). Presence shows a Details secondary
+ * action; `layout` chooses the built-in detail body.
+ */
+export type ItemDetailViewLayout = "default" | "trackList"
+
+export type ItemDetailView = {
+  /** Button label; default "Details". Also used as tooltip when `iconOnly`. */
+  actionLabel?: string
+  /** Optional Lucide icon on the Details button (PascalCase name). */
+  actionIcon?: LucideIconName
+  /**
+   * When `true` with `actionIcon`, render an icon-only control; tooltip uses
+   * `actionLabel` (or "Details").
+   */
+  iconOnly?: boolean
+  /**
+   * `default` — name, large artwork/icon, full description.
+   * `trackList` — default plus a track list keyed by `mediaKey` on the nav frame.
+   */
+  layout?: ItemDetailViewLayout
+}
+
+/**
  * Static definition of an item kind, registered by the owning plugin during
  * `register()`. The `id` is namespaced as `<plugin-name>:<short-id>`.
  */
@@ -124,6 +147,11 @@ export interface ItemDefinition {
   imageUrlLarge?: string
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
+  /**
+   * When set, Inventory / shop UIs show a Details action that opens the Game
+   * State item detail subroute (ADR 0104).
+   */
+  detailView?: ItemDetailView
 
   /** When `true`, multiple acquisitions combine into a single stack. */
   stackable: boolean

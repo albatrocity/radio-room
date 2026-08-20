@@ -74,7 +74,9 @@ export default function FramedArtwork({
   }, [displayUrl])
 
   // A jewel case is wider than it is tall, so a square slot has to constrain it
-  // by width; sizing by height would push the spine outside the slot.
+  // by width; sizing by height would push the spine outside the slot. Portrait
+  // frames (cassettes) do the opposite — constrain by height so they don't grow
+  // taller than the square when `feature` also supplies `width: "100%"`.
   const widerThanTall = ratio.width > ratio.height
   const isFeatureMode = size === "feature"
 
@@ -88,15 +90,21 @@ export default function FramedArtwork({
       h={
         fillParent
           ? "100%"
-          : width
-            ? "auto"
-            : squareSlot
-              ? widerThanTall
-                ? "auto"
-                : "100%"
+          : squareSlot
+            ? widerThanTall
+              ? "auto"
+              : "100%"
+            : width
+              ? "auto"
               : height
       }
-      w={width ?? (squareSlot && widerThanTall ? "100%" : "auto")}
+      w={
+        squareSlot
+          ? widerThanTall
+            ? "100%"
+            : "auto"
+          : (width ?? "auto")
+      }
       maxW={isFeatureMode || squareSlot ? "100%" : undefined}
       maxH={isFeatureMode || squareSlot ? "100%" : undefined}
       aspectRatio={fillParent ? undefined : `${ratio.width} / ${ratio.height}`}

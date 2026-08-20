@@ -7,6 +7,7 @@ import { ArtworkPreviewDialog } from "./ArtworkPreviewDialog"
 import { getIcon } from "./PluginComponents/icons"
 import { SvgIcon } from "./ui/svg-icon"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
+import type { ArtworkSizePreset } from "./artworkFrames/frameStyles"
 
 type Props = {
   /** Artwork URL (e.g. Physical Media cover art); wins over `icon`. */
@@ -16,15 +17,25 @@ type Props = {
   rarity?: ItemRarity
   /** Chakra box size token for both the image and the icon glyph. */
   boxSize?: number
+  /**
+   * Framed-art size. `feature` fills the parent width (square slot). Plain
+   * image/icon use full width when `feature`, otherwise `boxSize`.
+   */
+  size?: ArtworkSizePreset
   alt?: string
   /** Physical Media presentation overlay when cover art is present. */
   artworkFrame?: ArtworkFrame
+  /**
+   * When set, framed artwork click calls this instead of opening the full-size
+   * preview dialog (e.g. navigate to Game State item detail).
+   */
+  onClick?: () => void
 }
 
 /**
  * Leading visual for an item row: cover artwork when the item has some,
  * otherwise its Lucide glyph tinted by rarity. Framed covers open a
- * viewport-scaled preview on click.
+ * viewport-scaled preview on click unless `onClick` overrides that.
  */
 export default function ItemArtwork({
   imageUrl,
@@ -32,18 +43,28 @@ export default function ItemArtwork({
   icon,
   rarity,
   boxSize = 7,
+  size = "row",
   alt = "",
   artworkFrame,
+  onClick,
 }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false)
+  const fill = size === "feature"
   const art = toPhysicalMediaArt({ imageUrl, imageUrlLarge, artworkFrame, name: alt })
   if (art) {
-    const label = alt.trim() ? `View artwork for ${alt.trim()}` : "View artwork"
+    const label = onClick
+      ? alt.trim()
+        ? `View details for ${alt.trim()}`
+        : "View details"
+      : alt.trim()
+        ? `View artwork for ${alt.trim()}`
+        : "View artwork"
     return (
       <>
         <Box
           asChild
-          display="inline-flex"
+          display={fill ? "block" : "inline-flex"}
+          w={fill ? "100%" : undefined}
           lineHeight="0"
           cursor="pointer"
           bg="transparent"
@@ -60,18 +81,24 @@ export default function ItemArtwork({
             aria-label={label}
             onClick={(event) => {
               event.stopPropagation()
+              if (onClick) {
+                onClick()
+                return
+              }
               setPreviewOpen(true)
             }}
           >
-            <FramedArtwork art={art} size="row" alt="" />
+            <FramedArtwork art={art} size={size} squareSlot={fill} alt="" />
           </button>
         </Box>
-        <ArtworkPreviewDialog
-          art={art}
-          alt={alt}
-          open={previewOpen}
-          onOpenChange={setPreviewOpen}
-        />
+        {!onClick ? (
+          <ArtworkPreviewDialog
+            art={art}
+            alt={alt}
+            open={previewOpen}
+            onOpenChange={setPreviewOpen}
+          />
+        ) : null}
       </>
     )
   }
@@ -81,7 +108,9 @@ export default function ItemArtwork({
       <Image
         src={imageUrl}
         alt={alt}
-        boxSize={boxSize}
+        boxSize={fill ? undefined : boxSize}
+        w={fill ? "100%" : undefined}
+        aspectRatio={fill ? "1 / 1" : undefined}
         flexShrink={0}
         borderRadius="sm"
         objectFit="cover"
@@ -92,18 +121,28 @@ export default function ItemArtwork({
 
   const Glyph = icon ? getIcon(icon) : undefined
   if (!Glyph) {
-    return <Box boxSize={boxSize} flexShrink={0} aria-hidden />
+    return (
+      <Box
+        boxSize={fill ? undefined : boxSize}
+        w={fill ? "100%" : undefined}
+        aspectRatio={fill ? "1 / 1" : undefined}
+        flexShrink={0}
+        aria-hidden
+      />
+    )
   }
 
   return (
     <Box
       flexShrink={0}
+      w={fill ? "100%" : undefined}
       colorPalette={rarity ? getItemRarityColorPalette(rarity) : undefined}
       display="inline-flex"
+      justifyContent={fill ? "center" : undefined}
     >
       <SvgIcon
         icon={Glyph}
-        boxSize={boxSize}
+        boxSize={fill ? 24 : boxSize}
         color={rarity ? itemRarityIconColor : "fg.muted"}
         aria-hidden
       />

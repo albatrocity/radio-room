@@ -40,6 +40,12 @@ describe("physicalMedia derivation", () => {
     expect(items[0]?.definition.name).toBe("My Bloody Valentine — Loveless")
     expect(items[0]?.definition.coinValue).toBe(99)
     expect(items[0]?.definition.slotPool).toBe("collection")
+    expect(items[0]?.definition.detailView).toEqual({
+      actionIcon: "Eye",
+      actionLabel: "View",
+      iconOnly: true,
+      layout: "trackList",
+    })
     expect(items[0]?.localLibraryGrant).toEqual({
       scope: "playlist",
       playlistKey: physicalMediaShortId("nd-1"),
@@ -98,7 +104,9 @@ describe("physicalMedia derivation", () => {
   })
 
   it("sets artworkFrame even when cover art is missing", () => {
-    const { items } = derivePhysicalMediaItems([{ id: "nd-1", name: "[LP] Loveless", songCount: 11 }])
+    const { items } = derivePhysicalMediaItems([
+      { id: "nd-1", name: "[LP] Loveless", songCount: 11 },
+    ])
     expect(items[0]?.definition.artworkFrame).toBe("record-jacket")
     expect(items[0]?.definition.imageUrl).toBeUndefined()
   })
@@ -129,8 +137,7 @@ describe("physicalMedia derivation", () => {
   })
 
   it("falls back to the canned description when comment is missing or blank", () => {
-    const canned =
-      "A LP from the Record Store. Queue any track on it for the rest of the session."
+    const canned = "A LP from the Record Store. Queue any track on it for the rest of the session."
     const { items } = derivePhysicalMediaItems([
       { id: "nd-1", name: "[LP] Loveless", songCount: 11 },
       { id: "nd-2", name: "[LP] Loveless", songCount: 11, comment: "   " },
