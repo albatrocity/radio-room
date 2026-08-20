@@ -20,7 +20,7 @@ import type {
   PhysicalMediaItem,
 } from "@repo/types"
 import { useSocketMachine } from "../hooks/useSocketMachine"
-import { catalogBrowseMachine } from "../machines/catalogBrowseMachine"
+import { CATALOG_BROWSE_EVENT_TYPES, catalogBrowseMachine } from "../machines/catalogBrowseMachine"
 import EntityThumb from "./EntityThumb"
 import AlbumTrackListView, { type AlbumViewHeader } from "./AlbumTrackListView"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
@@ -134,7 +134,11 @@ function CatalogBrowse({
   disabled = false,
   fillHeight = false,
 }: Props) {
-  const [state, send] = useSocketMachine(catalogBrowseMachine)
+  const [state, send] = useSocketMachine(
+    catalogBrowseMachine,
+    undefined,
+    CATALOG_BROWSE_EVENT_TYPES,
+  )
   const [level, setLevel] = useState<BrowseLevel>("root")
   const [rootKind, setRootKind] = useState<RootKind>("artists")
   const [filter, setFilter] = useState("")
@@ -245,8 +249,15 @@ function CatalogBrowse({
   useEffect(() => {
     if (!initialNavigation) return
     const key = JSON.stringify(initialNavigation)
-    const { source, artistId, albumId, artistTitle, albumTitle, mediaKey, rootKind: navRootKind } =
-      initialNavigation
+    const {
+      source,
+      artistId,
+      albumId,
+      artistTitle,
+      albumTitle,
+      mediaKey,
+      rootKind: navRootKind,
+    } = initialNavigation
 
     const viewMatchesNav =
       (mediaKey != null && selectedMedia?.mediaKey === mediaKey && level === "tracks") ||
@@ -324,9 +335,7 @@ function CatalogBrowse({
       source: sourceId,
       rootKind,
       level,
-      ...(selectedArtist
-        ? { artistId: selectedArtist.id, artistTitle: selectedArtist.title }
-        : {}),
+      ...(selectedArtist ? { artistId: selectedArtist.id, artistTitle: selectedArtist.title } : {}),
       ...(selectedAlbum ? { albumId: selectedAlbum.id, albumTitle: selectedAlbum.title } : {}),
       ...(selectedMedia ? { mediaKey: selectedMedia.mediaKey } : {}),
     })
@@ -540,10 +549,10 @@ function CatalogBrowse({
                 ? "Search albums"
                 : "Search artists"
               : rootKind === "albums"
-              ? "Filter albums"
-              : rootKind === "media"
-              ? "Filter your collection"
-              : "Filter artists"
+                ? "Filter albums"
+                : rootKind === "media"
+                  ? "Filter your collection"
+                  : "Filter artists"
           }
           value={filter}
           disabled={disabled}
@@ -598,9 +607,7 @@ function CatalogBrowse({
               size="sm"
               variant="hover"
               w="100%"
-              {...(fillHeight
-                ? { flex: "1 1 auto", minH: 0, height: "100%" }
-                : { maxH: "320px" })}
+              {...(fillHeight ? { flex: "1 1 auto", minH: 0, height: "100%" } : { maxH: "320px" })}
             >
               <ScrollShadowViewport {...(fillHeight ? { height: "100%" } : {})}>
                 <ScrollArea.Content>

@@ -29,6 +29,9 @@ export interface TrackSearchContext {
   limit: number
 }
 
+/** SERVER_EVENT allowlist for `useSocketMachine` (ADR 0093) — keep in sync with `TrackSearchEvent`. */
+export const TRACK_SEARCH_EVENT_TYPES = ["TRACK_SEARCH_RESULTS", "TRACK_SEARCH_RESULTS_FAILURE"]
+
 type TrackSearchEvent =
   | { type: "FETCH_RESULTS"; value: string }
   | {

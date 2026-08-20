@@ -28,6 +28,20 @@ export interface CatalogBrowseContext {
   error: RequestError | null
 }
 
+/** SERVER_EVENT allowlist for `useSocketMachine` (ADR 0093) — keep in sync with `CatalogBrowseEvent`. */
+export const CATALOG_BROWSE_EVENT_TYPES = [
+  "BROWSE_ARTISTS_RESULTS",
+  "BROWSE_ARTISTS_FAILURE",
+  "BROWSE_ALBUMS_RESULTS",
+  "BROWSE_ALBUMS_FAILURE",
+  "BROWSE_ARTIST_RESULTS",
+  "BROWSE_ARTIST_FAILURE",
+  "BROWSE_ALBUM_RESULTS",
+  "BROWSE_ALBUM_FAILURE",
+  "BROWSE_MEDIA_ITEM_RESULTS",
+  "BROWSE_MEDIA_ITEM_FAILURE",
+]
+
 type CatalogBrowseEvent =
   | { type: "FETCH_ARTISTS"; source: string; query?: string }
   | { type: "FETCH_ALBUMS"; source: string; query?: string; limit?: number }

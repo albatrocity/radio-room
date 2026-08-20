@@ -15,7 +15,7 @@ import {
 } from "@chakra-ui/react"
 
 import { useSocketMachine } from "../hooks/useSocketMachine"
-import { trackSearchMachine } from "../machines/trackSearchMachine"
+import { TRACK_SEARCH_EVENT_TYPES, trackSearchMachine } from "../machines/trackSearchMachine"
 import { createDebouncedInputMachine } from "../machines/debouncedInputMachine"
 import { takeTopByTitleRelevance } from "@repo/utils"
 import type { MetadataSourceTrack, MetadataSourceTrackWithSource } from "@repo/types"
@@ -100,7 +100,7 @@ function TrackSearch({
   fillHeight = false,
 }: Props) {
   const listboxId = useId()
-  const [state, send] = useSocketMachine(trackSearchMachine)
+  const [state, send] = useSocketMachine(trackSearchMachine, undefined, TRACK_SEARCH_EVENT_TYPES)
   const [resultTab, setResultTab] = useState<"tracks" | "artists" | "albums">("tracks")
   const [activeIndex, setActiveIndex] = useState(-1)
   const optionRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -392,9 +392,7 @@ function TrackSearch({
 
       {showResults && (
         <Box
-          {...(fillHeight
-            ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
-            : {})}
+          {...(fillHeight ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" } : {})}
         >
           {isLoading && !hasAnyResults && authErrorSources.length === 0 ? (
             <Center py={6}>
@@ -452,9 +450,7 @@ function TrackSearch({
               size="sm"
               variant="hover"
               w="100%"
-              {...(fillHeight
-                ? { flex: "1 1 auto", minH: 0, height: "100%" }
-                : { maxH: "320px" })}
+              {...(fillHeight ? { flex: "1 1 auto", minH: 0, height: "100%" } : { maxH: "320px" })}
             >
               <ScrollArea.Viewport {...(fillHeight ? { height: "100%" } : {})}>
                 <ScrollArea.Content>{tracksList}</ScrollArea.Content>

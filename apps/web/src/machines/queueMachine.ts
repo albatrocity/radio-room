@@ -11,6 +11,9 @@ export interface QueueContext {
   queuedTrack: MetadataSourceTrack | null | undefined
 }
 
+/** SERVER_EVENT allowlist for `useSocketMachine` (ADR 0093) — keep in sync with `QueueEvent`. */
+export const QUEUE_EVENT_TYPES = ["SONG_QUEUED", "SONG_QUEUE_HELD", "SONG_QUEUE_FAILURE"]
+
 type QueueEvent =
   | { type: "SEND_TO_QUEUE"; track: MetadataSourceTrack }
   | { type: "SONG_QUEUED"; data?: QueueItem }
