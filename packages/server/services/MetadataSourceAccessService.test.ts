@@ -147,6 +147,72 @@ describe("MetadataSourceAccessService", () => {
     ])
   })
 
+  test("getEffectiveSourceIdsForUser reads the room and admin status once, not once per source", async () => {
+    vi.mocked(findRoom).mockResolvedValue({
+      id: roomId,
+      creator: "admin",
+      playbackControllerId: "bridge",
+      metadataSourceIds: ["spotify", "youtube", "local", "tidal"],
+      metadataSourceAccess: { youtube: "restricted", local: "restricted" },
+    } as any)
+    vi.mocked(isRoomAdmin).mockResolvedValue(false)
+    grantMock.mockResolvedValue(false)
+
+    await expect(service.getEffectiveSourceIdsForUser(roomId, userId, "search")).resolves.toEqual([
+      "spotify",
+      "tidal",
+    ])
+    expect(findRoom).toHaveBeenCalledTimes(1)
+    expect(isRoomAdmin).toHaveBeenCalledTimes(1)
+  })
+
+  test("getEffectiveSourceIdsForUser skips the room read when the caller supplies the room", async () => {
+    const room = {
+      id: roomId,
+      creator: "admin",
+      playbackControllerId: "spotify",
+      metadataSourceIds: ["spotify"],
+    } as any
+    vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+    await expect(
+      service.getEffectiveSourceIdsForUser(roomId, userId, "search", room),
+    ).resolves.toEqual(["spotify"])
+    expect(findRoom).not.toHaveBeenCalled()
+  })
+
+  test("canAccess accepts a preloaded room", async () => {
+    const room = {
+      id: roomId,
+      creator: "admin",
+      playbackControllerId: "bridge",
+      metadataSourceIds: ["spotify", "youtube"],
+      metadataSourceAccess: { youtube: "restricted" },
+    } as any
+    vi.mocked(isRoomAdmin).mockResolvedValue(false)
+    grantMock.mockResolvedValue(false)
+
+    await expect(
+      service.canAccess({ roomId, userId, sourceId: "youtube", action: "queue", room }),
+    ).resolves.toBe(false)
+    expect(findRoom).not.toHaveBeenCalled()
+  })
+
+  test("getLocalCatalogPlaylistIds skips the room read when the caller supplies the room", async () => {
+    const room = { id: roomId, creator: "admin", playbackControllerId: "spotify" } as any
+
+    await expect(service.getLocalCatalogPlaylistIds(roomId, userId, room)).resolves.toBeUndefined()
+    expect(findRoom).not.toHaveBeenCalled()
+  })
+
+  test("getEffectiveSourceIdsForUser returns nothing when the room is missing", async () => {
+    vi.mocked(findRoom).mockResolvedValue(null as any)
+
+    await expect(service.getEffectiveSourceIdsForUser(roomId, userId, "search")).resolves.toEqual(
+      [],
+    )
+  })
+
   test("listMetadataSources returns labeled catalog", async () => {
     vi.mocked(findRoom).mockResolvedValue({
       id: roomId,
@@ -162,4 +228,3 @@ describe("MetadataSourceAccessService", () => {
     ])
   })
 })
-

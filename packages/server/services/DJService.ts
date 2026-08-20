@@ -77,9 +77,7 @@ function takeSuppressedQueueMutation(roomId: string): boolean {
  * Plugin attributions are stored under a sentinel `userId` of `plugin:<pluginName>`,
  * which is safe because all display code reads `addedBy?.username` only.
  */
-function attributionToAddedBy(
-  attr: QueueItemAttribution,
-): { userId: string; username: string } {
+function attributionToAddedBy(attr: QueueItemAttribution): { userId: string; username: string } {
   if (attr.type === "user") {
     return { userId: attr.userId, username: attr.username }
   }
@@ -89,8 +87,7 @@ function attributionToAddedBy(
   }
 }
 
-const APP_CONTROLLED_ONLY_MESSAGE =
-  "Operation only available in app-controlled playback mode"
+const APP_CONTROLLED_ONLY_MESSAGE = "Operation only available in app-controlled playback mode"
 
 type PlaybackStateSuccess = {
   success: true
@@ -176,12 +173,10 @@ export class DJService {
     trackId: QueueItem["track"]["id"],
     mediaSourceType?: string,
   ) {
-    return this.queueSongAs(
-      roomId,
-      { type: "user", userId, username },
-      trackId,
-      { runPluginValidation: true, mediaSourceType },
-    )
+    return this.queueSongAs(roomId, { type: "user", userId, username }, trackId, {
+      runPluginValidation: true,
+      mediaSourceType,
+    })
   }
 
   /**
@@ -241,6 +236,7 @@ export class DJService {
         userId: attribution.userId,
         sourceId: sourceType,
         action: "queue",
+        room,
       })
       if (!canAccess) {
         return {
@@ -326,9 +322,7 @@ export class DJService {
     if (!track) {
       return {
         success: false as const,
-        message: metadataSource
-          ? "Track not found"
-          : "No metadata source configured for this room",
+        message: metadataSource ? "Track not found" : "No metadata source configured for this room",
       }
     }
 
@@ -343,6 +337,7 @@ export class DJService {
         userId: attribution.userId,
         sourceId: resolvedSource,
         action: "queue",
+        room,
       })
       if (!canAccessResolved) {
         return {
@@ -788,7 +783,10 @@ export class DJService {
         roomCreator: room.creator,
       }))
     if (!isOwner && !admin) {
-      return { success: false as const, message: "Not authorized to play this track from the queue" }
+      return {
+        success: false as const,
+        message: "Not authorized to play this track from the queue",
+      }
     }
 
     const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
@@ -811,7 +809,10 @@ export class DJService {
     if (!playTrack) {
       await addToQueue({ context: this.context, roomId, item: queueItem })
       await clearDispatchedTrack({ context: this.context, roomId })
-      return { success: false as const, message: "Playback controller does not support starting tracks" }
+      return {
+        success: false as const,
+        message: "Playback controller does not support starting tracks",
+      }
     }
 
     await this.context.pluginRegistry?.runBeforePlayQueuedTrack({
@@ -879,7 +880,10 @@ export class DJService {
 
     const getPlayback = playbackController.api.getPlayback
     if (!getPlayback) {
-      return { success: false as const, message: "Playback controller does not support reading state" }
+      return {
+        success: false as const,
+        message: "Playback controller does not support reading state",
+      }
     }
 
     const cached = playbackStateCache.get(roomId)
@@ -1078,7 +1082,10 @@ export class DJService {
     const api = playbackController.api
     const getPlayback = api.getPlayback
     if (!getPlayback) {
-      return { success: false as const, message: "Playback controller does not support reading state" }
+      return {
+        success: false as const,
+        message: "Playback controller does not support reading state",
+      }
     }
 
     try {
@@ -1249,7 +1256,9 @@ export class DJService {
           blockedBy: blocked,
         })
         if (this.context.systemEvents) {
-          const ownerUser = ownerId ? await getUser({ context: this.context, userId: ownerId }) : null
+          const ownerUser = ownerId
+            ? await getUser({ context: this.context, userId: ownerId })
+            : null
           const actorUser = actorUserId
             ? await getUser({ context: this.context, userId: actorUserId })
             : null
