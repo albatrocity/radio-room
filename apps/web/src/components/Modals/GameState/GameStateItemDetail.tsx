@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { Box, Stack, Text, VStack } from "@chakra-ui/react"
 import type { ItemDefinition, MetadataSourceTrack } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
@@ -7,14 +7,16 @@ import ItemArtwork from "../../ItemArtwork"
 import { LinkifiedText } from "../../LinkifiedText"
 import PathBreadcrumb from "../../PathBreadcrumb"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
-import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
 import { stopTrackPreview, toggleTrackPreview } from "../../../actors/trackPreviewActor"
 import { useCanAddToQueue, useIsAdmin } from "../../../hooks/useActors"
+import { useSocketMachine } from "../../../hooks/useSocketMachine"
+import {
+  MEDIA_ITEM_TRACKS_EVENT_TYPES,
+  mediaItemTracksMachine,
+} from "../../../machines/mediaItemTracksMachine"
 import useAddToQueue from "../../useAddToQueue"
 import type { GameStateDetailFrame } from "../../../types/GameStateDetail"
 import { LuArrowLeft } from "react-icons/lu"
-
-type TrackWithSource = MetadataSourceTrack & { source?: string }
 
 type Props = {
   frame: GameStateDetailFrame
@@ -33,44 +35,27 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
   const mediaKey = frame.mediaKey?.trim() || undefined
   const canAdd = frame.source === "inventory" && (isAdmin || canAddToQueue) && Boolean(mediaKey)
 
-  const [tracks, setTracks] = useState<TrackWithSource[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const subscriptionId = useMemo(() => `game-state-item-detail-${frame.shortId}`, [frame.shortId])
+  const [tracksState, sendTracks] = useSocketMachine(
+    mediaItemTracksMachine,
+    undefined,
+    MEDIA_ITEM_TRACKS_EVENT_TYPES,
+  )
+  const tracks = tracksState.context.tracks
+  const loading = tracksState.matches("loading")
+  const error = tracksState.context.error
 
   useEffect(() => {
     if (!showTrackList || !mediaKey) {
-      setTracks([])
-      setLoading(false)
-      setError(null)
+      sendTracks({ type: "RESET" })
       return
     }
 
-    setLoading(true)
-    setError(null)
-    subscribeById(subscriptionId, {
-      send: (event) => {
-        if (event.type === "LIST_MEDIA_ITEM_TRACKS_RESULTS") {
-          setTracks((event.data.tracks ?? []) as TrackWithSource[])
-          setLoading(false)
-          setError(null)
-        }
-        if (event.type === "LIST_MEDIA_ITEM_TRACKS_FAILURE") {
-          setTracks([])
-          setLoading(false)
-          setError(event.data?.message ?? "Failed to load tracks")
-        }
-      },
-      eventTypes: ["LIST_MEDIA_ITEM_TRACKS_RESULTS", "LIST_MEDIA_ITEM_TRACKS_FAILURE"],
-    })
-    emitToSocket("LIST_MEDIA_ITEM_TRACKS", { mediaKey })
+    sendTracks({ type: "FETCH", mediaKey })
 
     return () => {
-      unsubscribeById(subscriptionId)
       stopTrackPreview()
     }
-  }, [showTrackList, mediaKey, subscriptionId])
+  }, [showTrackList, mediaKey, sendTracks])
 
   const name = definition?.name ?? frame.title
   const description = definition?.description

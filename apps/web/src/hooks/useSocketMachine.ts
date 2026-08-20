@@ -25,28 +25,32 @@ import { subscribeActor, unsubscribeActor } from "../actors/socketActor"
 /**
  * Like useMachine, but also subscribes the machine to socket events.
  *
- * The machine will receive all socket events as { type: eventType, data }.
- * Events the machine doesn't handle will be ignored.
+ * The machine receives socket events as { type: eventType, data }. Without
+ * `eventTypes` it receives every SERVER_EVENT and ignores the ones it does not
+ * handle; pass an allowlist so the hub skips the rest (ADR 0093).
  *
  * @param machine - The XState machine to use
  * @param options - useMachine options (actions, guards, etc.)
+ * @param eventTypes - Optional allowlist of SERVER_EVENT types
  */
 export function useSocketMachine<TMachine extends AnyStateMachine>(
   machine: TMachine,
   options?: Parameters<typeof useMachine<TMachine>>[1],
+  eventTypes?: string[],
 ): ReturnType<typeof useMachine<TMachine>> {
   const result = useMachine(machine, options)
   // In XState v5, useMachine returns [state, send, actorRef]
   const actorRef = result[2]
+  const allowlistKey = eventTypes?.join(",")
 
   useEffect(() => {
     // Subscribe the machine's actorRef to socket events
-    subscribeActor(actorRef)
+    subscribeActor(actorRef, allowlistKey ? allowlistKey.split(",") : undefined)
 
     return () => {
       unsubscribeActor(actorRef)
     }
-  }, [actorRef])
+  }, [actorRef, allowlistKey])
 
   return result
 }

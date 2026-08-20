@@ -449,8 +449,9 @@ export function unsubscribeById(id: string): void {
  * Uses the actor's id as the subscription ID for resilience.
  *
  * @param actor - The XState actor/interpreter to subscribe
+ * @param eventTypes - Optional allowlist of SERVER_EVENT types (ADR 0093)
  */
-export function subscribeActor(actor: AnyActorRef): void {
+export function subscribeActor(actor: AnyActorRef, eventTypes?: string[]): void {
   if (!actor) {
     console.error("[SocketActor] subscribeActor called with undefined actor")
     return
@@ -460,7 +461,10 @@ export function subscribeActor(actor: AnyActorRef): void {
   socketActor.send({
     type: "SUBSCRIBE",
     id,
-    subscriber: { send: (event: EventObject) => actor.send(event) },
+    subscriber: {
+      send: (event: EventObject) => actor.send(event),
+      ...(eventTypes ? { eventTypes } : {}),
+    },
   })
 }
 
