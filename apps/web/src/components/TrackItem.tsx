@@ -104,7 +104,7 @@ const TrackItem = ({
         <Text fontSize="sm" lineClamp={1} wordBreak="break-word" minW={0}>
           {artistsLabel(artists)}
         </Text>
-        <Text fontSize="xs" as="i" truncate minW={0}>
+        <Text fontSize="xs" as="i" lineClamp={2} wordBreak="break-word" minW={0}>
           {album.title} {albumYear ? `(${albumYear})` : null}
         </Text>
         {source && sourcePlacement === "below" && (
