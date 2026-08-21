@@ -276,6 +276,17 @@ export const useUsers = () => {
   return useSelector(usersActor, (s) => s.context.users)
 }
 
+/**
+ * Username for one userId. Returns a stable string/undefined so playlist/queue
+ * rows do not re-render when unrelated users join, leave, or rename.
+ */
+export const useUsername = (userId: string | undefined | null): string | undefined => {
+  return useSelector(usersActor, (s) => {
+    if (!userId) return undefined
+    return s.context.users.find((u) => u.userId === userId)?.username
+  })
+}
+
 export type MentionUserSlice = { userId: string; username: string }
 
 const mentionUsersEqual = (a: MentionUserSlice[], b: MentionUserSlice[]) =>

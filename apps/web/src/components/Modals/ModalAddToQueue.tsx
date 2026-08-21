@@ -17,6 +17,18 @@ import {
   refreshEffectiveMetadataSources,
 } from "../../hooks/useActors"
 
+/** Run after the browser paints so dialog chrome is not blocked by open-side work. */
+function afterNextPaint(callback: () => void): () => void {
+  let innerRaf = 0
+  const outerRaf = requestAnimationFrame(() => {
+    innerRaf = requestAnimationFrame(callback)
+  })
+  return () => {
+    cancelAnimationFrame(outerRaf)
+    if (innerRaf) cancelAnimationFrame(innerRaf)
+  }
+}
+
 function ModalAddToQueue() {
   const modalSend = useModalsSend()
   const [searchActive, setSearchActive] = useState(false)
@@ -29,29 +41,32 @@ function ModalAddToQueue() {
   const room = useCurrentRoom()
   const hideEditForm = () => modalSend({ type: "CLOSE" })
 
-  // Re-evaluate plugin grants (e.g. Library Card / Physical Media) when the modal opens.
+  // Re-evaluate plugin grants (e.g. Library Card / Physical Media) after first paint.
   useEffect(() => {
-    if (isAddingToQueue) {
+    if (!isAddingToQueue) return
+    return afterNextPaint(() => {
       refreshEffectiveMetadataSources()
-    }
+    })
   }, [isAddingToQueue])
 
   // Initialize auth check when modal opens (use primary metadata source)
   const primaryMetadataSourceId = room?.metadataSourceIds?.[0]
   useEffect(() => {
-    if (isAddingToQueue && isAdmin && primaryMetadataSourceId && currentUser?.userId) {
-      // Determine service name from metadata source ID
-      // Format: "spotify-metadata" -> "spotify"
-      const serviceName = primaryMetadataSourceId.split("-")[0]
+    if (!isAddingToQueue || !isAdmin || !primaryMetadataSourceId || !currentUser?.userId) return
+    // Determine service name from metadata source ID
+    // Format: "spotify-metadata" -> "spotify"
+    const serviceName = primaryMetadataSourceId.split("-")[0]
+    const userId = currentUser.userId
+    return afterNextPaint(() => {
       metadataAuthSend({
         type: "INIT",
         data: {
-          userId: currentUser.userId,
+          userId,
           serviceName,
         },
       })
       metadataAuthSend({ type: "FETCH_STATUS" })
-    }
+    })
   }, [isAddingToQueue, isAdmin, primaryMetadataSourceId, currentUser?.userId, metadataAuthSend])
 
   useEffect(() => {
@@ -69,6 +84,9 @@ function ModalAddToQueue() {
     <Modal
       open={isAddingToQueue}
       onClose={hideEditForm}
+      // Keep Search/Browse warm across open/close (ADR 0090 / modal open latency).
+      lazyMount={false}
+      unmountOnExit={false}
       heading={
         <Heading as="h2" size="md">
           Add to play queue

@@ -17,7 +17,7 @@ import {
 import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
 import { LuPlay, LuSkipForward, LuTrash2, LuUser, LuX } from "react-icons/lu"
 import {
-  useUsers,
+  useUsername,
   usePreferredMetadataSource,
   useIsAdmin,
   useIsRoomCreator,
@@ -173,11 +173,8 @@ const PlaylistItem = memo(function PlaylistItem({
     disabled: artworkElementProps.obscured,
   })
 
-  const users = useUsers()
-  const djUsername = useMemo(
-    () => users.find((x) => x.userId === item.addedBy?.userId)?.username ?? item.addedBy?.username,
-    [users, item.addedBy],
-  )
+  const liveUsername = useUsername(item.addedBy?.userId)
+  const djUsername = liveUsername ?? item.addedBy?.username
 
   const externalUrl = useMemo(() => getTrackExternalUrl(preferredTrack), [preferredTrack])
 

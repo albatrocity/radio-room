@@ -25,6 +25,13 @@ interface Props {
   showFooter?: boolean
   // Legacy prop support
   isOpen?: boolean
+  /**
+   * When false, dialog content stays mounted while closed (skips Chakra’s
+   * default lazyMount + unmountOnExit). Use for heavy trees that must reopen fast
+   * (e.g. Add to Queue Search/Browse).
+   */
+  lazyMount?: boolean
+  unmountOnExit?: boolean
   /** Forwarded to `DialogContent` (e.g. viewport-capped height). */
   contentProps?: DialogContentProps
   /** Forwarded to `DialogBody`. */
@@ -40,6 +47,8 @@ const Modal = ({
   isOpen,
   footer = null,
   showFooter = true,
+  lazyMount,
+  unmountOnExit,
   contentProps,
   bodyProps,
 }: Props) => {
@@ -47,7 +56,13 @@ const Modal = ({
   const isDialogOpen = open ?? isOpen ?? false
 
   return (
-    <DialogRoot open={isDialogOpen} onOpenChange={(e) => !e.open && onClose()} placement="center">
+    <DialogRoot
+      open={isDialogOpen}
+      onOpenChange={(e) => !e.open && onClose()}
+      placement="center"
+      lazyMount={lazyMount}
+      unmountOnExit={unmountOnExit}
+    >
       <Portal>
         <DialogBackdrop />
         <DialogPositioner>
