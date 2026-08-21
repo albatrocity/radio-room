@@ -35,5 +35,25 @@ describe("buildShoppingInstance", () => {
     expect(instance.offers[0]?.artworkFrame).toBe("record-jacket")
     expect(instance.offers[0]?.imageUrl).toBe("/api/rooms/r1/images/pl-cover")
     expect(instance.offers[0]?.imageUrlLarge).toBe("/api/rooms/r1/images/pl-cover-lg")
+    expect(instance.offers[0]?.artist).toBeUndefined()
+  })
+
+  it("copies artist onto shop offers when present", () => {
+    const catalogMap = buildItemCatalogMap([
+      {
+        ...PM_ENTRY,
+        definition: { ...PM_ENTRY.definition, artist: "My Bloody Valentine" },
+      },
+    ])
+    const shop = {
+      shopId: "record-store",
+      name: "Record Store",
+      availableItems: [{ shortId: "pm-loveless", coinValue: 20 }],
+      listedBuybackRate: 0.5,
+      unlistedBuybackRate: 0.25,
+    }
+    const instance = buildShoppingInstance(shop, ["pm-loveless"], catalogMap, Date.now())
+    expect(instance.offers[0]?.artist).toBe("My Bloody Valentine")
+    expect(instance.offers[0]?.name).toBe("LP: Loveless")
   })
 })

@@ -67,7 +67,7 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
   const albumHeader = useMemo((): AlbumViewHeader => {
     return {
       title: name,
-      artists: artistsLabel(firstTrack?.artists),
+      artists: definition?.artist?.trim() || artistsLabel(firstTrack?.artists),
       year: releaseYear(firstTrack?.album?.releaseDate),
       sourceId: "local",
       imageUrl: definition?.imageUrl,

@@ -463,7 +463,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
               required: true,
               options: this.effectiveCatalogForGive().map((e) => ({
                 value: e.definition.shortId,
-                label: e.definition.name,
+                label: e.definition.artist?.trim()
+                  ? `${e.definition.name} (${e.definition.artist.trim()})`
+                  : e.definition.name,
               })),
             },
             {

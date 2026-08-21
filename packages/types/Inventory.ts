@@ -136,6 +136,11 @@ export interface ItemDefinition {
 
   name: string
   description: string
+  /**
+   * Optional artist line shown under `name` (Physical Media album/playlist
+   * SKUs). Omitted for items that are not records.
+   */
+  artist?: string
   /** Optional emoji or icon name surfaced by the UI. */
   icon?: LucideIconName
   /**

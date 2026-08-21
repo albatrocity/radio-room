@@ -153,9 +153,7 @@ export function derivePhysicalMediaItemsFromAlbums(
     const inferred = inferPhysicalMediaFormat(album.year, songCount)
     const title = album.name.trim() || id
     const artist = album.artist?.trim()
-    const name = artist
-      ? `${inferred.format}: ${artist} — ${title}`
-      : `${inferred.format}: ${title}`
+    const name = `${inferred.format}: ${title}`
     const artwork = artworkByAlbumId[id]
     const imageUrl = artwork?.imageUrl?.trim()
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
@@ -163,6 +161,7 @@ export function derivePhysicalMediaItemsFromAlbums(
       definition: {
         shortId,
         name,
+        ...(artist ? { artist } : {}),
         description: `A ${inferred.format} from the Record Store. Queue any track on it for the rest of the session.`,
         icon: inferred.icon,
         artworkFrame: inferred.artworkFrame,
@@ -192,6 +191,24 @@ export function derivePhysicalMediaItemsFromAlbums(
   }
 
   return { items, albumMap }
+}
+
+/**
+ * Split a playlist remainder or override (`Artist — Title`) so the artist can
+ * render under the title. Album SKUs use Navidrome's artist field instead.
+ */
+export function splitPhysicalMediaArtistTitle(raw: string): {
+  artist?: string
+  title: string
+} {
+  const trimmed = raw.trim()
+  if (!trimmed) return { title: trimmed }
+  const match = /\s+[—–]\s+|\s+-\s+/.exec(trimmed)
+  if (!match || match.index <= 0) return { title: trimmed }
+  const artist = trimmed.slice(0, match.index).trim()
+  const title = trimmed.slice(match.index + match[0].length).trim()
+  if (!artist || !title) return { title: trimmed }
+  return { artist, title }
 }
 
 export function parsePhysicalMediaName(
@@ -239,7 +256,9 @@ export function derivePhysicalMediaItems(
     const shortId = physicalMediaShortId(id)
     const override = overrideById.get(id)
     const songCount = pl.songCount ?? 0
-    const name = override?.name?.trim() || `${parsed.format}: ${parsed.title}`
+    const overrideName = override?.name?.trim()
+    const { artist, title } = splitPhysicalMediaArtistTitle(overrideName || parsed.title)
+    const name = overrideName ? (artist ? title : overrideName) : `${parsed.format}: ${title}`
     const comment = pl.comment?.trim()
     const artwork = override?.blankDisc ? undefined : artworkByPlaylistId[id]
     const imageUrl = artwork?.imageUrl?.trim()
@@ -248,6 +267,7 @@ export function derivePhysicalMediaItems(
       definition: {
         shortId,
         name,
+        ...(artist ? { artist } : {}),
         description:
           comment ||
           `A ${parsed.format} from the Record Store. Queue any track on it for the rest of the session.`,

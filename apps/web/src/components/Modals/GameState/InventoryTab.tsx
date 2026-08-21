@@ -241,6 +241,11 @@ function InventoryRow({
             </Badge>
           )}
         </HStack>
+        {definition?.artist?.trim() ? (
+          <Text fontSize="xs" color="fg.muted" lineClamp={1}>
+            {definition.artist.trim()}
+          </Text>
+        ) : null}
         {description && (
           <LinkifiedText fontSize="xs" color="fg.muted">
             {description}

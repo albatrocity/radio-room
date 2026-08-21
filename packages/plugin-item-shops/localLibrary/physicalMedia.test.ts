@@ -5,6 +5,7 @@ import {
   derivePhysicalMediaItemsFromAlbums,
   inferPhysicalMediaFormat,
   parsePhysicalMediaName,
+  splitPhysicalMediaArtistTitle,
   physicalMediaAlbumShortId,
   physicalMediaShortId,
   priceFromSongCount,
@@ -28,6 +29,18 @@ describe("physicalMedia derivation", () => {
     expect(parsePhysicalMediaName("Just a mixtape")).toBeNull()
   })
 
+  it("splits artist from playlist titles and overrides", () => {
+    expect(splitPhysicalMediaArtistTitle("Loveless")).toEqual({ title: "Loveless" })
+    expect(splitPhysicalMediaArtistTitle("My Bloody Valentine — Loveless")).toEqual({
+      artist: "My Bloody Valentine",
+      title: "Loveless",
+    })
+    expect(splitPhysicalMediaArtistTitle("Radiohead - Kid A")).toEqual({
+      artist: "Radiohead",
+      title: "Kid A",
+    })
+  })
+
   it("derives durable collection items keyed by playlist id", () => {
     const { items, playlistMap } = derivePhysicalMediaItems(
       [
@@ -41,7 +54,8 @@ describe("physicalMedia derivation", () => {
       physicalMediaShortId("nd-1"),
       physicalMediaShortId("nd-2"),
     ])
-    expect(items[0]?.definition.name).toBe("My Bloody Valentine — Loveless")
+    expect(items[0]?.definition.name).toBe("Loveless")
+    expect(items[0]?.definition.artist).toBe("My Bloody Valentine")
     expect(items[0]?.definition.coinValue).toBe(99)
     expect(items[0]?.definition.slotPool).toBe("collection")
     expect(items[0]?.definition.detailView).toEqual({
@@ -55,6 +69,8 @@ describe("physicalMedia derivation", () => {
       playlistKey: physicalMediaShortId("nd-1"),
       redemption: "durable",
     })
+    expect(items[1]?.definition.name).toBe("45: Single")
+    expect(items[1]?.definition.artist).toBeUndefined()
     expect(items[1]?.definition.coinValue).toBe(priceFromSongCount(2))
     expect(items[1]?.definition.rarity).toBe(rarityFromSongCount(2))
     expect(playlistMap[physicalMediaShortId("nd-1")]).toBe("nd-1")
@@ -124,6 +140,14 @@ describe("physicalMedia derivation", () => {
     expect(items[0]?.definition.artworkFrame).toBe("jewel-case")
     expect(items[0]?.definition.imageUrl).toBeUndefined()
     expect(items[0]?.definition.imageUrlLarge).toBeUndefined()
+  })
+
+  it("pulls artist from a prefixed playlist remainder", () => {
+    const { items } = derivePhysicalMediaItems([
+      { id: "nd-1", name: "[LP] My Bloody Valentine — Loveless", songCount: 11 },
+    ])
+    expect(items[0]?.definition.name).toBe("LP: Loveless")
+    expect(items[0]?.definition.artist).toBe("My Bloody Valentine")
   })
 
   it("uses the playlist comment as description when present", () => {
@@ -200,7 +224,8 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
       physicalMediaAlbumShortId("al-1"),
       physicalMediaAlbumShortId("al-2"),
     ])
-    expect(items[0]?.definition.name).toBe("CD: My Bloody Valentine — Loveless")
+    expect(items[0]?.definition.name).toBe("CD: Loveless")
+    expect(items[0]?.definition.artist).toBe("My Bloody Valentine")
     expect(items[0]?.definition.slotPool).toBe("collection")
     expect(items[0]?.definition.detailView).toEqual({
       actionIcon: "Eye",
@@ -214,6 +239,7 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
       redemption: "durable",
     })
     expect(items[1]?.definition.name).toBe("45: Single")
+    expect(items[1]?.definition.artist).toBeUndefined()
     expect(items[1]?.definition.artworkFrame).toBe("die-cut-jacket")
     expect(albumMap[physicalMediaAlbumShortId("al-1")]).toBe("al-1")
   })

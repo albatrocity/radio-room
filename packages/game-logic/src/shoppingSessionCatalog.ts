@@ -261,6 +261,7 @@ export function buildShoppingInstance(
     const {
       name,
       description,
+      artist,
       icon = "package" as LucideIconName,
       imageUrl,
       imageUrlLarge,
@@ -272,6 +273,7 @@ export function buildShoppingInstance(
       shortId: sid,
       name,
       description,
+      ...(artist?.trim() ? { artist: artist.trim() } : {}),
       icon,
       ...(imageUrl ? { imageUrl } : {}),
       ...(imageUrlLarge ? { imageUrlLarge } : {}),

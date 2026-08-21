@@ -17,6 +17,8 @@ export interface ShopOffer {
   shortId: string
   name: string
   description: string
+  /** Optional artist line shown under `name` (Physical Media). */
+  artist?: string
   icon: LucideIconName
   /** Artwork URL rendered instead of `icon` when present (e.g. record covers). Row-sized (~384px). */
   imageUrl?: string

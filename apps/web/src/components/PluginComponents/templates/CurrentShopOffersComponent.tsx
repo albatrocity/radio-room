@@ -159,6 +159,11 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                     })}
                   >
                     <Text fontWeight="bold">{row.name}</Text>
+                    {row.artist?.trim() ? (
+                      <Text fontSize="xs" color="fg.muted" lineClamp={1}>
+                        {row.artist.trim()}
+                      </Text>
+                    ) : null}
                     <LinkifiedText fontSize="xs" color="fg.muted" lineHeight="short">
                       {row.description}
                     </LinkifiedText>

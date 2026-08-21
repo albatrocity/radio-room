@@ -317,6 +317,11 @@ export function AddItemDrawer({ room, open, onOpenChange }: AddItemDrawerProps) 
                                   >
                                     <Stack gap="1" align="flex-start" flex="1" minW="0">
                                       <Text fontWeight="medium">{offer.name}</Text>
+                                      {offer.artist?.trim() ? (
+                                        <Text fontSize="xs" color="fg.muted">
+                                          {offer.artist.trim()}
+                                        </Text>
+                                      ) : null}
                                       <ItemMetaLine
                                         rarity={offer.rarity}
                                         price={offer.price}
