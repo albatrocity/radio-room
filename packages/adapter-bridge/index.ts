@@ -150,6 +150,7 @@ export const playbackController: PlaybackControllerAdapter = {
       },
       capability,
       clearActiveSource: () => activeSource.clear(),
+      getActiveSource: () => activeSource.get(),
     })
 
     // Always replace so ENDED/stuck handlers stay bound to a live capability + playTrack

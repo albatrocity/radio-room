@@ -122,6 +122,24 @@
             setStatus("playback_error: " + e.message)
           })
 
+          player.addListener("player_state_changed", function (state) {
+            if (typeof window.__bridgeSpotifyPlayerState !== "function") return
+            if (!state) {
+              window.__bridgeSpotifyPlayerState(null)
+              return
+            }
+            var track =
+              state.track_window && state.track_window.current_track
+                ? state.track_window.current_track
+                : null
+            window.__bridgeSpotifyPlayerState({
+              paused: !!state.paused,
+              position: typeof state.position === "number" ? state.position : null,
+              duration: typeof state.duration === "number" ? state.duration : null,
+              trackId: track && track.id ? track.id : null,
+            })
+          })
+
           setStatus("Connecting Spotify player…")
           connectTimer = setTimeout(function () {
             setStatus(

@@ -1,5 +1,6 @@
 import type { CDPSession, Page } from "puppeteer-core"
 import type { RedisClientType } from "redis"
+import { isNaturalFinish } from "@repo/adapter-bridge/playbackFinish"
 import {
   BRIDGE_SPOTIFY_DEVICE_NAME,
   eventChannel,
@@ -8,7 +9,10 @@ import {
 } from "@repo/adapter-bridge/protocol"
 import type { ChromeManager } from "./chrome"
 import type { DriverState } from "./drivers/Driver"
+import type { Presence } from "./presence"
 import type { StaticHost } from "./staticHost"
+
+const STATE_PULSE_MS = 1000
 
 type RedisLike = RedisClientType<any, any, any>
 
@@ -30,12 +34,16 @@ export class SpotifyDeviceHost {
   /** Coalesce concurrent getOAuthToken / TOKEN_REQUEST polls. */
   private tokenFetchInFlight: Promise<string> | null = null
   private fetchSession: CDPSession | null = null
+  private statePulse: NodeJS.Timeout | null = null
+  private lastSnapshot: DriverState | null = null
+  private endedForTrackId: string | null = null
 
   constructor(
     private readonly chrome: ChromeManager,
     private readonly host: StaticHost,
     private readonly redis: RedisLike,
     private readonly roomId: string,
+    private readonly presence: Presence,
   ) {}
 
   async start(): Promise<void> {
@@ -68,6 +76,9 @@ export class SpotifyDeviceHost {
     if (!this.watchdog) {
       this.watchdog = setInterval(() => void this.tickWatchdog(url), WATCHDOG_MS)
     }
+    if (!this.statePulse) {
+      this.statePulse = setInterval(() => void this.tickStatePulse(), STATE_PULSE_MS)
+    }
     console.log(`[spotify-device] host page loading ${url}`)
   }
 
@@ -75,6 +86,8 @@ export class SpotifyDeviceHost {
     this.stopped = true
     if (this.watchdog) clearInterval(this.watchdog)
     this.watchdog = null
+    if (this.statePulse) clearInterval(this.statePulse)
+    this.statePulse = null
     await this.teardownTrackPlaybackCorsFix()
     try {
       await this.redis.del(spotifyDeviceKey(this.roomId))
@@ -471,6 +484,106 @@ export class SpotifyDeviceHost {
         })
         .catch((e) => console.error("[spotify-device] boot failed:", e))
     })
+    await this.page.exposeFunction(
+      "__bridgeSpotifyPlayerState",
+      (
+        snapshot: {
+          paused: boolean
+          position: number | null
+          duration: number | null
+          trackId: string | null
+        } | null,
+      ) => {
+        this.handleTransportSnapshot(snapshot)
+      },
+    )
     this.bridgesExposed = true
+  }
+
+  /**
+   * Push STATE (and ENDED on natural finish) so the API advance job does not
+   * depend on a 3s getPlayback RPC to notice a Spotify track has ended.
+   */
+  private async tickStatePulse() {
+    if (this.stopped) return
+    try {
+      const state = await this.getPlaybackState()
+      this.handleTransportSnapshot({
+        paused: state.state !== "playing",
+        position: state.progressMs,
+        duration: state.durationMs,
+        trackId: state.trackId ?? null,
+        volumePercent: state.volumePercent ?? null,
+        stopped: state.state === "stopped",
+      })
+    } catch {
+      /* ignore */
+    }
+  }
+
+  private handleTransportSnapshot(
+    snapshot: {
+      paused: boolean
+      position: number | null
+      duration: number | null
+      trackId: string | null
+      volumePercent?: number | null
+      stopped?: boolean
+    } | null,
+  ) {
+    const current: DriverState = snapshot
+      ? {
+          state: snapshot.stopped ? "stopped" : snapshot.paused ? "paused" : "playing",
+          progressMs: snapshot.position,
+          durationMs: snapshot.duration,
+          trackId: snapshot.trackId,
+          volumePercent: snapshot.volumePercent ?? null,
+        }
+      : { state: "stopped", progressMs: null, durationMs: null, trackId: null }
+
+    if (current.state === "playing" && current.trackId) {
+      this.endedForTrackId = null
+    }
+
+    // Already reported this track's end — don't keep overwriting lastState with idle Spotify.
+    if (this.endedForTrackId && current.state !== "playing") {
+      this.lastSnapshot = current
+      return
+    }
+
+    const trackId = current.trackId || this.lastSnapshot?.trackId || null
+    const finished =
+      current.state !== "playing" && isNaturalFinish(current, this.lastSnapshot)
+
+    if (finished && trackId) {
+      this.emitEnded(trackId)
+    }
+
+    const shouldPublish =
+      current.state !== "stopped" || finished || this.lastSnapshot?.state === "playing"
+    if (shouldPublish) {
+      void this.presence.publish({
+        type: "STATE",
+        source: "spotify",
+        state: current.state,
+        progressMs: current.progressMs,
+        durationMs: current.durationMs,
+        volumePercent: current.volumePercent ?? null,
+      })
+    }
+
+    this.lastSnapshot = current
+  }
+
+  private emitEnded(trackId: string) {
+    if (this.endedForTrackId === trackId) return
+    this.endedForTrackId = trackId
+    console.log(`[spotify-device] ENDED trackId=${trackId}`)
+    void this.presence.publish({
+      type: "ENDED",
+      source: "spotify",
+      trackId,
+      reason: "natural",
+    })
   }
 }

@@ -6,7 +6,8 @@
   "main": "index.ts",
   "exports": {
     ".": "./index.ts",
-    "./protocol": "./lib/protocol.ts"
+    "./protocol": "./lib/protocol.ts",
+    "./playbackFinish": "./lib/playbackFinish.ts"
   },
   "scripts": {
     "test": "vitest run --passWithNoTests",

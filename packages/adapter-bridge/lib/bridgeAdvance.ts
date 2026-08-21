@@ -1,8 +1,13 @@
 import type { AppContext, JobApi, JobRegistration, PlaybackControllerApi, QueueItem } from "@repo/types"
 import { lastEndedKey } from "./protocol"
 import type { BridgeCapabilityCache } from "./capability"
+import {
+  endedSourceMatchesActive,
+  isApproachingEnd,
+  isNaturalFinish,
+  lastStateShouldAdvance,
+} from "./playbackFinish"
 
-const ADVANCE_THRESHOLD_MS = 1000
 /** Consecutive no-media polls before treating as unplayable (backup if ENDED key missed). */
 const STUCK_NO_MEDIA_POLLS = 8
 
@@ -13,32 +18,9 @@ const NEAR_END_PROBE_INTERVAL_MS = 1000
 /** Initial backoff after an RPC failure; doubles up to MAX_PROBE_BACKOFF_MS. */
 const INITIAL_PROBE_BACKOFF_MS = 2000
 const MAX_PROBE_BACKOFF_MS = 30_000
-/** Treat remaining duration under this as "near end" for probe tightening. */
-const NEAR_END_PROBE_WINDOW_MS = 15_000
-
-function isNearEnd(progressMs: number | null | undefined, durationMs: number | null | undefined) {
-  return (
-    progressMs != null &&
-    durationMs != null &&
-    durationMs > 0 &&
-    progressMs >= durationMs - ADVANCE_THRESHOLD_MS
-  )
-}
-
-function isApproachingEnd(
-  progressMs: number | null | undefined,
-  durationMs: number | null | undefined,
-) {
-  return (
-    progressMs != null &&
-    durationMs != null &&
-    durationMs > 0 &&
-    progressMs >= durationMs - NEAR_END_PROBE_WINDOW_MS
-  )
-}
 
 function isForceAdvanceReason(reason: string) {
-  return reason === "ended-event" || reason === "stuck-stopped"
+  return reason === "ended-event" || reason === "stuck-stopped" || reason === "state-ended"
 }
 
 function hasPlayableMedia(playback: {
@@ -87,8 +69,18 @@ export function createBridgeAdvanceJob(params: {
   capability: BridgeCapabilityCache
   /** Clear Redis active source when the queue idles so Play starts the next item cleanly. */
   clearActiveSource?: () => Promise<void>
+  /** Current bridge source (`spotify` / `local` / …) so stale pulses from the previous driver are ignored. */
+  getActiveSource?: () => Promise<string | null>
 }): JobRegistration {
-  const { context, roomId, playTrack, getPlaybackApi, capability, clearActiveSource } = params
+  const {
+    context,
+    roomId,
+    playTrack,
+    getPlaybackApi,
+    capability,
+    clearActiveSource,
+    getActiveSource,
+  } = params
 
   let advancing = false
   let lastAdvanceAt = 0
@@ -117,6 +109,15 @@ export function createBridgeAdvanceJob(params: {
       await persistMessage({ roomId, message, context })
     } catch (e) {
       console.error("[bridge-advance] failed to announce unplayable track:", e)
+    }
+  }
+
+  async function forgetStaleEndSignals() {
+    capability.clearLastPlaybackSignals()
+    try {
+      await context.redis.pubClient.del(lastEndedKey(roomId))
+    } catch {
+      /* ignore */
     }
   }
 
@@ -159,6 +160,8 @@ export function createBridgeAdvanceJob(params: {
       console.log(
         `[bridge-advance] advancing (${reason}${endedReason ? `/${endedReason}` : ""}) for room ${roomId}`,
       )
+
+      await forgetStaleEndSignals()
 
       const nextItem = await popNextFromQueue({ context, roomId })
       if (!nextItem) {
@@ -228,9 +231,12 @@ export function createBridgeAdvanceJob(params: {
   }
 
   capability.onEvent((event) => {
-    if (event.type === "ENDED") {
-      void advanceToNext("ended-event", event.reason)
-    }
+    if (event.type !== "ENDED") return
+    void (async () => {
+      const active = (await getActiveSource?.()) ?? null
+      if (!endedSourceMatchesActive(event.source, active)) return
+      await advanceToNext("ended-event", event.reason)
+    })()
   })
 
   function desiredProbeIntervalMs(): number {
@@ -287,32 +293,38 @@ export function createBridgeAdvanceJob(params: {
           /* ignore — SDK host is optional */
         }
 
+        const activeSource = (await getActiveSource?.()) ?? null
+
         // 1) Durable ENDED key (written by daemon) — does not depend on pub/sub
         const endedRaw = await context.redis.pubClient.get(lastEndedKey(roomId))
         if (endedRaw) {
           await context.redis.pubClient.del(lastEndedKey(roomId))
           console.log(`[bridge-advance] consumed last_ended key: ${endedRaw}`)
           let endedReason: string | undefined
+          let endedSource: string | undefined
           try {
-            const parsed = JSON.parse(endedRaw) as { reason?: string }
+            const parsed = JSON.parse(endedRaw) as { reason?: string; source?: string }
             endedReason = parsed.reason
+            endedSource = parsed.source
           } catch {
             /* legacy plain payloads */
           }
-          await advanceToNext("ended-event", endedReason)
-          return
+          if (endedSourceMatchesActive(endedSource, activeSource)) {
+            await advanceToNext("ended-event", endedReason)
+            return
+          }
         }
 
         // 2) In-memory ENDED from pub/sub (if subscription works)
         const ended = capability.consumeLastEnded()
-        if (ended) {
+        if (ended && endedSourceMatchesActive(ended.source, activeSource)) {
           await advanceToNext("ended-event", ended.reason)
           return
         }
 
         // 3) Cheap near-end / volume checks from last STATE pub/sub (no RPC)
         const lastState = capability.getLastState()
-        if (lastState?.volumePercent != null) {
+        if (lastState?.volumePercent != null && lastState.source === (activeSource ?? lastState.source)) {
           await handlePlaybackVolumeChange({
             context,
             roomId,
@@ -320,12 +332,10 @@ export function createBridgeAdvanceJob(params: {
           })
         }
 
-        if (
-          lastState &&
-          (lastState.state === "playing" || lastState.state === "stopped") &&
-          isNearEnd(lastState.progressMs, lastState.durationMs)
-        ) {
-          await advanceToNext(lastState.state === "stopped" ? "state-ended" : "state-probe")
+        if (lastState && lastStateShouldAdvance(lastState, activeSource)) {
+          await advanceToNext(
+            lastState.state === "playing" ? "state-probe" : "state-ended",
+          )
           return
         }
 
@@ -343,6 +353,14 @@ export function createBridgeAdvanceJob(params: {
         try {
           const playback = await api.getPlayback()
           rpcFailureCount = 0
+          const previousKnown =
+            lastKnownProgressMs != null || lastKnownDurationMs != null
+              ? {
+                  state: "playing" as const,
+                  progressMs: lastKnownProgressMs,
+                  durationMs: lastKnownDurationMs,
+                }
+              : null
           lastKnownProgressMs =
             typeof playback.progressMs === "number" ? playback.progressMs : lastKnownProgressMs
           lastKnownDurationMs =
@@ -358,8 +376,19 @@ export function createBridgeAdvanceJob(params: {
                 : null,
           })
 
-          if (playback.state === "playing" && isNearEnd(playback.progressMs, playback.durationMs)) {
-            await advanceToNext("playback-probe")
+          if (
+            isNaturalFinish(
+              {
+                state: playback.state,
+                progressMs: playback.progressMs,
+                durationMs: playback.durationMs,
+              },
+              previousKnown,
+            )
+          ) {
+            await advanceToNext(
+              playback.state === "playing" ? "playback-probe" : "state-ended",
+            )
             return
           }
 

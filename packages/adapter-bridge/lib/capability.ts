@@ -51,6 +51,12 @@ export class BridgeCapabilityCache {
     return this.lastState
   }
 
+  /** Drop stale STATE/ENDED so a new source cannot inherit the previous track's end pulse. */
+  clearLastPlaybackSignals() {
+    this.lastState = null
+    this.lastEnded = null
+  }
+
   /** Peek pending ENDED without clearing (for diagnostics). */
   peekLastEnded(): LastEnded | null {
     return this.lastEnded

@@ -157,18 +157,6 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
     }
   }
 
-  // Spotify SDK device is opt-in via services; not a Driver / not in CAPABILITIES
-  if (activeConfig.services.includes("spotify")) {
-    if (!chrome || !staticHost) throw new Error("Chrome/StaticHost required for spotify")
-    spotifyDevice = new SpotifyDeviceHost(chrome, staticHost, redis as any, roomId)
-    try {
-      await spotifyDevice.start()
-    } catch (e) {
-      console.warn("[spotify-device] start failed — SDK device unavailable:", e)
-      spotifyDevice = null
-    }
-  }
-
   const nowPlayingPath = activeConfig.nowPlayingPath ?? defaultNowPlayingPath()
   const nowPlaying = new NowPlayingPublisher(
     redis as any,
@@ -176,6 +164,18 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
     activeConfig.nowPlayingFormat,
   )
   const presence = new Presence(redis as any, roomId)
+
+  // Spotify SDK device is opt-in via services; not a Driver / not in CAPABILITIES
+  if (activeConfig.services.includes("spotify")) {
+    if (!chrome || !staticHost) throw new Error("Chrome/StaticHost required for spotify")
+    spotifyDevice = new SpotifyDeviceHost(chrome, staticHost, redis as any, roomId, presence)
+    try {
+      await spotifyDevice.start()
+    } catch (e) {
+      console.warn("[spotify-device] start failed — SDK device unavailable:", e)
+      spotifyDevice = null
+    }
+  }
   const router = new Router(drivers, presence, nowPlaying, roomId, spotifyDevice)
   const rpc = new RpcServer(redis as any, roomId, router, localDriver)
 
