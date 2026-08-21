@@ -15,6 +15,11 @@ function memoryCache(): SimpleCache {
     async delete(key) {
       store.delete(key)
     },
+    async deleteByPrefix(prefix) {
+      for (const key of [...store.keys()]) {
+        if (key.startsWith(prefix)) store.delete(key)
+      }
+    },
   }
 }
 

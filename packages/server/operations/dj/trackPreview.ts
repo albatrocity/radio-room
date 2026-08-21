@@ -43,6 +43,7 @@ export async function listMediaItemTracks(params: {
     roomId,
     playlistId: resolved.playlistId,
     logLabel: "listMediaItemTracks",
+    cache: context.cache,
   })
   if (!listed.ok) return listed
 
@@ -117,6 +118,7 @@ async function authorizeMediaItemTrackPreview(params: {
     roomId,
     playlistId: resolved.playlistId,
     logLabel: "authorizeMediaItemTrackPreview",
+    cache: context.cache,
   })
   if (!listed.ok) return listed
 

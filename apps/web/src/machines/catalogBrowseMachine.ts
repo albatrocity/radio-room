@@ -13,6 +13,59 @@ type RequestError = {
   source?: string
 }
 
+type CachedAlbumEntry = {
+  kind: "album"
+  source: string
+  album: MetadataBrowseAlbum
+  tracks: MetadataSourceTrackWithSource[]
+}
+
+type CachedMediaEntry = {
+  kind: "media"
+  source: string
+  mediaKey: string
+  mediaName: string
+  tracks: MetadataSourceTrackWithSource[]
+}
+
+type SessionCacheEntry = CachedAlbumEntry | CachedMediaEntry
+
+/** Bounded in-session cache so breadcrumb back/forward skips socket round-trips (ADR 0108). */
+const SESSION_CACHE_MAX = 16
+const sessionCache = new Map<string, SessionCacheEntry>()
+
+export function albumSessionCacheKey(source: string, albumId: string): string {
+  return `album:${source}:${albumId}`
+}
+
+export function mediaSessionCacheKey(mediaKey: string): string {
+  return `media:${mediaKey}`
+}
+
+function getSessionCache(key: string): SessionCacheEntry | undefined {
+  const entry = sessionCache.get(key)
+  if (!entry) return undefined
+  // LRU: refresh insertion order
+  sessionCache.delete(key)
+  sessionCache.set(key, entry)
+  return entry
+}
+
+function putSessionCache(key: string, entry: SessionCacheEntry): void {
+  if (sessionCache.has(key)) sessionCache.delete(key)
+  sessionCache.set(key, entry)
+  while (sessionCache.size > SESSION_CACHE_MAX) {
+    const oldest = sessionCache.keys().next().value
+    if (oldest == null) break
+    sessionCache.delete(oldest)
+  }
+}
+
+/** Test helper: clear the CatalogBrowse session cache. */
+export function clearCatalogBrowseSessionCache(): void {
+  sessionCache.clear()
+}
+
 export interface CatalogBrowseContext {
   source: string | null
   artists: MetadataBrowseArtist[]
@@ -92,6 +145,18 @@ export const catalogBrowseMachine = setup({
     context: {} as CatalogBrowseContext,
     events: {} as CatalogBrowseEvent,
   },
+  guards: {
+    hasCachedAlbum: ({ event }) => {
+      if (event.type !== "FETCH_ALBUM") return false
+      const entry = getSessionCache(albumSessionCacheKey(event.source, event.albumId))
+      return entry?.kind === "album"
+    },
+    hasCachedMedia: ({ event }) => {
+      if (event.type !== "FETCH_MEDIA") return false
+      const entry = getSessionCache(mediaSessionCacheKey(event.mediaKey))
+      return entry?.kind === "media"
+    },
+  },
   actions: {
     sendListArtists: ({ event }) => {
       if (event.type === "FETCH_ARTISTS") {
@@ -133,6 +198,32 @@ export const catalogBrowseMachine = setup({
         })
       }
     },
+    applyCachedAlbum: assign(({ event }) => {
+      if (event.type !== "FETCH_ALBUM") return {}
+      const entry = getSessionCache(albumSessionCacheKey(event.source, event.albumId))
+      if (entry?.kind !== "album") return {}
+      return {
+        source: entry.source,
+        album: entry.album,
+        tracks: entry.tracks,
+        mediaKey: null,
+        mediaName: null,
+        error: null,
+      }
+    }),
+    applyCachedMedia: assign(({ event }) => {
+      if (event.type !== "FETCH_MEDIA") return {}
+      const entry = getSessionCache(mediaSessionCacheKey(event.mediaKey))
+      if (entry?.kind !== "media") return {}
+      return {
+        source: entry.source,
+        mediaKey: entry.mediaKey,
+        mediaName: entry.mediaName,
+        album: null,
+        tracks: entry.tracks,
+        error: null,
+      }
+    }),
     setArtists: assign(({ event }) => {
       if (event.type !== "BROWSE_ARTISTS_RESULTS") return {}
       return {
@@ -164,6 +255,12 @@ export const catalogBrowseMachine = setup({
     }),
     setAlbum: assign(({ event }) => {
       if (event.type !== "BROWSE_ALBUM_RESULTS") return {}
+      putSessionCache(albumSessionCacheKey(event.data.source, event.data.album.id), {
+        kind: "album",
+        source: event.data.source,
+        album: event.data.album,
+        tracks: event.data.tracks ?? [],
+      })
       return {
         source: event.data.source,
         album: event.data.album,
@@ -175,6 +272,13 @@ export const catalogBrowseMachine = setup({
     }),
     setMedia: assign(({ event }) => {
       if (event.type !== "BROWSE_MEDIA_ITEM_RESULTS") return {}
+      putSessionCache(mediaSessionCacheKey(event.data.mediaKey), {
+        kind: "media",
+        source: event.data.source,
+        mediaKey: event.data.mediaKey,
+        mediaName: event.data.name,
+        tracks: event.data.tracks ?? [],
+      })
       return {
         source: event.data.source,
         mediaKey: event.data.mediaKey,
@@ -228,14 +332,28 @@ export const catalogBrowseMachine = setup({
       target: ".loadingArtist",
       actions: ["clearError"],
     },
-    FETCH_ALBUM: {
-      target: ".loadingAlbum",
-      actions: ["clearError"],
-    },
-    FETCH_MEDIA: {
-      target: ".loadingMedia",
-      actions: ["clearError"],
-    },
+    FETCH_ALBUM: [
+      {
+        guard: "hasCachedAlbum",
+        target: ".idle",
+        actions: ["clearError", "applyCachedAlbum"],
+      },
+      {
+        target: ".loadingAlbum",
+        actions: ["clearError"],
+      },
+    ],
+    FETCH_MEDIA: [
+      {
+        guard: "hasCachedMedia",
+        target: ".idle",
+        actions: ["clearError", "applyCachedMedia"],
+      },
+      {
+        target: ".loadingMedia",
+        actions: ["clearError"],
+      },
+    ],
   },
   states: {
     idle: {},

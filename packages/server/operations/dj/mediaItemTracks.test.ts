@@ -28,7 +28,12 @@ describe("fetchResolvedMediaItemTracks", () => {
 
     const result = await fetchResolvedMediaItemTracks(params)
 
-    expect(fetchLocalPlaylistTracks).toHaveBeenCalledWith({ rpc: {}, playlistId: "nd-secret" })
+    expect(fetchLocalPlaylistTracks).toHaveBeenCalledWith({
+      rpc: {},
+      playlistId: "nd-secret",
+      roomId: "room1",
+      cache: undefined,
+    })
     expect(result).toEqual({
       ok: true,
       tracks: [

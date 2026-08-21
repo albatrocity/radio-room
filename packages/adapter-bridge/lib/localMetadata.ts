@@ -9,8 +9,15 @@ import type {
   MetadataSourceAdapterConfig,
   MetadataSourceApi,
   MetadataSourceTrack,
+  SimpleCache,
 } from "@repo/types"
 import type { AppContext } from "@repo/types"
+import {
+  LOCAL_BROWSE_CACHE_TTL_SEC,
+  metadataBrowseAlbumCacheKey,
+  metadataBrowsePlaylistCacheKey,
+  withCachedJson,
+} from "@repo/utils"
 import { BridgeRpcClient } from "./rpcClient"
 import { emptyAlbum, emptyArtist } from "./trackHelpers"
 
@@ -22,6 +29,7 @@ export function createLocalMetadataApi(deps: {
   getRpcForRoom: (roomId: string) => BridgeRpcClient | null
   /** Room id closed over at register time when available; otherwise RPC uses first present room. */
   roomId?: string
+  cache?: SimpleCache
 }): MetadataSourceApi {
   async function withRpc<T>(fn: (rpc: BridgeRpcClient, roomId: string) => Promise<T>, fallback: T): Promise<T> {
     const roomId = deps.roomId
@@ -125,13 +133,23 @@ export function createLocalMetadataApi(deps: {
       albumId: string,
       options?: { playlistIds?: string[] },
     ): Promise<MetadataGetAlbumResult | null> {
-      return withRpc(async (rpc) => {
-        return (await rpc.call("getAlbum", {
-          source: "local",
-          albumId,
-          ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
-        })) as MetadataGetAlbumResult | null
-      }, null)
+      const roomId = deps.roomId
+      if (!roomId) return null
+
+      return withCachedJson({
+        cache: deps.cache,
+        key: metadataBrowseAlbumCacheKey(roomId, albumId, options?.playlistIds),
+        ttlSeconds: LOCAL_BROWSE_CACHE_TTL_SEC,
+        skipCache: (value) => value == null,
+        fetch: () =>
+          withRpc(async (rpc) => {
+            return (await rpc.call("getAlbum", {
+              source: "local",
+              albumId,
+              ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
+            })) as MetadataGetAlbumResult | null
+          }, null),
+      })
     },
   }
 }
@@ -164,6 +182,7 @@ export function registerLocalMetadataForRoom(params: {
   const api = createLocalMetadataApi({
     getRpcForRoom: () => params.rpc,
     roomId: params.roomId,
+    cache: params.context.cache,
   })
   return {
     name: "local",
@@ -312,28 +331,46 @@ const PLAYLIST_TRACKS_TIMEOUT_MS = 20000
 /**
  * Full track list for a Navidrome playlist (Physical Media item), keeping the
  * failure reason so callers can tell "empty record" from "bridge not answering".
+ * Successful lists are Redis-cached when `cache` + `roomId` are provided (ADR 0108).
  */
 export async function fetchLocalPlaylistTracks(params: {
   rpc: BridgeRpcClient
   playlistId: string
+  roomId?: string
+  cache?: SimpleCache
 }): Promise<LocalPlaylistTracksResult> {
   if (!params.playlistId.trim()) return { ok: false, error: "playlistId is required" }
-  if (!(await params.rpc.isPresent())) {
-    return { ok: false, error: "Media Bridge is not connected" }
-  }
-  try {
-    const result = (await params.rpc.call(
-      "listPlaylistTracks",
-      { source: "local", playlistId: params.playlistId },
-      { timeoutMs: PLAYLIST_TRACKS_TIMEOUT_MS },
-    )) as unknown
-    if (!Array.isArray(result)) {
-      return { ok: false, error: "Media Bridge returned no track list" }
+
+  const fetchOnce = async (): Promise<LocalPlaylistTracksResult> => {
+    if (!(await params.rpc.isPresent())) {
+      return { ok: false, error: "Media Bridge is not connected" }
     }
-    return { ok: true, tracks: result as MetadataSourceTrack[] }
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    try {
+      const result = (await params.rpc.call(
+        "listPlaylistTracks",
+        { source: "local", playlistId: params.playlistId },
+        { timeoutMs: PLAYLIST_TRACKS_TIMEOUT_MS },
+      )) as unknown
+      if (!Array.isArray(result)) {
+        return { ok: false, error: "Media Bridge returned no track list" }
+      }
+      return { ok: true, tracks: result as MetadataSourceTrack[] }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
+
+  if (!params.cache || !params.roomId) {
+    return fetchOnce()
+  }
+
+  return withCachedJson({
+    cache: params.cache,
+    key: metadataBrowsePlaylistCacheKey(params.roomId, params.playlistId),
+    ttlSeconds: LOCAL_BROWSE_CACHE_TTL_SEC,
+    skipCache: (value) => !value.ok,
+    fetch: fetchOnce,
+  })
 }
 
 /** Fail-open variant for callers that treat an unavailable bridge as "no tracks". */

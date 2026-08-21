@@ -555,11 +555,14 @@ export class PluginAPIImpl implements PluginAPI {
 
   async invalidateLocalLibraryCache(roomId: string): Promise<boolean> {
     try {
+      const { metadataBrowseRoomPrefix } = await import("@repo/utils")
+      await this.context.cache?.deleteByPrefix(metadataBrowseRoomPrefix(roomId))
+
       const { getBridgeRpcClient, invalidateLocalLibraryCache } = await import(
         "@repo/adapter-bridge"
       )
       const rpc = getBridgeRpcClient(roomId)
-      if (!rpc) return false
+      if (!rpc) return true
       return await invalidateLocalLibraryCache({ rpc })
     } catch (e) {
       console.warn("[PluginAPI] invalidateLocalLibraryCache failed:", e)

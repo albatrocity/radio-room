@@ -195,6 +195,8 @@ describe("browseCatalog operations", () => {
     expect(fetchLocalPlaylistTracks).toHaveBeenCalledWith({
       rpc: {},
       playlistId: "nd-secret",
+      roomId: "room1",
+      cache: undefined,
     })
     expect(result.ok).toBe(true)
     if (!result.ok) return

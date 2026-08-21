@@ -48,4 +48,5 @@ Grant-on-item (`library` vs `playlist` scope), restricted-Local access via `gran
 - [0086. Metadata search result cache](0086-metadata-search-result-cache.md)
 - [0088. Metadata source access grants](0088-metadata-source-access-grants.md)
 - [0089. Metadata source content browse](0089-metadata-source-content-browse.md)
+- [0108. Local CatalogBrowse result cache](0108-local-catalog-browse-result-cache.md)
 - [`packages/plugin-item-shops/localLibrary/`](../../packages/plugin-item-shops/localLibrary/)

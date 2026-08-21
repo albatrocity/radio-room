@@ -1,4 +1,4 @@
-import type { TaggedMetadataSourceTrack } from "@repo/types"
+import type { AppContext, TaggedMetadataSourceTrack } from "@repo/types"
 
 /** Daemon offline or never linked: the room has no bridge RPC client. */
 export const BRIDGE_UNREACHABLE_MESSAGE =
@@ -28,15 +28,21 @@ export async function fetchResolvedMediaItemTracks(params: {
   playlistId: string
   /** Operation name for logs, e.g. `browseMediaItem`. */
   logLabel: string
+  cache?: AppContext["cache"]
 }): Promise<MediaItemTracksResult> {
-  const { roomId, playlistId, logLabel } = params
+  const { roomId, playlistId, logLabel, cache } = params
   try {
     const { getBridgeRpcClient, fetchLocalPlaylistTracks } = await import("@repo/adapter-bridge")
     const rpc = getBridgeRpcClient(roomId)
     if (!rpc) {
       return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
     }
-    const listed = await fetchLocalPlaylistTracks({ rpc, playlistId })
+    const listed = await fetchLocalPlaylistTracks({
+      rpc,
+      playlistId,
+      roomId,
+      cache,
+    })
     if (!listed.ok) {
       console.warn(`[${logLabel}] listPlaylistTracks failed for ${playlistId}: ${listed.error}`)
       return { ok: false, message: BRIDGE_TRACK_LISTING_FAILED_MESSAGE }

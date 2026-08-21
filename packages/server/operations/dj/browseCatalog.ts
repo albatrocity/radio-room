@@ -388,6 +388,7 @@ export async function browseMediaItem(params: {
     roomId,
     playlistId: resolved.playlistId,
     logLabel: "browseMediaItem",
+    cache: context.cache,
   })
   if (!listed.ok) return listed
 
