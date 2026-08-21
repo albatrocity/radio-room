@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   ADVANCE_THRESHOLD_MS,
   endedSourceMatchesActive,
+  endedTrackMatchesCurrent,
   isNaturalFinish,
   isNearEnd,
   lastStateShouldAdvance,
@@ -73,6 +74,27 @@ describe("isNaturalFinish", () => {
       ),
     ).toBe(false)
   })
+
+  it("ignores a stale previous-track end after a new URI has started", () => {
+    expect(
+      isNaturalFinish(
+        {
+          state: "paused",
+          progressMs: DURATION,
+          durationMs: DURATION,
+          trackId: "track-a",
+        },
+        { state: "playing", progressMs: 4_000, durationMs: DURATION, trackId: "track-b" },
+      ),
+    ).toBe(false)
+  })
+
+  it("does not treat a tiny loading duration as near end", () => {
+    expect(isNearEnd(0, 800)).toBe(false)
+    expect(
+      isNaturalFinish({ state: "paused", progressMs: 0, durationMs: 800 }, null),
+    ).toBe(false)
+  })
 })
 
 describe("lastStateShouldAdvance", () => {
@@ -103,6 +125,22 @@ describe("lastStateShouldAdvance", () => {
       ),
     ).toBe(true)
   })
+
+  it("ignores an end pulse whose trackId is not the current track", () => {
+    expect(
+      lastStateShouldAdvance(
+        {
+          source: "spotify",
+          state: "paused",
+          progressMs: DURATION,
+          durationMs: DURATION,
+          trackId: "track-a",
+        },
+        "spotify",
+        "track-b",
+      ),
+    ).toBe(false)
+  })
 })
 
 describe("endedSourceMatchesActive", () => {
@@ -112,5 +150,15 @@ describe("endedSourceMatchesActive", () => {
 
   it("accepts ENDED from the active source", () => {
     expect(endedSourceMatchesActive("local", "local")).toBe(true)
+  })
+})
+
+describe("endedTrackMatchesCurrent", () => {
+  it("drops a late ENDED for the previous URI", () => {
+    expect(endedTrackMatchesCurrent("track-a", "track-b")).toBe(false)
+  })
+
+  it("accepts ENDED for the current URI", () => {
+    expect(endedTrackMatchesCurrent("track-b", "track-b")).toBe(true)
   })
 })

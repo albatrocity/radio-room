@@ -51,6 +51,7 @@ export const bridgeEventSchema = z.discriminatedUnion("type", [
     progressMs: z.number().nullable(),
     durationMs: z.number().nullable(),
     volumePercent: z.number().nullable().optional(),
+    trackId: z.string().nullable().optional(),
   }),
   z.object({
     type: z.literal("ENDED"),

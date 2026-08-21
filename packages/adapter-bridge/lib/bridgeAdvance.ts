@@ -3,6 +3,7 @@ import { lastEndedKey } from "./protocol"
 import type { BridgeCapabilityCache } from "./capability"
 import {
   endedSourceMatchesActive,
+  endedTrackMatchesCurrent,
   isApproachingEnd,
   isNaturalFinish,
   lastStateShouldAdvance,
@@ -90,6 +91,7 @@ export function createBridgeAdvanceJob(params: {
   let rpcFailureCount = 0
   let lastKnownProgressMs: number | null = null
   let lastKnownDurationMs: number | null = null
+  let lastKnownTrackId: string | null = null
 
   async function announceCannotPlay(
     item: QueueItem | null | undefined,
@@ -110,6 +112,25 @@ export function createBridgeAdvanceJob(params: {
     } catch (e) {
       console.error("[bridge-advance] failed to announce unplayable track:", e)
     }
+  }
+
+  async function resolveCurrentTrackId(): Promise<string | null> {
+    try {
+      const { getDispatchedTrack } = await import("@repo/server/operations/data")
+      const dispatched = await getDispatchedTrack({ context, roomId })
+      const dispatchedId = dispatched?.track.mediaSource.trackId
+      if (dispatchedId) return dispatchedId
+    } catch {
+      /* ignore */
+    }
+    return lastKnownTrackId
+  }
+
+  async function shouldApplyEnded(endedSource?: string, endedTrackId?: string): Promise<boolean> {
+    const active = (await getActiveSource?.()) ?? null
+    if (!endedSourceMatchesActive(endedSource, active)) return false
+    const currentTrackId = await resolveCurrentTrackId()
+    return endedTrackMatchesCurrent(endedTrackId, currentTrackId)
   }
 
   async function forgetStaleEndSignals() {
@@ -169,6 +190,7 @@ export function createBridgeAdvanceJob(params: {
         stuckNoMediaPolls = 0
         lastKnownProgressMs = null
         lastKnownDurationMs = null
+        lastKnownTrackId = null
         try {
           const api = await getPlaybackApi()
           await api?.pause?.()
@@ -195,6 +217,7 @@ export function createBridgeAdvanceJob(params: {
       stuckNoMediaPolls = 0
       lastKnownProgressMs = null
       lastKnownDurationMs = null
+      lastKnownTrackId = nextItem.track.mediaSource.trackId
       // New track: reset probe cadence so we can detect early stuck/no-media
       probeIntervalMs = NEAR_END_PROBE_INTERVAL_MS
       lastProbeAt = 0
@@ -233,8 +256,7 @@ export function createBridgeAdvanceJob(params: {
   capability.onEvent((event) => {
     if (event.type !== "ENDED") return
     void (async () => {
-      const active = (await getActiveSource?.()) ?? null
-      if (!endedSourceMatchesActive(event.source, active)) return
+      if (!(await shouldApplyEnded(event.source, event.trackId))) return
       await advanceToNext("ended-event", event.reason)
     })()
   })
@@ -295,6 +317,8 @@ export function createBridgeAdvanceJob(params: {
 
         const activeSource = (await getActiveSource?.()) ?? null
 
+        const currentTrackId = await resolveCurrentTrackId()
+
         // 1) Durable ENDED key (written by daemon) — does not depend on pub/sub
         const endedRaw = await context.redis.pubClient.get(lastEndedKey(roomId))
         if (endedRaw) {
@@ -302,14 +326,20 @@ export function createBridgeAdvanceJob(params: {
           console.log(`[bridge-advance] consumed last_ended key: ${endedRaw}`)
           let endedReason: string | undefined
           let endedSource: string | undefined
+          let endedTrackId: string | undefined
           try {
-            const parsed = JSON.parse(endedRaw) as { reason?: string; source?: string }
+            const parsed = JSON.parse(endedRaw) as {
+              reason?: string
+              source?: string
+              trackId?: string
+            }
             endedReason = parsed.reason
             endedSource = parsed.source
+            endedTrackId = parsed.trackId
           } catch {
             /* legacy plain payloads */
           }
-          if (endedSourceMatchesActive(endedSource, activeSource)) {
+          if (await shouldApplyEnded(endedSource, endedTrackId)) {
             await advanceToNext("ended-event", endedReason)
             return
           }
@@ -317,7 +347,7 @@ export function createBridgeAdvanceJob(params: {
 
         // 2) In-memory ENDED from pub/sub (if subscription works)
         const ended = capability.consumeLastEnded()
-        if (ended && endedSourceMatchesActive(ended.source, activeSource)) {
+        if (ended && (await shouldApplyEnded(ended.source, ended.trackId))) {
           await advanceToNext("ended-event", ended.reason)
           return
         }
@@ -332,7 +362,7 @@ export function createBridgeAdvanceJob(params: {
           })
         }
 
-        if (lastState && lastStateShouldAdvance(lastState, activeSource)) {
+        if (lastState && lastStateShouldAdvance(lastState, activeSource, currentTrackId)) {
           await advanceToNext(
             lastState.state === "playing" ? "state-probe" : "state-ended",
           )
@@ -353,27 +383,32 @@ export function createBridgeAdvanceJob(params: {
         try {
           const playback = await api.getPlayback()
           rpcFailureCount = 0
+          const playbackTrackId =
+            playback.track && typeof playback.track === "object" && "id" in playback.track
+              ? String((playback.track as { id: string }).id)
+              : null
           const previousKnown =
             lastKnownProgressMs != null || lastKnownDurationMs != null
               ? {
                   state: "playing" as const,
                   progressMs: lastKnownProgressMs,
                   durationMs: lastKnownDurationMs,
+                  trackId: lastKnownTrackId,
                 }
               : null
           lastKnownProgressMs =
             typeof playback.progressMs === "number" ? playback.progressMs : lastKnownProgressMs
           lastKnownDurationMs =
             typeof playback.durationMs === "number" ? playback.durationMs : lastKnownDurationMs
+          if (playbackTrackId && (!lastKnownTrackId || playbackTrackId === lastKnownTrackId)) {
+            lastKnownTrackId = playbackTrackId
+          }
 
           await handlePlaybackStateChange({
             context,
             roomId,
             state: playback.state,
-            trackId:
-              playback.track && typeof playback.track === "object" && "id" in playback.track
-                ? String((playback.track as { id: string }).id)
-                : null,
+            trackId: playbackTrackId,
           })
 
           if (
@@ -382,6 +417,7 @@ export function createBridgeAdvanceJob(params: {
                 state: playback.state,
                 progressMs: playback.progressMs,
                 durationMs: playback.durationMs,
+                trackId: playbackTrackId,
               },
               previousKnown,
             )
