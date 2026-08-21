@@ -25,3 +25,38 @@ export function largestImageUrl(images?: MetadataSourceUrl[]): string | undefine
   }
   return best.url
 }
+
+function isBrowserRenderableImageUrl(url: string): boolean {
+  const trimmed = url.trim()
+  if (!trimmed) return false
+  // data: and https: work for remote listeners. LAN Navidrome URLs (http://127.0.0.1)
+  // do not — prefer track data URIs over album LAN stubs from older bridge packs.
+  if (trimmed.startsWith("data:")) return true
+  if (trimmed.startsWith("https://")) return true
+  if (trimmed.startsWith("http://")) {
+    try {
+      const host = new URL(trimmed).hostname
+      return host !== "127.0.0.1" && host !== "localhost" && host !== "::1"
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
+/**
+ * Prefer image lists the browser can load. Local CatalogBrowse used to ship
+ * Navidrome LAN cover URLs; queue/track rows already use data URIs.
+ */
+export function preferBrowserRenderableImages(
+  primary?: MetadataSourceUrl[],
+  fallback?: MetadataSourceUrl[],
+): MetadataSourceUrl[] | undefined {
+  const primaryOk = primary?.some((img) => img.type === "image" && isBrowserRenderableImageUrl(img.url))
+  if (primaryOk) return primary
+  const fallbackOk = fallback?.some(
+    (img) => img.type === "image" && isBrowserRenderableImageUrl(img.url),
+  )
+  if (fallbackOk) return fallback
+  return primary?.length ? primary : fallback
+}

@@ -94,6 +94,30 @@ describe("mapNavidromeBrowseAlbum", () => {
   })
 })
 
+describe("coverArtDataUriImages", () => {
+  it("embeds data URIs for browser-reachable browse thumbs", async () => {
+    const { coverArtDataUriImages } = await import("./local")
+    expect(coverArtDataUriImages("al-1", "data:image/jpeg;base64,xx")).toEqual([
+      { type: "image", url: "data:image/jpeg;base64,xx", id: "al-1" },
+    ])
+    expect(coverArtDataUriImages("al-1", undefined)).toBeUndefined()
+  })
+})
+
+describe("mapNavidromeAlbumListWithCoverKeys", () => {
+  it("keeps cover keys parallel to items without LAN urls", async () => {
+    const { mapNavidromeAlbumListWithCoverKeys } = await import("./local")
+    const { items, coverKeys } = mapNavidromeAlbumListWithCoverKeys([
+      { id: "1", name: "A", coverArt: "c1" },
+      { name: "no-id" },
+      { id: "2", name: "B" },
+    ])
+    expect(items.map((a) => a.id)).toEqual(["1", "2"])
+    expect(items.every((a) => !a.images)).toBe(true)
+    expect(coverKeys).toEqual(["c1", undefined])
+  })
+})
+
 describe("mapNavidromeAlbumList", () => {
   it("maps array of albums and skips invalid", () => {
     const items = mapNavidromeAlbumList([

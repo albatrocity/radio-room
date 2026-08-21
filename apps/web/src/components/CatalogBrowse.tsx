@@ -28,6 +28,7 @@ import PathBreadcrumb from "./PathBreadcrumb"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
 import { artistsLabel, releaseYear } from "../lib/albumHeaderFields"
+import { preferBrowserRenderableImages } from "../lib/metadataImages"
 
 type BrowseRowButtonProps = {
   disabled?: boolean
@@ -482,10 +483,10 @@ function CatalogBrowse({
     if (browseAlbum) {
       const artists = artistsLabel(browseAlbum.artists) ?? artistsLabel(firstTrack?.artists)
       const year = browseAlbum.year || releaseYear(firstTrack?.album?.releaseDate)
-      const images =
-        browseAlbum.images && browseAlbum.images.length > 0
-          ? browseAlbum.images
-          : firstTrack?.album?.images
+      const images = preferBrowserRenderableImages(
+        browseAlbum.images,
+        firstTrack?.album?.images,
+      )
       return {
         title: browseAlbum.title,
         artists,

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 import type { MetadataSourceUrl } from "@repo/types"
-import { firstImageUrl, largestImageUrl } from "./metadataImages"
+import {
+  firstImageUrl,
+  largestImageUrl,
+  preferBrowserRenderableImages,
+} from "./metadataImages"
 
 function image(id: string, url: string): MetadataSourceUrl {
   return { type: "image", url, id }
@@ -35,5 +39,15 @@ describe("metadataImages", () => {
   it("falls back to the first image when dimensions are unparseable", () => {
     const urls = [image("cover", "https://img/a"), image("also-cover", "https://img/b")]
     expect(largestImageUrl(urls)).toBe("https://img/a")
+  })
+
+  it("preferBrowserRenderableImages skips LAN Navidrome URLs for data URIs", () => {
+    const lan = [image("al-1", "http://127.0.0.1:4533/rest/getCoverArt.view?id=al-1")]
+    const data = [image("al-1", "data:image/jpeg;base64,abc")]
+    expect(preferBrowserRenderableImages(lan, data)).toEqual(data)
+    expect(preferBrowserRenderableImages(data, lan)).toEqual(data)
+    expect(preferBrowserRenderableImages([image("x", "https://cdn.example/a.jpg")], data)).toEqual([
+      image("x", "https://cdn.example/a.jpg"),
+    ])
   })
 })

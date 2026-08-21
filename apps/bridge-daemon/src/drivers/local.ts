@@ -13,11 +13,11 @@ import type {
 import type { BridgeDaemonConfig } from "../config"
 import type { Driver, DriverState } from "./Driver"
 import {
-  coverArtImages,
-  mapNavidromeAlbumList,
-  mapNavidromeArtists,
+  COVER_ART_BROWSE_SIZE,
+  coverArtDataUriImages,
+  mapNavidromeAlbumListWithCoverKeys,
+  mapNavidromeArtistsWithCoverKeys,
   mapNavidromeBrowseAlbum,
-  type CoverArtUrlFn,
 } from "./localBrowse"
 import { MpvPlayback } from "./localPlayback"
 import {
@@ -29,6 +29,7 @@ import {
 import type { NavidromeAlbum, NavidromeArtist, NavidromeSong } from "./localTypes"
 import {
   albumsFromMembership,
+  artistCoverKeyFromMembership,
   artistsFromMembership,
   PlaylistMembershipCache,
   type PlaylistMembership,
@@ -54,9 +55,13 @@ export const COVER_ART_LEGACY_PLAYLIST_SIZE = 640
 
 // Re-export pure helpers so existing tests keep importing from `./local`.
 export {
+  COVER_ART_BROWSE_SIZE,
+  coverArtDataUriImages,
   coverArtImages,
   mapNavidromeAlbumList,
+  mapNavidromeAlbumListWithCoverKeys,
   mapNavidromeArtists,
+  mapNavidromeArtistsWithCoverKeys,
   mapNavidromeBrowseAlbum,
   type CoverArtUrlFn,
 } from "./localBrowse"
@@ -126,12 +131,28 @@ export class LocalDriver implements Driver {
     return `u=${encodeURIComponent(username)}&t=${token}&s=${salt}&v=1.16.1&c=bridge&f=json`
   }
 
-  /** Stable cover URL builder for one browse response (shared auth salt). */
-  private coverArtUrlFn(): CoverArtUrlFn {
-    const auth = this.authParams()
-    const base = this.navidrome.url
-    return (coverArtId: string) =>
-      `${base}/rest/getCoverArt.view?id=${encodeURIComponent(coverArtId)}&size=128&${auth}`
+  /**
+   * Fetch cover bytes into a data-URI `images` entry. CatalogBrowse runs in
+   * listeners' browsers; Navidrome LAN URLs are unreachable off the DJ Mac.
+   */
+  private async resolveBrowseCoverImages(
+    coverArt: string | undefined,
+  ): Promise<import("@repo/types").MetadataSourceUrl[] | undefined> {
+    const key = coverArt?.trim()
+    if (!key) return undefined
+    const dataUri = await this.coverCache.get(key, COVER_ART_BROWSE_SIZE)
+    return coverArtDataUriImages(key, dataUri)
+  }
+
+  private async withBrowseCoverDataUris<T extends { images?: import("@repo/types").MetadataSourceUrl[] }>(
+    items: T[],
+    coverKeys: (string | undefined)[],
+  ): Promise<T[]> {
+    const pairs = items.map((item, i) => ({ item, coverKey: coverKeys[i] }))
+    return mapWithConcurrency(pairs, COVER_ART_CONCURRENCY, async ({ item, coverKey }) => ({
+      ...item,
+      images: await this.resolveBrowseCoverImages(coverKey),
+    }))
   }
 
   streamUrl(id: string): string {
@@ -392,28 +413,33 @@ export class LocalDriver implements Driver {
   ): Promise<MetadataListArtistsResult> {
     if (!this.navidrome.username) return { items: [], total: 0 }
     const membership = await this.membershipFor(params?.playlistIds)
-    const coverArtUrl = this.coverArtUrlFn()
     let items: MetadataBrowseArtist[]
+    let coverKeys: (string | undefined)[]
     if (membership) {
-      items = artistsFromMembership(membership, params?.query, coverArtUrl)
+      items = artistsFromMembership(membership, params?.query)
+      coverKeys = items.map((a) => artistCoverKeyFromMembership(membership, a.id))
     } else {
       const url = `${this.navidrome.url}/rest/getArtists.view?${this.authParams()}`
       const res = await fetch(url)
       if (!res.ok) throw new Error(`Navidrome getArtists failed: ${res.status}`)
       const data = (await res.json()) as any
       const indexes = data?.["subsonic-response"]?.artists?.index
-      items = mapNavidromeArtists(
+      const mapped = mapNavidromeArtistsWithCoverKeys(
         Array.isArray(indexes) ? indexes : indexes ? [indexes] : [],
         params?.query,
-        coverArtUrl,
       )
+      items = mapped.items
+      coverKeys = mapped.coverKeys
     }
     const total = items.length
     const offset = Math.max(0, params?.offset ?? 0)
     const limit = params?.limit != null ? Math.max(0, params.limit) : undefined
     if (offset > 0 || limit != null) {
-      items = items.slice(offset, limit != null ? offset + limit : undefined)
+      const end = limit != null ? offset + limit : undefined
+      items = items.slice(offset, end)
+      coverKeys = coverKeys.slice(offset, end)
     }
+    items = await this.withBrowseCoverDataUris(items, coverKeys)
     return { items, total }
   }
 
@@ -425,12 +451,13 @@ export class LocalDriver implements Driver {
     const query = params?.query?.trim()
     const offset = Math.max(0, params?.offset ?? 0)
     const limit = Math.min(Math.max(params?.limit ?? 50, 1), 50)
-    const coverArtUrl = this.coverArtUrlFn()
 
     if (membership) {
-      let items = albumsFromMembership(membership, query, coverArtUrl)
+      let items = albumsFromMembership(membership, query)
       const total = items.length
       items = items.slice(offset, offset + limit)
+      const coverKeys = items.map((a) => membership.albums.get(a.id)?.coverArt?.trim() || undefined)
+      items = await this.withBrowseCoverDataUris(items, coverKeys)
       return { items, total }
     }
 
@@ -442,7 +469,8 @@ export class LocalDriver implements Driver {
       if (!res.ok) throw new Error(`Navidrome search3 albums failed: ${res.status}`)
       const data = (await res.json()) as any
       const albums = data?.["subsonic-response"]?.searchResult3?.album
-      const items = mapNavidromeAlbumList(albums, coverArtUrl)
+      const { items: rawItems, coverKeys } = mapNavidromeAlbumListWithCoverKeys(albums)
+      const items = await this.withBrowseCoverDataUris(rawItems, coverKeys)
       return { items, total: items.length }
     }
 
@@ -453,7 +481,8 @@ export class LocalDriver implements Driver {
     if (!res.ok) throw new Error(`Navidrome getAlbumList2 failed: ${res.status}`)
     const data = (await res.json()) as any
     const albums = data?.["subsonic-response"]?.albumList2?.album
-    const items = mapNavidromeAlbumList(albums, coverArtUrl)
+    const { items: rawItems, coverKeys } = mapNavidromeAlbumListWithCoverKeys(albums)
+    const items = await this.withBrowseCoverDataUris(rawItems, coverKeys)
     return { items, total: items.length }
   }
 
@@ -473,15 +502,25 @@ export class LocalDriver implements Driver {
       | (NavidromeArtist & { album?: NavidromeAlbum | NavidromeAlbum[] })
       | undefined
     if (!artist?.id) return null
-    const coverArtUrl = this.coverArtUrlFn()
     const albumRaw = artist.album
     const albumList = Array.isArray(albumRaw) ? albumRaw : albumRaw ? [albumRaw] : []
-    let albums = albumList
-      .map((a) => mapNavidromeBrowseAlbum(a, coverArtUrl))
-      .filter((a): a is MetadataBrowseAlbum => a != null)
+    let { items: albums, coverKeys: albumCoverKeys } = mapNavidromeAlbumListWithCoverKeys(albumList)
     if (membership) {
-      albums = albums.filter((a) => membership.albums.has(a.id))
+      const filtered: MetadataBrowseAlbum[] = []
+      const filteredKeys: (string | undefined)[] = []
+      for (let i = 0; i < albums.length; i++) {
+        if (!membership.albums.has(albums[i]!.id)) continue
+        filtered.push(albums[i]!)
+        filteredKeys.push(albumCoverKeys[i])
+      }
+      albums = filtered
+      albumCoverKeys = filteredKeys
     }
+    albums = await this.withBrowseCoverDataUris(albums, albumCoverKeys)
+    const artistCoverKey =
+      artist.coverArt?.trim() ||
+      (membership ? artistCoverKeyFromMembership(membership, artistId) : undefined) ||
+      albumCoverKeys[0]
     return {
       artist: {
         id: String(artist.id),
@@ -491,7 +530,7 @@ export class LocalDriver implements Driver {
           : typeof artist.albumCount === "number"
             ? artist.albumCount
             : albums.length,
-        images: coverArtImages(artist.coverArt, coverArtUrl),
+        images: await this.resolveBrowseCoverImages(artistCoverKey),
       },
       albums,
     }
@@ -510,8 +549,9 @@ export class LocalDriver implements Driver {
       | (NavidromeAlbum & { song?: NavidromeSong | NavidromeSong[] })
       | undefined
     if (!album?.id) return null
-    const mappedAlbum = mapNavidromeBrowseAlbum(album, this.coverArtUrlFn())
+    const mappedAlbum = mapNavidromeBrowseAlbum(album)
     if (!mappedAlbum) return null
+    mappedAlbum.images = await this.resolveBrowseCoverImages(album.coverArt)
     const songRaw = album.song
     const songs = Array.isArray(songRaw) ? songRaw : songRaw ? [songRaw] : []
     const filtered = songs.filter((song) => {

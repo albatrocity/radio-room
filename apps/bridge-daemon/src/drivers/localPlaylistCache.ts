@@ -127,6 +127,19 @@ export function artistsFromMembership(
   return items
 }
 
+/** CoverArt key for a membership artist (first album sleeve by that artist). */
+export function artistCoverKeyFromMembership(
+  membership: PlaylistMembership,
+  artistId: string,
+): string | undefined {
+  for (const album of membership.albums.values()) {
+    if (album.artistId === artistId && album.coverArt?.trim()) {
+      return album.coverArt.trim()
+    }
+  }
+  return undefined
+}
+
 export function albumsFromMembership(
   membership: PlaylistMembership,
   query?: string,
