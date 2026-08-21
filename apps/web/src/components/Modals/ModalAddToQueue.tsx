@@ -91,7 +91,7 @@ function ModalAddToQueue() {
     >
       <Stack direction="column" gap={8} flex="1" minH={0} h="100%">
         <PluginArea area="addToQueue" direction="column" />
-        <Box flex="1" minH={0} display="flex" flexDirection="column">
+        <Box flex="1" minH={0} minW={0} overflowX="hidden" display="flex" flexDirection="column">
           <FormAddToQueue
             onAddToQueue={addToQueue}
             isDisabled={isLoading}

@@ -73,7 +73,7 @@ function TrackActionRow({
       bg={isActive ? "actionBgLite" : undefined}
       onMouseEnter={onMouseEnter}
     >
-      <HStack align="flex-start" gap={2} flex="1">
+      <HStack align="flex-start" gap={2} flex="1" minW={0} overflow="hidden">
         {!!track.trackNumber && compact ? (
           <Text fontSize="xs" color="fg.subtle" flexShrink={0}>
             {track.trackNumber}

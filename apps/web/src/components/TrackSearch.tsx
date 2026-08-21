@@ -231,6 +231,8 @@ function TrackSearch({
       align="stretch"
       gap={0}
       w="100%"
+      minW={0}
+      overflow="hidden"
     >
       {filteredResults.length === 0 && !isLoading ? (
         <Text fontSize="sm" color="fg.muted" py={2} px={2}>
@@ -257,7 +259,7 @@ function TrackSearch({
   )
 
   const artistsList = (
-    <VStack align="stretch" gap={0} w="100%">
+    <VStack align="stretch" gap={0} w="100%" minW={0} overflow="hidden">
       {entityArtists.length === 0 && !isLoading ? (
         <Text fontSize="sm" color="fg.muted" py={2} px={2}>
           No artists found.
@@ -303,7 +305,7 @@ function TrackSearch({
   )
 
   const albumsList = (
-    <VStack align="stretch" gap={0} w="100%">
+    <VStack align="stretch" gap={0} w="100%" minW={0} overflow="hidden">
       {entityAlbums.length === 0 && !isLoading ? (
         <Text fontSize="sm" color="fg.muted" py={2} px={2}>
           No albums found.
@@ -362,6 +364,8 @@ function TrackSearch({
       align="stretch"
       gap={3}
       w="100%"
+      minW={0}
+      overflowX="hidden"
       {...(fillHeight ? { flex: "1", minH: 0, h: "100%" } : {})}
     >
       {state.matches("failure") && (
@@ -392,6 +396,8 @@ function TrackSearch({
 
       {showResults && (
         <Box
+          minW={0}
+          overflowX="hidden"
           {...(fillHeight ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" } : {})}
         >
           {isLoading && !hasAnyResults && authErrorSources.length === 0 ? (
@@ -421,13 +427,19 @@ function TrackSearch({
                 size="sm"
                 variant="hover"
                 w="100%"
+                minW={0}
                 mt={2}
+                overflowX="hidden"
                 {...(fillHeight
                   ? { flex: "1 1 auto", minH: 0, height: "100%" }
                   : { maxH: "320px" })}
               >
-                <ScrollArea.Viewport {...(fillHeight ? { height: "100%" } : {})}>
-                  <ScrollArea.Content>
+                <ScrollArea.Viewport
+                  minW={0}
+                  overflowX="hidden"
+                  {...(fillHeight ? { height: "100%" } : {})}
+                >
+                  <ScrollArea.Content minW={0} maxW="100%">
                     <Tabs.Content value="tracks" pt={0}>
                       {tracksList}
                     </Tabs.Content>
@@ -450,10 +462,14 @@ function TrackSearch({
               size="sm"
               variant="hover"
               w="100%"
+              minW={0}
+              overflowX="hidden"
               {...(fillHeight ? { flex: "1 1 auto", minH: 0, height: "100%" } : { maxH: "320px" })}
             >
-              <ScrollArea.Viewport {...(fillHeight ? { height: "100%" } : {})}>
-                <ScrollArea.Content>{tracksList}</ScrollArea.Content>
+              <ScrollArea.Viewport minW={0} overflowX="hidden" {...(fillHeight ? { height: "100%" } : {})}>
+                <ScrollArea.Content minW={0} maxW="100%">
+                  {tracksList}
+                </ScrollArea.Content>
               </ScrollArea.Viewport>
               <ScrollArea.Scrollbar>
                 <ScrollArea.Thumb />

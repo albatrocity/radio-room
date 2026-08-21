@@ -173,6 +173,8 @@ const FormAddToQueue = ({
       direction="column"
       gap={2}
       textStyle="body"
+      minW={0}
+      overflowX="hidden"
       {...(fillHeight ? { flex: "1", minH: 0, h: "100%" } : {})}
     >
       {(canBrowse || showSourceSelect) && (
@@ -242,6 +244,8 @@ const FormAddToQueue = ({
       <Box
         hidden={mode !== "search"}
         aria-hidden={mode !== "search"}
+        minW={0}
+        overflowX="hidden"
         {...(fillHeight && mode === "search"
           ? { flex: "1", minH: 0, display: "flex", flexDirection: "column" }
           : {})}

@@ -101,10 +101,10 @@ const TrackItem = ({
           </Text>
           {source && sourcePlacement === "inline" && <SourceBadge source={source} />}
         </HStack>
-        <Text fontSize="sm" lineClamp={1} wordBreak="break-word">
+        <Text fontSize="sm" lineClamp={1} wordBreak="break-word" minW={0}>
           {artistsLabel(artists)}
         </Text>
-        <Text fontSize="xs" as="i" truncate>
+        <Text fontSize="xs" as="i" truncate minW={0}>
           {album.title} {albumYear ? `(${albumYear})` : null}
         </Text>
         {source && sourcePlacement === "below" && (
