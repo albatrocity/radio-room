@@ -114,6 +114,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0106](0106-game-state-nav-machine.md) | Game State nav stack in a machine (tab + detail frames, preview teardown) | Accepted |
 | [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) | Game sessions independent of segment plugin activation | Accepted |
 | [0108](0108-local-catalog-browse-result-cache.md) | Local CatalogBrowse result cache (album/playlist tracks in Redis) | Accepted |
+| [0109](0109-local-remote-loopback-sidechain-ducking.md) | local-remote: Loopback sidechain ducking engine (Ableton replacement) | Accepted |
 
 ## Creating a New ADR
 

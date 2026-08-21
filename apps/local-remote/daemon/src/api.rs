@@ -43,6 +43,7 @@ pub fn build_router(state: SharedState) -> Router {
         .route("/api/bridge/connect", post(bridge_proxy_post))
         .route("/api/bridge/disconnect", post(bridge_proxy_post))
         .route("/api/bridge/restart", post(bridge_restart))
+        .route("/api/ducking/status", get(get_ducking_status))
         .with_state(state)
         .layer(
             CorsLayer::new()
@@ -194,11 +195,22 @@ async fn put_config(
     }
     state.reconnect.notify_one();
     state.bridge_apply.notify_one();
+    state.ducking_apply.notify_one();
     Json(body).into_response()
 }
 
 async fn get_status(State(state): State<SharedState>) -> Json<StatusSnapshot> {
     Json(state.snapshot_with_bridge().await)
+}
+
+async fn get_ducking_status(State(state): State<SharedState>) -> impl IntoResponse {
+    let cfg = match state.config.read() {
+        Ok(c) => c.clone(),
+        Err(_) => {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+    Json(state.ducking_supervisor.snapshot(&cfg).await).into_response()
 }
 
 async fn child_base(state: &SharedState) -> Result<String, Response> {

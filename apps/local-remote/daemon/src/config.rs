@@ -60,6 +60,9 @@ pub struct Features {
     /// Supervise packed bridge-daemon (Node child) and proxy `/api/bridge/*`.
     #[serde(default)]
     pub bridge: BridgeFeature,
+    /// Sidechain ducking on a Loopback (or other) multi-channel device — Ableton compressor replacement.
+    #[serde(default)]
+    pub ducking: DuckingFeature,
 }
 
 fn default_bridge_child_api_base() -> String {
@@ -99,6 +102,119 @@ impl Default for BridgeFeature {
             node_path: default_bridge_node_path(),
             daemon_path: default_bridge_daemon_path(),
             child_api_base: default_bridge_child_api_base(),
+        }
+    }
+}
+
+fn default_ducking_device_name() -> String {
+    "Ducking".to_string()
+}
+
+fn default_sidechain_left() -> u16 {
+    1
+}
+fn default_sidechain_right() -> u16 {
+    2
+}
+fn default_programme_left() -> u16 {
+    3
+}
+fn default_programme_right() -> u16 {
+    4
+}
+fn default_output_left() -> u16 {
+    5
+}
+fn default_output_right() -> u16 {
+    6
+}
+fn default_threshold_db() -> f32 {
+    -31.5
+}
+fn default_ratio() -> f32 {
+    100.0
+}
+fn default_attack_ms() -> f32 {
+    2.9
+}
+fn default_release_ms() -> f32 {
+    1714.0
+}
+fn default_knee_db() -> f32 {
+    6.0
+}
+fn default_sidechain_hpf_hz() -> f32 {
+    80.0
+}
+
+/// Loopback (etc.) sidechain ducker — replaces Ableton Live compressor on the DJ Mac.
+/// Channel indices are **1-based** (Ableton / operator numbering).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DuckingFeature {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Core Audio device name (Loopback virtual device).
+    #[serde(default = "default_ducking_device_name")]
+    pub device_name: String,
+    /// Optional Core Audio UID; when set, preferred over name match.
+    #[serde(default)]
+    pub device_uid: Option<String>,
+    #[serde(default = "default_sidechain_left")]
+    pub sidechain_left: u16,
+    #[serde(default = "default_sidechain_right")]
+    pub sidechain_right: u16,
+    #[serde(default = "default_programme_left")]
+    pub programme_left: u16,
+    #[serde(default = "default_programme_right")]
+    pub programme_right: u16,
+    #[serde(default = "default_output_left")]
+    pub output_left: u16,
+    #[serde(default = "default_output_right")]
+    pub output_right: u16,
+    #[serde(default = "default_threshold_db")]
+    pub threshold_db: f32,
+    /// Compression ratio (≥ 1). Use a high value (e.g. 100) for Ableton-style ∞ ducking.
+    #[serde(default = "default_ratio")]
+    pub ratio: f32,
+    #[serde(default = "default_attack_ms")]
+    pub attack_ms: f32,
+    #[serde(default = "default_release_ms")]
+    pub release_ms: f32,
+    #[serde(default = "default_knee_db")]
+    pub knee_db: f32,
+    /// Makeup gain in dB applied after gain reduction.
+    #[serde(default)]
+    pub makeup_db: f32,
+    /// Sidechain high-pass filter frequency in Hz; 0 disables.
+    #[serde(default = "default_sidechain_hpf_hz")]
+    pub sidechain_hpf_hz: f32,
+    /// When true, pass programme through at unity (engine may still run).
+    #[serde(default)]
+    pub bypass: bool,
+}
+
+impl Default for DuckingFeature {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            device_name: default_ducking_device_name(),
+            device_uid: None,
+            sidechain_left: default_sidechain_left(),
+            sidechain_right: default_sidechain_right(),
+            programme_left: default_programme_left(),
+            programme_right: default_programme_right(),
+            output_left: default_output_left(),
+            output_right: default_output_right(),
+            threshold_db: default_threshold_db(),
+            ratio: default_ratio(),
+            attack_ms: default_attack_ms(),
+            release_ms: default_release_ms(),
+            knee_db: default_knee_db(),
+            makeup_db: 0.0,
+            sidechain_hpf_hz: default_sidechain_hpf_hz(),
+            // Default bypass false so enabling the feature actually ducks.
+            bypass: false,
         }
     }
 }
@@ -228,6 +344,36 @@ impl Config {
             }
             if br.node_path.trim().is_empty() || br.daemon_path.trim().is_empty() {
                 anyhow::bail!("features.bridge.nodePath and daemonPath must be set when bridge is enabled");
+            }
+        }
+        let dk = &self.features.ducking;
+        if dk.enabled {
+            if dk.device_name.trim().is_empty() {
+                anyhow::bail!("features.ducking.deviceName must be set when ducking is enabled");
+            }
+            for (label, ch) in [
+                ("sidechainLeft", dk.sidechain_left),
+                ("sidechainRight", dk.sidechain_right),
+                ("programmeLeft", dk.programme_left),
+                ("programmeRight", dk.programme_right),
+                ("outputLeft", dk.output_left),
+                ("outputRight", dk.output_right),
+            ] {
+                if ch == 0 {
+                    anyhow::bail!("features.ducking.{label} must be >= 1 (1-based channel index)");
+                }
+            }
+            if dk.ratio < 1.0 {
+                anyhow::bail!("features.ducking.ratio must be >= 1");
+            }
+            if dk.attack_ms <= 0.0 || dk.release_ms <= 0.0 {
+                anyhow::bail!("features.ducking.attackMs and releaseMs must be > 0");
+            }
+            if dk.knee_db < 0.0 {
+                anyhow::bail!("features.ducking.kneeDb must be >= 0");
+            }
+            if dk.sidechain_hpf_hz < 0.0 {
+                anyhow::bail!("features.ducking.sidechainHpfHz must be >= 0");
             }
         }
         Ok(())

@@ -1,5 +1,6 @@
 use crate::bridge_supervisor::{BridgeSupervisor, BridgeSupervisorSnapshot};
 use crate::config::Config;
+use crate::ducking::DuckingSupervisor;
 use crate::farrago::{FarragoBoard, FarragoBoardSnapshot};
 use rosc::OscType;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -45,6 +46,9 @@ pub struct AppState {
     /// Wake bridge supervisor after config changes (enable/disable/paths).
     pub bridge_apply: Notify,
     pub bridge_supervisor: Arc<BridgeSupervisor>,
+    /// Wake ducking supervisor after config changes.
+    pub ducking_apply: Notify,
+    pub ducking_supervisor: Arc<DuckingSupervisor>,
     /// Fires whenever the Farrago board state changes. WebSocket clients subscribe to this.
     pub board_changed: broadcast::Sender<()>,
     /// Wakes the play-state monitor when a tile play command is sent.
@@ -73,6 +77,8 @@ impl AppState {
             reconnect: Notify::new(),
             bridge_apply: Notify::new(),
             bridge_supervisor: BridgeSupervisor::new(),
+            ducking_apply: Notify::new(),
+            ducking_supervisor: DuckingSupervisor::new(),
             board_changed: board_tx,
             play_started: Notify::new(),
             now_playing_title: RwLock::new(None),

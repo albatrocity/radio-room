@@ -236,8 +236,8 @@ impl FarragoBoard {
     pub fn has_any_playing(&self) -> bool {
         self.sets
             .values()
-            .any(|s| s.values().any(|t| derive_playing(t)))
-            || self.selected_mirror.values().any(|t| derive_playing(t))
+            .any(|s| s.values().any(derive_playing))
+            || self.selected_mirror.values().any(derive_playing)
     }
 
     pub fn snapshot(&self) -> FarragoBoardSnapshot {

@@ -19,7 +19,7 @@ AirDrop the zip → unzip/replace the folder → clear quarantine once if Gateke
 xattr -dr com.apple.quarantine listening-room-dj-mac
 ```
 
-Start **`local-remote` only** (Audio Hijack start/stop). Bookmark **http://127.0.0.1:9876/** — OSC, soundboard (`/soundboard`), and Media Bridge session/rooms/services live there. Enable **Media Bridge** in the UI so the supervisor spawns `runtime/node` + `bridge-daemon/daemon.cjs`.
+Start **`local-remote` only** (Audio Hijack start/stop). Bookmark **http://127.0.0.1:9876/** — OSC, soundboard (`/soundboard`), **Audio Ducking**, and Media Bridge session/rooms/services live there. Enable **Media Bridge** in the UI so the supervisor spawns `runtime/node` + `bridge-daemon/daemon.cjs`. For mic ducking, enable **Audio Ducking** and quit Ableton (see [Audio ducking](#audio-ducking-ableton-replacement)).
 
 Configs survive zip replace:
 
@@ -104,6 +104,20 @@ Browser UI at **`/soundboard`** to list Farrago **sets**, show **tiles** (title 
 4. Open **`http://127.0.0.1:9876/soundboard`** (adjust host if you changed `httpListen`) and click **Refresh from Farrago** (sends `/ping`). Tile **icons** are not available via Farrago’s OSC docs; the UI uses a generic speaker icon.
 
 **API:** `GET /api/soundboard/state`, `POST /api/soundboard/ping`, `POST /api/soundboard/play`, `POST /api/soundboard/stop` (JSON body `{ "set": 0, "x": 0, "y": 0 }` or `{ "useSelectedSet": true, "x": 0, "y": 0 }` for the current Farrago selection).
+
+## Audio ducking (Ableton replacement)
+
+Sidechain compressor on a multi-channel Loopback device (default name **`Ducking`**) so Ableton Live is not required for mic ducking ([ADR 0109](../../docs/adrs/0109-local-remote-loopback-sidechain-ducking.md)).
+
+**Operator checklist (DJ Mac):**
+
+1. Keep the existing Loopback **Ducking** graph and Audio Hijack session as-is (AH still writes sidechain/programme into Ducking; return via Neve).
+2. **Quit Ableton Live** (it must not also open the Ducking device).
+3. In **http://127.0.0.1:9876/** → **Audio Ducking**: enable the engine, confirm device name `Ducking`, channels **1/2** sidechain / **3/4** programme / **5/6** out (1-based), Save & apply.
+4. Talk into mics: meters should show sidechain level + gain reduction; music on Neve Out / Show Output should duck.
+5. Rebuild via `npm run pack:dj-mac` after changing this binary — ducking ships inside `local-remote` (no Node child).
+
+Config keys live under `features.ducking` in `config.json`. Status/meters: `GET /api/ducking/status`.
 
 ## OSC connection test
 

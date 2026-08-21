@@ -1,6 +1,7 @@
 mod api;
 mod bridge_supervisor;
 mod config;
+mod ducking;
 mod events;
 mod farrago;
 mod logic;
@@ -12,6 +13,7 @@ mod redis_worker;
 mod state;
 
 use crate::config::load_or_create_default;
+use crate::ducking::run_ducking_supervisor;
 use crate::state::AppState;
 use anyhow::Context;
 use axum::Router;
@@ -60,6 +62,13 @@ async fn main() -> anyhow::Result<()> {
         bridge_supervisor::run_bridge_supervisor(bridge_state).await;
     });
 
+    let ducking_state = state.clone();
+    tokio::spawn(async move {
+        run_ducking_supervisor(ducking_state).await;
+    });
+    // Apply persisted ducking config on boot (supervisor also retries on backoff).
+    state.ducking_apply.notify_one();
+
     let app: Router = api::build_router(state.clone());
 
     let listener = TcpListener::bind(&listen)
@@ -72,6 +81,7 @@ async fn main() -> anyhow::Result<()> {
         let _ = signal::ctrl_c().await;
         info!("shutdown signal received");
         shutdown_state.bridge_supervisor.stop().await;
+        shutdown_state.ducking_supervisor.stop().await;
     };
 
     axum::serve(listener, app)

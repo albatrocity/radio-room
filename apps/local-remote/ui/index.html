@@ -359,6 +359,89 @@
       </p>
     </fieldset>
 
+    <h2>Audio Ducking</h2>
+    <p class="hint">
+      Sidechain compressor on a Loopback (or other) multi-channel device — drop-in replacement for
+      Ableton Live on the DJ Mac. Default map: sidechain <strong>1/2</strong>, programme
+      <strong>3/4</strong>, ducked out <strong>5/6</strong> on device <code>Ducking</code>.
+      Quit Ableton; keep the Audio Hijack session and Loopback graph unchanged (ADR 0109).
+    </p>
+
+    <fieldset>
+      <legend>Ducking engine</legend>
+      <div class="row">
+        <input id="duckingEnabled" type="checkbox" />
+        <label for="duckingEnabled" style="margin: 0">Enable ducking engine</label>
+      </div>
+      <div class="row" style="margin-top: 0.5rem">
+        <input id="duckingBypass" type="checkbox" />
+        <label for="duckingBypass" style="margin: 0">Bypass (pass programme through)</label>
+      </div>
+      <label for="duckingDeviceName">Device name</label>
+      <input id="duckingDeviceName" type="text" placeholder="Ducking" autocomplete="off" />
+      <label for="duckingDeviceUid">Device UID (optional)</label>
+      <input id="duckingDeviceUid" type="text" placeholder="com.rogueamoeba.Loopback:…" autocomplete="off" />
+
+      <div class="row" style="flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem">
+        <div>
+          <label for="duckingSidechainLeft">Sidechain L/R (1-based)</label>
+          <div class="row">
+            <input id="duckingSidechainLeft" type="number" min="1" style="width: 4.5rem" />
+            <input id="duckingSidechainRight" type="number" min="1" style="width: 4.5rem" />
+          </div>
+        </div>
+        <div>
+          <label for="duckingProgrammeLeft">Programme L/R</label>
+          <div class="row">
+            <input id="duckingProgrammeLeft" type="number" min="1" style="width: 4.5rem" />
+            <input id="duckingProgrammeRight" type="number" min="1" style="width: 4.5rem" />
+          </div>
+        </div>
+        <div>
+          <label for="duckingOutputLeft">Output L/R</label>
+          <div class="row">
+            <input id="duckingOutputLeft" type="number" min="1" style="width: 4.5rem" />
+            <input id="duckingOutputRight" type="number" min="1" style="width: 4.5rem" />
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem">
+        <div>
+          <label for="duckingThresholdDb">Threshold (dB)</label>
+          <input id="duckingThresholdDb" type="number" step="0.1" style="width: 6rem" />
+        </div>
+        <div>
+          <label for="duckingRatio">Ratio</label>
+          <input id="duckingRatio" type="number" step="0.1" min="1" style="width: 6rem" />
+        </div>
+        <div>
+          <label for="duckingAttackMs">Attack (ms)</label>
+          <input id="duckingAttackMs" type="number" step="0.1" min="0.01" style="width: 6rem" />
+        </div>
+        <div>
+          <label for="duckingReleaseMs">Release (ms)</label>
+          <input id="duckingReleaseMs" type="number" step="1" min="1" style="width: 6rem" />
+        </div>
+        <div>
+          <label for="duckingKneeDb">Knee (dB)</label>
+          <input id="duckingKneeDb" type="number" step="0.1" min="0" style="width: 6rem" />
+        </div>
+        <div>
+          <label for="duckingMakeupDb">Makeup (dB)</label>
+          <input id="duckingMakeupDb" type="number" step="0.1" style="width: 6rem" />
+        </div>
+        <div>
+          <label for="duckingSidechainHpfHz">Sidechain HPF (Hz, 0=off)</label>
+          <input id="duckingSidechainHpfHz" type="number" step="1" min="0" style="width: 6rem" />
+        </div>
+      </div>
+
+      <div id="duckingStatus" class="hint" style="margin-top: 0.75rem">Ducking: —</div>
+      <div id="duckingMeters" class="hint">Meters: —</div>
+      <div id="duckingError" class="err" hidden></div>
+    </fieldset>
+
     <h2>Media Bridge</h2>
     <p class="hint">
       Supervised child process (bundled Node + <code>bridge-daemon</code>). Redis URL for the child is
@@ -748,6 +831,25 @@
         $("nowPlayingFilePath").value = c.features?.nowPlaying?.nowPlayingFilePath || "";
         $("bridgeEnabled").checked = !!c.features?.bridge?.enabled;
         $("bridgeAutoConnect").checked = !!c.features?.bridge?.autoConnect;
+        const dk = c.features?.ducking || {};
+        $("duckingEnabled").checked = !!dk.enabled;
+        $("duckingBypass").checked = !!dk.bypass;
+        $("duckingDeviceName").value = dk.deviceName || "Ducking";
+        $("duckingDeviceUid").value = dk.deviceUid || "";
+        $("duckingSidechainLeft").value = dk.sidechainLeft != null ? String(dk.sidechainLeft) : "1";
+        $("duckingSidechainRight").value = dk.sidechainRight != null ? String(dk.sidechainRight) : "2";
+        $("duckingProgrammeLeft").value = dk.programmeLeft != null ? String(dk.programmeLeft) : "3";
+        $("duckingProgrammeRight").value = dk.programmeRight != null ? String(dk.programmeRight) : "4";
+        $("duckingOutputLeft").value = dk.outputLeft != null ? String(dk.outputLeft) : "5";
+        $("duckingOutputRight").value = dk.outputRight != null ? String(dk.outputRight) : "6";
+        $("duckingThresholdDb").value = dk.thresholdDb != null ? String(dk.thresholdDb) : "-31.5";
+        $("duckingRatio").value = dk.ratio != null ? String(dk.ratio) : "100";
+        $("duckingAttackMs").value = dk.attackMs != null ? String(dk.attackMs) : "2.9";
+        $("duckingReleaseMs").value = dk.releaseMs != null ? String(dk.releaseMs) : "1714";
+        $("duckingKneeDb").value = dk.kneeDb != null ? String(dk.kneeDb) : "6";
+        $("duckingMakeupDb").value = dk.makeupDb != null ? String(dk.makeupDb) : "0";
+        $("duckingSidechainHpfHz").value =
+          dk.sidechainHpfHz != null ? String(dk.sidechainHpfHz) : "80";
         syncBridgeUiState();
       }
 
@@ -783,6 +885,30 @@
         if (!c.features.bridge.childApiBase) {
           c.features.bridge.childApiBase = "http://127.0.0.1:18766";
         }
+        c.features.ducking = c.features.ducking || {};
+        const dk = c.features.ducking;
+        dk.enabled = $("duckingEnabled").checked;
+        dk.bypass = $("duckingBypass").checked;
+        dk.deviceName = $("duckingDeviceName").value.trim() || "Ducking";
+        const uid = $("duckingDeviceUid").value.trim();
+        dk.deviceUid = uid ? uid : null;
+        const num = (id, fallback) => {
+          const n = Number($(id).value);
+          return Number.isFinite(n) ? n : fallback;
+        };
+        dk.sidechainLeft = num("duckingSidechainLeft", 1);
+        dk.sidechainRight = num("duckingSidechainRight", 2);
+        dk.programmeLeft = num("duckingProgrammeLeft", 3);
+        dk.programmeRight = num("duckingProgrammeRight", 4);
+        dk.outputLeft = num("duckingOutputLeft", 5);
+        dk.outputRight = num("duckingOutputRight", 6);
+        dk.thresholdDb = num("duckingThresholdDb", -31.5);
+        dk.ratio = num("duckingRatio", 100);
+        dk.attackMs = num("duckingAttackMs", 2.9);
+        dk.releaseMs = num("duckingReleaseMs", 1714);
+        dk.kneeDb = num("duckingKneeDb", 6);
+        dk.makeupDb = num("duckingMakeupDb", 0);
+        dk.sidechainHpfHz = num("duckingSidechainHpfHz", 80);
         return c;
       }
 
@@ -994,6 +1120,38 @@
         applyBridgeConfig(data.config);
       }
 
+      async function refreshDuckingStatus() {
+        try {
+          const r = await fetch("/api/ducking/status");
+          if (!r.ok) return;
+          const d = await r.json();
+          $("duckingStatus").textContent =
+            "Ducking: " +
+            (d.enabled ? "enabled" : "disabled") +
+            (d.running ? ", running" : ", not running") +
+            (d.bypass ? ", bypassed" : "") +
+            (d.deviceName ? " on " + d.deviceName : "");
+          $("duckingMeters").textContent =
+            "Meters: sidechain " +
+            (d.sidechainDb != null ? d.sidechainDb.toFixed(1) : "—") +
+            " dB · programme " +
+            (d.programmeDb != null ? d.programmeDb.toFixed(1) : "—") +
+            " dB · GR " +
+            (d.gainReductionDb != null ? d.gainReductionDb.toFixed(1) : "—") +
+            " dB";
+          const errEl = $("duckingError");
+          if (d.lastError) {
+            errEl.hidden = false;
+            errEl.textContent = d.lastError;
+          } else {
+            errEl.hidden = true;
+            errEl.textContent = "";
+          }
+        } catch (_) {
+          /* ignore meter poll errors */
+        }
+      }
+
       async function refreshStatus() {
         try {
           const r = await fetch("/api/status");
@@ -1011,6 +1169,7 @@
           if ($("bridgeEnabled").checked && br && br.running) {
             void refreshBridgeSession().catch(() => {});
           }
+          void refreshDuckingStatus();
         } catch (e) {
           $("status").textContent = String(e);
         }
@@ -1362,6 +1521,7 @@
 
       reload().then(() => fetchFarragoTiles());
       setInterval(refreshStatus, 1500);
+      setInterval(refreshDuckingStatus, 100);
     </script>
   </body>
 </html>
