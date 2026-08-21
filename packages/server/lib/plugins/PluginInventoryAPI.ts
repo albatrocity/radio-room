@@ -91,6 +91,11 @@ export class PluginInventoryAPI implements InventoryPluginAPI {
     return this.service.getItemDefinition(this.roomId, definitionId)
   }
 
+  async getItemDefinitions(definitionIds: readonly string[]): Promise<ItemDefinition[]> {
+    if (!this.service) return []
+    return this.service.getItemDefinitions(this.roomId, definitionIds)
+  }
+
   async getAllItemDefinitions(): Promise<ItemDefinition[]> {
     if (!this.service) return []
     return this.service.getAllItemDefinitions(this.roomId)

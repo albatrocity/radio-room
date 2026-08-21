@@ -457,7 +457,7 @@ export class DJService {
   async searchForTrack(
     metadataSource: MetadataSource,
     query: string,
-    options?: { playlistIds?: string[] },
+    options?: { playlistIds?: string[]; albumIds?: string[] },
   ) {
     try {
       const data = await metadataSource.api.search(query, options)

@@ -52,6 +52,14 @@ describe("localBrowseCacheKeys", () => {
     )
   })
 
+  it("scopes album-only and mixed playlist+album filters", () => {
+    expect(browsePlaylistScope(undefined, ["al-2", "al-1"])).toBe("albums:al-1,al-2")
+    expect(browsePlaylistScope(["pl-2", "pl-1"], ["al-1"])).toBe("pl:pl-1,pl-2|al:al-1")
+    expect(metadataBrowseAlbumCacheKey("room1", "alb1", [], ["al-9"])).toBe(
+      "metadata:browse:v1:room1:album:alb1:albums:al-9",
+    )
+  })
+
   it("isolates rooms and playlist keys", () => {
     expect(metadataBrowseAlbumCacheKey("r1", "a")).not.toBe(metadataBrowseAlbumCacheKey("r2", "a"))
     expect(metadataBrowsePlaylistCacheKey("r1", "pl-1")).toBe(

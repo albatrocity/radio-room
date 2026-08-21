@@ -205,6 +205,38 @@ describe("MetadataSourceAccessService", () => {
     expect(findRoom).not.toHaveBeenCalled()
   })
 
+  test("getLocalCatalogShelves skips the room read when the caller supplies the room", async () => {
+    const room = { id: roomId, creator: "admin", playbackControllerId: "spotify" } as any
+
+    await expect(service.getLocalCatalogShelves(roomId, userId, room)).resolves.toBeUndefined()
+    expect(findRoom).not.toHaveBeenCalled()
+  })
+
+  test("getLocalCatalogShelves returns album-only shelves without falling through", async () => {
+    vi.mocked(findRoom).mockResolvedValue({
+      id: roomId,
+      creator: "admin",
+      playbackControllerId: "bridge",
+      metadataSourceAccess: { local: "restricted" },
+    } as any)
+    vi.mocked(isRoomAdmin).mockResolvedValue(false)
+    const context = {
+      pluginRegistry: {
+        resolveLocalLibraryCatalogFilter: vi.fn().mockResolvedValue({
+          mode: "playlists",
+          playlistIds: [],
+          albumIds: ["al-1"],
+        }),
+      },
+      redis: { pubClient: {}, subClient: {} },
+    }
+    const svc = new MetadataSourceAccessService(context as any)
+    await expect(svc.getLocalCatalogShelves(roomId, userId)).resolves.toEqual({
+      playlistIds: [],
+      albumIds: ["al-1"],
+    })
+  })
+
   test("getEffectiveSourceIdsForUser returns nothing when the room is missing", async () => {
     vi.mocked(findRoom).mockResolvedValue(null as any)
 

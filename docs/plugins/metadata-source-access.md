@@ -133,8 +133,9 @@ Optional `MetadataSourceApi` methods `listArtists` / `getArtist` / `getAlbum` (a
 
 ## Physical Media items
 
-Plugins that hand out playlist-scoped grants can expose them as browsable Physical Media ([ADR 0099](../adrs/0099-physical-media-personal-libraries.md)):
+Plugins that hand out playlist- or album-scoped grants can expose them as browsable Physical Media ([ADR 0099](../adrs/0099-physical-media-personal-libraries.md), [ADR 0110](../adrs/0110-catalog-mode-physical-media.md)):
 
-- Implement `listPhysicalMediaItems` (held items for a user) and `resolvePhysicalMediaItem` (item → playlist id). Items are `{ mediaKey, name, icon?, imageUrl?, imageUrlLarge? }`, where `mediaKey` is the item `shortId`. They ride `EFFECTIVE_METADATA_SOURCES` / INIT as `myMedia` and become the **Physical Media** browse tab.
-- `BROWSE_MEDIA_ITEM` takes only `mediaKey`; the server resolves the playlist id from the caller's own grants, so a client can never name a playlist.
-- For cover art, call `api.getLocalPlaylistArtwork(roomId, playlistIds)`. It re-hosts Navidrome playlist art in the room image store and returns `{ imageUrl, imageUrlLarge? }` urls keyed by playlist id, suitable for `ItemDefinition.imageUrl` (the UI prefers `imageUrl` over `icon`; Now Playing prefers `imageUrlLarge`). Skip it when no playlists qualify — an unlinked bridge just returns `{}`.
+- Implement `listPhysicalMediaItems` (held items for a user) and `resolvePhysicalMediaItem` (item → playlist or album source). Items are `{ mediaKey, name, icon?, imageUrl?, imageUrlLarge? }`, where `mediaKey` is the item `shortId`. They ride `EFFECTIVE_METADATA_SOURCES` / INIT as `myMedia` and become the **Physical Media** browse tab.
+- `BROWSE_MEDIA_ITEM` takes only `mediaKey`; the server resolves the Navidrome playlist or album id from the caller's own grants, so a client can never name a library id.
+- For cover art, call `api.getLocalPlaylistArtwork` / `api.getLocalAlbumArtwork`. They re-host Navidrome art in the room image store and return `{ imageUrl, imageUrlLarge? }` urls, suitable for `ItemDefinition.imageUrl` (the UI prefers `imageUrl` over `icon`; Now Playing prefers `imageUrlLarge`). Skip it when no records qualify — an unlinked bridge just returns `{}`.
+- Item Shops can stock prefixed playlists and/or every album via `derivePrefixedPlaylistsAsPhysicalMedia` / `deriveAlbumsAsPhysicalMedia`. Restricted Local filters may include `albumIds` as well as `playlistIds`.

@@ -8,6 +8,10 @@ import type { ShoppingSessionInstance } from "./ShoppingSession"
  *
  * Per-user plugin data lives in {@link pluginUserState}, keyed by plugin name.
  * Plugins contribute via `contributeToUserGameState` (ADR 0097).
+ *
+ * `itemDefinitions` is a **filtered** slice: inventory + modifier refs + plugin
+ * extras (`referencedItemDefinitionIdsForUser`, e.g. shop offers) — not the
+ * full room catalog.
  */
 export interface UserGameStatePayload {
   session: GameSession | null

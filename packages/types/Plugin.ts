@@ -546,8 +546,12 @@ export interface PluginAPI {
   checkLocalTrackPlaylistMembership(params: {
     roomId: string
     trackId: string
-    playlistIds: string[]
-  }): Promise<string[]>
+    playlistIds?: string[]
+    albumIds?: string[]
+    /** Include the track's Navidrome album id in the response (Physical Media frames). */
+    includeTrackAlbumId?: boolean
+    firstMatch?: boolean
+  }): Promise<{ playlistIds: string[]; albumIds: string[] }>
 
   /**
    * List Navidrome playlists on the room's Media Bridge (admin config picker).
@@ -570,6 +574,36 @@ export interface PluginAPI {
   ): Promise<Record<string, LocalPlaylistArtwork>>
 
   /**
+   * List Navidrome albums for album-catalog Physical Media derivation (ADR 0109).
+   * Returns [] when offline / unknown RPC (old DJ Mac pack).
+   */
+  listLibraryAlbums(
+    roomId: string,
+  ): Promise<
+    Array<{
+      id: string
+      name: string
+      artist?: string
+      year?: number
+      songCount?: number
+      coverArt?: string
+    }>
+  >
+
+  /**
+   * Cover artwork URLs for Navidrome albums (`al-cover-…` image ids).
+   */
+  getLocalAlbumArtwork(
+    roomId: string,
+    albumIds: string[],
+  ): Promise<Record<string, LocalPlaylistArtwork>>
+
+  /**
+   * Ordered track ids for a Navidrome album (playlist-over-album de-dup).
+   */
+  listLocalAlbumTrackIds(roomId: string, albumId: string): Promise<string[]>
+
+  /**
    * Drop the Media Bridge daemon's playlist membership + cover-art caches
    * so the next browse/search refetches from Navidrome.
    */
@@ -582,6 +616,15 @@ export interface PluginAPI {
     roomId: string,
     playlistId: string,
   ): Promise<MetadataSourceTrack[]>
+
+  /**
+   * Ordered playlist track ids (+ albumId) without full track mapping.
+   * Used for playlist-over-album Physical Media de-dup. [] on old packs.
+   */
+  listLocalPlaylistTrackIds(
+    roomId: string,
+    playlistId: string,
+  ): Promise<Array<{ id: string; albumId?: string }>>
 
   /**
    * Emit a custom plugin event.
@@ -856,6 +899,8 @@ export interface InventoryPluginAPI {
   getInventory(userId: string): Promise<UserInventory>
   hasItem(userId: string, definitionId: string, minQuantity?: number): Promise<boolean>
   getItemDefinition(definitionId: string): Promise<ItemDefinition | null>
+  /** Subset of registered definitions by id (prefer for USER_GAME_STATE). */
+  getItemDefinitions?(definitionIds: readonly string[]): Promise<ItemDefinition[]>
   getAllItemDefinitions(): Promise<ItemDefinition[]>
 }
 
@@ -1216,16 +1261,16 @@ export interface Plugin {
   }): Promise<"grant" | "abstain">
 
   /**
-   * Optional catalog filter for restricted Local library search/browse (ADR 0098).
-   * Inventory grants may unlock the full library or a union of Navidrome playlist ids.
-   * Aggregation: any `unrestricted` wins; else union of `playlists`; all abstain → no plugin filter.
+   * Optional catalog filter for restricted Local library search/browse (ADR 0098 / 0109).
+   * Inventory grants may unlock the full library or a union of Navidrome playlist / album ids.
+   * Aggregation: any `unrestricted` wins; else union of shelves; all abstain → no plugin filter.
    */
   resolveLocalLibraryCatalogFilter?(params: {
     roomId: string
     userId: string
   }): Promise<
     | { mode: "unrestricted" }
-    | { mode: "playlists"; playlistIds: string[] }
+    | { mode: "playlists"; playlistIds: string[]; albumIds: string[] }
     | "abstain"
   >
 
@@ -1236,14 +1281,14 @@ export interface Plugin {
   listPhysicalMediaItems?(params: { roomId: string; userId: string }): Promise<PhysicalMediaItem[]>
 
   /**
-   * Resolve a held `mediaKey` to a Navidrome playlist id for BROWSE_MEDIA_ITEM.
+   * Resolve a held `mediaKey` to a Navidrome playlist or album source for BROWSE_MEDIA_ITEM.
    * Returns null if the caller does not hold that item.
    */
   resolvePhysicalMediaItem?(params: {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null>
+  }): Promise<import("./MetadataSource").ResolvedPhysicalMediaItem | null>
 
   /**
    * Resolve a `mediaKey` for track preview listing/generation when the caller
@@ -1253,7 +1298,7 @@ export interface Plugin {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null>
+  }): Promise<import("./MetadataSource").ResolvedPhysicalMediaItem | null>
 
   /**
    * Called immediately before app-controlled playTrack(uri) in core play paths.
@@ -1462,6 +1507,15 @@ export interface Plugin {
     items: InventoryItem[],
     definitionById: Map<string, ItemDefinition>,
   ): Promise<Record<string, number>>
+
+  /**
+   * Extra `ItemDefinition.id` values to include on this user's `USER_GAME_STATE`
+   * beyond inventory + modifiers (e.g. open shop offer rows that need `detailView`).
+   * Optional — omit when the wire bag already carries display fields.
+   *
+   * @see ADR 0097
+   */
+  referencedItemDefinitionIdsForUser?(userId: string): Promise<string[] | null | undefined>
 
   /**
    * Optional: contribute private per-user data to `GET_MY_GAME_STATE` /

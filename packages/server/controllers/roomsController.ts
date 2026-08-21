@@ -450,6 +450,10 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
   /**
    * Return the requesting user's game state and inventory for the active session.
    * Responds with `USER_GAME_STATE` on this socket only.
+   *
+   * `itemDefinitions` includes only defs referenced by this user's inventory,
+   * modifiers, and plugin extras (e.g. open shop offers) — not the full room
+   * catalog (album-mode Physical Media can register thousands of SKUs).
    */
   socket.on("GET_MY_GAME_STATE", async () => {
     const gameSessions = socket.context.gameSessions
@@ -488,12 +492,9 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
     const inv = inventory
       ? await inventory.getInventory(socket.data.roomId, socket.data.userId)
       : null
-    const itemDefinitions = inventory
-      ? await inventory.getAllItemDefinitions(socket.data.roomId)
-      : []
 
-    const definitionById = new Map<string, ItemDefinition>(
-      itemDefinitions.map((d: ItemDefinition) => [d.id, d]),
+    const { collectInventoryAndModifierDefinitionIds } = await import(
+      "../lib/collectUserGameStateDefinitionIds"
     )
     const registry = socket.context.pluginRegistry as
       | {
@@ -507,8 +508,30 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
             userId: string,
             ctx: { itemDefinitions: ItemDefinition[] },
           ) => Promise<Record<string, Record<string, unknown>>>
+          invokeReferencedItemDefinitionIdsForUser?: (
+            roomId: string,
+            userId: string,
+          ) => Promise<string[]>
         }
       | undefined
+
+    const pluginExtraIds = registry?.invokeReferencedItemDefinitionIdsForUser
+      ? await registry.invokeReferencedItemDefinitionIdsForUser(
+          socket.data.roomId,
+          socket.data.userId,
+        )
+      : []
+    const neededIds = [
+      ...collectInventoryAndModifierDefinitionIds(inv, state),
+      ...pluginExtraIds,
+    ]
+    const itemDefinitions = inventory
+      ? await inventory.getItemDefinitions(socket.data.roomId, neededIds)
+      : []
+
+    const definitionById = new Map<string, ItemDefinition>(
+      itemDefinitions.map((d: ItemDefinition) => [d.id, d]),
+    )
 
     let inventoryPayload = inv
     if (inv && registry?.invokeGetSellbackValues) {
@@ -621,7 +644,6 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
     }
 
     const session = await gameSessions.getActiveSession(socket.data.roomId)
-    const itemDefinitions = await inventory.getAllItemDefinitions(socket.data.roomId)
 
     if (!session) {
       socket.emit("event", {
@@ -629,7 +651,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
         data: {
           session: null,
           listeners: [],
-          itemDefinitions,
+          itemDefinitions: [],
         },
       })
       return
@@ -653,6 +675,19 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
         }
       }),
     )
+
+    const { collectInventoryAndModifierDefinitionIds } = await import(
+      "../lib/collectUserGameStateDefinitionIds"
+    )
+    const neededIds = new Set<string>()
+    for (const row of listeners) {
+      for (const id of collectInventoryAndModifierDefinitionIds(row.inventory, row.state)) {
+        neededIds.add(id)
+      }
+    }
+    const itemDefinitions = await inventory.getItemDefinitions(socket.data.roomId, [
+      ...neededIds,
+    ])
 
     socket.emit("event", {
       type: "ALL_LISTENER_GAME_STATES",

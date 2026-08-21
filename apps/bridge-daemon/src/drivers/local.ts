@@ -28,10 +28,12 @@ import {
 } from "./localTags"
 import type { NavidromeAlbum, NavidromeArtist, NavidromeSong } from "./localTypes"
 import {
+  AlbumMembershipCache,
   albumsFromMembership,
   artistCoverKeyFromMembership,
   artistsFromMembership,
   PlaylistMembershipCache,
+  unionMembership,
   type PlaylistMembership,
 } from "./localPlaylistCache"
 import { CoverArtCache, coverCacheKey, mapWithConcurrency } from "./localCoverCache"
@@ -74,10 +76,32 @@ function md5(s: string) {
   return createHash("md5").update(s).digest("hex")
 }
 
-function normalizePlaylistIds(playlistIds?: string[]): string[] {
-  if (!playlistIds?.length) return []
-  return [...new Set(playlistIds.map((p) => p.trim()).filter(Boolean))]
+function normalizeIdList(ids?: string[]): string[] {
+  if (!ids?.length) return []
+  return Array.from(new Set(ids.map((p) => p.trim()).filter(Boolean)))
 }
+
+/** @deprecated Prefer {@link normalizeIdList}. */
+function normalizePlaylistIds(playlistIds?: string[]): string[] {
+  return normalizeIdList(playlistIds)
+}
+
+export type LocalCatalogFilter = {
+  playlistIds?: string[]
+  albumIds?: string[]
+}
+
+export type LibraryAlbumListItem = {
+  id: string
+  name: string
+  artist?: string
+  year?: number
+  songCount?: number
+  /** Subsonic coverArt key only — never a data URI. */
+  coverArt?: string
+}
+
+const LIBRARY_ALBUM_PAGE_SIZE = 500
 
 export function normalizeCoverVariants(raw: unknown): CoverArtVariant[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) return undefined
@@ -92,7 +116,10 @@ export class LocalDriver implements Driver {
   readonly source = "local" as const
   private readonly playback: MpvPlayback
   private readonly playlistCache: PlaylistMembershipCache
+  private readonly albumCache: AlbumMembershipCache
   private readonly coverCache: CoverArtCache
+  /** coverArt keys discovered via listLibraryAlbums (albumId → coverArt). */
+  private readonly albumCoverKeys = new Map<string, string>()
 
   constructor(
     private readonly navidrome: BridgeDaemonConfig["navidrome"],
@@ -102,6 +129,7 @@ export class LocalDriver implements Driver {
     this.playlistCache = new PlaylistMembershipCache((playlistId) =>
       this.fetchPlaylistEntries(playlistId),
     )
+    this.albumCache = new AlbumMembershipCache((albumId) => this.fetchAlbumMembership(albumId))
     this.coverCache = new CoverArtCache((coverKey, sizePx) => this.fetchCoverDataUri(coverKey, sizePx))
   }
 
@@ -114,9 +142,11 @@ export class LocalDriver implements Driver {
     await this.playback.stop()
   }
 
-  /** Drop playlist membership and cover-art caches (admin refresh / reconnect). */
+  /** Drop playlist/album membership and cover-art caches (admin refresh / reconnect). */
   invalidateLocalLibraryCache(): void {
     this.playlistCache.invalidate()
+    this.albumCache.invalidate()
+    this.albumCoverKeys.clear()
     this.coverCache.invalidate()
   }
 
@@ -172,10 +202,55 @@ export class LocalDriver implements Driver {
     return Array.isArray(entry) ? entry : entry ? [entry] : []
   }
 
-  private async membershipFor(playlistIds?: string[]): Promise<PlaylistMembership | null> {
-    const ids = normalizePlaylistIds(playlistIds)
-    if (ids.length === 0) return null
-    return this.playlistCache.getUnion(ids)
+  private async fetchAlbumMembership(albumId: string) {
+    if (!this.navidrome.username || !albumId) return { songs: [] }
+    const url = `${this.navidrome.url}/rest/getAlbum.view?id=${encodeURIComponent(albumId)}&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      console.warn(`[LocalDriver] getAlbum ${albumId} failed: ${res.status}`)
+      return { songs: [] }
+    }
+    const data = (await res.json()) as any
+    const album = data?.["subsonic-response"]?.album as
+      | (NavidromeAlbum & { song?: NavidromeSong | NavidromeSong[] })
+      | undefined
+    if (!album?.id) return { songs: [] }
+    const songRaw = album.song
+    const songs = Array.isArray(songRaw) ? songRaw : songRaw ? [songRaw] : []
+    const coverArt = album.coverArt?.trim()
+    if (coverArt) this.albumCoverKeys.set(String(album.id), coverArt)
+    return {
+      songs,
+      album: {
+        name: album.name,
+        artist: album.artist,
+        artistId: album.artistId,
+        coverArt: album.coverArt,
+      },
+    }
+  }
+
+  /**
+   * Restricted catalog membership when either playlistIds or albumIds is non-empty.
+   * Both empty → null (full library).
+   */
+  private async membershipFor(filter?: LocalCatalogFilter): Promise<PlaylistMembership | null> {
+    const playlistIds = normalizeIdList(filter?.playlistIds)
+    const albumIds = normalizeIdList(filter?.albumIds)
+    if (playlistIds.length === 0 && albumIds.length === 0) return null
+    const parts: PlaylistMembership[] = []
+    if (playlistIds.length > 0) parts.push(await this.playlistCache.getUnion(playlistIds))
+    if (albumIds.length > 0) parts.push(await this.albumCache.getUnion(albumIds))
+    return parts.length === 1 ? parts[0]! : unionMembership(parts)
+  }
+
+  /** Album-id shelf with no playlists — filter by song.albumId instead of getUnion. */
+  private isAlbumOnlyShelf(playlistIds?: string[], albumIds?: string[]): boolean {
+    return normalizeIdList(playlistIds).length === 0 && normalizeIdList(albumIds).length > 0
+  }
+
+  private albumIdAllowSet(albumIds?: string[]): Set<string> {
+    return new Set(normalizeIdList(albumIds))
   }
 
   async listPlaylistTracks(playlistId: string): Promise<MetadataSourceTrack[]> {
@@ -186,12 +261,114 @@ export class LocalDriver implements Driver {
     )
   }
 
+  /**
+   * Ordered track id (+ optional albumId) rows for a playlist — no mapSong / cover
+   * fetches. Used for Physical Media playlist-over-album de-dup.
+   */
+  async listPlaylistTrackIds(
+    playlistId: string,
+  ): Promise<Array<{ id: string; albumId?: string }>> {
+    if (!this.navidrome.username || !playlistId.trim()) return []
+    const membership = await this.playlistCache.get(playlistId)
+    const out: Array<{ id: string; albumId?: string }> = []
+    for (const entry of membership.entries) {
+      const id = entry.id != null ? String(entry.id).trim() : ""
+      if (!id) continue
+      const albumId = entry.albumId != null ? String(entry.albumId).trim() : ""
+      out.push(albumId ? { id, albumId } : { id })
+    }
+    return out
+  }
+
+  /**
+   * Ordered track ids for an album from membership cache — no mapSong.
+   */
+  async listAlbumTrackIds(albumId: string): Promise<string[]> {
+    if (!this.navidrome.username || !albumId.trim()) return []
+    const membership = await this.albumCache.get(albumId)
+    const out: string[] = []
+    for (const entry of membership.entries) {
+      const id = entry.id != null ? String(entry.id).trim() : ""
+      if (id) out.push(id)
+    }
+    return out
+  }
+
   async playlistsContainingTrack(
     trackId: string,
     playlistIds: string[],
     options?: { firstMatch?: boolean },
   ): Promise<string[]> {
     return this.playlistCache.playlistsContainingTrack(trackId, playlistIds, options)
+  }
+
+  /**
+   * Navidrome album id for a track (one getSong). A song belongs to at most one
+   * album — prefer this over scanning album membership caches.
+   */
+  async fetchSongAlbumId(trackId: string): Promise<string | undefined> {
+    const id = trackId.trim()
+    if (!this.navidrome.username || !id) return undefined
+    const url = `${this.navidrome.url}/rest/getSong.view?id=${encodeURIComponent(id)}&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      console.warn(`[LocalDriver] getSong ${id} failed: ${res.status}`)
+      return undefined
+    }
+    const data = (await res.json()) as any
+    const song = data?.["subsonic-response"]?.song as NavidromeSong | undefined
+    const albumId = song?.albumId != null ? String(song.albumId).trim() : ""
+    return albumId || undefined
+  }
+
+  /**
+   * Which of `albumIds` is this track's album. O(1) getSong — never fetches
+   * every album in the filter (Physical Media catalog mode can be thousands).
+   */
+  async albumsContainingTrack(
+    trackId: string,
+    albumIds: string[],
+    _options?: { firstMatch?: boolean },
+  ): Promise<string[]> {
+    const unique = [...new Set(albumIds.map((a) => a.trim()).filter(Boolean))]
+    if (unique.length === 0) return []
+    const albumId = await this.fetchSongAlbumId(trackId)
+    if (!albumId) return []
+    return unique.includes(albumId) ? [albumId] : []
+  }
+
+  /**
+   * Which of the given playlists / albums contain `trackId`.
+   * Always returns the object shape so album shelf grants fail closed on old
+   * adapters that ignore albumIds (and vice versa).
+   *
+   * When `includeTrackAlbumId` is true, the track's Navidrome album id is
+   * included in `albumIds` (callers filter against their derived SKU map).
+   * That avoids shipping thousands of album ids on Now Playing / queue augment.
+   */
+  async checkPlaylistMembership(
+    trackId: string,
+    playlistIds: string[],
+    albumIds: string[] = [],
+    options?: { firstMatch?: boolean; includeTrackAlbumId?: boolean },
+  ): Promise<{ playlistIds: string[]; albumIds: string[] }> {
+    const albumFilter = [...new Set(albumIds.map((a) => a.trim()).filter(Boolean))]
+    const wantTrackAlbum = options?.includeTrackAlbumId === true
+    const needSongAlbum = wantTrackAlbum || albumFilter.length > 0
+
+    const [matchedPlaylists, trackAlbumId] = await Promise.all([
+      this.playlistsContainingTrack(trackId, playlistIds, options),
+      needSongAlbum ? this.fetchSongAlbumId(trackId) : Promise.resolve(undefined),
+    ])
+
+    const albumOut: string[] = []
+    if (trackAlbumId && albumFilter.includes(trackAlbumId)) {
+      albumOut.push(trackAlbumId)
+    }
+    if (wantTrackAlbum && trackAlbumId && !albumOut.includes(trackAlbumId)) {
+      albumOut.push(trackAlbumId)
+    }
+    return { playlistIds: matchedPlaylists, albumIds: albumOut }
   }
 
   /**
@@ -257,6 +434,95 @@ export class LocalDriver implements Driver {
       const bag: { sm?: string; lg?: string } = {}
       for (const variant of requested) {
         const dataUri = await this.coverCache.get(`pl-${id}`, COVER_ART_VARIANTS[variant])
+        if (dataUri) bag[variant] = dataUri
+      }
+      if (bag.sm || bag.lg) out[id] = bag
+    })
+    return out
+  }
+
+  /**
+   * Full Navidrome album catalog for Physical Media album-shelf SKU derivation.
+   * Pages getAlbumList2 alphabeticalByName; returns coverArt keys only (no data URIs).
+   */
+  async listLibraryAlbums(): Promise<LibraryAlbumListItem[]> {
+    if (!this.navidrome.username) return []
+    const out: LibraryAlbumListItem[] = []
+    let offset = 0
+    for (;;) {
+      const url =
+        `${this.navidrome.url}/rest/getAlbumList2.view?type=alphabeticalByName` +
+        `&size=${LIBRARY_ALBUM_PAGE_SIZE}&offset=${offset}&${this.authParams()}`
+      const res = await fetch(url)
+      if (!res.ok) {
+        console.warn(`[LocalDriver] getAlbumList2 failed: ${res.status}`)
+        break
+      }
+      const data = (await res.json()) as any
+      const raw = data?.["subsonic-response"]?.albumList2?.album
+      const list: NavidromeAlbum[] = Array.isArray(raw) ? raw : raw ? [raw] : []
+      if (list.length === 0) break
+      for (const a of list) {
+        const id = a?.id != null ? String(a.id) : ""
+        if (!id) continue
+        const coverArt = a.coverArt?.trim() || undefined
+        if (coverArt) this.albumCoverKeys.set(id, coverArt)
+        out.push({
+          id,
+          name: String(a.name ?? id).trim() || id,
+          ...(a.artist != null && String(a.artist).trim()
+            ? { artist: String(a.artist).trim() }
+            : {}),
+          ...(typeof a.year === "number" ? { year: a.year } : {}),
+          ...(typeof a.songCount === "number" ? { songCount: a.songCount } : {}),
+          ...(coverArt ? { coverArt } : {}),
+        })
+      }
+      if (list.length < LIBRARY_ALBUM_PAGE_SIZE) break
+      offset += LIBRARY_ALBUM_PAGE_SIZE
+    }
+    return out
+  }
+
+  private albumCoverKey(albumId: string): string {
+    const id = albumId.trim()
+    const fromList = this.albumCoverKeys.get(id)?.trim()
+    if (fromList) return fromList
+    const peeked = this.albumCache.peek(id)?.albums.get(id)?.coverArt?.trim()
+    if (peeked) return peeked
+    // Navidrome accepts album ids as getCoverArt ids.
+    return id
+  }
+
+  /**
+   * Cover art (data URIs) for the given albums, keyed by album id.
+   * Cover key = prior list/cache `coverArt` or the album id (no `pl-` prefix).
+   */
+  async getAlbumCoverArt(
+    albumIds: string[],
+    variants?: CoverArtVariant[],
+  ): Promise<Record<string, string> | Record<string, { sm?: string; lg?: string }>> {
+    if (!this.navidrome.username) return {}
+    const ids = normalizeIdList(albumIds)
+    if (ids.length === 0) return {}
+    const requested = normalizeCoverVariants(variants)
+    if (!requested) {
+      const out: Record<string, string> = {}
+      await mapWithConcurrency(ids, COVER_ART_CONCURRENCY, async (id) => {
+        const dataUri = await this.coverCache.get(
+          this.albumCoverKey(id),
+          COVER_ART_LEGACY_PLAYLIST_SIZE,
+        )
+        if (dataUri) out[id] = dataUri
+      })
+      return out
+    }
+    const out: Record<string, { sm?: string; lg?: string }> = {}
+    await mapWithConcurrency(ids, COVER_ART_CONCURRENCY, async (id) => {
+      const coverKey = this.albumCoverKey(id)
+      const bag: { sm?: string; lg?: string } = {}
+      for (const variant of requested) {
+        const dataUri = await this.coverCache.get(coverKey, COVER_ART_VARIANTS[variant])
         if (dataUri) bag[variant] = dataUri
       }
       if (bag.sm || bag.lg) out[id] = bag
@@ -359,9 +625,28 @@ export class LocalDriver implements Driver {
     })
   }
 
-  async findById(id: string, playlistIds?: string[]): Promise<MetadataSourceTrack | null> {
+  async findById(
+    id: string,
+    playlistIds?: string[],
+    albumIds?: string[],
+  ): Promise<MetadataSourceTrack | null> {
     if (!this.navidrome.username || !id) return null
-    const membership = await this.membershipFor(playlistIds)
+
+    // Album-only shelf: one getSong + albumId ∈ allowlist (no getAlbum × N union).
+    if (this.isAlbumOnlyShelf(playlistIds, albumIds)) {
+      const allow = this.albumIdAllowSet(albumIds)
+      const url = `${this.navidrome.url}/rest/getSong.view?id=${encodeURIComponent(id)}&${this.authParams()}`
+      const res = await fetch(url)
+      if (!res.ok) return null
+      const data = (await res.json()) as any
+      const song = data?.["subsonic-response"]?.song as NavidromeSong | undefined
+      if (!song?.id) return null
+      const songAlbum = song.albumId != null ? String(song.albumId).trim() : ""
+      if (!songAlbum || !allow.has(songAlbum)) return null
+      return this.mapSong(song)
+    }
+
+    const membership = await this.membershipFor({ playlistIds, albumIds })
     if (membership && !membership.trackIds.has(id)) return null
     const url = `${this.navidrome.url}/rest/getSong.view?id=${encodeURIComponent(id)}&${this.authParams()}`
     const res = await fetch(url)
@@ -391,9 +676,12 @@ export class LocalDriver implements Driver {
     return { title, artist, album }
   }
 
-  async search(query: string, playlistIds?: string[]): Promise<MetadataSourceTrack[]> {
+  async search(
+    query: string,
+    playlistIds?: string[],
+    albumIds?: string[],
+  ): Promise<MetadataSourceTrack[]> {
     if (!this.navidrome.username) return []
-    const membership = await this.membershipFor(playlistIds)
     const url = `${this.navidrome.url}/rest/search3.view?query=${encodeURIComponent(query)}&songCount=20&${this.authParams()}`
     const res = await fetch(url)
     if (!res.ok) throw new Error(`Navidrome search failed: ${res.status}`)
@@ -401,18 +689,31 @@ export class LocalDriver implements Driver {
     const songs = data?.["subsonic-response"]?.searchResult3?.song ?? []
     const list: NavidromeSong[] = Array.isArray(songs) ? songs : songs ? [songs] : []
 
-    const filtered = list.filter((song) => {
-      const id = String(song.id ?? "")
-      return !membership || membership.trackIds.has(id)
-    })
+    let filtered: NavidromeSong[]
+    if (this.isAlbumOnlyShelf(playlistIds, albumIds)) {
+      const allow = this.albumIdAllowSet(albumIds)
+      filtered = list.filter((song) => {
+        const albumId = song.albumId != null ? String(song.albumId).trim() : ""
+        return Boolean(albumId && allow.has(albumId))
+      })
+    } else {
+      const membership = await this.membershipFor({ playlistIds, albumIds })
+      filtered = list.filter((song) => {
+        const id = String(song.id ?? "")
+        return !membership || membership.trackIds.has(id)
+      })
+    }
     return mapWithConcurrency(filtered, MAP_SONG_CONCURRENCY, (song) => this.mapSong(song))
   }
 
   async listArtists(
-    params?: MetadataListArtistsParams & { playlistIds?: string[] },
+    params?: MetadataListArtistsParams,
   ): Promise<MetadataListArtistsResult> {
     if (!this.navidrome.username) return { items: [], total: 0 }
-    const membership = await this.membershipFor(params?.playlistIds)
+    const membership = await this.membershipFor({
+      playlistIds: params?.playlistIds,
+      albumIds: params?.albumIds,
+    })
     let items: MetadataBrowseArtist[]
     let coverKeys: (string | undefined)[]
     if (membership) {
@@ -444,10 +745,13 @@ export class LocalDriver implements Driver {
   }
 
   async listAlbums(
-    params?: MetadataListAlbumsParams & { playlistIds?: string[] },
+    params?: MetadataListAlbumsParams,
   ): Promise<MetadataListAlbumsResult> {
     if (!this.navidrome.username) return { items: [], total: 0 }
-    const membership = await this.membershipFor(params?.playlistIds)
+    const membership = await this.membershipFor({
+      playlistIds: params?.playlistIds,
+      albumIds: params?.albumIds,
+    })
     const query = params?.query?.trim()
     const offset = Math.max(0, params?.offset ?? 0)
     const limit = Math.min(Math.max(params?.limit ?? 50, 1), 50)
@@ -489,9 +793,10 @@ export class LocalDriver implements Driver {
   async getArtist(
     artistId: string,
     playlistIds?: string[],
+    albumIds?: string[],
   ): Promise<MetadataGetArtistResult | null> {
     if (!this.navidrome.username || !artistId) return null
-    const membership = await this.membershipFor(playlistIds)
+    const membership = await this.membershipFor({ playlistIds, albumIds })
     if (membership && !membership.artists.has(artistId)) return null
 
     const url = `${this.navidrome.url}/rest/getArtist.view?id=${encodeURIComponent(artistId)}&${this.authParams()}`
@@ -536,10 +841,20 @@ export class LocalDriver implements Driver {
     }
   }
 
-  async getAlbum(albumId: string, playlistIds?: string[]): Promise<MetadataGetAlbumResult | null> {
+  async getAlbum(
+    albumId: string,
+    playlistIds?: string[],
+    albumIds?: string[],
+  ): Promise<MetadataGetAlbumResult | null> {
     if (!this.navidrome.username || !albumId) return null
-    const membership = await this.membershipFor(playlistIds)
-    if (membership && !membership.albums.has(albumId)) return null
+
+    let membership: PlaylistMembership | null = null
+    if (this.isAlbumOnlyShelf(playlistIds, albumIds)) {
+      if (!this.albumIdAllowSet(albumIds).has(albumId.trim())) return null
+    } else {
+      membership = await this.membershipFor({ playlistIds, albumIds })
+      if (membership && !membership.albums.has(albumId)) return null
+    }
 
     const url = `${this.navidrome.url}/rest/getAlbum.view?id=${encodeURIComponent(albumId)}&${this.authParams()}`
     const res = await fetch(url)

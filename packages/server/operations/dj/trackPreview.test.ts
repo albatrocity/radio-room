@@ -27,7 +27,10 @@ vi.mock("@repo/adapter-bridge", () => ({
     data: "abc",
     durationMs: 15000,
   })),
-  checkLocalTrackPlaylistMembership: vi.fn(async () => ["pl-1"]),
+  checkLocalTrackPlaylistMembership: vi.fn(async () => ({
+    playlistIds: ["pl-1"],
+    albumIds: [],
+  })),
 }))
 
 import {
@@ -44,13 +47,14 @@ describe("trackPreview operations", () => {
     redis: { pubClient: {} },
     pluginRegistry: {
       resolvePreviewableMediaItem: vi.fn(async () => ({
+        kind: "playlist" as const,
         playlistId: "pl-1",
         item: { mediaKey: "pm-1", name: "Test LP" },
       })),
     },
     metadataSourceAccess: {
       canAccess: vi.fn(async () => true),
-      getLocalCatalogPlaylistIds: vi.fn(async () => ["pl-1"]),
+      getLocalCatalogShelves: vi.fn(async () => ({ playlistIds: ["pl-1"], albumIds: [] })),
     },
   } as unknown as AppContext
 

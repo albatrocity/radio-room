@@ -4,7 +4,13 @@ import type { LocalLibraryGrantConfig } from "./config"
 
 export type LocalCatalogScope =
   | { mode: "unrestricted" }
-  | { mode: "playlists"; playlistIds: string[]; playlistKeys: string[] }
+  | {
+      mode: "playlists"
+      playlistIds: string[]
+      playlistKeys: string[]
+      albumIds: string[]
+      albumKeys: string[]
+    }
   | { mode: "none" }
 
 export type HeldLocalLibraryGrant = {
@@ -128,6 +134,8 @@ export function resolveLocalCatalogScope(params: {
   grantCatalog: readonly ItemCatalogEntry[]
   /** playlistKey (shortId) → Navidrome playlist id */
   localLibraryPlaylists: Record<string, string>
+  /** albumKey (shortId) → Navidrome album id */
+  localLibraryAlbums?: Record<string, string>
 }): LocalCatalogScope {
   const held = listHeldLocalLibraryGrants({
     pluginName: params.pluginName,
@@ -141,18 +149,29 @@ export function resolveLocalCatalogScope(params: {
 
   const playlistIds: string[] = []
   const playlistKeys: string[] = []
-  const seen = new Set<string>()
+  const albumIds: string[] = []
+  const albumKeys: string[] = []
+  const seenPlaylists = new Set<string>()
+  const seenAlbums = new Set<string>()
+  const albumMap = params.localLibraryAlbums ?? {}
+
   for (const h of held) {
-    if (h.grant.scope !== "playlist") continue
-    const id = params.localLibraryPlaylists[h.grant.playlistKey]?.trim()
-    if (!id) continue
-    if (seen.has(id)) continue
-    seen.add(id)
-    playlistIds.push(id)
-    playlistKeys.push(h.grant.playlistKey)
+    if (h.grant.scope === "playlist") {
+      const id = params.localLibraryPlaylists[h.grant.playlistKey]?.trim()
+      if (!id || seenPlaylists.has(id)) continue
+      seenPlaylists.add(id)
+      playlistIds.push(id)
+      playlistKeys.push(h.grant.playlistKey)
+    } else if (h.grant.scope === "album") {
+      const id = albumMap[h.grant.albumKey]?.trim()
+      if (!id || seenAlbums.has(id)) continue
+      seenAlbums.add(id)
+      albumIds.push(id)
+      albumKeys.push(h.grant.albumKey)
+    }
   }
-  if (playlistIds.length === 0) return { mode: "none" }
-  return { mode: "playlists", playlistIds, playlistKeys }
+  if (playlistIds.length === 0 && albumIds.length === 0) return { mode: "none" }
+  return { mode: "playlists", playlistIds, playlistKeys, albumIds, albumKeys }
 }
 
 /**

@@ -42,7 +42,7 @@ export async function searchTracksAcrossSources(params: {
   searchSource: (
     metadataSource: MetadataSource,
     query: string,
-    options?: { playlistIds?: string[] },
+    options?: { playlistIds?: string[]; albumIds?: string[] },
   ) => Promise<SearchSourceResult>
 }): Promise<SearchTracksResult> {
   const { context, adapterService, roomId, userId, query, searchSource } = params
@@ -93,19 +93,36 @@ export async function searchTracksAcrossSources(params: {
   }
 
   const searchesLocal = sourceEntries.some(([name]) => name === "local")
-  let localPlaylistIds: string[] | undefined
-  if (searchesLocal && context.metadataSourceAccess?.getLocalCatalogPlaylistIds) {
-    localPlaylistIds = await context.metadataSourceAccess.getLocalCatalogPlaylistIds(
+  let localShelves: { playlistIds: string[]; albumIds: string[] } | undefined
+  if (searchesLocal && context.metadataSourceAccess?.getLocalCatalogShelves) {
+    localShelves = await context.metadataSourceAccess.getLocalCatalogShelves(
       roomId,
       userId,
       room,
     )
+  } else if (searchesLocal && context.metadataSourceAccess?.getLocalCatalogPlaylistIds) {
+    const playlistIds = await context.metadataSourceAccess.getLocalCatalogPlaylistIds(
+      roomId,
+      userId,
+      room,
+    )
+    if (playlistIds) localShelves = { playlistIds, albumIds: [] }
   }
+
+  const localFilterOptions = localShelves
+    ? {
+        ...(localShelves.playlistIds.length ? { playlistIds: localShelves.playlistIds } : {}),
+        ...(localShelves.albumIds.length ? { albumIds: localShelves.albumIds } : {}),
+      }
+    : undefined
+  const hasLocalFilter =
+    localFilterOptions &&
+    ((localFilterOptions.playlistIds?.length ?? 0) > 0 ||
+      (localFilterOptions.albumIds?.length ?? 0) > 0)
 
   const settled = await Promise.allSettled(
     sourceEntries.map(async ([name, src]) => {
-      const options =
-        name === "local" && localPlaylistIds?.length ? { playlistIds: localPlaylistIds } : undefined
+      const options = name === "local" && hasLocalFilter ? localFilterOptions : undefined
       const result = await searchSource(src, query, options)
       if (!result.success) throw new Error(result.message)
       return (result.data ?? []).map((track) => ({
@@ -156,16 +173,12 @@ export async function searchTracksAcrossSources(params: {
           src.api.listArtists?.({
             query: trimmed,
             limit: 5,
-            ...(name === "local" && localPlaylistIds?.length
-              ? { playlistIds: localPlaylistIds }
-              : {}),
+            ...(name === "local" && hasLocalFilter ? localFilterOptions : {}),
           }) ?? Promise.resolve({ items: [] }),
           src.api.listAlbums?.({
             query: trimmed,
             limit: 5,
-            ...(name === "local" && localPlaylistIds?.length
-              ? { playlistIds: localPlaylistIds }
-              : {}),
+            ...(name === "local" && hasLocalFilter ? localFilterOptions : {}),
           }) ?? Promise.resolve({ items: [] }),
         ])
         const artistItems =

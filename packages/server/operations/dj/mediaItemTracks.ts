@@ -20,23 +20,50 @@ export type MediaItemTracksResult =
 /**
  * Bridge half of a Physical Media track listing, shared by `BROWSE_MEDIA_ITEM`
  * and `LIST_MEDIA_ITEM_TRACKS`. Callers own authorization — held item (ADR 0099)
- * vs held-or-on-current-shop-offers (ADR 0103) — and pass the resolved playlist
- * id, which never comes from the client.
+ * vs held-or-on-current-shop-offers (ADR 0103) — and pass the resolved source,
+ * which never comes from the client.
  */
 export async function fetchResolvedMediaItemTracks(params: {
   roomId: string
-  playlistId: string
+  source: { kind: "playlist"; playlistId: string } | { kind: "album"; albumId: string }
   /** Operation name for logs, e.g. `browseMediaItem`. */
   logLabel: string
   cache?: AppContext["cache"]
 }): Promise<MediaItemTracksResult> {
-  const { roomId, playlistId, logLabel, cache } = params
+  const { roomId, source, logLabel, cache } = params
   try {
     const { getBridgeRpcClient, fetchLocalPlaylistTracks } = await import("@repo/adapter-bridge")
     const rpc = getBridgeRpcClient(roomId)
     if (!rpc) {
       return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
     }
+
+    if (source.kind === "album") {
+      const albumId = source.albumId.trim()
+      if (!albumId) {
+        return { ok: false, message: "albumId is required" }
+      }
+      try {
+        const result = (await rpc.call("getAlbum", {
+          source: "local",
+          albumId,
+        })) as { tracks?: TaggedMetadataSourceTrack[] } | null
+        const tracks = result?.tracks
+        if (!Array.isArray(tracks)) {
+          console.warn(`[${logLabel}] getAlbum returned no tracks for ${albumId}`)
+          return { ok: false, message: BRIDGE_TRACK_LISTING_FAILED_MESSAGE }
+        }
+        return {
+          ok: true,
+          tracks: tracks.map((track) => ({ ...track, source: "local" })),
+        }
+      } catch (error) {
+        console.warn(`[${logLabel}] getAlbum failed for ${albumId}:`, error)
+        return { ok: false, message: BRIDGE_TRACK_LISTING_FAILED_MESSAGE }
+      }
+    }
+
+    const playlistId = source.playlistId.trim()
     const listed = await fetchLocalPlaylistTracks({
       rpc,
       playlistId,

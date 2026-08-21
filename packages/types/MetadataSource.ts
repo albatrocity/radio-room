@@ -136,6 +136,12 @@ export type MetadataListArtistsParams = {
    * playlist ids (invisible shelf grants). Omitted = full library (ADR 0098).
    */
   playlistIds?: string[]
+  /**
+   * When set (alone or with playlistIds), Local/bridge catalog ops also include
+   * tracks on these Navidrome album ids. Empty playlistIds + empty albumIds =
+   * full library; either non-empty = restricted union.
+   */
+  albumIds?: string[]
 }
 
 export type MetadataListArtistsResult = {
@@ -188,15 +194,31 @@ export type PhysicalMediaItem = {
   artworkFrame?: ArtworkFrame
 }
 
+/**
+ * Server-resolved Physical Media source for browse/preview (ADR 0099 / 0109).
+ * Clients never supply playlist or album ids — only `mediaKey`.
+ */
+export type ResolvedPhysicalMediaItem = {
+  item: PhysicalMediaItem
+} & (
+  | { kind: "playlist"; playlistId: string }
+  | { kind: "album"; albumId: string }
+)
+
+export type MetadataCatalogFilterOptions = {
+  playlistIds?: string[]
+  albumIds?: string[]
+}
+
 export interface MetadataSourceApi {
   search: (
     query: string,
-    options?: { playlistIds?: string[] },
+    options?: MetadataCatalogFilterOptions,
   ) => Promise<MetadataSourceTrack[]>
   searchByParams: (params: MetadataSourceSearchParameters) => Promise<MetadataSourceTrack[]>
   findById: (
     id: string,
-    options?: { playlistIds?: string[] },
+    options?: MetadataCatalogFilterOptions,
   ) => Promise<MetadataSourceTrack | null>
   createPlaylist?: (params: {
     title: string
@@ -217,11 +239,11 @@ export interface MetadataSourceApi {
   listAlbums?: (params?: MetadataListAlbumsParams) => Promise<MetadataListAlbumsResult>
   getArtist?: (
     artistId: string,
-    options?: { playlistIds?: string[] },
+    options?: MetadataCatalogFilterOptions,
   ) => Promise<MetadataGetArtistResult | null>
   getAlbum?: (
     albumId: string,
-    options?: { playlistIds?: string[] },
+    options?: MetadataCatalogFilterOptions,
   ) => Promise<MetadataGetAlbumResult | null>
   getBrowseCapabilities?: () => MetadataBrowseCapabilities
 }

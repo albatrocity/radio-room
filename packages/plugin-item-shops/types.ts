@@ -40,6 +40,17 @@ export const itemShopsConfigSchema = z.object({
    */
   showPhysicalMediaFrameInNowPlaying: z.boolean().default(false),
   /**
+   * Derive Record Store items from Navidrome playlists prefixed `[CD]`, `[LP]`,
+   * `[TAPE]`, or `[45]` (default on — today’s Physical Media behavior).
+   */
+  derivePrefixedPlaylistsAsPhysicalMedia: z.boolean().default(true),
+  /**
+   * Derive a Record Store item for every Navidrome album (format from year +
+   * song count). Off by default. Exact ordered clones of a derived prefixed
+   * playlist are omitted so the playlist SKU wins.
+   */
+  deriveAlbumsAsPhysicalMedia: z.boolean().default(false),
+  /**
    * Per-playlist overrides for derived Physical Media (name, price, rarity, icon, blankDisc).
    */
   physicalMediaOverrides: z.array(physicalMediaOverrideSchema).default([]),
@@ -54,4 +65,6 @@ export const defaultItemShopsConfig: ItemShopsConfig = {
   localLibraryGrants: [...DEFAULT_LOCAL_LIBRARY_GRANTS],
   physicalMediaOverrides: [],
   showPhysicalMediaFrameInNowPlaying: false,
+  derivePrefixedPlaylistsAsPhysicalMedia: true,
+  deriveAlbumsAsPhysicalMedia: false,
 }

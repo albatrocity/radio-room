@@ -41,33 +41,35 @@ export function createLocalMetadataApi(deps: {
 
   async function searchViaDaemon(
     query: string,
-    playlistIds?: string[],
+    options?: { playlistIds?: string[]; albumIds?: string[] },
   ): Promise<MetadataSourceTrack[]> {
     return withRpc(async (rpc) => {
       const result = (await rpc.call("search", {
         query,
         source: "local",
-        ...(playlistIds?.length ? { playlistIds } : {}),
+        ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
+        ...(options?.albumIds?.length ? { albumIds: options.albumIds } : {}),
       })) as MetadataSourceTrack[]
       return Array.isArray(result) ? result : []
     }, [])
   }
 
   return {
-    async search(query: string, options?: { playlistIds?: string[] }) {
-      return searchViaDaemon(query, options?.playlistIds)
+    async search(query: string, options?: { playlistIds?: string[]; albumIds?: string[] }) {
+      return searchViaDaemon(query, options)
     },
     async searchByParams(params) {
       const artist = params.artists?.[0]?.title ?? ""
       return searchViaDaemon([params.title, artist].filter(Boolean).join(" "))
     },
-    async findById(id: string, options?: { playlistIds?: string[] }) {
+    async findById(id: string, options?: { playlistIds?: string[]; albumIds?: string[] }) {
       const fromDaemon = await withRpc(async (rpc) => {
         try {
           const track = (await rpc.call("getTrack", {
             source: "local",
             trackId: id,
             ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
+            ...(options?.albumIds?.length ? { albumIds: options.albumIds } : {}),
           })) as MetadataSourceTrack | null
           return track?.id ? track : null
         } catch {
@@ -101,6 +103,7 @@ export function createLocalMetadataApi(deps: {
           offset: params?.offset,
           limit: params?.limit,
           ...(params?.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
+          ...(params?.albumIds?.length ? { albumIds: params.albumIds } : {}),
         })) as MetadataListArtistsResult
         return result?.items ? result : { items: [], total: 0 }
       }, { items: [], total: 0 })
@@ -113,32 +116,39 @@ export function createLocalMetadataApi(deps: {
           offset: params?.offset,
           limit: params?.limit,
           ...(params?.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
+          ...(params?.albumIds?.length ? { albumIds: params.albumIds } : {}),
         })) as MetadataListAlbumsResult
         return result?.items ? result : { items: [], total: 0 }
       }, { items: [], total: 0 })
     },
     async getArtist(
       artistId: string,
-      options?: { playlistIds?: string[] },
+      options?: { playlistIds?: string[]; albumIds?: string[] },
     ): Promise<MetadataGetArtistResult | null> {
       return withRpc(async (rpc) => {
         return (await rpc.call("getArtist", {
           source: "local",
           artistId,
           ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
+          ...(options?.albumIds?.length ? { albumIds: options.albumIds } : {}),
         })) as MetadataGetArtistResult | null
       }, null)
     },
     async getAlbum(
       albumId: string,
-      options?: { playlistIds?: string[] },
+      options?: { playlistIds?: string[]; albumIds?: string[] },
     ): Promise<MetadataGetAlbumResult | null> {
       const roomId = deps.roomId
       if (!roomId) return null
 
       return withCachedJson({
         cache: deps.cache,
-        key: metadataBrowseAlbumCacheKey(roomId, albumId, options?.playlistIds),
+        key: metadataBrowseAlbumCacheKey(
+          roomId,
+          albumId,
+          options?.playlistIds,
+          options?.albumIds,
+        ),
         ttlSeconds: LOCAL_BROWSE_CACHE_TTL_SEC,
         skipCache: (value) => value == null,
         fetch: () =>
@@ -147,6 +157,7 @@ export function createLocalMetadataApi(deps: {
               source: "local",
               albumId,
               ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
+              ...(options?.albumIds?.length ? { albumIds: options.albumIds } : {}),
             })) as MetadataGetAlbumResult | null
           }, null),
       })
@@ -191,23 +202,49 @@ export function registerLocalMetadataForRoom(params: {
   }
 }
 
-/** Ask the daemon which of the given Navidrome playlist ids contain a local track. */
+/** Ask the daemon which of the given Navidrome playlist/album ids contain a local track. */
 export async function checkLocalTrackPlaylistMembership(params: {
   rpc: BridgeRpcClient
   trackId: string
-  playlistIds: string[]
-}): Promise<string[]> {
-  if (!params.trackId || params.playlistIds.length === 0) return []
-  if (!(await params.rpc.isPresent())) return []
+  playlistIds?: string[]
+  albumIds?: string[]
+  /** When true, response.albumIds includes the track's Navidrome album id (for local SKU lookup). */
+  includeTrackAlbumId?: boolean
+  firstMatch?: boolean
+}): Promise<{ playlistIds: string[]; albumIds: string[] }> {
+  const playlistIds = Array.from(
+    new Set((params.playlistIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  )
+  const albumIds = Array.from(
+    new Set((params.albumIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  )
+  const empty = { playlistIds: [] as string[], albumIds: [] as string[] }
+  const includeTrackAlbumId = params.includeTrackAlbumId === true
+  if (!params.trackId || (playlistIds.length === 0 && albumIds.length === 0 && !includeTrackAlbumId)) {
+    return empty
+  }
+  if (!(await params.rpc.isPresent())) return empty
   try {
     const result = (await params.rpc.call("checkPlaylistMembership", {
       source: "local",
       trackId: params.trackId,
-      playlistIds: params.playlistIds,
+      ...(playlistIds.length ? { playlistIds } : {}),
+      ...(albumIds.length ? { albumIds } : {}),
+      ...(includeTrackAlbumId ? { includeTrackAlbumId: true } : {}),
+      ...(params.firstMatch === true ? { firstMatch: true } : {}),
     })) as unknown
-    return Array.isArray(result) ? result.map(String) : []
+    // Old daemons returned string[] of playlist ids only.
+    if (Array.isArray(result)) {
+      return { playlistIds: result.map(String), albumIds: [] }
+    }
+    if (!result || typeof result !== "object") return empty
+    const rec = result as { playlistIds?: unknown; albumIds?: unknown }
+    return {
+      playlistIds: Array.isArray(rec.playlistIds) ? rec.playlistIds.map(String) : [],
+      albumIds: Array.isArray(rec.albumIds) ? rec.albumIds.map(String) : [],
+    }
   } catch {
-    return []
+    return empty
   }
 }
 
@@ -244,6 +281,56 @@ export async function listLocalPlaylists(params: {
     })) as unknown
     if (!Array.isArray(result)) return []
     return result.map(mapLocalPlaylistRow).filter((x): x is LocalPlaylistListItem => x != null)
+  } catch {
+    return []
+  }
+}
+
+export type LocalLibraryAlbumListItem = {
+  id: string
+  name: string
+  artist?: string
+  year?: number
+  songCount?: number
+  /** Subsonic coverArt key only — never a data URI. */
+  coverArt?: string
+}
+
+/** Map a daemon `listLibraryAlbums` row; extra/missing fields are ignored (stale DJ Mac). */
+export function mapLocalLibraryAlbumRow(row: unknown): LocalLibraryAlbumListItem | null {
+  if (!row || typeof row !== "object") return null
+  const r = row as Record<string, unknown>
+  const id = r.id != null ? String(r.id) : ""
+  if (!id) return null
+  const coverArt = typeof r.coverArt === "string" ? r.coverArt.trim() : ""
+  // Fail closed on data URIs: listLibraryAlbums must only expose cover keys.
+  const safeCover = coverArt && !coverArt.startsWith("data:") ? coverArt : ""
+  return {
+    id,
+    name: r.name != null ? String(r.name) : id,
+    ...(typeof r.artist === "string" && r.artist.trim() ? { artist: r.artist.trim() } : {}),
+    ...(typeof r.year === "number" ? { year: r.year } : {}),
+    ...(typeof r.songCount === "number" ? { songCount: r.songCount } : {}),
+    ...(safeCover ? { coverArt: safeCover } : {}),
+  }
+}
+
+/**
+ * List Navidrome albums on the connected bridge daemon (album-shelf SKU derivation).
+ * Returns [] when offline / unknown method (old DJ Mac pack).
+ */
+export async function listLibraryAlbums(params: {
+  rpc: BridgeRpcClient
+}): Promise<LocalLibraryAlbumListItem[]> {
+  if (!(await params.rpc.isPresent())) return []
+  try {
+    const result = (await params.rpc.call("listLibraryAlbums", {
+      source: "local",
+    })) as unknown
+    if (!Array.isArray(result)) return []
+    return result
+      .map(mapLocalLibraryAlbumRow)
+      .filter((x): x is LocalLibraryAlbumListItem => x != null)
   } catch {
     return []
   }
@@ -295,6 +382,26 @@ export async function getLocalPlaylistCoverArt(params: {
     const result = (await params.rpc.call("getPlaylistCoverArt", {
       source: "local",
       playlistIds,
+      variants: ["sm", "lg"],
+    })) as unknown
+    return normalizePlaylistCoverArtResult(result)
+  } catch {
+    return {}
+  }
+}
+
+/** Album cover art as data URIs keyed by album id (same variant shape as playlists). */
+export async function getLocalAlbumCoverArt(params: {
+  rpc: BridgeRpcClient
+  albumIds: string[]
+}): Promise<Record<string, PlaylistCoverArtVariants>> {
+  const albumIds = Array.from(new Set(params.albumIds.map((id) => id.trim()).filter(Boolean)))
+  if (albumIds.length === 0) return {}
+  if (!(await params.rpc.isPresent())) return {}
+  try {
+    const result = (await params.rpc.call("getAlbumCoverArt", {
+      source: "local",
+      albumIds,
       variants: ["sm", "lg"],
     })) as unknown
     return normalizePlaylistCoverArtResult(result)
@@ -380,6 +487,75 @@ export async function listLocalPlaylistTracks(params: {
 }): Promise<MetadataSourceTrack[]> {
   const result = await fetchLocalPlaylistTracks(params)
   return result.ok ? result.tracks : []
+}
+
+export type LocalPlaylistTrackIdRow = { id: string; albumId?: string }
+
+/**
+ * Lean ordered track ids (+ albumId when present) for a playlist.
+ * No per-track cover/tag mapping — for Physical Media de-dup. [] on old packs.
+ */
+export async function listLocalPlaylistTrackIds(params: {
+  rpc: BridgeRpcClient
+  playlistId: string
+}): Promise<LocalPlaylistTrackIdRow[]> {
+  const playlistId = params.playlistId.trim()
+  if (!playlistId) return []
+  if (!(await params.rpc.isPresent())) return []
+  try {
+    const result = (await params.rpc.call("listPlaylistTrackIds", {
+      source: "local",
+      playlistId,
+    })) as unknown
+    if (!Array.isArray(result)) return []
+    const out: LocalPlaylistTrackIdRow[] = []
+    for (const row of result) {
+      if (!row || typeof row !== "object") continue
+      const r = row as { id?: unknown; albumId?: unknown }
+      const id = r.id != null ? String(r.id).trim() : ""
+      if (!id) continue
+      const albumId = r.albumId != null ? String(r.albumId).trim() : ""
+      out.push(albumId ? { id, albumId } : { id })
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Lean ordered track ids for an album (membership / getAlbum songs).
+ * Falls back to getAlbum.tracks on old DJ Mac packs. [] on failure.
+ */
+export async function listLocalAlbumTrackIds(params: {
+  rpc: BridgeRpcClient
+  albumId: string
+}): Promise<string[]> {
+  const albumId = params.albumId.trim()
+  if (!albumId) return []
+  if (!(await params.rpc.isPresent())) return []
+  try {
+    const lean = (await params.rpc.call("listAlbumTrackIds", {
+      source: "local",
+      albumId,
+    })) as unknown
+    if (Array.isArray(lean)) {
+      return lean.map((x) => String(x ?? "").trim()).filter(Boolean)
+    }
+  } catch {
+    // Old pack: fall through to getAlbum
+  }
+  try {
+    const result = (await params.rpc.call("getAlbum", {
+      source: "local",
+      albumId,
+    })) as { tracks?: Array<{ id?: string }> } | null
+    const tracks = result?.tracks
+    if (!Array.isArray(tracks)) return []
+    return tracks.map((t) => String(t.id ?? "").trim()).filter(Boolean)
+  } catch {
+    return []
+  }
 }
 
 const TRACK_PREVIEW_TIMEOUT_MS = 20000

@@ -1,0 +1,33 @@
+import { describe, expect, it } from "vitest"
+import { collectInventoryAndModifierDefinitionIds } from "./collectUserGameStateDefinitionIds"
+import type { UserGameState, UserInventory } from "@repo/types"
+
+describe("collectInventoryAndModifierDefinitionIds", () => {
+  it("returns empty for null inventory and state", () => {
+    expect(collectInventoryAndModifierDefinitionIds(null, null)).toEqual([])
+  })
+
+  it("collects inventory and modifier definition ids", () => {
+    const inventory = {
+      userId: "u1",
+      items: [
+        { itemId: "a", definitionId: "item-shops:beer", quantity: 1, acquiredAt: 1 },
+        { itemId: "b", definitionId: "item-shops:beer", quantity: 2, acquiredAt: 1 },
+        { itemId: "c", definitionId: "item-shops:pm-al-1", quantity: 1, acquiredAt: 1 },
+      ],
+      maxSlots: 10,
+      maxCollectionSlots: 10,
+    } as UserInventory
+    const state = {
+      userId: "u1",
+      attributes: {},
+      modifiers: [{ id: "m1", itemDefinitionId: "item-shops:buff" }],
+    } as unknown as UserGameState
+
+    expect(collectInventoryAndModifierDefinitionIds(inventory, state).sort()).toEqual([
+      "item-shops:beer",
+      "item-shops:buff",
+      "item-shops:pm-al-1",
+    ])
+  })
+})

@@ -104,6 +104,48 @@ describe("localLibraryGrants", () => {
       mode: "playlists",
       playlistIds: ["pl-bb", "pl-poetry"],
       playlistKeys: [BB, POETRY],
+      albumIds: [],
+      albumKeys: [],
+    })
+  })
+
+  it("unions mapped album ids for album-scoped Physical Media", () => {
+    const albumShortId = "pm-al-loveless"
+    const catalog: ReturnType<typeof buildGrantCatalogEntries> = [
+      {
+        definition: {
+          shortId: albumShortId,
+          name: "LP: Loveless",
+          description: "",
+          icon: "Disc3",
+          stackable: true,
+          maxStack: 5,
+          tradeable: true,
+          consumable: false,
+          coinValue: 20,
+          rarity: "uncommon",
+          slotPool: "collection",
+        },
+        localLibraryGrant: {
+          scope: "album",
+          albumKey: albumShortId,
+          redemption: "durable",
+        },
+      },
+    ]
+    const scope = resolveLocalCatalogScope({
+      pluginName: PLUGIN,
+      items: [stack(albumShortId)],
+      grantCatalog: catalog,
+      localLibraryPlaylists: {},
+      localLibraryAlbums: { [albumShortId]: "al-loveless" },
+    })
+    expect(scope).toEqual({
+      mode: "playlists",
+      playlistIds: [],
+      playlistKeys: [],
+      albumIds: ["al-loveless"],
+      albumKeys: [albumShortId],
     })
   })
 

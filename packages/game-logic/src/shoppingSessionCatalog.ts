@@ -133,13 +133,14 @@ export type ShopCatalogEntry = {
 export type LocalLibraryGrant =
   | { scope: "library"; redemption?: "durable" | "perQueue" }
   | { scope: "playlist"; playlistKey: string; redemption?: "durable" | "perQueue" }
+  | { scope: "album"; albumKey: string; redemption?: "durable" | "perQueue" }
 
 export type ItemCatalogEntry = {
   definition: Omit<ItemDefinition, "id" | "sourcePlugin">
   /**
    * When set, holding this item can unlock restricted Local (library) access.
-   * `library` = full catalog; `playlist` = scoped to a Navidrome playlist key
-   * resolved via Item Shops `localLibraryPlaylists` config.
+   * `library` = full catalog; `playlist` / `album` = scoped to a Navidrome
+   * playlist or album key resolved via Item Shops derived maps / config.
    */
   localLibraryGrant?: LocalLibraryGrant
 }

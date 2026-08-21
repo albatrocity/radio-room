@@ -93,6 +93,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   private shopping!: ShoppingSessionHelper
 
   private readonly localLibrary = new LocalLibraryModule(PLUGIN_NAME, () => this.context ?? undefined)
+  /** Bumped on each local-library refresh so in-flight artwork hydrates abort. */
+  private albumArtworkHydrateGeneration = 0
 
   /** Static + config + derived grant catalog. */
   private get grantCatalog(): ItemCatalogEntry[] {
@@ -105,11 +107,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   async register(context: import("@repo/types").PluginContext): Promise<void> {
     await super.register(context)
     const config = await this.getConfig()
-    await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [])
+    await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [], {
+      derivePrefixedPlaylists: config?.derivePrefixedPlaylistsAsPhysicalMedia ?? true,
+      deriveAlbums: config?.deriveAlbumsAsPhysicalMedia ?? false,
+    })
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
     this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog)
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
+    this.scheduleAlbumArtworkHydrate()
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
     this.on("MEDIA_BRIDGE_STATUS_CHANGED", this.handleMediaBridgeStatusChanged.bind(this))
@@ -125,11 +131,39 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   private async applyLocalLibraryGrantConfig(): Promise<void> {
     if (!this.context || !this.shopping) return
     const config = await this.getConfig()
-    await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [])
+    await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [], {
+      derivePrefixedPlaylists: config?.derivePrefixedPlaylistsAsPhysicalMedia ?? true,
+      deriveAlbums: config?.deriveAlbumsAsPhysicalMedia ?? false,
+    })
+    await this.resyncDerivedCatalogs()
+    this.scheduleAlbumArtworkHydrate()
+  }
+
+  /** Re-apply grant + derived catalogs into shopping + inventory definitions. */
+  private async resyncDerivedCatalogs(): Promise<void> {
+    if (!this.context || !this.shopping) return
+    const config = await this.getConfig()
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
     this.shopping.replaceCatalogs({ itemCatalog, shopCatalog })
-    this.context.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
+    await this.context.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
+  }
+
+  /** Non-blocking album sleeve fill after catalog-mode refresh (perf F3). */
+  private scheduleAlbumArtworkHydrate(): void {
+    const generation = ++this.albumArtworkHydrateGeneration
+    void this.localLibrary
+      .hydrateMissingAlbumArtwork({
+        batchSize: 24,
+        shouldContinue: () => generation === this.albumArtworkHydrateGeneration,
+        onBatch: async () => {
+          if (generation !== this.albumArtworkHydrateGeneration) return
+          await this.resyncDerivedCatalogs()
+        },
+      })
+      .catch((err) => {
+        console.warn("[item-shops] album artwork hydrate failed:", err)
+      })
   }
 
   private effectiveCatalogForGive(): ItemCatalogEntry[] {
@@ -396,13 +430,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         {
           type: "text-block",
           content:
-            "Record Store (Physical Media) only appears in Media Bridge rooms. Prefix Navidrome playlists with [CD], [LP], [TAPE], or [45] to stock it. Set Library to “Admins + plugin grants only” under Content → Media sources if you want Local access to flow through held items.",
+            "Record Store (Physical Media) only appears in Media Bridge rooms. Stock it from prefixed Navidrome playlists ([CD], [LP], [TAPE], [45]) and/or every album in the library (toggles below). When both are on, an album that exactly matches a derived playlist’s track list (same songs, same order) is skipped so the playlist SKU wins. Set Library to “Admins + plugin grants only” under Content → Media sources if you want Local access to flow through held items.",
           variant: "info",
         },
         "enabled",
         "enabledShopIds",
         "assignShopOnJoin",
         "showPhysicalMediaFrameInNowPlaying",
+        "derivePrefixedPlaylistsAsPhysicalMedia",
+        "deriveAlbumsAsPhysicalMedia",
         "localLibraryGrants",
         "physicalMediaOverrides",
         {
@@ -489,6 +525,20 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           label: "Show Physical Media sleeves in the room",
           description:
             "When a Local track lives on a derived record (LP, CD, cassette, or 45), Now Playing, the Queue, and the Playlist use that sleeve or case. If the record has no cover, the track's album art fills the frame.",
+          showWhen: { field: "enabled", value: true },
+        },
+        derivePrefixedPlaylistsAsPhysicalMedia: {
+          type: "boolean",
+          label: "Stock Record Store from prefixed playlists",
+          description:
+            "Derive Physical Media from Navidrome playlists named with [CD], [LP], [TAPE], or [45]. Turn off when you only want album-catalog items.",
+          showWhen: { field: "enabled", value: true },
+        },
+        deriveAlbumsAsPhysicalMedia: {
+          type: "boolean",
+          label: "Stock Record Store from every album",
+          description:
+            "Create a Physical Media item for each Navidrome album (format inferred from year and track count). Albums that exactly match a derived prefixed playlist are omitted. Requires a current DJ Mac Media Bridge pack.",
           showWhen: { field: "enabled", value: true },
         },
         localLibraryGrants: {
@@ -862,7 +912,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     userId: string
   }): Promise<
     | { mode: "unrestricted" }
-    | { mode: "playlists"; playlistIds: string[] }
+    | { mode: "playlists"; playlistIds: string[]; albumIds: string[] }
     | "abstain"
   > {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
@@ -874,6 +924,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   async listPhysicalMediaItems(params: { roomId: string; userId: string }): Promise<PhysicalMediaItem[]> {
+    const shortIds = await this.localLibrary.heldAlbumPhysicalMediaShortIds(params.userId)
+    if (shortIds.length > 0) {
+      const patched = await this.localLibrary.ensureAlbumArtworkForShortIds(shortIds)
+      if (patched) await this.resyncDerivedCatalogs()
+    }
     return this.localLibrary.listPhysicalMediaItems(params.userId)
   }
 
@@ -881,7 +936,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+  }): Promise<import("@repo/types").ResolvedPhysicalMediaItem | null> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
     return this.localLibrary.resolveHeldPhysicalMediaItem(
       params.userId,
@@ -894,7 +949,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+  }): Promise<import("@repo/types").ResolvedPhysicalMediaItem | null> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
     const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     let shopOfferShortIds: string[] | undefined
@@ -983,13 +1038,63 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     }
 
     const instance = await this.shopping.getInstance(userId)
+    if (instance?.offers.length) {
+      const patched = await this.localLibrary.ensureAlbumArtworkForShortIds(
+        instance.offers.map((o) => o.shortId),
+      )
+      if (patched) await this.resyncDerivedCatalogs()
+    }
+
+    // Wire itemDefinitions may predate lazy sleeve fill — merge derived catalog art.
+    const mergedDefs = this.mergeDefinitionsWithDerived(ctx.itemDefinitions)
+
     return {
-      currentShopInstance: this.enrichOfferRarity(instance, ctx.itemDefinitions),
+      currentShopInstance: this.enrichOfferArtworkAndRarity(instance, mergedDefs),
     }
   }
 
-  /** Hydrate legacy persisted offers that omit `rarity`. */
-  private enrichOfferRarity(
+  private mergeDefinitionsWithDerived(itemDefinitions: ItemDefinition[]): ItemDefinition[] {
+    const byId = new Map(itemDefinitions.map((d) => [d.id, { ...d }]))
+    for (const entry of this.localLibrary.derivedPhysicalMedia) {
+      const id = `${this.name}:${entry.definition.shortId}`
+      const existing = byId.get(id)
+      if (!existing) {
+        byId.set(id, {
+          ...entry.definition,
+          id,
+          sourcePlugin: this.name,
+        } as ItemDefinition)
+        continue
+      }
+      byId.set(id, {
+        ...existing,
+        ...entry.definition,
+        id,
+        sourcePlugin: this.name,
+      } as ItemDefinition)
+    }
+    return [...byId.values()]
+  }
+
+  /**
+   * Shop offer rows need their ItemDefinitions on the wire for `detailView`
+   * (CurrentShopOffers). Inventory/modifier ids are collected by core.
+   */
+  async referencedItemDefinitionIdsForUser(userId: string): Promise<string[]> {
+    if (!this.shopping) return []
+    if (!(await this.shopping.isActive())) return []
+    const instance = await this.shopping.getInstance(userId)
+    if (!instance) return []
+    const ids = new Set<string>()
+    for (const offer of instance.offers) {
+      const shortId = offer.shortId?.trim()
+      if (shortId) ids.add(`${this.name}:${shortId}`)
+    }
+    return [...ids]
+  }
+
+  /** Hydrate legacy persisted offers that omit `rarity` / sleeve URLs. */
+  private enrichOfferArtworkAndRarity(
     instance: ShoppingSessionInstance | null,
     itemDefinitions: ItemDefinition[],
   ): ShoppingSessionInstance | null {
@@ -1002,10 +1107,16 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     }
     return {
       ...instance,
-      offers: instance.offers.map((offer) => ({
-        ...offer,
-        rarity: offer.rarity ?? resolveItemRarity(byShortId.get(offer.shortId) ?? {}),
-      })),
+      offers: instance.offers.map((offer) => {
+        const def = byShortId.get(offer.shortId)
+        return {
+          ...offer,
+          rarity: offer.rarity ?? resolveItemRarity(def ?? {}),
+          imageUrl: offer.imageUrl ?? def?.imageUrl,
+          imageUrlLarge: offer.imageUrlLarge ?? def?.imageUrlLarge,
+          artworkFrame: offer.artworkFrame ?? def?.artworkFrame,
+        }
+      }),
     }
   }
 

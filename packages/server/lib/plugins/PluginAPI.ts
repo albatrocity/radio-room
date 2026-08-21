@@ -36,6 +36,18 @@ function playlistArtworkImageId(
   return variant === "lg" ? `${base}-lg` : base
 }
 
+/** Stable per-album image id, versioned by artwork content. */
+function albumArtworkImageId(
+  albumId: string,
+  base64Data: string,
+  variant: "sm" | "lg" = "sm",
+): string {
+  const safeId = albumId.replace(/[^a-zA-Z0-9_-]/g, "-")
+  const hash = createHash("md5").update(base64Data).digest("hex").slice(0, 8)
+  const base = `al-cover-${safeId}-${hash}`
+  return variant === "lg" ? `${base}-lg` : base
+}
+
 async function storePlaylistCover(params: {
   roomId: string
   playlistId: string
@@ -54,6 +66,35 @@ async function storePlaylistCover(params: {
   const parsed = parseDataUri(params.dataUri)
   if (!parsed) return undefined
   const imageId = playlistArtworkImageId(params.playlistId, parsed.base64Data, params.variant)
+  const stored = await params.storeImage({
+    roomId: params.roomId,
+    imageId,
+    base64Data: parsed.base64Data,
+    mimeType: parsed.mimeType,
+    context: params.context,
+  })
+  if (!stored.success) return undefined
+  return `${params.apiUrl}/api/rooms/${params.roomId}/images/${imageId}`
+}
+
+async function storeAlbumCover(params: {
+  roomId: string
+  albumId: string
+  dataUri: string
+  variant: "sm" | "lg"
+  apiUrl: string
+  storeImage: (args: {
+    roomId: string
+    imageId: string
+    base64Data: string
+    mimeType: string
+    context: AppContext
+  }) => Promise<{ success: boolean }>
+  context: AppContext
+}): Promise<string | undefined> {
+  const parsed = parseDataUri(params.dataUri)
+  if (!parsed) return undefined
+  const imageId = albumArtworkImageId(params.albumId, parsed.base64Data, params.variant)
   const stored = await params.storeImage({
     roomId: params.roomId,
     imageId,
@@ -466,20 +507,43 @@ export class PluginAPIImpl implements PluginAPI {
   async checkLocalTrackPlaylistMembership(params: {
     roomId: string
     trackId: string
-    playlistIds: string[]
-  }): Promise<string[]> {
-    const { roomId, trackId, playlistIds } = params
-    if (!trackId || playlistIds.length === 0) return []
+    playlistIds?: string[]
+    albumIds?: string[]
+    includeTrackAlbumId?: boolean
+    firstMatch?: boolean
+  }): Promise<{ playlistIds: string[]; albumIds: string[] }> {
+    const {
+      roomId,
+      trackId,
+      playlistIds = [],
+      albumIds = [],
+      includeTrackAlbumId = false,
+      firstMatch = false,
+    } = params
+    const empty = { playlistIds: [] as string[], albumIds: [] as string[] }
+    if (
+      !trackId ||
+      (playlistIds.length === 0 && albumIds.length === 0 && !includeTrackAlbumId)
+    ) {
+      return empty
+    }
     try {
       const { getBridgeRpcClient, checkLocalTrackPlaylistMembership } = await import(
         "@repo/adapter-bridge"
       )
       const rpc = getBridgeRpcClient(roomId)
-      if (!rpc) return []
-      return await checkLocalTrackPlaylistMembership({ rpc, trackId, playlistIds })
+      if (!rpc) return empty
+      return await checkLocalTrackPlaylistMembership({
+        rpc,
+        trackId,
+        playlistIds,
+        albumIds,
+        includeTrackAlbumId,
+        firstMatch,
+      })
     } catch (e) {
       console.warn("[PluginAPI] checkLocalTrackPlaylistMembership failed:", e)
-      return []
+      return empty
     }
   }
 
@@ -553,6 +617,104 @@ export class PluginAPIImpl implements PluginAPI {
     }
   }
 
+  /**
+   * List Navidrome albums for Physical Media album-catalog derivation.
+   * Returns [] when offline / old DJ Mac pack (unknown RPC).
+   */
+  async listLibraryAlbums(
+    roomId: string,
+  ): Promise<
+    Array<{
+      id: string
+      name: string
+      artist?: string
+      year?: number
+      songCount?: number
+      coverArt?: string
+    }>
+  > {
+    try {
+      const { getBridgeRpcClient, listLibraryAlbums } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return []
+      return await listLibraryAlbums({ rpc })
+    } catch (e) {
+      console.warn("[PluginAPI] listLibraryAlbums failed:", e)
+      return []
+    }
+  }
+
+  /**
+   * Album cover art URLs re-hosted in the room image store (`al-cover-…`).
+   */
+  async getLocalAlbumArtwork(
+    roomId: string,
+    albumIds: string[],
+  ): Promise<Record<string, LocalPlaylistArtwork>> {
+    const ids = [...new Set(albumIds.map((id) => id.trim()).filter(Boolean))]
+    if (ids.length === 0) return {}
+    try {
+      const { getBridgeRpcClient, getLocalAlbumCoverArt } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return {}
+      const covers = await getLocalAlbumCoverArt({ rpc, albumIds: ids })
+      const { storeImage } = await import("../../operations/data")
+      const apiUrl = this.context.apiUrl || ""
+      const urls: Record<string, LocalPlaylistArtwork> = {}
+      for (const [albumId, variants] of Object.entries(covers)) {
+        const art: LocalPlaylistArtwork = {}
+        if (variants.sm) {
+          const url = await storeAlbumCover({
+            roomId,
+            albumId,
+            dataUri: variants.sm,
+            variant: "sm",
+            apiUrl,
+            storeImage,
+            context: this.context,
+          })
+          if (url) art.imageUrl = url
+        }
+        if (variants.lg) {
+          const url = await storeAlbumCover({
+            roomId,
+            albumId,
+            dataUri: variants.lg,
+            variant: "lg",
+            apiUrl,
+            storeImage,
+            context: this.context,
+          })
+          if (url) art.imageUrlLarge = url
+        }
+        if (!art.imageUrl && art.imageUrlLarge) art.imageUrl = art.imageUrlLarge
+        if (art.imageUrl || art.imageUrlLarge) urls[albumId] = art
+      }
+      return urls
+    } catch (e) {
+      console.warn("[PluginAPI] getLocalAlbumArtwork failed:", e)
+      return {}
+    }
+  }
+
+  /**
+   * Ordered track ids for a Navidrome album (de-dup / lean listing). Empty on failure.
+   * Prefers `listAlbumTrackIds` RPC; falls back to getAlbum on old packs.
+   */
+  async listLocalAlbumTrackIds(roomId: string, albumId: string): Promise<string[]> {
+    const id = albumId.trim()
+    if (!id) return []
+    try {
+      const { getBridgeRpcClient, listLocalAlbumTrackIds } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return []
+      return await listLocalAlbumTrackIds({ rpc, albumId: id })
+    } catch (e) {
+      console.warn("[PluginAPI] listLocalAlbumTrackIds failed:", e)
+      return []
+    }
+  }
+
   async invalidateLocalLibraryCache(roomId: string): Promise<boolean> {
     try {
       const { metadataBrowseRoomPrefix } = await import("@repo/utils")
@@ -581,6 +743,25 @@ export class PluginAPIImpl implements PluginAPI {
       return await listLocalPlaylistTracks({ rpc, playlistId })
     } catch (e) {
       console.warn("[PluginAPI] listLocalPlaylistTracks failed:", e)
+      return []
+    }
+  }
+
+  /**
+   * Ordered playlist track ids (+ albumId) without full track mapping (de-dup).
+   * [] when offline / old DJ Mac pack.
+   */
+  async listLocalPlaylistTrackIds(
+    roomId: string,
+    playlistId: string,
+  ): Promise<Array<{ id: string; albumId?: string }>> {
+    try {
+      const { getBridgeRpcClient, listLocalPlaylistTrackIds } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return []
+      return await listLocalPlaylistTrackIds({ rpc, playlistId })
+    } catch (e) {
+      console.warn("[PluginAPI] listLocalPlaylistTrackIds failed:", e)
       return []
     }
   }

@@ -101,16 +101,18 @@ export class MetadataSourceAccessService {
   }
 
   /**
-   * Playlist ids to pass into Local search/browse when the user has shelf-scoped grants.
+   * Catalog shelves to pass into Local search/browse when the user has scoped grants.
    * Returns undefined for full library (admin, open, unrestricted coupon, or no filter).
+   * Either playlistIds or albumIds (or both) may be non-empty; empty playlistIds alone
+   * with non-empty albumIds is still a filter (must not fall through to unrestricted).
    *
    * Pass `room` when already loaded; non-bridge rooms then cost nothing.
    */
-  async getLocalCatalogPlaylistIds(
+  async getLocalCatalogShelves(
     roomId: string,
     userId: string,
     preloadedRoom?: Room | null,
-  ): Promise<string[] | undefined> {
+  ): Promise<{ playlistIds: string[]; albumIds: string[] } | undefined> {
     const room = preloadedRoom ?? (await findRoom({ context: this.context, roomId }))
     if (!room || room.playbackControllerId !== "bridge") return undefined
 
@@ -131,11 +133,30 @@ export class MetadataSourceAccessService {
       const filter = await registry.resolveLocalLibraryCatalogFilter({ roomId, userId })
       if (!filter) return undefined
       if (filter.mode === "unrestricted") return undefined
-      return filter.playlistIds.length > 0 ? filter.playlistIds : undefined
+      const playlistIds = filter.playlistIds.filter((id) => id.trim())
+      const albumIds = (filter.albumIds ?? []).filter((id) => id.trim())
+      if (playlistIds.length === 0 && albumIds.length === 0) return undefined
+      return { playlistIds, albumIds }
     } catch (e) {
       console.warn("[MetadataSourceAccess] local catalog filter failed:", e)
       return undefined
     }
+  }
+
+  /** @deprecated Prefer {@link getLocalCatalogShelves}. Playlist-only view for callers not yet album-aware. */
+  async getLocalCatalogPlaylistIds(
+    roomId: string,
+    userId: string,
+    preloadedRoom?: Room | null,
+  ): Promise<string[] | undefined> {
+    const shelves = await this.getLocalCatalogShelves(roomId, userId, preloadedRoom)
+    if (!shelves) return undefined
+    // Album-only shelves must not look like "no filter" — return empty array is wrong for
+    // playlist-only callers; they should migrate to getLocalCatalogShelves.
+    if (shelves.playlistIds.length === 0 && shelves.albumIds.length > 0) {
+      return []
+    }
+    return shelves.playlistIds.length > 0 ? shelves.playlistIds : undefined
   }
 
   private async anyPluginGrants(params: {

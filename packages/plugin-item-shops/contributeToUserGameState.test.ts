@@ -136,3 +136,67 @@ describe("ItemShopsPlugin.contributeToUserGameState", () => {
     expect(bag?.currentShopInstance).toBeNull()
   })
 })
+
+describe("ItemShopsPlugin.referencedItemDefinitionIdsForUser", () => {
+  let plugin: ItemShopsPlugin
+  let storage: ReturnType<typeof createStorage>
+
+  beforeEach(() => {
+    storage = createStorage()
+    plugin = new ItemShopsPlugin({ enabled: true })
+    const context = {
+      roomId: "room-1",
+      storage,
+      api: {},
+      game: {},
+      inventory: {},
+    } as any
+    ;(plugin as any).context = context
+    ;(plugin as any).shopping = new ShoppingSessionHelper(
+      "item-shops",
+      context,
+      ITEM_CATALOG,
+      SHOP_CATALOG,
+    )
+  })
+
+  it("returns empty when shopping inactive", async () => {
+    storage._setActive(null)
+    await expect(plugin.referencedItemDefinitionIdsForUser("u1")).resolves.toEqual([])
+  })
+
+  it("returns offer definition ids for the user's open shop", async () => {
+    storage._setActive("true")
+    storage._setInstance("u1", {
+      shopId: "shop-a",
+      shopName: "Corner",
+      offers: [
+        {
+          offerId: 0,
+          shortId: "cold-beer",
+          name: "Cold Beer",
+          description: "x",
+          icon: "Beer",
+          price: 10,
+          available: true,
+          rarity: "common",
+        },
+        {
+          offerId: 1,
+          shortId: "pm-al-1",
+          name: "CD: Album",
+          description: "x",
+          icon: "Disc3",
+          price: 20,
+          available: true,
+          rarity: "uncommon",
+        },
+      ],
+      openedAt: 1,
+    })
+    await expect(plugin.referencedItemDefinitionIdsForUser("u1")).resolves.toEqual([
+      "item-shops:cold-beer",
+      "item-shops:pm-al-1",
+    ])
+  })
+})

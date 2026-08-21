@@ -127,6 +127,8 @@ function setup(options?: {
   removeItemSucceeds?: boolean
   playlistIdBargainBin?: string
   membershipPlaylistIds?: string[]
+  membershipAlbumIds?: string[]
+  derivedAlbum?: { shortId: string; albumId: string; imageUrl?: string }
 }) {
   const enabled = options?.enabled ?? true
   const hasLibraryGrant = options?.hasLibraryGrant ?? false
@@ -177,9 +179,10 @@ function setup(options?: {
     sendSystemMessage: vi.fn(async () => {}),
     getUsers: vi.fn(async () => [{ userId: "u1", username: "U1" }]),
     getUsersByIds: vi.fn(async (ids: string[]) => ids.map((id) => ({ userId: id, username: id }))),
-    checkLocalTrackPlaylistMembership: vi.fn(
-      async () => options?.membershipPlaylistIds ?? ["nd-bb"],
-    ),
+    checkLocalTrackPlaylistMembership: vi.fn(async () => ({
+      playlistIds: options?.membershipPlaylistIds ?? ["nd-bb"],
+      albumIds: options?.membershipAlbumIds ?? [],
+    })),
     listLocalPlaylists: vi.fn(async () => []),
   }
 
@@ -206,6 +209,7 @@ function setup(options?: {
       localLibrary: {
         derivedPhysicalMedia: ItemCatalogEntry[]
         derivedPlaylistMap: Record<string, string>
+        derivedAlbumMap: Record<string, string>
         applyConfig: (g: typeof grants) => {
           itemCatalog: ItemCatalogEntry[]
           shopCatalog: unknown
@@ -231,6 +235,33 @@ function setup(options?: {
         : DERIVED_PM,
     ]
     localLibrary.derivedPlaylistMap = { [PM_SHORT_ID]: "nd-lp" }
+  }
+  if (options?.derivedAlbum) {
+    const albumShort = options.derivedAlbum.shortId
+    const albumEntry: ItemCatalogEntry = {
+      definition: {
+        shortId: albumShort,
+        name: "CD: Album SKU",
+        description: "",
+        icon: "Disc3",
+        artworkFrame: "jewel-case",
+        stackable: true,
+        maxStack: 5,
+        tradeable: true,
+        consumable: false,
+        coinValue: 20,
+        rarity: "uncommon",
+        slotPool: "collection",
+        ...(options.derivedAlbum.imageUrl ? { imageUrl: options.derivedAlbum.imageUrl } : {}),
+      },
+      localLibraryGrant: {
+        scope: "album",
+        albumKey: albumShort,
+        redemption: "durable",
+      },
+    }
+    localLibrary.derivedPhysicalMedia = [...localLibrary.derivedPhysicalMedia, albumEntry]
+    localLibrary.derivedAlbumMap = { [albumShort]: options.derivedAlbum.albumId }
   }
   const { itemCatalog, shopCatalog } = localLibrary.applyConfig(grants)
   ;(plugin as unknown as { shopping: ShoppingSessionHelper }).shopping = new ShoppingSessionHelper(
@@ -427,6 +458,8 @@ describe("ItemShopsPlugin local library grants", () => {
         roomId: ROOM,
         trackId: "local-track-1",
         playlistIds: ["nd-lp"],
+        includeTrackAlbumId: false,
+        firstMatch: true,
       })
     })
 
@@ -451,7 +484,37 @@ describe("ItemShopsPlugin local library grants", () => {
         roomId: ROOM,
         trackId: "local-track-1",
         playlistIds: ["nd-lp"],
+        includeTrackAlbumId: false,
+        firstMatch: true,
       })
+    })
+
+    it("attaches an album-derived frame via includeTrackAlbumId (no albumIds list)", async () => {
+      const { plugin, api } = setup({
+        membershipPlaylistIds: [],
+        membershipAlbumIds: ["al-99"],
+        derivedAlbum: {
+          shortId: "pm-al-99",
+          albumId: "al-99",
+          imageUrl: "/album-cover.jpg",
+        },
+      })
+      await expect(plugin.augmentNowPlaying(localTrack)).resolves.toEqual({
+        physicalMediaFrame: {
+          imageUrl: "/album-cover.jpg",
+          artworkFrame: "jewel-case",
+        },
+      })
+      expect(api.checkLocalTrackPlaylistMembership).toHaveBeenCalledWith({
+        roomId: ROOM,
+        trackId: "local-track-1",
+        playlistIds: [],
+        includeTrackAlbumId: true,
+        firstMatch: true,
+      })
+      expect(api.checkLocalTrackPlaylistMembership).not.toHaveBeenCalledWith(
+        expect.objectContaining({ albumIds: expect.anything() }),
+      )
     })
 
     it("skips non-Local tracks", async () => {
@@ -509,6 +572,7 @@ describe("ItemShopsPlugin local library grants", () => {
       await expect(
         plugin.resolvePhysicalMediaItem({ roomId: ROOM, userId: "u1", mediaKey: PM_SHORT_ID }),
       ).resolves.toEqual({
+        kind: "playlist",
         playlistId: "nd-lp",
         item: expect.objectContaining({ mediaKey: PM_SHORT_ID, name: "LP: Loveless" }),
       })

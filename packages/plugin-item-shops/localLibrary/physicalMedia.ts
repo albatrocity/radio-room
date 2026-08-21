@@ -42,6 +42,158 @@ export function physicalMediaShortId(playlistId: string): string {
   return `pm-${safe}`
 }
 
+/** Album-derived Physical Media shortId — distinct from playlist `pm-{id}`. */
+export function physicalMediaAlbumShortId(albumId: string): string {
+  const safe = albumId.trim().replace(/[^a-zA-Z0-9_-]/g, "-")
+  return `pm-al-${safe}`
+}
+
+export type PhysicalMediaFormat = {
+  format: string
+  icon: LucideIconName
+  artworkFrame: ArtworkFrame
+}
+
+/**
+ * Infer physical format from release year and track count.
+ * Short releases (≤3 tracks) are 45s; then year bands: &lt;1983 LP, &lt;1991 cassette, else CD.
+ */
+export function inferPhysicalMediaFormat(
+  year: number | undefined,
+  songCount: number,
+): PhysicalMediaFormat {
+  if (songCount > 0 && songCount <= 3) {
+    return {
+      format: "45",
+      icon: "DiscAlbum",
+      artworkFrame: "die-cut-jacket",
+    }
+  }
+  if (year != null && year < 1983) {
+    return {
+      format: "LP",
+      icon: "Disc3",
+      artworkFrame: "record-jacket",
+    }
+  }
+  if (year != null && year < 1991) {
+    return {
+      format: "Cassette",
+      icon: "CassetteTape",
+      artworkFrame: "cassette-case",
+    }
+  }
+  return {
+    format: "CD",
+    icon: "Disc",
+    artworkFrame: "jewel-case",
+  }
+}
+
+export type PhysicalMediaAlbum = {
+  id: string
+  name: string
+  artist?: string
+  year?: number
+  songCount?: number
+}
+
+/**
+ * Album ids whose ordered track lists exactly match a derived playlist.
+ * Fail toward keeping the album when either side is empty.
+ */
+export function albumIdsShadowedByPlaylists(
+  playlists: readonly { trackIds: readonly string[] }[],
+  albums: readonly { id: string; trackIds: readonly string[] }[],
+): Set<string> {
+  const shadowed = new Set<string>()
+  const playlistSequences = playlists
+    .map((p) => p.trackIds.map((id) => id.trim()).filter(Boolean))
+    .filter((ids) => ids.length > 0)
+
+  for (const album of albums) {
+    const albumId = album.id.trim()
+    if (!albumId) continue
+    const albumTracks = album.trackIds.map((id) => id.trim()).filter(Boolean)
+    if (albumTracks.length === 0) continue
+
+    for (const playlistTracks of playlistSequences) {
+      if (playlistTracks.length !== albumTracks.length) continue
+      let match = true
+      for (let i = 0; i < albumTracks.length; i++) {
+        if (playlistTracks[i] !== albumTracks[i]) {
+          match = false
+          break
+        }
+      }
+      if (match) {
+        shadowed.add(albumId)
+        break
+      }
+    }
+  }
+  return shadowed
+}
+
+export function derivePhysicalMediaItemsFromAlbums(
+  albums: readonly PhysicalMediaAlbum[],
+  /** Album cover art URLs keyed by Navidrome album id. */
+  artworkByAlbumId: Readonly<Record<string, { imageUrl?: string; imageUrlLarge?: string }>> = {},
+  /** Album ids to skip (playlist-over-album de-dup). */
+  omitAlbumIds: ReadonlySet<string> = new Set(),
+): { items: ItemCatalogEntry[]; albumMap: Record<string, string> } {
+  const items: ItemCatalogEntry[] = []
+  const albumMap: Record<string, string> = {}
+
+  for (const album of albums) {
+    const id = album.id.trim()
+    if (!id || omitAlbumIds.has(id)) continue
+    const shortId = physicalMediaAlbumShortId(id)
+    const songCount = album.songCount ?? 0
+    const inferred = inferPhysicalMediaFormat(album.year, songCount)
+    const title = album.name.trim() || id
+    const artist = album.artist?.trim()
+    const name = artist
+      ? `${inferred.format}: ${artist} — ${title}`
+      : `${inferred.format}: ${title}`
+    const artwork = artworkByAlbumId[id]
+    const imageUrl = artwork?.imageUrl?.trim()
+    const imageUrlLarge = artwork?.imageUrlLarge?.trim()
+    items.push({
+      definition: {
+        shortId,
+        name,
+        description: `A ${inferred.format} from the Record Store. Queue any track on it for the rest of the session.`,
+        icon: inferred.icon,
+        artworkFrame: inferred.artworkFrame,
+        ...(imageUrl ? { imageUrl } : {}),
+        ...(imageUrlLarge ? { imageUrlLarge } : {}),
+        stackable: true,
+        maxStack: 5,
+        tradeable: true,
+        consumable: false,
+        coinValue: priceFromSongCount(songCount),
+        rarity: rarityFromSongCount(songCount),
+        slotPool: "collection",
+        detailView: {
+          actionIcon: "Eye",
+          actionLabel: "View",
+          iconOnly: true,
+          layout: "trackList",
+        },
+      },
+      localLibraryGrant: {
+        scope: "album",
+        albumKey: shortId,
+        redemption: "durable",
+      },
+    })
+    albumMap[shortId] = id
+  }
+
+  return { items, albumMap }
+}
+
 export function parsePhysicalMediaName(
   name: string,
 ): { format: string; title: string; icon: LucideIconName; artworkFrame: ArtworkFrame } | null {

@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest"
 import {
   albumsFromMembership,
   artistsFromMembership,
+  membershipFromAlbumSongs,
   membershipFromPlaylistEntries,
   PlaylistMembershipCache,
+  AlbumMembershipCache,
   unionMembership,
 } from "./localPlaylistCache"
 
@@ -114,5 +116,57 @@ describe("localPlaylistCache", () => {
     await cache.get("c")
     await cache.get("a")
     expect(fetchEntries).toHaveBeenCalledTimes(4)
+  })
+
+  it("builds album membership from getAlbum songs and meta", () => {
+    const m = membershipFromAlbumSongs(
+      "al-1",
+      [{ id: "t1", artistId: "a1", artist: "Artist" }],
+      { name: "Album", artist: "Artist", artistId: "a1", coverArt: "c1" },
+    )
+    expect(m.trackIds.has("t1")).toBe(true)
+    expect(m.albums.get("al-1")).toMatchObject({ title: "Album", coverArt: "c1" })
+    expect(m.artists.get("a1")).toBe("Artist")
+  })
+
+  it("caches album membership and albumsContainingTrack", async () => {
+    const fetchAlbum = vi.fn(async (albumId: string) =>
+      albumId === "al-1"
+        ? { songs: [{ id: "t1" }], album: { name: "One" } }
+        : { songs: [{ id: "t9" }], album: { name: "Nine" } },
+    )
+    const cache = new AlbumMembershipCache(fetchAlbum, 60_000)
+    await cache.get("al-1")
+    await cache.get("al-1")
+    expect(fetchAlbum).toHaveBeenCalledTimes(1)
+    const members = await cache.albumsContainingTrack("t1", ["al-1", "al-2"])
+    expect(members).toEqual(["al-1"])
+    expect(fetchAlbum).toHaveBeenCalledTimes(2)
+  })
+
+  it("getUnion fetches albums with bounded concurrency", async () => {
+    let inflight = 0
+    let maxInflight = 0
+    const fetchAlbum = vi.fn(async (albumId: string) => {
+      inflight++
+      maxInflight = Math.max(maxInflight, inflight)
+      await new Promise((r) => setTimeout(r, 5))
+      inflight--
+      return { songs: [{ id: `t-${albumId}` }], album: { name: albumId } }
+    })
+    const cache = new AlbumMembershipCache(fetchAlbum, 60_000)
+    const ids = Array.from({ length: 12 }, (_, i) => `al-${i}`)
+    const union = await cache.getUnion(ids, { concurrency: 3 })
+    expect(union.trackIds.size).toBe(12)
+    expect(fetchAlbum).toHaveBeenCalledTimes(12)
+    expect(maxInflight).toBeLessThanOrEqual(3)
+    expect(maxInflight).toBeGreaterThan(1)
+  })
+
+  it("uses a larger default album LRU than playlists", async () => {
+    const { ALBUM_CACHE_MAX_ENTRIES, PLAYLIST_CACHE_MAX_ENTRIES } = await import(
+      "./localPlaylistCache"
+    )
+    expect(ALBUM_CACHE_MAX_ENTRIES).toBeGreaterThan(PLAYLIST_CACHE_MAX_ENTRIES)
   })
 })

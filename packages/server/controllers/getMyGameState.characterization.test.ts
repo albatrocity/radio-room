@@ -163,10 +163,26 @@ describe("GET_MY_GAME_STATE characterization", () => {
   }
   let inventoryService: {
     getInventory: ReturnType<typeof vi.fn>
+    getItemDefinitions: ReturnType<typeof vi.fn>
     getAllItemDefinitions: ReturnType<typeof vi.fn>
   }
   let invokeGetSellbackValues: ReturnType<typeof vi.fn>
   let invokeContributeToUserGameState: ReturnType<typeof vi.fn> | undefined
+  let invokeReferencedItemDefinitionIdsForUser: ReturnType<typeof vi.fn>
+
+  const unusedAlbumDef = {
+    id: "item-shops:pm-al-unused",
+    shortId: "pm-al-unused",
+    name: "Unused Album SKU",
+    description: "",
+    icon: "Disc3",
+    sourcePlugin: ITEM_SHOPS_PLUGIN_NAME,
+    rarity: "common",
+    stackable: true,
+    maxStack: 5,
+    consumable: false,
+    tradeable: true,
+  } as unknown as ItemDefinition
 
   beforeEach(() => {
     redis = createInMemoryRedisPubClient()
@@ -178,10 +194,15 @@ describe("GET_MY_GAME_STATE characterization", () => {
     }
     inventoryService = {
       getInventory: vi.fn(async () => inventory),
-      getAllItemDefinitions: vi.fn(async () => [beerDef]),
+      getItemDefinitions: vi.fn(async (_roomId: string, ids: string[]) => {
+        const wanted = new Set(ids)
+        return [beerDef, unusedAlbumDef].filter((d) => wanted.has(d.id))
+      }),
+      getAllItemDefinitions: vi.fn(async () => [beerDef, unusedAlbumDef]),
     }
     invokeGetSellbackValues = vi.fn(async () => ({}))
     invokeContributeToUserGameState = undefined
+    invokeReferencedItemDefinitionIdsForUser = vi.fn(async () => [])
   })
 
   function seedShop(active: boolean, instanceByUser: Record<string, string | undefined>) {
@@ -318,6 +339,7 @@ describe("GET_MY_GAME_STATE characterization", () => {
         pluginRegistry: {
           invokeGetSellbackValues,
           invokeContributeToUserGameState: contribute,
+          invokeReferencedItemDefinitionIdsForUser,
         },
       },
     }
@@ -482,6 +504,43 @@ describe("GET_MY_GAME_STATE characterization", () => {
     const data = await invoke()
     const inv = data.inventory as UserInventory
     expect(inv.items[0]?.sellbackValue).toBe(7)
+  })
+
+  it("loads only referenced itemDefinitions (not the full room catalog)", async () => {
+    invokeReferencedItemDefinitionIdsForUser.mockResolvedValueOnce([
+      "item-shops:cold-beer", // already in inventory; deduped by HMGET ids
+    ])
+    const data = await invoke()
+    expect(inventoryService.getAllItemDefinitions).not.toHaveBeenCalled()
+    expect(inventoryService.getItemDefinitions).toHaveBeenCalledWith(
+      ROOM_ID,
+      expect.arrayContaining(["item-shops:cold-beer"]),
+    )
+    expect(data.itemDefinitions.map((d) => d.id)).toEqual(["item-shops:cold-beer"])
+    expect(data.itemDefinitions.map((d) => d.id)).not.toContain("item-shops:pm-al-unused")
+  })
+
+  it("includes plugin-referenced shop offer definitions even when not held", async () => {
+    const offerOnly = {
+      ...unusedAlbumDef,
+      id: "item-shops:scratched-cd",
+      shortId: "scratched-cd",
+      name: "Scratched CD",
+    } as ItemDefinition
+    inventoryService.getItemDefinitions.mockImplementation(
+      async (_roomId: string, ids: string[]) => {
+        const wanted = new Set(ids)
+        return [beerDef, offerOnly].filter((d) => wanted.has(d.id))
+      },
+    )
+    invokeReferencedItemDefinitionIdsForUser.mockResolvedValueOnce([
+      "item-shops:scratched-cd",
+    ])
+    const data = await invoke()
+    expect(data.itemDefinitions.map((d) => d.id).sort()).toEqual([
+      "item-shops:cold-beer",
+      "item-shops:scratched-cd",
+    ])
   })
 
   it("golden: active shop + active bingo for requesting user", async () => {

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
+  albumIdsShadowedByPlaylists,
   derivePhysicalMediaItems,
+  derivePhysicalMediaItemsFromAlbums,
+  inferPhysicalMediaFormat,
   parsePhysicalMediaName,
+  physicalMediaAlbumShortId,
   physicalMediaShortId,
   priceFromSongCount,
   rarityFromSongCount,
@@ -144,5 +148,129 @@ describe("physicalMedia derivation", () => {
     ])
     expect(items[0]?.definition.description).toBe(canned)
     expect(items[1]?.definition.description).toBe(canned)
+  })
+})
+
+describe("inferPhysicalMediaFormat", () => {
+  it("maps year and song count to format frames", () => {
+    expect(inferPhysicalMediaFormat(1975, 2)).toMatchObject({
+      format: "45",
+      artworkFrame: "die-cut-jacket",
+    })
+    expect(inferPhysicalMediaFormat(1985, 10)).toMatchObject({
+      format: "Cassette",
+      artworkFrame: "cassette-case",
+    })
+    expect(inferPhysicalMediaFormat(1995, 12)).toMatchObject({
+      format: "CD",
+      artworkFrame: "jewel-case",
+    })
+    expect(inferPhysicalMediaFormat(1972, 10)).toMatchObject({
+      format: "LP",
+      artworkFrame: "record-jacket",
+    })
+  })
+
+  it("treats short releases as 45s regardless of year", () => {
+    expect(inferPhysicalMediaFormat(2005, 1).format).toBe("45")
+    expect(inferPhysicalMediaFormat(1968, 3).format).toBe("45")
+  })
+
+  it("defaults long albums without a year to CD", () => {
+    expect(inferPhysicalMediaFormat(undefined, 10)).toMatchObject({
+      format: "CD",
+      artworkFrame: "jewel-case",
+    })
+  })
+})
+
+describe("derivePhysicalMediaItemsFromAlbums", () => {
+  it("derives durable collection items keyed by album id", () => {
+    const { items, albumMap } = derivePhysicalMediaItemsFromAlbums([
+      {
+        id: "al-1",
+        name: "Loveless",
+        artist: "My Bloody Valentine",
+        year: 1991,
+        songCount: 11,
+      },
+      { id: "al-2", name: "Single", year: 1975, songCount: 2 },
+    ])
+    expect(items.map((e) => e.definition.shortId)).toEqual([
+      physicalMediaAlbumShortId("al-1"),
+      physicalMediaAlbumShortId("al-2"),
+    ])
+    expect(items[0]?.definition.name).toBe("CD: My Bloody Valentine — Loveless")
+    expect(items[0]?.definition.slotPool).toBe("collection")
+    expect(items[0]?.definition.detailView).toEqual({
+      actionIcon: "Eye",
+      actionLabel: "View",
+      iconOnly: true,
+      layout: "trackList",
+    })
+    expect(items[0]?.localLibraryGrant).toEqual({
+      scope: "album",
+      albumKey: physicalMediaAlbumShortId("al-1"),
+      redemption: "durable",
+    })
+    expect(items[1]?.definition.name).toBe("45: Single")
+    expect(items[1]?.definition.artworkFrame).toBe("die-cut-jacket")
+    expect(albumMap[physicalMediaAlbumShortId("al-1")]).toBe("al-1")
+  })
+
+  it("omits albums in omitAlbumIds", () => {
+    const { items } = derivePhysicalMediaItemsFromAlbums(
+      [
+        { id: "al-1", name: "Keep", songCount: 10, year: 1995 },
+        { id: "al-2", name: "Skip", songCount: 10, year: 1995 },
+      ],
+      {},
+      new Set(["al-2"]),
+    )
+    expect(items.map((e) => e.definition.shortId)).toEqual([physicalMediaAlbumShortId("al-1")])
+  })
+
+  it("attaches album artwork when available", () => {
+    const { items } = derivePhysicalMediaItemsFromAlbums(
+      [{ id: "al-1", name: "Kid A", artist: "Radiohead", year: 2000, songCount: 10 }],
+      { "al-1": { imageUrl: "https://api.example/sm", imageUrlLarge: "https://api.example/lg" } },
+    )
+    expect(items[0]?.definition.imageUrl).toBe("https://api.example/sm")
+    expect(items[0]?.definition.imageUrlLarge).toBe("https://api.example/lg")
+  })
+})
+
+describe("albumIdsShadowedByPlaylists", () => {
+  it("omits albums whose ordered track ids match a playlist", () => {
+    const shadowed = albumIdsShadowedByPlaylists(
+      [{ trackIds: ["t1", "t2", "t3"] }],
+      [
+        { id: "al-1", trackIds: ["t1", "t2", "t3"] },
+        { id: "al-2", trackIds: ["t1", "t2"] },
+      ],
+    )
+    expect([...shadowed]).toEqual(["al-1"])
+  })
+
+  it("keeps albums when playlist is shuffled, subset, or has extras", () => {
+    const shadowed = albumIdsShadowedByPlaylists(
+      [
+        { trackIds: ["t2", "t1", "t3"] },
+        { trackIds: ["t1", "t2"] },
+        { trackIds: ["t1", "t2", "t3", "t4"] },
+      ],
+      [{ id: "al-1", trackIds: ["t1", "t2", "t3"] }],
+    )
+    expect(shadowed.size).toBe(0)
+  })
+
+  it("never shadows when either side is empty", () => {
+    expect(albumIdsShadowedByPlaylists([], [{ id: "al-1", trackIds: ["t1"] }]).size).toBe(0)
+    expect(
+      albumIdsShadowedByPlaylists([{ trackIds: [] }], [{ id: "al-1", trackIds: ["t1"] }]).size,
+    ).toBe(0)
+    expect(
+      albumIdsShadowedByPlaylists([{ trackIds: ["t1"] }], [{ id: "al-1", trackIds: [] }]).size,
+    ).toBe(0)
   })
 })

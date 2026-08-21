@@ -111,14 +111,16 @@ export class RpcServer {
         if (String(p.source) !== "local" || !this.localDriver) return []
         return this.localDriver.search(
           String(p.query ?? ""),
-          parsePlaylistIds(p.playlistIds),
+          parseIdList(p.playlistIds),
+          parseIdList(p.albumIds),
         )
       }
       case "getTrack": {
         if (String(p.source) !== "local" || !this.localDriver) return null
         return this.localDriver.findById(
           String(p.trackId ?? p.id ?? ""),
-          parsePlaylistIds(p.playlistIds),
+          parseIdList(p.playlistIds),
+          parseIdList(p.albumIds),
         )
       }
       case "listArtists": {
@@ -127,7 +129,8 @@ export class RpcServer {
           query: p.query != null ? String(p.query) : undefined,
           offset: p.offset != null ? Number(p.offset) : undefined,
           limit: p.limit != null ? Number(p.limit) : undefined,
-          playlistIds: parsePlaylistIds(p.playlistIds),
+          playlistIds: parseIdList(p.playlistIds),
+          albumIds: parseIdList(p.albumIds),
         })
       }
       case "listAlbums": {
@@ -136,43 +139,71 @@ export class RpcServer {
           query: p.query != null ? String(p.query) : undefined,
           offset: p.offset != null ? Number(p.offset) : undefined,
           limit: p.limit != null ? Number(p.limit) : undefined,
-          playlistIds: parsePlaylistIds(p.playlistIds),
+          playlistIds: parseIdList(p.playlistIds),
+          albumIds: parseIdList(p.albumIds),
         })
       }
       case "getArtist": {
         if (String(p.source) !== "local" || !this.localDriver) return null
         return this.localDriver.getArtist(
           String(p.artistId ?? p.id ?? ""),
-          parsePlaylistIds(p.playlistIds),
+          parseIdList(p.playlistIds),
+          parseIdList(p.albumIds),
         )
       }
       case "getAlbum": {
         if (String(p.source) !== "local" || !this.localDriver) return null
         return this.localDriver.getAlbum(
           String(p.albumId ?? p.id ?? ""),
-          parsePlaylistIds(p.playlistIds),
+          parseIdList(p.playlistIds),
+          parseIdList(p.albumIds),
         )
       }
       case "checkPlaylistMembership": {
-        if (String(p.source) !== "local" || !this.localDriver) return []
-        return this.localDriver.playlistsContainingTrack(
+        if (String(p.source) !== "local" || !this.localDriver) {
+          return { playlistIds: [], albumIds: [] }
+        }
+        return this.localDriver.checkPlaylistMembership(
           String(p.trackId ?? ""),
-          parsePlaylistIds(p.playlistIds) ?? [],
-          { firstMatch: p.firstMatch === true },
+          parseIdList(p.playlistIds) ?? [],
+          parseIdList(p.albumIds) ?? [],
+          {
+            firstMatch: p.firstMatch === true,
+            includeTrackAlbumId: p.includeTrackAlbumId === true,
+          },
         )
       }
       case "listPlaylists": {
         if (String(p.source) !== "local" || !this.localDriver) return []
         return this.localDriver.listPlaylists()
       }
+      case "listLibraryAlbums": {
+        if (String(p.source) !== "local" || !this.localDriver) return []
+        return this.localDriver.listLibraryAlbums()
+      }
       case "listPlaylistTracks": {
         if (String(p.source) !== "local" || !this.localDriver) return []
         return this.localDriver.listPlaylistTracks(String(p.playlistId ?? p.id ?? ""))
       }
+      case "listPlaylistTrackIds": {
+        if (String(p.source) !== "local" || !this.localDriver) return []
+        return this.localDriver.listPlaylistTrackIds(String(p.playlistId ?? p.id ?? ""))
+      }
+      case "listAlbumTrackIds": {
+        if (String(p.source) !== "local" || !this.localDriver) return []
+        return this.localDriver.listAlbumTrackIds(String(p.albumId ?? p.id ?? ""))
+      }
       case "getPlaylistCoverArt": {
         if (String(p.source) !== "local" || !this.localDriver) return {}
         return this.localDriver.getPlaylistCoverArt(
-          parsePlaylistIds(p.playlistIds) ?? [],
+          parseIdList(p.playlistIds) ?? [],
+          normalizeCoverVariants(p.variants),
+        )
+      }
+      case "getAlbumCoverArt": {
+        if (String(p.source) !== "local" || !this.localDriver) return {}
+        return this.localDriver.getAlbumCoverArt(
+          parseIdList(p.albumIds) ?? [],
           normalizeCoverVariants(p.variants),
         )
       }
@@ -200,7 +231,7 @@ export class RpcServer {
   }
 }
 
-function parsePlaylistIds(raw: unknown): string[] | undefined {
+function parseIdList(raw: unknown): string[] | undefined {
   if (!Array.isArray(raw)) return undefined
   const ids = raw.map((x) => String(x).trim()).filter(Boolean)
   return ids.length > 0 ? ids : undefined

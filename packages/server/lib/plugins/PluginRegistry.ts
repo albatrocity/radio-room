@@ -23,6 +23,7 @@ import {
   QueueValidationParams,
   QueueValidationResult,
   PhysicalMediaItem,
+  ResolvedPhysicalMediaItem,
   parseArtworkFrame,
   isChatMessageTransformDrop,
   isDeferredQueueRequest,
@@ -37,6 +38,55 @@ import { PluginStorageImpl } from "./PluginStorage"
 import { PluginLifecycleImpl } from "./PluginLifecycle"
 
 const DEBUG_PLUGIN_REGISTRY = process.env.DEBUG_PLUGIN_REGISTRY === "1"
+
+function normalizeResolvedPhysicalMedia(
+  result: ResolvedPhysicalMediaItem | { playlistId?: string; albumId?: string; kind?: string; item?: PhysicalMediaItem },
+  fallbackMediaKey: string,
+): ResolvedPhysicalMediaItem | null {
+  const itemKey =
+    typeof result.item?.mediaKey === "string" && result.item.mediaKey.trim()
+      ? result.item.mediaKey.trim()
+      : fallbackMediaKey
+  const name =
+    typeof result.item?.name === "string" && result.item.name.trim()
+      ? result.item.name.trim()
+      : itemKey
+  const artworkFrame =
+    typeof result.item?.artworkFrame === "string"
+      ? parseArtworkFrame(result.item.artworkFrame)
+      : undefined
+  const item: PhysicalMediaItem = {
+    mediaKey: itemKey,
+    name,
+    ...(typeof result.item?.icon === "string" && result.item.icon.trim()
+      ? { icon: result.item.icon.trim() }
+      : {}),
+    ...(typeof result.item?.imageUrl === "string" && result.item.imageUrl.trim()
+      ? { imageUrl: result.item.imageUrl.trim() }
+      : {}),
+    ...(typeof result.item?.imageUrlLarge === "string" && result.item.imageUrlLarge.trim()
+      ? { imageUrlLarge: result.item.imageUrlLarge.trim() }
+      : {}),
+    ...(artworkFrame ? { artworkFrame } : {}),
+  }
+
+  const kind = "kind" in result ? result.kind : undefined
+  if (kind === "album" || (!kind && typeof (result as { albumId?: string }).albumId === "string")) {
+    const albumId =
+      typeof (result as { albumId?: string }).albumId === "string"
+        ? (result as { albumId: string }).albumId.trim()
+        : ""
+    if (!albumId) return null
+    return { kind: "album", albumId, item }
+  }
+
+  const playlistId =
+    typeof (result as { playlistId?: string }).playlistId === "string"
+      ? (result as { playlistId: string }).playlistId.trim()
+      : ""
+  if (!playlistId) return null
+  return { kind: "playlist", playlistId, item }
+}
 
 /**
  * Plugin factory function - creates a new plugin instance
@@ -378,15 +428,15 @@ export class PluginRegistry {
   }
 
   /**
-   * Aggregate plugin Local catalog filters (ADR 0098).
-   * Any `unrestricted` wins; else union of playlist ids; all abstain → null.
+   * Aggregate plugin Local catalog filters (ADR 0098 / 0109).
+   * Any `unrestricted` wins; else union of playlist + album ids; all abstain → null.
    */
   async resolveLocalLibraryCatalogFilter(params: {
     roomId: string
     userId: string
   }): Promise<
     | { mode: "unrestricted" }
-    | { mode: "playlists"; playlistIds: string[] }
+    | { mode: "playlists"; playlistIds: string[]; albumIds: string[] }
     | null
   > {
     const roomPluginMap = this.roomPlugins.get(params.roomId)
@@ -404,7 +454,8 @@ export class PluginRegistry {
     }
 
     const playlistIds = new Set<string>()
-    let sawPlaylists = false
+    const albumIds = new Set<string>()
+    let sawShelves = false
 
     for (const [pluginName, { plugin }] of pluginsWithHook) {
       try {
@@ -423,10 +474,14 @@ export class PluginRegistry {
           return { mode: "unrestricted" }
         }
         if (result.mode === "playlists") {
-          sawPlaylists = true
+          sawShelves = true
           for (const id of result.playlistIds) {
             const trimmed = id.trim()
             if (trimmed) playlistIds.add(trimmed)
+          }
+          for (const id of result.albumIds ?? []) {
+            const trimmed = id.trim()
+            if (trimmed) albumIds.add(trimmed)
           }
         }
       } catch (error) {
@@ -437,8 +492,12 @@ export class PluginRegistry {
       }
     }
 
-    if (sawPlaylists && playlistIds.size > 0) {
-      return { mode: "playlists", playlistIds: [...playlistIds] }
+    if (sawShelves && (playlistIds.size > 0 || albumIds.size > 0)) {
+      return {
+        mode: "playlists",
+        playlistIds: [...playlistIds],
+        albumIds: [...albumIds],
+      }
     }
     return null
   }
@@ -502,96 +561,46 @@ export class PluginRegistry {
   }
 
   /**
-   * Resolve a client `mediaKey` to a Navidrome playlist id from held grants only.
-   * First plugin that returns a playlist id wins. Never trusts a client playlist id.
+   * Resolve a client `mediaKey` to a Navidrome playlist or album from held grants only.
+   * First plugin that returns a source wins. Never trusts a client playlist/album id.
    */
   async resolvePhysicalMediaItem(params: {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
-    const mediaKey = params.mediaKey.trim()
-    if (!mediaKey) return null
-    const roomPluginMap = this.roomPlugins.get(params.roomId)
-    if (!roomPluginMap || roomPluginMap.size === 0) return null
-
-    const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
-      ([, { plugin }]) => typeof plugin.resolvePhysicalMediaItem === "function",
-    )
-
-    for (const [pluginName, { plugin }] of pluginsWithHook) {
-      try {
-        const result = await Promise.race([
-          plugin.resolvePhysicalMediaItem!({ ...params, mediaKey }),
-          new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
-          ),
-        ])
-        if (!result) continue
-        const playlistId =
-          typeof result.playlistId === "string" ? result.playlistId.trim() : ""
-        if (!playlistId) continue
-        const itemKey =
-          typeof result.item?.mediaKey === "string" && result.item.mediaKey.trim()
-            ? result.item.mediaKey.trim()
-            : mediaKey
-        const name =
-          typeof result.item?.name === "string" && result.item.name.trim()
-            ? result.item.name.trim()
-            : itemKey
-        const artworkFrame =
-          typeof result.item?.artworkFrame === "string"
-            ? parseArtworkFrame(result.item.artworkFrame)
-            : undefined
-        return {
-          playlistId,
-          item: {
-            mediaKey: itemKey,
-            name,
-            ...(typeof result.item?.icon === "string" && result.item.icon.trim()
-              ? { icon: result.item.icon.trim() }
-              : {}),
-            ...(typeof result.item?.imageUrl === "string" && result.item.imageUrl.trim()
-              ? { imageUrl: result.item.imageUrl.trim() }
-              : {}),
-            ...(typeof result.item?.imageUrlLarge === "string" && result.item.imageUrlLarge.trim()
-              ? { imageUrlLarge: result.item.imageUrlLarge.trim() }
-              : {}),
-            ...(artworkFrame ? { artworkFrame } : {}),
-          },
-        }
-      } catch (error) {
-        console.warn(`[PluginRegistry] resolvePhysicalMediaItem ${pluginName} failed:`, error)
-      }
-    }
-    return null
+  }): Promise<ResolvedPhysicalMediaItem | null> {
+    return this.resolvePhysicalMediaFromPlugins(params, "resolvePhysicalMediaItem")
   }
 
   /**
    * Resolve a client `mediaKey` for preview authz (held item or current shop offer).
-   * First plugin that returns a playlist id wins.
+   * First plugin that returns a source wins.
    */
   async resolvePreviewableMediaItem(params: {
     roomId: string
     userId: string
     mediaKey: string
-  }): Promise<{ playlistId: string; item: PhysicalMediaItem } | null> {
+  }): Promise<ResolvedPhysicalMediaItem | null> {
+    return this.resolvePhysicalMediaFromPlugins(params, "resolvePreviewableMediaItem")
+  }
+
+  private async resolvePhysicalMediaFromPlugins(
+    params: { roomId: string; userId: string; mediaKey: string },
+    hook: "resolvePhysicalMediaItem" | "resolvePreviewableMediaItem",
+  ): Promise<ResolvedPhysicalMediaItem | null> {
     const mediaKey = params.mediaKey.trim()
     if (!mediaKey) return null
     const roomPluginMap = this.roomPlugins.get(params.roomId)
     if (!roomPluginMap || roomPluginMap.size === 0) return null
 
     const pluginsWithHook = Array.from(roomPluginMap.entries()).filter(
-      ([, { plugin }]) => typeof plugin.resolvePreviewableMediaItem === "function",
+      ([, { plugin }]) => typeof plugin[hook] === "function",
     )
 
     for (const [pluginName, { plugin }] of pluginsWithHook) {
       try {
         const result = await Promise.race([
-          plugin.resolvePreviewableMediaItem!({ ...params, mediaKey }),
+          plugin[hook]!({ ...params, mediaKey }),
           new Promise<never>((_, reject) =>
             setTimeout(
               () => reject(new Error("timeout")),
@@ -600,40 +609,10 @@ export class PluginRegistry {
           ),
         ])
         if (!result) continue
-        const playlistId =
-          typeof result.playlistId === "string" ? result.playlistId.trim() : ""
-        if (!playlistId) continue
-        const itemKey =
-          typeof result.item?.mediaKey === "string" && result.item.mediaKey.trim()
-            ? result.item.mediaKey.trim()
-            : mediaKey
-        const name =
-          typeof result.item?.name === "string" && result.item.name.trim()
-            ? result.item.name.trim()
-            : itemKey
-        const artworkFrame =
-          typeof result.item?.artworkFrame === "string"
-            ? parseArtworkFrame(result.item.artworkFrame)
-            : undefined
-        return {
-          playlistId,
-          item: {
-            mediaKey: itemKey,
-            name,
-            ...(typeof result.item?.icon === "string" && result.item.icon.trim()
-              ? { icon: result.item.icon.trim() }
-              : {}),
-            ...(typeof result.item?.imageUrl === "string" && result.item.imageUrl.trim()
-              ? { imageUrl: result.item.imageUrl.trim() }
-              : {}),
-            ...(typeof result.item?.imageUrlLarge === "string" && result.item.imageUrlLarge.trim()
-              ? { imageUrlLarge: result.item.imageUrlLarge.trim() }
-              : {}),
-            ...(artworkFrame ? { artworkFrame } : {}),
-          },
-        }
+        const normalized = normalizeResolvedPhysicalMedia(result, mediaKey)
+        if (normalized) return normalized
       } catch (error) {
-        console.warn(`[PluginRegistry] resolvePreviewableMediaItem ${pluginName} failed:`, error)
+        console.warn(`[PluginRegistry] ${hook} ${pluginName} failed:`, error)
       }
     }
     return null
@@ -1299,6 +1278,39 @@ export class PluginRegistry {
       }
     }
     return merged
+  }
+
+  /**
+   * Extra ItemDefinition ids plugins need on `USER_GAME_STATE` for this user
+   * (e.g. shop offers). Fail-open; duplicates removed by the caller.
+   */
+  async invokeReferencedItemDefinitionIdsForUser(
+    roomId: string,
+    userId: string,
+  ): Promise<string[]> {
+    const roomPlugins = this.roomPlugins.get(roomId)
+    if (!roomPlugins) return []
+
+    const entries = Array.from(roomPlugins.values()).filter(
+      ({ plugin }) => typeof plugin.referencedItemDefinitionIdsForUser === "function",
+    )
+
+    const chunks = await Promise.all(
+      entries.map(async ({ plugin }) => {
+        try {
+          const ids = await plugin.referencedItemDefinitionIdsForUser!(userId)
+          if (!Array.isArray(ids)) return [] as string[]
+          return ids.map((id) => String(id).trim()).filter(Boolean)
+        } catch (error) {
+          console.error(
+            `[PluginRegistry] Error in referencedItemDefinitionIdsForUser for ${plugin.name}:`,
+            error,
+          )
+          return [] as string[]
+        }
+      }),
+    )
+    return chunks.flat()
   }
 
   /**

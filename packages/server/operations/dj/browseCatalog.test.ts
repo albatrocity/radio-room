@@ -164,6 +164,7 @@ describe("browseCatalog operations", () => {
 
   test("browseMediaItem resolves mediaKey from held grants and never uses a client playlist id", async () => {
     const resolvePhysicalMediaItem = vi.fn().mockResolvedValue({
+      kind: "playlist",
       playlistId: "nd-secret",
       item: { mediaKey: "pm-1", name: "LP: Loveless" },
     })
@@ -216,6 +217,7 @@ describe("browseCatalog operations", () => {
       metadataSourceAccess: { canAccess: vi.fn().mockResolvedValue(true) },
       pluginRegistry: {
         resolvePhysicalMediaItem: vi.fn().mockResolvedValue({
+          kind: "playlist",
           playlistId: "nd-secret",
           item: { mediaKey: "pm-1", name: "LP: Loveless" },
         }),

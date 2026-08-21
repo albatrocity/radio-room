@@ -24,8 +24,20 @@ async contributeToUserGameState(
 
 - Return a bag merged under `pluginUserState[this.name]` on `USER_GAME_STATE`.
 - Return `null` / `undefined` / `{}` to contribute nothing.
-- Use `ctx.itemDefinitions` when you need definitions (already loaded for the payload) — do not re-fetch inventory definitions.
+- Use `ctx.itemDefinitions` when you need definitions (already loaded for the payload) — do not re-fetch inventory definitions. The payload is a **filtered** slice (inventory + modifiers + plugin extras), not the full room catalog.
 - **Do not** add a default on `BasePlugin`. Implementing the method opts the plugin into automatic refetch invalidation (`typeof === "function"` is the check).
+
+### Extra definitions (shop offers, etc.)
+
+If the client needs `ItemDefinition` rows that the user does not hold yet (e.g. open shop offers for `detailView`), implement:
+
+```typescript
+async referencedItemDefinitionIdsForUser(userId: string): Promise<string[]> {
+  // return full definition ids, e.g. `${this.name}:${shortId}`
+}
+```
+
+Core unions those ids with inventory/modifier refs before loading definitions for the payload.
 
 ## Invalidation
 

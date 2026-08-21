@@ -340,9 +340,12 @@ export class MockStudioPluginApi implements PluginAPI {
   async checkLocalTrackPlaylistMembership(_params: {
     roomId: string
     trackId: string
-    playlistIds: string[]
-  }): Promise<string[]> {
-    return []
+    playlistIds?: string[]
+    albumIds?: string[]
+    includeTrackAlbumId?: boolean
+    firstMatch?: boolean
+  }): Promise<{ playlistIds: string[]; albumIds: string[] }> {
+    return { playlistIds: [], albumIds: [] }
   }
 
   async listLocalPlaylists(
@@ -358,6 +361,30 @@ export class MockStudioPluginApi implements PluginAPI {
     return {}
   }
 
+  async listLibraryAlbums(_roomId: string): Promise<
+    Array<{
+      id: string
+      name: string
+      artist?: string
+      year?: number
+      songCount?: number
+      coverArt?: string
+    }>
+  > {
+    return []
+  }
+
+  async getLocalAlbumArtwork(
+    _roomId: string,
+    _albumIds: string[],
+  ): Promise<Record<string, LocalPlaylistArtwork>> {
+    return {}
+  }
+
+  async listLocalAlbumTrackIds(_roomId: string, _albumId: string): Promise<string[]> {
+    return []
+  }
+
   async invalidateLocalLibraryCache(_roomId: string): Promise<boolean> {
     return false
   }
@@ -366,6 +393,13 @@ export class MockStudioPluginApi implements PluginAPI {
     _roomId: string,
     _playlistId: string,
   ): Promise<import("@repo/types").MetadataSourceTrack[]> {
+    return []
+  }
+
+  async listLocalPlaylistTrackIds(
+    _roomId: string,
+    _playlistId: string,
+  ): Promise<Array<{ id: string; albumId?: string }>> {
     return []
   }
 }

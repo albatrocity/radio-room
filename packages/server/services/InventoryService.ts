@@ -87,6 +87,41 @@ export class InventoryService {
     }
   }
 
+  /**
+   * Load a subset of registered definitions (HMGET). Prefer this over
+   * {@link getAllItemDefinitions} for `USER_GAME_STATE` so album-catalog
+   * Physical Media does not ship thousands of unused SKUs (perf review F2).
+   */
+  async getItemDefinitions(
+    roomId: string,
+    definitionIds: readonly string[],
+  ): Promise<ItemDefinition[]> {
+    const ids = [...new Set(definitionIds.map((id) => id.trim()).filter(Boolean))]
+    if (ids.length === 0) return []
+
+    const key = definitionsKey(roomId)
+    const client = this.context.redis.pubClient as {
+      hmGet?: (key: string, fields: string[]) => Promise<(string | null | undefined)[]>
+      hGet: (key: string, field: string) => Promise<string | null | undefined>
+    }
+
+    const raws =
+      typeof client.hmGet === "function"
+        ? await client.hmGet(key, ids)
+        : await Promise.all(ids.map((id) => client.hGet(key, id)))
+
+    const out: ItemDefinition[] = []
+    for (const raw of raws) {
+      if (raw == null || raw === "") continue
+      try {
+        out.push(JSON.parse(raw) as ItemDefinition)
+      } catch {
+        // skip corrupt
+      }
+    }
+    return out
+  }
+
   async getAllItemDefinitions(roomId: string): Promise<ItemDefinition[]> {
     const all = await this.context.redis.pubClient.hGetAll(definitionsKey(roomId))
     const out: ItemDefinition[] = []

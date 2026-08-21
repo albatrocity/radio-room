@@ -25,13 +25,15 @@ export type MetadataSourceAccessGrantParams = z.infer<
 export type MetadataSourceAccessGrantResult = "grant" | "abstain"
 
 /**
- * Per-user Local catalog scope from plugin inventory grants (ADR 0098).
+ * Per-user Local catalog scope from plugin inventory grants (ADR 0098 / 0109).
  * `null` means no plugin contributed a filter (caller should treat as full library
  * when access is already allowed — e.g. admin / open).
+ * Scoped shelves may include playlist ids, album ids, or both; either non-empty
+ * list is a real filter (album-only must not fall through to unrestricted).
  */
 export type LocalLibraryCatalogFilter =
   | { mode: "unrestricted" }
-  | { mode: "playlists"; playlistIds: string[] }
+  | { mode: "playlists"; playlistIds: string[]; albumIds: string[] }
 
 export const METADATA_SOURCE_LABELS: Record<string, string> = {
   spotify: "Spotify",

@@ -57,6 +57,11 @@ export class MemoryRedisClient {
     return this.hashes.get(key)?.get(field)
   }
 
+  async hmGet(key: string, fields: string[]): Promise<(string | null)[]> {
+    const hash = this.hashes.get(key)
+    return fields.map((field) => hash?.get(field) ?? null)
+  }
+
   async hSet(
     key: string,
     fieldOrEntries: string | Record<string, string>,

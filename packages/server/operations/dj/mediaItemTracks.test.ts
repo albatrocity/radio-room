@@ -13,7 +13,11 @@ vi.mock("@repo/adapter-bridge", () => ({
 import { fetchLocalPlaylistTracks, getBridgeRpcClient } from "@repo/adapter-bridge"
 
 describe("fetchResolvedMediaItemTracks", () => {
-  const params = { roomId: "room1", playlistId: "nd-secret", logLabel: "test" }
+  const params = {
+    roomId: "room1",
+    source: { kind: "playlist" as const, playlistId: "nd-secret" },
+    logLabel: "test",
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -65,6 +69,28 @@ describe("fetchResolvedMediaItemTracks", () => {
     await expect(fetchResolvedMediaItemTracks(params)).resolves.toEqual({
       ok: false,
       message: "boom",
+    })
+  })
+
+  test("lists album tracks via getAlbum RPC", async () => {
+    const call = vi.fn().mockResolvedValue({
+      tracks: [{ id: "a1" }, { id: "a2" }],
+    })
+    vi.mocked(getBridgeRpcClient).mockReturnValueOnce({ call } as any)
+
+    const result = await fetchResolvedMediaItemTracks({
+      roomId: "room1",
+      source: { kind: "album", albumId: "al-1" },
+      logLabel: "test",
+    })
+
+    expect(call).toHaveBeenCalledWith("getAlbum", { source: "local", albumId: "al-1" })
+    expect(result).toEqual({
+      ok: true,
+      tracks: [
+        { id: "a1", source: "local" },
+        { id: "a2", source: "local" },
+      ],
     })
   })
 })

@@ -41,7 +41,10 @@ export async function listMediaItemTracks(params: {
 
   const listed = await fetchResolvedMediaItemTracks({
     roomId,
-    playlistId: resolved.playlistId,
+    source:
+      resolved.kind === "album"
+        ? { kind: "album", albumId: resolved.albumId }
+        : { kind: "playlist", playlistId: resolved.playlistId },
     logLabel: "listMediaItemTracks",
     cache: context.cache,
   })
@@ -74,9 +77,11 @@ async function authorizeLocalCatalogPreview(params: {
     }
   }
 
-  const playlistIds = context.metadataSourceAccess?.getLocalCatalogPlaylistIds
-    ? await context.metadataSourceAccess.getLocalCatalogPlaylistIds(roomId, userId)
+  const shelves = context.metadataSourceAccess?.getLocalCatalogShelves
+    ? await context.metadataSourceAccess.getLocalCatalogShelves(roomId, userId)
     : undefined
+  const playlistIds = shelves?.playlistIds
+  const albumIds = shelves?.albumIds
 
   const { getBridgeRpcClient, checkLocalTrackPlaylistMembership } = await import(
     "@repo/adapter-bridge"
@@ -86,13 +91,20 @@ async function authorizeLocalCatalogPreview(params: {
     return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
   }
 
+  const hasShelfFilter =
+    (playlistIds?.length ?? 0) > 0 || (albumIds?.length ?? 0) > 0
   const memberOf = await checkLocalTrackPlaylistMembership({
     rpc,
     trackId,
     playlistIds: playlistIds ?? [],
+    albumIds: albumIds ?? [],
   })
 
-  if (playlistIds?.length && memberOf.length === 0) {
+  if (
+    hasShelfFilter &&
+    memberOf.playlistIds.length === 0 &&
+    memberOf.albumIds.length === 0
+  ) {
     return { ok: false, message: "You can't preview that track" }
   }
 
@@ -105,7 +117,7 @@ async function authorizeMediaItemTrackPreview(params: {
   userId: string
   mediaKey: string
   trackId: string
-}): Promise<{ ok: true; playlistId: string } | BrowseFailure> {
+}): Promise<{ ok: true } | BrowseFailure> {
   const { context, roomId, userId, mediaKey, trackId } = params
   const resolved = context.pluginRegistry?.resolvePreviewableMediaItem
     ? await context.pluginRegistry.resolvePreviewableMediaItem({ roomId, userId, mediaKey })
@@ -116,17 +128,20 @@ async function authorizeMediaItemTrackPreview(params: {
 
   const listed = await fetchResolvedMediaItemTracks({
     roomId,
-    playlistId: resolved.playlistId,
+    source:
+      resolved.kind === "album"
+        ? { kind: "album", albumId: resolved.albumId }
+        : { kind: "playlist", playlistId: resolved.playlistId },
     logLabel: "authorizeMediaItemTrackPreview",
     cache: context.cache,
   })
   if (!listed.ok) return listed
 
-  const onPlaylist = listed.tracks.some((t) => t.id === trackId)
-  if (!onPlaylist) {
+  const onItem = listed.tracks.some((t) => t.id === trackId)
+  if (!onItem) {
     return { ok: false, message: "You can't preview that track" }
   }
-  return { ok: true, playlistId: resolved.playlistId }
+  return { ok: true }
 }
 
 export async function getTrackPreview(params: {
