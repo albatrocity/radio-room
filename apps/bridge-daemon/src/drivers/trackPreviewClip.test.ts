@@ -8,6 +8,10 @@ vi.mock("node:child_process", () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
 }))
 
+vi.mock("../resolveMacBinary", () => ({
+  resolveMacBinary: (name: string) => name,
+}))
+
 type MockProc = EventEmitter & {
   stdout: EventEmitter
   stderr: EventEmitter
@@ -32,7 +36,7 @@ function enqueueSpawnVersionOk() {
     proc.stdout = new EventEmitter()
     proc.stderr = new EventEmitter()
     setImmediate(() => {
-      proc.emit("close", cmd === "ffmpeg" ? 0 : 1)
+      proc.emit("close", String(cmd).endsWith("ffmpeg") ? 0 : 1)
     })
     return proc
   })

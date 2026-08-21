@@ -6,6 +6,7 @@ import {
   getInFlightPreviewKey,
   setInFlightPreviewGeneration,
   storeTrackPreview,
+  type TrackPreviewGenerationResult,
 } from "../data/trackPreviews"
 import { BRIDGE_UNREACHABLE_MESSAGE, fetchResolvedMediaItemTracks } from "./mediaItemTracks"
 
@@ -173,14 +174,33 @@ export async function getTrackPreview(params: {
   const inflightKey = getInFlightPreviewKey(roomId, id)
   const inflight = getInFlightPreviewGeneration(inflightKey)
   if (inflight) {
+    return await previewResultFromGeneration(roomId, inflight, true)
+  }
+
+  const generation = (async (): Promise<TrackPreviewGenerationResult> => {
     try {
-      const result = await inflight
-      return {
-        ok: true,
-        url: `/api/rooms/${roomId}/track-previews/${result.previewId}`,
-        durationMs: result.durationMs,
-        cached: true,
+      const { getBridgeRpcClient, fetchTrackPreview } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) {
+        return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
       }
+      const clip = await fetchTrackPreview({ rpc, trackId: id })
+      if (!clip.ok) {
+        return { ok: false, message: clip.error || BRIDGE_UNREACHABLE_MESSAGE }
+      }
+      const previewId = generateId()
+      const stored = await storeTrackPreview({
+        context,
+        roomId,
+        trackId: id,
+        previewId,
+        base64Data: clip.data,
+        mimeType: clip.mimeType,
+      })
+      if (!stored.success) {
+        return { ok: false, message: "Failed to store track preview" }
+      }
+      return { ok: true, previewId, durationMs: clip.durationMs }
     } catch (error: unknown) {
       const message =
         error instanceof Error && error.message
@@ -188,42 +208,28 @@ export async function getTrackPreview(params: {
           : "Failed to generate track preview"
       return { ok: false, message }
     }
-  }
-
-  const generation = (async () => {
-    const { getBridgeRpcClient, fetchTrackPreview } = await import("@repo/adapter-bridge")
-    const rpc = getBridgeRpcClient(roomId)
-    if (!rpc) {
-      throw new Error(BRIDGE_UNREACHABLE_MESSAGE)
-    }
-    const clip = await fetchTrackPreview({ rpc, trackId: id })
-    if (!clip.ok) {
-      throw new Error(clip.error || BRIDGE_UNREACHABLE_MESSAGE)
-    }
-    const previewId = generateId()
-    const stored = await storeTrackPreview({
-      context,
-      roomId,
-      trackId: id,
-      previewId,
-      base64Data: clip.data,
-      mimeType: clip.mimeType,
-    })
-    if (!stored.success) {
-      throw new Error("Failed to store track preview")
-    }
-    return { previewId, durationMs: clip.durationMs }
   })()
 
   setInFlightPreviewGeneration(inflightKey, generation)
+  return await previewResultFromGeneration(roomId, generation, false)
+}
 
+async function previewResultFromGeneration(
+  roomId: string,
+  generation: Promise<TrackPreviewGenerationResult>,
+  cached: boolean,
+): Promise<
+  | { ok: true; url: string; durationMs: number; cached: boolean }
+  | BrowseFailure
+> {
   try {
     const result = await generation
+    if (!result.ok) return result
     return {
       ok: true,
       url: `/api/rooms/${roomId}/track-previews/${result.previewId}`,
       durationMs: result.durationMs,
-      cached: false,
+      cached,
     }
   } catch (error: unknown) {
     const message =

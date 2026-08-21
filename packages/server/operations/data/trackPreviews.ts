@@ -82,8 +82,12 @@ export async function getTrackPreviewByPreviewId(params: {
   }
 }
 
+export type TrackPreviewGenerationResult =
+  | { ok: true; previewId: string; durationMs: number }
+  | { ok: false; message: string }
+
 /** Coalesce in-flight preview generation per room+track. */
-const inFlightGeneration = new Map<string, Promise<{ previewId: string; durationMs: number }>>()
+const inFlightGeneration = new Map<string, Promise<TrackPreviewGenerationResult>>()
 
 export function getInFlightPreviewKey(roomId: string, trackId: string) {
   return `${roomId}:${trackId}`
@@ -95,14 +99,19 @@ export function getInFlightPreviewGeneration(key: string) {
 
 export function setInFlightPreviewGeneration(
   key: string,
-  promise: Promise<{ previewId: string; durationMs: number }>,
+  promise: Promise<TrackPreviewGenerationResult>,
 ) {
   inFlightGeneration.set(key, promise)
-  promise.finally(() => {
-    if (inFlightGeneration.get(key) === promise) {
-      inFlightGeneration.delete(key)
-    }
-  })
+  // `.finally()` re-rejects if `promise` rejects. Swallow that so Node 15+
+  // `--unhandled-rejections=throw` cannot take down the API when a clip fails
+  // (missing ffmpeg, daemon error, etc.). Callers still handle the original.
+  void promise
+    .finally(() => {
+      if (inFlightGeneration.get(key) === promise) {
+        inFlightGeneration.delete(key)
+      }
+    })
+    .catch(() => {})
 }
 
 export { PREVIEW_TTL_SEC }

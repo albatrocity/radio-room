@@ -118,6 +118,7 @@ impl BridgeSupervisor {
             .current_dir(&package_root)
             .env("BRIDGE_PACKAGE_ROOT", &package_root)
             .env("BRIDGE_REDIS_URL", &cfg.redis_url)
+            .env("PATH", gui_augmented_path())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .kill_on_drop(true);
@@ -179,6 +180,16 @@ impl BridgeSupervisor {
             tokio::time::sleep(Duration::from_millis(250)).await;
         }
         anyhow::bail!("bridge-daemon did not become healthy at {url}");
+    }
+}
+
+/// Audio Hijack / LaunchServices PATH is typically `/usr/bin:/bin:/usr/sbin:/sbin`.
+/// Prepend Homebrew so child `ffmpeg` / `mpv` lookups match a Terminal session.
+fn gui_augmented_path() -> String {
+    const EXTRA: &str = "/opt/homebrew/bin:/usr/local/bin";
+    match std::env::var("PATH") {
+        Ok(path) if !path.is_empty() => format!("{EXTRA}:{path}"),
+        _ => EXTRA.to_string(),
     }
 }
 
@@ -338,4 +349,18 @@ pub async fn proxy_to_child(
         .to_string();
     let bytes = res.bytes().await?.to_vec();
     Ok((status, ctype, bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::gui_augmented_path;
+
+    #[test]
+    fn gui_augmented_path_starts_with_homebrew_dirs() {
+        let path = gui_augmented_path();
+        assert!(
+            path.starts_with("/opt/homebrew/bin:/usr/local/bin"),
+            "expected Homebrew prefixes, got {path}"
+        );
+    }
 }

@@ -540,29 +540,41 @@ export class DJHandlers {
     payload: { mediaKey?: string; trackId: string; source?: string },
   ) => {
     const { roomId, userId } = socket.data
-    const result = await getTrackPreviewOp({
-      context: this.context,
-      roomId,
-      userId,
-      trackId: payload.trackId,
-      mediaKey: payload.mediaKey,
-      source: payload.source,
-    })
-    if (!result.ok) {
+    try {
+      const result = await getTrackPreviewOp({
+        context: this.context,
+        roomId,
+        userId,
+        trackId: payload.trackId,
+        mediaKey: payload.mediaKey,
+        source: payload.source,
+      })
+      if (!result.ok) {
+        socket.emit("event", {
+          type: "GET_TRACK_PREVIEW_FAILURE",
+          data: { message: result.message },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "GET_TRACK_PREVIEW_RESULTS",
+        data: {
+          url: result.url,
+          durationMs: result.durationMs,
+          cached: result.cached,
+        },
+      })
+    } catch (error: unknown) {
+      console.error("Error getting track preview:", error)
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to generate track preview"
       socket.emit("event", {
         type: "GET_TRACK_PREVIEW_FAILURE",
-        data: { message: result.message },
+        data: { message },
       })
-      return
     }
-    socket.emit("event", {
-      type: "GET_TRACK_PREVIEW_RESULTS",
-      data: {
-        url: result.url,
-        durationMs: result.durationMs,
-        cached: result.cached,
-      },
-    })
   }
 
   /**

@@ -1,31 +1,11 @@
-import { spawn, type ChildProcess, execFileSync } from "node:child_process"
+import { spawn, type ChildProcess } from "node:child_process"
 import { createConnection, type Socket } from "node:net"
 import { existsSync, mkdirSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
 import type { BridgeDaemonConfig } from "../config"
 import { configDir } from "../config"
+import { resolveMacBinary } from "../resolveMacBinary"
 import type { DriverState } from "./Driver"
-
-function resolveMpvPath(configured: string): string {
-  if (configured.includes("/") && existsSync(configured)) return configured
-  const candidates = [
-    configured,
-    "/opt/homebrew/bin/mpv",
-    "/usr/local/bin/mpv",
-  ]
-  for (const c of candidates) {
-    if (c.includes("/") && existsSync(c)) return c
-  }
-  try {
-    const which = execFileSync("which", [configured === "mpv" ? "mpv" : configured], {
-      encoding: "utf8",
-    }).trim()
-    if (which && existsSync(which)) return which
-  } catch {
-    /* ignore */
-  }
-  return configured
-}
 
 function waitForPath(path: string, timeoutMs: number): Promise<boolean> {
   const start = Date.now()
@@ -82,7 +62,7 @@ export class MpvPlayback {
       /* ignore */
     }
 
-    const mpvPath = resolveMpvPath(this.mpvConfig.path)
+    const mpvPath = resolveMacBinary("mpv", this.mpvConfig.path)
 
     let stderr = ""
     this.mpv = spawn(

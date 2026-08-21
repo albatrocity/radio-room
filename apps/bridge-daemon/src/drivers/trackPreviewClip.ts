@@ -1,4 +1,9 @@
 import { spawn } from "node:child_process"
+import { resolveMacBinary } from "../resolveMacBinary"
+
+function ffmpegBin(): string {
+  return resolveMacBinary("ffmpeg", process.env.BRIDGE_FFMPEG_PATH?.trim() || "ffmpeg")
+}
 
 export const PREVIEW_DURATION_SEC = 15
 const MAX_CONCURRENT = 2
@@ -69,7 +74,7 @@ function runFfmpeg(input: string, startSec: number, clipDurationSec: number): Pr
       "mp3",
       "pipe:1",
     ]
-    const proc = spawn("ffmpeg", args)
+    const proc = spawn(ffmpegBin(), args)
     const chunks: Buffer[] = []
     let stderr = ""
     proc.stdout.on("data", (chunk: Buffer) => chunks.push(chunk))
@@ -118,7 +123,7 @@ export async function encodeTrackPreviewClip(
 
 export function ffmpegAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
-    const proc = spawn("ffmpeg", ["-version"], { stdio: "ignore" })
+    const proc = spawn(ffmpegBin(), ["-version"], { stdio: "ignore" })
     proc.on("error", () => resolve(false))
     proc.on("close", (code) => resolve(code === 0))
   })
@@ -128,7 +133,7 @@ export async function assertFfmpegAvailable(): Promise<void> {
   const ok = await ffmpegAvailable()
   if (!ok) {
     throw new Error(
-      "ffmpeg is not available on PATH. Install ffmpeg on the DJ Mac to enable track previews.",
+      "ffmpeg was not found (checked PATH, /opt/homebrew/bin/ffmpeg, /usr/local/bin/ffmpeg). Install ffmpeg on the DJ Mac to enable track previews.",
     )
   }
 }

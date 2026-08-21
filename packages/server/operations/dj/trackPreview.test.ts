@@ -12,8 +12,6 @@ vi.mock("../data/trackPreviews", async (importOriginal) => {
     ...actual,
     getCachedTrackPreview: vi.fn(async () => null),
     storeTrackPreview: vi.fn(async () => ({ success: true })),
-    getInFlightPreviewGeneration: vi.fn(() => undefined),
-    setInFlightPreviewGeneration: vi.fn(),
   }
 })
 
@@ -139,5 +137,25 @@ describe("trackPreview operations", () => {
       mediaKey: "pm-1",
     })
     expect(result).toEqual({ ok: false, message: "You can't preview that track" })
+  })
+
+  test("getTrackPreview returns clip errors instead of throwing", async () => {
+    vi.mocked(fetchTrackPreview).mockResolvedValueOnce({
+      ok: false,
+      error:
+        "ffmpeg was not found (checked PATH, /opt/homebrew/bin/ffmpeg, /usr/local/bin/ffmpeg). Install ffmpeg on the DJ Mac to enable track previews.",
+    })
+    const result = await getTrackPreview({
+      context: mockContext,
+      roomId,
+      userId,
+      trackId: "t1",
+      mediaKey: "pm-1",
+    })
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "ffmpeg was not found (checked PATH, /opt/homebrew/bin/ffmpeg, /usr/local/bin/ffmpeg). Install ffmpeg on the DJ Mac to enable track previews.",
+    })
   })
 })
