@@ -10,6 +10,24 @@ export const PROGRESS_RESET_MAX_MS = 1000
  */
 export const MIN_NEAR_END_DURATION_MS = 10_000
 
+/** Strip `spotify:track:` so queue ids and SDK ids compare equal. */
+export function canonicalTrackId(id: string | null | undefined): string | null {
+  if (!id) return null
+  const trimmed = id.trim()
+  const prefix = "spotify:track:"
+  return trimmed.startsWith(prefix) ? trimmed.slice(prefix.length) : trimmed
+}
+
+export function trackIdsEqual(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const ca = canonicalTrackId(a)
+  const cb = canonicalTrackId(b)
+  if (!ca || !cb) return false
+  return ca === cb
+}
+
 export type TransportSnapshot = {
   state: "playing" | "paused" | "stopped"
   progressMs: number | null | undefined
@@ -46,7 +64,7 @@ function sameTrack(
   previous: TransportSnapshot | null,
 ): boolean {
   if (!current.trackId || !previous?.trackId) return true
-  return current.trackId === previous.trackId
+  return trackIdsEqual(current.trackId, previous.trackId)
 }
 
 /**
@@ -90,7 +108,7 @@ export function lastStateShouldAdvance(
   if (!activeSource || lastState.source !== activeSource) {
     return false
   }
-  if (currentTrackId && lastState.trackId && lastState.trackId !== currentTrackId) {
+  if (currentTrackId && lastState.trackId && !trackIdsEqual(lastState.trackId, currentTrackId)) {
     return false
   }
   return isNearEnd(lastState.progressMs, lastState.durationMs)
@@ -110,5 +128,5 @@ export function endedTrackMatchesCurrent(
   currentTrackId: string | null,
 ): boolean {
   if (!endedTrackId || !currentTrackId) return true
-  return endedTrackId === currentTrackId
+  return trackIdsEqual(endedTrackId, currentTrackId)
 }

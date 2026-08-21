@@ -161,4 +161,21 @@ describe("endedTrackMatchesCurrent", () => {
   it("accepts ENDED for the current URI", () => {
     expect(endedTrackMatchesCurrent("track-b", "track-b")).toBe(true)
   })
+
+  it("treats spotify:track: prefix as the same id", () => {
+    expect(endedTrackMatchesCurrent("spotify:track:abc", "abc")).toBe(true)
+    expect(
+      lastStateShouldAdvance(
+        {
+          source: "spotify",
+          state: "playing",
+          progressMs: DURATION - 200,
+          durationMs: DURATION,
+          trackId: "abc",
+        },
+        "spotify",
+        "spotify:track:abc",
+      ),
+    ).toBe(true)
+  })
 })

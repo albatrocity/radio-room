@@ -132,11 +132,13 @@
               state.track_window && state.track_window.current_track
                 ? state.track_window.current_track
                 : null
+            var linkedFrom =
+              track && track.linked_from && track.linked_from.id ? track.linked_from.id : null
             window.__bridgeSpotifyPlayerState({
               paused: !!state.paused,
               position: typeof state.position === "number" ? state.position : null,
               duration: typeof state.duration === "number" ? state.duration : null,
-              trackId: track && track.id ? track.id : null,
+              trackId: linkedFrom || (track && track.id) || null,
             })
           })
 

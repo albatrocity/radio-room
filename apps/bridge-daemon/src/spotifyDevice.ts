@@ -1,6 +1,6 @@
 import type { CDPSession, Page } from "puppeteer-core"
 import type { RedisClientType } from "redis"
-import { isNaturalFinish } from "@repo/adapter-bridge/playbackFinish"
+import { isApproachingEnd, isNaturalFinish, isNearEnd, trackIdsEqual } from "@repo/adapter-bridge/playbackFinish"
 import {
   BRIDGE_SPOTIFY_DEVICE_NAME,
   eventChannel,
@@ -187,11 +187,16 @@ export class SpotifyDeviceHost {
       } catch {
         /* ignore */
       }
+      const track = state.track_window?.current_track
+      const linkedFrom = track?.linked_from && typeof track.linked_from === "object"
+        ? (track.linked_from as { id?: string }).id
+        : undefined
       return {
         paused: !!state.paused,
         position: typeof state.position === "number" ? state.position : null,
         duration: typeof state.duration === "number" ? state.duration : null,
-        trackId: state.track_window?.current_track?.id ?? null,
+        // Prefer linked_from so relinked playable ids still match the queued URI.
+        trackId: linkedFrom || track?.id || null,
         volumePercent,
       }
     })
@@ -579,6 +584,18 @@ export class SpotifyDeviceHost {
     }
 
     if (current.state === "playing" && current.trackId) {
+      if (
+        this.lastPlayingTrackId &&
+        !trackIdsEqual(current.trackId, this.lastPlayingTrackId) &&
+        this.lastSnapshot &&
+        (isNearEnd(this.lastSnapshot.progressMs, this.lastSnapshot.durationMs) ||
+          isApproachingEnd(this.lastSnapshot.progressMs, this.lastSnapshot.durationMs))
+      ) {
+        // SDK autoplay / next-context: the queued URI ended even though a new
+        // track is already playing. PlayTrack of our next item is ignored via
+        // lastKnownTrackId matching on the API.
+        this.emitEnded(this.lastPlayingTrackId)
+      }
       this.endedForTrackId = null
       this.lastPlayingTrackId = current.trackId
     }
@@ -588,7 +605,7 @@ export class SpotifyDeviceHost {
       current.state !== "playing" &&
       current.trackId &&
       this.lastPlayingTrackId &&
-      current.trackId !== this.lastPlayingTrackId
+      !trackIdsEqual(current.trackId, this.lastPlayingTrackId)
     ) {
       return
     }

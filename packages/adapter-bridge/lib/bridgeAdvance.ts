@@ -7,6 +7,7 @@ import {
   isApproachingEnd,
   isNaturalFinish,
   lastStateShouldAdvance,
+  trackIdsEqual,
 } from "./playbackFinish"
 
 /** Consecutive no-media polls before treating as unplayable (backup if ENDED key missed). */
@@ -400,7 +401,7 @@ export function createBridgeAdvanceJob(params: {
             typeof playback.progressMs === "number" ? playback.progressMs : lastKnownProgressMs
           lastKnownDurationMs =
             typeof playback.durationMs === "number" ? playback.durationMs : lastKnownDurationMs
-          if (playbackTrackId && (!lastKnownTrackId || playbackTrackId === lastKnownTrackId)) {
+          if (playbackTrackId && (!lastKnownTrackId || trackIdsEqual(playbackTrackId, lastKnownTrackId))) {
             lastKnownTrackId = playbackTrackId
           }
 
