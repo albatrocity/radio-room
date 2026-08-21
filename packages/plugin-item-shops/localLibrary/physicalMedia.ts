@@ -2,32 +2,22 @@ import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import type { ArtworkFrame, ItemRarity, LucideIconName } from "@repo/types"
 import type { PhysicalMediaOverride } from "./config"
 
-export const PHYSICAL_MEDIA_PREFIXES = [
-  {
-    prefix: "[CD]",
-    format: "CD",
-    icon: "Disc" as LucideIconName,
-    artworkFrame: "jewel-case" as ArtworkFrame,
-  },
-  {
-    prefix: "[LP]",
-    format: "LP",
-    icon: "Disc3" as LucideIconName,
-    artworkFrame: "record-jacket" as ArtworkFrame,
-  },
-  {
-    prefix: "[TAPE]",
-    format: "Cassette",
-    icon: "CassetteTape" as LucideIconName,
-    artworkFrame: "cassette-case" as ArtworkFrame,
-  },
-  {
-    prefix: "[45]",
-    format: "45",
-    icon: "DiscAlbum" as LucideIconName,
-    artworkFrame: "die-cut-jacket" as ArtworkFrame,
-  },
-] as const
+const FORMAT_BY_TOKEN: Record<
+  string,
+  { format: string; icon: LucideIconName; artworkFrame: ArtworkFrame }
+> = {
+  CD: { format: "CD", icon: "Disc", artworkFrame: "jewel-case" },
+  LP: { format: "LP", icon: "Disc3", artworkFrame: "record-jacket" },
+  TAPE: { format: "Cassette", icon: "CassetteTape", artworkFrame: "cassette-case" },
+  "45": { format: "45", icon: "DiscAlbum", artworkFrame: "die-cut-jacket" },
+}
+
+const RARITY_BY_TOKEN: Record<string, ItemRarity> = {
+  COMMON: "common",
+  UNCOMMON: "uncommon",
+  RARE: "rare",
+  LEGENDARY: "legendary",
+}
 
 export type PhysicalMediaPlaylist = {
   id: string
@@ -96,6 +86,8 @@ export type PhysicalMediaAlbum = {
   artist?: string
   year?: number
   songCount?: number
+  /** Navidrome userRating (1–5); drives rarity only (ADR 0111). */
+  userRating?: number
 }
 
 /**
@@ -172,7 +164,7 @@ export function derivePhysicalMediaItemsFromAlbums(
         tradeable: true,
         consumable: false,
         coinValue: priceFromSongCount(songCount),
-        rarity: rarityFromSongCount(songCount),
+        rarity: rarityFromUserRating(album.userRating),
         slotPool: "collection",
         detailView: {
           actionIcon: "Eye",
@@ -211,17 +203,61 @@ export function splitPhysicalMediaArtistTitle(raw: string): {
   return { artist, title }
 }
 
-export function parsePhysicalMediaName(
-  name: string,
-): { format: string; title: string; icon: LucideIconName; artworkFrame: ArtworkFrame } | null {
+export type ParsedPhysicalMediaName = {
+  format: string
+  title: string
+  icon: LucideIconName
+  artworkFrame: ArtworkFrame
+  /** From optional `[RARE]`-style leading tags (ADR 0111). */
+  rarity?: ItemRarity
+}
+
+/**
+ * Parse leading consecutive recognized format/rarity brackets.
+ * First unrecognized `[...]` ends the scan (e.g. `[LIVE][LP] Title` does not derive).
+ * A format tag is required. Rarity tags are optional and stripped from the title.
+ */
+export function parsePhysicalMediaName(name: string): ParsedPhysicalMediaName | null {
   const trimmed = name.trim()
-  for (const row of PHYSICAL_MEDIA_PREFIXES) {
-    if (trimmed.toUpperCase().startsWith(row.prefix)) {
-      const title = trimmed.slice(row.prefix.length).trim() || trimmed
-      return { format: row.format, icon: row.icon, title, artworkFrame: row.artworkFrame }
+  if (!trimmed) return null
+
+  let i = 0
+  let formatInfo: (typeof FORMAT_BY_TOKEN)[string] | undefined
+  let rarity: ItemRarity | undefined
+
+  while (i < trimmed.length) {
+    while (i < trimmed.length && /\s/.test(trimmed[i]!)) i++
+    if (trimmed[i] !== "[") break
+    const close = trimmed.indexOf("]", i + 1)
+    if (close < 0) break
+    const token = trimmed.slice(i + 1, close).trim().toUpperCase()
+    const asFormat = FORMAT_BY_TOKEN[token]
+    const asRarity = RARITY_BY_TOKEN[token]
+    if (asFormat) {
+      formatInfo = asFormat
+      i = close + 1
+      continue
     }
+    if (asRarity) {
+      rarity = asRarity
+      i = close + 1
+      continue
+    }
+    // Unrecognized bracket — stop; do not skip past it.
+    break
   }
-  return null
+
+  if (!formatInfo) return null
+
+  while (i < trimmed.length && /\s/.test(trimmed[i]!)) i++
+  const title = trimmed.slice(i).trim() || trimmed
+  return {
+    format: formatInfo.format,
+    icon: formatInfo.icon,
+    artworkFrame: formatInfo.artworkFrame,
+    title,
+    ...(rarity ? { rarity } : {}),
+  }
 }
 
 export function priceFromSongCount(songCount: number): number {
@@ -231,11 +267,15 @@ export function priceFromSongCount(songCount: number): number {
   return 50
 }
 
-export function rarityFromSongCount(songCount: number): ItemRarity {
-  if (songCount <= 4) return "common"
-  if (songCount <= 12) return "uncommon"
-  if (songCount <= 20) return "rare"
-  return "legendary"
+/** Map Navidrome album `userRating` (1–5) to ItemRarity. Unset / invalid → common. */
+export function rarityFromUserRating(userRating: number | undefined): ItemRarity {
+  if (userRating == null || !Number.isFinite(userRating)) return "common"
+  const stars = Math.round(userRating)
+  if (stars <= 1) return "common"
+  if (stars <= 3) return "uncommon"
+  if (stars === 4) return "rare"
+  if (stars >= 5) return "legendary"
+  return "common"
 }
 
 export function derivePhysicalMediaItems(
@@ -263,6 +303,7 @@ export function derivePhysicalMediaItems(
     const artwork = override?.blankDisc ? undefined : artworkByPlaylistId[id]
     const imageUrl = artwork?.imageUrl?.trim()
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
+    const rarity = override?.rarity ?? parsed.rarity ?? "common"
     items.push({
       definition: {
         shortId,
@@ -280,7 +321,7 @@ export function derivePhysicalMediaItems(
         tradeable: true,
         consumable: false,
         coinValue: override?.coinValue ?? priceFromSongCount(songCount),
-        rarity: override?.rarity ?? rarityFromSongCount(songCount),
+        rarity,
         slotPool: "collection",
         detailView: {
           actionIcon: "Eye",

@@ -294,6 +294,15 @@ export type LocalLibraryAlbumListItem = {
   songCount?: number
   /** Subsonic coverArt key only — never a data URI. */
   coverArt?: string
+  /** Navidrome userRating (1–5); drives Physical Media rarity (ADR 0111). */
+  userRating?: number
+}
+
+/** Copy a finite 1–5 star rating; omit otherwise (stale packs / unrated). */
+export function normalizeAlbumUserRating(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined
+  if (value < 1 || value > 5) return undefined
+  return Math.round(value)
 }
 
 /** Map a daemon `listLibraryAlbums` row; extra/missing fields are ignored (stale DJ Mac). */
@@ -305,6 +314,7 @@ export function mapLocalLibraryAlbumRow(row: unknown): LocalLibraryAlbumListItem
   const coverArt = typeof r.coverArt === "string" ? r.coverArt.trim() : ""
   // Fail closed on data URIs: listLibraryAlbums must only expose cover keys.
   const safeCover = coverArt && !coverArt.startsWith("data:") ? coverArt : ""
+  const userRating = normalizeAlbumUserRating(r.userRating)
   return {
     id,
     name: r.name != null ? String(r.name) : id,
@@ -312,6 +322,7 @@ export function mapLocalLibraryAlbumRow(row: unknown): LocalLibraryAlbumListItem
     ...(typeof r.year === "number" ? { year: r.year } : {}),
     ...(typeof r.songCount === "number" ? { songCount: r.songCount } : {}),
     ...(safeCover ? { coverArt: safeCover } : {}),
+    ...(userRating != null ? { userRating } : {}),
   }
 }
 

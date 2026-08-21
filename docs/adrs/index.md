@@ -115,7 +115,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) | Game sessions independent of segment plugin activation | Accepted |
 | [0108](0108-local-catalog-browse-result-cache.md) | Local CatalogBrowse result cache (album/playlist tracks in Redis) | Accepted |
 | [0109](0109-local-remote-loopback-sidechain-ducking.md) | local-remote: Loopback sidechain ducking engine (Ableton replacement) | Accepted |
-| [0110](0110-catalog-mode-physical-media.md) | Catalog-mode Physical Media (albums + prefixed playlist toggles) | Accepted |
+| [0110](0110-catalog-mode-physical-media.md) | Catalog-mode Physical Media (albums + prefixed playlist toggles) | Partially superseded by [0111](0111-physical-media-rarity-signals.md) (rarity only) |
+| [0111](0111-physical-media-rarity-signals.md) | Physical Media rarity from ratings and title tags | Accepted |
 
 ## Creating a New ADR
 

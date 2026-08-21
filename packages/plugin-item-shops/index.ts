@@ -533,14 +533,14 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           type: "boolean",
           label: "Stock Record Store from prefixed playlists",
           description:
-            "Derive Physical Media from Navidrome playlists named with [CD], [LP], [TAPE], or [45]. Turn off when you only want album-catalog items.",
+            "Derive Physical Media from Navidrome playlists named with [CD], [LP], [TAPE], or [45]. Optional rarity tags: [COMMON], [UNCOMMON], [RARE], [LEGENDARY] (any order with the format tag, e.g. [LP][RARE] Loveless). Untagged playlists are common. Turn off when you only want album-catalog items.",
           showWhen: { field: "enabled", value: true },
         },
         deriveAlbumsAsPhysicalMedia: {
           type: "boolean",
           label: "Stock Record Store from every album",
           description:
-            "Create a Physical Media item for each Navidrome album (format inferred from year and track count). Albums that exactly match a derived prefixed playlist are omitted. Requires a current DJ Mac Media Bridge pack.",
+            "Create a Physical Media item for each Navidrome album (format inferred from year and track count). Rarity comes from your Navidrome star rating (unrated = common); price still follows track count. Albums that exactly match a derived prefixed playlist are omitted. Requires a current DJ Mac Media Bridge pack.",
           showWhen: { field: "enabled", value: true },
         },
         localLibraryGrants: {

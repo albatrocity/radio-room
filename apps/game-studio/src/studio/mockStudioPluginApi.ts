@@ -369,6 +369,7 @@ export class MockStudioPluginApi implements PluginAPI {
       year?: number
       songCount?: number
       coverArt?: string
+      userRating?: number
     }>
   > {
     return []

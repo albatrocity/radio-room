@@ -33,6 +33,8 @@ export type NavidromeAlbum = {
   year?: number
   songCount?: number
   coverArt?: string
+  /** Operator star rating (1–5) when set in Navidrome. */
+  userRating?: number
 }
 
 export type CoverArtUrlFn = (coverArtId: string) => string

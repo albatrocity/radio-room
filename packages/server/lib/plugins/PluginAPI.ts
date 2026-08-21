@@ -631,6 +631,7 @@ export class PluginAPIImpl implements PluginAPI {
       year?: number
       songCount?: number
       coverArt?: string
+      userRating?: number
     }>
   > {
     try {

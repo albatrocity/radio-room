@@ -5,11 +5,11 @@ import {
   derivePhysicalMediaItemsFromAlbums,
   inferPhysicalMediaFormat,
   parsePhysicalMediaName,
+  rarityFromUserRating,
   splitPhysicalMediaArtistTitle,
   physicalMediaAlbumShortId,
   physicalMediaShortId,
   priceFromSongCount,
-  rarityFromSongCount,
 } from "./physicalMedia"
 
 describe("physicalMedia derivation", () => {
@@ -27,6 +27,38 @@ describe("physicalMedia derivation", () => {
       artworkFrame: "jewel-case",
     })
     expect(parsePhysicalMediaName("Just a mixtape")).toBeNull()
+  })
+
+  it("parses optional rarity tags in any order with format", () => {
+    expect(parsePhysicalMediaName("[LP][RARE] Loveless")).toMatchObject({
+      format: "LP",
+      title: "Loveless",
+      rarity: "rare",
+      artworkFrame: "record-jacket",
+    })
+    expect(parsePhysicalMediaName("[RARE][CD] Kid A")).toMatchObject({
+      format: "CD",
+      title: "Kid A",
+      rarity: "rare",
+    })
+    expect(parsePhysicalMediaName("[legendary][45] Single")).toMatchObject({
+      format: "45",
+      title: "Single",
+      rarity: "legendary",
+    })
+  })
+
+  it("does not derive when an unrecognized bracket precedes the format tag", () => {
+    expect(parsePhysicalMediaName("[LIVE][LP] Mix")).toBeNull()
+  })
+
+  it("stops at unrecognized brackets after recognized ones", () => {
+    // Format+rarity consumed; [LIVE] ends the run — title keeps the rest including [LIVE].
+    expect(parsePhysicalMediaName("[LP][RARE][LIVE] Mix")).toMatchObject({
+      format: "LP",
+      rarity: "rare",
+      title: "[LIVE] Mix",
+    })
   })
 
   it("splits artist from playlist titles and overrides", () => {
@@ -57,6 +89,7 @@ describe("physicalMedia derivation", () => {
     expect(items[0]?.definition.name).toBe("Loveless")
     expect(items[0]?.definition.artist).toBe("My Bloody Valentine")
     expect(items[0]?.definition.coinValue).toBe(99)
+    expect(items[0]?.definition.rarity).toBe("common")
     expect(items[0]?.definition.slotPool).toBe("collection")
     expect(items[0]?.definition.detailView).toEqual({
       actionIcon: "Eye",
@@ -72,8 +105,28 @@ describe("physicalMedia derivation", () => {
     expect(items[1]?.definition.name).toBe("45: Single")
     expect(items[1]?.definition.artist).toBeUndefined()
     expect(items[1]?.definition.coinValue).toBe(priceFromSongCount(2))
-    expect(items[1]?.definition.rarity).toBe(rarityFromSongCount(2))
+    expect(items[1]?.definition.rarity).toBe("common")
     expect(playlistMap[physicalMediaShortId("nd-1")]).toBe("nd-1")
+  })
+
+  it("applies title-tag rarity and keeps price from song count", () => {
+    const { items } = derivePhysicalMediaItems([
+      { id: "nd-1", name: "[LP][RARE] Loveless", songCount: 11 },
+      { id: "nd-2", name: "[LEGENDARY][45] Single", songCount: 2 },
+    ])
+    expect(items[0]?.definition.rarity).toBe("rare")
+    expect(items[0]?.definition.coinValue).toBe(priceFromSongCount(11))
+    expect(items[0]?.definition.name).toBe("LP: Loveless")
+    expect(items[1]?.definition.rarity).toBe("legendary")
+    expect(items[1]?.definition.coinValue).toBe(priceFromSongCount(2))
+  })
+
+  it("lets physicalMediaOverrides.rarity win over title tags", () => {
+    const { items } = derivePhysicalMediaItems(
+      [{ id: "nd-1", name: "[LP][RARE] Loveless", songCount: 11 }],
+      [{ playlistId: "nd-1", rarity: "legendary" }],
+    )
+    expect(items[0]?.definition.rarity).toBe("legendary")
   })
 
   it("attaches playlist artwork to the derived definition when available", () => {
@@ -175,6 +228,18 @@ describe("physicalMedia derivation", () => {
   })
 })
 
+describe("rarityFromUserRating", () => {
+  it("maps stars to rarity tiers", () => {
+    expect(rarityFromUserRating(undefined)).toBe("common")
+    expect(rarityFromUserRating(0)).toBe("common")
+    expect(rarityFromUserRating(1)).toBe("common")
+    expect(rarityFromUserRating(2)).toBe("uncommon")
+    expect(rarityFromUserRating(3)).toBe("uncommon")
+    expect(rarityFromUserRating(4)).toBe("rare")
+    expect(rarityFromUserRating(5)).toBe("legendary")
+  })
+})
+
 describe("inferPhysicalMediaFormat", () => {
   it("maps year and song count to format frames", () => {
     expect(inferPhysicalMediaFormat(1975, 2)).toMatchObject({
@@ -226,6 +291,8 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
     ])
     expect(items[0]?.definition.name).toBe("CD: Loveless")
     expect(items[0]?.definition.artist).toBe("My Bloody Valentine")
+    expect(items[0]?.definition.rarity).toBe("common")
+    expect(items[0]?.definition.coinValue).toBe(priceFromSongCount(11))
     expect(items[0]?.definition.slotPool).toBe("collection")
     expect(items[0]?.definition.detailView).toEqual({
       actionIcon: "Eye",
@@ -242,6 +309,20 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
     expect(items[1]?.definition.artist).toBeUndefined()
     expect(items[1]?.definition.artworkFrame).toBe("die-cut-jacket")
     expect(albumMap[physicalMediaAlbumShortId("al-1")]).toBe("al-1")
+  })
+
+  it("uses userRating for rarity and song count for price", () => {
+    const { items } = derivePhysicalMediaItemsFromAlbums([
+      {
+        id: "al-1",
+        name: "Loveless",
+        year: 1991,
+        songCount: 11,
+        userRating: 5,
+      },
+    ])
+    expect(items[0]?.definition.rarity).toBe("legendary")
+    expect(items[0]?.definition.coinValue).toBe(20)
   })
 
   it("omits albums in omitAlbumIds", () => {

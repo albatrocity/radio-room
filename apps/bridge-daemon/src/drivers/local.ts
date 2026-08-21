@@ -99,6 +99,8 @@ export type LibraryAlbumListItem = {
   songCount?: number
   /** Subsonic coverArt key only — never a data URI. */
   coverArt?: string
+  /** Navidrome userRating (1–5) when present; drives Physical Media rarity (ADR 0111). */
+  userRating?: number
 }
 
 const LIBRARY_ALBUM_PAGE_SIZE = 500
@@ -467,6 +469,13 @@ export class LocalDriver implements Driver {
         if (!id) continue
         const coverArt = a.coverArt?.trim() || undefined
         if (coverArt) this.albumCoverKeys.set(id, coverArt)
+        const userRating =
+          typeof a.userRating === "number" &&
+          Number.isFinite(a.userRating) &&
+          a.userRating >= 1 &&
+          a.userRating <= 5
+            ? Math.round(a.userRating)
+            : undefined
         out.push({
           id,
           name: String(a.name ?? id).trim() || id,
@@ -476,6 +485,7 @@ export class LocalDriver implements Driver {
           ...(typeof a.year === "number" ? { year: a.year } : {}),
           ...(typeof a.songCount === "number" ? { songCount: a.songCount } : {}),
           ...(coverArt ? { coverArt } : {}),
+          ...(userRating != null ? { userRating } : {}),
         })
       }
       if (list.length < LIBRARY_ALBUM_PAGE_SIZE) break

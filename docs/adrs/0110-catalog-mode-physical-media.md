@@ -1,7 +1,7 @@
 # 0110. Catalog-mode Physical Media (albums + prefixed playlists)
 
 **Date:** 2026-08-21
-**Status:** Accepted
+**Status:** Partially superseded by [0111](0111-physical-media-rarity-signals.md) (rarity signals only; price and format stay song-count based)
 
 ## Context
 
@@ -14,7 +14,7 @@ Constraints from 0099 still apply: clients never see Navidrome playlist or album
 1. **Two Item Shops toggles** (room/segment plugin config, not `GameSessionConfig`):
    - `derivePrefixedPlaylistsAsPhysicalMedia` (default `true`) — today’s prefix-named playlist derivation.
    - `deriveAlbumsAsPhysicalMedia` (default `false`) — one durable collection SKU per Navidrome album.
-2. **Album format heuristic** (`inferPhysicalMediaFormat`): `songCount` in 1–3 → 45; else `year < 1983` → LP; else `year < 1991` → Cassette; else (including missing year on longer albums) → CD. Price/rarity stay song-count based. Album `shortId` is `pm-al-{albumId}`.
+2. **Album format heuristic** (`inferPhysicalMediaFormat`): `songCount` in 1–3 → 45; else `year < 1983` → LP; else `year < 1991` → Cassette; else (including missing year on longer albums) → CD. **Price** stays song-count based (`priceFromSongCount`). **Rarity** is independent — see [ADR 0111](0111-physical-media-rarity-signals.md) (stars / playlist title tags; not song count). Album `shortId` is `pm-al-{albumId}`.
 3. **Playlist-over-album de-dup:** When both toggles are on, if a *derived* prefixed playlist’s ordered track ids exactly equal an album’s canonical track ids, **omit the album SKU**. Playlists win for description, prefix format, cover, and `physicalMediaOverrides`. Subsets, shuffles, extras, and mixed-album playlists do not shadow.
 4. **Album grants:** `LocalLibraryGrant` gains `{ scope: "album"; albumKey; redemption: "durable" }`. Restricted Local catalog filters are `{ playlistIds, albumIds }` (union). Album-only holders must not fall through to an unfiltered library (`getLocalCatalogShelves`).
 5. **Browse / preview:** `resolvePhysicalMediaItem` / preview resolve to `ResolvedPhysicalMediaItem` (`kind: "playlist" | "album"`). Track listing uses playlist tracks or `getAlbum` accordingly; clients still send only `mediaKey`.
@@ -31,6 +31,7 @@ Constraints from 0099 still apply: clients never see Navidrome playlist or album
 
 ## See also
 
+- [0111. Physical Media rarity from ratings and title tags](0111-physical-media-rarity-signals.md)
 - [0099. Physical Media personal libraries](0099-physical-media-personal-libraries.md)
 - [0098. Inventory-scoped Local library catalog filters](0098-inventory-scoped-local-library-catalog-filters.md)
 - [`packages/plugin-item-shops/localLibrary/`](../../packages/plugin-item-shops/localLibrary/)

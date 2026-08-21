@@ -215,6 +215,7 @@ describe("LocalDriver shelf browsing", () => {
                       year: 1991,
                       songCount: 11,
                       coverArt: "al-cover-1",
+                      userRating: 5,
                     },
                     { id: "al-2", name: "Kid A", artist: "Radiohead", songCount: 10 },
                   ],
@@ -244,6 +245,7 @@ describe("LocalDriver shelf browsing", () => {
         year: 1991,
         songCount: 11,
         coverArt: "al-cover-1",
+        userRating: 5,
       },
       { id: "al-2", name: "Kid A", artist: "Radiohead", songCount: 10 },
     ])

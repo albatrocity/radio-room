@@ -587,6 +587,8 @@ export interface PluginAPI {
       year?: number
       songCount?: number
       coverArt?: string
+      /** Navidrome userRating (1–5); drives Physical Media rarity (ADR 0111). */
+      userRating?: number
     }>
   >
 
