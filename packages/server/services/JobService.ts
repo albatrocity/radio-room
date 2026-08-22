@@ -58,13 +58,28 @@ export class JobService {
 
       console.log(`Scheduling job: ${job.name} (${job.description}) with cron: ${job.cron}`)
 
-      const task = cron.schedule(job.cron, async () => {
-        try {
-          console.log(`Running job: ${job.name}`)
-          await job.handler({ api: this.api, context: this.context })
-        } catch (error) {
-          console.error(`Error running job ${job.name}:`, error)
-        }
+      const task = cron.schedule(
+        job.cron,
+        async () => {
+          try {
+            console.log(`Running job: ${job.name}`)
+            await job.handler({ api: this.api, context: this.context })
+          } catch (error) {
+            console.error(`Error running job ${job.name}:`, error)
+          }
+        },
+        // Without this, a handler slower than its interval does not delay the next
+        // tick — executions stack up and the job falls arbitrarily far behind.
+        { noOverlap: true },
+      )
+
+      // A job that repeatedly overlaps or misses ticks is starving; surface it rather
+      // than leaving the delay to be inferred from downstream symptoms.
+      task.on("execution:overlap", () => {
+        console.warn(`Job ${job.name} skipped a tick — previous execution still running`)
+      })
+      task.on("execution:missed", () => {
+        console.warn(`Job ${job.name} missed a tick — event loop congested`)
       })
 
       task.start()

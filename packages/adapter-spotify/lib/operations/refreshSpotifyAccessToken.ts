@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from "../spotifyRequestTimeout"
+
 /**
  * Refresh Spotify access token using a refresh token
  * Calls Spotify's token endpoint to get new tokens
@@ -11,7 +13,7 @@ export async function refreshSpotifyAccessToken(
   refreshToken: string
   expiresIn: number
 }> {
-  const response = await fetch("https://accounts.spotify.com/api/token", {
+  const response = await fetchWithTimeout("https://accounts.spotify.com/api/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",

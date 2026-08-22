@@ -5,6 +5,7 @@ import {
 } from "@repo/types"
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk"
 import { trackItemSchema } from "./schemas"
+import { spotifySdkConfig } from "./spotifyRequestTimeout"
 
 function clampVolumePercent(volumePercent: number): number {
   return Math.round(Math.max(0, Math.min(100, volumePercent)))
@@ -82,7 +83,7 @@ export async function makeApi({
       token_type: "Bearer",
       expires_in: 3600,
     }
-    return SpotifyApi.withAccessToken(clientId, freshToken)
+    return SpotifyApi.withAccessToken(clientId, freshToken, spotifySdkConfig)
   }
 
   // Initial validation

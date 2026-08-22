@@ -3,6 +3,13 @@ import type { ActiveSourceStore } from "./activeSource"
 import { parseBridgeMediaId } from "./parseBridgeMediaId"
 import type { BridgeRpcClient } from "./rpcClient"
 
+/**
+ * getPlayback is polled every 1–3s by the advance job, so it must fail fast: the
+ * default 8s RPC timeout is longer than the poll interval and lets one unresponsive
+ * daemon call delay later ticks.
+ */
+const GET_PLAYBACK_TIMEOUT_MS = 2500
+
 export function createBridgePlaybackApi(deps: {
   roomId: string
   rpc: BridgeRpcClient
@@ -76,7 +83,11 @@ export function createBridgePlaybackApi(deps: {
       // Prefer daemon-local state (SDK getCurrentState / driver). Avoids polling
       // Spotify Web API from the API container on every admin scrubber refresh.
       try {
-        const result = (await rpc.call("getPlayback", { source })) as {
+        const result = (await rpc.call(
+          "getPlayback",
+          { source },
+          { timeoutMs: GET_PLAYBACK_TIMEOUT_MS },
+        )) as {
           state: PlaybackState
           trackId?: string | null
           progressMs?: number | null

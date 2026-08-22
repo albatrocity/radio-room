@@ -2,6 +2,7 @@ import { MetadataSourceApi, MetadataSourceLifecycleCallbacks } from "@repo/types
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk"
 import { mapSpotifyAlbumTrack, mapSpotifyBrowseAlbum, mapSpotifyBrowseArtist } from "./browseMappers"
 import { trackItemSchema } from "./schemas"
+import { spotifySdkConfig } from "./spotifyRequestTimeout"
 
 export async function makeApi({
   token,
@@ -12,7 +13,7 @@ export async function makeApi({
   clientId: string
   config: MetadataSourceLifecycleCallbacks
 }) {
-  const spotifyApi = SpotifyApi.withAccessToken(clientId, token)
+  const spotifyApi = SpotifyApi.withAccessToken(clientId, token, spotifySdkConfig)
 
   const accessToken = await spotifyApi.getAccessToken()
 

@@ -1,6 +1,7 @@
 import { AppContext, JobRegistration, JobApi } from "@repo/types"
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 import { trackItemSchema } from "./schemas"
+import { spotifySdkConfig } from "./spotifyRequestTimeout"
 
 /**
  * Creates a polling job that fetches currently playing track from Spotify.
@@ -64,12 +65,16 @@ export function createPlayerQueryJob(params: {
         }
 
         // Create Spotify API client
-        const spotifyApi = SpotifyApi.withAccessToken(clientId, {
-          access_token: auth.accessToken,
-          refresh_token: auth.refreshToken,
-          token_type: "Bearer",
-          expires_in: 3600,
-        })
+        const spotifyApi = SpotifyApi.withAccessToken(
+          clientId,
+          {
+            access_token: auth.accessToken,
+            refresh_token: auth.refreshToken,
+            token_type: "Bearer",
+            expires_in: 3600,
+          },
+          spotifySdkConfig,
+        )
 
         // Fetch currently playing track from Spotify
         const nowPlaying = await spotifyApi.player.getCurrentlyPlayingTrack()

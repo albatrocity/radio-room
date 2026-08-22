@@ -1,6 +1,7 @@
 import { AppContext, JobRegistration, JobApi } from "@repo/types"
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 import type { TrackItem } from "@spotify/web-api-ts-sdk"
+import { spotifySdkConfig } from "./spotifyRequestTimeout"
 
 /**
  * Advance only when this much (or less) of the track remains.
@@ -90,12 +91,16 @@ export function createTrackAdvanceJob(params: {
           return
         }
 
-        const spotifyApi = SpotifyApi.withAccessToken(clientId, {
-          access_token: auth.accessToken,
-          refresh_token: auth.refreshToken,
-          token_type: "Bearer",
-          expires_in: 3600,
-        })
+        const spotifyApi = SpotifyApi.withAccessToken(
+          clientId,
+          {
+            access_token: auth.accessToken,
+            refresh_token: auth.refreshToken,
+            token_type: "Bearer",
+            expires_in: 3600,
+          },
+          spotifySdkConfig,
+        )
 
         const playback = await spotifyApi.player.getPlaybackState()
         if (!playback) {
