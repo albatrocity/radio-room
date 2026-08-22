@@ -463,9 +463,13 @@ export class LocalDriver implements Driver {
   /**
    * Full Navidrome album catalog for Physical Media album-shelf SKU derivation.
    * Pages getAlbumList2 alphabeticalByName; returns coverArt keys only (no data URIs).
+   * Overlay `userRating` from getAlbumList `type=highest` — Navidrome 0.63 puts stars on
+   * the OpenSubsonic extension of AlbumID3, which some clients/configs omit, while
+   * Child.userRating on getAlbumList stays on the album object (ADR 0111).
    */
   async listLibraryAlbums(): Promise<LibraryAlbumListItem[]> {
     if (!this.navidrome.username) return []
+    const ratingsFromHighest = await this.fetchRatedAlbumUserRatings()
     const out: LibraryAlbumListItem[] = []
     let offset = 0
     for (;;) {
@@ -486,7 +490,7 @@ export class LocalDriver implements Driver {
         if (!id) continue
         const coverArt = a.coverArt?.trim() || undefined
         if (coverArt) this.albumCoverKeys.set(id, coverArt)
-        const userRating = normalizeAlbumUserRating(a.userRating)
+        const userRating = normalizeAlbumUserRating(a.userRating) ?? ratingsFromHighest.get(id)
         const year = parseSubsonicNumber(a.year)
         const songCount = parseSubsonicNumber(a.songCount)
         out.push({
@@ -500,6 +504,39 @@ export class LocalDriver implements Driver {
           ...(coverArt ? { coverArt } : {}),
           ...(userRating != null ? { userRating } : {}),
         })
+      }
+      if (list.length < LIBRARY_ALBUM_PAGE_SIZE) break
+      offset += LIBRARY_ALBUM_PAGE_SIZE
+    }
+    return out
+  }
+
+  /**
+   * Rated albums only (`type=highest`). Child.userRating lives on the album object
+   * even when getAlbumList2 omits OpenSubsonic extensions.
+   */
+  private async fetchRatedAlbumUserRatings(): Promise<Map<string, number>> {
+    const out = new Map<string, number>()
+    if (!this.navidrome.username) return out
+    let offset = 0
+    for (;;) {
+      const url =
+        `${this.navidrome.url}/rest/getAlbumList.view?type=highest` +
+        `&size=${LIBRARY_ALBUM_PAGE_SIZE}&offset=${offset}&${this.authParams()}`
+      const res = await fetch(url)
+      if (!res.ok) {
+        console.warn(`[LocalDriver] getAlbumList type=highest failed: ${res.status}`)
+        break
+      }
+      const data = (await res.json()) as any
+      const raw = data?.["subsonic-response"]?.albumList?.album
+      const list = Array.isArray(raw) ? raw : raw ? [raw] : []
+      if (list.length === 0) break
+      for (const a of list) {
+        const id = a?.id != null ? String(a.id) : ""
+        if (!id) continue
+        const userRating = normalizeAlbumUserRating(a.userRating)
+        if (userRating != null) out.set(id, userRating)
       }
       if (list.length < LIBRARY_ALBUM_PAGE_SIZE) break
       offset += LIBRARY_ALBUM_PAGE_SIZE

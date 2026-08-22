@@ -236,6 +236,12 @@ describe("LocalDriver shelf browsing", () => {
             json: async () => ({ "subsonic-response": { albumList2: { album: [] } } }),
           } as unknown as Response
         }
+        if (url.includes("getAlbumList.view")) {
+          return {
+            ok: true,
+            json: async () => ({ "subsonic-response": { albumList: { album: [] } } }),
+          } as unknown as Response
+        }
         throw new Error(`unexpected fetch: ${url}`)
       }),
     )
@@ -256,6 +262,66 @@ describe("LocalDriver shelf browsing", () => {
       { id: "al-2", name: "Kid A", artist: "Radiohead", songCount: 10, userRating: 4 },
     ])
     expect(albums.every((a) => !a.coverArt?.startsWith("data:"))).toBe(true)
+  })
+
+  it("overlays userRating from getAlbumList type=highest when getAlbumList2 omits it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("getAlbumList2.view") && url.includes("offset=0")) {
+          return {
+            ok: true,
+            json: async () => ({
+              "subsonic-response": {
+                albumList2: {
+                  album: [
+                    {
+                      id: "al-1",
+                      name: "Loveless",
+                      artist: "MBV",
+                      year: 1991,
+                      songCount: 11,
+                      coverArt: "al-cover-1",
+                    },
+                    { id: "al-2", name: "Kid A", artist: "Radiohead", songCount: 10 },
+                  ],
+                },
+              },
+            }),
+          } as unknown as Response
+        }
+        if (url.includes("getAlbumList2.view")) {
+          return {
+            ok: true,
+            json: async () => ({ "subsonic-response": { albumList2: { album: [] } } }),
+          } as unknown as Response
+        }
+        if (url.includes("getAlbumList.view") && url.includes("type=highest") && url.includes("offset=0")) {
+          return {
+            ok: true,
+            json: async () => ({
+              "subsonic-response": {
+                albumList: {
+                  album: [{ id: "al-1", title: "Loveless", userRating: 5 }],
+                },
+              },
+            }),
+          } as unknown as Response
+        }
+        if (url.includes("getAlbumList.view")) {
+          return {
+            ok: true,
+            json: async () => ({ "subsonic-response": { albumList: { album: [] } } }),
+          } as unknown as Response
+        }
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+
+    const driver = new LocalDriver(navidrome, mpv)
+    const albums = await driver.listLibraryAlbums()
+    expect(albums.find((a) => a.id === "al-1")?.userRating).toBe(5)
+    expect(albums.find((a) => a.id === "al-2")?.userRating).toBeUndefined()
   })
 
   it("fetches album cover art without pl- prefix", async () => {
