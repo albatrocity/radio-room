@@ -58,6 +58,7 @@ function ArtworkButton({
     <Box
       asChild
       display={fill ? "block" : "inline-flex"}
+      alignItems={fill ? undefined : "center"}
       w={fill ? "100%" : undefined}
       lineHeight="0"
       cursor="pointer"

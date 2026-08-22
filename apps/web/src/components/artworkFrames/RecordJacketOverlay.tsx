@@ -33,7 +33,13 @@ export default function RecordJacketOverlay({ idPrefix = "rj" }: Props) {
           <stop offset="100%" stopColor="#f4eee4" stopOpacity="0.16" />
         </linearGradient>
         <filter id={grainId} x="0%" y="0%" width="100%" height="100%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" result="noise" />
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.9"
+            numOctaves="2"
+            seed="3"
+            result="noise"
+          />
           <feColorMatrix type="saturate" values="0" in="noise" result="mono" />
           <feBlend in="SourceGraphic" in2="mono" mode="multiply" />
         </filter>

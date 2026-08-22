@@ -211,7 +211,7 @@ function InventoryRow({
 
   return (
     <HStack {...inventorySlotFrameProps}>
-      <VStack align="center" justify="center" h="100%" minW="4rem">
+      <VStack align="center" justify="center" minW="4rem">
         <ItemArtwork
           imageUrl={definition?.imageUrl}
           imageUrlLarge={definition?.imageUrlLarge}

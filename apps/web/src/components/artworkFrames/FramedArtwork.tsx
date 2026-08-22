@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { Box, Image, type BoxProps } from "@chakra-ui/react"
 import { parseArtworkFrame } from "@repo/types"
 import type { PhysicalMediaArt } from "../../lib/physicalMediaArtwork"
@@ -48,6 +48,9 @@ export default function FramedArtwork({
   flexShrink = 0,
   squareSlot = false,
 }: Props) {
+  // Colons in React useId break SVG url(#…) references in some browsers.
+  const generatedPrefix = `af-${useId().replace(/:/g, "")}`
+  const prefix = idPrefix ?? generatedPrefix
   const frame = parseArtworkFrame(art.artworkFrame) ?? art.artworkFrame
   const isDieCut = frame === "die-cut-jacket"
   const isJewelCase = frame === "jewel-case"
@@ -66,7 +69,6 @@ export default function FramedArtwork({
   const displayUrl = srcForSize(art, size)
   const fallbackImageUrl = art.fallbackImageUrl
 
-  const contentRef = useRef<HTMLDivElement>(null)
   const [src, setSrc] = useState(displayUrl)
 
   useEffect(() => {
@@ -82,6 +84,9 @@ export default function FramedArtwork({
 
   const fillParent = isFeatureMode && !squareSlot
 
+  // Layout size lives on this box. Drop-shadow is painted on an inner layer so
+  // CSS `filter` cannot fight `aspect-ratio` and nudge the row (collection
+  // View buttons included) when SVG filters re-rasterize.
   const object = (
     <Box
       position="relative"
@@ -110,48 +115,46 @@ export default function FramedArtwork({
       aspectRatio={fillParent ? undefined : `${ratio.width} / ${ratio.height}`}
       verticalAlign="middle"
       lineHeight={0}
-      {...framedMediaShadow}
+      overflow="visible"
     >
-      <Box
-        ref={contentRef}
-        position="relative"
-        w="100%"
-        h="100%"
-        borderRadius={0}
-        overflow={isJewelCase ? "visible" : "hidden"}
-        {...(isDieCut ? dieCutMaskStyles : {})}
-      >
-        {isJewelCase && (
-          <Box position="absolute" inset={0} zIndex={0} pointerEvents="none">
-            <JewelCaseUnderlay
-              idPrefix={idPrefix ? `${idPrefix}-jc` : "jc"}
-              label={art.discLabel}
+      <Box position="absolute" inset={0} {...framedMediaShadow}>
+        <Box
+          position="relative"
+          w="100%"
+          h="100%"
+          borderRadius={0}
+          overflow={isJewelCase ? "visible" : "hidden"}
+          {...(isDieCut ? dieCutMaskStyles : {})}
+        >
+          {isJewelCase && (
+            <Box position="absolute" inset={0} zIndex={0} pointerEvents="none">
+              <JewelCaseUnderlay idPrefix={`${prefix}-jc`} label={art.discLabel} />
+            </Box>
+          )}
+          {src && (
+            <Image
+              position="absolute"
+              top={pct(inset.top)}
+              left={pct(inset.left)}
+              w={pct(1 - inset.left - inset.right)}
+              h={pct(1 - inset.top - inset.bottom)}
+              zIndex={1}
+              src={src}
+              alt={alt}
+              borderRadius={0}
+              objectFit="cover"
+              objectPosition="center"
+              loading="lazy"
+              maxW="none"
+              onError={() => {
+                const fallback = fallbackImageUrl?.trim()
+                if (fallback && src !== fallback) setSrc(fallback)
+              }}
             />
+          )}
+          <Box position="absolute" inset={0} zIndex={2} pointerEvents="none">
+            <ArtworkFrameOverlay frame={frame} idPrefix={prefix} coverless={!hasCover} />
           </Box>
-        )}
-        {src && (
-          <Image
-            position="absolute"
-            top={pct(inset.top)}
-            left={pct(inset.left)}
-            w={pct(1 - inset.left - inset.right)}
-            h={pct(1 - inset.top - inset.bottom)}
-            zIndex={1}
-            src={src}
-            alt={alt}
-            borderRadius={0}
-            objectFit="cover"
-            objectPosition="center"
-            loading="lazy"
-            maxW="none"
-            onError={() => {
-              const fallback = fallbackImageUrl?.trim()
-              if (fallback && src !== fallback) setSrc(fallback)
-            }}
-          />
-        )}
-        <Box position="absolute" inset={0} zIndex={2} pointerEvents="none">
-          <ArtworkFrameOverlay frame={frame} idPrefix={idPrefix} coverless={!hasCover} />
         </Box>
       </Box>
     </Box>
