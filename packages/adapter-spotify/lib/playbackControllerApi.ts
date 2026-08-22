@@ -15,8 +15,45 @@ function isSpotifyEmptyBodySuccess(error: unknown): boolean {
   return message.includes("JSON") || message.includes("Unexpected")
 }
 
+/**
+ * Spotify's player endpoints intermittently answer 5xx for a request that did take
+ * effect, so the response alone cannot decide whether playback started.
+ */
+function isSpotifyGatewayError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    /\b(502|503|504)\b/.test(message) &&
+    /(bad gateway|service unavailable|gateway time-?out)/i.test(message)
+  )
+}
+
+/** Spotify needs a moment to reflect a new item, so confirm over a few polls. */
+async function isTrackPlaying(
+  api: SpotifyApi,
+  mediaId: string,
+  { attempts = 3, delayMs = 700 } = {},
+): Promise<boolean> {
+  const bareId = mediaId.startsWith(SPOTIFY_TRACK_URI_PREFIX)
+    ? mediaId.slice(SPOTIFY_TRACK_URI_PREFIX.length)
+    : mediaId
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+    try {
+      const playback = await api.player.getPlaybackState()
+      const item = playback?.item as { id?: string; uri?: string } | null | undefined
+      if (item && (item.uri === mediaId || item.id === bareId)) return true
+    } catch {
+      /* transient — keep polling */
+    }
+  }
+  return false
+}
+
 /** Must match Spotify.Player name in apps/bridge-daemon/static/spotify.html */
 const BRIDGE_SPOTIFY_DEVICE_NAME = "Listening Room Bridge"
+
+const SPOTIFY_TRACK_URI_PREFIX = "spotify:track:"
 
 function isDeviceNotFoundError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error)
@@ -151,9 +188,16 @@ export async function makeApi({
 
       try {
         await api.player.startResumePlayback(device.id, undefined, [mediaId], undefined, 0)
-      } catch (error: any) {
-        if (error.message?.includes("JSON") || error.message?.includes("Unexpected")) {
+      } catch (error: unknown) {
+        if (isSpotifyEmptyBodySuccess(error)) {
           // Spotify returns empty body on success sometimes
+        } else if (isSpotifyGatewayError(error)) {
+          // A 5xx here is inconclusive: playback usually did start, and treating it as
+          // fatal makes callers announce a failure and requeue a track that is playing.
+          if (!(await isTrackPlaying(api, mediaId))) throw error
+          console.warn(
+            `[spotify] startResumePlayback returned a gateway error but ${mediaId} is playing; continuing`,
+          )
         } else {
           throw error
         }
