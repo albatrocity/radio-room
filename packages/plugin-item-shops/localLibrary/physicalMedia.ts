@@ -267,10 +267,21 @@ export function priceFromSongCount(songCount: number): number {
   return 50
 }
 
+/** Coerce Subsonic JSON numbers that may arrive as strings. */
+export function parseSubsonicNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value.trim())
+    if (Number.isFinite(n)) return n
+  }
+  return undefined
+}
+
 /** Map Navidrome album `userRating` (1–5) to ItemRarity. Unset / invalid → common. */
-export function rarityFromUserRating(userRating: number | undefined): ItemRarity {
-  if (userRating == null || !Number.isFinite(userRating)) return "common"
-  const stars = Math.round(userRating)
+export function rarityFromUserRating(userRating: unknown): ItemRarity {
+  const parsed = parseSubsonicNumber(userRating)
+  if (parsed == null) return "common"
+  const stars = Math.round(parsed)
   if (stars <= 1) return "common"
   if (stars <= 3) return "uncommon"
   if (stars === 4) return "rare"
@@ -283,6 +294,11 @@ export function derivePhysicalMediaItems(
   overrides: readonly PhysicalMediaOverride[] = [],
   /** Playlist cover art URLs keyed by Navidrome playlist id. */
   artworkByPlaylistId: Readonly<Record<string, { imageUrl?: string; imageUrlLarge?: string }>> = {},
+  /**
+   * Navidrome album `userRating` for playlists that shadow a catalog album
+   * (ADR 0110 de-dup). Used when no override or title-tag rarity is set.
+   */
+  albumRatingByPlaylistId: Readonly<Record<string, number>> = {},
 ): { items: ItemCatalogEntry[]; playlistMap: Record<string, string> } {
   const overrideById = new Map(overrides.map((o) => [o.playlistId.trim(), o]))
   const items: ItemCatalogEntry[] = []
@@ -303,7 +319,8 @@ export function derivePhysicalMediaItems(
     const artwork = override?.blankDisc ? undefined : artworkByPlaylistId[id]
     const imageUrl = artwork?.imageUrl?.trim()
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
-    const rarity = override?.rarity ?? parsed.rarity ?? "common"
+    const rarity =
+      override?.rarity ?? parsed.rarity ?? rarityFromUserRating(albumRatingByPlaylistId[id])
     items.push({
       definition: {
         shortId,

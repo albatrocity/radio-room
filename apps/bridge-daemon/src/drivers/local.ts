@@ -76,6 +76,23 @@ function md5(s: string) {
   return createHash("md5").update(s).digest("hex")
 }
 
+/** Coerce Subsonic JSON numbers that may arrive as strings. */
+export function parseSubsonicNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value.trim())
+    if (Number.isFinite(n)) return n
+  }
+  return undefined
+}
+
+function normalizeAlbumUserRating(value: unknown): number | undefined {
+  const n = parseSubsonicNumber(value)
+  if (n == null) return undefined
+  if (n < 1 || n > 5) return undefined
+  return Math.round(n)
+}
+
 function normalizeIdList(ids?: string[]): string[] {
   if (!ids?.length) return []
   return Array.from(new Set(ids.map((p) => p.trim()).filter(Boolean)))
@@ -469,21 +486,17 @@ export class LocalDriver implements Driver {
         if (!id) continue
         const coverArt = a.coverArt?.trim() || undefined
         if (coverArt) this.albumCoverKeys.set(id, coverArt)
-        const userRating =
-          typeof a.userRating === "number" &&
-          Number.isFinite(a.userRating) &&
-          a.userRating >= 1 &&
-          a.userRating <= 5
-            ? Math.round(a.userRating)
-            : undefined
+        const userRating = normalizeAlbumUserRating(a.userRating)
+        const year = parseSubsonicNumber(a.year)
+        const songCount = parseSubsonicNumber(a.songCount)
         out.push({
           id,
           name: String(a.name ?? id).trim() || id,
           ...(a.artist != null && String(a.artist).trim()
             ? { artist: String(a.artist).trim() }
             : {}),
-          ...(typeof a.year === "number" ? { year: a.year } : {}),
-          ...(typeof a.songCount === "number" ? { songCount: a.songCount } : {}),
+          ...(year != null ? { year } : {}),
+          ...(songCount != null ? { songCount } : {}),
           ...(coverArt ? { coverArt } : {}),
           ...(userRating != null ? { userRating } : {}),
         })

@@ -129,6 +129,27 @@ describe("physicalMedia derivation", () => {
     expect(items[0]?.definition.rarity).toBe("legendary")
   })
 
+  it("uses shadowed album userRating when no override or title tag", () => {
+    const { items } = derivePhysicalMediaItems(
+      [{ id: "nd-1", name: "[LP] Loveless", songCount: 11 }],
+      [],
+      {},
+      { "nd-1": 5 },
+    )
+    expect(items[0]?.definition.rarity).toBe("legendary")
+    expect(items[0]?.definition.coinValue).toBe(priceFromSongCount(11))
+  })
+
+  it("does not let album rating override a title-tag rarity", () => {
+    const { items } = derivePhysicalMediaItems(
+      [{ id: "nd-1", name: "[LP][COMMON] Loveless", songCount: 11 }],
+      [],
+      {},
+      { "nd-1": 5 },
+    )
+    expect(items[0]?.definition.rarity).toBe("common")
+  })
+
   it("attaches playlist artwork to the derived definition when available", () => {
     const { items } = derivePhysicalMediaItems(
       [
@@ -237,6 +258,12 @@ describe("rarityFromUserRating", () => {
     expect(rarityFromUserRating(3)).toBe("uncommon")
     expect(rarityFromUserRating(4)).toBe("rare")
     expect(rarityFromUserRating(5)).toBe("legendary")
+  })
+
+  it("coerces Subsonic string ratings", () => {
+    expect(rarityFromUserRating("5")).toBe("legendary")
+    expect(rarityFromUserRating("4")).toBe("rare")
+    expect(rarityFromUserRating(" 2 ")).toBe("uncommon")
   })
 })
 

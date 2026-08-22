@@ -215,9 +215,15 @@ describe("LocalDriver shelf browsing", () => {
                       year: 1991,
                       songCount: 11,
                       coverArt: "al-cover-1",
-                      userRating: 5,
+                      userRating: "5",
                     },
-                    { id: "al-2", name: "Kid A", artist: "Radiohead", songCount: 10 },
+                    {
+                      id: "al-2",
+                      name: "Kid A",
+                      artist: "Radiohead",
+                      songCount: 10,
+                      userRating: 4,
+                    },
                   ],
                 },
               },
@@ -247,7 +253,7 @@ describe("LocalDriver shelf browsing", () => {
         coverArt: "al-cover-1",
         userRating: 5,
       },
-      { id: "al-2", name: "Kid A", artist: "Radiohead", songCount: 10 },
+      { id: "al-2", name: "Kid A", artist: "Radiohead", songCount: 10, userRating: 4 },
     ])
     expect(albums.every((a) => !a.coverArt?.startsWith("data:"))).toBe(true)
   })

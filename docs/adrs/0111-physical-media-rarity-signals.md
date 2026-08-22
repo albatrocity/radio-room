@@ -15,7 +15,7 @@ Operators need independent control of rarity for prefixed playlists (no Navidrom
 2. **Rarity is a separate signal**, priority (first match wins):
    1. Playlist `physicalMediaOverrides.rarity` (admin escape hatch; `coinValue` override remains independent).
    2. Optional leading bracket rarity tags on prefixed playlist names: `[COMMON]`, `[UNCOMMON]`, `[RARE]`, `[LEGENDARY]` (case-insensitive), in any order with the format tag (e.g. `[LP][RARE] Loveless`, `[RARE][CD] Kid A`). Tags are stripped from the display title and do not affect price.
-   3. Album `userRating` (Navidrome 1–5 stars from `getAlbumList2` / `listLibraryAlbums`) for catalog-mode SKUs. Stars do not affect price.
+   3. Album `userRating` (Navidrome 1–5 stars from `getAlbumList2` / `listLibraryAlbums`) for catalog-mode SKUs, **and** for a prefixed playlist that shadows that album (0110 de-dup). Stars do not affect price. Subsonic JSON may send ratings as strings; coerce to a finite 1–5.
    4. Fallback: `common`. Unrated albums and untagged playlists are filler bins.
 3. **Star → rarity:** unset / 0 / 1 → `common`; 2–3 → `uncommon`; 4 → `rare`; 5 → `legendary`. Only finite ratings in 1–5 are copied from the daemon; missing `userRating` (old DJ Mac pack) fails closed to common.
 4. **Playlist name parser:** consume a consecutive run of recognized format/rarity bracket tokens only. First unrecognized bracket ends the scan (e.g. `[LIVE][LP] Title` does **not** derive). A format tag is still required to derive a playlist SKU. Extra tags belong after the title, not before unrecognized prefixes.
@@ -25,6 +25,7 @@ Operators need independent control of rarity for prefixed playlists (no Navidrom
 
 - A legendary 45 can still be cheap; a 5-star album remains scarce in the bins via existing rarity weights. Intended crate-digging.
 - Unrated catalog libraries become a common-bin until operators star albums or use playlist tags.
+- A prefixed playlist that exactly matches a rated album (0110 de-dup) inherits those stars, so rating in Navidrome still works when playlists win the SKU.
 - Playlist titles gain optional rarity brackets; operators already use format brackets.
 - Partially supersedes [0110](0110-catalog-mode-physical-media.md) §2 for **rarity only** (“Price/rarity stay song-count based” → price stays; rarity uses this ADR).
 

@@ -52,6 +52,24 @@ describe("mapLocalLibraryAlbumRow", () => {
     })
   })
 
+  it("coerces string userRating / year / songCount from Subsonic JSON", () => {
+    expect(
+      mapLocalLibraryAlbumRow({
+        id: "al-1",
+        name: "Loveless",
+        year: "1991",
+        songCount: "11",
+        userRating: "5",
+      }),
+    ).toEqual({
+      id: "al-1",
+      name: "Loveless",
+      year: 1991,
+      songCount: 11,
+      userRating: 5,
+    })
+  })
+
   it("omits userRating when missing or out of range (stale pack / unrated)", () => {
     expect(mapLocalLibraryAlbumRow({ id: "al-1", name: "Kid A" })).toEqual({
       id: "al-1",

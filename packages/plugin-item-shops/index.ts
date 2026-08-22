@@ -540,7 +540,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           type: "boolean",
           label: "Stock Record Store from every album",
           description:
-            "Create a Physical Media item for each Navidrome album (format inferred from year and track count). Rarity comes from your Navidrome star rating (unrated = common); price still follows track count. Albums that exactly match a derived prefixed playlist are omitted. Requires a current DJ Mac Media Bridge pack.",
+            "Create a Physical Media item for each Navidrome album (format inferred from year and track count). Rarity comes from your Navidrome star rating (unrated = common); price still follows track count. Albums that exactly match a derived prefixed playlist are omitted — the playlist item inherits those stars unless you tagged or overrode rarity. Requires a current DJ Mac Media Bridge pack.",
           showWhen: { field: "enabled", value: true },
         },
         localLibraryGrants: {

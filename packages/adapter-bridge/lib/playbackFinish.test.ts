@@ -4,12 +4,15 @@ import {
   endedSourceMatchesActive,
   endedTrackIsStale,
   endSignalIsSpent,
+  isApproachingEnd,
   isNaturalFinish,
   isNearEnd,
   lastStateShouldAdvance,
 } from "./playbackFinish"
 
 const DURATION = 180_000
+/** Short local tracks used to have no end detection at all (see MAX_END_WINDOW_FRACTION). */
+const SHORT_DURATION = 6_000
 
 describe("isNearEnd", () => {
   it("is true in the last second", () => {
@@ -18,6 +21,27 @@ describe("isNearEnd", () => {
 
   it("is false a few seconds before the end", () => {
     expect(isNearEnd(DURATION - 3_000, DURATION)).toBe(false)
+  })
+
+  it("detects the end of a 6s track", () => {
+    expect(isNearEnd(SHORT_DURATION - 400, SHORT_DURATION)).toBe(true)
+    expect(isNearEnd(SHORT_DURATION / 2, SHORT_DURATION)).toBe(false)
+    expect(isNearEnd(0, SHORT_DURATION)).toBe(false)
+  })
+})
+
+describe("isApproachingEnd", () => {
+  it("does not treat the start of a short track as approaching its end", () => {
+    expect(isApproachingEnd(0, SHORT_DURATION)).toBe(false)
+    expect(isApproachingEnd(500, SHORT_DURATION)).toBe(false)
+  })
+
+  it("tightens once a short track is past its midpoint", () => {
+    expect(isApproachingEnd(SHORT_DURATION - 1_000, SHORT_DURATION)).toBe(true)
+  })
+
+  it("does not treat a tiny loading duration as approaching the end", () => {
+    expect(isApproachingEnd(0, 800)).toBe(false)
   })
 })
 
@@ -94,6 +118,30 @@ describe("isNaturalFinish", () => {
     expect(isNearEnd(0, 800)).toBe(false)
     expect(
       isNaturalFinish({ state: "paused", progressMs: 0, durationMs: 800 }, null),
+    ).toBe(false)
+  })
+
+  it("finishes a 6s track instead of waiting for the stuck watchdog", () => {
+    expect(
+      isNaturalFinish(
+        { state: "playing", progressMs: SHORT_DURATION - 300, durationMs: SHORT_DURATION },
+        null,
+      ),
+    ).toBe(true)
+    expect(
+      isNaturalFinish(
+        { state: "stopped", progressMs: null, durationMs: null },
+        { state: "playing", progressMs: SHORT_DURATION - 300, durationMs: SHORT_DURATION },
+      ),
+    ).toBe(true)
+  })
+
+  it("does not treat an early pause in a 6s track as finished", () => {
+    expect(
+      isNaturalFinish(
+        { state: "paused", progressMs: 0, durationMs: SHORT_DURATION },
+        { state: "playing", progressMs: 500, durationMs: SHORT_DURATION },
+      ),
     ).toBe(false)
   })
 })
@@ -176,6 +224,30 @@ describe("endSignalIsSpent", () => {
 
   it("applies when the signal carries no timestamp", () => {
     expect(endSignalIsSpent({ at: undefined, lastAdvanceAt: now - 1_000, now })).toBe(false)
+  })
+
+  it("applies a short track's own end signal by clamping the grace to its duration", () => {
+    // A 2s track ends well inside the default 3s grace window.
+    expect(
+      endSignalIsSpent({
+        at: now,
+        lastAdvanceAt: now - 2_000,
+        now,
+        trackDurationMs: 2_000,
+      }),
+    ).toBe(false)
+    expect(endSignalIsSpent({ at: now, lastAdvanceAt: now - 2_000, now })).toBe(true)
+  })
+
+  it("still drops the daemon confirmation of the track we just left", () => {
+    expect(
+      endSignalIsSpent({
+        at: now - 5_200,
+        lastAdvanceAt: now - 5_500,
+        now,
+        trackDurationMs: SHORT_DURATION,
+      }),
+    ).toBe(true)
   })
 })
 

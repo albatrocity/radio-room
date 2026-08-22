@@ -108,19 +108,78 @@ export class LocalLibraryModule {
       return null
     }
 
+    const playlists = derivePrefixedPlaylists
+      ? await context.api.listLocalPlaylists(context.roomId)
+      : []
+    const mediaPlaylists = playlists.filter((p) => parsePhysicalMediaName(p.name) != null)
+    const artwork =
+      derivePrefixedPlaylists && mediaPlaylists.length > 0
+        ? await context.api.getLocalPlaylistArtwork(
+            context.roomId,
+            mediaPlaylists.map((p) => p.id),
+          )
+        : {}
+
+    const albums = deriveAlbums ? await context.api.listLibraryAlbums(context.roomId) : []
+
+    let omitAlbumIds = new Set<string>()
+    const albumRatingByPlaylistId: Record<string, number> = {}
+
+    if (derivePrefixedPlaylists && deriveAlbums && mediaPlaylists.length > 0 && albums.length > 0) {
+      const playlistTrackLists: { playlistId: string; trackIds: string[] }[] = []
+      const candidateAlbumIds = new Set<string>()
+      const playlistNdIdToAlbumId = new Map<string, string>()
+
+      for (const pl of mediaPlaylists) {
+        const ndId = pl.id.trim()
+        if (!ndId) continue
+        const trackRefs = await context.api.listLocalPlaylistTrackIds(context.roomId, ndId)
+        const trackIds = trackRefs.map((t) => t.id.trim()).filter(Boolean)
+        if (trackIds.length === 0) continue
+        playlistTrackLists.push({ playlistId: ndId, trackIds })
+
+        const albumIdsOnPlaylist = trackRefs
+          .map((t) => t.albumId?.trim())
+          .filter((id): id is string => Boolean(id))
+        if (albumIdsOnPlaylist.length === 0) continue
+        const uniqueAlbum = [...new Set(albumIdsOnPlaylist)]
+        if (uniqueAlbum.length !== 1) continue
+        const onlyAlbum = uniqueAlbum[0]!
+        const albumStub = albums.find((a) => a.id.trim() === onlyAlbum)
+        if (!albumStub) continue
+        if ((albumStub.songCount ?? 0) > 0 && albumStub.songCount !== trackIds.length) continue
+        candidateAlbumIds.add(onlyAlbum)
+        playlistNdIdToAlbumId.set(ndId, onlyAlbum)
+      }
+
+      const albumTrackLists: { id: string; trackIds: string[] }[] = []
+      for (const albumId of candidateAlbumIds) {
+        const trackIds = await context.api.listLocalAlbumTrackIds(context.roomId, albumId)
+        if (trackIds.length === 0) continue
+        albumTrackLists.push({ id: albumId, trackIds })
+      }
+      omitAlbumIds = albumIdsShadowedByPlaylists(
+        playlistTrackLists.map(({ trackIds }) => ({ trackIds })),
+        albumTrackLists,
+      )
+
+      for (const [playlistNdId, albumId] of playlistNdIdToAlbumId) {
+        if (!omitAlbumIds.has(albumId)) continue
+        const rating = albums.find((a) => a.id.trim() === albumId)?.userRating
+        if (rating == null) continue
+        albumRatingByPlaylistId[playlistNdId] = rating
+      }
+    }
+
     const playlistItems: ItemCatalogEntry[] = []
     let playlistMap: Record<string, string> = {}
-
     if (derivePrefixedPlaylists) {
-      const playlists = await context.api.listLocalPlaylists(context.roomId)
-      const mediaPlaylistIds = playlists
-        .filter((p) => parsePhysicalMediaName(p.name) != null)
-        .map((p) => p.id)
-      const artwork =
-        mediaPlaylistIds.length > 0
-          ? await context.api.getLocalPlaylistArtwork(context.roomId, mediaPlaylistIds)
-          : {}
-      const derived = derivePhysicalMediaItems(playlists, overrides, artwork)
+      const derived = derivePhysicalMediaItems(
+        playlists,
+        overrides,
+        artwork,
+        albumRatingByPlaylistId,
+      )
       playlistItems.push(...derived.items)
       playlistMap = derived.playlistMap
     }
@@ -129,43 +188,6 @@ export class LocalLibraryModule {
     let albumMap: Record<string, string> = {}
 
     if (deriveAlbums) {
-      const albums = await context.api.listLibraryAlbums(context.roomId)
-      let omitAlbumIds = new Set<string>()
-
-      if (derivePrefixedPlaylists && playlistItems.length > 0 && albums.length > 0) {
-        const playlistTrackLists: { trackIds: string[] }[] = []
-        const candidateAlbumIds = new Set<string>()
-
-        for (const entry of playlistItems) {
-          const ndId = playlistMap[entry.definition.shortId]?.trim()
-          if (!ndId) continue
-          const trackRefs = await context.api.listLocalPlaylistTrackIds(context.roomId, ndId)
-          const trackIds = trackRefs.map((t) => t.id.trim()).filter(Boolean)
-          if (trackIds.length === 0) continue
-          playlistTrackLists.push({ trackIds })
-
-          const albumIdsOnPlaylist = trackRefs
-            .map((t) => t.albumId?.trim())
-            .filter((id): id is string => Boolean(id))
-          if (albumIdsOnPlaylist.length === 0) continue
-          const uniqueAlbum = [...new Set(albumIdsOnPlaylist)]
-          if (uniqueAlbum.length !== 1) continue
-          const onlyAlbum = uniqueAlbum[0]!
-          const albumStub = albums.find((a) => a.id.trim() === onlyAlbum)
-          if (!albumStub) continue
-          if ((albumStub.songCount ?? 0) > 0 && albumStub.songCount !== trackIds.length) continue
-          candidateAlbumIds.add(onlyAlbum)
-        }
-
-        const albumTrackLists: { id: string; trackIds: string[] }[] = []
-        for (const albumId of candidateAlbumIds) {
-          const trackIds = await context.api.listLocalAlbumTrackIds(context.roomId, albumId)
-          if (trackIds.length === 0) continue
-          albumTrackLists.push({ id: albumId, trackIds })
-        }
-        omitAlbumIds = albumIdsShadowedByPlaylists(playlistTrackLists, albumTrackLists)
-      }
-
       // Album sleeves are filled lazily / in background batches (perf F3) so
       // config + bridge reconnect do not block on N× cover RPC + image store.
       this.albumArtworkAttempted.clear()

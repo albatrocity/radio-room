@@ -147,7 +147,14 @@ export function createBridgeAdvanceJob(params: {
   }): Promise<boolean> {
     const { source: endedSource, trackId: endedTrackId, at } = ended
     const now = Date.now()
-    if (endSignalIsSpent({ at, lastAdvanceAt, now })) {
+    if (
+      endSignalIsSpent({
+        at,
+        lastAdvanceAt,
+        now,
+        trackDurationMs: lastKnownDurationMs ?? capability.getLastState()?.durationMs,
+      })
+    ) {
       console.log(
         `[bridge-advance] ignoring spent ENDED for ${endedTrackId} (${at ? now - at : "?"}ms old, last advance ${now - lastAdvanceAt}ms ago) in room ${roomId}`,
       )

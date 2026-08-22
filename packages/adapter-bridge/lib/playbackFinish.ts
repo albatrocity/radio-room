@@ -5,10 +5,17 @@ export const NEAR_END_WINDOW_MS = 15_000
 /** Spotify often reports paused at 0 after a natural end — treat below this as "reset". */
 export const PROGRESS_RESET_MAX_MS = 1000
 /**
- * SDK loading snapshots can report a tiny duration with progress 0, which would
- * otherwise look like "near end" (`progress >= duration - 1s`).
+ * A track shorter than twice a window sits inside that window from its very first
+ * pulse, so SDK loading snapshots (tiny duration, progress 0) would read as "near
+ * end". Clamping every end window to half the duration keeps the tests meaningful
+ * for genuinely short tracks; a blanket minimum duration instead leaves anything
+ * shorter with no end detection at all.
  */
-export const MIN_NEAR_END_DURATION_MS = 10_000
+export const MAX_END_WINDOW_FRACTION = 0.5
+
+function endWindowMs(durationMs: number, windowMs: number): number {
+  return Math.min(windowMs, Math.floor(durationMs * MAX_END_WINDOW_FRACTION))
+}
 
 /** Strip `spotify:track:` so queue ids and SDK ids compare equal. */
 export function canonicalTrackId(id: string | null | undefined): string | null {
@@ -42,8 +49,8 @@ export function isNearEnd(
   return (
     progressMs != null &&
     durationMs != null &&
-    durationMs >= MIN_NEAR_END_DURATION_MS &&
-    progressMs >= durationMs - ADVANCE_THRESHOLD_MS
+    durationMs > 0 &&
+    progressMs >= durationMs - endWindowMs(durationMs, ADVANCE_THRESHOLD_MS)
   )
 }
 
@@ -54,8 +61,8 @@ export function isApproachingEnd(
   return (
     progressMs != null &&
     durationMs != null &&
-    durationMs >= MIN_NEAR_END_DURATION_MS &&
-    progressMs >= durationMs - NEAR_END_WINDOW_MS
+    durationMs > 0 &&
+    progressMs >= durationMs - endWindowMs(durationMs, NEAR_END_WINDOW_MS)
   )
 }
 
@@ -144,14 +151,21 @@ export function endSignalIsSpent(params: {
   at: number | null | undefined
   lastAdvanceAt: number
   now: number
+  /** Clamps the grace window so a track shorter than it can still end. */
+  trackDurationMs?: number | null
   graceMs?: number
   maxAgeMs?: number
 }): boolean {
-  const { at, lastAdvanceAt, now } = params
+  const { at, lastAdvanceAt, now, trackDurationMs } = params
   if (at == null) return false
   if (now - at > (params.maxAgeMs ?? END_SIGNAL_MAX_AGE_MS)) return true
   if (lastAdvanceAt <= 0) return false
-  return at <= lastAdvanceAt + (params.graceMs ?? END_SIGNAL_GRACE_MS)
+  const grace =
+    params.graceMs ??
+    (trackDurationMs != null && trackDurationMs > 0
+      ? endWindowMs(trackDurationMs, END_SIGNAL_GRACE_MS)
+      : END_SIGNAL_GRACE_MS)
+  return at <= lastAdvanceAt + grace
 }
 
 /**

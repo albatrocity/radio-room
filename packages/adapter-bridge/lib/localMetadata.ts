@@ -298,11 +298,22 @@ export type LocalLibraryAlbumListItem = {
   userRating?: number
 }
 
+/** Coerce Subsonic JSON numbers that may arrive as strings. */
+export function parseSubsonicNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value.trim())
+    if (Number.isFinite(n)) return n
+  }
+  return undefined
+}
+
 /** Copy a finite 1–5 star rating; omit otherwise (stale packs / unrated). */
 export function normalizeAlbumUserRating(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) return undefined
-  if (value < 1 || value > 5) return undefined
-  return Math.round(value)
+  const n = parseSubsonicNumber(value)
+  if (n == null) return undefined
+  if (n < 1 || n > 5) return undefined
+  return Math.round(n)
 }
 
 /** Map a daemon `listLibraryAlbums` row; extra/missing fields are ignored (stale DJ Mac). */
@@ -315,12 +326,14 @@ export function mapLocalLibraryAlbumRow(row: unknown): LocalLibraryAlbumListItem
   // Fail closed on data URIs: listLibraryAlbums must only expose cover keys.
   const safeCover = coverArt && !coverArt.startsWith("data:") ? coverArt : ""
   const userRating = normalizeAlbumUserRating(r.userRating)
+  const year = parseSubsonicNumber(r.year)
+  const songCount = parseSubsonicNumber(r.songCount)
   return {
     id,
     name: r.name != null ? String(r.name) : id,
     ...(typeof r.artist === "string" && r.artist.trim() ? { artist: r.artist.trim() } : {}),
-    ...(typeof r.year === "number" ? { year: r.year } : {}),
-    ...(typeof r.songCount === "number" ? { songCount: r.songCount } : {}),
+    ...(year != null ? { year } : {}),
+    ...(songCount != null ? { songCount } : {}),
     ...(safeCover ? { coverArt: safeCover } : {}),
     ...(userRating != null ? { userRating } : {}),
   }
