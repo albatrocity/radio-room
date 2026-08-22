@@ -122,11 +122,53 @@ export function endedSourceMatchesActive(
   return endedSource === activeSource
 }
 
-/** Late ENDED for the previous Spotify URI must not skip the track that just started. */
-export function endedTrackMatchesCurrent(
-  endedTrackId: string | undefined,
-  currentTrackId: string | null,
+/**
+ * The daemon confirms a natural end shortly *after* our own near-end probe has already
+ * advanced, so an end signal generated within this window of the last advance describes
+ * the track we just left rather than the one that started.
+ */
+export const END_SIGNAL_GRACE_MS = 3000
+/**
+ * The durable `last_ended` key can be read long after it was written (the 1s job is
+ * serialized behind a slow getPlayback RPC), by which time it says nothing about the
+ * current track.
+ */
+export const END_SIGNAL_MAX_AGE_MS = 30_000
+
+/**
+ * True when an end signal cannot describe the currently playing track, because it was
+ * generated before we last advanced or is simply too old to trust. This is the guard
+ * that keeps a late signal from skipping the track it caused us to start.
+ */
+export function endSignalIsSpent(params: {
+  at: number | null | undefined
+  lastAdvanceAt: number
+  now: number
+  graceMs?: number
+  maxAgeMs?: number
+}): boolean {
+  const { at, lastAdvanceAt, now } = params
+  if (at == null) return false
+  if (now - at > (params.maxAgeMs ?? END_SIGNAL_MAX_AGE_MS)) return true
+  if (lastAdvanceAt <= 0) return false
+  return at <= lastAdvanceAt + (params.graceMs ?? END_SIGNAL_GRACE_MS)
+}
+
+/**
+ * Late ENDED for a URI we already advanced past must not skip the track that just
+ * started. Only that case is stale: an unknown, relinked, or unrecognised id has to
+ * stay actionable, otherwise a single id mismatch stalls auto-advance indefinitely.
+ */
+export function endedTrackIsStale(
+  endedTrackId: string | null | undefined,
+  currentTrackId: string | null | undefined,
+  advancedPastTrackIds: Iterable<string>,
 ): boolean {
-  if (!endedTrackId || !currentTrackId) return true
-  return trackIdsEqual(endedTrackId, currentTrackId)
+  const ended = canonicalTrackId(endedTrackId)
+  if (!ended) return false
+  if (trackIdsEqual(ended, currentTrackId)) return false
+  for (const past of advancedPastTrackIds) {
+    if (trackIdsEqual(ended, past)) return true
+  }
+  return false
 }

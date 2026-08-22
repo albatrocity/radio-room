@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest"
 import {
   ADVANCE_THRESHOLD_MS,
   endedSourceMatchesActive,
-  endedTrackMatchesCurrent,
+  endedTrackIsStale,
+  endSignalIsSpent,
   isNaturalFinish,
   isNearEnd,
   lastStateShouldAdvance,
@@ -153,17 +154,49 @@ describe("endedSourceMatchesActive", () => {
   })
 })
 
-describe("endedTrackMatchesCurrent", () => {
-  it("drops a late ENDED for the previous URI", () => {
-    expect(endedTrackMatchesCurrent("track-a", "track-b")).toBe(false)
+describe("endSignalIsSpent", () => {
+  const now = 1_000_000
+
+  it("drops the daemon's end confirmation that lands just after our near-end advance", () => {
+    // Observed live: probe advanced at T, daemon wrote last_ended 800ms later.
+    expect(endSignalIsSpent({ at: now - 11_000, lastAdvanceAt: now - 12_000, now })).toBe(true)
+  })
+
+  it("drops a durable key read long after it was written", () => {
+    expect(endSignalIsSpent({ at: now - 56_000, lastAdvanceAt: now - 90_000, now })).toBe(true)
+  })
+
+  it("applies an end signal for a track that has been playing since the last advance", () => {
+    expect(endSignalIsSpent({ at: now, lastAdvanceAt: now - 180_000, now })).toBe(false)
+  })
+
+  it("applies when nothing has advanced yet (fresh process)", () => {
+    expect(endSignalIsSpent({ at: now - 500, lastAdvanceAt: 0, now })).toBe(false)
+  })
+
+  it("applies when the signal carries no timestamp", () => {
+    expect(endSignalIsSpent({ at: undefined, lastAdvanceAt: now - 1_000, now })).toBe(false)
+  })
+})
+
+describe("endedTrackIsStale", () => {
+  it("drops a replayed ENDED for a URI we already advanced past", () => {
+    expect(endedTrackIsStale("track-a", "track-b", ["track-a"])).toBe(true)
   })
 
   it("accepts ENDED for the current URI", () => {
-    expect(endedTrackMatchesCurrent("track-b", "track-b")).toBe(true)
+    expect(endedTrackIsStale("track-b", "track-b", ["track-a"])).toBe(false)
+  })
+
+  it("accepts ENDED for an unrecognised id so a mismatch cannot stall advancing", () => {
+    expect(endedTrackIsStale("relinked-id", "track-b", ["track-a"])).toBe(false)
+    expect(endedTrackIsStale("track-a", null, [])).toBe(false)
+    expect(endedTrackIsStale(undefined, "track-b", ["track-a"])).toBe(false)
   })
 
   it("treats spotify:track: prefix as the same id", () => {
-    expect(endedTrackMatchesCurrent("spotify:track:abc", "abc")).toBe(true)
+    expect(endedTrackIsStale("spotify:track:abc", "abc", ["abc"])).toBe(false)
+    expect(endedTrackIsStale("spotify:track:abc", "def", ["abc"])).toBe(true)
     expect(
       lastStateShouldAdvance(
         {

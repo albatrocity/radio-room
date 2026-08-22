@@ -2,12 +2,13 @@ import type { AppContext, JobApi, JobRegistration, PlaybackControllerApi, QueueI
 import { lastEndedKey } from "./protocol"
 import type { BridgeCapabilityCache } from "./capability"
 import {
+  canonicalTrackId,
   endedSourceMatchesActive,
-  endedTrackMatchesCurrent,
+  endedTrackIsStale,
+  endSignalIsSpent,
   isApproachingEnd,
   isNaturalFinish,
   lastStateShouldAdvance,
-  trackIdsEqual,
 } from "./playbackFinish"
 
 /** Consecutive no-media polls before treating as unplayable (backup if ENDED key missed). */
@@ -20,6 +21,8 @@ const NEAR_END_PROBE_INTERVAL_MS = 1000
 /** Initial backoff after an RPC failure; doubles up to MAX_PROBE_BACKOFF_MS. */
 const INITIAL_PROBE_BACKOFF_MS = 2000
 const MAX_PROBE_BACKOFF_MS = 30_000
+/** How many advanced-past track ids to remember for dropping the SDK's replayed end events. */
+const ADVANCED_PAST_HISTORY = 8
 
 function isForceAdvanceReason(reason: string) {
   return reason === "ended-event" || reason === "stuck-stopped" || reason === "state-ended"
@@ -93,6 +96,16 @@ export function createBridgeAdvanceJob(params: {
   let lastKnownProgressMs: number | null = null
   let lastKnownDurationMs: number | null = null
   let lastKnownTrackId: string | null = null
+  const advancedPastTrackIds: string[] = []
+
+  function rememberAdvancedPast(...ids: (string | null | undefined)[]) {
+    for (const id of ids) {
+      const canonical = canonicalTrackId(id)
+      if (!canonical || advancedPastTrackIds.includes(canonical)) continue
+      advancedPastTrackIds.push(canonical)
+      if (advancedPastTrackIds.length > ADVANCED_PAST_HISTORY) advancedPastTrackIds.shift()
+    }
+  }
 
   async function announceCannotPlay(
     item: QueueItem | null | undefined,
@@ -119,7 +132,7 @@ export function createBridgeAdvanceJob(params: {
     try {
       const { getDispatchedTrack } = await import("@repo/server/operations/data")
       const dispatched = await getDispatchedTrack({ context, roomId })
-      const dispatchedId = dispatched?.track.mediaSource.trackId
+      const dispatchedId = dispatched?.track?.mediaSource?.trackId
       if (dispatchedId) return dispatchedId
     } catch {
       /* ignore */
@@ -127,11 +140,34 @@ export function createBridgeAdvanceJob(params: {
     return lastKnownTrackId
   }
 
-  async function shouldApplyEnded(endedSource?: string, endedTrackId?: string): Promise<boolean> {
+  async function shouldApplyEnded(ended: {
+    source?: string
+    trackId?: string
+    at?: number
+  }): Promise<boolean> {
+    const { source: endedSource, trackId: endedTrackId, at } = ended
+    const now = Date.now()
+    if (endSignalIsSpent({ at, lastAdvanceAt, now })) {
+      console.log(
+        `[bridge-advance] ignoring spent ENDED for ${endedTrackId} (${at ? now - at : "?"}ms old, last advance ${now - lastAdvanceAt}ms ago) in room ${roomId}`,
+      )
+      return false
+    }
     const active = (await getActiveSource?.()) ?? null
-    if (!endedSourceMatchesActive(endedSource, active)) return false
+    if (!endedSourceMatchesActive(endedSource, active)) {
+      console.log(
+        `[bridge-advance] ignoring ENDED from ${endedSource} (active source ${active}) for room ${roomId}`,
+      )
+      return false
+    }
     const currentTrackId = await resolveCurrentTrackId()
-    return endedTrackMatchesCurrent(endedTrackId, currentTrackId)
+    if (endedTrackIsStale(endedTrackId, currentTrackId, advancedPastTrackIds)) {
+      console.log(
+        `[bridge-advance] ignoring replayed ENDED for ${endedTrackId} (current ${currentTrackId}) in room ${roomId}`,
+      )
+      return false
+    }
+    return true
   }
 
   async function forgetStaleEndSignals() {
@@ -179,6 +215,14 @@ export function createBridgeAdvanceJob(params: {
         await clearDispatchedTrack({ context, roomId })
       }
 
+      // Every id the finishing track could be reported under, so the SDK's replayed
+      // ENDED for it is recognised as stale rather than skipping the next track.
+      rememberAdvancedPast(
+        existingDispatched?.track?.mediaSource?.trackId,
+        lastKnownTrackId,
+        capability.getLastState()?.trackId,
+      )
+
       console.log(
         `[bridge-advance] advancing (${reason}${endedReason ? `/${endedReason}` : ""}) for room ${roomId}`,
       )
@@ -218,7 +262,7 @@ export function createBridgeAdvanceJob(params: {
       stuckNoMediaPolls = 0
       lastKnownProgressMs = null
       lastKnownDurationMs = null
-      lastKnownTrackId = nextItem.track.mediaSource.trackId
+      lastKnownTrackId = nextItem.track?.mediaSource?.trackId ?? null
       // New track: reset probe cadence so we can detect early stuck/no-media
       probeIntervalMs = NEAR_END_PROBE_INTERVAL_MS
       lastProbeAt = 0
@@ -256,8 +300,9 @@ export function createBridgeAdvanceJob(params: {
 
   capability.onEvent((event) => {
     if (event.type !== "ENDED") return
+    const at = Date.now()
     void (async () => {
-      if (!(await shouldApplyEnded(event.source, event.trackId))) return
+      if (!(await shouldApplyEnded({ source: event.source, trackId: event.trackId, at }))) return
       await advanceToNext("ended-event", event.reason)
     })()
   })
@@ -328,19 +373,22 @@ export function createBridgeAdvanceJob(params: {
           let endedReason: string | undefined
           let endedSource: string | undefined
           let endedTrackId: string | undefined
+          let endedAt: number | undefined
           try {
             const parsed = JSON.parse(endedRaw) as {
               reason?: string
               source?: string
               trackId?: string
+              at?: number
             }
             endedReason = parsed.reason
             endedSource = parsed.source
             endedTrackId = parsed.trackId
+            endedAt = parsed.at
           } catch {
             /* legacy plain payloads */
           }
-          if (await shouldApplyEnded(endedSource, endedTrackId)) {
+          if (await shouldApplyEnded({ source: endedSource, trackId: endedTrackId, at: endedAt })) {
             await advanceToNext("ended-event", endedReason)
             return
           }
@@ -348,7 +396,7 @@ export function createBridgeAdvanceJob(params: {
 
         // 2) In-memory ENDED from pub/sub (if subscription works)
         const ended = capability.consumeLastEnded()
-        if (ended && (await shouldApplyEnded(ended.source, ended.trackId))) {
+        if (ended && (await shouldApplyEnded(ended))) {
           await advanceToNext("ended-event", ended.reason)
           return
         }
@@ -401,7 +449,7 @@ export function createBridgeAdvanceJob(params: {
             typeof playback.progressMs === "number" ? playback.progressMs : lastKnownProgressMs
           lastKnownDurationMs =
             typeof playback.durationMs === "number" ? playback.durationMs : lastKnownDurationMs
-          if (playbackTrackId && (!lastKnownTrackId || trackIdsEqual(playbackTrackId, lastKnownTrackId))) {
+          if (playbackTrackId) {
             lastKnownTrackId = playbackTrackId
           }
 
