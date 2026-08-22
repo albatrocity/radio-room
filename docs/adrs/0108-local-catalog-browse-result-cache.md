@@ -15,6 +15,7 @@ Opening an album or Physical Media item in CatalogBrowse always emits `BROWSE_AL
    - Album: `metadata:browse:v1:{roomId}:album:{albumId}:{scope}`
    - Playlist tracks: `metadata:browse:v1:{roomId}:playlist:{playlistId}`
    - `scope` = `library` when `playlistIds` is empty/absent; otherwise sorted unique playlist ids joined by `,`.
+   - CatalogBrowse `getAlbum`, Physical Media album listings (`BROWSE_MEDIA_ITEM` / `LIST_MEDIA_ITEM_TRACKS`), and playlist track fetches all share these helpers (`fetchLocalAlbumResult` / `fetchLocalPlaylistTracks`).
 2. **TTL:** 10 minutes (aligned with daemon playlist/cover cache TTLs).
 3. **Policy helper:** `withCachedJson` in `@repo/utils` (hit/miss, in-flight coalescing, JSON serialize). Do **not** store failures, `null`, or unreachable-bridge results.
 4. **Invalidation:** `refreshLocalLibrary` / `invalidateLocalLibraryCache` continues to clear the daemon cache **and** deletes Redis keys under `metadata:browse:v1:{roomId}:` via `SimpleCache.deleteByPrefix`.

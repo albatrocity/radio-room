@@ -22,6 +22,9 @@ export type MediaItemTracksResult =
  * and `LIST_MEDIA_ITEM_TRACKS`. Callers own authorization — held item (ADR 0099)
  * vs held-or-on-current-shop-offers (ADR 0103) — and pass the resolved source,
  * which never comes from the client.
+ *
+ * Album and playlist listings both use ADR 0108 Redis browse cache when `cache`
+ * is provided (same keys as CatalogBrowse `getAlbum` / playlist track fetch).
  */
 export async function fetchResolvedMediaItemTracks(params: {
   roomId: string
@@ -32,7 +35,9 @@ export async function fetchResolvedMediaItemTracks(params: {
 }): Promise<MediaItemTracksResult> {
   const { roomId, source, logLabel, cache } = params
   try {
-    const { getBridgeRpcClient, fetchLocalPlaylistTracks } = await import("@repo/adapter-bridge")
+    const { getBridgeRpcClient, fetchLocalPlaylistTracks, fetchLocalAlbumResult } = await import(
+      "@repo/adapter-bridge"
+    )
     const rpc = getBridgeRpcClient(roomId)
     if (!rpc) {
       return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
@@ -43,23 +48,20 @@ export async function fetchResolvedMediaItemTracks(params: {
       if (!albumId) {
         return { ok: false, message: "albumId is required" }
       }
-      try {
-        const result = (await rpc.call("getAlbum", {
-          source: "local",
-          albumId,
-        })) as { tracks?: TaggedMetadataSourceTrack[] } | null
-        const tracks = result?.tracks
-        if (!Array.isArray(tracks)) {
-          console.warn(`[${logLabel}] getAlbum returned no tracks for ${albumId}`)
-          return { ok: false, message: BRIDGE_TRACK_LISTING_FAILED_MESSAGE }
-        }
-        return {
-          ok: true,
-          tracks: tracks.map((track) => ({ ...track, source: "local" })),
-        }
-      } catch (error) {
-        console.warn(`[${logLabel}] getAlbum failed for ${albumId}:`, error)
+      const result = await fetchLocalAlbumResult({
+        rpc,
+        albumId,
+        roomId,
+        cache,
+      })
+      const tracks = result?.tracks
+      if (!Array.isArray(tracks)) {
+        console.warn(`[${logLabel}] getAlbum returned no tracks for ${albumId}`)
         return { ok: false, message: BRIDGE_TRACK_LISTING_FAILED_MESSAGE }
+      }
+      return {
+        ok: true,
+        tracks: tracks.map((track) => ({ ...track, source: "local" })),
       }
     }
 

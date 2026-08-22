@@ -140,26 +140,15 @@ export function createLocalMetadataApi(deps: {
     ): Promise<MetadataGetAlbumResult | null> {
       const roomId = deps.roomId
       if (!roomId) return null
-
-      return withCachedJson({
+      const rpc = deps.getRpcForRoom(roomId)
+      if (!rpc) return null
+      return fetchLocalAlbumResult({
+        rpc,
+        albumId,
+        roomId,
         cache: deps.cache,
-        key: metadataBrowseAlbumCacheKey(
-          roomId,
-          albumId,
-          options?.playlistIds,
-          options?.albumIds,
-        ),
-        ttlSeconds: LOCAL_BROWSE_CACHE_TTL_SEC,
-        skipCache: (value) => value == null,
-        fetch: () =>
-          withRpc(async (rpc) => {
-            return (await rpc.call("getAlbum", {
-              source: "local",
-              albumId,
-              ...(options?.playlistIds?.length ? { playlistIds: options.playlistIds } : {}),
-              ...(options?.albumIds?.length ? { albumIds: options.albumIds } : {}),
-            })) as MetadataGetAlbumResult | null
-          }, null),
+        playlistIds: options?.playlistIds,
+        albumIds: options?.albumIds,
       })
     },
   }
@@ -458,6 +447,54 @@ export type LocalPlaylistTracksResult =
  * this call gets more headroom than the default RPC timeout.
  */
 const PLAYLIST_TRACKS_TIMEOUT_MS = 20000
+
+/**
+ * Full album + tracks from the daemon (`getAlbum` RPC).
+ * Successful results are Redis-cached when `cache` + `roomId` are provided (ADR 0108),
+ * sharing the CatalogBrowse `getAlbum` key for the same membership scope.
+ */
+export async function fetchLocalAlbumResult(params: {
+  rpc: BridgeRpcClient
+  albumId: string
+  roomId?: string
+  cache?: SimpleCache
+  playlistIds?: string[]
+  albumIds?: string[]
+}): Promise<MetadataGetAlbumResult | null> {
+  const albumId = params.albumId.trim()
+  if (!albumId) return null
+
+  const fetchOnce = async (): Promise<MetadataGetAlbumResult | null> => {
+    if (!(await params.rpc.isPresent())) return null
+    try {
+      return (await params.rpc.call("getAlbum", {
+        source: "local",
+        albumId,
+        ...(params.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
+        ...(params.albumIds?.length ? { albumIds: params.albumIds } : {}),
+      })) as MetadataGetAlbumResult | null
+    } catch {
+      return null
+    }
+  }
+
+  if (!params.cache || !params.roomId) {
+    return fetchOnce()
+  }
+
+  return withCachedJson({
+    cache: params.cache,
+    key: metadataBrowseAlbumCacheKey(
+      params.roomId,
+      albumId,
+      params.playlistIds,
+      params.albumIds,
+    ),
+    ttlSeconds: LOCAL_BROWSE_CACHE_TTL_SEC,
+    skipCache: (value) => value == null,
+    fetch: fetchOnce,
+  })
+}
 
 /**
  * Full track list for a Navidrome playlist (Physical Media item), keeping the

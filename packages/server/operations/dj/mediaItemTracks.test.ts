@@ -8,9 +8,14 @@ import {
 vi.mock("@repo/adapter-bridge", () => ({
   getBridgeRpcClient: vi.fn(() => ({})),
   fetchLocalPlaylistTracks: vi.fn(async () => ({ ok: true, tracks: [] })),
+  fetchLocalAlbumResult: vi.fn(async () => null),
 }))
 
-import { fetchLocalPlaylistTracks, getBridgeRpcClient } from "@repo/adapter-bridge"
+import {
+  fetchLocalAlbumResult,
+  fetchLocalPlaylistTracks,
+  getBridgeRpcClient,
+} from "@repo/adapter-bridge"
 
 describe("fetchResolvedMediaItemTracks", () => {
   const params = {
@@ -72,25 +77,46 @@ describe("fetchResolvedMediaItemTracks", () => {
     })
   })
 
-  test("lists album tracks via getAlbum RPC", async () => {
-    const call = vi.fn().mockResolvedValue({
+  test("lists album tracks via fetchLocalAlbumResult (cached getAlbum)", async () => {
+    const cache = { get: vi.fn(), set: vi.fn() } as any
+    vi.mocked(fetchLocalAlbumResult).mockResolvedValueOnce({
+      album: { id: "al-1", title: "A", artists: [], images: [] },
       tracks: [{ id: "a1" }, { id: "a2" }],
-    })
-    vi.mocked(getBridgeRpcClient).mockReturnValueOnce({ call } as any)
+    } as any)
 
     const result = await fetchResolvedMediaItemTracks({
       roomId: "room1",
       source: { kind: "album", albumId: "al-1" },
       logLabel: "test",
+      cache,
     })
 
-    expect(call).toHaveBeenCalledWith("getAlbum", { source: "local", albumId: "al-1" })
+    expect(fetchLocalAlbumResult).toHaveBeenCalledWith({
+      rpc: {},
+      albumId: "al-1",
+      roomId: "room1",
+      cache,
+    })
     expect(result).toEqual({
       ok: true,
       tracks: [
         { id: "a1", source: "local" },
         { id: "a2", source: "local" },
       ],
+    })
+  })
+
+  test("fails when album fetch returns no tracks", async () => {
+    vi.mocked(fetchLocalAlbumResult).mockResolvedValueOnce(null)
+    await expect(
+      fetchResolvedMediaItemTracks({
+        roomId: "room1",
+        source: { kind: "album", albumId: "al-1" },
+        logLabel: "test",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      message: BRIDGE_TRACK_LISTING_FAILED_MESSAGE,
     })
   })
 })

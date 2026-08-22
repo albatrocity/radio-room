@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { MetadataGetAlbumResult, SimpleCache } from "@repo/types"
 import { clearCachedJsonInflight } from "@repo/utils"
-import { createLocalMetadataApi, fetchLocalPlaylistTracks } from "./localMetadata"
+import {
+  createLocalMetadataApi,
+  fetchLocalAlbumResult,
+  fetchLocalPlaylistTracks,
+} from "./localMetadata"
 import type { BridgeRpcClient } from "./rpcClient"
 
 function memoryCache(): SimpleCache & { store: Map<string, string> } {
@@ -118,6 +122,28 @@ describe("local browse Redis cache", () => {
       albumId: "alb-1",
       playlistIds: ["pl-b", "pl-a"],
     })
+  })
+
+  it("fetchLocalAlbumResult shares the getAlbum library-scope cache key", async () => {
+    const cache = memoryCache()
+    call.mockResolvedValue(albumResult("alb-1"))
+
+    const fromBrowse = await fetchLocalAlbumResult({
+      rpc,
+      albumId: "alb-1",
+      roomId: "room1",
+      cache,
+    })
+    const fromPhysicalMedia = await fetchLocalAlbumResult({
+      rpc,
+      albumId: "alb-1",
+      roomId: "room1",
+      cache,
+    })
+
+    expect(fromBrowse?.tracks).toHaveLength(1)
+    expect(fromPhysicalMedia?.tracks).toHaveLength(1)
+    expect(call).toHaveBeenCalledTimes(1)
   })
 
   it("fetchLocalPlaylistTracks caches ok results and not failures", async () => {
