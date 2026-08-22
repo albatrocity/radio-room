@@ -44,40 +44,51 @@ export type PhysicalMediaFormat = {
   artworkFrame: ArtworkFrame
 }
 
+/** Commercial CD era for album SKUs (ADR 0110 year bands; 0113 split). */
+export const CD_ERA_START_YEAR = 1991
+
+/** Share of CD-era non-singles that render as CDs; the rest are LPs (ADR 0113). */
+export const CD_ERA_CD_PERCENT = 60
+
+/** FNV-1a 32-bit; stable across refreshes so the same album keeps its format. */
+function unsignedFnv1a32(input: string): number {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return hash >>> 0
+}
+
+/** Deterministic CD vs LP roll for a CD-era album id (`< 60` → CD). */
+export function cdEraDiscFormat(seed: string): "CD" | "LP" {
+  return unsignedFnv1a32(seed) % 100 < CD_ERA_CD_PERCENT ? "CD" : "LP"
+}
+
 /**
- * Infer physical format from release year and track count.
- * Short releases (≤3 tracks) are 45s; then year bands: &lt;1983 LP, &lt;1991 cassette, else CD.
+ * Infer physical format from release year, track count, and a stable album seed.
+ * Short releases (≤3 tracks) are 45s; then year bands: &lt;1983 LP, &lt;1991 cassette;
+ * CD-era non-singles (1991+, or missing year) are 60% CD / 40% LP from `seed` (ADR 0113).
+ * Without a seed, CD-era albums stay CD.
  */
 export function inferPhysicalMediaFormat(
   year: number | undefined,
   songCount: number,
+  seed?: string,
 ): PhysicalMediaFormat {
   if (songCount > 0 && songCount <= 3) {
-    return {
-      format: "45",
-      icon: "DiscAlbum",
-      artworkFrame: "die-cut-jacket",
-    }
+    return FORMAT_BY_TOKEN["45"]
   }
   if (year != null && year < 1983) {
-    return {
-      format: "LP",
-      icon: "Disc3",
-      artworkFrame: "record-jacket",
-    }
+    return FORMAT_BY_TOKEN.LP
   }
-  if (year != null && year < 1991) {
-    return {
-      format: "Cassette",
-      icon: "CassetteTape",
-      artworkFrame: "cassette-case",
-    }
+  if (year != null && year < CD_ERA_START_YEAR) {
+    return FORMAT_BY_TOKEN.TAPE
   }
-  return {
-    format: "CD",
-    icon: "Disc",
-    artworkFrame: "jewel-case",
+  if (seed && cdEraDiscFormat(seed) === "LP") {
+    return FORMAT_BY_TOKEN.LP
   }
+  return FORMAT_BY_TOKEN.CD
 }
 
 export type PhysicalMediaAlbum = {
@@ -142,7 +153,7 @@ export function derivePhysicalMediaItemsFromAlbums(
     if (!id || omitAlbumIds.has(id)) continue
     const shortId = physicalMediaAlbumShortId(id)
     const songCount = album.songCount ?? 0
-    const inferred = inferPhysicalMediaFormat(album.year, songCount)
+    const inferred = inferPhysicalMediaFormat(album.year, songCount, id)
     const title = album.name.trim() || id
     const artist = album.artist?.trim()
     const name = `${inferred.format}: ${title}`

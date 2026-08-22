@@ -31,6 +31,7 @@ Operators need independent control of rarity for prefixed playlists (no Navidrom
 
 ## See also
 
+- [0113. CD-era catalog albums: 60/40 CD vs LP](0113-cd-era-album-cd-lp-split.md)
 - [0110. Catalog-mode Physical Media](0110-catalog-mode-physical-media.md)
 - [0099. Physical Media personal libraries](0099-physical-media-personal-libraries.md)
 - [`packages/plugin-item-shops/localLibrary/physicalMedia.ts`](../../packages/plugin-item-shops/localLibrary/physicalMedia.ts)

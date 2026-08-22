@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   albumIdsShadowedByPlaylists,
+  cdEraDiscFormat,
   derivePhysicalMediaItems,
   derivePhysicalMediaItemsFromAlbums,
   inferPhysicalMediaFormat,
@@ -292,11 +293,43 @@ describe("inferPhysicalMediaFormat", () => {
     expect(inferPhysicalMediaFormat(1968, 3).format).toBe("45")
   })
 
-  it("defaults long albums without a year to CD", () => {
+  it("defaults long albums without a year to CD when no seed is given", () => {
     expect(inferPhysicalMediaFormat(undefined, 10)).toMatchObject({
       format: "CD",
       artworkFrame: "jewel-case",
     })
+  })
+
+  it("splits CD-era non-singles 60/40 CD vs LP from album seed", () => {
+    const formats = new Set(
+      Array.from({ length: 40 }, (_, i) => inferPhysicalMediaFormat(1995, 12, `id-${i}`).format),
+    )
+    expect(formats.has("CD")).toBe(true)
+    expect(formats.has("LP")).toBe(true)
+    expect(inferPhysicalMediaFormat(undefined, 10, "seed-lp")).toEqual(
+      inferPhysicalMediaFormat(2001, 10, "seed-lp"),
+    )
+    expect(inferPhysicalMediaFormat(1985, 10, "any-seed")).toMatchObject({
+      format: "Cassette",
+    })
+    expect(inferPhysicalMediaFormat(1972, 10, "any-seed")).toMatchObject({
+      format: "LP",
+    })
+  })
+})
+
+describe("cdEraDiscFormat", () => {
+  it("is stable for a given album id", () => {
+    expect(cdEraDiscFormat("al-1")).toBe(cdEraDiscFormat("al-1"))
+  })
+
+  it("lands near 60% CD across many ids", () => {
+    let cds = 0
+    for (let i = 0; i < 1000; i++) {
+      if (cdEraDiscFormat(`album-${i}`) === "CD") cds++
+    }
+    expect(cds).toBeGreaterThan(520)
+    expect(cds).toBeLessThan(680)
   })
 })
 
@@ -316,7 +349,9 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
       physicalMediaAlbumShortId("al-1"),
       physicalMediaAlbumShortId("al-2"),
     ])
-    expect(items[0]?.definition.name).toBe("CD: Loveless")
+    const lovelessFormat = inferPhysicalMediaFormat(1991, 11, "al-1")
+    expect(items[0]?.definition.name).toBe(`${lovelessFormat.format}: Loveless`)
+    expect(items[0]?.definition.artworkFrame).toBe(lovelessFormat.artworkFrame)
     expect(items[0]?.definition.artist).toBe("My Bloody Valentine")
     expect(items[0]?.definition.rarity).toBe("common")
     expect(items[0]?.definition.coinValue).toBe(priceFromSongCount(11))

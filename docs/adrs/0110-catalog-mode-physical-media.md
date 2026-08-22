@@ -1,7 +1,7 @@
 # 0110. Catalog-mode Physical Media (albums + prefixed playlists)
 
 **Date:** 2026-08-21
-**Status:** Partially superseded by [0111](0111-physical-media-rarity-signals.md) (rarity signals only; price and format stay song-count based)
+**Status:** Partially superseded by [0111](0111-physical-media-rarity-signals.md) (rarity) and [0113](0113-cd-era-album-cd-lp-split.md) (CD-era format split). Price stays song-count based.
 
 ## Context
 
@@ -31,6 +31,7 @@ Constraints from 0099 still apply: clients never see Navidrome playlist or album
 
 ## See also
 
+- [0113. CD-era catalog albums: 60/40 CD vs LP](0113-cd-era-album-cd-lp-split.md)
 - [0111. Physical Media rarity from ratings and title tags](0111-physical-media-rarity-signals.md)
 - [0099. Physical Media personal libraries](0099-physical-media-personal-libraries.md)
 - [0098. Inventory-scoped Local library catalog filters](0098-inventory-scoped-local-library-catalog-filters.md)
