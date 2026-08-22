@@ -4,6 +4,11 @@ export type DriverState = {
   durationMs: number | null
   volumePercent?: number | null
   trackId?: string | null
+  /**
+   * `false` when transport could not be read (no device, SDK detached). Drivers own
+   * their process and always know, so they omit it; the Spotify SDK host does not.
+   */
+  observed?: boolean
 }
 
 export interface Driver {

@@ -313,7 +313,8 @@ export async function makeApi({
     async getPlayback() {
       const api = await getSpotifyApi()
       const playback = await api.player.getPlaybackState()
-      // Spotify returns null body when nothing is playing / no active device context
+      // Spotify returns null body when nothing is playing / no active device context.
+      // Those are indistinguishable here, so report it as no view rather than a stop.
       if (!playback) {
         return {
           state: "paused" as const,
@@ -321,6 +322,7 @@ export async function makeApi({
           progressMs: null,
           durationMs: null,
           volumePercent: null,
+          observed: false,
         }
       }
 

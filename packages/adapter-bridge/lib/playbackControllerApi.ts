@@ -93,36 +93,45 @@ export function createBridgePlaybackApi(deps: {
           progressMs?: number | null
           durationMs?: number | null
           volumePercent?: number | null
+          observed?: boolean
         }
-        // Spotify SDK answer is authoritative (including stopped) so we don't
-        // fall through to Web API polling from the API container.
-        if (result && (source === "spotify" || result.state !== "stopped")) {
-          const trackId = result.trackId || (result.state === "stopped" ? null : source)
-          const lastVolume = await activeSource.getLastVolume()
-          const volumePercent =
-            typeof result.volumePercent === "number" ? result.volumePercent : lastVolume
-          return {
-            state: result.state,
-            // Stub track keeps togglePlayback from advancing mid-track on pause.
-            track: trackId ? ({ id: trackId } as MetadataSourceTrack) : null,
-            progressMs: result.progressMs ?? null,
-            durationMs: result.durationMs ?? null,
-            volumePercent,
+        // Spotify SDK answer is authoritative (including stopped) so we don't fall
+        // through to Web API polling from the API container — but only when the daemon
+        // actually read the transport. A detached SDK reports no view, and treating
+        // that as a stop blanks the progress bar and makes the advance watchdog skip
+        // every track.
+        if (result && result.observed !== false) {
+          if (source === "spotify" || result.state !== "stopped") {
+            const trackId = result.trackId || (result.state === "stopped" ? null : source)
+            const lastVolume = await activeSource.getLastVolume()
+            const volumePercent =
+              typeof result.volumePercent === "number" ? result.volumePercent : lastVolume
+            return {
+              state: result.state,
+              // Stub track keeps togglePlayback from advancing mid-track on pause.
+              track: trackId ? ({ id: trackId } as MetadataSourceTrack) : null,
+              progressMs: result.progressMs ?? null,
+              durationMs: result.durationMs ?? null,
+              volumePercent,
+            }
           }
+          // A driver owns its own process, so its stop is a real one (e.g. media that
+          // never became playable) and must stay actionable for the advance watchdog.
+          return { state: "stopped", track: null }
         }
       } catch (e) {
         console.warn(`[bridge] getPlayback RPC failed for ${source}:`, e)
       }
 
-      // Fallback: Spotify Web API only when the daemon RPC itself failed
-      // (no SDK device / daemon down).
+      // Fallback: Spotify Web API when the daemon RPC failed or reported no view
+      // (no SDK device / detached player / daemon down).
       if (source === "spotify") {
         const delegate = await getSpotifyDelegate()
-        if (!delegate) return { state: "stopped" as PlaybackState, track: null }
+        if (!delegate) return { state: "stopped" as PlaybackState, track: null, observed: false }
         return delegate.getPlayback()
       }
 
-      return { state: "stopped", track: null }
+      return { state: "stopped", track: null, observed: false }
     },
 
     async pause() {

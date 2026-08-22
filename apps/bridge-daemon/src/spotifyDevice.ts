@@ -19,6 +19,24 @@ type RedisLike = RedisClientType<any, any, any>
 const WATCHDOG_MS = 15_000
 const TOKEN_POLL_MS = 250
 const TOKEN_POLL_ATTEMPTS = 40
+/**
+ * `getCurrentState()` returns null whenever this player is not Spotify's active
+ * device, and a detached player still satisfies the `window.__spotifyPlayer` check,
+ * so a blind SDK can otherwise persist forever. Reconnect once it stays blind.
+ */
+const SDK_STATE_MISSING_RELOAD_MS = 15_000
+
+/**
+ * Transport could not be read. Distinct from a genuine stop so the API's advance
+ * watchdog does not mistake "no view of the player" for "this track is unplayable".
+ */
+const UNOBSERVED: DriverState = {
+  state: "stopped",
+  progressMs: null,
+  durationMs: null,
+  trackId: null,
+  observed: false,
+}
 
 /**
  * Hosts the Spotify Web Playback SDK in bridge Chrome and advertises the
@@ -39,6 +57,8 @@ export class SpotifyDeviceHost {
   private endedForTrackId: string | null = null
   private lastPlayingTrackId: string | null = null
   private lastGoodPlayback: { state: DriverState; at: number } | null = null
+  /** First time `getCurrentState()` came back null in the current blind streak. */
+  private sdkStateMissingSince = 0
 
   constructor(
     private readonly chrome: ChromeManager,
@@ -121,7 +141,7 @@ export class SpotifyDeviceHost {
    */
   async getPlaybackState(): Promise<DriverState> {
     if (!this.page || this.page.isClosed()) {
-      return { state: "stopped", progressMs: null, durationMs: null, trackId: null }
+      return UNOBSERVED
     }
 
     try {
@@ -136,7 +156,7 @@ export class SpotifyDeviceHost {
         ) {
           return cached.state
         }
-        return { state: "stopped", progressMs: null, durationMs: null, trackId: null }
+        return UNOBSERVED
       }
 
       const next: DriverState = {
@@ -154,11 +174,28 @@ export class SpotifyDeviceHost {
       return next
     } catch (e) {
       console.warn("[spotify-device] getPlaybackState failed:", e)
-      return { state: "stopped", progressMs: null, durationMs: null, trackId: null }
+      return UNOBSERVED
     }
   }
 
   private async readSdkSnapshot(): Promise<{
+    paused: boolean
+    position: number | null
+    duration: number | null
+    trackId: string | null
+    volumePercent: number | null
+  } | null> {
+    if (!this.page || this.page.isClosed()) return null
+    const snapshot = await this.readSdkSnapshotFromPage()
+    if (snapshot) {
+      this.sdkStateMissingSince = 0
+    } else if (!this.sdkStateMissingSince) {
+      this.sdkStateMissingSince = Date.now()
+    }
+    return snapshot
+  }
+
+  private async readSdkSnapshotFromPage(): Promise<{
     paused: boolean
     position: number | null
     duration: number | null
@@ -457,6 +494,19 @@ export class SpotifyDeviceHost {
 
       if (!connected) {
         console.warn("[spotify-device] SDK player missing — reloading page")
+        await this.page.goto(url, { waitUntil: "domcontentloaded" })
+        return
+      }
+
+      const blindFor = this.sdkStateMissingSince ? Date.now() - this.sdkStateMissingSince : 0
+      if (blindFor > SDK_STATE_MISSING_RELOAD_MS) {
+        console.warn(
+          `[spotify-device] getCurrentState() null for ${blindFor}ms (player present but not the active device) — reconnecting`,
+        )
+        this.sdkStateMissingSince = 0
+        this.lastGoodPlayback = null
+        this.deviceId = null
+        await this.redis.del(spotifyDeviceKey(this.roomId)).catch(() => {})
         await this.page.goto(url, { waitUntil: "domcontentloaded" })
         return
       }

@@ -13,6 +13,8 @@ import {
 
 /** Consecutive no-media polls before treating as unplayable (backup if ENDED key missed). */
 const STUCK_NO_MEDIA_POLLS = 8
+/** Keep the unobservable-transport warning diagnosable without flooding the log. */
+const UNOBSERVED_LOG_EVERY = 10
 
 /** Steady-state getPlayback interval when playback looks healthy. */
 const HEALTHY_PROBE_INTERVAL_MS = 3000
@@ -90,6 +92,7 @@ export function createBridgeAdvanceJob(params: {
   let advancing = false
   let lastAdvanceAt = 0
   let stuckNoMediaPolls = 0
+  let unobservedPolls = 0
   let lastProbeAt = 0
   let probeIntervalMs = HEALTHY_PROBE_INTERVAL_MS
   let rpcFailureCount = 0
@@ -460,12 +463,16 @@ export function createBridgeAdvanceJob(params: {
             lastKnownTrackId = playbackTrackId
           }
 
-          await handlePlaybackStateChange({
-            context,
-            roomId,
-            state: playback.state,
-            trackId: playbackTrackId,
-          })
+          // An unobservable transport carries a placeholder state; broadcasting it would
+          // tell the room playback stopped when we simply cannot see it.
+          if (playback.observed !== false) {
+            await handlePlaybackStateChange({
+              context,
+              roomId,
+              state: playback.state,
+              trackId: playbackTrackId,
+            })
+          }
 
           if (
             isNaturalFinish(
@@ -490,7 +497,18 @@ export function createBridgeAdvanceJob(params: {
           const queue = await getQueue({ context, roomId })
           const expectingPlayback = !!dispatched || queue.some((i) => !i.locked)
 
-          if (expectingPlayback && !hasPlayableMedia(playback)) {
+          if (playback.observed === false) {
+            // No view of the transport (device gone / SDK detached). Skipping cannot
+            // help and would burn the whole queue a few seconds at a time, so hold the
+            // track and let the daemon reconnect its device.
+            unobservedPolls += 1
+            if (unobservedPolls % UNOBSERVED_LOG_EVERY === 0) {
+              console.warn(
+                `[bridge-advance] playback unobservable for ${unobservedPolls} polls in room ${roomId} — holding (not skipping)`,
+              )
+            }
+          } else if (expectingPlayback && !hasPlayableMedia(playback)) {
+            unobservedPolls = 0
             stuckNoMediaPolls += 1
             if (stuckNoMediaPolls >= STUCK_NO_MEDIA_POLLS) {
               console.warn(
@@ -501,6 +519,7 @@ export function createBridgeAdvanceJob(params: {
             }
           } else if (hasPlayableMedia(playback) && playback.state === "playing") {
             stuckNoMediaPolls = 0
+            unobservedPolls = 0
           }
         } catch {
           /* daemon/spotify unavailable — exponential backoff on next probe */

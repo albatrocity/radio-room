@@ -11,6 +11,9 @@ const STOPPED: DriverState = {
   trackId: null,
 }
 
+/** No driver/host to ask, so we have no view of transport rather than a known stop. */
+const UNOBSERVED: DriverState = { ...STOPPED, observed: false }
+
 export class Router {
   private active: Driver | null = null
   private meta = new Map<string, { title?: string; artist?: string; album?: string }>()
@@ -127,13 +130,13 @@ export class Router {
 
   async getPlayback(source?: string): Promise<DriverState> {
     if (source === "spotify") {
-      if (!this.spotifyDevice) return STOPPED
+      if (!this.spotifyDevice) return UNOBSERVED
       return this.spotifyDevice.getPlaybackState()
     }
 
     if (source) {
       const driver = this.drivers.get(source)
-      if (!driver) return STOPPED
+      if (!driver) return UNOBSERVED
       return driver.getState()
     }
 

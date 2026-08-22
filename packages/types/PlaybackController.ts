@@ -26,6 +26,13 @@ export interface PlaybackControllerApi {
     durationMs?: number | null
     /** Device/driver volume 0–100 when known. */
     volumePercent?: number | null
+    /**
+     * `false` when the controller could not read transport state at all (device
+     * gone, SDK detached). `state` is then a placeholder, not an assertion that
+     * playback stopped — callers must not treat it as "this track is unplayable".
+     * Omitted means observed.
+     */
+    observed?: boolean
   }>
   play: () => Promise<void>
   /** Start playback of a specific track URI on the active device (e.g. Spotify resource URI). */
