@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
-import { Box, HStack, ScrollArea, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
+import { HStack, ScrollArea, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
 import type {
   GameAttributeName,
   InventoryItem,
@@ -48,13 +48,6 @@ const STORED_ICON = getIcon("Archive")
 const EYE_ICON = getIcon("Eye")
 
 const ADMIN_LISTENERS_TAB = "admin"
-
-/**
- * Viewport-capped dialog height (same chrome as Add to Queue). Sized for a
- * typical Item Shops offering — shop name, buyback copy, table header, three
- * offer rows — plus tabs and footer, so switching tabs does not resize the modal.
- */
-const GAME_SESSION_MODAL_H = "min(90dvh, 36rem)"
 
 /** Stable fallbacks — `?? []` / `?? {}` in render create new references every paint and break effect deps / context (see Maximum update depth in studio-bridge preview). */
 const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
@@ -144,14 +137,8 @@ function GameStateTabsBody({
       onValueChange={(d) => selectTab(d.value)}
       variant="line"
       colorPalette="action"
-      display="flex"
-      flexDirection="column"
-      flex="1"
-      minH={0}
-      h="100%"
-      overflow="hidden"
     >
-      <ScrollArea.Root width="full" size="xs" flexShrink={0}>
+      <ScrollArea.Root width="full" size="xs">
         <ScrollShadowViewport
           ref={tabScrollRef as RefObject<HTMLDivElement>}
           orientation="horizontal"
@@ -197,46 +184,44 @@ function GameStateTabsBody({
         <ScrollArea.Scrollbar orientation="horizontal" />
       </ScrollArea.Root>
 
-      <Box flex="1" minH={0} overflowY="auto">
-        {currentFrame ? (
-          <Stack gap={4}>
-            <GameStateDetailBreadcrumb
-              tabLabel={tabLabel}
-              detailTitle={detailDefinition?.name ?? currentFrame.title}
-              onBack={() => sendNav({ type: "POP_TO_INDEX" })}
+      {currentFrame ? (
+        <Stack gap={4}>
+          <GameStateDetailBreadcrumb
+            tabLabel={tabLabel}
+            detailTitle={detailDefinition?.name ?? currentFrame.title}
+            onBack={() => sendNav({ type: "POP_TO_INDEX" })}
+          />
+          <GameStateItemDetail frame={currentFrame} definition={detailDefinition} />
+        </Stack>
+      ) : (
+        <>
+          <Tabs.Content value="inventory">
+            <GameStateInventoryContent
+              enabledAttributes={enabledAttributes}
+              attributes={attributes}
+              inventoryEnabled={inventoryEnabled}
+              inventoryItems={inventoryItems}
+              maxSlots={maxSlots}
+              maxCollectionSlots={maxCollectionSlots}
+              definitionMap={definitionMap}
             />
-            <GameStateItemDetail frame={currentFrame} definition={detailDefinition} />
-          </Stack>
-        ) : (
-          <>
-            <Tabs.Content value="inventory">
-              <GameStateInventoryContent
-                enabledAttributes={enabledAttributes}
-                attributes={attributes}
-                inventoryEnabled={inventoryEnabled}
-                inventoryItems={inventoryItems}
-                maxSlots={maxSlots}
-                maxCollectionSlots={maxCollectionSlots}
-                definitionMap={definitionMap}
-              />
+          </Tabs.Content>
+
+          {showStoredTab ? (
+            <Tabs.Content value="stored">
+              <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
             </Tabs.Content>
+          ) : null}
 
-            {showStoredTab ? (
-              <Tabs.Content value="stored">
-                <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
-              </Tabs.Content>
-            ) : null}
+          <GameStatePluginTabContents tabs={pluginTabs} />
 
-            <GameStatePluginTabContents tabs={pluginTabs} />
-
-            {isAdmin ? (
-              <Tabs.Content value={ADMIN_LISTENERS_TAB}>
-                <AdminListenersTab />
-              </Tabs.Content>
-            ) : null}
-          </>
-        )}
-      </Box>
+          {isAdmin ? (
+            <Tabs.Content value={ADMIN_LISTENERS_TAB}>
+              <AdminListenersTab />
+            </Tabs.Content>
+          ) : null}
+        </>
+      )}
     </Tabs.Root>
   )
 }
@@ -403,23 +388,9 @@ function ModalUserGameState() {
       onClose={() => modalSend({ type: "CLOSE" })}
       showFooter={showGameFooter}
       footer={footer ?? undefined}
-      contentProps={{
-        h: GAME_SESSION_MODAL_H,
-        maxH: "90dvh",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-      bodyProps={{
-        flex: "1",
-        minH: 0,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-      }}
     >
       <UserGameStateContext.Provider value={gameStateValue}>
-        <Stack gap={5} flex="1" minH={0} h="100%">
+        <Stack gap={5}>
           {loading && (
             <HStack>
               <Spinner size="sm" />
