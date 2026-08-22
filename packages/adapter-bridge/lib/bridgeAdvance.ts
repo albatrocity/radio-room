@@ -511,10 +511,22 @@ export function createBridgeAdvanceJob(params: {
             unobservedPolls = 0
             stuckNoMediaPolls += 1
             if (stuckNoMediaPolls >= STUCK_NO_MEDIA_POLLS) {
-              console.warn(
-                `[bridge-advance] stuck no-media (${stuckNoMediaPolls} polls, state=${playback.state}) — skipping`,
-              )
-              await advanceToNext("stuck-stopped")
+              // With nothing dispatched this is the idle bootstrap an app-controlled
+              // queue relies on (the queue is Redis-only until this job starts it), not
+              // a track that failed to produce media. Keeping the two apart stops an
+              // idle start from announcing "couldn't play" and makes the log say which
+              // one happened.
+              if (dispatched) {
+                console.warn(
+                  `[bridge-advance] stuck no-media (${stuckNoMediaPolls} polls, state=${playback.state}) — skipping`,
+                )
+                await advanceToNext("stuck-stopped")
+              } else {
+                console.log(
+                  `[bridge-advance] idle with a queue (${stuckNoMediaPolls} polls, state=${playback.state}) — starting next track`,
+                )
+                await advanceToNext("idle-start")
+              }
               return
             }
           } else if (hasPlayableMedia(playback) && playback.state === "playing") {

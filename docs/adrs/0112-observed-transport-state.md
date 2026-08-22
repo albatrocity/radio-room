@@ -23,6 +23,12 @@ Playback snapshots carry an optional `observed?: boolean`. `false` means transpo
 - The advance job never counts stuck-no-media polls against an unobservable snapshot. It holds the track, logs periodically, and does not broadcast the placeholder state as a playback state change.
 - Device health recovery belongs to the daemon, not the API: the SDK watchdog forces a reconnect once `getCurrentState()` has stayed null past `SDK_STATE_MISSING_RELOAD_MS`, clearing the advertised device id so it is re-resolved.
 
+### What is deliberately *not* unobservable
+
+The bridge's `getPlayback` also returns `stopped` without contacting any device when no active source is recorded in Redis. That is not marked `observed: false`, even though we have asked nothing. An app-controlled queue is Redis-only until the advance job starts it (see the comment in `DJService.queueSongAs`: adding to the queue never dispatches), and `TOGGLE_PLAYBACK` / `PLAY_QUEUED_TRACK` are admin or owner actions. The stuck watchdog firing against that empty snapshot is therefore the only automatic way an idle room with a queue begins playing, so treating it as unobservable would leave such rooms silent until someone pressed play.
+
+Because that branch serves two unrelated purposes, the watchdog distinguishes them by whether a track is dispatched: with one dispatched it skips as `stuck-stopped`, and with nothing dispatched it starts the next track as `idle-start`. `idle-start` is intentionally not a force-advance reason, so it can never clear a dispatched track that appeared in the meantime, and it does not announce "couldn't play".
+
 ## Consequences
 
 Losing sight of the player now stalls one track instead of silently burning the queue, and the progress bar survives a detached SDK because the Web API fallback is reachable again. Recovery is the daemon's job and is bounded by the watchdog interval.
