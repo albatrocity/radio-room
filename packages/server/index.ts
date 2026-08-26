@@ -48,6 +48,11 @@ import { streamHealth } from "./controllers/streamHealthController"
 import { getImage } from "./operations/data"
 import { getTrackPreviewByPreviewId, PREVIEW_TTL_SEC } from "./operations/data/trackPreviews"
 import { upload, uploadImages, uploadArtwork } from "./controllers/imageController"
+import {
+  presignMusicUploadHandler,
+  completeMusicUploadHandler,
+  failMusicUploadHandler,
+} from "./controllers/musicUploadController"
 import { getPublicReadyShowById, getPublicReadyShows } from "./routes/publicSchedulingRoutes"
 import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/schedulingRouter"
 import {
@@ -228,6 +233,10 @@ export class RadioRoomServer {
       .post("/api/rooms/:roomId/images", upload.array("images", 5), uploadImages)
       // Room artwork upload endpoint (admin-only, single file)
       .post("/api/rooms/:roomId/artwork", upload.single("artwork"), uploadArtwork)
+      // Music upload presign + lifecycle (Uploader persona required)
+      .post("/api/rooms/:roomId/music-uploads/presign", presignMusicUploadHandler)
+      .post("/api/rooms/:roomId/music-uploads/complete", completeMusicUploadHandler)
+      .post("/api/rooms/:roomId/music-uploads/fail", failMusicUploadHandler)
       // Room image retrieval endpoint
       .get("/api/rooms/:roomId/images/:imageId", async (req, res) => {
         const { roomId, imageId } = req.params

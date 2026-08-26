@@ -192,4 +192,17 @@ export const bridgePluginSchemasForApi = [
       ],
     },
   },
+  {
+    name: "music-upload",
+    version: "0.0.0-bridge",
+    description: "Music upload (bridge preview stub).",
+    defaultConfig: {
+      enabled: true,
+      uploadButtonLabel: "Upload music",
+    },
+    componentSchema: {
+      components: [],
+      storeKeys: ["uploaderUserIds", "uploadingUserIds"],
+    },
+  },
 ]

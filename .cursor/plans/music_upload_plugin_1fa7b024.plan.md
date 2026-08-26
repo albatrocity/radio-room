@@ -4,19 +4,19 @@ overview: Add a `music-upload` room plugin that uses an admin-assignable Uploade
 todos:
   - id: infra-uploads
     content: "Phase 1: S3 lifecycle on uploads/, CloudFront exclude uploads/*, CORS for web"
-    status: pending
+    status: completed
   - id: adr-service-routes
     content: "Phase 2: ADR 0098 + MusicUploadService + room REST presign/complete"
-    status: pending
+    status: completed
   - id: plugin-package
     content: "Phase 3: @repo/plugin-music-upload persona, store sync, components, register"
-    status: pending
+    status: completed
   - id: web-ui
     content: "Phase 4: Core MusicUpload UI + progress + admin uploading badge"
-    status: pending
+    status: completed
   - id: docs-verify
     content: "Phase 5: Docs/studio-bridge + verification checklist"
-    status: pending
+    status: completed
 isProject: false
 ---
 
