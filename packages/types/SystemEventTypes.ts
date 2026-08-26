@@ -130,6 +130,29 @@ export type SystemEventHandlers = {
     assignablePersonas: { personaId: string; label: string; icon?: string }[]
   }) => Promise<void> | void
 
+  /** Music upload plugin: user began a presigned PUT (core REST → plugin store). */
+  MUSIC_UPLOAD_STARTED: (data: {
+    roomId: string
+    userId: string
+    uploadId: string
+    key: string
+  }) => Promise<void> | void
+
+  MUSIC_UPLOAD_COMPLETED: (data: {
+    roomId: string
+    userId: string
+    uploadId: string
+    key: string
+  }) => Promise<void> | void
+
+  MUSIC_UPLOAD_FAILED: (data: {
+    roomId: string
+    userId: string
+    uploadId: string
+    key: string
+    reason?: string
+  }) => Promise<void> | void
+
   // Room events
   ROOM_DELETED: (data: { roomId: string }) => Promise<void> | void
 

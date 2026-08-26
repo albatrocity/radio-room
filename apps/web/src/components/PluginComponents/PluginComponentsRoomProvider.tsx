@@ -35,6 +35,7 @@ import {
 } from "./context"
 import { PluginComponentRenderer } from "./PluginComponentRenderer"
 import type { PluginModalComponent } from "../../types/PluginComponent"
+import { MusicUploadPanel } from "../MusicUploadPanel"
 
 function PluginModalHost({
   pluginName,
@@ -44,6 +45,7 @@ function PluginModalHost({
   onClose,
   openModal,
   closeModal,
+  roomId,
 }: {
   pluginName: string
   config: Record<string, unknown>
@@ -52,6 +54,7 @@ function PluginModalHost({
   onClose: (modalId: string) => void
   openModal: (modalId: string) => void
   closeModal: (modalId: string) => void
+  roomId: string | undefined
 }) {
   const actor = getPluginComponentActor(pluginName)
   const store = useSelector(actor!, (s) => s.context.store)
@@ -90,11 +93,15 @@ function PluginModalHost({
                     <CloseButton size="sm" />
                   </DialogCloseTrigger>
                   <DialogBody pb={6}>
-                    <VStack align="stretch" gap={4}>
-                      {modal.children.map((child) => (
-                        <PluginComponentRenderer key={child.id} component={child} />
-                      ))}
-                    </VStack>
+                    {pluginName === "music-upload" && modal.id === "upload-modal" && roomId ? (
+                      <MusicUploadPanel roomId={roomId} onClose={() => onClose(modal.id)} />
+                    ) : (
+                      <VStack align="stretch" gap={4}>
+                        {modal.children.map((child) => (
+                          <PluginComponentRenderer key={child.id} component={child} />
+                        ))}
+                      </VStack>
+                    )}
                   </DialogBody>
                 </DialogContent>
               </DialogPositioner>
@@ -201,6 +208,7 @@ export function PluginComponentsRoomProvider({ children }: { children: ReactNode
                 pluginName={pluginName}
                 config={config}
                 modals={modals}
+                roomId={roomId}
                 isOpen={(modalId) => isModalOpen(pluginName, modalId)}
                 onClose={(modalId) => closeModal(pluginName, modalId)}
                 openModal={(modalId) => openModal(pluginName, modalId)}

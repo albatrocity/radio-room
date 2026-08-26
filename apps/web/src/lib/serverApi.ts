@@ -1,5 +1,13 @@
 import ky from "ky"
-import type { RoomScheduleSnapshotDTO, SubscribeNewsletterRequest, SubscribeNewsletterResponse } from "@repo/types"
+import type {
+  CompleteMusicUploadRequest,
+  FailMusicUploadRequest,
+  PresignMusicUploadRequest,
+  PresignMusicUploadResponse,
+  RoomScheduleSnapshotDTO,
+  SubscribeNewsletterRequest,
+  SubscribeNewsletterResponse,
+} from "@repo/types"
 import { RADIO_SESSION_HEADER } from "../constants"
 import { getStoredUserId } from "./clientSession"
 import { Room, RoomSetup } from "../types/Room"
@@ -203,4 +211,52 @@ export function downloadBlob(blob: Blob, filename: string): void {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// =============================================================================
+// Music Upload (Uploader persona required)
+// =============================================================================
+
+function musicUploadHeaders(): Record<string, string> | undefined {
+  const radioUserId = getStoredUserId()
+  return radioUserId ? { [RADIO_SESSION_HEADER]: radioUserId } : undefined
+}
+
+export async function presignMusicUpload(
+  roomId: string,
+  body: PresignMusicUploadRequest,
+): Promise<PresignMusicUploadResponse> {
+  return api
+    .post(`api/rooms/${roomId}/music-uploads/presign`, {
+      json: body,
+      headers: musicUploadHeaders(),
+      timeout: 30000,
+    })
+    .json<PresignMusicUploadResponse>()
+}
+
+export async function completeMusicUpload(
+  roomId: string,
+  body: CompleteMusicUploadRequest,
+): Promise<{ ok: true }> {
+  return api
+    .post(`api/rooms/${roomId}/music-uploads/complete`, {
+      json: body,
+      headers: musicUploadHeaders(),
+      timeout: 30000,
+    })
+    .json<{ ok: true }>()
+}
+
+export async function failMusicUpload(
+  roomId: string,
+  body: FailMusicUploadRequest,
+): Promise<{ ok: true }> {
+  return api
+    .post(`api/rooms/${roomId}/music-uploads/fail`, {
+      json: body,
+      headers: musicUploadHeaders(),
+      timeout: 30000,
+    })
+    .json<{ ok: true }>()
 }

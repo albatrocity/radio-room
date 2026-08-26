@@ -92,13 +92,17 @@ export function PluginArea({
     return null
   }
 
+  const isAboveChat = area === "aboveChat"
+
   return (
     <Wrap
       direction={direction}
       gap={spacing}
       color={color}
       width="100%"
-      align={direction === "row" ? "center" : "stretch"}
+      px={isAboveChat ? 3 : undefined}
+      py={isAboveChat ? 2 : undefined}
+      align={isAboveChat || direction === "row" ? "center" : "stretch"}
       css={{ "&:not(:has([data-plugin-component-id]))": { display: "none" } }}
     >
       {pluginsForArea.map((plugin) => (

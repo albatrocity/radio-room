@@ -50,6 +50,24 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
   }
 }
 
+# Private music uploads (presigned PUT from web app; not served via CloudFront)
+resource "aws_s3_bucket_lifecycle_configuration" "assets" {
+  bucket = aws_s3_bucket.assets.id
+
+  rule {
+    id     = "expire-uploads-after-30-days"
+    status = "Enabled"
+
+    filter {
+      prefix = "uploads/"
+    }
+
+    expiration {
+      days = 30
+    }
+  }
+}
+
 # ---------------------------------------------------------------------------
 # ACM certificate (us-east-1) + Netlify DNS validation
 # ---------------------------------------------------------------------------
@@ -147,11 +165,23 @@ resource "aws_s3_bucket_policy" "assets" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowCloudFrontServicePrincipalRead"
+        Sid       = "AllowCloudFrontServicePrincipalReadAssets"
         Effect    = "Allow"
         Principal = { Service = "cloudfront.amazonaws.com" }
         Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.assets.arn}/*"
+        Resource  = "${aws_s3_bucket.assets.arn}/assets/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.assets.arn
+          }
+        }
+      },
+      {
+        Sid       = "AllowCloudFrontServicePrincipalReadNewsletter"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.assets.arn}/newsletter/*"
         Condition = {
           StringEquals = {
             "AWS:SourceArn" = aws_cloudfront_distribution.assets.arn

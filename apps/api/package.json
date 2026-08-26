@@ -30,6 +30,7 @@
     "@repo/plugin-quiz-sessions": "*",
     "@repo/plugin-playlist-bingo": "*",
     "@repo/plugin-round-robin-dj": "*",
+    "@repo/plugin-music-upload": "*",
     "@repo/plugin-volume-manager": "*",
     "@repo/server": "*",
     "@socket.io/redis-adapter": "^8.3.0",

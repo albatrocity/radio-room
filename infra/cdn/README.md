@@ -9,10 +9,11 @@ Self-contained Terraform for the Listening Room **newsletter / static asset CDN*
 | Resource | Purpose |
 |----------|---------|
 | `aws_s3_bucket` (+ public access block, ownership) | Private object store |
-| `aws_s3_bucket_cors_configuration` | Browser `PUT` from scheduler origins (presigned URLs) |
+| `aws_s3_bucket_lifecycle_configuration` | Auto-delete `uploads/` prefix after 30 days (private music uploads) |
+| `aws_s3_bucket_cors_configuration` | Browser `PUT` from web app + scheduler origins (presigned URLs) |
 | `aws_acm_certificate` + validation | TLS for `cdn.<domain>` (must be **us-east-1**) |
 | `aws_cloudfront_origin_access_control` + `aws_cloudfront_distribution` | CDN in front of S3 |
-| `aws_s3_bucket_policy` | Allow CloudFront `GetObject` only |
+| `aws_s3_bucket_policy` | Allow CloudFront `GetObject` on `assets/*` and `newsletter/*` only (`uploads/*` is private) |
 | `netlify_dns_record` × N | ACM validation CNAME(s) + `cdn` → CloudFront |
 | `aws_iam_user_policy` | `s3:PutObject` on the SES sender user |
 | `aws_s3_object` | Seeds `assets/logo.png` |
@@ -63,7 +64,15 @@ Reuse the same `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from the SES sender
 
 ## CORS origins
 
-`cors_allowed_origins` must include every browser origin that PUTs via presigned URLs. Defaults are local scheduler (`http://127.0.0.1:8001`, `http://localhost:8001`) plus production (`https://scheduler.listeningroom.club`). A missing origin makes the browser OPTIONS preflight return **403** and the upload fail with “access control checks”.
+`cors_allowed_origins` must include every browser origin that PUTs via presigned URLs. Defaults include local web app (`http://127.0.0.1:8000`, `http://localhost:8000`), local scheduler (`http://127.0.0.1:8001`, `http://localhost:8001`), and production (`https://listeningroom.club`, `https://scheduler.listeningroom.club`). A missing origin makes the browser OPTIONS preflight return **403** and the upload fail with “access control checks”.
+
+## Private music uploads (`uploads/`)
+
+The music-upload plugin stores files under `uploads/{username}/{date}/{userId}/…` via presigned PUT. These objects:
+
+- Are **not** readable via CloudFront (bucket policy excludes `uploads/*` from CDN GetObject).
+- **Expire after 30 days** via S3 lifecycle rule.
+- Are retrieved out-of-band (AWS CLI, SFTP, etc.) — the app never exposes download URLs.
 
 ## Logo asset
 
