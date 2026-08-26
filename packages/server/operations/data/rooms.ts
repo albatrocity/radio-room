@@ -417,6 +417,8 @@ export function parseRoom(room: StoredRoom): Room {
     // Queue display settings default to true when undefined
     showQueueCount: room.showQueueCount !== "false",
     showQueueTracks: room.showQueueTracks !== "false",
+    showQueueCountEverEnabled: room.showQueueCountEverEnabled === "true",
+    showQueueTracksEverEnabled: room.showQueueTracksEverEnabled === "true",
     queueAutoAdvance: room.queueAutoAdvance !== "false",
     // Chat settings default to false when undefined
     allowChatImages: room.allowChatImages === "true",

@@ -1,6 +1,7 @@
 import { Formik } from "formik"
 import React from "react"
 import {
+  Button,
   Checkbox,
   Field,
   DialogBody,
@@ -10,6 +11,7 @@ import {
 } from "@chakra-ui/react"
 import FormActions from "./FormActions"
 import { useModalsSend, useSettings, useAdminSend, useCurrentRoom } from "../../../hooks/useActors"
+import { hasQueueDisplayRedactionState } from "../../../lib/queueDisplayVisibility"
 
 const SPOTIFY_CONTROLLED = "spotify-controlled" as const
 const APP_CONTROLLED = "app-controlled" as const
@@ -22,6 +24,18 @@ function DjFeatures() {
 
   const showPlaybackMode =
     room?.type === "radio" || Boolean(room?.playbackControllerId)
+
+  const showResetQueueIndicators = hasQueueDisplayRedactionState(room)
+
+  const handleResetQueueIndicators = () => {
+    send({
+      type: "SET_SETTINGS",
+      data: {
+        showQueueCountEverEnabled: false,
+        showQueueTracksEverEnabled: false,
+      },
+    } as any)
+  }
 
   return (
     <Formik
@@ -193,6 +207,24 @@ function DjFeatures() {
                   always see it.
                 </Field.HelperText>
               </Field.Root>
+
+              {showResetQueueIndicators ? (
+                <Field.Root>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    alignSelf="flex-start"
+                    onClick={handleResetQueueIndicators}
+                  >
+                    Reset hidden queue indicators
+                  </Button>
+                  <Field.HelperText>
+                    Removes the hidden-count icon and blurred queue preview for listeners. Disabled
+                    queue features will appear fully absent again.
+                  </Field.HelperText>
+                </Field.Root>
+              ) : null}
             </VStack>
           </DialogBody>
           <DialogFooter>

@@ -71,6 +71,10 @@ export type Room = {
   // Queue display settings (default true)
   showQueueCount?: boolean
   showQueueTracks?: boolean
+  /** When true, listeners see a redacted queue count when showQueueCount is false */
+  showQueueCountEverEnabled?: boolean
+  /** When true, listeners see a redacted queue tracks section when showQueueTracks is false */
+  showQueueTracksEverEnabled?: boolean
   /** App-controlled only. When false, admins advance manually; default true. */
   queueAutoAdvance?: boolean
   // Chat settings
@@ -112,6 +116,8 @@ export interface StoredRoom
     | "metadataSourceAccess"
     | "showQueueCount"
     | "showQueueTracks"
+    | "showQueueCountEverEnabled"
+    | "showQueueTracksEverEnabled"
     | "queueAutoAdvance"
     | "allowChatImages"
     | "showSchedulePublic"
@@ -127,6 +133,8 @@ export interface StoredRoom
   persistent?: Bool
   showQueueCount?: Bool
   showQueueTracks?: Bool
+  showQueueCountEverEnabled?: Bool
+  showQueueTracksEverEnabled?: Bool
   queueAutoAdvance?: Bool
   allowChatImages?: Bool
   showSchedulePublic?: Bool

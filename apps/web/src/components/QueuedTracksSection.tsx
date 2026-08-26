@@ -19,7 +19,7 @@ import { useSortable } from "@dnd-kit/react/sortable"
 import { isSortable } from "@dnd-kit/react/sortable"
 import { move } from "@dnd-kit/helpers"
 import { canonicalQueueTrackKey, type QueueItem as SharedQueueItem } from "@repo/types/Queue"
-import { GripVertical } from "lucide-react"
+import { GripVertical, EyeOff } from "lucide-react"
 import {
   LuPlay,
   LuPause,
@@ -42,7 +42,9 @@ import socket from "../lib/socket"
 import { toast } from "../lib/toasts"
 import PlaylistItem from "./PlaylistItem"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import RedactedQueueTracksPreview from "./RedactedQueueTracksPreview"
 import { Tooltip } from "./ui/tooltip"
+import { getQueueCountDisplay, isQueueTracksRedacted, isQueueTracksVisible } from "../lib/queueDisplayVisibility"
 import type { Room } from "../types/Room"
 
 const ITEM_HEIGHT = 70
@@ -52,6 +54,64 @@ type SpotifyPlaybackState = "playing" | "paused" | "stopped"
 
 export const ROOM_QUEUE_SORTABLE_GROUP = "room-queue"
 export const QUEUE_SPLIT_DIVIDER_ID = "queue-split-divider"
+
+function QueueSectionCountBadge({
+  count,
+  room,
+  isAdmin,
+}: {
+  count: number
+  room: Room | undefined
+  isAdmin: boolean
+}) {
+  const display = getQueueCountDisplay(count, room, isAdmin)
+  if (display.kind === "hidden") return null
+
+  const badge =
+    display.kind === "redacted" ? (
+      <Badge
+        colorPalette="primary"
+        variant="solid"
+        borderRadius="full"
+        fontSize="xs"
+        textAlign="center"
+        display="inline-flex"
+        alignItems="center"
+        justifyContent="center"
+        px={1.5}
+        minW="5"
+      >
+        <EyeOff size={12} strokeWidth={2} />
+      </Badge>
+    ) : (
+      <Badge
+        colorPalette="primary"
+        variant="solid"
+        borderRadius="full"
+        fontSize="xs"
+        textAlign="center"
+      >
+        {display.value}
+      </Badge>
+    )
+
+  const tooltip =
+    display.kind === "redacted"
+      ? "Queue count is hidden"
+      : isAdmin && room?.showQueueCount === false
+        ? "Queue count is hidden from listeners"
+        : null
+
+  if (!tooltip) return badge
+
+  return (
+    <Tooltip content={tooltip} showArrow>
+      <Box as="span" display="inline-flex">
+        {badge}
+      </Box>
+    </Tooltip>
+  )
+}
 
 function toCanonicalKey(item: QueueItem): string {
   return canonicalQueueTrackKey(item as unknown as SharedQueueItem)
@@ -355,7 +415,8 @@ function QueuedTracksSection() {
     emitToSocket("TOGGLE_PLAYBACK", {})
   }, [])
 
-  const showQueueTracks = isAdmin || room?.showQueueTracks !== false
+  const showQueueTracks = isQueueTracksVisible(room, isAdmin)
+  const queueTracksRedacted = isQueueTracksRedacted(room, isAdmin)
   const queueTracksHiddenFromListeners = isAdmin && room?.showQueueTracks === false
 
   const orderedKeys = useMemo(
@@ -480,11 +541,36 @@ function QueuedTracksSection() {
       const item = queue[index]
       return item ? `${item.addedAt}-${item.track.id}` : index
     },
-    enabled: (!canReorder || !hasSortableItems) && virtualRowCount > 0,
+    enabled: (!canReorder || !hasSortableItems) && virtualRowCount > 0 && !queueTracksRedacted,
   })
 
-  if (!showQueueTracks) {
+  if (!showQueueTracks && !queueTracksRedacted) {
     return null
+  }
+
+  if (queueTracksRedacted) {
+    return (
+      <Box
+        background="primary.subtle/20"
+        p={4}
+        borderRadius={6}
+        colorPalette="primary"
+        layerStyle="themeTransition"
+      >
+        <VStack align="stretch" gap={4}>
+          <HStack gap={2} justify="space-between">
+            <HStack gap={2}>
+              <Heading size="sm" color="primaryText">
+                Queue
+              </Heading>
+              <QueueSectionCountBadge count={virtualRowCount} room={room} isAdmin={isAdmin} />
+            </HStack>
+            <ButtonAddToQueue variant="solid" colorPalette="primary" size="xs" showCount={false} />
+          </HStack>
+          <RedactedQueueTracksPreview />
+        </VStack>
+      </Box>
+    )
   }
 
   if (queue.length === 0 && !canResumeOrEmptyControls) {
@@ -616,15 +702,7 @@ function QueuedTracksSection() {
                 Hidden from listeners
               </Text>
             )}
-            <Badge
-              colorPalette="primary"
-              variant="solid"
-              borderRadius="full"
-              fontSize="xs"
-              textAlign="center"
-            >
-              {badgeCount}
-            </Badge>
+            <QueueSectionCountBadge count={badgeCount} room={room} isAdmin={isAdmin} />
           </HStack>
           <HStack gap={2} justify="end">
             {canResumeOrEmptyControls && (

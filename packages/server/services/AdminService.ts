@@ -20,6 +20,7 @@ import {
   updateUserAttributes,
 } from "../operations/data"
 import { migrateWebRtcListeningTransportsToShoutcast } from "../operations/room/listeningTransportStats"
+import { applyQueueDisplayEverEnabledFlags } from "../lib/queueDisplayEverEnabled"
 import {
   applyFetchMetaTransitionEffects,
   enterStreamingMode,
@@ -329,9 +330,14 @@ export class AdminService {
       return { room: null, error }
     }
 
+    const valuesWithEverEnabled = {
+      ...values,
+      ...applyQueueDisplayEverEnabledFlags(room, values),
+    }
+
     const newSettings = {
       ...omit(room, ["spotifyError", "radioError"]),
-      ...omit(values, ["spotifyError", "radioError"]),
+      ...omit(valuesWithEverEnabled, ["spotifyError", "radioError"]),
     }
     if ("showId" in values && values.showId === null) {
       delete (newSettings as { activeSegmentId?: string | null }).activeSegmentId

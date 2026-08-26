@@ -20,6 +20,7 @@ import {
 } from "./room/applyFetchMetaTransitionEffects"
 import { isStreamingMode } from "../lib/streamingMode"
 import { applySegmentDeputyBulkAction } from "./room/applySegmentDeputyBulkAction"
+import { applyQueueDisplayEverEnabledFlags } from "../lib/queueDisplayEverEnabled"
 
 export type PresetApplyMode = "merge" | "replace" | "skip"
 
@@ -129,7 +130,10 @@ export async function activateRoomSegment(params: {
 
   const previousRoom = room
   const base = omit(room, ["spotifyError", "radioError"] as const)
-  const overridePatch = patchRoomFromSegmentOverride(segment.roomSettingsOverride)
+  const overridePatch = applyQueueDisplayEverEnabledFlags(
+    room,
+    patchRoomFromSegmentOverride(segment.roomSettingsOverride),
+  )
   const mergedRoom: Room = {
     ...base,
     ...overridePatch,

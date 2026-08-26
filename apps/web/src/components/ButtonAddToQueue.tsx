@@ -3,8 +3,10 @@ import useCanDj from "./useCanDj"
 
 import { IconButton, Icon, Button, ButtonProps, Badge, Box } from "@chakra-ui/react"
 import { LuListPlus } from "react-icons/lu"
+import { EyeOff } from "lucide-react"
 import { useModalsSend, useQueueCount, useCurrentRoom, useIsAdmin } from "../hooks/useActors"
 import { Tooltip } from "./ui/tooltip"
+import { getQueueCountDisplay } from "../lib/queueDisplayVisibility"
 
 type Props = {
   showText?: boolean
@@ -29,8 +31,9 @@ function ButtonAddToQueue({
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
 
-  // showQueueCount defaults to true when undefined; room admins always see it
-  const showQueueCount = showCount && (isAdmin || room?.showQueueCount !== false)
+  const countDisplay = showCount
+    ? getQueueCountDisplay(queueCount, room ?? undefined, isAdmin)
+    : ({ kind: "hidden" } as const)
   const queueCountHiddenFromListeners = isAdmin && room?.showQueueCount === false
 
   const onAddToQueue = () => modalSend({ type: "EDIT_QUEUE" })
@@ -39,19 +42,41 @@ function ButtonAddToQueue({
     return null
   }
 
-  const renderCountBadge = (fontSize: "xs" | "2xs", minW: string) => {
-    if (!showQueueCount || queueCount <= 0) return null
+  const renderCountBadge = (fontSize: "xs" | "2xs", minW: string, iconSize: number) => {
+    if (countDisplay.kind === "hidden") return null
 
-    const badge = (
-      <Badge variant="solid" borderRadius="full" fontSize={fontSize} minW={minW} textAlign="center">
-        {queueCount}
-      </Badge>
-    )
+    const badge =
+      countDisplay.kind === "redacted" ? (
+        <Badge
+          variant="solid"
+          borderRadius="full"
+          fontSize={fontSize}
+          minW={minW}
+          textAlign="center"
+          display="inline-flex"
+          alignItems="center"
+          justifyContent="center"
+          px={1}
+        >
+          <EyeOff size={iconSize} strokeWidth={2} />
+        </Badge>
+      ) : (
+        <Badge variant="solid" borderRadius="full" fontSize={fontSize} minW={minW} textAlign="center">
+          {countDisplay.value}
+        </Badge>
+      )
 
-    if (!queueCountHiddenFromListeners) return badge
+    const tooltipContent =
+      countDisplay.kind === "redacted"
+        ? "Queue count is hidden"
+        : queueCountHiddenFromListeners
+          ? "Queue count is hidden from listeners"
+          : null
+
+    if (!tooltipContent) return badge
 
     return (
-      <Tooltip content="Queue count is hidden from listeners" showArrow>
+      <Tooltip content={tooltipContent} showArrow>
         <Box as="span" display="inline-flex">
           {badge}
         </Box>
@@ -59,11 +84,13 @@ function ButtonAddToQueue({
     )
   }
 
+  const showOverlayBadge = countDisplay.kind !== "hidden"
+
   return showText ? (
     <Button variant={variant} colorPalette={colorPalette} onClick={onAddToQueue} size={size}>
       <Icon as={LuListPlus} />
       {label}
-      {renderCountBadge("xs", "5")}
+      {renderCountBadge("xs", "5", 12)}
     </Button>
   ) : (
     <Box position="relative" display="inline-block">
@@ -76,9 +103,9 @@ function ButtonAddToQueue({
       >
         <Icon as={LuListPlus} />
       </IconButton>
-      {showQueueCount && queueCount > 0 && (
+      {showOverlayBadge && (
         <Box position="absolute" top="-1" right="-1">
-          {renderCountBadge("2xs", "4")}
+          {renderCountBadge("2xs", "4", 10)}
         </Box>
       )}
     </Box>
