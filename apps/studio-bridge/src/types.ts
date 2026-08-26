@@ -1,11 +1,13 @@
 import type { StoredArtifactPublic } from "@repo/types/Artifacts"
 import type { ChatMessage } from "@repo/types/ChatMessage"
 import type { GameSession, UserGameState } from "@repo/types/GameSession"
+import type { GiftOffer } from "@repo/types/Gift"
 import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
 import type { Poll, PollHistoryEntry } from "@repo/types/Poll"
 import type { QueueItem } from "@repo/types/Queue"
 import type { BingoCard } from "@repo/types/PlaylistBingo"
 import type { ShoppingSessionInstance } from "@repo/types/ShoppingSession"
+import type { TradeInvite, TradeSession } from "@repo/types/Trade"
 import type { User } from "@repo/types/User"
 
 /** Serialized StudioRoom pushed from Game Studio via POST /sync */
@@ -37,4 +39,10 @@ export type BridgeSnapshot = {
   } | null
   /** App-controlled queue split anchor (canonical key of first track below divider). */
   splitKey?: string | null
+  /** Escrowed gift offers (ADR 0114). */
+  pendingGifts?: GiftOffer[]
+  /** Pending trade invites (ADR 0115). */
+  pendingTradeInvites?: TradeInvite[]
+  /** Active trades by tradeId (ADR 0114). */
+  trades?: Record<string, TradeSession>
 }

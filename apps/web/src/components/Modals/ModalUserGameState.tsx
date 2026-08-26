@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
-import { HStack, ScrollArea, Spinner, Stack, Tabs, Text } from "@chakra-ui/react"
+import { HStack, ScrollArea, Spinner, Stack, Status, Tabs, Text } from "@chakra-ui/react"
 import type {
   GameAttributeName,
   InventoryItem,
@@ -21,7 +21,12 @@ import {
   useGameStateActiveTab,
   useGameStateDetailFrame,
   useGameStateNavSend,
+  useTradesGiftsTabAttention,
 } from "../../hooks/useActors"
+import { TRADES_GIFTS_TAB } from "../../constants/gameStateTabs"
+import { activateTrade, deactivateTrade } from "../../actors/tradeActor"
+import { dismissIncomingTradeInviteToasts } from "../../lib/tradeInviteToast"
+import { clearTradesGiftsTabAttentionIfEmpty } from "../../lib/tradesGiftsAttention"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
 import { SvgIcon } from "../ui/svg-icon"
@@ -35,7 +40,10 @@ import StoredItemsTab from "./GameState/StoredItemsTab"
 import AdminListenersTab from "./GameState/AdminListenersTab"
 import { UserModifiersList } from "../UserModifiersList"
 import ScrollShadowViewport from "../ScrollShadowViewport"
-import GameStateItemDetail, { GameStateDetailBreadcrumb } from "./GameState/GameStateItemDetail"
+import TradesGiftsTab from "./GameState/TradesGiftsTab"
+import GameStateDetailRouter from "./GameState/GameStateDetailRouter"
+import { GameStateDetailBreadcrumb } from "./GameState/GameStateItemDetail"
+import { detailFrameTitle, isItemDetailFrame } from "../../types/GameStateDetail"
 
 function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
@@ -46,6 +54,15 @@ const COINS_ICON = getIcon("Coins")
 const PACKAGE_ICON = getIcon("Backpack")
 const STORED_ICON = getIcon("Archive")
 const EYE_ICON = getIcon("Eye")
+
+const TRADES_ICON = getIcon("ArrowLeftRight")
+
+function viewTradesGiftsTab(): void {
+  dismissIncomingTradeInviteToasts()
+  // Keep the tab indicator while incoming gifts/invites remain; only clear ephemeral
+  // attention (e.g. "trade accepted") when the inbox is empty.
+  clearTradesGiftsTabAttentionIfEmpty()
+}
 
 const ADMIN_LISTENERS_TAB = "admin"
 
@@ -72,6 +89,8 @@ type TabsBodyProps = {
   pluginTabs: ReturnType<typeof useGameStateNewPluginTabs>["pluginTabs"]
   unseenPluginTabIds: ReadonlySet<string>
   markPluginTabViewed: (id: string) => void
+  showTradesGiftsTab: boolean
+  tradesGiftsUnseen: boolean
   showStoredTab: boolean
   isAdmin: boolean
   enabledAttributes: GameAttributeName[]
@@ -93,6 +112,8 @@ function GameStateTabsBody({
   pluginTabs,
   unseenPluginTabIds,
   markPluginTabViewed,
+  showTradesGiftsTab,
+  tradesGiftsUnseen,
   showStoredTab,
   isAdmin,
   enabledAttributes,
@@ -112,22 +133,24 @@ function GameStateTabsBody({
 
   const tabLabel = useMemo(() => {
     if (gameStateTab === "inventory") return "Inventory"
+    if (gameStateTab === TRADES_GIFTS_TAB) return "Trades/Gifts"
     if (gameStateTab === "stored") return "Stored Items"
     if (gameStateTab === ADMIN_LISTENERS_TAB) return "Big Brother"
     return pluginTabs.find((t) => t.id === gameStateTab)?.label ?? "Back"
   }, [gameStateTab, pluginTabs])
 
-  const detailDefinition = currentFrame
-    ? resolveDefinition(currentFrame, definitionMap, itemDefinitions)
-    : undefined
+  const detailDefinition =
+    currentFrame && isItemDetailFrame(currentFrame)
+      ? resolveDefinition(currentFrame, definitionMap, itemDefinitions)
+      : undefined
 
-  // Bound to each trigger's click as well as `onValueChange`, which does not
-  // fire for the tab already selected — that click is how a viewer leaves a
-  // detail frame by tapping the tab they are on.
   const selectTab = (tabId: string) => {
     setGameStateTab(tabId)
     if (pluginTabs.some((t) => t.id === tabId)) {
       markPluginTabViewed(tabId)
+    }
+    if (tabId === TRADES_GIFTS_TAB) {
+      viewTradesGiftsTab()
     }
   }
 
@@ -163,6 +186,30 @@ function GameStateTabsBody({
                   Stored Items
                 </Tabs.Trigger>
               ) : null}
+              {showTradesGiftsTab ? (
+                <Tabs.Trigger
+                  value={TRADES_GIFTS_TAB}
+                  whiteSpace="nowrap"
+                  position="relative"
+                  pr={tradesGiftsUnseen ? 2 : undefined}
+                  onClick={() => selectTab(TRADES_GIFTS_TAB)}
+                >
+                  {TRADES_ICON ? <SvgIcon icon={TRADES_ICON} mr={1} /> : null}
+                  Trades/Gifts
+                  {tradesGiftsUnseen ? (
+                    <Status.Root
+                      size="sm"
+                      colorPalette="primary"
+                      position="absolute"
+                      top="0"
+                      right="0"
+                      pointerEvents="none"
+                    >
+                      <Status.Indicator />
+                    </Status.Root>
+                  ) : null}
+                </Tabs.Trigger>
+              ) : null}
               <GameStatePluginTabTriggers
                 tabs={pluginTabs}
                 unseenTabIds={unseenPluginTabIds}
@@ -188,10 +235,12 @@ function GameStateTabsBody({
         <Stack gap={4}>
           <GameStateDetailBreadcrumb
             tabLabel={tabLabel}
-            detailTitle={detailDefinition?.name ?? currentFrame.title}
+            detailTitle={detailDefinition?.name ?? (currentFrame ? detailFrameTitle(currentFrame) : "Back")}
             onBack={() => sendNav({ type: "POP_TO_INDEX" })}
           />
-          <GameStateItemDetail frame={currentFrame} definition={detailDefinition} />
+          {currentFrame ? (
+            <GameStateDetailRouter frame={currentFrame} definition={detailDefinition} />
+          ) : null}
         </Stack>
       ) : (
         <>
@@ -210,6 +259,12 @@ function GameStateTabsBody({
           {showStoredTab ? (
             <Tabs.Content value="stored">
               <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
+            </Tabs.Content>
+          ) : null}
+
+          {showTradesGiftsTab ? (
+            <Tabs.Content value={TRADES_GIFTS_TAB}>
+              <TradesGiftsTab />
             </Tabs.Content>
           ) : null}
 
@@ -311,11 +366,25 @@ function ModalUserGameState() {
   }, [isOpen, payload?.session?.id, inventoryItems, refreshStoredArtifacts])
 
   const showStoredTab = storedArtifacts.length > 0
+  const showTradesGiftsTab = payload?.session?.config.allowTrading === true
+  const tradesGiftsUnseen = useTradesGiftsTabAttention()
+
+  useEffect(() => {
+    if (isOpen && showTradesGiftsTab) {
+      activateTrade(payload?.activeTrade ?? null)
+      return () => deactivateTrade()
+    }
+    deactivateTrade()
+    return undefined
+  }, [isOpen, showTradesGiftsTab, payload?.activeTrade?.tradeId])
 
   const validTabValues = useMemo(() => {
     const ids = new Set<string>(["inventory"])
     if (showStoredTab) {
       ids.add("stored")
+    }
+    if (showTradesGiftsTab || gameStateTab === TRADES_GIFTS_TAB) {
+      ids.add(TRADES_GIFTS_TAB)
     }
     if (isAdmin) {
       ids.add(ADMIN_LISTENERS_TAB)
@@ -324,7 +393,7 @@ function ModalUserGameState() {
       ids.add(t.id)
     }
     return ids
-  }, [pluginTabs, showStoredTab, isAdmin])
+  }, [pluginTabs, showStoredTab, showTradesGiftsTab, isAdmin, gameStateTab])
 
   useEffect(() => {
     if (!validTabValues.has(gameStateTab)) {
@@ -341,6 +410,12 @@ function ModalUserGameState() {
     }
   }, [isOpen, gameStateTab, isPluginTabActive, payload, markPluginTabViewed])
 
+  useEffect(() => {
+    if (isOpen && gameStateTab === TRADES_GIFTS_TAB) {
+      viewTradesGiftsTab()
+    }
+  }, [isOpen, gameStateTab, payload])
+
   const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
     const pluginUserState = payload?.pluginUserState ?? {}
     return {
@@ -348,6 +423,9 @@ function ModalUserGameState() {
       state: payload?.state ?? null,
       inventory: payload?.inventory ?? null,
       itemDefinitions: payload?.itemDefinitions ?? [],
+      pendingGifts: payload?.pendingGifts,
+      pendingTradeInvites: payload?.pendingTradeInvites,
+      activeTrade: payload?.activeTrade ?? null,
       getPluginState: <T extends Record<string, unknown>>(pluginName: string) =>
         getPluginUserState<T>(pluginUserState, pluginName),
       getAttribute: (attribute: GameAttributeName) => attributes[attribute] ?? 0,
@@ -419,6 +497,8 @@ function ModalUserGameState() {
               pluginTabs={pluginTabs}
               unseenPluginTabIds={unseenPluginTabIds}
               markPluginTabViewed={markPluginTabViewed}
+              showTradesGiftsTab={showTradesGiftsTab}
+              tradesGiftsUnseen={tradesGiftsUnseen}
               showStoredTab={showStoredTab}
               isAdmin={isAdmin}
               enabledAttributes={enabledAttributes}

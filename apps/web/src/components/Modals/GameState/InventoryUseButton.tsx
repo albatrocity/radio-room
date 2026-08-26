@@ -1,4 +1,4 @@
-import { Button } from "@chakra-ui/react"
+import { Box, Button } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
 import { InventoryTargetUserPopover } from "./TargetUserPicker"
 import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
@@ -21,14 +21,15 @@ interface InventoryUseButtonProps {
   coinBalance: number
   useLoading: boolean
   onUse: (extra?: UseExtra) => void
+  fullWidth?: boolean
 }
 
 /** Must be a plain element — Popover.Trigger `asChild` cannot merge through a wrapper component. */
-function useTriggerButton(loading: boolean, onClick?: () => void) {
+function useTriggerButton(loading: boolean, onClick?: () => void, fullWidth = true) {
   return (
     <Button
       size="xs"
-      width="full"
+      width={fullWidth ? "full" : undefined}
       variant="solid"
       colorPalette="action"
       loading={loading}
@@ -39,6 +40,11 @@ function useTriggerButton(loading: boolean, onClick?: () => void) {
   )
 }
 
+function wrapFullWidth(fullWidth: boolean, node: React.ReactNode) {
+  if (!fullWidth) return node
+  return <Box w="full">{node}</Box>
+}
+
 export function InventoryUseButton({
   itemId,
   requiresTarget,
@@ -47,22 +53,28 @@ export function InventoryUseButton({
   coinBalance,
   useLoading,
   onUse,
+  fullWidth = true,
 }: InventoryUseButtonProps) {
   switch (requiresTarget) {
     case "queueItem":
-      return (
+      return wrapFullWidth(
+        fullWidth,
         <InventoryUseQueueItemPicker onPick={(targetQueueItemId) => onUse({ targetQueueItemId })}>
-          {useTriggerButton(useLoading)}
-        </InventoryUseQueueItemPicker>
+          {useTriggerButton(useLoading, undefined, fullWidth)}
+        </InventoryUseQueueItemPicker>,
       )
     case "user":
       return (
-        <InventoryTargetUserPopover onPick={(targetUserId) => onUse({ targetUserId })}>
-          {useTriggerButton(useLoading)}
+        <InventoryTargetUserPopover
+          fullWidth={fullWidth}
+          onPick={(targetUserId) => onUse({ targetUserId })}
+        >
+          {useTriggerButton(useLoading, undefined, fullWidth)}
         </InventoryTargetUserPopover>
       )
     case "inventoryItem":
-      return (
+      return wrapFullWidth(
+        fullWidth,
         <InventoryItemStoragePopover
           excludingItemId={itemId}
           items={allItems}
@@ -71,19 +83,20 @@ export function InventoryUseButton({
             onUse({ targetInventoryItemId, password })
           }
         >
-          {useTriggerButton(useLoading)}
-        </InventoryItemStoragePopover>
+          {useTriggerButton(useLoading, undefined, fullWidth)}
+        </InventoryItemStoragePopover>,
       )
     case "coinAmount":
-      return (
+      return wrapFullWidth(
+        fullWidth,
         <CoinAmountStoragePopover
           maxCoins={Math.max(0, Math.floor(coinBalance))}
           onConfirm={(coinAmount, password) => onUse({ coinAmount, password })}
         >
-          {useTriggerButton(useLoading)}
-        </CoinAmountStoragePopover>
+          {useTriggerButton(useLoading, undefined, fullWidth)}
+        </CoinAmountStoragePopover>,
       )
     default:
-      return useTriggerButton(useLoading, () => onUse())
+      return useTriggerButton(useLoading, () => onUse(), fullWidth)
   }
 }

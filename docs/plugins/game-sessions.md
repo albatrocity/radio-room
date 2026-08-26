@@ -84,12 +84,26 @@ this.inventory.registerItemDefinitions([
 | `registerItemDefinitions(defs)`                                 | One or more definitions without `id` / `sourcePlugin` (set automatically).                             |
 | `giveItem(userId, definitionId, quantity?, metadata?, source?)` | Awards items; respects stacking, slot limits, session config.                                          |
 | `removeItem(userId, itemId, quantity?)`                         | Removes quantity from a stack.                                                                         |
-| `transferItem(fromUserId, toUserId, itemId, quantity?)`         | Only if `ItemDefinition.tradeable` and the active session allows trading.                              |
+| `transferItem(fromUserId, toUserId, itemId, quantity?)`         | Immediate transfer. Only if `ItemDefinition.tradeable` and the active session allows trading. Prefer player gift/trade sockets for consent. |
 | `useItem(userId, itemId, context?)`                             | Validates ownership, calls the **defining** plugin’s `onItemUsed`, may decrement if result `consumed`. |
-| `getInventory(userId)`                                          | `UserInventory` (items + `maxSlots`).                                                                  |
+| `getInventory(userId)`                                          | `UserInventory` (items + `maxSlots` + `maxCollectionSlots`).                                              |
 | `hasItem(userId, definitionId, minQuantity?)`                   | Convenience check.                                                                                     |
 | `getItemDefinition(definitionId)`                               | Async lookup.                                                                                          |
 | `getAllItemDefinitions()`                                       | All definitions registered for the room.                                                               |
+
+### Player gifting and trading (ADR 0114 / 0115)
+
+Player-to-player movement is **core inventory**, not a plugin. Both features require `GameSessionConfig.allowTrading` (default `false`; toggle on Start Game Session or mid-session via admin **Allow gifting and trading**).
+
+| Feature | Wire | Behavior |
+| ------- | ---- | -------- |
+| **Gift** | `OFFER_GIFT` → `ACCEPT_GIFT` / `DECLINE_GIFT` / `CANCEL_GIFT` | Escrow on offer; recipient must accept. Inbox on **Trades/Gifts** tab. Events: `GIFT_*`. |
+| **Trade invite** | `TRADE_INVITE` → `TRADE_RESPOND` | 5 min TTL; one outgoing invite per sender; multiple incoming. Does not occupy trade slot until accept. Events: `TRADE_INVITE_*`. |
+| **Active trade** | set offer → lock → confirm | Single open trade per user; detail drill-down in Game State. Events: `TRADE_*`. |
+
+Disabling `allowTrading` mid-session cancels pending gifts (refund), trade invites, and active trades without ending the session (`GAME_SESSION_CONFIG_UPDATED`).
+
+Plugin `transferItem` remains for admin/plugin scripts (immediate, no consent UI). Player sockets use gift/trade escrow instead. Physical Media / collection items transfer like any other stack; Local grants follow holdings after `INVENTORY_ITEM_TRANSFERRED`.
 
 ### User personas (`this.personas`)
 
@@ -258,10 +272,11 @@ Emitters use `SystemEvents` (same pipeline as other domain events). Useful paylo
 | `GAME_STATE_CHANGED`         | `{ roomId, sessionId, userId, changes }` — attribute deltas       |
 | `GAME_MODIFIER_APPLIED`      | Modifier applied or extended                                      |
 | `GAME_MODIFIER_REMOVED`      | Expired or manually removed                                       |
-| `INVENTORY_ITEM_ACQUIRED`    | Item given (source: `plugin` \| `trade` \| `purchase` \| `admin`) |
+| `INVENTORY_ITEM_ACQUIRED`    | Item given (source: `plugin` \| `trade` \| `purchase` \| `admin` \| `gift`) |
 | `INVENTORY_ITEM_USED`        | After `useItem` completes                                         |
 | `INVENTORY_ITEM_REMOVED`     | Partial/full stack removal                                        |
 | `INVENTORY_ITEM_TRANSFERRED` | Player-to-player transfer                                         |
+| `GIFT_*` / `TRADE_*`         | Player gift/trade protocol (ADR 0114); prefer over raw `transferItem` for consent |
 
 ### Segment-started sessions (scheduling)
 
@@ -286,7 +301,7 @@ Frontends must implement these template names alongside existing ones (`leaderbo
 
 ### Session configuration snapshot
 
-`GameSessionConfig` includes `enabledAttributes`, `initialValues`, `leaderboards`, timing (`startsAt` / `endsAt` / `duration`), `mode` (`individual` \| `team`), optional `teams`, `segmentId`, and inventory flags: `inventoryEnabled`, `maxInventorySlots`, `allowTrading`, `allowSelling`.
+`GameSessionConfig` includes `enabledAttributes`, `initialValues`, `leaderboards`, timing (`startsAt` / `endsAt` / `duration`), `mode` (`individual` \| `team`), optional `teams`, `segmentId`, and inventory flags: `inventoryEnabled`, `maxInventorySlots`, `maxCollectionSlots`, `allowTrading`, `allowSelling`.
 
 ### Private per-user plugin data
 

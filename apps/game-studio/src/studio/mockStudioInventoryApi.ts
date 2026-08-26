@@ -109,12 +109,34 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
   }
 
   async transferItem(
-    _fromUserId: string,
-    _toUserId: string,
-    _itemId: string,
-    _quantity?: number,
+    fromUserId: string,
+    toUserId: string,
+    itemId: string,
+    quantity = 1,
   ): Promise<boolean> {
-    return false
+    if (quantity <= 0 || fromUserId === toUserId) return false
+    const session = this.room.activeSession
+    if (!session?.config.allowTrading) return false
+
+    const fromInv = [...this.room.getInventory(fromUserId)]
+    const idx = fromInv.findIndex((i) => i.itemId === itemId)
+    if (idx < 0) return false
+    const row = fromInv[idx]!
+    const def = this.room.getDefinition(row.definitionId)
+    if (!def?.tradeable) return false
+
+    const qty = Math.min(quantity, row.quantity)
+    row.quantity -= qty
+    if (row.quantity <= 0) fromInv.splice(idx, 1)
+    else fromInv[idx] = row
+    this.room.setInventory(fromUserId, fromInv)
+
+    const given = await this.giveItem(toUserId, row.definitionId, qty, row.metadata, "trade")
+    if (!given) {
+      await this.giveItem(fromUserId, row.definitionId, qty, row.metadata, "trade")
+      return false
+    }
+    return true
   }
 
   async useItem(userId: string, itemId: string, callContext?: unknown): Promise<ItemUseResult> {

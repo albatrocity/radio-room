@@ -46,6 +46,21 @@ describe("userGameStateMachine refetch characterization", () => {
     actor.send({ type: "ACTIVATE" })
     expect(subscribeById).toHaveBeenCalled()
     const subId = vi.mocked(subscribeById).mock.calls[0]![0]
+    const opts = vi.mocked(subscribeById).mock.calls[0]![1] as { eventTypes?: string[] }
+    expect(opts.eventTypes).toEqual(
+      expect.arrayContaining([
+        "GIFT_OFFERED",
+        "GIFT_COMPLETED",
+        "TRADE_UPDATED",
+        "TRADE_COMPLETED",
+        "TRADE_CANCELLED",
+        "TRADE_INVITE_OFFERED",
+        "TRADE_INVITE_DECLINED",
+        "TRADE_INVITE_CANCELLED",
+        "TRADE_INVITE_EXPIRED",
+        "GAME_SESSION_CONFIG_UPDATED",
+      ]),
+    )
     actor.send({ type: "DEACTIVATE" })
     expect(unsubscribeById).toHaveBeenCalledWith(subId)
     expect(actor.getSnapshot().value).toBe("idle")

@@ -99,8 +99,10 @@ export const gameStateNavMachine = setup({
   context: emptyContext(),
   initial: "inactive",
   on: {
-    // A deep-link from a room panel sets the frame before the modal has opened,
-    // so this is accepted while inactive and rendered on ACTIVATE.
+    // Deep-link tab/frame before the modal opens; rendered on ACTIVATE.
+    SET_ACTIVE_TAB: {
+      actions: "setActiveTab",
+    },
     OPEN_DETAIL_ON_TAB: {
       actions: ["stopPreview", "openDetailOnTab"],
     },

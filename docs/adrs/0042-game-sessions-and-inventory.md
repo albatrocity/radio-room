@@ -82,3 +82,8 @@ Plugins receive two new typed APIs alongside the existing `api`, `storage`, and 
 ### Migration path for existing plugins
 
 Existing plugins keep their isolated scoreboards; opting into the global `score` attribute is a one-line change (`this.game.addScore(userId, "score", n)` instead of `this.context.storage.zincrby(...)`). No big-bang migration is required.
+
+## See also
+
+- [0114. Player item gifting and trading](0114-player-item-gifting-and-trading.md) — consent + escrow protocol on top of `transferItem`
+- [0100. Dual inventory slot pools](0100-dual-inventory-slot-pools.md)

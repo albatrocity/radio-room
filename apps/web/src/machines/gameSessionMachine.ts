@@ -22,6 +22,10 @@ type GameSessionEvent =
       data: { roomId: string; sessionId: string }
     }
   | {
+      type: "GAME_SESSION_CONFIG_UPDATED"
+      data: { roomId: string; sessionId: string; config: { name?: string; allowTrading?: boolean } }
+    }
+  | {
       type: "USER_GAME_STATE"
       data: { session: { id: string; config?: { name?: string } } | null }
     }
@@ -43,7 +47,7 @@ export const gameSessionMachine = setup({
       const id = `gameSession-${self.id}-${++subscriptionCounter}`
       subscribeById(id, {
         send: (event) => self.send(event as GameSessionEvent),
-        eventTypes: ["INIT", "GAME_SESSION_STARTED", "GAME_SESSION_ENDED", "USER_GAME_STATE"],
+        eventTypes: ["INIT", "GAME_SESSION_STARTED", "GAME_SESSION_ENDED", "GAME_SESSION_CONFIG_UPDATED", "USER_GAME_STATE"],
       })
       return { subscriptionId: id }
     }),
@@ -77,6 +81,13 @@ export const gameSessionMachine = setup({
       return {
         activeSessionId: s?.id ?? null,
         activeSessionName: s?.config?.name ?? null,
+      }
+    }),
+    setSessionFromConfigUpdated: assign(({ event }) => {
+      if (event.type !== "GAME_SESSION_CONFIG_UPDATED") return {}
+      return {
+        activeSessionId: event.data.sessionId,
+        activeSessionName: event.data.config?.name ?? null,
       }
     }),
     clearSession: assign({
@@ -119,6 +130,9 @@ export const gameSessionMachine = setup({
         },
         GAME_SESSION_ENDED: {
           actions: ["clearSession"],
+        },
+        GAME_SESSION_CONFIG_UPDATED: {
+          actions: ["setSessionFromConfigUpdated"],
         },
         USER_GAME_STATE: {
           actions: ["setSessionFromStatus"],

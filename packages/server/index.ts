@@ -332,6 +332,10 @@ export class RadioRoomServer {
     const gameSessions = new GameSessionService(this.context)
     this.context.gameSessions = gameSessions
     this.context.inventory = new InventoryService(this.context)
+    const { GiftService } = await import("./services/GiftService")
+    const { TradeService } = await import("./services/TradeService")
+    this.context.gifts = new GiftService(this.context)
+    this.context.trades = new TradeService(this.context)
     this.context.artifacts = new PluginArtifactsAPI(this.context)
     const { PersonaService } = await import("./services/PersonaService")
     this.context.personas = new PersonaService(this.context)
@@ -341,7 +345,7 @@ export class RadioRoomServer {
     this.context.metadataSourceAccess = new MetadataSourceAccessService(this.context)
     gameSessions.start()
     console.log(
-      "GameSessionService, InventoryService, PluginArtifactsAPI, PersonaService, and MetadataSourceAccessService initialized",
+      "GameSessionService, InventoryService, GiftService, TradeService, PluginArtifactsAPI, PersonaService, and MetadataSourceAccessService initialized",
     )
 
     // Register any plugins that were queued via registerAdapters()

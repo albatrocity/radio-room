@@ -15,9 +15,17 @@ import { GameSessionService } from "./GameSessionService"
 
 const DEFAULT_MAX_SLOTS = 3
 const DEFAULT_MAX_COLLECTION_SLOTS = 12
+/** Per-user inventory mutation lock TTL (seconds). */
+const INVENTORY_LOCK_TTL_SEC = 5
+const INVENTORY_LOCK_RETRY_MS = 25
+const INVENTORY_LOCK_MAX_ATTEMPTS = 40
 
 function slotPoolOf(def: ItemDefinition | null | undefined): "inventory" | "collection" {
   return def?.slotPool === "collection" ? "collection" : "inventory"
+}
+
+function inventoryLockKey(roomId: string, userId: string): string {
+  return `room:${roomId}:inventory:lock:${userId}`
 }
 
 // ============================================================================
@@ -96,7 +104,7 @@ export class InventoryService {
     roomId: string,
     definitionIds: readonly string[],
   ): Promise<ItemDefinition[]> {
-    const ids = [...new Set(definitionIds.map((id) => id.trim()).filter(Boolean))]
+    const ids = Array.from(new Set(definitionIds.map((id) => id.trim()).filter(Boolean)))
     if (ids.length === 0) return []
 
     const key = definitionsKey(roomId)
@@ -280,7 +288,8 @@ export class InventoryService {
 
   /**
    * Whether `giveItem` could add `quantity` of `definitionId` without exceeding
-   * slot cap (merging into an existing stack when stackable, or a free slot).
+   * slot cap. Mirrors `giveItem`: stackable merge room is consumed first, then
+   * remaining quantity may allocate new stacks (each needing a free pool slot).
    */
   async canAccommodateItem(
     roomId: string,
@@ -293,17 +302,26 @@ export class InventoryService {
     if (!definition) return false
     const inv = await this.getInventory(roomId, userId)
 
+    let remaining = quantity
+    let used = await this.countPoolSlots(roomId, inv.items, slotPoolOf(definition))
+    const cap = slotPoolOf(definition) === "collection" ? inv.maxCollectionSlots : inv.maxSlots
+
     if (definition.stackable) {
-      const mergeSlot = inv.items.find(
-        (i) => i.definitionId === definitionId && i.quantity < definition.maxStack,
-      )
-      if (mergeSlot && definition.maxStack - mergeSlot.quantity >= quantity) return true
+      const mergeRoom = inv.items
+        .filter((i) => i.definitionId === definitionId && i.quantity < definition.maxStack)
+        .reduce((sum, i) => sum + (definition.maxStack - i.quantity), 0)
+      remaining = Math.max(0, remaining - mergeRoom)
+
+      while (remaining > 0) {
+        if (used >= cap) return false
+        used += 1
+        remaining -= Math.min(remaining, definition.maxStack)
+      }
+      return true
     }
 
-    const pool = slotPoolOf(definition)
-    const used = await this.countPoolSlots(roomId, inv.items, pool)
-    const cap = pool === "collection" ? inv.maxCollectionSlots : inv.maxSlots
-    return used < cap
+    // Non-stackable: each unit needs its own slot.
+    return used + remaining <= cap
   }
 
   /**
@@ -346,6 +364,50 @@ export class InventoryService {
   }
 
   /**
+   * Run `fn` while holding per-user Redis locks for `userIds` (sorted, NX EX).
+   * Used by transfer / gift / trade to prevent double-spend races.
+   */
+  async withInventoryLocks<T>(
+    roomId: string,
+    userIds: readonly string[],
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const unique = Array.from(new Set(userIds.filter(Boolean))).sort()
+    const acquired: string[] = []
+    const token = generateId()
+
+    try {
+      for (const userId of unique) {
+        const key = inventoryLockKey(roomId, userId)
+        let ok = false
+        for (let attempt = 0; attempt < INVENTORY_LOCK_MAX_ATTEMPTS; attempt++) {
+          const result = await this.context.redis.pubClient.set(key, token, {
+            NX: true,
+            EX: INVENTORY_LOCK_TTL_SEC,
+          })
+          if (result === "OK") {
+            ok = true
+            acquired.push(key)
+            break
+          }
+          await sleep(INVENTORY_LOCK_RETRY_MS)
+        }
+        if (!ok) {
+          throw new Error(`[InventoryService] could not acquire inventory lock for ${userId}`)
+        }
+      }
+      return await fn()
+    } finally {
+      for (const key of acquired) {
+        const current = await this.context.redis.pubClient.get(key)
+        if (current === token) {
+          await this.context.redis.pubClient.del(key)
+        }
+      }
+    }
+  }
+
+  /**
    * Move `quantity` of an item from one user to another. Honours
    * `ItemDefinition.tradeable` and the active session's `allowTrading` flag.
    *
@@ -360,71 +422,81 @@ export class InventoryService {
     quantity = 1,
   ): Promise<boolean> {
     if (quantity <= 0) return false
+    if (fromUserId === toUserId) return false
 
     const allow = await this.assertTradingAllowed(roomId)
     if (!allow) return false
 
-    const raw = await this.context.redis.pubClient.hGet(userItemsKey(roomId, fromUserId), itemId)
-    if (!raw) return false
+    return this.withInventoryLocks(roomId, [fromUserId, toUserId], async () => {
+      const raw = await this.context.redis.pubClient.hGet(userItemsKey(roomId, fromUserId), itemId)
+      if (!raw) return false
 
-    let item: InventoryItem
-    try {
-      item = JSON.parse(raw) as InventoryItem
-    } catch {
-      return false
-    }
+      let item: InventoryItem
+      try {
+        item = JSON.parse(raw) as InventoryItem
+      } catch {
+        return false
+      }
 
-    const def = await this.getItemDefinition(roomId, item.definitionId)
-    if (!def?.tradeable) return false
+      const def = await this.getItemDefinition(roomId, item.definitionId)
+      if (!def?.tradeable) return false
 
-    const transferQty = Math.min(quantity, item.quantity)
-    if (transferQty <= 0) return false
+      const transferQty = Math.min(quantity, item.quantity)
+      if (transferQty <= 0) return false
 
-    // Decrement / delete on the source side.
-    item.quantity -= transferQty
-    if (item.quantity <= 0) {
-      await this.context.redis.pubClient.hDel(userItemsKey(roomId, fromUserId), itemId)
-    } else {
-      await this.persistItem(roomId, fromUserId, item)
-    }
-
-    // Award on the destination side via giveItem (handles stacking + slot limits).
-    const transferred = await this.giveItem(
-      roomId,
-      toUserId,
-      item.definitionId,
-      transferQty,
-      item.metadata,
-      "trade",
-    )
-
-    if (!transferred) {
-      // Recipient inventory full — refund the sender.
-      await this.giveItem(
+      const canFit = await this.canAccommodateItem(
         roomId,
-        fromUserId,
+        toUserId,
+        item.definitionId,
+        transferQty,
+      )
+      if (!canFit) return false
+
+      // Decrement / delete on the source side.
+      item.quantity -= transferQty
+      if (item.quantity <= 0) {
+        await this.context.redis.pubClient.hDel(userItemsKey(roomId, fromUserId), itemId)
+      } else {
+        await this.persistItem(roomId, fromUserId, item)
+      }
+
+      const transferred = await this.giveItem(
+        roomId,
+        toUserId,
         item.definitionId,
         transferQty,
         item.metadata,
         "trade",
       )
-      return false
-    }
 
-    if (this.context.systemEvents) {
-      await this.context.systemEvents.emit(roomId, "INVENTORY_ITEM_TRANSFERRED", {
-        roomId,
-        sessionId: await this.activeSessionId(roomId),
-        fromUserId,
-        toUserId,
-        item: transferred,
-        quantity: transferQty,
-      })
-    }
+      if (!transferred) {
+        // Should be rare after preflight — refund the sender.
+        await this.giveItem(
+          roomId,
+          fromUserId,
+          item.definitionId,
+          transferQty,
+          item.metadata,
+          "trade",
+        )
+        return false
+      }
 
-    await this.bumpSessionTotal(roomId, "itemsTraded", transferQty)
+      if (this.context.systemEvents) {
+        await this.context.systemEvents.emit(roomId, "INVENTORY_ITEM_TRANSFERRED", {
+          roomId,
+          sessionId: await this.activeSessionId(roomId),
+          fromUserId,
+          toUserId,
+          item: transferred,
+          quantity: transferQty,
+        })
+      }
 
-    return true
+      await this.bumpSessionTotal(roomId, "itemsTraded", transferQty)
+
+      return true
+    })
   }
 
   /**
@@ -615,4 +687,8 @@ export class InventoryService {
     }
     return result
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

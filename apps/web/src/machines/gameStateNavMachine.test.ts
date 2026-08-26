@@ -8,6 +8,7 @@ vi.mock("../actors/trackPreviewActor", () => ({
 
 import { currentDetailFrame, gameStateNavMachine } from "./gameStateNavMachine"
 import type { GameStateDetailFrame } from "../types/GameStateDetail"
+import { TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
 
 const SHOP_TAB = "item-shops:item-shops-tab"
 
@@ -111,6 +112,32 @@ describe("gameStateNavMachine", () => {
 
     expect(actor.getSnapshot().matches({ active: "index" })).toBe(true)
     expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
+  })
+
+  it("shows trade detail when a trade frame is pushed", () => {
+    const actor = startActive()
+    actor.send({
+      type: "PUSH_DETAIL",
+      frame: { kind: "trade", tradeId: "t1", title: "Trade with Alex" },
+    })
+    expect(actor.getSnapshot().matches({ active: "detail" })).toBe(true)
+    expect(currentDetailFrame(actor.getSnapshot().context)).toMatchObject({
+      kind: "trade",
+      tradeId: "t1",
+    })
+  })
+
+  it("accepts SET_ACTIVE_TAB before the modal opens and shows that tab on activate", () => {
+    const actor = createActor(gameStateNavMachine).start()
+
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: TRADES_GIFTS_TAB })
+    expect(actor.getSnapshot().matches("inactive")).toBe(true)
+    expect(actor.getSnapshot().context.activeTabId).toBe(TRADES_GIFTS_TAB)
+
+    actor.send({ type: "ACTIVATE" })
+
+    expect(actor.getSnapshot().matches({ active: "index" })).toBe(true)
+    expect(actor.getSnapshot().context.activeTabId).toBe(TRADES_GIFTS_TAB)
   })
 
   describe("preview audio", () => {

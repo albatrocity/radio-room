@@ -2,7 +2,10 @@ import { createContext, useContext } from "react"
 import type {
   GameAttributeName,
   GameSession,
+  GiftOffer,
   ItemDefinition,
+  TradeInvite,
+  TradeSession,
   UserGameState,
   UserInventory,
 } from "@repo/types"
@@ -18,6 +21,9 @@ export interface UserGameStateSnapshot {
   state: UserGameState | null
   inventory: UserInventory | null
   itemDefinitions: ItemDefinition[]
+  pendingGifts?: { incoming: GiftOffer[]; outgoing: GiftOffer[] }
+  pendingTradeInvites?: { incoming: TradeInvite[]; outgoing: TradeInvite[] }
+  activeTrade?: TradeSession | null
   /**
    * Private per-user bag from a plugin that implements
    * `contributeToUserGameState` (ADR 0097).

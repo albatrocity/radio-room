@@ -111,6 +111,7 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
       initialCoins?: number
       maxInventorySlots?: number
       maxCollectionSlots?: number
+      allowTrading?: boolean
     }) => {
     await handlers.startGameSession(connections, data)
   },
@@ -118,6 +119,10 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
 
   socket.on("END_GAME_SESSION", async () => {
     await handlers.endGameSession(connections)
+  })
+
+  socket.on("UPDATE_GAME_SESSION_CONFIG", async (data: { allowTrading?: boolean }) => {
+    await handlers.updateGameSessionConfig(connections, data)
   })
 
   /**

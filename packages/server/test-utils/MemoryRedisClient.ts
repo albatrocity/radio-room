@@ -12,8 +12,19 @@ export class MemoryRedisClient {
     return this.strings.get(key) ?? null
   }
 
-  async set(key: string, value: string): Promise<void> {
+  async set(
+    key: string,
+    value: string,
+    options?: { NX?: boolean; EX?: number; PX?: number },
+  ): Promise<string | null> {
+    if (options?.NX && this.strings.has(key)) {
+      return null
+    }
     this.strings.set(key, value)
+    // TTL is ignored in memory (locks are short-lived and tests don't expire).
+    void options?.EX
+    void options?.PX
+    return "OK"
   }
 
   async del(key: string | string[]): Promise<void> {
@@ -55,6 +66,17 @@ export class MemoryRedisClient {
 
   async hGet(key: string, field: string): Promise<string | undefined> {
     return this.hashes.get(key)?.get(field)
+  }
+
+  async hDel(key: string, field: string | string[]): Promise<number> {
+    const hash = this.hashes.get(key)
+    if (!hash) return 0
+    const fields = Array.isArray(field) ? field : [field]
+    let removed = 0
+    for (const f of fields) {
+      if (hash.delete(f)) removed += 1
+    }
+    return removed
   }
 
   async hmGet(key: string, fields: string[]): Promise<(string | null)[]> {

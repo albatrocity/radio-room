@@ -28,6 +28,8 @@ import { pollActor } from "./pollActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 import { addToQueueUiActor } from "./addToQueueUiActor"
 import { gameStateNavActor } from "./gameStateNavActor"
+import { giftInboxActor } from "./giftInboxActor"
+import { resetTradesGiftsTabAttention } from "./gameStateTradesGiftsAttentionActor"
 import { mediaBridgeActor } from "./mediaBridgeActor"
 import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
@@ -108,6 +110,7 @@ export function initializeRoom(roomId: string): void {
   addToQueueUiActor.send({ type: "ACTIVATE", roomId })
   mediaBridgeActor.send({ type: "ACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "ACTIVATE" })
+  giftInboxActor.send({ type: "ACTIVATE" })
 
   // Start fetching room data
   fetchRoom(roomId)
@@ -167,6 +170,8 @@ export function teardownRoom(): void {
   gameStateNavActor.send({ type: "RESET" })
   mediaBridgeActor.send({ type: "DEACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })
+  giftInboxActor.send({ type: "DEACTIVATE" })
+  resetTradesGiftsTabAttention()
   teardownPluginComponentActors()
 
   currentRoomId = null

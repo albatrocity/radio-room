@@ -606,6 +606,7 @@ export class AdminHandlers {
       initialCoins?: number
       maxInventorySlots?: number
       maxCollectionSlots?: number
+      allowTrading?: boolean
     },
   ) => {
     if (!data?.name?.trim()) {
@@ -667,6 +668,7 @@ export class AdminHandlers {
       ...(initialCoins != null ? { initialValues: { coin: initialCoins } } : {}),
       ...(inventorySlots.value != null ? { maxInventorySlots: inventorySlots.value } : {}),
       ...(collectionSlots.value != null ? { maxCollectionSlots: collectionSlots.value } : {}),
+      ...(typeof data.allowTrading === "boolean" ? { allowTrading: data.allowTrading } : {}),
     })
 
     if (result.error) {
@@ -700,6 +702,45 @@ export class AdminHandlers {
     socket.emit("event", {
       type: "GAME_SESSION_ADMIN_ENDED",
       data: { results: result.results },
+    })
+  }
+
+  /**
+   * Patch active game session config (admin only). Emits GAME_SESSION_CONFIG_UPDATED.
+   */
+  updateGameSessionConfig = async (
+    { socket }: HandlerConnections,
+    data: { allowTrading?: boolean },
+  ) => {
+    if (typeof data?.allowTrading !== "boolean") {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: {
+          status: 400,
+          error: "Bad Request",
+          message: "allowTrading must be a boolean.",
+        },
+      })
+      return
+    }
+
+    const result = await this.adminService.updateGameSessionConfig(
+      socket.data.roomId,
+      socket.data.userId,
+      { allowTrading: data.allowTrading },
+    )
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "GAME_SESSION_ADMIN_CONFIG_UPDATED",
+      data: { session: result.session },
     })
   }
 }

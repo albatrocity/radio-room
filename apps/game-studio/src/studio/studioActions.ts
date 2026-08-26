@@ -98,6 +98,7 @@ export async function startStudioGameSession(): Promise<void> {
     maxInventorySlots: 12,
     maxCollectionSlots: 12,
     allowSelling: true,
+    allowTrading: true,
   })
   for (const uid of room.users.keys()) {
     room.ensureParticipant(uid)
@@ -106,6 +107,8 @@ export async function startStudioGameSession(): Promise<void> {
 
 export async function endStudioGameSession(): Promise<void> {
   const { itemShopsContext } = getStudio()
+  const { studioCancelAllGiftsAndTrades } = await import("./studioGiftTrade")
+  await studioCancelAllGiftsAndTrades()
   await itemShopsContext.game.endSession()
 }
 
@@ -325,6 +328,17 @@ export async function useInventoryItem(
   const { itemShopsContext } = getStudio()
   const res = await itemShopsContext.inventory.useItem(userId, itemId, callContext)
   return res.message ?? (res.success ? "OK" : "Failed")
+}
+
+/** Immediate P2P transfer for Game Studio sandbox (gift accept / trade swap). */
+export async function transferInventoryItem(
+  fromUserId: string,
+  toUserId: string,
+  itemId: string,
+  quantity = 1,
+): Promise<boolean> {
+  const { itemShopsContext } = getStudio()
+  return itemShopsContext.inventory.transferItem(fromUserId, toUserId, itemId, quantity)
 }
 
 /**

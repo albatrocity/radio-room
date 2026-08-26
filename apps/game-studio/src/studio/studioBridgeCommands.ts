@@ -1,5 +1,17 @@
-import type { Poll, PollResults } from "@repo/types"
+import type { GiftOffer, Poll, PollResults, TradeInvite, TradeSession } from "@repo/types"
 import * as studioActions from "./studioActions"
+import {
+  studioAcceptGift,
+  studioDeclineOrCancelGift,
+  studioOfferGift,
+  studioTradeCancel,
+  studioTradeConfirm,
+  studioTradeInvite,
+  studioTradeLock,
+  studioTradeRespond,
+  studioTradeSetOffer,
+  studioTradeUnlock,
+} from "./studioGiftTrade"
 import { getStudio } from "./studioEnvironment"
 
 /**
@@ -19,6 +31,44 @@ export type StudioBridgeCommand =
       coinAmount?: number
     }
   | { kind: "SELL_INVENTORY_ITEM"; roomId: string; userId: string; itemId: string }
+  | {
+      kind: "TRANSFER_INVENTORY_ITEM"
+      roomId: string
+      userId: string
+      toUserId: string
+      itemId: string
+      quantity?: number
+    }
+  | {
+      kind: "OFFER_GIFT"
+      roomId: string
+      userId: string
+      toUserId: string
+      itemId: string
+      quantity?: number
+    }
+  | { kind: "ACCEPT_GIFT"; roomId: string; userId: string; offerId: string }
+  | { kind: "DECLINE_GIFT"; roomId: string; userId: string; offerId: string }
+  | { kind: "CANCEL_GIFT"; roomId: string; userId: string; offerId: string }
+  | { kind: "TRADE_INVITE"; roomId: string; userId: string; toUserId: string }
+  | {
+      kind: "TRADE_RESPOND"
+      roomId: string
+      userId: string
+      tradeId: string
+      accept: boolean
+    }
+  | {
+      kind: "TRADE_SET_OFFER"
+      roomId: string
+      userId: string
+      tradeId: string
+      items: { itemId: string; quantity: number }[]
+    }
+  | { kind: "TRADE_LOCK"; roomId: string; userId: string; tradeId: string }
+  | { kind: "TRADE_UNLOCK"; roomId: string; userId: string; tradeId: string }
+  | { kind: "TRADE_CONFIRM"; roomId: string; userId: string; tradeId: string }
+  | { kind: "TRADE_CANCEL"; roomId: string; userId: string; tradeId: string }
   | { kind: "SEND_MESSAGE"; roomId: string; userId: string; content: string }
   | {
       kind: "EXECUTE_PLUGIN_ACTION"
@@ -58,6 +108,9 @@ export type StudioBridgeCommand =
 export type StudioBridgeCommandResult = {
   success: boolean
   message?: string
+  offer?: GiftOffer
+  trade?: TradeSession
+  invite?: TradeInvite
   pollId?: string
   optionId?: string
   isSwap?: boolean
@@ -95,6 +148,72 @@ export async function dispatchStudioBridgeCommand(
     case "SELL_INVENTORY_ITEM": {
       await studioActions.sellInventoryItem(cmd.userId, cmd.itemId)
       return { success: true }
+    }
+    case "TRANSFER_INVENTORY_ITEM": {
+      const ok = await studioActions.transferInventoryItem(
+        cmd.userId,
+        cmd.toUserId,
+        cmd.itemId,
+        cmd.quantity ?? 1,
+      )
+      return {
+        success: ok,
+        message: ok ? "Transferred." : "Transfer failed (trading off, full bag, or not tradeable).",
+      }
+    }
+    case "OFFER_GIFT": {
+      return studioOfferGift({
+        fromUserId: cmd.userId,
+        toUserId: cmd.toUserId,
+        itemId: cmd.itemId,
+        quantity: cmd.quantity,
+      })
+    }
+    case "ACCEPT_GIFT": {
+      return studioAcceptGift({ userId: cmd.userId, offerId: cmd.offerId })
+    }
+    case "DECLINE_GIFT": {
+      return studioDeclineOrCancelGift({
+        userId: cmd.userId,
+        offerId: cmd.offerId,
+        asCancel: false,
+      })
+    }
+    case "CANCEL_GIFT": {
+      return studioDeclineOrCancelGift({
+        userId: cmd.userId,
+        offerId: cmd.offerId,
+        asCancel: true,
+      })
+    }
+    case "TRADE_INVITE": {
+      return studioTradeInvite({ fromUserId: cmd.userId, toUserId: cmd.toUserId })
+    }
+    case "TRADE_RESPOND": {
+      return studioTradeRespond({
+        userId: cmd.userId,
+        tradeId: cmd.tradeId,
+        accept: cmd.accept,
+      })
+    }
+    case "TRADE_SET_OFFER": {
+      return studioTradeSetOffer({
+        userId: cmd.userId,
+        tradeId: cmd.tradeId,
+        items: cmd.items,
+      })
+    }
+    case "TRADE_LOCK": {
+      return studioTradeLock({ userId: cmd.userId, tradeId: cmd.tradeId })
+    }
+    case "TRADE_UNLOCK": {
+      return studioTradeUnlock({ userId: cmd.userId, tradeId: cmd.tradeId })
+    }
+    case "TRADE_CONFIRM": {
+      return studioTradeConfirm({ userId: cmd.userId, tradeId: cmd.tradeId })
+    }
+    case "TRADE_CANCEL": {
+      return studioTradeCancel({ userId: cmd.userId, tradeId: cmd.tradeId })
     }
     case "SEND_MESSAGE": {
       await studioActions.sendChatAsUser(cmd.userId, cmd.content)

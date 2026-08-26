@@ -9,6 +9,7 @@ import {
   useActiveGameSessionName,
   useHasActiveGameSession,
   useModalsSend,
+  useTradesGiftsTabAttention,
   useUserGameSession,
   useUserState,
 } from "../hooks/useActors"
@@ -39,6 +40,7 @@ function ButtonGameState() {
   const sessionName = useActiveGameSessionName()
   const session = useUserGameSession()
   const { hasUnseenPluginTabs } = useGameStateNewPluginTabs()
+  const tradesGiftsAttention = useTradesGiftsTabAttention()
   const userState = useUserState()
   const modifiers = userState?.modifiers
   const animationsEnabled = useAnimationsEnabled()
@@ -165,7 +167,7 @@ function ButtonGameState() {
           </IconButton>
         </Box>
       </Box>
-      {hasUnseenPluginTabs ? (
+      {hasUnseenPluginTabs || tradesGiftsAttention ? (
         <Status.Root
           size="sm"
           colorPalette="primary"
