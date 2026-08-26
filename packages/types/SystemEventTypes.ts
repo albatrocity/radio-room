@@ -414,6 +414,14 @@ export type SystemEventHandlers = {
     trade: TradeSession
   }) => Promise<void> | void
 
+  /** Ephemeral typing indicator for an open trade (not stored on the session). */
+  TRADE_TYPING: (data: {
+    roomId: string
+    tradeId: string
+    userId: string
+    typing: boolean
+  }) => Promise<void> | void
+
   TRADE_COMPLETED: (data: {
     roomId: string
     trade: TradeSession

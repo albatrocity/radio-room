@@ -121,6 +121,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0113](0113-cd-era-album-cd-lp-split.md) | CD-era catalog albums: 60/40 CD vs LP | Accepted |
 | [0114](0114-player-item-gifting-and-trading.md) | Player item gifting and trading (core inventory protocol) | Partially superseded by [0115](0115-trade-invite-inbox.md) |
 | [0115](0115-trade-invite-inbox.md) | Trade invite inbox and Trades/Gifts Game State tab | Accepted |
+| [0116](0116-trade-session-sticky-notes.md) | Trade session sticky notes | Accepted |
 
 ## Creating a New ADR
 

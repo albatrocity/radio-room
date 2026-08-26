@@ -9,7 +9,9 @@ import {
   studioTradeInvite,
   studioTradeLock,
   studioTradeRespond,
+  studioTradeSetMessage,
   studioTradeSetOffer,
+  studioTradeTyping,
   studioTradeUnlock,
 } from "./studioGiftTrade"
 import { getStudio } from "./studioEnvironment"
@@ -64,6 +66,20 @@ export type StudioBridgeCommand =
       userId: string
       tradeId: string
       items: { itemId: string; quantity: number }[]
+    }
+  | {
+      kind: "TRADE_SET_MESSAGE"
+      roomId: string
+      userId: string
+      tradeId: string
+      message: string
+    }
+  | {
+      kind: "TRADE_TYPING"
+      roomId: string
+      userId: string
+      tradeId: string
+      typing: boolean
     }
   | { kind: "TRADE_LOCK"; roomId: string; userId: string; tradeId: string }
   | { kind: "TRADE_UNLOCK"; roomId: string; userId: string; tradeId: string }
@@ -201,6 +217,20 @@ export async function dispatchStudioBridgeCommand(
         userId: cmd.userId,
         tradeId: cmd.tradeId,
         items: cmd.items,
+      })
+    }
+    case "TRADE_SET_MESSAGE": {
+      return studioTradeSetMessage({
+        userId: cmd.userId,
+        tradeId: cmd.tradeId,
+        message: cmd.message,
+      })
+    }
+    case "TRADE_TYPING": {
+      return studioTradeTyping({
+        userId: cmd.userId,
+        tradeId: cmd.tradeId,
+        typing: cmd.typing,
       })
     }
     case "TRADE_LOCK": {

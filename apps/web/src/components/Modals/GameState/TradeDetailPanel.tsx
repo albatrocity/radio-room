@@ -1,7 +1,22 @@
-import { useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useSelector } from "@xstate/react"
-import { Box, Button, Checkbox, Heading, HStack, Stack, Text, VStack } from "@chakra-ui/react"
-import type { TradeDraftItem, TradeOfferItem, TradeSession } from "@repo/types"
+import {
+  Box,
+  Button,
+  Checkbox,
+  Heading,
+  HStack,
+  Input,
+  Stack,
+  Text,
+  VStack,
+} from "@chakra-ui/react"
+import {
+  TRADE_MESSAGE_MAX_LENGTH,
+  type TradeDraftItem,
+  type TradeOfferItem,
+  type TradeSession,
+} from "@repo/types"
 import ItemArtwork from "../../ItemArtwork"
 import { useCurrentUser, useUserGameStatePayload } from "../../../hooks/useActors"
 import { emitToSocket } from "../../../actors/socketActor"
@@ -18,10 +33,55 @@ function offerRows(
   return participant.draft
 }
 
+function TradeNoteBubble({ message, typing }: { message?: string | null; typing?: boolean }) {
+  const hasMessage = Boolean(message?.trim())
+  if (!hasMessage && !typing) return null
+
+  return (
+    <Box
+      position="relative"
+      borderWidth="1px"
+      borderColor="border.muted"
+      borderRadius="md"
+      bg="bg.subtle"
+      px={2}
+      py={1.5}
+    >
+      {hasMessage ? (
+        <Text fontSize="xs" whiteSpace="pre-wrap" wordBreak="break-word" opacity={typing ? 0.1 : 1}>
+          {message}
+        </Text>
+      ) : (
+        // Reserve a line so typing alone doesn’t jump differently than a short note.
+        <Text fontSize="xs" visibility="hidden" aria-hidden>
+          typing…
+        </Text>
+      )}
+      {typing ? (
+        <Text
+          position="absolute"
+          inset={0}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          fontSize="xs"
+          color="fg.muted"
+          fontStyle="italic"
+          pointerEvents="none"
+        >
+          typing…
+        </Text>
+      ) : null}
+    </Box>
+  )
+}
+
 function TradeColumn({
   title,
   rows,
   definitionMap,
+  note,
+  typing,
   selectable,
   selectedIds,
   onToggle,
@@ -32,6 +92,8 @@ function TradeColumn({
     string,
     { name?: string; imageUrl?: string; icon?: string; artworkFrame?: string; slotPool?: string }
   >
+  note?: string | null
+  typing?: boolean
   selectable?: { itemId: string; definitionId: string; name: string; quantity: number }[]
   selectedIds?: Set<string>
   onToggle?: (itemId: string) => void
@@ -39,6 +101,7 @@ function TradeColumn({
   return (
     <VStack align="stretch" flex="1" minW={0} gap={2}>
       <Heading size="sm">{title}</Heading>
+      <TradeNoteBubble message={note} typing={typing} />
       <Stack gap={2} minH="8rem">
         {rows.length === 0 && (
           <Text fontSize="sm" color="fg.muted">
@@ -105,6 +168,8 @@ function TradeColumn({
   )
 }
 
+const TYPING_IDLE_MS = 1500
+
 export default function TradeDetailPanel({ tradeId }: { tradeId: string }) {
   const me = useCurrentUser()
   const payload = useUserGameStatePayload()
@@ -112,6 +177,11 @@ export default function TradeDetailPanel({ tradeId }: { tradeId: string }) {
   const lastError = useSelector(tradeActor, (s) => s.context.lastError)
   const myInventory = useSelector(tradeActor, (s) => s.context.myInventory)
   const definitions = useSelector(tradeActor, (s) => s.context.definitions)
+  const counterpartTyping = useSelector(tradeActor, (s) => s.context.counterpartTyping)
+
+  const [draftNote, setDraftNote] = useState("")
+  const typingActiveRef = useRef(false)
+  const typingIdleTimerRef = useRef<number | null>(null)
 
   const activeTrade =
     trade?.tradeId === tradeId
@@ -136,6 +206,75 @@ export default function TradeDetailPanel({ tradeId }: { tradeId: string }) {
   const otherName = otherId ? getUserById(otherId)?.username?.trim() || "them" : "them"
   const mine = myId && activeTrade ? activeTrade.participants[myId] : undefined
   const theirs = otherId && activeTrade ? activeTrade.participants[otherId] : undefined
+
+  const myPublishedNote = mine?.message ?? null
+
+  useEffect(() => {
+    setDraftNote("")
+    typingActiveRef.current = false
+    if (typingIdleTimerRef.current != null) {
+      window.clearTimeout(typingIdleTimerRef.current)
+      typingIdleTimerRef.current = null
+    }
+  }, [tradeId])
+
+  useEffect(() => {
+    return () => {
+      if (typingIdleTimerRef.current != null) {
+        window.clearTimeout(typingIdleTimerRef.current)
+      }
+      if (typingActiveRef.current && activeTrade) {
+        emitToSocket("TRADE_TYPING", { tradeId: activeTrade.tradeId, typing: false })
+      }
+    }
+    // Only on unmount / trade change via tradeId effect reset
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tradeId])
+
+  const emitTyping = (typing: boolean) => {
+    if (!activeTrade) return
+    if (typingActiveRef.current === typing) return
+    typingActiveRef.current = typing
+    emitToSocket("TRADE_TYPING", { tradeId: activeTrade.tradeId, typing })
+  }
+
+  const scheduleTypingIdleClear = () => {
+    if (typingIdleTimerRef.current != null) {
+      window.clearTimeout(typingIdleTimerRef.current)
+    }
+    typingIdleTimerRef.current = window.setTimeout(() => {
+      typingIdleTimerRef.current = null
+      emitTyping(false)
+    }, TYPING_IDLE_MS)
+  }
+
+  const onDraftChange = (value: string) => {
+    setDraftNote(value.slice(0, TRADE_MESSAGE_MAX_LENGTH))
+    if (value.trim().length > 0) {
+      emitTyping(true)
+      scheduleTypingIdleClear()
+    } else {
+      if (typingIdleTimerRef.current != null) {
+        window.clearTimeout(typingIdleTimerRef.current)
+        typingIdleTimerRef.current = null
+      }
+      emitTyping(false)
+    }
+  }
+
+  const publishNote = (raw: string) => {
+    if (!activeTrade) return
+    if (typingIdleTimerRef.current != null) {
+      window.clearTimeout(typingIdleTimerRef.current)
+      typingIdleTimerRef.current = null
+    }
+    emitTyping(false)
+    emitToSocket("TRADE_SET_MESSAGE", {
+      tradeId: activeTrade.tradeId,
+      message: raw.slice(0, TRADE_MESSAGE_MAX_LENGTH),
+    })
+    setDraftNote("")
+  }
 
   const bagItems = myInventory.length > 0 ? myInventory : payload?.inventory?.items ?? []
   const selectable = bagItems
@@ -191,12 +330,46 @@ export default function TradeDetailPanel({ tradeId }: { tradeId: string }) {
           title="You"
           rows={offerRows(mine)}
           definitionMap={definitionMap}
+          note={myPublishedNote}
           selectable={mine && !mine.locked ? selectable : undefined}
           selectedIds={selectedIds}
           onToggle={toggleItem}
         />
-        <TradeColumn title="Them" rows={offerRows(theirs)} definitionMap={definitionMap} />
+        <TradeColumn
+          title={otherName}
+          rows={offerRows(theirs)}
+          definitionMap={definitionMap}
+          note={theirs?.message}
+          typing={counterpartTyping}
+        />
       </HStack>
+
+      <HStack gap={2} align="center">
+        <Input
+          size="sm"
+          flex="1"
+          placeholder="Say something…"
+          value={draftNote}
+          maxLength={TRADE_MESSAGE_MAX_LENGTH}
+          onChange={(e) => onDraftChange(e.target.value)}
+          onBlur={() => emitTyping(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault()
+              publishNote(draftNote)
+            }
+          }}
+        />
+        <Button
+          size="sm"
+          colorPalette="action"
+          disabled={!draftNote.trim() && !myPublishedNote}
+          onClick={() => publishNote(draftNote)}
+        >
+          {draftNote.trim() ? "Send" : myPublishedNote ? "Clear" : "Send"}
+        </Button>
+      </HStack>
+
       <Stack align="flex-end">
         {mine?.locked && !bothLocked && (
           <Text fontSize="sm" color="fg.muted">

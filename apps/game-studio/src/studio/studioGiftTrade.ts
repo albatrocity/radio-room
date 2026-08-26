@@ -11,6 +11,7 @@ import type {
   TradeSession,
 } from "@repo/types"
 import { PLAYER_TRANSFER_TTL_MS } from "@repo/types/PlayerTransfer"
+import { TRADE_MESSAGE_MAX_LENGTH } from "@repo/types"
 import type { StudioRoom } from "./studioRoom"
 import { getStudio } from "./studioEnvironment"
 
@@ -357,6 +358,42 @@ export function studioTradeSetOffer(params: {
   trade.updatedAt = Date.now()
   room.notify()
   return { success: true, message: "Offer updated", trade }
+}
+
+export function studioTradeSetMessage(params: {
+  userId: string
+  tradeId: string
+  message: string
+}): TradeActionResult {
+  const { room } = getStudio()
+  const trade = room.trades.get(params.tradeId)
+  if (!trade || trade.status !== "open") {
+    return { success: false, message: "Trade is not open" }
+  }
+  const me = trade.participants[params.userId]
+  if (!me) return { success: false, message: "You are not in this trade" }
+
+  const trimmed = params.message.trim().slice(0, TRADE_MESSAGE_MAX_LENGTH)
+  me.message = trimmed.length > 0 ? trimmed : null
+  trade.updatedAt = Date.now()
+  room.notify()
+  return { success: true, message: trimmed ? "Note updated" : "Note cleared", trade }
+}
+
+export function studioTradeTyping(params: {
+  userId: string
+  tradeId: string
+  typing: boolean
+}): TradeActionResult {
+  const { room } = getStudio()
+  const trade = room.trades.get(params.tradeId)
+  if (!trade || trade.status !== "open") {
+    return { success: false, message: "Trade is not open" }
+  }
+  if (!trade.participants[params.userId]) {
+    return { success: false, message: "You are not in this trade" }
+  }
+  return { success: true, message: "Typing", trade }
 }
 
 async function refundOffer(userId: string, offer: TradeOfferItem[]): Promise<void> {

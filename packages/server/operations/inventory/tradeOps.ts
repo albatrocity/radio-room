@@ -111,6 +111,50 @@ export async function tradeSetOffer(params: {
   return result
 }
 
+export async function tradeSetMessage(params: {
+  roomId: string
+  userId: string
+  tradeId: string
+  message: string
+  context: AppContext
+}): Promise<TradeActionResult> {
+  const trades = params.context.trades
+  if (!trades) return { success: false, message: "Trade service unavailable" }
+  const result = (await trades.setMessage(params)) as TradeActionResult
+  if (result.success && result.trade) {
+    await emitUpdated(params.context, params.roomId, result.trade)
+  }
+  return result
+}
+
+/** Ephemeral typing signal — no Redis write. */
+export async function tradeTyping(params: {
+  roomId: string
+  userId: string
+  tradeId: string
+  typing: boolean
+  context: AppContext
+}): Promise<{ success: boolean; message?: string }> {
+  const trades = params.context.trades
+  if (!trades) return { success: false, message: "Trade service unavailable" }
+  const trade = (await trades.getTrade(params.roomId, params.tradeId)) as TradeSession | null
+  if (!trade || trade.status !== "open") {
+    return { success: false, message: "Trade is not open" }
+  }
+  if (!trade.participants[params.userId]) {
+    return { success: false, message: "You are not in this trade" }
+  }
+  if (params.context.systemEvents) {
+    await params.context.systemEvents.emit(params.roomId, "TRADE_TYPING", {
+      roomId: params.roomId,
+      tradeId: params.tradeId,
+      userId: params.userId,
+      typing: params.typing,
+    })
+  }
+  return { success: true }
+}
+
 export async function tradeLock(params: {
   roomId: string
   userId: string

@@ -99,7 +99,7 @@ Player-to-player movement is **core inventory**, not a plugin. Both features req
 | ------- | ---- | -------- |
 | **Gift** | `OFFER_GIFT` → `ACCEPT_GIFT` / `DECLINE_GIFT` / `CANCEL_GIFT` | Escrow on offer; recipient must accept. Inbox on **Trades/Gifts** tab. Events: `GIFT_*`. |
 | **Trade invite** | `TRADE_INVITE` → `TRADE_RESPOND` | 5 min TTL; one outgoing invite per sender; multiple incoming. Does not occupy trade slot until accept. Events: `TRADE_INVITE_*`. |
-| **Active trade** | set offer → lock → confirm | Single open trade per user; detail drill-down in Game State. Events: `TRADE_*`. |
+| **Active trade** | set offer → lock → confirm | Single open trade per user; detail drill-down in Game State. Events: `TRADE_*`. Optional sticky notes via `TRADE_SET_MESSAGE` + ephemeral `TRADE_TYPING` (ADR 0116). |
 
 Disabling `allowTrading` mid-session cancels pending gifts (refund), trade invites, and active trades without ending the session (`GAME_SESSION_CONFIG_UPDATED`).
 

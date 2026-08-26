@@ -184,4 +184,43 @@ describe("TradeService", () => {
     const trade = await trades.getTrade(roomId, tradeId)
     expect(trade?.participants.a?.locked).toBe(false)
   })
+
+  test("setMessage replaces, clears, and rejects non-participants", async () => {
+    const { trades } = makeCtx()
+    const invited = await trades.invite({ roomId, fromUserId: "a", toUserId: "b" })
+    const tradeId = await acceptInvite(trades, invited.invite!)
+
+    const set = await trades.setMessage({
+      roomId,
+      userId: "a",
+      tradeId,
+      message: "  need more coins  ",
+    })
+    expect(set.success).toBe(true)
+    expect(set.trade?.participants.a?.message).toBe("need more coins")
+
+    const replace = await trades.setMessage({
+      roomId,
+      userId: "a",
+      tradeId,
+      message: "deal?",
+    })
+    expect(replace.trade?.participants.a?.message).toBe("deal?")
+
+    const clear = await trades.setMessage({
+      roomId,
+      userId: "a",
+      tradeId,
+      message: "   ",
+    })
+    expect(clear.trade?.participants.a?.message).toBeNull()
+
+    const outsider = await trades.setMessage({
+      roomId,
+      userId: "c",
+      tradeId,
+      message: "hi",
+    })
+    expect(outsider.success).toBe(false)
+  })
 })

@@ -9,7 +9,7 @@ import type {
   TradeParticipantState,
   TradeSession,
 } from "@repo/types"
-import { PLAYER_TRANSFER_TTL_MS } from "@repo/types"
+import { PLAYER_TRANSFER_TTL_MS, TRADE_MESSAGE_MAX_LENGTH } from "@repo/types"
 import generateId from "../lib/generateId"
 import { InventoryService } from "./InventoryService"
 
@@ -291,6 +291,27 @@ export class TradeService {
     trade.updatedAt = Date.now()
     await this.persistTrade(trade)
     return { success: true, message: "Offer updated", trade }
+  }
+
+  async setMessage(params: {
+    roomId: string
+    userId: string
+    tradeId: string
+    message: string
+  }): Promise<TradeActionResult> {
+    const trade = await this.getTrade(params.roomId, params.tradeId)
+    if (!trade || trade.status !== "open") {
+      return { success: false, message: "Trade is not open" }
+    }
+    const me = trade.participants[params.userId]
+    if (!me) return { success: false, message: "You are not in this trade" }
+
+    const trimmed = params.message.trim().slice(0, TRADE_MESSAGE_MAX_LENGTH)
+    me.message = trimmed.length > 0 ? trimmed : null
+    trade.participants[params.userId] = me
+    trade.updatedAt = Date.now()
+    await this.persistTrade(trade)
+    return { success: true, message: trimmed ? "Note updated" : "Note cleared", trade }
   }
 
   async lock(params: {

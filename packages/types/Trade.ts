@@ -39,7 +39,12 @@ export type TradeParticipantState = {
   offer: TradeOfferItem[]
   locked: boolean
   confirmed: boolean
+  /** Latest sticky note for this party (ADR 0116). Null/omit = none. */
+  message?: string | null
 }
+
+/** Max length for a trade sticky note (characters). */
+export const TRADE_MESSAGE_MAX_LENGTH = 160
 
 /**
  * Two-party trade session (ADR 0114).

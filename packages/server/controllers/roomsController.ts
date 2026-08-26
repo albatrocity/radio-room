@@ -1156,6 +1156,38 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
     },
   )
 
+  socket.on("TRADE_SET_MESSAGE", async (data: { tradeId?: string; message?: string }) => {
+    if (!data?.tradeId || typeof data.message !== "string") {
+      emitTradeResult({ success: false, message: "Missing tradeId or message" })
+      return
+    }
+    const { tradeSetMessage } = await import("../operations/inventory/tradeOps")
+    const result = await tradeSetMessage({
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
+      tradeId: data.tradeId,
+      message: data.message,
+      context: socket.context,
+    })
+    emitTradeResult({
+      success: result.success,
+      message: result.message,
+      tradeId: result.trade?.tradeId,
+    })
+  })
+
+  socket.on("TRADE_TYPING", async (data: { tradeId?: string; typing?: boolean }) => {
+    if (!data?.tradeId || typeof data.typing !== "boolean") return
+    const { tradeTyping } = await import("../operations/inventory/tradeOps")
+    await tradeTyping({
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
+      tradeId: data.tradeId,
+      typing: data.typing,
+      context: socket.context,
+    })
+  })
+
   socket.on("TRADE_LOCK", async (data: { tradeId?: string }) => {
     if (!data?.tradeId) {
       emitTradeResult({ success: false, message: "Missing tradeId" })

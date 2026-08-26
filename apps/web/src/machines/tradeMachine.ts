@@ -9,6 +9,8 @@ export type TradeMachineContext = {
   myInventory: InventoryItem[]
   definitions: ItemDefinition[]
   lastError: string | null
+  /** Counterparty currently typing (ephemeral TRADE_TYPING). */
+  counterpartTyping: boolean
 }
 
 export type TradeMachineEvent =
@@ -19,8 +21,19 @@ export type TradeMachineEvent =
   | { type: "TRADE_UPDATED"; data?: { trade?: TradeSession } }
   | { type: "TRADE_COMPLETED"; data?: { trade?: TradeSession } }
   | { type: "TRADE_CANCELLED"; data?: { trade?: TradeSession } }
+  | {
+      type: "TRADE_TYPING"
+      data?: { tradeId?: string; userId?: string; typing?: boolean }
+    }
   | { type: "TRADE_ACTION_RESULT"; data?: { success: boolean; message?: string; tradeId?: string } }
-  | { type: "USER_GAME_STATE"; data?: { inventory?: { items: InventoryItem[] } | null; itemDefinitions?: ItemDefinition[]; activeTrade?: TradeSession | null } }
+  | {
+      type: "USER_GAME_STATE"
+      data?: {
+        inventory?: { items: InventoryItem[] } | null
+        itemDefinitions?: ItemDefinition[]
+        activeTrade?: TradeSession | null
+      }
+    }
 
 let subCounter = 0
 
@@ -38,6 +51,7 @@ export const tradeMachine = setup({
           "TRADE_UPDATED",
           "TRADE_COMPLETED",
           "TRADE_CANCELLED",
+          "TRADE_TYPING",
           "TRADE_ACTION_RESULT",
           "USER_GAME_STATE",
         ],
@@ -52,7 +66,7 @@ export const tradeMachine = setup({
     },
     assignFromActivate: assign(({ event }) => {
       if (event.type !== "ACTIVATE") return {}
-      return { trade: event.trade ?? null, lastError: null }
+      return { trade: event.trade ?? null, lastError: null, counterpartTyping: false }
     }),
     assignTradeEvent: assign(({ context, event }) => {
       if (
@@ -68,7 +82,18 @@ export const tradeMachine = setup({
       if (me && trade.participants[me] == null && event.type !== "TRADE_COMPLETED") {
         return {}
       }
-      return { trade, lastError: null }
+      return { trade, lastError: null, counterpartTyping: false }
+    }),
+    assignTyping: assign(({ context, event }) => {
+      if (event.type !== "TRADE_TYPING") return {}
+      const data = event.data
+      if (!data?.tradeId || data.typing == null || !data.userId) return {}
+      const trade = context.trade
+      if (!trade || trade.tradeId !== data.tradeId) return {}
+      const me = getCurrentUser()?.userId
+      if (!me || data.userId === me) return {}
+      if (!trade.participants[data.userId]) return {}
+      return { counterpartTyping: data.typing }
     }),
     assignFromGameState: assign(({ event }) => {
       if (event.type !== "USER_GAME_STATE") return {}
@@ -76,6 +101,7 @@ export const tradeMachine = setup({
         myInventory: event.data?.inventory?.items ?? [],
         definitions: event.data?.itemDefinitions ?? [],
         trade: event.data?.activeTrade ?? null,
+        counterpartTyping: false,
       }
     }),
     assignActionResult: assign(({ event }) => {
@@ -89,6 +115,7 @@ export const tradeMachine = setup({
       myInventory: () => [],
       definitions: () => [],
       lastError: () => null,
+      counterpartTyping: () => false,
     }),
   },
 }).createMachine({
@@ -100,6 +127,7 @@ export const tradeMachine = setup({
     myInventory: [],
     definitions: [],
     lastError: null,
+    counterpartTyping: false,
   },
   states: {
     idle: {
@@ -116,11 +144,12 @@ export const tradeMachine = setup({
         TRADE_UPDATED: { actions: ["assignTradeEvent"] },
         TRADE_COMPLETED: { actions: ["assignTradeEvent"] },
         TRADE_CANCELLED: { actions: ["assignTradeEvent"] },
+        TRADE_TYPING: { actions: ["assignTyping"] },
         TRADE_ACTION_RESULT: { actions: ["assignActionResult"] },
         USER_GAME_STATE: { actions: ["assignFromGameState"] },
         SET_TRADE: {
           actions: assign(({ event }) =>
-            event.type === "SET_TRADE" ? { trade: event.trade } : {},
+            event.type === "SET_TRADE" ? { trade: event.trade, counterpartTyping: false } : {},
           ),
         },
       },

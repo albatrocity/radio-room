@@ -1010,6 +1010,49 @@ function wireSocketHandlers(io: IOServer): void {
       },
     )
 
+    socket.on("TRADE_SET_MESSAGE", async (data: { tradeId?: string; message?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId || typeof data.message !== "string") {
+        socket.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_SET_MESSAGE",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+        message: data.message,
+      })
+      emitTradeResult(socket, roomId, ack, "TRADE_UPDATED")
+    })
+
+    socket.on("TRADE_TYPING", async (data: { tradeId?: string; typing?: boolean }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId || typeof data.typing !== "boolean") return
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_TYPING",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+        typing: data.typing,
+      })
+      if (ack?.success) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "TRADE_TYPING",
+          data: {
+            tradeId: data.tradeId,
+            userId,
+            typing: data.typing,
+          },
+        })
+      }
+    })
+
     socket.on("TRADE_LOCK", async (data: { tradeId?: string }) => {
       const roomId = socket.data.roomId as string | undefined
       const userId = socket.data.userId as string | undefined
