@@ -1,4 +1,4 @@
-import React, { useEffect } from "react"
+import React, { useEffect, useMemo } from "react"
 
 import { Box, Grid, GridItem, useToken } from "@chakra-ui/react"
 
@@ -6,10 +6,13 @@ import PlayerUi from "./PlayerUi"
 import Chat from "./Chat"
 import Sidebar from "./Sidebar"
 import Overlays from "./Overlays"
+import IntegratedPanelSlot from "./IntegratedPanel/IntegratedPanelSlot"
 import { GameStateNewPluginTabsProvider } from "./GameStateNewPluginTabsProvider"
 import { PluginComponentsRoomProvider } from "./PluginComponents"
 import KeyboardShortcuts from "./KeyboardShortcuts"
 import RoomError from "./RoomError"
+import { INTEGRATED_PANEL_WIDTH } from "../lib/integratedPanelSlots"
+import { useActiveIntegratedPanelSlot } from "../hooks/useIntegratedPanelPresentation"
 
 import {
   useCurrentUser,
@@ -37,6 +40,64 @@ const Room = ({ id }: { id: string }) => {
   const playlistSend = usePlaylistSend()
   const modalSend = useModalsSend()
   const nowPlaying = useNowPlaying()
+  const activePanelSlot = useActiveIntegratedPanelSlot()
+  const panelOpen = activePanelSlot !== null
+
+  const gridTemplateAreas = useMemo(
+    () =>
+      panelOpen
+        ? [
+            `"alert alert"
+          "header header"
+      "chat chat"
+      "sidebar sidebar"`,
+            `
+    "alert alert"
+    "header header"
+    "chat sidebar"
+    `,
+            `
+          "alert alert alert alert"
+          "header chat sidebar panel"`,
+          ]
+        : [
+            `"alert alert"
+          "header header"
+      "chat chat"
+      "sidebar sidebar"`,
+            `
+    "alert alert"
+    "header header"
+    "chat sidebar"
+    `,
+            `
+          "alert alert alert"
+          "header chat sidebar"`,
+          ],
+    [panelOpen],
+  )
+
+  const gridTemplateColumns = useMemo(
+    () =>
+      panelOpen
+        ? [
+            "1fr auto",
+            "1fr auto",
+            `${xs} 1fr auto ${INTEGRATED_PANEL_WIDTH}`,
+            `${md} 1fr auto ${INTEGRATED_PANEL_WIDTH}`,
+            `${md} 1fr auto ${INTEGRATED_PANEL_WIDTH}`,
+            `${xl} 1fr auto ${INTEGRATED_PANEL_WIDTH}`,
+          ]
+        : [
+            "1fr auto",
+            "1fr auto",
+            `${xs} 1fr auto`,
+            `${md} 1fr auto`,
+            `${md} 1fr auto`,
+            `${xl} 1fr auto`,
+          ],
+    [panelOpen, xs, md, xl],
+  )
 
   useEffect(() => {
     if (isNewUser && isAuthenticated) {
@@ -64,29 +125,9 @@ const Room = ({ id }: { id: string }) => {
             <Grid
               h="100%"
               className="room"
-              templateAreas={[
-                `"alert alert"
-          "header header"
-      "chat chat"
-      "sidebar sidebar"`,
-                `
-    "alert alert"
-    "header header"
-    "chat sidebar"
-    `,
-                `
-          "alert alert alert"
-          "header chat sidebar"`,
-              ]}
+              templateAreas={gridTemplateAreas}
               gridTemplateRows={["auto auto 1fr", "auto auto 1fr auto", "auto 1fr"]}
-              gridTemplateColumns={[
-                "1fr auto",
-                "1fr auto",
-                `${xs} 1fr auto`,
-                `${md} 1fr auto`,
-                `${md} 1fr auto`,
-                `${xl} 1fr auto`,
-              ]}
+              gridTemplateColumns={gridTemplateColumns}
             >
               <KeyboardShortcuts />
               <GridItem area="alert">
@@ -118,6 +159,11 @@ const Room = ({ id }: { id: string }) => {
                   </Box>
                 )}
               </GridItem>
+              {panelOpen ? (
+                <GridItem area="panel" h="100%" minH={0} minW={0} overflow="hidden">
+                  {currentUser && <IntegratedPanelSlot />}
+                </GridItem>
+              ) : null}
             </Grid>
 
             <Overlays />

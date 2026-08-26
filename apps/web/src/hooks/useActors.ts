@@ -679,6 +679,13 @@ export const useQueueBrowseMediaKey = (): string | null => {
   return useSelector(modalsActor, (s) => s.context.queueBrowseMediaKey)
 }
 
+export {
+  useIntegratedPanelPresentation,
+  useActiveIntegratedPanelSlot,
+  useIntegratedPanelToggle,
+  useIsIntegratedPanelSlotOpen,
+} from "./useIntegratedPanelPresentation"
+
 export const useModalsSend = () => sendToModals
 
 // ============================================================================

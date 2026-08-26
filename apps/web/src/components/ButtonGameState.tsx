@@ -8,11 +8,11 @@ import { useCoinFeedbackButtonAnimation } from "../animations/useCoinFeedbackBut
 import {
   useActiveGameSessionName,
   useHasActiveGameSession,
-  useModalsSend,
   useTradesGiftsTabAttention,
   useUserGameSession,
   useUserState,
 } from "../hooks/useActors"
+import { useIntegratedPanelToggle } from "../hooks/useIntegratedPanelPresentation"
 import { useAnimationsEnabled } from "../hooks/useReducedMotion"
 import { coinGainFeedbackMachine } from "../machines/coinGainFeedbackMachine"
 import { useGameStateNewPluginTabs } from "./GameStateNewPluginTabsProvider"
@@ -23,10 +23,7 @@ function formatSignedCoinDeltaCompact(delta: number): string {
   if (abs < 1000) {
     return delta > 0 ? `+${delta}` : String(delta)
   }
-  const compact =
-    abs % 1000 === 0
-      ? `${abs / 1000}k`
-      : `${Number((abs / 1000).toFixed(1))}k`
+  const compact = abs % 1000 === 0 ? `${abs / 1000}k` : `${Number((abs / 1000).toFixed(1))}k`
   return delta < 0 ? `-${compact}` : `+${compact}`
 }
 
@@ -35,7 +32,7 @@ function formatSignedCoinDeltaCompact(delta: number): string {
  * for the current room.
  */
 function ButtonGameState() {
-  const modalSend = useModalsSend()
+  const { isActive, toggle } = useIntegratedPanelToggle("gameState")
   const hasActiveSession = useHasActiveGameSession()
   const sessionName = useActiveGameSessionName()
   const session = useUserGameSession()
@@ -101,6 +98,7 @@ function ButtonGameState() {
   if (!hasActiveSession) return null
 
   const label = sessionName ? `Game stats — ${sessionName}` : "Game stats"
+  const activeLabel = sessionName ? `Close game stats — ${sessionName}` : "Close game stats"
 
   return (
     <Box position="relative" display="inline-flex">
@@ -128,9 +126,7 @@ function ButtonGameState() {
                 as={CircleDollarSign}
                 boxSize="full"
                 color="black/30"
-                opacity={
-                  animating && animationCoinDelta !== undefined ? 0.22 : 1
-                }
+                opacity={animating && animationCoinDelta !== undefined ? 0.22 : 1}
               />
               {animating && animationCoinDelta !== undefined ? (
                 <Text
@@ -157,11 +153,12 @@ function ButtonGameState() {
         ) : null}
         <Box ref={buttonMotionRef} display="inline-flex" style={{ transformOrigin: "center" }}>
           <IconButton
-            aria-label={label}
-            title={label}
-            variant="ghost"
+            aria-label={isActive ? activeLabel : label}
+            title={isActive ? activeLabel : label}
+            variant={isActive ? "subtle" : "ghost"}
+            aria-pressed={isActive}
             colorPalette="action"
-            onClick={() => modalSend({ type: "VIEW_GAME_STATE" })}
+            onClick={toggle}
           >
             <Icon as={LuGamepad2} />
           </IconButton>

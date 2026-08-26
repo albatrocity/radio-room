@@ -22,6 +22,7 @@ import type {
   PluginActionFormField,
 } from "@repo/types/Plugin"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { popoverInScrollContainer } from "../../../lib/popoverInScrollContainer"
 import { useUsers } from "../../../hooks/useActors"
 import type { User } from "../../../types/User"
 import { toaster } from "../../ui/toaster"
@@ -319,6 +320,7 @@ function ActionButton({
   if (hasForm && formFields) {
     return (
       <Popover.Root
+        {...popoverInScrollContainer}
         open={formPopoverOpen}
         onOpenChange={(e) => {
           setFormPopoverOpen(e.open)
@@ -359,7 +361,7 @@ function ActionButton({
 
   if (element.confirmMessage) {
     return (
-      <Popover.Root>
+      <Popover.Root {...popoverInScrollContainer}>
         <Popover.Trigger asChild>
           <Button variant={buttonVariant} colorPalette={buttonColorPalette} loading={isLoading}>
             {element.label}
