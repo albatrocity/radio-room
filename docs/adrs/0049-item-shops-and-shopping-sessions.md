@@ -57,5 +57,6 @@ We still want to **retain** `ShopHelper` and `ShopPlugin` for plugins that fit t
 - [ADR 0042 — Game Sessions and Inventory](0042-game-sessions-and-inventory.md)
 - [ADR 0043 — Game State Tabs and Composable Shop Helper](0043-game-state-tabs-and-composable-shop-helper.md)
 - [ADR 0047 — ShopPlugin Base Class](0047-shop-plugin-base-class.md)
+- [ADR 0114 — Player item gifting and trading](0114-player-item-gifting-and-trading.md) (core protocol; Item Shops is catalog-only)
 - `packages/plugin-base/helpers/ShoppingSessionHelper.ts`
 - `packages/plugin-item-shops/`

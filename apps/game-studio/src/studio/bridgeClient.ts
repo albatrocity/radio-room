@@ -2,6 +2,7 @@ import type {
   BingoCard,
   ChatMessage,
   GameSession,
+  GiftOffer,
   InventoryItem,
   ItemDefinition,
   Poll,
@@ -9,6 +10,8 @@ import type {
   QueueItem,
   ShoppingSessionInstance,
   StoredArtifactPublic,
+  TradeInvite,
+  TradeSession,
   User,
   UserGameState,
 } from "@repo/types"
@@ -43,6 +46,9 @@ export type StudioBridgeSnapshot = {
   pollHistory?: PollHistoryEntry[]
   /** App-controlled queue split anchor (canonical key of first track below divider). */
   splitKey?: string | null
+  pendingGifts?: GiftOffer[]
+  pendingTradeInvites?: TradeInvite[]
+  trades?: Record<string, TradeSession>
 }
 
 export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
@@ -70,6 +76,11 @@ export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
     ({ password: _password, ...pub }) => pub,
   )
 
+  const trades: Record<string, TradeSession> = {}
+  for (const [id, trade] of room.trades) {
+    trades[id] = trade
+  }
+
   return {
     roomId: room.roomId,
     users,
@@ -85,6 +96,9 @@ export function serializeStudioRoom(room: StudioRoom): StudioBridgeSnapshot {
     storedArtifacts,
     activePoll: room.activePoll,
     pollHistory: room.pollHistory,
+    pendingGifts: [...room.pendingGifts],
+    pendingTradeInvites: [...room.pendingTradeInvites],
+    trades,
   }
 }
 

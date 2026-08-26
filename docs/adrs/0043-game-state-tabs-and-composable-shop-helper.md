@@ -76,6 +76,7 @@ Shop plugins should expose a separate boolean for "actively selling" so admins c
 
 - [ADR 0006 — Plugin System for Room Features](0006-plugin-system-for-room-features.md)
 - [ADR 0042 — Game Sessions and Inventory as Core Infrastructure](0042-game-sessions-and-inventory.md)
+- [ADR 0114 — Player item gifting and trading](0114-player-item-gifting-and-trading.md) (dedicated trade modal; not a Game State tab)
 - `packages/plugin-base/helpers/ShopHelper.ts`
 - `apps/web/src/components/Modals/ModalUserGameState.tsx`
 - `apps/web/src/components/Modals/UserGameStateContext.tsx`

@@ -137,6 +137,9 @@ function applyViewAsToSocket(socket: Socket, snap: BridgeSnapshot, newUser: User
 type StudioCommandAck = {
   success?: boolean
   message?: string
+  offer?: unknown
+  trade?: unknown
+  invite?: { inviteId: string; fromUserId: string; toUserId: string }
   pollId?: string
   optionId?: string
   isSwap?: boolean
@@ -709,6 +712,432 @@ function wireSocketHandlers(io: IOServer): void {
                 "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
             },
       })
+    })
+
+    /**
+     * Sandbox gift/trade: escrow + accept (mirrors production ADR 0114 protocol).
+     */
+    socket.on(
+      "OFFER_GIFT",
+      async (data: { itemId?: string; toUserId?: string; quantity?: number }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        if (!roomId || !userId || !data?.itemId || !data?.toUserId) {
+          socket.emit("event", {
+            type: "GIFT_ACTION_RESULT",
+            data: { success: false, message: "Missing fields." },
+          })
+          return
+        }
+        const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+          kind: "OFFER_GIFT",
+          roomId,
+          userId,
+          toUserId: data.toUserId,
+          itemId: data.itemId,
+          quantity: data.quantity ?? 1,
+        })
+        if (!ack) {
+          socket.emit("event", {
+            type: "GIFT_ACTION_RESULT",
+            data: { success: false, message: studioNotConnectedMessage() },
+          })
+          return
+        }
+        socket.emit("event", {
+          type: "GIFT_ACTION_RESULT",
+          data: {
+            success: ack.success === true,
+            message: ack.message,
+            offer: ack.offer,
+          },
+        })
+        if (ack.success && ack.offer) {
+          io.to(roomSocketPath(roomId)).emit("event", {
+            type: "GIFT_OFFERED",
+            data: { offer: ack.offer },
+          })
+        }
+      },
+    )
+
+    socket.on("ACCEPT_GIFT", async (data: { offerId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.offerId) {
+        socket.emit("event", {
+          type: "GIFT_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "ACCEPT_GIFT",
+        roomId,
+        userId,
+        offerId: data.offerId,
+      })
+      if (!ack) {
+        socket.emit("event", {
+          type: "GIFT_ACTION_RESULT",
+          data: { success: false, message: studioNotConnectedMessage() },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "GIFT_ACTION_RESULT",
+        data: { success: ack.success === true, message: ack.message, offer: ack.offer },
+      })
+      if (ack.success) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "GIFT_COMPLETED",
+          data: { offer: ack.offer },
+        })
+      }
+    })
+
+    socket.on("DECLINE_GIFT", async (data: { offerId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.offerId) {
+        socket.emit("event", {
+          type: "GIFT_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "DECLINE_GIFT",
+        roomId,
+        userId,
+        offerId: data.offerId,
+      })
+      if (!ack) {
+        socket.emit("event", {
+          type: "GIFT_ACTION_RESULT",
+          data: { success: false, message: studioNotConnectedMessage() },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "GIFT_ACTION_RESULT",
+        data: { success: ack.success === true, message: ack.message, offer: ack.offer },
+      })
+      if (ack.success) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "GIFT_DECLINED",
+          data: { offer: ack.offer },
+        })
+      }
+    })
+
+    socket.on("CANCEL_GIFT", async (data: { offerId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.offerId) {
+        socket.emit("event", {
+          type: "GIFT_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "CANCEL_GIFT",
+        roomId,
+        userId,
+        offerId: data.offerId,
+      })
+      if (!ack) {
+        socket.emit("event", {
+          type: "GIFT_ACTION_RESULT",
+          data: { success: false, message: studioNotConnectedMessage() },
+        })
+        return
+      }
+      socket.emit("event", {
+        type: "GIFT_ACTION_RESULT",
+        data: { success: ack.success === true, message: ack.message, offer: ack.offer },
+      })
+      if (ack.success) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "GIFT_CANCELLED",
+          data: { offer: ack.offer },
+        })
+      }
+    })
+
+    const emitTradeResult = (
+      sock: typeof socket,
+      roomId: string,
+      ack: StudioCommandAck | null,
+      eventType: "TRADE_UPDATED" | "TRADE_COMPLETED" | "TRADE_CANCELLED",
+      options?: { cancelledByUserId?: string },
+    ) => {
+      if (!ack) {
+        sock.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: studioNotConnectedMessage() },
+        })
+        return
+      }
+      sock.emit("event", {
+        type: "TRADE_ACTION_RESULT",
+        data: {
+          success: ack.success === true,
+          message: ack.message,
+          trade: ack.trade,
+          invite: ack.invite,
+        },
+      })
+      if (ack.success && ack.trade) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: eventType,
+          data:
+            eventType === "TRADE_CANCELLED"
+              ? {
+                  trade: ack.trade,
+                  reason: "user",
+                  cancelledByUserId: options?.cancelledByUserId,
+                }
+              : { trade: ack.trade },
+        })
+      }
+    }
+
+    const emitInviteResult = (
+      sock: typeof socket,
+      roomId: string,
+      ack: StudioCommandAck | null,
+      eventType:
+        | "TRADE_INVITE_OFFERED"
+        | "TRADE_INVITE_DECLINED"
+        | "TRADE_INVITE_CANCELLED"
+        | "TRADE_INVITE_EXPIRED",
+    ) => {
+      if (!ack) {
+        sock.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: studioNotConnectedMessage() },
+        })
+        return
+      }
+      sock.emit("event", {
+        type: "TRADE_ACTION_RESULT",
+        data: {
+          success: ack.success === true,
+          message: ack.message,
+          invite: ack.invite,
+          trade: ack.trade,
+        },
+      })
+      if (ack.success && ack.invite) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: eventType,
+          data: { invite: ack.invite },
+        })
+      }
+    }
+
+    socket.on("TRADE_INVITE", async (data: { toUserId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.toUserId) {
+        socket.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_INVITE",
+        roomId,
+        userId,
+        toUserId: data.toUserId,
+      })
+      emitInviteResult(socket, roomId, ack, "TRADE_INVITE_OFFERED")
+    })
+
+    socket.on("TRADE_RESPOND", async (data: { tradeId?: string; accept?: boolean }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId || data.accept == null) {
+        socket.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_RESPOND",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+        accept: data.accept,
+      })
+      if (ack?.success && data.accept === false) {
+        emitInviteResult(socket, roomId, ack, "TRADE_INVITE_DECLINED")
+        return
+      }
+      if (ack?.success && data.accept === true && ack.trade) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "TRADE_INVITE_ACCEPTED",
+          data: { trade: ack.trade },
+        })
+      }
+      emitTradeResult(socket, roomId, ack, "TRADE_UPDATED")
+    })
+
+    socket.on(
+      "TRADE_SET_OFFER",
+      async (data: { tradeId?: string; items?: { itemId: string; quantity: number }[] }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        if (!roomId || !userId || !data?.tradeId || !Array.isArray(data.items)) {
+          socket.emit("event", {
+            type: "TRADE_ACTION_RESULT",
+            data: { success: false, message: "Missing fields." },
+          })
+          return
+        }
+        const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+          kind: "TRADE_SET_OFFER",
+          roomId,
+          userId,
+          tradeId: data.tradeId,
+          items: data.items,
+        })
+        emitTradeResult(socket, roomId, ack, "TRADE_UPDATED")
+      },
+    )
+
+    socket.on("TRADE_SET_MESSAGE", async (data: { tradeId?: string; message?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId || typeof data.message !== "string") {
+        socket.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_SET_MESSAGE",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+        message: data.message,
+      })
+      emitTradeResult(socket, roomId, ack, "TRADE_UPDATED")
+    })
+
+    socket.on("TRADE_TYPING", async (data: { tradeId?: string; typing?: boolean }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId || typeof data.typing !== "boolean") return
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_TYPING",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+        typing: data.typing,
+      })
+      if (ack?.success) {
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "TRADE_TYPING",
+          data: {
+            tradeId: data.tradeId,
+            userId,
+            typing: data.typing,
+          },
+        })
+      }
+    })
+
+    socket.on("TRADE_LOCK", async (data: { tradeId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId) {
+        socket.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_LOCK",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+      })
+      emitTradeResult(socket, roomId, ack, "TRADE_UPDATED")
+    })
+
+    socket.on("TRADE_UNLOCK", async (data: { tradeId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId) {
+        socket.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_UNLOCK",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+      })
+      emitTradeResult(socket, roomId, ack, "TRADE_UPDATED")
+    })
+
+    socket.on("TRADE_CONFIRM", async (data: { tradeId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId) {
+        socket.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_CONFIRM",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+      })
+      const completed =
+        ack?.success === true &&
+        ack.trade &&
+        typeof ack.trade === "object" &&
+        (ack.trade as { status?: string }).status === "completed"
+      emitTradeResult(socket, roomId, ack, completed ? "TRADE_COMPLETED" : "TRADE_UPDATED")
+    })
+
+    socket.on("TRADE_CANCEL", async (data: { tradeId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      if (!roomId || !userId || !data?.tradeId) {
+        socket.emit("event", {
+          type: "TRADE_ACTION_RESULT",
+          data: { success: false, message: "Missing fields." },
+        })
+        return
+      }
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+        kind: "TRADE_CANCEL",
+        roomId,
+        userId,
+        tradeId: data.tradeId,
+      })
+      if (ack?.success && ack.invite && !ack.trade) {
+        const inviteEvent =
+          ack.invite.fromUserId === userId ? "TRADE_INVITE_CANCELLED" : "TRADE_INVITE_DECLINED"
+        emitInviteResult(socket, roomId, ack, inviteEvent)
+        return
+      }
+      emitTradeResult(socket, roomId, ack, "TRADE_CANCELLED", { cancelledByUserId: userId })
     })
 
     socket.on("SEND_MESSAGE", async (message: string | { content?: string }) => {

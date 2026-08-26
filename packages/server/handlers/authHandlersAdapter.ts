@@ -194,6 +194,23 @@ export class AuthHandlers {
 
     socket.leave(getRoomPath(socket.data.roomId))
 
+    try {
+      const { cancelGiftsForUserLeave } = await import("../operations/inventory/giftOps")
+      const { cancelTradesForUserLeave } = await import("../operations/inventory/tradeOps")
+      await cancelGiftsForUserLeave({
+        roomId: socket.data.roomId,
+        userId: socket.data.userId,
+        context: socket.context,
+      })
+      await cancelTradesForUserLeave({
+        roomId: socket.data.roomId,
+        userId: socket.data.userId,
+        context: socket.context,
+      })
+    } catch (err) {
+      console.error("[AuthHandlers] gift/trade leave cleanup failed:", err)
+    }
+
     // Emit via SystemEvents so plugins receive USER_LEFT
     if (socket.context.systemEvents) {
       await socket.context.systemEvents.emit(socket.data.roomId, "USER_LEFT", {

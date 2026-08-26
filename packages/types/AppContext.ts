@@ -29,6 +29,10 @@ export interface AppContext {
   gameSessions?: any // Typed as GameSessionService in server code
   /** Inventory service (item definitions, user inventories, transfers). */
   inventory?: any // Typed as InventoryService in server code
+  /** Escrowed player gifts (ADR 0114). Typed as GiftService in server code. */
+  gifts?: any
+  /** Two-party trade sessions (ADR 0114). Typed as TradeService in server code. */
+  trades?: any
   /** Global stored artifacts API (cross-room Redis-backed storage). */
   artifacts?: ArtifactsPluginAPI
   /** Room-scoped user personas (VIP, plugin-defined labels). Typed as PersonaService in server code. */

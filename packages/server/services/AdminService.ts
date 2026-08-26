@@ -715,4 +715,56 @@ export class AdminService {
     const results = await svc.endSession(roomId)
     return { results, error: null }
   }
+
+  /**
+   * Patch active game session config (admin only).
+   */
+  async updateGameSessionConfig(
+    roomId: string,
+    userId: string,
+    patch: { allowTrading?: boolean },
+  ): Promise<{
+    session: GameSession | null
+    error: { status: number; error: string; message: string } | null
+  }> {
+    const { room, error } = await this.getAuthedRoom(roomId, userId)
+    if (!room) {
+      return { session: null, error: error ?? { status: 403, error: "Forbidden", message: "Not authorized" } }
+    }
+    const svc = this.context.gameSessions as GameSessionService | undefined
+    if (!svc) {
+      return {
+        session: null,
+        error: {
+          status: 503,
+          error: "Service Unavailable",
+          message: "Game sessions are not available on this server.",
+        },
+      }
+    }
+    if (typeof patch.allowTrading !== "boolean") {
+      return {
+        session: null,
+        error: {
+          status: 400,
+          error: "Bad Request",
+          message: "allowTrading must be a boolean.",
+        },
+      }
+    }
+    const session = await svc.patchActiveSessionConfig(roomId, {
+      allowTrading: patch.allowTrading,
+    })
+    if (!session) {
+      return {
+        session: null,
+        error: {
+          status: 404,
+          error: "Not Found",
+          message: "No active game session.",
+        },
+      }
+    }
+    return { session, error: null }
+  }
 }

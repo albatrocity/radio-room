@@ -1,7 +1,9 @@
 import type { BingoCard } from "./PlaylistBingo"
 import type { GameSession, UserGameState } from "./GameSession"
+import type { GiftOffer } from "./Gift"
 import type { ItemDefinition, UserInventory } from "./Inventory"
 import type { ShoppingSessionInstance } from "./ShoppingSession"
+import type { TradeInvite, TradeSession } from "./Trade"
 
 /**
  * Payload for the socket-scoped `USER_GAME_STATE` / `GET_MY_GAME_STATE` response.
@@ -23,6 +25,18 @@ export interface UserGameStatePayload {
    * Keyed by plugin name (e.g. `"item-shops"`, `"playlist-bingo"`).
    */
   pluginUserState?: Record<string, Record<string, unknown>>
+  /** Pending gifts involving this user (ADR 0114). */
+  pendingGifts?: {
+    incoming: GiftOffer[]
+    outgoing: GiftOffer[]
+  }
+  /** Pending trade invites involving this user (ADR 0115). */
+  pendingTradeInvites?: {
+    incoming: TradeInvite[]
+    outgoing: TradeInvite[]
+  }
+  /** Open trade negotiation for this user, if any (ADR 0114). */
+  activeTrade?: TradeSession | null
 }
 
 /** Context passed to `Plugin.contributeToUserGameState`. */

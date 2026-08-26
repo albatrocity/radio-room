@@ -8,8 +8,11 @@
 import { createActor } from "xstate"
 import { modalsMachine, Event as ModalsEvent } from "../machines/modalsMachine"
 import { GAME_STATE_DEFAULT_TAB } from "../machines/gameStateNavMachine"
+import { TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
 import type { GameStateDetailFrame } from "../types/GameStateDetail"
 import { gameStateNavActor } from "./gameStateNavActor"
+
+export { TRADES_GIFTS_TAB }
 
 // ============================================================================
 // Actor Instance
@@ -61,6 +64,23 @@ export function closeModal(): void {
   modalsActor.send({ type: "CLOSE" })
 }
 
+export function openGameStateOnTab(params: {
+  tabId?: string
+  frame?: GameStateDetailFrame
+}): void {
+  const tabId = params.tabId?.trim() || GAME_STATE_DEFAULT_TAB
+  if (params.frame) {
+    gameStateNavActor.send({
+      type: "OPEN_DETAIL_ON_TAB",
+      tabId,
+      frame: params.frame,
+    })
+  } else {
+    gameStateNavActor.send({ type: "SET_ACTIVE_TAB", tabId })
+  }
+  modalsActor.send({ type: "VIEW_GAME_STATE" })
+}
+
 /**
  * Open Game State on an item detail frame (ADR 0104/0106).
  *
@@ -71,10 +91,8 @@ export function openGameStateItemDetail(params: {
   tabId?: string
   frame: GameStateDetailFrame
 }): void {
-  gameStateNavActor.send({
-    type: "OPEN_DETAIL_ON_TAB",
+  openGameStateOnTab({
     tabId: params.tabId?.trim() || GAME_STATE_DEFAULT_TAB,
     frame: params.frame,
   })
-  modalsActor.send({ type: "VIEW_GAME_STATE" })
 }

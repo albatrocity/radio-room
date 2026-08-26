@@ -218,6 +218,55 @@ export class GameSessionService {
   }
 
   /**
+   * Patch config on the active session without ending it (ADR 0115).
+   * Disabling allowTrading clears in-flight gift/trade activity.
+   */
+  async patchActiveSessionConfig(
+    roomId: string,
+    patch: { allowTrading?: boolean },
+  ): Promise<GameSession | null> {
+    const session = await this.getActiveSession(roomId)
+    if (!session || session.status !== "active") return null
+
+    const prevAllowTrading = session.config.allowTrading
+    const nextAllowTrading = patch.allowTrading ?? prevAllowTrading
+    const updated: GameSession = {
+      ...session,
+      config: { ...session.config, allowTrading: nextAllowTrading },
+    }
+
+    if (prevAllowTrading && !nextAllowTrading) {
+      try {
+        const { cancelGiftsForSessionEnd } = await import("../operations/inventory/giftOps")
+        const { cancelTradesForSessionEnd } = await import("../operations/inventory/tradeOps")
+        await cancelGiftsForSessionEnd({ roomId, context: this.context })
+        await cancelTradesForSessionEnd({
+          roomId,
+          context: this.context,
+          reason: "trading_disabled",
+        })
+      } catch (err) {
+        console.error("[GameSessionService] gift/trade disable cleanup failed:", err)
+      }
+    }
+
+    await this.context.redis.pubClient.set(
+      sessionKey(roomId, session.id),
+      JSON.stringify(updated),
+    )
+
+    if (this.context.systemEvents) {
+      await this.context.systemEvents.emit(roomId, "GAME_SESSION_CONFIG_UPDATED", {
+        roomId,
+        sessionId: session.id,
+        config: updated.config,
+      })
+    }
+
+    return updated
+  }
+
+  /**
    * End the active session, computing final results.
    * Emits `GAME_SESSION_ENDED` and clears the active pointer.
    *
@@ -226,6 +275,16 @@ export class GameSessionService {
   async endSession(roomId: string): Promise<GameSessionResults | null> {
     const session = await this.getActiveSession(roomId)
     if (!session) return null
+
+    // Cancel escrowed gifts/trades before plugins strip inventory (ADR 0114).
+    try {
+      const { cancelGiftsForSessionEnd } = await import("../operations/inventory/giftOps")
+      const { cancelTradesForSessionEnd } = await import("../operations/inventory/tradeOps")
+      await cancelGiftsForSessionEnd({ roomId, context: this.context })
+      await cancelTradesForSessionEnd({ roomId, context: this.context })
+    } catch (err) {
+      console.error("[GameSessionService] gift/trade session cleanup failed:", err)
+    }
 
     const endedAt = Date.now()
     const results = await this.computeResults(roomId, session, endedAt)

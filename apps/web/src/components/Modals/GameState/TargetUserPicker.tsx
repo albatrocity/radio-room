@@ -1,36 +1,58 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type RefObject } from "react"
 import { Combobox, createListCollection, Portal } from "@chakra-ui/react"
 import { useCurrentUser, useListeners } from "../../../hooks/useActors"
 
 type TargetOption = { label: string; value: string }
 
 /**
- * Choose another listener (or yourself) for targeted inventory use.
+ * Choose another listener (or yourself) for targeted inventory use / gift / trade.
  * Parent handles socket emit after `onPick(targetUserId)`.
  */
 export function InventoryTargetUserPopover({
   children,
   onPick,
+  includeSelf = true,
+  placeholder = "Use on…",
+  open,
+  onOpenChange,
+  anchorRef,
+  fullWidth = false,
 }: {
   children: React.ReactNode
   onPick: (targetUserId: string) => void
+  /** When false, only other listeners (for gift/trade). */
+  includeSelf?: boolean
+  placeholder?: string
+  open?: boolean
+  onOpenChange?: (details: { open: boolean }) => void
+  /** When set, positions the list on this element (e.g. ellipsis menu trigger). */
+  anchorRef?: RefObject<HTMLElement | null>
+  /** Stretch to parent width (inventory Use button). Default shrinks to the trigger. */
+  fullWidth?: boolean
 }) {
   const currentUser = useCurrentUser()
   const listeners = useListeners()
   const [query, setQuery] = useState("")
+  const [selectedValue, setSelectedValue] = useState<string[]>([])
   const uid = currentUser?.userId
+
+  const resetPicker = () => {
+    setQuery("")
+    setSelectedValue([])
+  }
 
   const allOptions = useMemo((): TargetOption[] => {
     if (!uid) return []
-    const self: TargetOption = { label: "Yourself", value: uid }
     const others = listeners
       .filter((u) => u.userId !== uid)
       .map((u) => ({
         label: u.username ?? u.userId,
         value: u.userId,
       }))
+    if (!includeSelf) return others
+    const self: TargetOption = { label: "Yourself", value: uid }
     return [self, ...others]
-  }, [listeners, uid])
+  }, [listeners, uid, includeSelf])
 
   const filteredOptions = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -53,35 +75,72 @@ export function InventoryTargetUserPopover({
   const handleValueChange = (details: { value: string[] }) => {
     const targetUserId = details.value[0]
     if (targetUserId) {
-      setQuery("")
+      resetPicker()
       onPick(targetUserId)
+      return
     }
+    setSelectedValue(details.value)
   }
+
+  const handleOpenChange = (details: { open: boolean }) => {
+    if (details.open) {
+      resetPicker()
+    }
+    onOpenChange?.(details)
+  }
+
+  // Shrink to the trigger so the positioner anchors to the button, not a full-width row
+  // (unless fullWidth — e.g. inventory Use stacked with Sell).
+  const rootWidth = fullWidth ? ("full" as const) : ("fit-content" as const)
 
   return (
     <Combobox.Root
       collection={collection}
-      openOnClick
+      open={open}
+      onOpenChange={handleOpenChange}
+      openOnClick={!anchorRef}
       closeOnSelect
       selectionBehavior="clear"
       size="xs"
+      value={selectedValue}
+      inputValue={query}
       onValueChange={handleValueChange}
       onInputValueChange={(e) => setQuery(e.inputValue)}
+      w={anchorRef ? "0" : rootWidth}
+      h={anchorRef ? "0" : undefined}
+      position={anchorRef ? "absolute" : undefined}
+      maxW={anchorRef ? undefined : "100%"}
+      overflow={anchorRef ? "visible" : undefined}
       positioning={{
+        ...(anchorRef
+          ? {
+              getAnchorRect: () => anchorRef.current?.getBoundingClientRect() ?? null,
+            }
+          : {}),
         strategy: "fixed",
-        placement: "bottom-end",
+        placement: anchorRef ? "bottom-end" : "bottom-start",
         flip: true,
         slide: true,
         fitViewport: true,
         overflowPadding: 8,
-        hideWhenDetached: true,
+        // Anchor may be outside this root; don't treat a 0×0 control as "detached".
+        hideWhenDetached: !anchorRef,
       }}
     >
-      <Combobox.Control>
-        <Combobox.Trigger focusable asChild>
-          {children}
-        </Combobox.Trigger>
-      </Combobox.Control>
+      {anchorRef ? (
+        // Real trigger is `anchorRef`; keep a inert control for the combobox machine.
+        <Combobox.Control position="fixed" top="0" left="0" w="0" h="0" opacity="0" pointerEvents="none">
+          <Combobox.Trigger focusable asChild>
+            {children}
+          </Combobox.Trigger>
+        </Combobox.Control>
+      ) : (
+        <Combobox.Control w={rootWidth} maxW="100%">
+          <Combobox.Trigger focusable asChild>
+            {children}
+          </Combobox.Trigger>
+        </Combobox.Control>
+      )}
       <Portal>
         <Combobox.Positioner
           style={{
@@ -96,7 +155,7 @@ export function InventoryTargetUserPopover({
             overflow="hidden"
             px={0}
           >
-            <Combobox.Input placeholder="Use on…" border="none" outline="none" px={2} py={2} />
+            <Combobox.Input placeholder={placeholder} border="none" outline="none" px={2} py={2} />
             <Combobox.Empty px={2} py={1} fontSize="sm">
               No listeners match
             </Combobox.Empty>

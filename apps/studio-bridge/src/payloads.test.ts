@@ -74,4 +74,57 @@ describe("buildUserGameStatePayload", () => {
     expect(payload.pluginUserState?.["item-shops"]?.currentShopInstance).toBeNull()
     expect(payload.pluginUserState?.["playlist-bingo"]?.card).toBeNull()
   })
+
+  it("includes pendingGifts and activeTrade for the viewer", () => {
+    const offer = {
+      offerId: "g1",
+      roomId: "room-1",
+      fromUserId: "u2",
+      toUserId: "u1",
+      definitionId: "item-shops:x",
+      sourcePlugin: "item-shops",
+      originalItemId: "i1",
+      quantity: 1,
+      createdAt: 1,
+    }
+    const trade = {
+      tradeId: "t1",
+      roomId: "room-1",
+      status: "open" as const,
+      fromUserId: "u1",
+      toUserId: "u2",
+      participants: {
+        u1: { userId: "u1", draft: [], offer: [], locked: false, confirmed: false },
+        u2: { userId: "u2", draft: [], offer: [], locked: false, confirmed: false },
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    }
+    const snap = minimalSnap({
+      pendingGifts: [offer],
+      trades: { t1: trade },
+    })
+    const payload = buildUserGameStatePayload(snap, "u1")
+    expect(payload.pendingGifts).toEqual({
+      incoming: [offer],
+      outgoing: [],
+    })
+    expect(payload.activeTrade).toEqual(trade)
+  })
+
+  it("includes pendingTradeInvites for the viewer", () => {
+    const invite = {
+      inviteId: "inv1",
+      roomId: "room-1",
+      fromUserId: "u2",
+      toUserId: "u1",
+      createdAt: 1,
+    }
+    const snap = minimalSnap({ pendingTradeInvites: [invite] })
+    const payload = buildUserGameStatePayload(snap, "u1")
+    expect(payload.pendingTradeInvites).toEqual({
+      incoming: [invite],
+      outgoing: [],
+    })
+  })
 })

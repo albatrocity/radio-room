@@ -43,7 +43,20 @@ type UserGameStateEvent =
   | { type: "INVENTORY_ITEM_REMOVED"; data: UserScopedEventData }
   | { type: "INVENTORY_ITEM_USED"; data: UserScopedEventData }
   | { type: "INVENTORY_ITEM_TRANSFERRED"; data: UserScopedEventData }
+  | { type: "GIFT_OFFERED"; data?: unknown }
+  | { type: "GIFT_DECLINED"; data?: unknown }
+  | { type: "GIFT_CANCELLED"; data?: unknown }
+  | { type: "GIFT_COMPLETED"; data?: unknown }
+  | { type: "TRADE_INVITE_OFFERED"; data?: unknown }
+  | { type: "TRADE_INVITE_DECLINED"; data?: unknown }
+  | { type: "TRADE_INVITE_CANCELLED"; data?: unknown }
+  | { type: "TRADE_INVITE_EXPIRED"; data?: unknown }
+  | { type: "TRADE_INVITE_ACCEPTED"; data?: unknown }
+  | { type: "TRADE_UPDATED"; data?: unknown }
+  | { type: "TRADE_COMPLETED"; data?: unknown }
+  | { type: "TRADE_CANCELLED"; data?: unknown }
   | { type: "GAME_SESSION_STARTED"; data: unknown }
+  | { type: "GAME_SESSION_CONFIG_UPDATED"; data: unknown }
   | { type: "GAME_SESSION_ENDED"; data: unknown }
   | { type: "ERROR_OCCURRED"; data: { message?: string } }
 
@@ -87,6 +100,19 @@ export const userGameStateMachine = setup({
           "INVENTORY_ITEM_REMOVED",
           "INVENTORY_ITEM_USED",
           "INVENTORY_ITEM_TRANSFERRED",
+          "GIFT_OFFERED",
+          "GIFT_DECLINED",
+          "GIFT_CANCELLED",
+          "GIFT_COMPLETED",
+          "TRADE_INVITE_OFFERED",
+          "TRADE_INVITE_DECLINED",
+          "TRADE_INVITE_CANCELLED",
+          "TRADE_INVITE_EXPIRED",
+          "TRADE_INVITE_ACCEPTED",
+          "TRADE_UPDATED",
+          "TRADE_COMPLETED",
+          "TRADE_CANCELLED",
+          "GAME_SESSION_CONFIG_UPDATED",
         ],
       })
       return { subscriptionId: id }
@@ -116,6 +142,9 @@ export const userGameStateMachine = setup({
           inventory: d.inventory,
           itemDefinitions: d.itemDefinitions ?? [],
           pluginUserState: d.pluginUserState ?? {},
+          pendingGifts: d.pendingGifts,
+          pendingTradeInvites: d.pendingTradeInvites,
+          activeTrade: d.activeTrade ?? null,
         },
         error: null,
       }
@@ -127,6 +156,9 @@ export const userGameStateMachine = setup({
         inventory: null,
         itemDefinitions: [],
         pluginUserState: {},
+        pendingGifts: undefined,
+        pendingTradeInvites: undefined,
+        activeTrade: null,
       }),
       error: () => null,
     }),
@@ -148,6 +180,52 @@ export const userGameStateMachine = setup({
     payload: null,
     error: null,
   },
+  /** Socket invalidations apply in every subscribed state (loading / ready / refreshing). */
+  on: {
+    USER_GAME_STATE_INVALIDATED: {
+      actions: ["scheduleRequestGameState"],
+    },
+    GAME_STATE_CHANGED: {
+      guard: "isMyGameEvent",
+      actions: ["scheduleRequestGameState"],
+    },
+    GAME_MODIFIER_APPLIED: {
+      guard: "isMyGameEvent",
+      actions: ["scheduleRequestGameState"],
+    },
+    GAME_MODIFIER_REMOVED: {
+      guard: "isMyGameEvent",
+      actions: ["scheduleRequestGameState"],
+    },
+    INVENTORY_ITEM_ACQUIRED: {
+      guard: "isMyGameEvent",
+      actions: ["scheduleRequestGameState"],
+    },
+    INVENTORY_ITEM_REMOVED: {
+      guard: "isMyGameEvent",
+      actions: ["scheduleRequestGameState"],
+    },
+    INVENTORY_ITEM_USED: {
+      guard: "isMyGameEvent",
+      actions: ["scheduleRequestGameState"],
+    },
+    INVENTORY_ITEM_TRANSFERRED: {
+      guard: "isMyGameEvent",
+      actions: ["scheduleRequestGameState"],
+    },
+    GIFT_OFFERED: { actions: ["scheduleRequestGameState"] },
+    GIFT_DECLINED: { actions: ["scheduleRequestGameState"] },
+    GIFT_CANCELLED: { actions: ["scheduleRequestGameState"] },
+    GIFT_COMPLETED: { actions: ["scheduleRequestGameState"] },
+    TRADE_INVITE_OFFERED: { actions: ["scheduleRequestGameState"] },
+    TRADE_INVITE_DECLINED: { actions: ["scheduleRequestGameState"] },
+    TRADE_INVITE_CANCELLED: { actions: ["scheduleRequestGameState"] },
+    TRADE_INVITE_EXPIRED: { actions: ["scheduleRequestGameState"] },
+    TRADE_INVITE_ACCEPTED: { actions: ["scheduleRequestGameState"] },
+    TRADE_UPDATED: { actions: ["scheduleRequestGameState"] },
+    TRADE_COMPLETED: { actions: ["scheduleRequestGameState"] },
+    TRADE_CANCELLED: { actions: ["scheduleRequestGameState"] },
+  },
   states: {
     idle: {
       on: {
@@ -167,9 +245,6 @@ export const userGameStateMachine = setup({
         USER_GAME_STATE: {
           target: "ready",
           actions: ["setPayload"],
-        },
-        USER_GAME_STATE_INVALIDATED: {
-          actions: ["scheduleRequestGameState"],
         },
         ERROR_OCCURRED: {
           target: "error",
@@ -192,42 +267,14 @@ export const userGameStateMachine = setup({
         USER_GAME_STATE: {
           actions: ["setPayload"],
         },
-        USER_GAME_STATE_INVALIDATED: {
-          actions: ["scheduleRequestGameState"],
-        },
         GAME_SESSION_STARTED: {
+          actions: ["requestGameState"],
+        },
+        GAME_SESSION_CONFIG_UPDATED: {
           actions: ["requestGameState"],
         },
         GAME_SESSION_ENDED: {
           actions: ["clearPayload"],
-        },
-        GAME_STATE_CHANGED: {
-          guard: "isMyGameEvent",
-          actions: ["scheduleRequestGameState"],
-        },
-        GAME_MODIFIER_APPLIED: {
-          guard: "isMyGameEvent",
-          actions: ["scheduleRequestGameState"],
-        },
-        GAME_MODIFIER_REMOVED: {
-          guard: "isMyGameEvent",
-          actions: ["scheduleRequestGameState"],
-        },
-        INVENTORY_ITEM_ACQUIRED: {
-          guard: "isMyGameEvent",
-          actions: ["scheduleRequestGameState"],
-        },
-        INVENTORY_ITEM_REMOVED: {
-          guard: "isMyGameEvent",
-          actions: ["scheduleRequestGameState"],
-        },
-        INVENTORY_ITEM_USED: {
-          guard: "isMyGameEvent",
-          actions: ["scheduleRequestGameState"],
-        },
-        INVENTORY_ITEM_TRANSFERRED: {
-          guard: "isMyGameEvent",
-          actions: ["scheduleRequestGameState"],
         },
       },
     },
@@ -244,9 +291,6 @@ export const userGameStateMachine = setup({
         USER_GAME_STATE: {
           target: "ready",
           actions: ["setPayload"],
-        },
-        USER_GAME_STATE_INVALIDATED: {
-          actions: ["scheduleRequestGameState"],
         },
         ERROR_OCCURRED: {
           target: "error",

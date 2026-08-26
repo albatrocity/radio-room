@@ -289,6 +289,7 @@ export interface ItemSellResult {
 export type InventoryAcquisitionSource =
   | "plugin"
   | "trade"
+  | "gift"
   | "purchase"
   | "admin"
   | "defense_intercept"

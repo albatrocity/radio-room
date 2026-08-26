@@ -121,6 +121,8 @@ Room id matches [`STUDIO_ROOM_ID`](./src/studio/constants.ts).
 
 Use a **username / identity that exists in your Game Studio sandbox** (session storage / stored user in the web app), or sign in as the first sandbox user—otherwise the bridge will still log you in as the first player it finds.
 
+**Gifting and trading:** Start a sandbox game session (sessions default to `allowTrading: true` in Game Studio). Gift and Trade in the Room UI preview use the same sockets as production (`OFFER_GIFT` / `ACCEPT_GIFT`, `TRADE_*`) with in-memory escrow in the studio tab—keep Game Studio open so the bridge can forward commands.
+
 **Override bridge URL from Game Studio:** set `VITE_STUDIO_BRIDGE_URL` if the bridge is not on `http://127.0.0.1:3099`.
 
 ---

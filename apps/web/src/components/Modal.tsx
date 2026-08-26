@@ -32,6 +32,8 @@ interface Props {
    */
   lazyMount?: boolean
   unmountOnExit?: boolean
+  /** Dialog vertical placement. Default `center`. */
+  placement?: "center" | "top" | "bottom"
   /** Forwarded to `DialogContent` (e.g. viewport-capped height). */
   contentProps?: DialogContentProps
   /** Forwarded to `DialogBody`. */
@@ -49,6 +51,7 @@ const Modal = ({
   showFooter = true,
   lazyMount,
   unmountOnExit,
+  placement = "center",
   contentProps,
   bodyProps,
 }: Props) => {
@@ -59,7 +62,7 @@ const Modal = ({
     <DialogRoot
       open={isDialogOpen}
       onOpenChange={(e) => !e.open && onClose()}
-      placement="center"
+      placement={placement}
       lazyMount={lazyMount}
       unmountOnExit={unmountOnExit}
     >

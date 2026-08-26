@@ -4,6 +4,7 @@ import type {
   GameSession,
   GameSessionConfig,
   GameSessionStatus,
+  GiftOffer,
   InventoryItem,
   ItemDefinition,
   Poll,
@@ -13,6 +14,8 @@ import type {
   QueueItem,
   Reaction,
   StoredArtifact,
+  TradeInvite,
+  TradeSession,
   User,
   UserGameState,
 } from "@repo/types"
@@ -43,6 +46,12 @@ export class StudioRoom {
   userStates = new Map<string, UserGameState>()
   definitions = new Map<string, ItemDefinition>()
   inventories = new Map<string, InventoryItem[]>()
+  /** Escrowed gift offers (ADR 0114 sandbox). */
+  pendingGifts: GiftOffer[] = []
+  /** Pending trade invites (ADR 0115 sandbox). */
+  pendingTradeInvites: TradeInvite[] = []
+  /** Active trade sessions by tradeId (ADR 0114 sandbox). */
+  trades = new Map<string, TradeSession>()
   /** leaderboardId -> userId -> score */
   leaderboardScores = new Map<string, Map<string, number>>()
 

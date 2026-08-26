@@ -7,6 +7,8 @@ import {
   HStack,
   Heading,
   Icon,
+  Menu,
+  Portal,
   Stack,
   Text,
   VStack,
@@ -28,6 +30,7 @@ import { ItemDetailActionButton } from "./ItemDetailActionButton"
 import { itemDetailClickableProps } from "./itemDetailClickableProps"
 import { buildItemDetailFrame } from "./itemDetailFrame"
 import { useOpenItemDetail } from "./useOpenItemDetail"
+import { InventoryTargetUserPopover } from "./TargetUserPicker"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -63,8 +66,9 @@ const inventorySlotFrameProps = {
 }
 
 /** Track per-item action loading state without re-rendering the whole tab. */
-type PendingAction = { itemId: string; action: "use" | "sell" } | null
+type PendingAction = { itemId: string; action: "use" | "sell" | "gift" } | null
 
+import { emitGiftOffer } from "./giftSocketActions"
 function EmptyInventorySlot() {
   return (
     <HStack {...inventorySlotFrameProps}>
@@ -92,6 +96,8 @@ function InventoryRow({
   const tradeable = definition?.tradeable ?? false
   const coinValue = definition?.coinValue ?? 0
   const sellable = tradeable && coinValue > 0
+  const allowTrading = gameState?.session?.config.allowTrading === true
+  const showGiftButton = tradeable && allowTrading
   const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
   const shopInstance =
     gameState?.getPluginState<ItemShopsUserGameState>(ITEM_SHOPS_PLUGIN_NAME)
@@ -99,26 +105,51 @@ function InventoryRow({
   const shopVisitOpen = shopInstance != null
   const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
   const detailView = definition?.detailView
-  const sellButtonLabel = (() => {
-    if (isItemShopsItem && shopVisitOpen && definition && shopInstance) {
-      if (item.sellbackValue != null) {
-        return `Sell (${item.sellbackValue})`
-      }
-      const q = quoteItemShopsSellCoins(shopInstance, definition)
-      return q != null ? (
-        <Text>
-          Sell for <Icon as={getIcon("Coins")} boxSize="0.8rem" />
-          {q}
-        </Text>
-      ) : (
-        "Sell"
-      )
-    }
-    return "Sell"
-  })()
+  const sellQuote =
+    isItemShopsItem && shopVisitOpen && definition && shopInstance
+      ? item.sellbackValue != null
+        ? item.sellbackValue
+        : quoteItemShopsSellCoins(shopInstance, definition)
+      : null
+  const sellButtonLabel =
+    sellQuote != null ? (
+      <Text>
+        Sell for <Icon as={getIcon("Coins")} boxSize="0.8rem" />
+        {sellQuote}
+      </Text>
+    ) : (
+      "Sell"
+    )
+  const sellMenuLabel =
+    sellQuote != null ? (
+      <>
+        Sell for <Icon as={getIcon("Coins")} boxSize="0.8rem" display="inline" /> {sellQuote}
+      </>
+    ) : (
+      "Sell"
+    )
 
   const [pending, setPending] = useState<PendingAction>(null)
+  const [giftPickerOpen, setGiftPickerOpen] = useState(false)
+  const [tradeMenuOpen, setTradeMenuOpen] = useState(false)
+  const secondaryActionRef = useRef<HTMLButtonElement>(null)
   const subscriptionIdRef = useRef<string | null>(null)
+
+  const offerGiftTo = (toUserId: string) => {
+    setPending({ itemId: item.itemId, action: "gift" })
+    emitGiftOffer(item.itemId, toUserId, 1, (ok, message) => {
+      setPending(null)
+      toaster.create({
+        title: ok ? "Gift offered" : "Gift failed",
+        description: message,
+        type: ok ? "success" : "error",
+        duration: 4000,
+      })
+    })
+  }
+
+  const showTradeGiftMenu = allowTrading && (showSellButton || showGiftButton)
+  const secondaryActionOpen = tradeMenuOpen || giftPickerOpen
 
   useEffect(() => {
     return () => {
@@ -252,28 +283,103 @@ function InventoryRow({
           </LinkifiedText>
         )}
       </VStack>
-      <Stack direction="column" gap={2} flexShrink={0}>
+      <Stack direction="column" gap={2} flexShrink={0} align="stretch" minW="7.5rem">
         {detailView && <ItemDetailActionButton detailView={detailView} onClick={handleDetails} />}
-        {consumable && (
-          <InventoryUseButton
-            itemId={item.itemId}
-            requiresTarget={definition?.requiresTarget}
-            allItems={allItems}
-            definitionMap={definitionMap}
-            coinBalance={coinBalance}
-            useLoading={pending?.itemId === item.itemId && pending.action === "use"}
-            onUse={(extra) => dispatch("use", extra)}
-          />
-        )}
-        {showSellButton && (
-          <Button
-            size="xs"
-            variant="outline"
-            loading={pending?.itemId === item.itemId && pending.action === "sell"}
-            onClick={() => dispatch("sell")}
-          >
-            {sellButtonLabel}
-          </Button>
+        {(consumable || showTradeGiftMenu || showSellButton) && (
+          <Box position="relative">
+            <Stack gap={1} align="stretch">
+              {consumable && (
+                <InventoryUseButton
+                  itemId={item.itemId}
+                  requiresTarget={definition?.requiresTarget}
+                  allItems={allItems}
+                  definitionMap={definitionMap}
+                  coinBalance={coinBalance}
+                  useLoading={pending?.itemId === item.itemId && pending.action === "use"}
+                  onUse={(extra) => dispatch("use", extra)}
+                  fullWidth
+                />
+              )}
+              {showTradeGiftMenu ? (
+                <Menu.Root open={tradeMenuOpen} onOpenChange={(e) => setTradeMenuOpen(e.open)}>
+                  <Menu.Trigger asChild>
+                    <Button
+                      ref={secondaryActionRef}
+                      size="xs"
+                      width="full"
+                      variant="outline"
+                      aria-label="Gift or sell"
+                      aria-expanded={secondaryActionOpen}
+                      data-state={secondaryActionOpen ? "open" : undefined}
+                      bg={secondaryActionOpen ? "colorPalette.subtle" : undefined}
+                      loading={
+                        pending?.itemId === item.itemId &&
+                        (pending.action === "sell" || pending.action === "gift")
+                      }
+                    >
+                      Gift or sell…
+                    </Button>
+                  </Menu.Trigger>
+                  <Portal>
+                    <Menu.Positioner>
+                      <Menu.Content minW="8rem">
+                        {showSellButton && (
+                          <Menu.Item
+                            value="sell"
+                            onClick={() => {
+                              setTradeMenuOpen(false)
+                              dispatch("sell")
+                            }}
+                          >
+                            {sellMenuLabel}
+                          </Menu.Item>
+                        )}
+                        {showGiftButton && (
+                          <Menu.Item
+                            value="gift"
+                            onClick={() => {
+                              setTradeMenuOpen(false)
+                              // Wait for the menu dismiss layer to clear before opening.
+                              window.setTimeout(() => setGiftPickerOpen(true), 0)
+                            }}
+                          >
+                            Gift…
+                          </Menu.Item>
+                        )}
+                      </Menu.Content>
+                    </Menu.Positioner>
+                  </Portal>
+                </Menu.Root>
+              ) : (
+                showSellButton && (
+                  <Button
+                    size="xs"
+                    width="full"
+                    variant="outline"
+                    loading={pending?.itemId === item.itemId && pending.action === "sell"}
+                    onClick={() => dispatch("sell")}
+                  >
+                    {sellButtonLabel}
+                  </Button>
+                )
+              )}
+            </Stack>
+            {showTradeGiftMenu && showGiftButton && (
+              <InventoryTargetUserPopover
+                includeSelf={false}
+                placeholder="Gift to…"
+                open={giftPickerOpen}
+                onOpenChange={(e) => setGiftPickerOpen(e.open)}
+                anchorRef={secondaryActionRef}
+                onPick={(toUserId) => {
+                  setGiftPickerOpen(false)
+                  offerGiftTo(toUserId)
+                }}
+              >
+                <button type="button" tabIndex={-1} aria-hidden />
+              </InventoryTargetUserPopover>
+            )}
+          </Box>
         )}
       </Stack>
     </HStack>
@@ -287,6 +393,9 @@ function InventoryTab({
   definitionMap,
   coinBalance,
 }: InventoryTabProps) {
+  const gameState = useUserGameState()
+  const allowTrading = gameState?.session?.config.allowTrading === true
+
   const inventoryItems = items.filter(
     (item) => (definitionMap.get(item.definitionId)?.slotPool ?? "inventory") !== "collection",
   )
@@ -295,19 +404,19 @@ function InventoryTab({
   )
   const emptyInventory = maxSlots > 0 ? Math.max(0, maxSlots - inventoryItems.length) : 0
   const showInventoryGrid = maxSlots > 0
-  // The collection only exists once something is in it, and unlike the inventory
-  // bag it never advertises empty slots.
   const showCollection = collectionItems.length > 0
 
   return (
     <Box>
       <HStack justify="space-between" align="baseline" mb={2}>
         <Heading size="sm">Inventory</Heading>
-        {showInventoryGrid && (
-          <Text fontSize="xs" color="fg.muted">
-            {inventoryItems.length} / {maxSlots} slots
-          </Text>
-        )}
+        <HStack gap={2}>
+          {showInventoryGrid && (
+            <Text fontSize="xs" color="fg.muted">
+              {inventoryItems.length} / {maxSlots} slots
+            </Text>
+          )}
+        </HStack>
       </HStack>
 
       {!showInventoryGrid && inventoryItems.length === 0 && (

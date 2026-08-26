@@ -8,6 +8,7 @@ import type {
 import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
 import type { QueueItem } from "@repo/types/Queue"
 import type { RoomMeta } from "@repo/types/Room"
+import type { TradeInvite, TradeSession } from "@repo/types/Trade"
 import { toAdminAssignablePersonas } from "@repo/types"
 import type { User } from "@repo/types/User"
 import { STUB_MY_MEDIA } from "./stubMetadataCatalog.js"
@@ -116,6 +117,27 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
     "playlist-bingo": { card: bingoCard },
   }
 
+  const pendingAll = snap.pendingGifts ?? []
+  const pendingGifts = {
+    incoming: pendingAll.filter((o) => o.toUserId === userId),
+    outgoing: pendingAll.filter((o) => o.fromUserId === userId),
+  }
+
+  const inviteAll = snap.pendingTradeInvites ?? []
+  const pendingTradeInvites = {
+    incoming: inviteAll.filter((i) => i.toUserId === userId),
+    outgoing: inviteAll.filter((i) => i.fromUserId === userId),
+  }
+
+  let activeTrade: TradeSession | null = null
+  for (const trade of Object.values(snap.trades ?? {})) {
+    if (trade.status === "completed" || trade.status === "cancelled") continue
+    if (trade.participants[userId]) {
+      activeTrade = trade
+      break
+    }
+  }
+
   return {
     session,
     state,
@@ -130,6 +152,9 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
       : null,
     itemDefinitions: snap.itemDefinitions,
     pluginUserState,
+    pendingGifts,
+    pendingTradeInvites,
+    activeTrade,
   }
 }
 

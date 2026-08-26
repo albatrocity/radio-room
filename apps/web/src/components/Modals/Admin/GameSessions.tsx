@@ -4,6 +4,7 @@ import {
   Badge,
   Box,
   Button,
+  Checkbox,
   DialogBody,
   DialogFooter,
   Field,
@@ -31,6 +32,7 @@ export default function GameSessions() {
   const [initialCoinsInput, setInitialCoinsInput] = useState("")
   const [inventorySlotsInput, setInventorySlotsInput] = useState("3")
   const [collectionSlotsInput, setCollectionSlotsInput] = useState("12")
+  const [allowTrading, setAllowTrading] = useState(false)
   const [activeSession, setActiveSession] = useState<GameSession | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [statusLoading, setStatusLoading] = useState(true)
@@ -68,6 +70,9 @@ export default function GameSessions() {
           setLoadError(null)
           const d = event.data as { session: GameSession | null }
           setActiveSession(d.session ?? null)
+          if (d.session) {
+            setAllowTrading(d.session.config.allowTrading === true)
+          }
           return
         }
 
@@ -90,6 +95,7 @@ export default function GameSessions() {
           setActionLoading(false)
           const d = event.data as { results: unknown | null }
           setActiveSession(null)
+          setAllowTrading(false)
           if (d.results == null) {
             toaster.create({
               title: "No active session",
@@ -104,6 +110,25 @@ export default function GameSessions() {
               duration: 3000,
             })
           }
+          return
+        }
+
+        if (event.type === "GAME_SESSION_ADMIN_CONFIG_UPDATED") {
+          actionPendingRef.current = false
+          setActionLoading(false)
+          const d = event.data as { session: GameSession | null }
+          if (d.session) {
+            setActiveSession(d.session)
+            setAllowTrading(d.session.config.allowTrading === true)
+          }
+          toaster.create({
+            title: "Session updated",
+            description: d.session?.config.allowTrading
+              ? "Gifting and trading enabled."
+              : "Gifting and trading disabled.",
+            type: "success",
+            duration: 3000,
+          })
           return
         }
 
@@ -206,6 +231,7 @@ export default function GameSessions() {
       ...(initialCoins != null ? { initialCoins } : {}),
       ...(maxInventorySlots != null ? { maxInventorySlots } : {}),
       ...(maxCollectionSlots != null ? { maxCollectionSlots } : {}),
+      allowTrading,
     })
   }
 
@@ -213,6 +239,12 @@ export default function GameSessions() {
     actionPendingRef.current = true
     setActionLoading(true)
     emitToSocket("END_GAME_SESSION", {})
+  }
+
+  const toggleActiveAllowTrading = (checked: boolean) => {
+    actionPendingRef.current = true
+    setActionLoading(true)
+    emitToSocket("UPDATE_GAME_SESSION_CONFIG", { allowTrading: checked })
   }
 
   const startedLabel =
@@ -302,6 +334,20 @@ export default function GameSessions() {
                     End session
                   </Button>
                 </HStack>
+                <Checkbox.Root
+                  checked={activeSession.config.allowTrading === true}
+                  onCheckedChange={(d) => toggleActiveAllowTrading(!!d.checked)}
+                  disabled={actionLoading || statusLoading}
+                >
+                  <Checkbox.HiddenInput />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>Allow gifting and trading</Checkbox.Label>
+                </Checkbox.Root>
+                <Text fontSize="xs" color="fg.muted" mt={-2}>
+                  Disabling cancels pending gifts, trade invites, and active trades.
+                </Text>
               </VStack>
             </Box>
           )}
@@ -376,6 +422,21 @@ export default function GameSessions() {
               Durable Physical Media holdings. Default is 12.
             </Field.HelperText>
           </Field.Root>
+
+          <Checkbox.Root
+            checked={allowTrading}
+            onCheckedChange={(d) => setAllowTrading(!!d.checked)}
+            disabled={actionLoading || statusLoading}
+          >
+            <Checkbox.HiddenInput />
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Checkbox.Label>Allow gifting and trading</Checkbox.Label>
+          </Checkbox.Root>
+          <Text fontSize="xs" color="fg.muted" mt={-2}>
+            Listeners can gift items and open two-party trades while the session is active.
+          </Text>
 
           <Button
             colorPalette="action"

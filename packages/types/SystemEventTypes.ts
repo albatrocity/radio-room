@@ -26,6 +26,8 @@ import type {
   GameStateModifier,
 } from "./GameSession"
 import type { InventoryAcquisitionSource, InventoryItem, ItemUseResult } from "./Inventory"
+import type { GiftOffer } from "./Gift"
+import type { TradeInvite, TradeSession } from "./Trade"
 import type { Poll, PollResults } from "./Poll"
 
 /**
@@ -243,6 +245,13 @@ export type SystemEventHandlers = {
     results: GameSessionResults
   }) => Promise<void> | void
 
+  /** Fired when active session config is patched mid-session (e.g. allowTrading). */
+  GAME_SESSION_CONFIG_UPDATED: (data: {
+    roomId: string
+    sessionId: string
+    config: GameSessionConfig
+  }) => Promise<void> | void
+
   /**
    * Delta event for one or more attribute changes for a single user.
    * Plugins / UI layers may use changes to animate without re-fetching.
@@ -346,6 +355,84 @@ export type SystemEventHandlers = {
     toUserId: string
     item: InventoryItem
     quantity: number
+  }) => Promise<void> | void
+
+  // ==========================================================================
+  // Gift / trade (ADR 0114)
+  // ==========================================================================
+
+  GIFT_OFFERED: (data: {
+    roomId: string
+    offer: GiftOffer
+  }) => Promise<void> | void
+
+  GIFT_DECLINED: (data: {
+    roomId: string
+    offer: GiftOffer
+  }) => Promise<void> | void
+
+  GIFT_CANCELLED: (data: {
+    roomId: string
+    offer: GiftOffer
+    reason: "sender" | "session_end" | "user_left" | "ttl"
+  }) => Promise<void> | void
+
+  GIFT_COMPLETED: (data: {
+    roomId: string
+    offer: GiftOffer
+    item: InventoryItem
+  }) => Promise<void> | void
+
+  TRADE_INVITE_OFFERED: (data: {
+    roomId: string
+    invite: TradeInvite
+  }) => Promise<void> | void
+
+  TRADE_INVITE_DECLINED: (data: {
+    roomId: string
+    invite: TradeInvite
+  }) => Promise<void> | void
+
+  TRADE_INVITE_CANCELLED: (data: {
+    roomId: string
+    invite: TradeInvite
+    reason: "sender" | "session_end" | "user_left" | "trading_disabled"
+  }) => Promise<void> | void
+
+  TRADE_INVITE_EXPIRED: (data: {
+    roomId: string
+    invite: TradeInvite
+  }) => Promise<void> | void
+
+  TRADE_INVITE_ACCEPTED: (data: {
+    roomId: string
+    trade: TradeSession
+  }) => Promise<void> | void
+
+  TRADE_UPDATED: (data: {
+    roomId: string
+    trade: TradeSession
+  }) => Promise<void> | void
+
+  /** Ephemeral typing indicator for an open trade (not stored on the session). */
+  TRADE_TYPING: (data: {
+    roomId: string
+    tradeId: string
+    userId: string
+    typing: boolean
+  }) => Promise<void> | void
+
+  TRADE_COMPLETED: (data: {
+    roomId: string
+    trade: TradeSession
+  }) => Promise<void> | void
+
+  TRADE_CANCELLED: (data: {
+    roomId: string
+    trade: TradeSession
+    reason: "user" | "session_end" | "user_left" | "trading_disabled"
+    /** Present when a participant initiated cancel (user action or leave). */
+    cancelledByUserId?: string
   }) => Promise<void> | void
 
   // ==========================================================================
