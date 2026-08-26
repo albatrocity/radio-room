@@ -8,9 +8,6 @@ import {
 } from "@chakra-ui/react"
 import { LuArrowLeft } from "react-icons/lu"
 
-import { INTEGRATED_PANEL_WIDTH } from "../../lib/integratedPanelSlots"
-import { useAnimationsEnabled } from "../../hooks/useReducedMotion"
-
 type Props = {
   title: ReactNode
   onClose: () => void
@@ -18,8 +15,6 @@ type Props = {
   footer?: ReactNode
   showBack?: boolean
   onBack?: () => void
-  /** When false, width animates to 0 (grid column may still exist during exit). */
-  open?: boolean
 }
 
 export function IntegratedPanelShell({
@@ -29,38 +24,21 @@ export function IntegratedPanelShell({
   footer,
   showBack = false,
   onBack,
-  open = true,
 }: Props) {
-  const animationsEnabled = useAnimationsEnabled()
-
   return (
     <Box
       h="100%"
       minH={0}
+      w="100%"
       overflow="hidden"
-      w={open ? INTEGRATED_PANEL_WIDTH : 0}
-      maxW={open ? INTEGRATED_PANEL_WIDTH : 0}
-      opacity={open ? 1 : 0}
-      transition={
-        animationsEnabled
-          ? "width 0.25s ease, max-width 0.25s ease, opacity 0.2s ease"
-          : undefined
-      }
-      borderLeftWidth={open ? 1 : 0}
+      borderLeftWidth={1}
       borderLeftStyle="solid"
       borderLeftColor="secondaryBorder"
       bg="appBg"
-      layerStyle="themeTransition"
       colorPalette="secondary"
       className="integrated-panel"
     >
-      <Flex
-        direction="column"
-        h="100%"
-        minH={0}
-        w={INTEGRATED_PANEL_WIDTH}
-        minW={INTEGRATED_PANEL_WIDTH}
-      >
+      <Flex direction="column" h="100%" minH={0} w="100%">
         <Flex
           align="center"
           justify="space-between"

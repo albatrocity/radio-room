@@ -686,6 +686,8 @@ export {
   useIsIntegratedPanelSlotOpen,
 } from "./useIntegratedPanelPresentation"
 
+export { useRoomLayoutSplitter, useRoomLayoutSizes } from "./useRoomLayoutSplitter"
+
 export const useModalsSend = () => sendToModals
 
 // ============================================================================

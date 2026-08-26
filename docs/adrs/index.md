@@ -123,6 +123,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0115](0115-trade-invite-inbox.md) | Trade invite inbox and Trades/Gifts Game State tab | Accepted |
 | [0116](0116-trade-session-sticky-notes.md) | Trade session sticky notes | Accepted |
 | [0117](0117-integrated-room-panel-slot.md) | Integrated room panel slot (lg+) | Accepted |
+| [0118](0118-resizable-room-layout-columns.md) | Resizable room layout columns (lg+) | Accepted |
 
 ## Creating a New ADR
 

@@ -27,8 +27,7 @@ const Sidebar = () => {
 
   return (
     <Box
-      w={["100%", "18vw"]}
-      minW={"220px"}
+      w="100%"
       h="100%"
       className="sidebar"
       colorPalette="secondary"

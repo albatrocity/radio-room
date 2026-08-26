@@ -305,7 +305,7 @@ function InventoryRow({
                   <Menu.Trigger asChild>
                     <Button
                       ref={secondaryActionRef}
-                      size="xs"
+                      size="sm"
                       width="full"
                       variant="outline"
                       aria-label="Gift or sell"

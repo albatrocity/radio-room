@@ -8,8 +8,6 @@ export type ModalsSnapshot = SnapshotFrom<typeof modalsMachine>
 
 export type IntegratedPanelPresentation = "panel" | "modal"
 
-export const INTEGRATED_PANEL_WIDTH = "min(28rem, 32vw)"
-
 export const INTEGRATED_PANEL_SLOTS: Record<
   IntegratedPanelSlotId,
   { title: string; supportsPanel: boolean }
