@@ -466,6 +466,21 @@ function ModalUserGameState() {
       onClose={() => modalSend({ type: "CLOSE" })}
       showFooter={showGameFooter}
       footer={footer ?? undefined}
+      placement="top"
+      contentProps={{
+        mt: { base: 3, md: 8 },
+        mb: 3,
+        minH: { base: "min(70dvh, 36rem)", md: "32rem" },
+        maxH: "90dvh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+      bodyProps={{
+        flex: "1",
+        minH: 0,
+        overflowY: "auto",
+      }}
     >
       <UserGameStateContext.Provider value={gameStateValue}>
         <Stack gap={5}>
