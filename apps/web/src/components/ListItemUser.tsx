@@ -134,7 +134,7 @@ const ListItemUser = ({
               />
             ))}
 
-            <Box>
+            <Box css={styles.usernameWrap}>
               <PluginArea
                 area="userListItem"
                 itemContext={{
@@ -146,11 +146,9 @@ const ListItemUser = ({
                 direction="row"
                 spacing={1}
               />
-              <Box>
-                <Text css={styles.username} lineClamp={2}>
-                  {user.username || "anonymous"}
-                </Text>
-              </Box>
+              <Text css={styles.username} title={user.username || "anonymous"} truncate>
+                {user.username || "anonymous"}
+              </Text>
             </Box>
           </HStack>
 

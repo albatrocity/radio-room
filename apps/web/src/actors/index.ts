@@ -45,6 +45,9 @@ export { gameStateNavActor } from "./gameStateNavActor"
 // Theme Actor
 export { themeActor, getCurrentTheme, setTheme } from "./themeActor"
 
+// Room Layout Actor
+export { roomLayoutActor, resetRoomLayout, sendRoomLayoutEvent } from "./roomLayoutActor"
+
 // Errors Actor
 export { errorsActor, reportError, clearError, getErrors } from "./errorsActor"
 

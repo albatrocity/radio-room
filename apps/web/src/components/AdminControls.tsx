@@ -12,6 +12,7 @@ import {
 import { LuSettings, LuBookmark } from "react-icons/lu"
 
 import { useBookmarks, useModalsSend } from "../hooks/useActors"
+import { useIntegratedPanelToggle } from "../hooks/useIntegratedPanelPresentation"
 import QuickAccessMenu from "./QuickAccessMenu"
 
 type ButtonVariant = RecipeProps<"button">["variant"]
@@ -24,6 +25,9 @@ type Props = {
 function AdminPanel({ buttonColorScheme, buttonVariant = "bright", width, ...rest }: Props) {
   const modalSend = useModalsSend()
   const bookmarks = useBookmarks()
+  const { isActive: isSettingsActive, toggle: toggleSettings } =
+    useIntegratedPanelToggle("adminSettings")
+  const settingsVariant = isSettingsActive ? "solid" : buttonVariant
 
   return (
     <Box w={width}>
@@ -38,9 +42,11 @@ function AdminPanel({ buttonColorScheme, buttonVariant = "bright", width, ...res
           <Box hideBelow="sm">
             <Button
               size="xs"
-              variant={buttonVariant}
+              variant={settingsVariant}
               colorPalette={buttonColorScheme}
-              onClick={() => modalSend({ type: "EDIT_SETTINGS" })}
+              aria-pressed={isSettingsActive}
+              aria-label={isSettingsActive ? "Close settings" : "Settings"}
+              onClick={toggleSettings}
             >
               <Icon as={LuSettings} />
               Settings
@@ -49,10 +55,11 @@ function AdminPanel({ buttonColorScheme, buttonVariant = "bright", width, ...res
           <Box hideFrom="sm">
             <IconButton
               size="md"
-              variant={buttonVariant}
+              variant={settingsVariant}
               colorPalette={buttonColorScheme}
-              onClick={() => modalSend({ type: "EDIT_SETTINGS" })}
-              aria-label="Settings"
+              aria-pressed={isSettingsActive}
+              aria-label={isSettingsActive ? "Close settings" : "Settings"}
+              onClick={toggleSettings}
             >
               <Icon as={LuSettings} />
             </IconButton>
