@@ -1,5 +1,6 @@
 import type { AppContext, GiftActionResult, GiftOffer, InventoryItem } from "@repo/types"
 import generateId from "../lib/generateId"
+import { hydrateIndexedJson } from "../lib/hydrateIndexedJson"
 import { InventoryService } from "./InventoryService"
 
 import { PLAYER_TRANSFER_TTL_MS } from "@repo/types"
@@ -13,12 +14,17 @@ function outIndexKey(roomId: string, userId: string): string {
 function inIndexKey(roomId: string, userId: string): string {
   return `room:${roomId}:gifts:in:${userId}`
 }
+function allOffersKey(roomId: string): string {
+  return `room:${roomId}:gifts:all`
+}
 
 /**
  * Escrowed player-to-player gifts (ADR 0114).
  * Mutations emit domain events via callers in `operations/inventory`.
  */
 export class GiftService {
+  private readonly offerExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
   constructor(private readonly context: AppContext) {}
 
   private get inventory(): InventoryService | null {
@@ -141,16 +147,17 @@ export class GiftService {
     if (!(await this.assertTradingAllowed(roomId))) {
       return { success: false, message: "Trading is not enabled for this session" }
     }
-    if (Date.now() - offer.createdAt > PLAYER_TRANSFER_TTL_MS) {
-      await this.refundAndDelete(offer, "ttl")
-      return { success: false, message: "Gift offer expired" }
-    }
 
     try {
       return await inv.withInventoryLocks(roomId, [offer.fromUserId, offer.toUserId], async () => {
         // Re-read under lock
         const current = await this.getOffer(roomId, offerId)
         if (!current) return { success: false, message: "Gift offer not found" }
+
+        if (Date.now() - current.createdAt > PLAYER_TRANSFER_TTL_MS) {
+          await this.refundAndDelete(current, "ttl")
+          return { success: false, message: "Gift offer expired", offer: current, expired: true }
+        }
 
         const canFit = await inv.canAccommodateItem(
           roomId,
@@ -183,17 +190,6 @@ export class GiftService {
         }
 
         await this.deleteOffer(current)
-
-        if (this.context.systemEvents) {
-          await this.context.systemEvents.emit(roomId, "INVENTORY_ITEM_TRANSFERRED", {
-            roomId,
-            sessionId: (await this.activeSessionId(roomId)) ?? "",
-            fromUserId: current.fromUserId,
-            toUserId: current.toUserId,
-            item: given,
-            quantity: current.quantity,
-          })
-        }
 
         return { success: true, message: "Gift accepted", offer: current, item: given }
       })
@@ -254,21 +250,16 @@ export class GiftService {
 
   /** Refund every pending gift in the room (session end). */
   async cancelAllForRoom(roomId: string): Promise<GiftOffer[]> {
-    const pattern = `room:${roomId}:gift:*`
-    const keys = await this.context.redis.pubClient.keys(pattern)
+    const ids = await this.context.redis.pubClient.sMembers(allOffersKey(roomId))
     const cancelled: GiftOffer[] = []
-    for (const key of keys) {
-      // Skip index keys (gifts:out / gifts:in)
-      if (key.includes(":gifts:")) continue
-      const raw = await this.context.redis.pubClient.get(key)
-      if (!raw) continue
-      try {
-        const offer = JSON.parse(raw) as GiftOffer
-        await this.refundAndDelete(offer, "session_end")
-        cancelled.push(offer)
-      } catch {
-        await this.context.redis.pubClient.del(key)
+    for (const offerId of ids) {
+      const offer = await this.getOffer(roomId, offerId)
+      if (!offer) {
+        await this.context.redis.pubClient.sRem(allOffersKey(roomId), offerId)
+        continue
       }
+      await this.refundAndDelete(offer, "session_end")
+      cancelled.push(offer)
     }
     return cancelled
   }
@@ -278,49 +269,98 @@ export class GiftService {
   // ==========================================================================
 
   private async listByIndex(roomId: string, indexKey: string): Promise<GiftOffer[]> {
-    const ids = await this.context.redis.pubClient.sMembers(indexKey)
-    const out: GiftOffer[] = []
-    for (const offerId of ids) {
-      const offer = await this.getOffer(roomId, offerId)
-      if (offer) out.push(offer)
-      else await this.context.redis.pubClient.sRem(indexKey, offerId)
-    }
-    return out.sort((a, b) => a.createdAt - b.createdAt)
+    const offers = await hydrateIndexedJson<GiftOffer>({
+      redis: this.context.redis,
+      indexKey,
+      allSetKey: allOffersKey(roomId),
+      recordKey: (id) => offerKey(roomId, id),
+      onRecord: async (offer) => {
+        if (Date.now() - offer.createdAt > PLAYER_TRANSFER_TTL_MS) {
+          const expired = await this.expireIfStale(offer)
+          if (expired) await this.notifyOfferExpired(offer)
+          return "drop"
+        }
+        return "keep"
+      },
+    })
+    return offers.sort((a, b) => a.createdAt - b.createdAt)
   }
 
   private async persistOffer(offer: GiftOffer): Promise<void> {
     await this.context.redis.pubClient.set(offerKey(offer.roomId, offer.offerId), JSON.stringify(offer))
     await this.context.redis.pubClient.sAdd(outIndexKey(offer.roomId, offer.fromUserId), offer.offerId)
     await this.context.redis.pubClient.sAdd(inIndexKey(offer.roomId, offer.toUserId), offer.offerId)
+    await this.context.redis.pubClient.sAdd(allOffersKey(offer.roomId), offer.offerId)
+    this.scheduleOfferExpiry(offer)
   }
 
   private async deleteOffer(offer: GiftOffer): Promise<void> {
+    this.clearOfferExpiryTimer(offer.offerId)
     await this.context.redis.pubClient.del(offerKey(offer.roomId, offer.offerId))
     await this.context.redis.pubClient.sRem(outIndexKey(offer.roomId, offer.fromUserId), offer.offerId)
     await this.context.redis.pubClient.sRem(inIndexKey(offer.roomId, offer.toUserId), offer.offerId)
+    await this.context.redis.pubClient.sRem(allOffersKey(offer.roomId), offer.offerId)
   }
 
-  private async refundAndDelete(
-    offer: GiftOffer,
-    _reason: string,
-  ): Promise<void> {
+  private async notifyOfferExpired(offer: GiftOffer): Promise<void> {
+    const { emitGiftCancelled } = await import("../operations/inventory/giftOps")
+    await emitGiftCancelled({ context: this.context, offer, reason: "ttl" })
+  }
+
+  private scheduleOfferExpiry(offer: GiftOffer): void {
+    this.clearOfferExpiryTimer(offer.offerId)
+    const remaining = offer.createdAt + PLAYER_TRANSFER_TTL_MS - Date.now()
+    const delay = Math.max(0, remaining)
+    const timer = setTimeout(() => {
+      void this.expireIfStale(offer).then((expired) => {
+        if (expired) return this.notifyOfferExpired(offer)
+      })
+    }, delay)
+    this.offerExpiryTimers.set(offer.offerId, timer)
+  }
+
+  private clearOfferExpiryTimer(offerId: string): void {
+    const timer = this.offerExpiryTimers.get(offerId)
+    if (timer) {
+      clearTimeout(timer)
+      this.offerExpiryTimers.delete(offerId)
+    }
+  }
+
+  /** Refund escrow if the Redis row is still present. Returns true when a row was removed. */
+  private async refundAndDelete(offer: GiftOffer, _reason: string): Promise<boolean> {
+    const current = await this.getOffer(offer.roomId, offer.offerId)
+    if (!current) return false
     const inv = this.inventory
     if (inv) {
       const refunded = await inv.giveItem(
-        offer.roomId,
-        offer.fromUserId,
-        offer.definitionId,
-        offer.quantity,
-        offer.metadata,
+        current.roomId,
+        current.fromUserId,
+        current.definitionId,
+        current.quantity,
+        current.metadata,
         "gift",
       )
       if (!refunded) {
         console.error(
-          `[GiftService] refund failed for offer ${offer.offerId} to ${offer.fromUserId}`,
+          `[GiftService] refund failed for offer ${current.offerId} to ${current.fromUserId}`,
         )
       }
     }
-    await this.deleteOffer(offer)
+    await this.deleteOffer(current)
+    return true
+  }
+
+  private async expireIfStale(offer: GiftOffer): Promise<boolean> {
+    const inv = this.inventory
+    const run = async () => {
+      const current = await this.getOffer(offer.roomId, offer.offerId)
+      if (!current) return false
+      if (Date.now() - current.createdAt <= PLAYER_TRANSFER_TTL_MS) return false
+      return this.refundAndDelete(current, "ttl")
+    }
+    if (!inv) return run()
+    return inv.withInventoryLocks(offer.roomId, [offer.fromUserId, offer.toUserId], run)
   }
 
   private async assertTradingAllowed(roomId: string): Promise<boolean> {
@@ -328,11 +368,5 @@ export class GiftService {
     const session = await this.context.gameSessions.getActiveSession(roomId)
     if (!session) return false
     return session.config.allowTrading === true
-  }
-
-  private async activeSessionId(roomId: string): Promise<string | null> {
-    if (!this.context.gameSessions) return null
-    const session = await this.context.gameSessions.getActiveSession(roomId)
-    return session?.id ?? null
   }
 }

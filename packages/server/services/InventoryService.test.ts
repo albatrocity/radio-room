@@ -216,6 +216,25 @@ describe("InventoryService.canAccommodateItem + transferItem", () => {
     expect(total).toBe(1)
   })
 
+  test("canAccommodateItem does not HGETALL the full definition catalog", async () => {
+    const { service, redis } = makeMemoryService()
+    await service.registerItemDefinitions(roomId, "item-shops", [potionDef])
+    const unused = Array.from({ length: 40 }, (_, i) => ({
+      ...uniqueDef,
+      shortId: `album-${i}`,
+      name: `Album ${i}`,
+    }))
+    await service.registerItemDefinitions(roomId, "physical-media", unused)
+    await service.giveItem(roomId, "a", "item-shops:potion", 1)
+
+    const hGetAll = vi.spyOn(redis, "hGetAll")
+    await service.canAccommodateItem(roomId, "a", "item-shops:potion", 1)
+    const catalogReads = hGetAll.mock.calls.filter(([key]) =>
+      String(key).endsWith("inventory:definitions"),
+    )
+    expect(catalogReads).toHaveLength(0)
+  })
+
   test("transferItem rejects when allowTrading is false", async () => {
     const { service } = makeMemoryService({ allowTrading: false })
     await service.registerItemDefinitions(roomId, "item-shops", [potionDef])

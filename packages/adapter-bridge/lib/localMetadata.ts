@@ -191,6 +191,68 @@ export function registerLocalMetadataForRoom(params: {
   }
 }
 
+export type LocalTrackPlaylistMembership = { playlistIds: string[]; albumIds: string[] }
+
+const EMPTY_MEMBERSHIP: LocalTrackPlaylistMembership = { playlistIds: [], albumIds: [] }
+
+function parseMembershipResult(result: unknown): LocalTrackPlaylistMembership {
+  if (Array.isArray(result)) {
+    return { playlistIds: result.map(String), albumIds: [] }
+  }
+  if (!result || typeof result !== "object") return EMPTY_MEMBERSHIP
+  const rec = result as { playlistIds?: unknown; albumIds?: unknown }
+  return {
+    playlistIds: Array.isArray(rec.playlistIds) ? rec.playlistIds.map(String) : [],
+    albumIds: Array.isArray(rec.albumIds) ? rec.albumIds.map(String) : [],
+  }
+}
+
+function parseBatchMembershipResult(
+  result: unknown,
+): Record<string, LocalTrackPlaylistMembership> | null {
+  if (!result || typeof result !== "object") return null
+  const bag = (result as { byTrackId?: unknown }).byTrackId
+  if (!bag || typeof bag !== "object") return null
+  const out: Record<string, LocalTrackPlaylistMembership> = {}
+  for (const [key, value] of Object.entries(bag as Record<string, unknown>)) {
+    const id = key.trim()
+    if (id) out[id] = parseMembershipResult(value)
+  }
+  return out
+}
+
+function membershipRpcParams(params: {
+  playlistIds?: string[]
+  albumIds?: string[]
+  includeTrackAlbumId?: boolean
+  firstMatch?: boolean
+}): {
+  playlistIds: string[]
+  albumIds: string[]
+  includeTrackAlbumId: boolean
+  payload: Record<string, unknown>
+} {
+  const playlistIds = Array.from(
+    new Set((params.playlistIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  )
+  const albumIds = Array.from(
+    new Set((params.albumIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  )
+  const includeTrackAlbumId = params.includeTrackAlbumId === true
+  return {
+    playlistIds,
+    albumIds,
+    includeTrackAlbumId,
+    payload: {
+      source: "local",
+      ...(playlistIds.length ? { playlistIds } : {}),
+      ...(albumIds.length ? { albumIds } : {}),
+      ...(includeTrackAlbumId ? { includeTrackAlbumId: true } : {}),
+      ...(params.firstMatch === true ? { firstMatch: true } : {}),
+    },
+  }
+}
+
 /** Ask the daemon which of the given Navidrome playlist/album ids contain a local track. */
 export async function checkLocalTrackPlaylistMembership(params: {
   rpc: BridgeRpcClient
@@ -200,41 +262,83 @@ export async function checkLocalTrackPlaylistMembership(params: {
   /** When true, response.albumIds includes the track's Navidrome album id (for local SKU lookup). */
   includeTrackAlbumId?: boolean
   firstMatch?: boolean
-}): Promise<{ playlistIds: string[]; albumIds: string[] }> {
-  const playlistIds = Array.from(
-    new Set((params.playlistIds ?? []).map((id) => id.trim()).filter(Boolean)),
-  )
-  const albumIds = Array.from(
-    new Set((params.albumIds ?? []).map((id) => id.trim()).filter(Boolean)),
-  )
-  const empty = { playlistIds: [] as string[], albumIds: [] as string[] }
-  const includeTrackAlbumId = params.includeTrackAlbumId === true
+}): Promise<LocalTrackPlaylistMembership> {
+  const { playlistIds, albumIds, includeTrackAlbumId, payload } = membershipRpcParams(params)
   if (!params.trackId || (playlistIds.length === 0 && albumIds.length === 0 && !includeTrackAlbumId)) {
-    return empty
+    return EMPTY_MEMBERSHIP
   }
-  if (!(await params.rpc.isPresent())) return empty
+  if (!(await params.rpc.isPresent())) return EMPTY_MEMBERSHIP
   try {
     const result = (await params.rpc.call("checkPlaylistMembership", {
-      source: "local",
+      ...payload,
       trackId: params.trackId,
-      ...(playlistIds.length ? { playlistIds } : {}),
-      ...(albumIds.length ? { albumIds } : {}),
-      ...(includeTrackAlbumId ? { includeTrackAlbumId: true } : {}),
-      ...(params.firstMatch === true ? { firstMatch: true } : {}),
     })) as unknown
-    // Old daemons returned string[] of playlist ids only.
-    if (Array.isArray(result)) {
-      return { playlistIds: result.map(String), albumIds: [] }
-    }
-    if (!result || typeof result !== "object") return empty
-    const rec = result as { playlistIds?: unknown; albumIds?: unknown }
-    return {
-      playlistIds: Array.isArray(rec.playlistIds) ? rec.playlistIds.map(String) : [],
-      albumIds: Array.isArray(rec.albumIds) ? rec.albumIds.map(String) : [],
-    }
+    return parseMembershipResult(result)
   } catch {
-    return empty
+    return EMPTY_MEMBERSHIP
   }
+}
+
+/**
+ * Membership for many local tracks in one RPC when the daemon understands `trackIds`.
+ * Stale DJ Mac packs ignore `trackIds` and return a single-track bag — remaining
+ * ids are fetched individually (no timeout probe).
+ */
+export async function checkLocalTrackPlaylistMembershipBatch(params: {
+  rpc: BridgeRpcClient
+  trackIds: readonly string[]
+  playlistIds?: string[]
+  albumIds?: string[]
+  includeTrackAlbumId?: boolean
+  firstMatch?: boolean
+}): Promise<Map<string, LocalTrackPlaylistMembership>> {
+  const trackIds = Array.from(new Set(params.trackIds.map((id) => id.trim()).filter(Boolean)))
+  const out = new Map<string, LocalTrackPlaylistMembership>()
+  if (trackIds.length === 0) return out
+
+  const { playlistIds, albumIds, includeTrackAlbumId, payload } = membershipRpcParams(params)
+  if (playlistIds.length === 0 && albumIds.length === 0 && !includeTrackAlbumId) {
+    for (const id of trackIds) out.set(id, EMPTY_MEMBERSHIP)
+    return out
+  }
+
+  if (trackIds.length === 1) {
+    const id = trackIds[0]!
+    out.set(id, await checkLocalTrackPlaylistMembership({ ...params, trackId: id }))
+    return out
+  }
+
+  if (!(await params.rpc.isPresent())) {
+    for (const id of trackIds) out.set(id, EMPTY_MEMBERSHIP)
+    return out
+  }
+
+  try {
+    const result = (await params.rpc.call("checkPlaylistMembership", {
+      ...payload,
+      trackId: trackIds[0],
+      trackIds,
+    })) as unknown
+    const batched = parseBatchMembershipResult(result)
+    if (batched) {
+      for (const id of trackIds) {
+        out.set(id, batched[id] ?? EMPTY_MEMBERSHIP)
+      }
+      return out
+    }
+    // Old daemon: first track only. Fill the rest per-track.
+    out.set(trackIds[0]!, parseMembershipResult(result))
+  } catch {
+    // fall through to per-track
+  }
+
+  const remaining = trackIds.filter((id) => !out.has(id))
+  await Promise.all(
+    remaining.map(async (id) => {
+      out.set(id, await checkLocalTrackPlaylistMembership({ ...params, trackId: id }))
+    }),
+  )
+  return out
 }
 
 export type LocalPlaylistListItem = {

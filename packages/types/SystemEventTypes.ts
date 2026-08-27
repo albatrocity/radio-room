@@ -437,7 +437,10 @@ export type SystemEventHandlers = {
     trade: TradeSession
   }) => Promise<void> | void
 
-  /** Ephemeral typing indicator for an open trade (not stored on the session). */
+  /**
+   * Wire payload for counterpart-only typing (ADR 0120). Not emitted via
+   * SystemEvents; plugins do not receive this through `this.on`.
+   */
   TRADE_TYPING: (data: {
     roomId: string
     tradeId: string

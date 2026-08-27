@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto"
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import type {
   CompleteMusicUploadRequest,
@@ -7,8 +7,13 @@ import type {
   PresignMusicUploadRequest,
   PresignMusicUploadResponse,
 } from "@repo/types"
+import {
+  MUSIC_UPLOAD_ALLOWED_EXTENSIONS,
+  MUSIC_UPLOAD_MAX_BYTES,
+} from "@repo/types"
+import { getAssetS3Client, sanitizeFilename } from "../lib/s3Presign"
 
-export const MUSIC_UPLOAD_MAX_BYTES = 800 * 1024 * 1024
+export { MUSIC_UPLOAD_MAX_BYTES, sanitizeFilename }
 export const MUSIC_UPLOAD_PRESIGN_EXPIRES_SECONDS = 60 * 60
 export const MUSIC_UPLOAD_SESSION_TTL_SECONDS = 2 * 60 * 60
 
@@ -29,19 +34,7 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "application/octet-stream",
 ])
 
-const ALLOWED_EXTENSIONS = new Set([
-  ".mp3",
-  ".wav",
-  ".flac",
-  ".aiff",
-  ".aif",
-  ".m4a",
-  ".aac",
-  ".ogg",
-  ".zip",
-  ".rar",
-  ".7z",
-])
+const ALLOWED_EXTENSIONS = new Set<string>(MUSIC_UPLOAD_ALLOWED_EXTENSIONS)
 
 export class MusicUploadBadRequestError extends Error {
   constructor(message: string) {
@@ -72,41 +65,12 @@ export interface MusicUploadSession {
   status: "pending" | "completed" | "failed"
 }
 
-function getAwsRegion(): string {
-  return process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1"
-}
-
 function getAssetBucket(): string {
   const bucket = process.env.ASSET_S3_BUCKET?.trim()
   if (!bucket) {
     throw new MusicUploadBadRequestError("ASSET_S3_BUCKET is not configured")
   }
   return bucket
-}
-
-let s3Client: S3Client | null = null
-function getS3Client(): S3Client {
-  if (!s3Client) {
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim()
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim()
-    s3Client = new S3Client({
-      region: getAwsRegion(),
-      // Default CRC32 checksums get hoisted onto presigned URLs as query params
-      // (x-amz-checksum-crc32=AAAAAA==) and break browser PUTs. Only sign a
-      // checksum when the caller explicitly asks for one.
-      requestChecksumCalculation: "WHEN_REQUIRED",
-      ...(accessKeyId && secretAccessKey
-        ? { credentials: { accessKeyId, secretAccessKey } }
-        : {}),
-    })
-  }
-  return s3Client
-}
-
-export function sanitizeFilename(filename: string): string {
-  const base = filename.split(/[/\\]/).pop()?.trim() || "upload"
-  const sanitized = base.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-")
-  return sanitized.slice(0, 120) || "upload"
 }
 
 export function sanitizeUsernameSegment(username: string | undefined, userId: string): string {
@@ -191,7 +155,7 @@ export async function createMusicUploadPresign(
     ContentLength: contentLength,
   })
 
-  const uploadUrl = await getSignedUrl(getS3Client(), command, {
+  const uploadUrl = await getSignedUrl(getAssetS3Client(), command, {
     expiresIn: MUSIC_UPLOAD_PRESIGN_EXPIRES_SECONDS,
   })
 

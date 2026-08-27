@@ -1,4 +1,4 @@
-# 0098. Private Music Uploads via Presigned S3 PUT
+# 0119. Private Music Uploads via Presigned S3 PUT
 
 **Date:** 2026-08-26
 **Status:** Accepted
@@ -7,7 +7,7 @@
 
 Room admins need to designate users as music uploaders who can send audio files and archives (up to 800MB) to object storage for later retrieval via SFTP/AWS tooling. Objects must not be publicly readable via the newsletter CDN, should expire after 30 days, and upload privilege is managed via the plugin persona system ([ADR 0057](0057-user-personas-system.md)).
 
-Existing newsletter presign flow ([AssetUploadService](../packages/server/services/AssetUploadService.ts)) returns CloudFront URLs for public images. Music uploads require a private `uploads/` prefix excluded from CloudFront GetObject.
+Existing newsletter presign flow ([AssetUploadService](../../packages/server/services/AssetUploadService.ts)) returns CloudFront URLs for public images. Music uploads require a private `uploads/` prefix excluded from CloudFront GetObject.
 
 ## Decision
 
@@ -28,7 +28,7 @@ Existing newsletter presign flow ([AssetUploadService](../packages/server/servic
 - Uploaders PUT directly to S3; API never proxies file bytes.
 - Allowed MIME types: common audio + zip/rar/7z (enforced at presign).
 - Retrieval is out-of-band; no download URLs in the app.
-- CORS origins must include the web app ([infra/cdn](../infra/cdn/)).
+- CORS origins must include the web app ([infra/cdn](../../infra/cdn/)).
 
 ## See also
 

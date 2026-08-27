@@ -24,6 +24,8 @@ export type GiftActionResult = {
   success: boolean
   message?: string
   offer?: GiftOffer
+  /** True when accept/list observed an expired offer that was refunded. */
+  expired?: boolean
 }
 
 /** Public wire shape for pending gifts on USER_GAME_STATE / gift inbox. */

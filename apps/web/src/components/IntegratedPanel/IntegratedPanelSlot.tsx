@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react"
+import { Suspense, lazy, memo } from "react"
 
 import { useActiveIntegratedPanelSlot } from "../../hooks/useIntegratedPanelPresentation"
 import { UserGameStateSurface } from "../Modals/UserGameStateSurface"
@@ -23,4 +23,4 @@ function IntegratedPanelSlot() {
   )
 }
 
-export default IntegratedPanelSlot
+export default memo(IntegratedPanelSlot)

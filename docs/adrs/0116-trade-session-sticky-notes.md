@@ -1,7 +1,7 @@
 # 0116. Trade session sticky notes
 
 **Date:** 2026-08-26
-**Status:** Accepted
+**Status:** Partially superseded by [0120](0120-targeted-trade-typing.md) (typing delivery)
 
 ## Context
 
@@ -29,5 +29,6 @@ Open trades already expose a two-column negotiation UI ([ADR 0115](0115-trade-in
 
 - [0114. Player item gifting and trading](0114-player-item-gifting-and-trading.md)
 - [0115. Trade invite inbox](0115-trade-invite-inbox.md)
+- [0120. Targeted TRADE_TYPING](0120-targeted-trade-typing.md) (supersedes decision point 4: typing is counterpart-targeted, not room-broadcast)
 - [`packages/server/services/TradeService.ts`](../../packages/server/services/TradeService.ts)
 - [`apps/web/src/components/Modals/GameState/TradeDetailPanel.tsx`](../../apps/web/src/components/Modals/GameState/TradeDetailPanel.tsx)

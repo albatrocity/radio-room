@@ -120,6 +120,38 @@ function emitQueueChanged(io: IOServer, roomId: string, snap: BridgeSnapshot): v
   })
 }
 
+/** Counterpart-only TRADE_TYPING (ADR 0120). No-op if the other party has no socket. */
+async function emitTradeTypingToCounterpart(
+  io: IOServer,
+  roomId: string,
+  fromUserId: string,
+  payload: { tradeId: string; typing: boolean },
+): Promise<void> {
+  const snap = getBridgeSnapshot()
+  const trade = snap?.roomId === roomId ? snap.trades?.[payload.tradeId] : undefined
+  if (!trade) return
+  const counterpartUserId =
+    trade.fromUserId === fromUserId
+      ? trade.toUserId
+      : trade.toUserId === fromUserId
+        ? trade.fromUserId
+        : undefined
+  if (!counterpartUserId) return
+  const sockets = await io.in(roomSocketPath(roomId)).fetchSockets()
+  for (const s of sockets) {
+    if (s.data.userId === counterpartUserId) {
+      s.emit("event", {
+        type: "TRADE_TYPING",
+        data: {
+          tradeId: payload.tradeId,
+          userId: fromUserId,
+          typing: payload.typing,
+        },
+      })
+    }
+  }
+}
+
 /** Updates socket identity and pushes INIT + USER_GAME_STATE (same contract as socket VIEW_AS_USER). */
 function applyViewAsToSocket(socket: Socket, snap: BridgeSnapshot, newUser: User): void {
   socket.data.userId = newUser.userId
@@ -1042,13 +1074,9 @@ function wireSocketHandlers(io: IOServer): void {
         typing: data.typing,
       })
       if (ack?.success) {
-        io.to(roomSocketPath(roomId)).emit("event", {
-          type: "TRADE_TYPING",
-          data: {
-            tradeId: data.tradeId,
-            userId,
-            typing: data.typing,
-          },
+        await emitTradeTypingToCounterpart(io, roomId, userId, {
+          tradeId: data.tradeId,
+          typing: data.typing,
         })
       }
     })

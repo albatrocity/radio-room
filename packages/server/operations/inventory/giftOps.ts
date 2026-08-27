@@ -9,6 +9,39 @@ async function displayName(context: AppContext, userId: string): Promise<string>
   return user?.username?.trim() || "Someone"
 }
 
+async function emitInventoryTransferred(params: {
+  context: AppContext
+  roomId: string
+  fromUserId: string
+  toUserId: string
+  item: InventoryItem
+  quantity: number
+}): Promise<void> {
+  if (!params.context.systemEvents) return
+  const sessionId = (await params.context.gameSessions?.getActiveSession(params.roomId))?.id ?? ""
+  await params.context.systemEvents.emit(params.roomId, "INVENTORY_ITEM_TRANSFERRED", {
+    roomId: params.roomId,
+    sessionId,
+    fromUserId: params.fromUserId,
+    toUserId: params.toUserId,
+    item: params.item,
+    quantity: params.quantity,
+  })
+}
+
+export async function emitGiftCancelled(params: {
+  context: AppContext
+  offer: GiftOffer
+  reason: "sender" | "session_end" | "user_left" | "ttl"
+}): Promise<void> {
+  if (!params.context.systemEvents) return
+  await params.context.systemEvents.emit(params.offer.roomId, "GIFT_CANCELLED", {
+    roomId: params.offer.roomId,
+    offer: params.offer,
+    reason: params.reason,
+  })
+}
+
 export async function offerGift(params: {
   roomId: string
   fromUserId: string
@@ -52,11 +85,28 @@ export async function acceptGift(params: {
     offerId: params.offerId,
   })) as GiftOpResult
 
+  if (result.expired && result.offer) {
+    await emitGiftCancelled({
+      context: params.context,
+      offer: result.offer,
+      reason: "ttl",
+    })
+    return result
+  }
+
   if (result.success && result.offer && result.item && params.context.systemEvents) {
     await params.context.systemEvents.emit(params.roomId, "GIFT_COMPLETED", {
       roomId: params.roomId,
       offer: result.offer,
       item: result.item,
+    })
+    await emitInventoryTransferred({
+      context: params.context,
+      roomId: params.roomId,
+      fromUserId: result.offer.fromUserId,
+      toUserId: result.offer.toUserId,
+      item: result.item,
+      quantity: result.offer.quantity,
     })
 
     const fromName = await displayName(params.context, result.offer.fromUserId)
@@ -112,8 +162,8 @@ export async function cancelGift(params: {
   })) as GiftOpResult
 
   if (result.success && result.offer && params.context.systemEvents) {
-    await params.context.systemEvents.emit(params.roomId, "GIFT_CANCELLED", {
-      roomId: params.roomId,
+    await emitGiftCancelled({
+      context: params.context,
       offer: result.offer,
       reason: "sender",
     })
@@ -136,8 +186,8 @@ export async function cancelGiftsForUserLeave(params: {
 
   if (!params.context.systemEvents) return
   for (const offer of [...cancelled, ...declined]) {
-    await params.context.systemEvents.emit(params.roomId, "GIFT_CANCELLED", {
-      roomId: params.roomId,
+    await emitGiftCancelled({
+      context: params.context,
       offer,
       reason: "user_left",
     })
@@ -152,10 +202,9 @@ export async function cancelGiftsForSessionEnd(params: {
   if (!gifts) return
 
   const cancelled = (await gifts.cancelAllForRoom(params.roomId)) as GiftOffer[]
-  if (!params.context.systemEvents) return
   for (const offer of cancelled) {
-    await params.context.systemEvents.emit(params.roomId, "GIFT_CANCELLED", {
-      roomId: params.roomId,
+    await emitGiftCancelled({
+      context: params.context,
       offer,
       reason: "session_end",
     })

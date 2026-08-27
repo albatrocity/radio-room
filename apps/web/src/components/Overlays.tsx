@@ -15,6 +15,7 @@ import { ModifierBlurLayer } from "./ModifierBlurLayer"
 import DrawerSchedule from "./Drawers/DrawerSchedule"
 import PollHistoryModal from "./Poll/PollHistoryModal"
 import { useIsAdmin } from "../hooks/useActors"
+import { useIntegratedPanelPresentation } from "../hooks/useIntegratedPanelPresentation"
 
 const ModalAdminSettings = lazy(() => import("./Modals/Admin/ModalAdminSettings"))
 const QuickAccessPanels = lazy(() => import("./QuickAccessPanels"))
@@ -29,6 +30,7 @@ const QuickAccessPanels = lazy(() => import("./QuickAccessPanels"))
  */
 function Overlays() {
   const isAdmin = useIsAdmin()
+  const showModalSurfaces = useIntegratedPanelPresentation() === "modal"
 
   return (
     <div>
@@ -43,12 +45,12 @@ function Overlays() {
       <ModalAddToQueue />
       <ModalEditUsername />
       <ModalPassword />
-      <ModalUserGameState />
+      {showModalSurfaces && <ModalUserGameState />}
       <PollHistoryModal />
 
       {isAdmin && (
         <Suspense fallback={null}>
-          <ModalAdminSettings />
+          {showModalSurfaces && <ModalAdminSettings />}
           <QuickAccessPanels />
         </Suspense>
       )}

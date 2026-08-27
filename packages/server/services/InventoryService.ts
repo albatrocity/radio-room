@@ -607,7 +607,10 @@ export class InventoryService {
   ): Promise<number> {
     if (items.length === 0) return 0
 
-    const defs = await this.getAllItemDefinitions(roomId)
+    const defs = await this.getItemDefinitions(
+      roomId,
+      items.map((item) => item.definitionId),
+    )
     const byId = new Map(defs.map((d) => [d.id, d]))
     let n = 0
     for (const item of items) {

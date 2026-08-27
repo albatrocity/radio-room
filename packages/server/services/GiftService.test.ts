@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { AppContext, GameSession, ItemDefinition } from "@repo/types"
+import { PLAYER_TRANSFER_TTL_MS } from "@repo/types"
 import { GiftService } from "./GiftService"
 import { InventoryService } from "./InventoryService"
 import { MemoryRedisClient } from "../test-utils/MemoryRedisClient"
@@ -27,7 +28,6 @@ const potionDef: Omit<ItemDefinition, "id" | "sourcePlugin"> = {
   maxStack: 5,
   tradeable: true,
   consumable: true,
-  coinValue: 10,
 }
 
 const uniqueDef: Omit<ItemDefinition, "id" | "sourcePlugin"> = {
@@ -55,13 +55,18 @@ function makeCtx(allowTrading = true) {
   const inventory = new InventoryService(context)
   context.inventory = inventory
   const gifts = new GiftService(context)
+  context.gifts = gifts
   return { gifts, inventory, emit, redis, context }
+}
+
+function transferredCalls(emit: ReturnType<typeof vi.fn>) {
+  return emit.mock.calls.filter((c) => c[1] === "INVENTORY_ITEM_TRANSFERRED")
 }
 
 describe("GiftService", () => {
   beforeEach(() => vi.clearAllMocks())
 
-  test("offer → accept moves item and emits transfer", async () => {
+  test("offer → accept moves item without emitting transfer from the service", async () => {
     const { gifts, inventory, emit } = makeCtx()
     await inventory.registerItemDefinitions(roomId, "item-shops", [potionDef])
     const item = await inventory.giveItem(roomId, "a", "item-shops:potion", 2)
@@ -83,11 +88,7 @@ describe("GiftService", () => {
     })
     expect(accepted.success).toBe(true)
     expect((await inventory.getInventory(roomId, "b")).items).toHaveLength(1)
-    expect(emit).toHaveBeenCalledWith(
-      roomId,
-      "INVENTORY_ITEM_TRANSFERRED",
-      expect.objectContaining({ fromUserId: "a", toUserId: "b" }),
-    )
+    expect(transferredCalls(emit)).toHaveLength(0)
   })
 
   test("decline refunds sender", async () => {
@@ -161,5 +162,63 @@ describe("GiftService", () => {
     })
     await gifts.cancelAllForRoom(roomId)
     expect((await inventory.getInventory(roomId, "a")).items).toHaveLength(1)
+  })
+
+  test("listing drops expired offers, refunds, and emits GIFT_CANCELLED ttl", async () => {
+    const { gifts, inventory, emit, context } = makeCtx()
+    await inventory.registerItemDefinitions(roomId, "item-shops", [potionDef])
+    const item = await inventory.giveItem(roomId, "a", "item-shops:potion", 1)
+    const offered = await gifts.offerGift({
+      roomId,
+      fromUserId: "a",
+      toUserId: "b",
+      itemId: item!.itemId,
+    })
+    const offer = offered.offer!
+    offer.createdAt = Date.now() - PLAYER_TRANSFER_TTL_MS - 1
+    await context.redis.pubClient.set(
+      `room:${roomId}:gift:${offer.offerId}`,
+      JSON.stringify(offer),
+    )
+
+    const listed = await gifts.listIncoming(roomId, "b")
+    expect(listed).toHaveLength(0)
+    expect((await inventory.getInventory(roomId, "a")).items).toHaveLength(1)
+    expect(emit).toHaveBeenCalledWith(
+      roomId,
+      "GIFT_CANCELLED",
+      expect.objectContaining({
+        reason: "ttl",
+        offer: expect.objectContaining({ offerId: offer.offerId }),
+      }),
+    )
+  })
+
+  test("accept of an expired offer refunds and returns expired", async () => {
+    const { gifts, inventory, emit, context } = makeCtx()
+    await inventory.registerItemDefinitions(roomId, "item-shops", [potionDef])
+    const item = await inventory.giveItem(roomId, "a", "item-shops:potion", 1)
+    const offered = await gifts.offerGift({
+      roomId,
+      fromUserId: "a",
+      toUserId: "b",
+      itemId: item!.itemId,
+    })
+    const offer = offered.offer!
+    offer.createdAt = Date.now() - PLAYER_TRANSFER_TTL_MS - 1
+    await context.redis.pubClient.set(
+      `room:${roomId}:gift:${offer.offerId}`,
+      JSON.stringify(offer),
+    )
+
+    const accepted = await gifts.acceptGift({
+      roomId,
+      userId: "b",
+      offerId: offer.offerId,
+    })
+    expect(accepted.success).toBe(false)
+    expect(accepted.expired).toBe(true)
+    expect((await inventory.getInventory(roomId, "a")).items).toHaveLength(1)
+    expect(transferredCalls(emit)).toHaveLength(0)
   })
 })

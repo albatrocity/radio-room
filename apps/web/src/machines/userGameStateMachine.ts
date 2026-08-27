@@ -13,11 +13,17 @@
  * room-wide `USER_GAME_STATE_INVALIDATED` event (ADR 0097).
  */
 
-import type { UserGameStatePayload } from "@repo/types"
-import { setup, assign } from "xstate"
+import type { TradeSession, UserGameStatePayload } from "@repo/types"
+import { setup, assign, enqueueActions } from "xstate"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { getCurrentUser } from "../actors/authActor"
-import { isGameEventForUser, type UserScopedEventData } from "../lib/gameEventRelevance"
+import {
+  isGameEventForUser,
+  isGiftTradeEventForUser,
+  tradeEscrowChanged,
+  type GiftTradeEventData,
+  type UserScopedEventData,
+} from "../lib/gameEventRelevance"
 import { createTrailingDebounce } from "../lib/trailingDebounce"
 
 export type { UserGameStatePayload }
@@ -43,18 +49,18 @@ type UserGameStateEvent =
   | { type: "INVENTORY_ITEM_REMOVED"; data: UserScopedEventData }
   | { type: "INVENTORY_ITEM_USED"; data: UserScopedEventData }
   | { type: "INVENTORY_ITEM_TRANSFERRED"; data: UserScopedEventData }
-  | { type: "GIFT_OFFERED"; data?: unknown }
-  | { type: "GIFT_DECLINED"; data?: unknown }
-  | { type: "GIFT_CANCELLED"; data?: unknown }
-  | { type: "GIFT_COMPLETED"; data?: unknown }
-  | { type: "TRADE_INVITE_OFFERED"; data?: unknown }
-  | { type: "TRADE_INVITE_DECLINED"; data?: unknown }
-  | { type: "TRADE_INVITE_CANCELLED"; data?: unknown }
-  | { type: "TRADE_INVITE_EXPIRED"; data?: unknown }
-  | { type: "TRADE_INVITE_ACCEPTED"; data?: unknown }
-  | { type: "TRADE_UPDATED"; data?: unknown }
-  | { type: "TRADE_COMPLETED"; data?: unknown }
-  | { type: "TRADE_CANCELLED"; data?: unknown }
+  | { type: "GIFT_OFFERED"; data?: GiftTradeEventData }
+  | { type: "GIFT_DECLINED"; data?: GiftTradeEventData }
+  | { type: "GIFT_CANCELLED"; data?: GiftTradeEventData }
+  | { type: "GIFT_COMPLETED"; data?: GiftTradeEventData }
+  | { type: "TRADE_INVITE_OFFERED"; data?: GiftTradeEventData }
+  | { type: "TRADE_INVITE_DECLINED"; data?: GiftTradeEventData }
+  | { type: "TRADE_INVITE_CANCELLED"; data?: GiftTradeEventData }
+  | { type: "TRADE_INVITE_EXPIRED"; data?: GiftTradeEventData }
+  | { type: "TRADE_INVITE_ACCEPTED"; data?: GiftTradeEventData }
+  | { type: "TRADE_UPDATED"; data?: GiftTradeEventData & { trade?: TradeSession } }
+  | { type: "TRADE_COMPLETED"; data?: GiftTradeEventData }
+  | { type: "TRADE_CANCELLED"; data?: GiftTradeEventData }
   | { type: "GAME_SESSION_STARTED"; data: unknown }
   | { type: "GAME_SESSION_CONFIG_UPDATED"; data: unknown }
   | { type: "GAME_SESSION_ENDED"; data: unknown }
@@ -69,6 +75,11 @@ const debouncedRequest = createTrailingDebounce(() => {
 
 let subscriptionCounter = 0
 
+const refetchMyGiftTrade = {
+  guard: "isMyGiftTradeEvent" as const,
+  actions: ["scheduleRequestGameState"] as const,
+}
+
 export const userGameStateMachine = setup({
   types: {
     context: {} as UserGameStateContext,
@@ -79,6 +90,10 @@ export const userGameStateMachine = setup({
     isMyGameEvent: ({ event }) => {
       const data = (event as { data?: UserScopedEventData }).data
       return isGameEventForUser(data, getCurrentUser()?.userId)
+    },
+    isMyGiftTradeEvent: ({ event }) => {
+      const data = (event as { data?: GiftTradeEventData }).data
+      return isGiftTradeEventForUser(data, getCurrentUser()?.userId)
     },
   },
   actions: {
@@ -132,6 +147,20 @@ export const userGameStateMachine = setup({
     scheduleRequestGameState: () => {
       debouncedRequest.schedule()
     },
+    applyTradeUpdated: enqueueActions(({ context, event, enqueue }) => {
+      if (event.type !== "TRADE_UPDATED") return
+      const trade = event.data?.trade
+      if (!trade || !context.payload) return
+      if (tradeEscrowChanged(context.payload.activeTrade, trade)) {
+        enqueue("scheduleRequestGameState")
+      }
+      enqueue.assign({
+        payload: {
+          ...context.payload,
+          activeTrade: trade,
+        },
+      })
+    }),
     setPayload: assign(({ event }) => {
       if (event.type !== "USER_GAME_STATE") return {}
       const d = event.data
@@ -213,18 +242,21 @@ export const userGameStateMachine = setup({
       guard: "isMyGameEvent",
       actions: ["scheduleRequestGameState"],
     },
-    GIFT_OFFERED: { actions: ["scheduleRequestGameState"] },
-    GIFT_DECLINED: { actions: ["scheduleRequestGameState"] },
-    GIFT_CANCELLED: { actions: ["scheduleRequestGameState"] },
-    GIFT_COMPLETED: { actions: ["scheduleRequestGameState"] },
-    TRADE_INVITE_OFFERED: { actions: ["scheduleRequestGameState"] },
-    TRADE_INVITE_DECLINED: { actions: ["scheduleRequestGameState"] },
-    TRADE_INVITE_CANCELLED: { actions: ["scheduleRequestGameState"] },
-    TRADE_INVITE_EXPIRED: { actions: ["scheduleRequestGameState"] },
-    TRADE_INVITE_ACCEPTED: { actions: ["scheduleRequestGameState"] },
-    TRADE_UPDATED: { actions: ["scheduleRequestGameState"] },
-    TRADE_COMPLETED: { actions: ["scheduleRequestGameState"] },
-    TRADE_CANCELLED: { actions: ["scheduleRequestGameState"] },
+    GIFT_OFFERED: refetchMyGiftTrade,
+    GIFT_DECLINED: refetchMyGiftTrade,
+    GIFT_CANCELLED: refetchMyGiftTrade,
+    GIFT_COMPLETED: refetchMyGiftTrade,
+    TRADE_INVITE_OFFERED: refetchMyGiftTrade,
+    TRADE_INVITE_DECLINED: refetchMyGiftTrade,
+    TRADE_INVITE_CANCELLED: refetchMyGiftTrade,
+    TRADE_INVITE_EXPIRED: refetchMyGiftTrade,
+    TRADE_INVITE_ACCEPTED: refetchMyGiftTrade,
+    TRADE_UPDATED: {
+      guard: "isMyGiftTradeEvent",
+      actions: ["applyTradeUpdated"],
+    },
+    TRADE_COMPLETED: refetchMyGiftTrade,
+    TRADE_CANCELLED: refetchMyGiftTrade,
   },
   states: {
     idle: {

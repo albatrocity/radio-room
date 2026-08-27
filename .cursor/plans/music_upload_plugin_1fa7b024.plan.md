@@ -142,7 +142,7 @@ Files: [`infra/cdn/main.tf`](infra/cdn/main.tf), [`infra/cdn/variables.tf`](infr
 
 Intent: Document the boundary and implement server-side presign/complete without a public URL.
 
-Files: [`docs/adrs/0098-private-music-uploads-presign.md`](docs/adrs/0098-private-music-uploads-presign.md) (new), [`docs/adrs/index.md`](docs/adrs/index.md), new `packages/server/services/MusicUploadService.ts`, route module + mount in [`packages/server/index.ts`](packages/server/index.ts), types in [`packages/types`](packages/types), tests alongside service
+Files: [`docs/adrs/0119-private-music-uploads-presign.md`](docs/adrs/0119-private-music-uploads-presign.md) (new), [`docs/adrs/index.md`](docs/adrs/index.md), new `packages/server/services/MusicUploadService.ts`, route module + mount in [`packages/server/index.ts`](packages/server/index.ts), types in [`packages/types`](packages/types), tests alongside service
 
 - ADR: private prefix, persona auth at presign, plugin owns designation/UX state, core owns S3, no CDN for `uploads/`, revocation does not cancel PUT
 - Service: sanitize filename/username; build key; validate MIME/extension (audio + zip/rar/7z) + size; `getSignedUrl` PUT; Redis upload session

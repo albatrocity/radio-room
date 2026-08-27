@@ -125,11 +125,11 @@ export interface PluginSchemaElement {
 export interface PluginActionFormField {
   name: string
   label: string
-  type: "select" | "user-select" | "string" | "textarea"
+  type: "select" | "user-select" | "string" | "textarea" | "combobox"
   required?: boolean
-  /** Static options. For `user-select`, prepended before room users. */
+  /** Static options. For `user-select`, prepended before room users. For `combobox`, datalist suggestions. */
   options?: { value: string; label: string }[]
-  /** Placeholder for `string` / `textarea` fields. */
+  /** Placeholder for `string` / `textarea` / `combobox` fields. */
   placeholder?: string
   /** Preferred rows for `textarea` (host may clamp). */
   rows?: number
@@ -552,6 +552,19 @@ export interface PluginAPI {
     includeTrackAlbumId?: boolean
     firstMatch?: boolean
   }): Promise<{ playlistIds: string[]; albumIds: string[] }>
+
+  /**
+   * Batch of {@link checkLocalTrackPlaylistMembership} (one Redis RPC when the
+   * daemon supports `trackIds`; otherwise per-track fallback).
+   */
+  checkLocalTrackPlaylistMembershipBatch?(params: {
+    roomId: string
+    trackIds: readonly string[]
+    playlistIds?: string[]
+    albumIds?: string[]
+    includeTrackAlbumId?: boolean
+    firstMatch?: boolean
+  }): Promise<Map<string, { playlistIds: string[]; albumIds: string[] }>>
 
   /**
    * List Navidrome playlists on the room's Media Bridge (admin config picker).

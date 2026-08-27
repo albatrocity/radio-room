@@ -135,6 +135,152 @@ describe("userGameStateMachine refetch characterization", () => {
     }
   })
 
+  it("does not refetch GET_MY_GAME_STATE for other users' gift and trade events", async () => {
+    vi.useFakeTimers()
+    try {
+      activateReady()
+      vi.mocked(emitToSocket).mockClear()
+
+      actor.send({
+        type: "GIFT_OFFERED",
+        data: { offer: { fromUserId: "a", toUserId: "b" } },
+      })
+      actor.send({
+        type: "TRADE_UPDATED",
+        data: {
+          trade: {
+            tradeId: "t1",
+            roomId: "r1",
+            status: "open",
+            fromUserId: "a",
+            toUserId: "b",
+            createdAt: 1,
+            updatedAt: 1,
+            participants: {
+              a: { userId: "a", draft: [], offer: [], locked: false, confirmed: false },
+              b: { userId: "b", draft: [], offer: [], locked: false, confirmed: false },
+            },
+          },
+        },
+      })
+      actor.send({
+        type: "TRADE_INVITE_OFFERED",
+        data: { invite: { fromUserId: "a", toUserId: "b" } },
+      })
+
+      await vi.advanceTimersByTimeAsync(200)
+      expect(emitToSocket).not.toHaveBeenCalled()
+    } finally {
+      actor.send({ type: "DEACTIVATE" })
+      await vi.runOnlyPendingTimersAsync()
+      vi.useRealTimers()
+    }
+  })
+
+  it("patches activeTrade from TRADE_UPDATED without refetching for draft edits", async () => {
+    vi.useFakeTimers()
+    try {
+      activateReady()
+      const trade = {
+        tradeId: "t1",
+        roomId: "r1",
+        status: "open" as const,
+        fromUserId: "me",
+        toUserId: "b",
+        createdAt: 1,
+        updatedAt: 1,
+        participants: {
+          me: { userId: "me", draft: [], offer: [], locked: false, confirmed: false },
+          b: { userId: "b", draft: [], offer: [], locked: false, confirmed: false },
+        },
+      }
+      actor.send({
+        type: "USER_GAME_STATE",
+        data: { ...emptyPayload, activeTrade: trade },
+      })
+      vi.mocked(emitToSocket).mockClear()
+
+      const next = {
+        ...trade,
+        updatedAt: 2,
+        participants: {
+          ...trade.participants,
+          me: {
+            ...trade.participants.me,
+            draft: [{ itemId: "i1", quantity: 1, definitionId: "d", slotPool: "inventory" as const }],
+          },
+        },
+      }
+      actor.send({ type: "TRADE_UPDATED", data: { trade: next } })
+
+      await vi.advanceTimersByTimeAsync(200)
+      expect(emitToSocket).not.toHaveBeenCalled()
+      expect(actor.getSnapshot().context.payload?.activeTrade?.updatedAt).toBe(2)
+    } finally {
+      actor.send({ type: "DEACTIVATE" })
+      await vi.runOnlyPendingTimersAsync()
+      vi.useRealTimers()
+    }
+  })
+
+  it("refetches when TRADE_UPDATED locks escrow for the current user", async () => {
+    vi.useFakeTimers()
+    try {
+      activateReady()
+      const trade = {
+        tradeId: "t1",
+        roomId: "r1",
+        status: "open" as const,
+        fromUserId: "me",
+        toUserId: "b",
+        createdAt: 1,
+        updatedAt: 1,
+        participants: {
+          me: { userId: "me", draft: [], offer: [], locked: false, confirmed: false },
+          b: { userId: "b", draft: [], offer: [], locked: false, confirmed: false },
+        },
+      }
+      actor.send({
+        type: "USER_GAME_STATE",
+        data: { ...emptyPayload, activeTrade: trade },
+      })
+      vi.mocked(emitToSocket).mockClear()
+
+      actor.send({
+        type: "TRADE_UPDATED",
+        data: {
+          trade: {
+            ...trade,
+            participants: {
+              ...trade.participants,
+              me: {
+                ...trade.participants.me,
+                locked: true,
+                offer: [
+                  {
+                    escrowKey: "e",
+                    originalItemId: "i1",
+                    definitionId: "d",
+                    sourcePlugin: "p",
+                    quantity: 1,
+                    slotPool: "inventory" as const,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      })
+
+      await vi.advanceTimersByTimeAsync(200)
+      expect(emitToSocket).toHaveBeenCalledWith("GET_MY_GAME_STATE", {})
+    } finally {
+      actor.send({ type: "DEACTIVATE" })
+      await vi.runOnlyPendingTimersAsync()
+      vi.useRealTimers()
+    }
+  })
+
   it("refetches on USER_GAME_STATE_INVALIDATED (debounced)", async () => {
     vi.useFakeTimers()
     try {

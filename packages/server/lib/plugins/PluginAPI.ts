@@ -547,6 +547,35 @@ export class PluginAPIImpl implements PluginAPI {
     }
   }
 
+  async checkLocalTrackPlaylistMembershipBatch(params: {
+    roomId: string
+    trackIds: readonly string[]
+    playlistIds?: string[]
+    albumIds?: string[]
+    includeTrackAlbumId?: boolean
+    firstMatch?: boolean
+  }): Promise<Map<string, { playlistIds: string[]; albumIds: string[] }>> {
+    const empty = new Map<string, { playlistIds: string[]; albumIds: string[] }>()
+    try {
+      const { getBridgeRpcClient, checkLocalTrackPlaylistMembershipBatch } = await import(
+        "@repo/adapter-bridge"
+      )
+      const rpc = getBridgeRpcClient(params.roomId)
+      if (!rpc) return empty
+      return await checkLocalTrackPlaylistMembershipBatch({
+        rpc,
+        trackIds: params.trackIds,
+        playlistIds: params.playlistIds,
+        albumIds: params.albumIds,
+        includeTrackAlbumId: params.includeTrackAlbumId,
+        firstMatch: params.firstMatch,
+      })
+    } catch (e) {
+      console.warn("[PluginAPI] checkLocalTrackPlaylistMembershipBatch failed:", e)
+      return empty
+    }
+  }
+
   async listLocalPlaylists(
     roomId: string,
   ): Promise<Array<{ id: string; name: string; songCount?: number; comment?: string }>> {

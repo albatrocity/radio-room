@@ -359,6 +359,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
         setStoredArtifacts(ev.data.artifacts ?? [])
         unsubscribeById(subId)
       },
+      eventTypes: ["STORED_ARTIFACTS_RESULT"],
     })
     emitToSocket("GET_STORED_ARTIFACTS", {})
   }, [])

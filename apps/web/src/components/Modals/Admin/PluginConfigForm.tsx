@@ -210,6 +210,25 @@ function ActionButton({
             value={formValues[field.name] ?? ""}
             onChange={(e) => setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
           />
+        ) : field.type === "combobox" ? (
+          <>
+            <Input
+              size="sm"
+              list={`${field.name}-options`}
+              placeholder={field.placeholder}
+              value={formValues[field.name] ?? ""}
+              onChange={(e) =>
+                setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
+              }
+            />
+            <datalist id={`${field.name}-options`}>
+              {(field.options ?? []).map((o) => (
+                <option key={`${field.name}-${o.value}`} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </datalist>
+          </>
         ) : (
           <NativeSelect.Root size="sm">
             <NativeSelect.Field

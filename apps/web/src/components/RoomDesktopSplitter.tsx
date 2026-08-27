@@ -1,4 +1,4 @@
-import { Fragment, memo } from "react"
+import { Fragment, memo, type ReactNode } from "react"
 import { Box, Splitter } from "@chakra-ui/react"
 
 import PlayerUi from "./PlayerUi"
@@ -23,6 +23,77 @@ const PANEL_LABELS: Record<string, string> = {
   "sidebar:panel": "Resize listeners and panel",
 }
 
+const PlayerColumn = memo(function PlayerColumn({
+  onShowPlaylist,
+  hasPlaylist,
+  listenerCount,
+}: {
+  onShowPlaylist: () => void
+  hasPlaylist: boolean
+  listenerCount: number
+}) {
+  return (
+    <Box h="100%" minH={0} minW={0} overflow="hidden">
+      <PlayerUi
+        onShowPlaylist={onShowPlaylist}
+        hasPlaylist={hasPlaylist}
+        listenerCount={listenerCount}
+      />
+    </Box>
+  )
+})
+
+const ChatColumn = memo(function ChatColumn({ visible }: { visible: boolean }) {
+  if (!visible) return null
+  return (
+    <Box h="100%" minH={0} minW={0} overflow="hidden">
+      <Chat />
+    </Box>
+  )
+})
+
+const SidebarColumn = memo(function SidebarColumn({ visible }: { visible: boolean }) {
+  if (!visible) return null
+  return (
+    <Box h="100%" minH={0} minW={0} overflow="hidden" colorPalette="action">
+      <Sidebar />
+    </Box>
+  )
+})
+
+const PanelColumn = memo(function PanelColumn({ visible }: { visible: boolean }) {
+  if (!visible) return null
+  return (
+    <Box h="100%" minH={0} minW={0} overflow="hidden">
+      <IntegratedPanelSlot />
+    </Box>
+  )
+})
+
+function renderPanel(
+  id: string,
+  props: {
+    hasUser: boolean
+    onShowPlaylist: () => void
+    hasPlaylist: boolean
+    listenerCount: number
+  },
+): ReactNode {
+  if (id === "player") {
+    return (
+      <PlayerColumn
+        onShowPlaylist={props.onShowPlaylist}
+        hasPlaylist={props.hasPlaylist}
+        listenerCount={props.listenerCount}
+      />
+    )
+  }
+  if (id === "chat") return <ChatColumn visible={props.hasUser} />
+  if (id === "sidebar") return <SidebarColumn visible={props.hasUser} />
+  if (id === "panel") return <PanelColumn visible={props.hasUser} />
+  return null
+}
+
 function RoomDesktopSplitter({
   currentUser,
   hasPlaylistTracks,
@@ -32,6 +103,12 @@ function RoomDesktopSplitter({
 }: Props) {
   const { splitter, resetLayout } = useRoomLayoutSplitter()
   const items = splitter.getItems()
+  const columnProps = {
+    hasUser: Boolean(currentUser),
+    onShowPlaylist,
+    hasPlaylist: hasPlaylistTracks || hasQueueItems,
+    listenerCount: listenersCount,
+  }
 
   return (
     <Box h="100%" display="flex" flexDirection="column" className="room room--splitter">
@@ -52,30 +129,7 @@ function RoomDesktopSplitter({
                   overflow="hidden"
                   transition="none"
                 >
-                  {item.id === "player" ? (
-                    <Box h="100%" minH={0} minW={0} overflow="hidden">
-                      <PlayerUi
-                        onShowPlaylist={onShowPlaylist}
-                        hasPlaylist={hasPlaylistTracks || hasQueueItems}
-                        listenerCount={listenersCount}
-                      />
-                    </Box>
-                  ) : null}
-                  {item.id === "chat" ? (
-                    <Box h="100%" minH={0} minW={0} overflow="hidden">
-                      {currentUser ? <Chat /> : null}
-                    </Box>
-                  ) : null}
-                  {item.id === "sidebar" ? (
-                    <Box h="100%" minH={0} minW={0} overflow="hidden" colorPalette="action">
-                      {currentUser ? <Sidebar /> : null}
-                    </Box>
-                  ) : null}
-                  {item.id === "panel" ? (
-                    <Box h="100%" minH={0} minW={0} overflow="hidden">
-                      {currentUser ? <IntegratedPanelSlot /> : null}
-                    </Box>
-                  ) : null}
+                  {renderPanel(item.id, columnProps)}
                 </Splitter.Panel>
               ) : (
                 <Splitter.ResizeTrigger

@@ -163,14 +163,26 @@ export class RpcServer {
         if (String(p.source) !== "local" || !this.localDriver) {
           return { playlistIds: [], albumIds: [] }
         }
+        const options = {
+          firstMatch: p.firstMatch === true,
+          includeTrackAlbumId: p.includeTrackAlbumId === true,
+        }
+        const trackIds = parseIdList(p.trackIds)
+        if (trackIds && trackIds.length > 1) {
+          return {
+            byTrackId: await this.localDriver.checkPlaylistMembershipBatch(
+              trackIds,
+              parseIdList(p.playlistIds) ?? [],
+              parseIdList(p.albumIds) ?? [],
+              options,
+            ),
+          }
+        }
         return this.localDriver.checkPlaylistMembership(
-          String(p.trackId ?? ""),
+          String(p.trackId ?? trackIds?.[0] ?? ""),
           parseIdList(p.playlistIds) ?? [],
           parseIdList(p.albumIds) ?? [],
-          {
-            firstMatch: p.firstMatch === true,
-            includeTrackAlbumId: p.includeTrackAlbumId === true,
-          },
+          options,
         )
       }
       case "listPlaylists": {

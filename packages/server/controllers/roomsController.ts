@@ -20,6 +20,8 @@ import * as scheduling from "../services/SchedulingService"
 import { RoomSnapshot } from "@repo/types/Room"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
+import { createGiftTradeHandlers } from "../handlers/giftTradeHandlersAdapter"
+import { getUserGameState } from "../operations/inventory/getUserGameState"
 import {
   ensureBridgeMetadataSources as ensureBridgeMetadataSourcesBase,
   stripBridgeOnlyMetadataSources,
@@ -427,10 +429,9 @@ export async function deleteRoom(req: Request, res: Response) {
  * Calls handler adapters directly, eliminating the intermediate handler layer
  */
 export function createRoomsController(socket: SocketWithContext, io: Server): void {
-  // Create handler instance once - it's reused for all events on this socket
   const handlers = createRoomHandlers(socket.context)
+  const giftTrade = createGiftTradeHandlers(socket.context)
 
-  // Create connections object once in closure - no need to pass repeatedly
   const connections = { socket, io }
 
   /**
@@ -456,144 +457,12 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
    * catalog (album-mode Physical Media can register thousands of SKUs).
    */
   socket.on("GET_MY_GAME_STATE", async () => {
-    const gameSessions = socket.context.gameSessions
-    const inventory = socket.context.inventory
-
-    if (!gameSessions) {
-      socket.emit("event", {
-        type: "USER_GAME_STATE",
-        data: {
-          session: null,
-          state: null,
-          inventory: null,
-          itemDefinitions: [],
-          pluginUserState: {},
-        },
-      })
-      return
-    }
-
-    const session = await gameSessions.getActiveSession(socket.data.roomId)
-    if (!session) {
-      socket.emit("event", {
-        type: "USER_GAME_STATE",
-        data: {
-          session: null,
-          state: null,
-          inventory: null,
-          itemDefinitions: [],
-          pluginUserState: {},
-        },
-      })
-      return
-    }
-
-    const state = await gameSessions.getUserState(socket.data.roomId, socket.data.userId)
-    const inv = inventory
-      ? await inventory.getInventory(socket.data.roomId, socket.data.userId)
-      : null
-
-    const { collectInventoryAndModifierDefinitionIds } = await import(
-      "../lib/collectUserGameStateDefinitionIds"
-    )
-    const registry = socket.context.pluginRegistry as
-      | {
-          invokeGetSellbackValues?: (
-            roomId: string,
-            items: InventoryItem[],
-            definitionById: Map<string, ItemDefinition>,
-          ) => Promise<Record<string, number>>
-          invokeContributeToUserGameState?: (
-            roomId: string,
-            userId: string,
-            ctx: { itemDefinitions: ItemDefinition[] },
-          ) => Promise<Record<string, Record<string, unknown>>>
-          invokeReferencedItemDefinitionIdsForUser?: (
-            roomId: string,
-            userId: string,
-          ) => Promise<string[]>
-        }
-      | undefined
-
-    const pluginExtraIds = registry?.invokeReferencedItemDefinitionIdsForUser
-      ? await registry.invokeReferencedItemDefinitionIdsForUser(
-          socket.data.roomId,
-          socket.data.userId,
-        )
-      : []
-    const neededIds = [
-      ...collectInventoryAndModifierDefinitionIds(inv, state),
-      ...pluginExtraIds,
-    ]
-    const itemDefinitions = inventory
-      ? await inventory.getItemDefinitions(socket.data.roomId, neededIds)
-      : []
-
-    const definitionById = new Map<string, ItemDefinition>(
-      itemDefinitions.map((d: ItemDefinition) => [d.id, d]),
-    )
-
-    let inventoryPayload = inv
-    if (inv && registry?.invokeGetSellbackValues) {
-      const sellbackValues = await registry.invokeGetSellbackValues(
-        socket.data.roomId,
-        inv.items,
-        definitionById,
-      )
-      inventoryPayload = {
-        ...inv,
-        items: inv.items.map((i: InventoryItem) => {
-          const v = sellbackValues[i.itemId]
-          return v != null ? { ...i, sellbackValue: v } : i
-        }),
-      }
-    }
-
-    const pluginUserState = registry?.invokeContributeToUserGameState
-      ? await registry.invokeContributeToUserGameState(
-          socket.data.roomId,
-          socket.data.userId,
-          { itemDefinitions },
-        )
-      : {}
-
-    let pendingGifts: { incoming: import("@repo/types").GiftOffer[]; outgoing: import("@repo/types").GiftOffer[] } | undefined
-    let pendingTradeInvites:
-      | { incoming: import("@repo/types").TradeInvite[]; outgoing: import("@repo/types").TradeInvite[] }
-      | undefined
-    let activeTrade: import("@repo/types").TradeSession | null | undefined
-    if (socket.context.gifts) {
-      const [incoming, outgoing] = await Promise.all([
-        socket.context.gifts.listIncoming(socket.data.roomId, socket.data.userId),
-        socket.context.gifts.listOutgoing(socket.data.roomId, socket.data.userId),
-      ])
-      pendingGifts = { incoming, outgoing }
-    }
-    if (socket.context.trades) {
-      const [incomingInvites, outgoingInvites] = await Promise.all([
-        socket.context.trades.listIncomingInvites(socket.data.roomId, socket.data.userId),
-        socket.context.trades.listOutgoingInvites(socket.data.roomId, socket.data.userId),
-      ])
-      pendingTradeInvites = { incoming: incomingInvites, outgoing: outgoingInvites }
-      activeTrade = await socket.context.trades.getTradeForUser(
-        socket.data.roomId,
-        socket.data.userId,
-      )
-    }
-
-    socket.emit("event", {
-      type: "USER_GAME_STATE",
-      data: {
-        session,
-        state,
-        inventory: inventoryPayload,
-        itemDefinitions,
-        pluginUserState,
-        pendingGifts,
-        pendingTradeInvites,
-        activeTrade: activeTrade ?? null,
-      },
+    const data = await getUserGameState({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
     })
+    socket.emit("event", { type: "USER_GAME_STATE", data })
   })
 
   /**
@@ -1006,262 +875,47 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
   // Gift / trade (ADR 0114)
   // ==========================================================================
 
-  const emitGiftResult = (data: { success: boolean; message?: string; offerId?: string }) => {
-    socket.emit("event", { type: "GIFT_ACTION_RESULT", data })
-  }
-  const emitTradeResult = (data: { success: boolean; message?: string; tradeId?: string }) => {
-    socket.emit("event", { type: "TRADE_ACTION_RESULT", data })
-  }
-
-  socket.on(
-    "OFFER_GIFT",
-    async (data: { itemId?: string; toUserId?: string; quantity?: number }) => {
-      if (!data?.itemId || !data?.toUserId) {
-        emitGiftResult({ success: false, message: "Missing itemId or toUserId" })
-        return
-      }
-      const { offerGift } = await import("../operations/inventory/giftOps")
-      const result = await offerGift({
-        roomId: socket.data.roomId,
-        fromUserId: socket.data.userId,
-        toUserId: data.toUserId,
-        itemId: data.itemId,
-        quantity: data.quantity,
-        context: socket.context,
-      })
-      emitGiftResult({
-        success: result.success,
-        message: result.message,
-        offerId: result.offer?.offerId,
-      })
-    },
-  )
-
+  socket.on("OFFER_GIFT", async (data: { itemId?: string; toUserId?: string; quantity?: number }) => {
+    await giftTrade.offerGift(connections, data)
+  })
   socket.on("ACCEPT_GIFT", async (data: { offerId?: string }) => {
-    if (!data?.offerId) {
-      emitGiftResult({ success: false, message: "Missing offerId" })
-      return
-    }
-    const { acceptGift } = await import("../operations/inventory/giftOps")
-    const result = await acceptGift({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      offerId: data.offerId,
-      context: socket.context,
-    })
-    emitGiftResult({
-      success: result.success,
-      message: result.message,
-      offerId: result.offer?.offerId,
-    })
+    await giftTrade.acceptGift(connections, data)
   })
-
   socket.on("DECLINE_GIFT", async (data: { offerId?: string }) => {
-    if (!data?.offerId) {
-      emitGiftResult({ success: false, message: "Missing offerId" })
-      return
-    }
-    const { declineGift } = await import("../operations/inventory/giftOps")
-    const result = await declineGift({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      offerId: data.offerId,
-      context: socket.context,
-    })
-    emitGiftResult({
-      success: result.success,
-      message: result.message,
-      offerId: result.offer?.offerId,
-    })
+    await giftTrade.declineGift(connections, data)
   })
-
   socket.on("CANCEL_GIFT", async (data: { offerId?: string }) => {
-    if (!data?.offerId) {
-      emitGiftResult({ success: false, message: "Missing offerId" })
-      return
-    }
-    const { cancelGift } = await import("../operations/inventory/giftOps")
-    const result = await cancelGift({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      offerId: data.offerId,
-      context: socket.context,
-    })
-    emitGiftResult({
-      success: result.success,
-      message: result.message,
-      offerId: result.offer?.offerId,
-    })
+    await giftTrade.cancelGift(connections, data)
   })
-
   socket.on("TRADE_INVITE", async (data: { toUserId?: string }) => {
-    if (!data?.toUserId) {
-      emitTradeResult({ success: false, message: "Missing toUserId" })
-      return
-    }
-    const { tradeInvite } = await import("../operations/inventory/tradeOps")
-    const result = await tradeInvite({
-      roomId: socket.data.roomId,
-      fromUserId: socket.data.userId,
-      toUserId: data.toUserId,
-      context: socket.context,
-    })
-    emitTradeResult({
-      success: result.success,
-      message: result.message,
-      tradeId: result.invite?.inviteId ?? result.trade?.tradeId,
-    })
+    await giftTrade.tradeInvite(connections, data)
   })
-
   socket.on("TRADE_RESPOND", async (data: { tradeId?: string; accept?: boolean }) => {
-    if (!data?.tradeId || data.accept == null) {
-      emitTradeResult({ success: false, message: "Missing tradeId or accept" })
-      return
-    }
-    const { tradeRespond } = await import("../operations/inventory/tradeOps")
-    const result = await tradeRespond({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      inviteId: data.tradeId,
-      accept: data.accept,
-      context: socket.context,
-    })
-    emitTradeResult({
-      success: result.success,
-      message: result.message,
-      tradeId: result.trade?.tradeId,
-    })
+    await giftTrade.tradeRespond(connections, data)
   })
-
   socket.on(
     "TRADE_SET_OFFER",
     async (data: { tradeId?: string; items?: { itemId: string; quantity: number }[] }) => {
-      if (!data?.tradeId || !Array.isArray(data.items)) {
-        emitTradeResult({ success: false, message: "Missing tradeId or items" })
-        return
-      }
-      const { tradeSetOffer } = await import("../operations/inventory/tradeOps")
-      const result = await tradeSetOffer({
-        roomId: socket.data.roomId,
-        userId: socket.data.userId,
-        tradeId: data.tradeId,
-        items: data.items,
-        context: socket.context,
-      })
-      emitTradeResult({
-        success: result.success,
-        message: result.message,
-        tradeId: result.trade?.tradeId,
-      })
+      await giftTrade.tradeSetOffer(connections, data)
     },
   )
-
   socket.on("TRADE_SET_MESSAGE", async (data: { tradeId?: string; message?: string }) => {
-    if (!data?.tradeId || typeof data.message !== "string") {
-      emitTradeResult({ success: false, message: "Missing tradeId or message" })
-      return
-    }
-    const { tradeSetMessage } = await import("../operations/inventory/tradeOps")
-    const result = await tradeSetMessage({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      tradeId: data.tradeId,
-      message: data.message,
-      context: socket.context,
-    })
-    emitTradeResult({
-      success: result.success,
-      message: result.message,
-      tradeId: result.trade?.tradeId,
-    })
+    await giftTrade.tradeSetMessage(connections, data)
   })
-
   socket.on("TRADE_TYPING", async (data: { tradeId?: string; typing?: boolean }) => {
-    if (!data?.tradeId || typeof data.typing !== "boolean") return
-    const { tradeTyping } = await import("../operations/inventory/tradeOps")
-    await tradeTyping({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      tradeId: data.tradeId,
-      typing: data.typing,
-      context: socket.context,
-    })
+    await giftTrade.tradeTyping(connections, data)
   })
-
   socket.on("TRADE_LOCK", async (data: { tradeId?: string }) => {
-    if (!data?.tradeId) {
-      emitTradeResult({ success: false, message: "Missing tradeId" })
-      return
-    }
-    const { tradeLock } = await import("../operations/inventory/tradeOps")
-    const result = await tradeLock({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      tradeId: data.tradeId,
-      context: socket.context,
-    })
-    emitTradeResult({
-      success: result.success,
-      message: result.message,
-      tradeId: result.trade?.tradeId,
-    })
+    await giftTrade.tradeLock(connections, data)
   })
-
   socket.on("TRADE_UNLOCK", async (data: { tradeId?: string }) => {
-    if (!data?.tradeId) {
-      emitTradeResult({ success: false, message: "Missing tradeId" })
-      return
-    }
-    const { tradeUnlock } = await import("../operations/inventory/tradeOps")
-    const result = await tradeUnlock({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      tradeId: data.tradeId,
-      context: socket.context,
-    })
-    emitTradeResult({
-      success: result.success,
-      message: result.message,
-      tradeId: result.trade?.tradeId,
-    })
+    await giftTrade.tradeUnlock(connections, data)
   })
-
   socket.on("TRADE_CONFIRM", async (data: { tradeId?: string }) => {
-    if (!data?.tradeId) {
-      emitTradeResult({ success: false, message: "Missing tradeId" })
-      return
-    }
-    const { tradeConfirm } = await import("../operations/inventory/tradeOps")
-    const result = await tradeConfirm({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      tradeId: data.tradeId,
-      context: socket.context,
-    })
-    emitTradeResult({
-      success: result.success,
-      message: result.message,
-      tradeId: result.trade?.tradeId,
-    })
+    await giftTrade.tradeConfirm(connections, data)
   })
-
   socket.on("TRADE_CANCEL", async (data: { tradeId?: string }) => {
-    if (!data?.tradeId) {
-      emitTradeResult({ success: false, message: "Missing tradeId" })
-      return
-    }
-    const { tradeCancel } = await import("../operations/inventory/tradeOps")
-    const result = await tradeCancel({
-      roomId: socket.data.roomId,
-      userId: socket.data.userId,
-      tradeId: data.tradeId,
-      context: socket.context,
-    })
-    emitTradeResult({
-      success: result.success,
-      message: result.message,
-      tradeId: result.trade?.tradeId,
-    })
+    await giftTrade.tradeCancel(connections, data)
   })
 }
 

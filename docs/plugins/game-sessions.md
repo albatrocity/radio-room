@@ -99,7 +99,7 @@ Player-to-player movement is **core inventory**, not a plugin. Both features req
 | ------- | ---- | -------- |
 | **Gift** | `OFFER_GIFT` → `ACCEPT_GIFT` / `DECLINE_GIFT` / `CANCEL_GIFT` | Escrow on offer; recipient must accept. Inbox on **Trades/Gifts** tab. Events: `GIFT_*`. |
 | **Trade invite** | `TRADE_INVITE` → `TRADE_RESPOND` | 5 min TTL; one outgoing invite per sender; multiple incoming. Does not occupy trade slot until accept. Events: `TRADE_INVITE_*`. |
-| **Active trade** | set offer → lock → confirm | Single open trade per user; detail drill-down in Game State. Events: `TRADE_*`. Optional sticky notes via `TRADE_SET_MESSAGE` + ephemeral `TRADE_TYPING` (ADR 0116). |
+| **Active trade** | set offer → lock → confirm | Single open trade per user; detail drill-down in Game State. Events: `TRADE_*` except typing. Optional sticky notes via `TRADE_SET_MESSAGE` (ADR 0116). `TRADE_TYPING` is a socket-only signal to the counterpart (ADR 0120) — not a SystemEvent; plugins cannot `this.on("TRADE_TYPING")`. |
 
 Disabling `allowTrading` mid-session cancels pending gifts (refund), trade invites, and active trades without ending the session (`GAME_SESSION_CONFIG_UPDATED`).
 
@@ -276,7 +276,7 @@ Emitters use `SystemEvents` (same pipeline as other domain events). Useful paylo
 | `INVENTORY_ITEM_USED`        | After `useItem` completes                                         |
 | `INVENTORY_ITEM_REMOVED`     | Partial/full stack removal                                        |
 | `INVENTORY_ITEM_TRANSFERRED` | Player-to-player transfer                                         |
-| `GIFT_*` / `TRADE_*`         | Player gift/trade protocol (ADR 0114); prefer over raw `transferItem` for consent |
+| `GIFT_*` / `TRADE_*`         | Player gift/trade protocol (ADR 0114); prefer over raw `transferItem` for consent. `TRADE_TYPING` is **not** in this set (ADR 0120). |
 
 ### Segment-started sessions (scheduling)
 

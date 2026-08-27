@@ -19,6 +19,7 @@ import {
   type PhysicalMediaOverride,
 } from "./config"
 import { buildEffectiveItemCatalog, buildEffectiveShopCatalog } from "./catalog"
+import { DEDUP_RPC_CONCURRENCY, mapWithConcurrency } from "./concurrency"
 import {
   albumIdsShadowedByPlaylists,
   derivePhysicalMediaItems,
@@ -33,6 +34,7 @@ import {
   pickGrantToConsume,
   playlistMapFromGrantConfig,
   resolveLocalCatalogScope,
+  type HeldLocalLibraryGrant,
   type LocalCatalogScope,
 } from "./grants"
 
@@ -62,6 +64,8 @@ export class LocalLibraryModule {
   private derivedAlbumMap: Record<string, string> = {}
   /** Album ids already fetched for sleeves this refresh (avoids hydrate spin on missing art). */
   private albumArtworkAttempted = new Set<string>()
+  /** Local track id → last playlist/album membership (cleared on catalog refresh). */
+  private sleeveMembershipMemo = new Map<string, { playlistIds: string[]; albumIds: string[] }>()
 
   constructor(
     private readonly pluginName: string,
@@ -105,6 +109,7 @@ export class LocalLibraryModule {
       this.derivedPlaylistMap = {}
       this.derivedAlbumMap = {}
       this.albumArtworkAttempted.clear()
+      this.sleeveMembershipMemo.clear()
       return null
     }
 
@@ -126,38 +131,58 @@ export class LocalLibraryModule {
     const albumRatingByPlaylistId: Record<string, number> = {}
 
     if (derivePrefixedPlaylists && deriveAlbums && mediaPlaylists.length > 0 && albums.length > 0) {
+      const playlistNdIdToAlbumId = new Map<string, string>()
+      const playlistRows = await mapWithConcurrency(
+        mediaPlaylists,
+        DEDUP_RPC_CONCURRENCY,
+        async (pl) => {
+          const ndId = pl.id.trim()
+          if (!ndId) return null
+          const trackRefs = await context.api.listLocalPlaylistTrackIds(context.roomId, ndId)
+          const trackIds = trackRefs.map((t) => t.id.trim()).filter(Boolean)
+          if (trackIds.length === 0) return null
+
+          const albumIdsOnPlaylist = trackRefs
+            .map((t) => t.albumId?.trim())
+            .filter((id): id is string => Boolean(id))
+          let onlyAlbum: string | undefined
+          if (albumIdsOnPlaylist.length > 0) {
+            const uniqueAlbum = [...new Set(albumIdsOnPlaylist)]
+            if (uniqueAlbum.length === 1) {
+              const candidate = uniqueAlbum[0]!
+              const albumStub = albums.find((a) => a.id.trim() === candidate)
+              if (
+                albumStub &&
+                !((albumStub.songCount ?? 0) > 0 && albumStub.songCount !== trackIds.length)
+              ) {
+                onlyAlbum = candidate
+              }
+            }
+          }
+          return { playlistId: ndId, trackIds, onlyAlbum }
+        },
+      )
+
       const playlistTrackLists: { playlistId: string; trackIds: string[] }[] = []
       const candidateAlbumIds = new Set<string>()
-      const playlistNdIdToAlbumId = new Map<string, string>()
-
-      for (const pl of mediaPlaylists) {
-        const ndId = pl.id.trim()
-        if (!ndId) continue
-        const trackRefs = await context.api.listLocalPlaylistTrackIds(context.roomId, ndId)
-        const trackIds = trackRefs.map((t) => t.id.trim()).filter(Boolean)
-        if (trackIds.length === 0) continue
-        playlistTrackLists.push({ playlistId: ndId, trackIds })
-
-        const albumIdsOnPlaylist = trackRefs
-          .map((t) => t.albumId?.trim())
-          .filter((id): id is string => Boolean(id))
-        if (albumIdsOnPlaylist.length === 0) continue
-        const uniqueAlbum = [...new Set(albumIdsOnPlaylist)]
-        if (uniqueAlbum.length !== 1) continue
-        const onlyAlbum = uniqueAlbum[0]!
-        const albumStub = albums.find((a) => a.id.trim() === onlyAlbum)
-        if (!albumStub) continue
-        if ((albumStub.songCount ?? 0) > 0 && albumStub.songCount !== trackIds.length) continue
-        candidateAlbumIds.add(onlyAlbum)
-        playlistNdIdToAlbumId.set(ndId, onlyAlbum)
+      for (const row of playlistRows) {
+        if (!row) continue
+        playlistTrackLists.push({ playlistId: row.playlistId, trackIds: row.trackIds })
+        if (row.onlyAlbum) {
+          candidateAlbumIds.add(row.onlyAlbum)
+          playlistNdIdToAlbumId.set(row.playlistId, row.onlyAlbum)
+        }
       }
 
-      const albumTrackLists: { id: string; trackIds: string[] }[] = []
-      for (const albumId of candidateAlbumIds) {
+      const albumIdList = Array.from(candidateAlbumIds)
+      const albumRows = await mapWithConcurrency(albumIdList, DEDUP_RPC_CONCURRENCY, async (albumId) => {
         const trackIds = await context.api.listLocalAlbumTrackIds(context.roomId, albumId)
-        if (trackIds.length === 0) continue
-        albumTrackLists.push({ id: albumId, trackIds })
-      }
+        if (trackIds.length === 0) return null
+        return { id: albumId, trackIds }
+      })
+      const albumTrackLists = albumRows.filter(
+        (row): row is { id: string; trackIds: string[] } => row != null,
+      )
       omitAlbumIds = albumIdsShadowedByPlaylists(
         playlistTrackLists.map(({ trackIds }) => ({ trackIds })),
         albumTrackLists,
@@ -201,6 +226,7 @@ export class LocalLibraryModule {
     this.derivedPhysicalMedia = [...playlistItems, ...albumItems]
     this.derivedPlaylistMap = playlistMap
     this.derivedAlbumMap = albumMap
+    this.sleeveMembershipMemo.clear()
     return null
   }
 
@@ -223,8 +249,8 @@ export class LocalLibraryModule {
    */
   applyAlbumArtwork(
     artworkByAlbumId: Readonly<Record<string, { imageUrl?: string; imageUrlLarge?: string }>>,
-  ): boolean {
-    let changed = false
+  ): string[] {
+    const changedShortIds: string[] = []
     this.derivedPhysicalMedia = this.derivedPhysicalMedia.map((entry) => {
       const albumId = this.derivedAlbumMap[entry.definition.shortId]?.trim()
       if (!albumId) return entry
@@ -239,7 +265,7 @@ export class LocalLibraryModule {
       ) {
         return entry
       }
-      changed = true
+      changedShortIds.push(entry.definition.shortId)
       return {
         ...entry,
         definition: {
@@ -249,16 +275,16 @@ export class LocalLibraryModule {
         },
       }
     })
-    return changed
+    return changedShortIds
   }
 
   /**
    * Fetch + apply sleeves for specific derived album shortIds (shop offers / held
    * items). No-op for playlist SKUs and albums that already have imageUrl.
    */
-  async ensureAlbumArtworkForShortIds(shortIds: readonly string[]): Promise<boolean> {
+  async ensureAlbumArtworkForShortIds(shortIds: readonly string[]): Promise<string[]> {
     const context = this.getContext()
-    if (!context) return false
+    if (!context) return []
     const albumIds: string[] = []
     for (const raw of shortIds) {
       const shortId = raw.trim()
@@ -271,7 +297,7 @@ export class LocalLibraryModule {
       albumIds.push(albumId)
     }
     const unique = [...new Set(albumIds)]
-    if (unique.length === 0) return false
+    if (unique.length === 0) return []
     for (const id of unique) this.albumArtworkAttempted.add(id)
     const artwork = await context.api.getLocalAlbumArtwork(context.roomId, unique)
     return this.applyAlbumArtwork(artwork)
@@ -284,7 +310,7 @@ export class LocalLibraryModule {
   async hydrateMissingAlbumArtwork(options: {
     batchSize?: number
     shouldContinue?: () => boolean
-    onBatch?: () => void | Promise<void>
+    onBatch?: (changedShortIds: string[]) => void | Promise<void>
   } = {}): Promise<void> {
     const batchSize = Math.max(1, options.batchSize ?? 24)
     const context = this.getContext()
@@ -298,7 +324,7 @@ export class LocalLibraryModule {
       for (const id of batch) this.albumArtworkAttempted.add(id)
       const artwork = await context.api.getLocalAlbumArtwork(context.roomId, batch)
       const changed = this.applyAlbumArtwork(artwork)
-      if (changed && options.onBatch) await options.onBatch()
+      if (changed.length > 0 && options.onBatch) await options.onBatch(changed)
     }
   }
 
@@ -315,14 +341,7 @@ export class LocalLibraryModule {
   }
 
   async listPhysicalMediaItems(userId: string): Promise<PhysicalMediaItem[]> {
-    const context = this.getContext()
-    if (!context) return []
-    const inv = await context.inventory.getInventory(userId)
-    const held = listHeldLocalLibraryGrants({
-      pluginName: this.pluginName,
-      items: inv.items,
-      grantCatalog: this.grantCatalog,
-    })
+    const held = await this.getHeldGrants(userId)
     const byShort = catalogByShortId(this.grantCatalog)
     const derivedByShort = new Map(
       this.derivedPhysicalMedia.map((e) => [e.definition.shortId, e] as const),
@@ -346,14 +365,7 @@ export class LocalLibraryModule {
 
   /** Short ids for held album-scope Physical Media (for lazy sleeve ensure). */
   async heldAlbumPhysicalMediaShortIds(userId: string): Promise<string[]> {
-    const context = this.getContext()
-    if (!context) return []
-    const inv = await context.inventory.getInventory(userId)
-    const held = listHeldLocalLibraryGrants({
-      pluginName: this.pluginName,
-      items: inv.items,
-      grantCatalog: this.grantCatalog,
-    })
+    const held = await this.getHeldGrants(userId)
     return held.filter((h) => h.grant.scope === "album").map((h) => h.shortId)
   }
 
@@ -364,14 +376,7 @@ export class LocalLibraryModule {
   ): Promise<ResolvedPhysicalMediaItem | null> {
     const key = mediaKey.trim()
     if (!key) return null
-    const context = this.getContext()
-    if (!context) return null
-    const inv = await context.inventory.getInventory(userId)
-    const held = listHeldLocalLibraryGrants({
-      pluginName: this.pluginName,
-      items: inv.items,
-      grantCatalog: this.grantCatalog,
-    })
+    const held = await this.getHeldGrants(userId)
     const match = held.find(
       (h) =>
         h.shortId === key && (h.grant.scope === "playlist" || h.grant.scope === "album"),
@@ -456,8 +461,7 @@ export class LocalLibraryModule {
     trackIds: readonly string[],
   ): Promise<Map<string, PhysicalMediaNowPlayingFrame>> {
     const out = new Map<string, PhysicalMediaNowPlayingFrame>()
-    const context = this.getContext()
-    if (!context) return out
+    if (!this.getContext()) return out
 
     const byPlaylistId = new Map<string, (typeof this.derivedPhysicalMedia)[number]>()
     const byAlbumId = new Map<string, (typeof this.derivedPhysicalMedia)[number]>()
@@ -481,38 +485,41 @@ export class LocalLibraryModule {
     if (playlistIds.length === 0 && byAlbumId.size === 0) return out
 
     const uniqueIds = [...new Set(trackIds.map((id) => id.trim()).filter(Boolean))]
-    await Promise.all(
-      uniqueIds.map(async (id) => {
-        const memberIds = await context.api.checkLocalTrackPlaylistMembership({
-          roomId: context.roomId,
-          trackId: id,
-          playlistIds,
-          // Do not pass derived album ids — intersect the track album locally.
-          includeTrackAlbumId: byAlbumId.size > 0,
-          firstMatch: true,
-        })
-        const applyEntry = (entry: (typeof this.derivedPhysicalMedia)[number] | undefined) => {
-          const artworkFrame = entry?.definition.artworkFrame
-            ? parseArtworkFrame(entry.definition.artworkFrame)
-            : undefined
-          if (!artworkFrame) return false
-          const imageUrl = entry?.definition.imageUrl?.trim()
-          const imageUrlLarge = entry?.definition.imageUrlLarge?.trim()
-          out.set(id, {
-            artworkFrame,
-            ...(imageUrl ? { imageUrl } : {}),
-            ...(imageUrlLarge ? { imageUrlLarge } : {}),
-          })
-          return true
+    const membershipByTrack = await this.membershipForTracks(uniqueIds, playlistIds, byAlbumId.size > 0)
+
+    const applyEntry = (
+      id: string,
+      entry: (typeof this.derivedPhysicalMedia)[number] | undefined,
+    ) => {
+      const artworkFrame = entry?.definition.artworkFrame
+        ? parseArtworkFrame(entry.definition.artworkFrame)
+        : undefined
+      if (!artworkFrame) return false
+      const imageUrl = entry?.definition.imageUrl?.trim()
+      const imageUrlLarge = entry?.definition.imageUrlLarge?.trim()
+      out.set(id, {
+        artworkFrame,
+        ...(imageUrl ? { imageUrl } : {}),
+        ...(imageUrlLarge ? { imageUrlLarge } : {}),
+      })
+      return true
+    }
+
+    for (const id of uniqueIds) {
+      const memberIds = membershipByTrack.get(id)
+      if (!memberIds) continue
+      let matched = false
+      for (const memberId of memberIds.playlistIds) {
+        if (applyEntry(id, byPlaylistId.get(memberId))) {
+          matched = true
+          break
         }
-        for (const memberId of memberIds.playlistIds) {
-          if (applyEntry(byPlaylistId.get(memberId))) return
-        }
-        for (const memberId of memberIds.albumIds) {
-          if (applyEntry(byAlbumId.get(memberId))) return
-        }
-      }),
-    )
+      }
+      if (matched) continue
+      for (const memberId of memberIds.albumIds) {
+        if (applyEntry(id, byAlbumId.get(memberId))) break
+      }
+    }
     return out
   }
 
@@ -571,12 +578,7 @@ export class LocalLibraryModule {
     if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
 
     const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
-    const inv = await context.inventory.getInventory(params.userId)
-    const held = listHeldLocalLibraryGrants({
-      pluginName: this.pluginName,
-      items: inv.items,
-      grantCatalog: this.grantCatalog,
-    })
+    const held = await this.getHeldGrants(params.userId)
     if (held.length === 0) return allowQueueRequest()
 
     const playlistMap = this.playlistMap(grants)
@@ -664,15 +666,96 @@ export class LocalLibraryModule {
     userId: string,
     grants: readonly LocalLibraryGrantConfig[],
   ): Promise<LocalCatalogScope> {
-    const context = this.getContext()
-    if (!context) return { mode: "none" }
-    const inv = await context.inventory.getInventory(userId)
+    const items = await this.getInventoryItems(userId)
     return resolveLocalCatalogScope({
       pluginName: this.pluginName,
-      items: inv.items,
+      items,
       grantCatalog: this.grantCatalog,
       localLibraryPlaylists: this.playlistMap(grants),
       localLibraryAlbums: this.albumMap(),
     })
+  }
+
+  private async getInventoryItems(userId: string) {
+    const context = this.getContext()
+    if (!context) return []
+    const inv = await context.inventory.getInventory(userId)
+    return inv.items
+  }
+
+  private async getHeldGrants(userId: string): Promise<HeldLocalLibraryGrant[]> {
+    const items = await this.getInventoryItems(userId)
+    return listHeldLocalLibraryGrants({
+      pluginName: this.pluginName,
+      items,
+      grantCatalog: this.grantCatalog,
+    })
+  }
+
+  /**
+   * Playlist/album membership for unique local track ids. Hits an in-process
+   * memo first, then one batched daemon RPC (per-track fallback on old packs).
+   */
+  private async membershipForTracks(
+    uniqueIds: string[],
+    playlistIds: string[],
+    includeTrackAlbumId: boolean,
+  ): Promise<Map<string, { playlistIds: string[]; albumIds: string[] }>> {
+    const out = new Map<string, { playlistIds: string[]; albumIds: string[] }>()
+    const missing: string[] = []
+    for (const id of uniqueIds) {
+      const cached = this.sleeveMembershipMemo.get(id)
+      if (cached) out.set(id, cached)
+      else missing.push(id)
+    }
+    if (missing.length === 0) return out
+
+    const context = this.getContext()
+    if (!context) return out
+
+    const fetched = await this.fetchMemberships(missing, playlistIds, includeTrackAlbumId)
+    for (const [id, membership] of Array.from(fetched.entries())) {
+      this.sleeveMembershipMemo.set(id, membership)
+      out.set(id, membership)
+    }
+    return out
+  }
+
+  private async fetchMemberships(
+    trackIds: string[],
+    playlistIds: string[],
+    includeTrackAlbumId: boolean,
+  ): Promise<Map<string, { playlistIds: string[]; albumIds: string[] }>> {
+    const context = this.getContext()
+    const empty = new Map<string, { playlistIds: string[]; albumIds: string[] }>()
+    if (!context || trackIds.length === 0) return empty
+
+    const api = context.api
+    if (typeof api.checkLocalTrackPlaylistMembershipBatch === "function") {
+      return api.checkLocalTrackPlaylistMembershipBatch({
+        roomId: context.roomId,
+        trackIds,
+        playlistIds,
+        includeTrackAlbumId,
+        firstMatch: true,
+      })
+    }
+
+    const out = new Map<string, { playlistIds: string[]; albumIds: string[] }>()
+    await Promise.all(
+      trackIds.map(async (id) => {
+        out.set(
+          id,
+          await api.checkLocalTrackPlaylistMembership({
+            roomId: context.roomId,
+            trackId: id,
+            playlistIds,
+            includeTrackAlbumId,
+            firstMatch: true,
+          }),
+        )
+      }),
+    )
+    return out
   }
 }

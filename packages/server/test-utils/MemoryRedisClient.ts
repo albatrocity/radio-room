@@ -126,11 +126,39 @@ export class MemoryRedisClient {
     return 1
   }
 
-  async sRem(key: string, member: string): Promise<number> {
+  async sIsMember(key: string, member: string): Promise<boolean> {
+    return this.sets.get(key)?.has(member) ?? false
+  }
+
+  async sRem(key: string, member: string | string[]): Promise<number> {
     const set = this.sets.get(key)
-    if (!set?.has(member)) return 0
-    set.delete(member)
-    return 1
+    if (!set) return 0
+    const members = Array.isArray(member) ? member : [member]
+    let removed = 0
+    for (const m of members) {
+      if (set.delete(m)) removed += 1
+    }
+    return removed
+  }
+
+  multi() {
+    const cmds: Array<() => Promise<unknown>> = []
+    const enqueue = (fn: () => Promise<unknown>) => {
+      cmds.push(fn)
+      return api
+    }
+    const api = {
+      sRem: (key: string, member: string | string[]) => enqueue(() => this.sRem(key, member)),
+      del: (key: string | string[]) => enqueue(() => this.del(key)),
+      exec: async () => {
+        const results: unknown[] = []
+        for (const cmd of cmds) {
+          results.push(await cmd())
+        }
+        return results
+      },
+    }
+    return api
   }
 
   async sMembers(key: string): Promise<string[]> {

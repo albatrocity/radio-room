@@ -6,6 +6,7 @@ import { ItemShopsPlugin, getEligibleShops, defaultItemShopsConfig } from "./ind
 import { SHOP_CATALOG } from "./shops"
 import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
 import { RECORD_STORE_SHOP_ID } from "./localLibrary/catalog"
+import { physicalMediaAlbumShortId } from "./localLibrary/physicalMedia"
 import { queueItemFactory } from "@repo/factories"
 
 const ROOM = "room-1"
@@ -552,6 +553,39 @@ describe("ItemShopsPlugin local library grants", () => {
       expect(api.checkLocalTrackPlaylistMembership).toHaveBeenCalledTimes(1)
     })
 
+    it("reuses membership memo across augmentNowPlaying calls", async () => {
+      const { plugin, api } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/cover.jpg",
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await plugin.augmentNowPlaying(localTrack)
+      await plugin.augmentNowPlaying(localTrack)
+      expect(api.checkLocalTrackPlaylistMembership).toHaveBeenCalledTimes(1)
+    })
+
+    it("uses batch membership once for two distinct local tracks", async () => {
+      const { plugin, api } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/cover.jpg",
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      const batch = vi.fn(async ({ trackIds }: { trackIds: readonly string[] }) => {
+        const m = new Map<string, { playlistIds: string[]; albumIds: string[] }>()
+        for (const id of trackIds) {
+          m.set(id, { playlistIds: ["nd-lp"], albumIds: [] })
+        }
+        return m
+      })
+      Object.assign(api, { checkLocalTrackPlaylistMembershipBatch: batch })
+      const otherLocal = queueItemFactory.build({
+        mediaSource: { type: "local", trackId: "local-track-2" },
+      })
+      await plugin.augmentQueueBatch([localTrack, otherLocal])
+      expect(batch).toHaveBeenCalledTimes(1)
+      expect(api.checkLocalTrackPlaylistMembership).not.toHaveBeenCalled()
+    })
+
     it("augmentPlaylistBatch uses the same frame attachment as the queue", async () => {
       const { plugin } = setup({
         hasPhysicalMedia: true,
@@ -679,6 +713,54 @@ describe("ItemShopsPlugin local library grants", () => {
       })
       expect(result.success).toBe(true)
       expect(inventory.giveItem).toHaveBeenCalled()
+    })
+
+    it("give-item picker is a combobox and omits catalog-mode album SKUs", () => {
+      const { plugin } = setup({ hasPhysicalMedia: true })
+      const albumShortId = physicalMediaAlbumShortId("catalog-album")
+      const localLibrary = (
+        plugin as unknown as {
+          localLibrary: {
+            derivedPhysicalMedia: ItemCatalogEntry[]
+            derivedAlbumMap: Record<string, string>
+            applyConfig: (g: typeof DEFAULT_LOCAL_LIBRARY_GRANTS) => unknown
+          }
+        }
+      ).localLibrary
+      localLibrary.derivedPhysicalMedia = [
+        {
+          definition: {
+            shortId: albumShortId,
+            name: "CD: Catalog",
+            description: "",
+            icon: "Disc",
+            artworkFrame: "jewel-case",
+            stackable: true,
+            maxStack: 1,
+            tradeable: true,
+            consumable: false,
+            coinValue: 10,
+            rarity: "common",
+            slotPool: "collection",
+          },
+          localLibraryGrant: {
+            scope: "album",
+            albumKey: albumShortId,
+            redemption: "durable",
+          },
+        },
+      ]
+      localLibrary.derivedAlbumMap = { [albumShortId]: "catalog-album" }
+      localLibrary.applyConfig(DEFAULT_LOCAL_LIBRARY_GRANTS)
+
+      const schema = plugin.getConfigSchema()
+      const give = schema.layout.find(
+        (el) => typeof el === "object" && "action" in el && el.action === "giveItemToUsers",
+      ) as { formFields?: { name: string; type: string; options?: { value: string }[] }[] }
+      const field = give.formFields?.find((f) => f.name === "itemShortId")
+      expect(field?.type).toBe("combobox")
+      expect(field?.options?.some((o) => o.value === albumShortId)).toBe(false)
+      expect(field?.options?.some((o) => o.value === "cold-beer")).toBe(true)
     })
   })
 })

@@ -43,7 +43,7 @@ describe("LocalLibraryModule album artwork hydrate", () => {
       "al-1": { imageUrl: "/new-1", imageUrlLarge: "/new-1-lg" },
       "al-2": { imageUrl: "/img/al-2" },
     })
-    expect(changed).toBe(true)
+    expect(changed).toEqual([physicalMediaAlbumShortId("al-1")])
     expect(mod.derivedPhysicalMedia[0]?.definition.imageUrl).toBe("/new-1")
     expect(mod.derivedPhysicalMedia[0]?.definition.imageUrlLarge).toBe("/new-1-lg")
     expect(mod.derivedPhysicalMedia[1]?.definition.imageUrl).toBe("/img/al-2")
@@ -68,7 +68,7 @@ describe("LocalLibraryModule album artwork hydrate", () => {
       [short2]: "al-2",
     }
 
-    await expect(mod.ensureAlbumArtworkForShortIds([short1, short2])).resolves.toBe(true)
+    await expect(mod.ensureAlbumArtworkForShortIds([short1, short2])).resolves.toEqual([short1])
     expect(getLocalAlbumArtwork).toHaveBeenCalledWith("room-1", ["al-1"])
     expect(mod.derivedPhysicalMedia[0]?.definition.imageUrl).toBe("/art/al-1")
   })

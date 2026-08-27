@@ -35,7 +35,7 @@ import {
 } from "./context"
 import { PluginComponentRenderer } from "./PluginComponentRenderer"
 import type { PluginModalComponent } from "../../types/PluginComponent"
-import { MusicUploadPanel } from "../MusicUploadPanel"
+import { resolvePluginModalBody } from "../../lib/pluginModalBodies"
 
 function PluginModalHost({
   pluginName,
@@ -93,15 +93,19 @@ function PluginModalHost({
                     <CloseButton size="sm" />
                   </DialogCloseTrigger>
                   <DialogBody pb={6}>
-                    {pluginName === "music-upload" && modal.id === "upload-modal" && roomId ? (
-                      <MusicUploadPanel roomId={roomId} onClose={() => onClose(modal.id)} />
-                    ) : (
-                      <VStack align="stretch" gap={4}>
-                        {modal.children.map((child) => (
-                          <PluginComponentRenderer key={child.id} component={child} />
-                        ))}
-                      </VStack>
-                    )}
+                    {(() => {
+                      const CustomBody = resolvePluginModalBody(pluginName, modal.id)
+                      if (CustomBody && roomId) {
+                        return <CustomBody roomId={roomId} onClose={() => onClose(modal.id)} />
+                      }
+                      return (
+                        <VStack align="stretch" gap={4}>
+                          {modal.children.map((child) => (
+                            <PluginComponentRenderer key={child.id} component={child} />
+                          ))}
+                        </VStack>
+                      )
+                    })()}
                   </DialogBody>
                 </DialogContent>
               </DialogPositioner>

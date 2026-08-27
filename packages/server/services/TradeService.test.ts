@@ -153,6 +153,27 @@ describe("TradeService", () => {
     expect(result.message).toMatch(/expired/i)
   })
 
+  test("listing drops expired invites and emits TRADE_INVITE_EXPIRED via ops", async () => {
+    const { trades, context } = makeCtx()
+    const invited = await trades.invite({ roomId, fromUserId: "a", toUserId: "b" })
+    const invite = invited.invite!
+    invite.createdAt = Date.now() - PLAYER_TRANSFER_TTL_MS - 1
+    await context.redis.pubClient.set(
+      `room:${roomId}:tradeInvite:${invite.inviteId}`,
+      JSON.stringify(invite),
+    )
+
+    const listed = await trades.listIncomingInvites(roomId, "b")
+    expect(listed).toHaveLength(0)
+    expect(context.systemEvents!.emit).toHaveBeenCalledWith(
+      roomId,
+      "TRADE_INVITE_EXPIRED",
+      expect.objectContaining({
+        invite: expect.objectContaining({ inviteId: invite.inviteId }),
+      }),
+    )
+  })
+
   test("empty-empty confirm rejected", async () => {
     const { trades } = makeCtx()
     const invited = await trades.invite({ roomId, fromUserId: "a", toUserId: "b" })

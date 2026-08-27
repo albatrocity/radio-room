@@ -172,6 +172,28 @@ export async function getRoomUsersCount({ context, roomId }: GetRoomUsersCountPa
   }
 }
 
+/** Socket id for one online user. No persona hydrate (ADR 0120). */
+export async function getOnlineUserSocketId({
+  context,
+  roomId,
+  userId,
+}: {
+  context: AppContext
+  roomId: string
+  userId: string
+}): Promise<string | null> {
+  try {
+    const online = await context.redis.pubClient.sIsMember(`room:${roomId}:online_users`, userId)
+    if (!online) return null
+    const user = await getUser({ context, userId })
+    return user?.id ?? null
+  } catch (e) {
+    console.log("ERROR FROM data/users/getOnlineUserSocketId", roomId, userId)
+    console.error(e)
+    return null
+  }
+}
+
 type SaveUserParams = {
   context: AppContext
   userId: string

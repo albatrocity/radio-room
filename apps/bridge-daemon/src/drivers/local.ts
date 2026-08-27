@@ -29,6 +29,7 @@ import {
 import type { NavidromeAlbum, NavidromeArtist, NavidromeSong } from "./localTypes"
 import {
   AlbumMembershipCache,
+  ALBUM_UNION_FETCH_CONCURRENCY,
   albumsFromMembership,
   artistCoverKeyFromMembership,
   artistsFromMembership,
@@ -388,6 +389,24 @@ export class LocalDriver implements Driver {
       albumOut.push(trackAlbumId)
     }
     return { playlistIds: matchedPlaylists, albumIds: albumOut }
+  }
+
+  /**
+   * Batch of {@link checkPlaylistMembership} for queue/playlist sleeve augment.
+   * Bounded concurrency so a long playlist does not stampede Navidrome getSong.
+   */
+  async checkPlaylistMembershipBatch(
+    trackIds: string[],
+    playlistIds: string[],
+    albumIds: string[] = [],
+    options?: { firstMatch?: boolean; includeTrackAlbumId?: boolean },
+  ): Promise<Record<string, { playlistIds: string[]; albumIds: string[] }>> {
+    const unique = [...new Set(trackIds.map((id) => id.trim()).filter(Boolean))]
+    const out: Record<string, { playlistIds: string[]; albumIds: string[] }> = {}
+    await mapWithConcurrency(unique, ALBUM_UNION_FETCH_CONCURRENCY, async (id) => {
+      out[id] = await this.checkPlaylistMembership(id, playlistIds, albumIds, options)
+    })
+    return out
   }
 
   /**

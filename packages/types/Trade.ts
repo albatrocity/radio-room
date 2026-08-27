@@ -63,11 +63,19 @@ export interface TradeSession {
   updatedAt: number
 }
 
+export type TradeInventoryTransfer = {
+  fromUserId: string
+  toUserId: string
+  item: InventoryItem
+  quantity: number
+}
+
 export type TradeActionResult = {
   success: boolean
   message?: string
   trade?: TradeSession
   invite?: TradeInvite
+  transfers?: TradeInventoryTransfer[]
 }
 
 export type { InventoryItem, ItemDefinition }

@@ -13,11 +13,7 @@ import {
   presignMusicUpload,
 } from "../lib/serverApi"
 import { HTTPError } from "ky"
-
-const ACCEPT =
-  ".mp3,.wav,.flac,.aiff,.aif,.m4a,.aac,.ogg,.zip,.rar,.7z,audio/*,application/zip,application/x-rar-compressed,application/vnd.rar,application/x-7z-compressed"
-
-const MAX_BYTES = 800 * 1024 * 1024
+import { MUSIC_UPLOAD_ACCEPT, MUSIC_UPLOAD_MAX_BYTES } from "@repo/types"
 
 async function uploadErrorMessage(error: unknown): Promise<string> {
   if (error instanceof HTTPError) {
@@ -85,7 +81,7 @@ export function MusicUploadPanel({ roomId, onClose }: MusicUploadPanelProps) {
   const handleUpload = useCallback(async () => {
     if (!selectedFile || isUploading) return
 
-    if (selectedFile.size > MAX_BYTES) {
+    if (selectedFile.size > MUSIC_UPLOAD_MAX_BYTES) {
       toaster.create({
         title: "File too large",
         description: "Maximum upload size is 800 MB.",
@@ -156,7 +152,7 @@ export function MusicUploadPanel({ roomId, onClose }: MusicUploadPanelProps) {
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT}
+        accept={MUSIC_UPLOAD_ACCEPT}
         style={{ display: "none" }}
         onChange={handleFileChange}
       />

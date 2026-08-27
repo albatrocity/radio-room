@@ -717,8 +717,10 @@ export const useTradesGiftsTabUnseen = (): boolean => {
 /** Tab/button badge: live attention events or any pending incoming gift/trade invite. */
 export const useTradesGiftsTabAttention = (): boolean => {
   const unseen = useTradesGiftsTabUnseen()
-  const payload = useUserGameStatePayload()
-  return unseen || hasIncomingTradesGiftsAttention(payload)
+  const hasIncoming = useSelector(userGameStateActor, (s) =>
+    hasIncomingTradesGiftsAttention(s.context.payload),
+  )
+  return unseen || hasIncoming
 }
 
 // ============================================================================

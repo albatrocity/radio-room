@@ -13,6 +13,37 @@ async function emitUpdated(context: AppContext, roomId: string, trade: TradeSess
   }
 }
 
+export async function emitTradeInviteExpired(params: {
+  context: AppContext
+  invite: TradeInvite
+}): Promise<void> {
+  if (!params.context.systemEvents) return
+  await params.context.systemEvents.emit(params.invite.roomId, "TRADE_INVITE_EXPIRED", {
+    roomId: params.invite.roomId,
+    invite: params.invite,
+  })
+}
+
+async function emitInventoryTransferred(params: {
+  context: AppContext
+  roomId: string
+  fromUserId: string
+  toUserId: string
+  item: import("@repo/types").InventoryItem
+  quantity: number
+}): Promise<void> {
+  if (!params.context.systemEvents) return
+  const sessionId = (await params.context.gameSessions?.getActiveSession(params.roomId))?.id ?? ""
+  await params.context.systemEvents.emit(params.roomId, "INVENTORY_ITEM_TRANSFERRED", {
+    roomId: params.roomId,
+    sessionId,
+    fromUserId: params.fromUserId,
+    toUserId: params.toUserId,
+    item: params.item,
+    quantity: params.quantity,
+  })
+}
+
 export async function tradeInvite(params: {
   roomId: string
   fromUserId: string
@@ -127,14 +158,13 @@ export async function tradeSetMessage(params: {
   return result
 }
 
-/** Ephemeral typing signal — no Redis write. */
+/** Validate typing membership. Handler delivers TRADE_TYPING (ADR 0120). */
 export async function tradeTyping(params: {
   roomId: string
   userId: string
   tradeId: string
-  typing: boolean
   context: AppContext
-}): Promise<{ success: boolean; message?: string }> {
+}): Promise<{ success: boolean; message?: string; counterpartUserId?: string }> {
   const trades = params.context.trades
   if (!trades) return { success: false, message: "Trade service unavailable" }
   const trade = (await trades.getTrade(params.roomId, params.tradeId)) as TradeSession | null
@@ -144,15 +174,9 @@ export async function tradeTyping(params: {
   if (!trade.participants[params.userId]) {
     return { success: false, message: "You are not in this trade" }
   }
-  if (params.context.systemEvents) {
-    await params.context.systemEvents.emit(params.roomId, "TRADE_TYPING", {
-      roomId: params.roomId,
-      tradeId: params.tradeId,
-      userId: params.userId,
-      typing: params.typing,
-    })
-  }
-  return { success: true }
+  const counterpartUserId =
+    trade.fromUserId === params.userId ? trade.toUserId : trade.fromUserId
+  return { success: true, counterpartUserId }
 }
 
 export async function tradeLock(params: {
@@ -200,6 +224,16 @@ export async function tradeConfirm(params: {
       await params.context.systemEvents.emit(params.roomId, "TRADE_COMPLETED", {
         roomId: params.roomId,
         trade: result.trade,
+      })
+    }
+    for (const transfer of result.transfers ?? []) {
+      await emitInventoryTransferred({
+        context: params.context,
+        roomId: params.roomId,
+        fromUserId: transfer.fromUserId,
+        toUserId: transfer.toUserId,
+        item: transfer.item,
+        quantity: transfer.quantity,
       })
     }
     const a = await displayName(params.context, result.trade.fromUserId)

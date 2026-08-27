@@ -156,14 +156,40 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       .hydrateMissingAlbumArtwork({
         batchSize: 24,
         shouldContinue: () => generation === this.albumArtworkHydrateGeneration,
-        onBatch: async () => {
+        onBatch: async (changedShortIds) => {
           if (generation !== this.albumArtworkHydrateGeneration) return
-          await this.resyncDerivedCatalogs()
+          await this.registerPatchedAlbumDefinitions(changedShortIds)
         },
       })
       .catch((err) => {
         console.warn("[item-shops] album artwork hydrate failed:", err)
       })
+  }
+
+  private giveItemPickerEntries(): ItemCatalogEntry[] {
+    return this.effectiveCatalogForGive().filter(
+      (e) => e.localLibraryGrant?.scope !== "album",
+    )
+  }
+
+  /**
+   * Re-apply grant + derived catalogs in memory and HSET only the given SKUs
+   * (album sleeve hydrate). Full {@link resyncDerivedCatalogs} still runs after
+   * a derivation refresh so new ids are registered.
+   */
+  private async registerPatchedAlbumDefinitions(shortIds: readonly string[]): Promise<void> {
+    if (!this.context || !this.shopping || shortIds.length === 0) return
+    const config = await this.getConfig()
+    const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
+    const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
+    this.shopping.replaceCatalogs({ itemCatalog, shopCatalog })
+    const wanted = new Set(shortIds.map((id) => id.trim()).filter(Boolean))
+    const defs = itemCatalog
+      .filter((e) => wanted.has(e.definition.shortId))
+      .map((e) => e.definition)
+    if (defs.length > 0) {
+      await this.context.inventory.registerItemDefinitions(defs)
+    }
   }
 
   private effectiveCatalogForGive(): ItemCatalogEntry[] {
@@ -459,9 +485,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             {
               name: "itemShortId",
               label: "Item",
-              type: "select",
+              type: "combobox",
               required: true,
-              options: this.effectiveCatalogForGive().map((e) => ({
+              placeholder: "Search items or paste a catalog-mode short id (pm-al-…)",
+              options: this.giveItemPickerEntries().map((e) => ({
                 value: e.definition.shortId,
                 label: e.definition.artist?.trim()
                   ? `${e.definition.name} (${e.definition.artist.trim()})`
@@ -926,12 +953,22 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   async listPhysicalMediaItems(params: { roomId: string; userId: string }): Promise<PhysicalMediaItem[]> {
-    const shortIds = await this.localLibrary.heldAlbumPhysicalMediaShortIds(params.userId)
-    if (shortIds.length > 0) {
-      const patched = await this.localLibrary.ensureAlbumArtworkForShortIds(shortIds)
-      if (patched) await this.resyncDerivedCatalogs()
+    const items = await this.localLibrary.listPhysicalMediaItems(params.userId)
+    const albumShortIds = items
+      .filter((item) => this.localLibrary.albumMap()[item.mediaKey])
+      .map((item) => item.mediaKey)
+    if (albumShortIds.length > 0) {
+      void this.localLibrary
+        .ensureAlbumArtworkForShortIds(albumShortIds)
+        .then(async (changed) => {
+          if (changed.length === 0) return
+          await this.registerPatchedAlbumDefinitions(changed)
+        })
+        .catch((err) => {
+          console.warn("[item-shops] held album artwork failed:", err)
+        })
     }
-    return this.localLibrary.listPhysicalMediaItems(params.userId)
+    return items
   }
 
   async resolvePhysicalMediaItem(params: {
@@ -1044,20 +1081,29 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       const patched = await this.localLibrary.ensureAlbumArtworkForShortIds(
         instance.offers.map((o) => o.shortId),
       )
-      if (patched) await this.resyncDerivedCatalogs()
+      if (patched.length > 0) await this.registerPatchedAlbumDefinitions(patched)
     }
 
     // Wire itemDefinitions may predate lazy sleeve fill — merge derived catalog art.
-    const mergedDefs = this.mergeDefinitionsWithDerived(ctx.itemDefinitions)
+    const offerShortIds = instance?.offers.map((o) => o.shortId).filter(Boolean) ?? []
+    const mergedDefs = this.mergeDefinitionsWithDerived(ctx.itemDefinitions, offerShortIds)
 
     return {
       currentShopInstance: this.enrichOfferArtworkAndRarity(instance, mergedDefs),
     }
   }
 
-  private mergeDefinitionsWithDerived(itemDefinitions: ItemDefinition[]): ItemDefinition[] {
+  private mergeDefinitionsWithDerived(
+    itemDefinitions: ItemDefinition[],
+    shortIds?: readonly string[],
+  ): ItemDefinition[] {
+    const wanted =
+      shortIds && shortIds.length > 0
+        ? new Set(shortIds.map((id) => id.trim()).filter(Boolean))
+        : null
     const byId = new Map(itemDefinitions.map((d) => [d.id, { ...d }]))
     for (const entry of this.localLibrary.derivedPhysicalMedia) {
+      if (wanted && !wanted.has(entry.definition.shortId)) continue
       const id = `${this.name}:${entry.definition.shortId}`
       const existing = byId.get(id)
       if (!existing) {
