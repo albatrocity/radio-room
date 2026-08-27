@@ -33,6 +33,7 @@ import { resetTradesGiftsTabAttention } from "./gameStateTradesGiftsAttentionAct
 import { mediaBridgeActor } from "./mediaBridgeActor"
 import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
+import { clearMediaSession } from "../lib/mediaSession"
 
 import {
   getPersistedRoomState,
@@ -173,6 +174,7 @@ export function teardownRoom(): void {
   giftInboxActor.send({ type: "DEACTIVATE" })
   resetTradesGiftsTabAttention()
   teardownPluginComponentActors()
+  clearMediaSession()
 
   currentRoomId = null
   isInitialized = false

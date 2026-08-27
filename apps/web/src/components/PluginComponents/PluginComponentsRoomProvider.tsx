@@ -89,8 +89,8 @@ function PluginModalHost({
               <DialogPositioner>
                 <DialogContent>
                   <DialogHeader>{interpolatedTitle}</DialogHeader>
-                  <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-                    <CloseButton size="sm" />
+                  <DialogCloseTrigger asChild>
+                    <CloseButton />
                   </DialogCloseTrigger>
                   <DialogBody pb={6}>
                     {(() => {

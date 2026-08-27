@@ -1,13 +1,11 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import { defineConfig } from "vite"
+import react from "@vitejs/plugin-react"
+import { tanstackRouter } from "@tanstack/router-plugin/vite"
 
 const vitePort = 8000
 
 /** Docker bind mounts often don't propagate fs events (especially Docker Desktop). */
-const pollFiles =
-  process.env.VITE_DOCKER === '1' ||
-  process.env.CHOKIDAR_USEPOLLING === 'true'
+const pollFiles = process.env.VITE_DOCKER === "1" || process.env.CHOKIDAR_USEPOLLING === "true"
 
 export default defineConfig(({ mode }) => ({
   plugins: [
@@ -15,9 +13,10 @@ export default defineConfig(({ mode }) => ({
     react(),
   ],
   server: {
+    allowedHosts: ["ross.local"], // LAN phone testing; pair with getApiBaseUrl() + API CORS
     port: vitePort,
     strictPort: true,
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     // Bind mounts — without polling, saves on the host often never reach Chokidar inside the container.
     watch: pollFiles
       ? {
@@ -30,20 +29,29 @@ export default defineConfig(({ mode }) => ({
     // resolves the websocket host from import.meta.url, so http://127.0.0.1:8000 and http://localhost:8000
     // both work. A fixed clientPort was breaking HMR for some setups (Vite 7 + Docker).
     proxy: {
-      '/api/auth': {
-        target: process.env.API_INTERNAL_URL || 'http://127.0.0.1:3000',
+      "/api/auth": {
+        target: process.env.API_INTERNAL_URL || "http://127.0.0.1:3000",
         changeOrigin: true,
       },
-      '/api/rooms': {
-        target: process.env.API_INTERNAL_URL || 'http://127.0.0.1:3000',
+      "/api/rooms": {
+        target: process.env.API_INTERNAL_URL || "http://127.0.0.1:3000",
         changeOrigin: true,
       },
     },
   },
-  envPrefix: 'VITE_',
+  envPrefix: "VITE_",
   build: {
-    outDir: 'dist',
-    sourcemap: mode !== 'production',
+    outDir: "dist",
+    sourcemap: mode !== "production",
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/@emoji-mart/data")) return "emoji-mart-data"
+          if (id.includes("node_modules/@emoji-mart/") || id.includes("node_modules/emoji-mart/")) {
+            return "emoji-mart"
+          }
+        },
+      },
+    },
   },
 }))
-

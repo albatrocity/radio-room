@@ -1,7 +1,7 @@
 import { Box, Button, Icon, ScrollArea } from "@chakra-ui/react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useMachine, useSelector } from "@xstate/react"
-import React, { useEffect, useLayoutEffect } from "react"
+import React, { useCallback, useEffect, useLayoutEffect } from "react"
 import { LuArrowDown } from "react-icons/lu"
 import { useStickToBottom } from "use-stick-to-bottom"
 
@@ -13,6 +13,7 @@ import { User } from "../types/User"
 import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
 import ScrollShadowViewport from "./ScrollShadowViewport"
+import VirtualizerContent, { virtualizerViewportCss } from "./VirtualizerContent"
 
 /** Match `use-stick-to-bottom`'s STICK_TO_BOTTOM_OFFSET_PX. */
 const NEAR_BOTTOM_PX = 70
@@ -68,12 +69,18 @@ function ChatWindow() {
     initial: "instant",
   })
 
+  const getItemKey = useCallback(
+    (index: number) => messages[index]?.timestamp ?? index,
+    [messages],
+  )
+
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 72,
-    overscan: 10,
-    getItemKey: (index) => messages[index]?.timestamp ?? index,
+    // Extra rows so a fling does not hit unmeasured items as quickly.
+    overscan: 24,
+    getItemKey,
   })
 
   useEffect(() => {
@@ -136,14 +143,9 @@ function ChatWindow() {
   return (
     <Box position="relative" height="100%">
       <ScrollArea.Root height="100%" size="sm" variant="hover">
-        <ScrollShadowViewport ref={scrollRef} height="100%">
+        <ScrollShadowViewport ref={scrollRef} height="100%" css={virtualizerViewportCss}>
           <ScrollArea.Content>
-            <Box
-              ref={contentRef}
-              position="relative"
-              width="100%"
-              height={`${virtualizer.getTotalSize()}px`}
-            >
+            <VirtualizerContent contentRef={contentRef} totalSize={virtualizer.getTotalSize()}>
               {virtualItems.map((virtualRow) => {
                 const message = messages[virtualRow.index]
                 if (!message) return null
@@ -177,7 +179,7 @@ function ChatWindow() {
                   </Box>
                 )
               })}
-            </Box>
+            </VirtualizerContent>
           </ScrollArea.Content>
         </ScrollShadowViewport>
         <ScrollArea.Scrollbar>

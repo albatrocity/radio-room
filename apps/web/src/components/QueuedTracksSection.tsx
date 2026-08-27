@@ -41,6 +41,7 @@ import { emitToSocket } from "../actors/socketActor"
 import socket from "../lib/socket"
 import { toast } from "../lib/toasts"
 import PlaylistItem from "./PlaylistItem"
+import VirtualizerContent, { virtualizerViewportCss } from "./VirtualizerContent"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import RedactedQueueTracksPreview from "./RedactedQueueTracksPreview"
 import { Tooltip } from "./ui/tooltip"
@@ -532,15 +533,20 @@ function QueuedTracksSection() {
     return Math.min(contentHeight, MAX_LIST_HEIGHT)
   }, [virtualRowCount])
 
+  const getItemKey = useCallback(
+    (index: number) => {
+      const item = queue[index]
+      return item ? `${item.addedAt}-${item.track.id}` : index
+    },
+    [queue],
+  )
+
   const virtualizer = useVirtualizer({
     count: virtualRowCount,
     getScrollElement: () => viewportRef.current,
     estimateSize: () => 78,
-    overscan: 4,
-    getItemKey: (index) => {
-      const item = queue[index]
-      return item ? `${item.addedAt}-${item.track.id}` : index
-    },
+    overscan: 8,
+    getItemKey,
     enabled: (!canReorder || !hasSortableItems) && virtualRowCount > 0 && !queueTracksRedacted,
   })
 
@@ -612,7 +618,7 @@ function QueuedTracksSection() {
 
   const virtualList =
     virtualRowCount > 0 ? (
-      <Box position="relative" width="100%" height={`${virtualizer.getTotalSize()}px`}>
+      <VirtualizerContent totalSize={virtualizer.getTotalSize()}>
         {virtualItems.map((virtualRow) => {
           const item = queue[virtualRow.index]
           if (!item) return null
@@ -640,7 +646,7 @@ function QueuedTracksSection() {
             </Box>
           )
         })}
-      </Box>
+      </VirtualizerContent>
     ) : null
 
   const listBody =
@@ -761,7 +767,7 @@ function QueuedTracksSection() {
         {virtualRowCount > 0 ? (
           <Box w="100%">
             <ScrollArea.Root height={`${listHeight}px`} size="sm" variant="hover">
-              <ScrollArea.Viewport ref={viewportRef} height="100%">
+              <ScrollArea.Viewport ref={viewportRef} height="100%" css={virtualizerViewportCss}>
                 <ScrollArea.Content>{listBody}</ScrollArea.Content>
               </ScrollArea.Viewport>
               <ScrollArea.Scrollbar>

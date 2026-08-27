@@ -126,6 +126,10 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0118](0118-resizable-room-layout-columns.md) | Resizable room layout columns (lg+) | Accepted |
 | [0119](0119-private-music-uploads-presign.md) | Private music uploads via presigned S3 PUT (`uploads/` prefix) | Accepted |
 | [0120](0120-targeted-trade-typing.md) | Targeted TRADE_TYPING (socket-only, counterpart delivery) | Accepted |
+| [0121](0121-installable-web-app-no-service-worker.md) | Installable web app without a service worker | Accepted |
+| [0122](0122-overlay-safe-area-via-chakra-recipes.md) | Overlay safe-area via Chakra dialog/drawer slot recipes | Accepted |
+| [0123](0123-launch-placeholder-without-service-worker.md) | Launch placeholder without a service worker | Accepted |
+| [0124](0124-browser-chrome-follows-primary-solid.md) | Browser chrome follows `primary.solid` after load | Accepted |
 
 ## Creating a New ADR
 

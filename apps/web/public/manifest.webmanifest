@@ -1,0 +1,36 @@
+{
+  "name": "Listening Room",
+  "short_name": "Listening Room",
+  "description": "Listen to something together",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0093A5",
+  "theme_color": "#0093A5",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

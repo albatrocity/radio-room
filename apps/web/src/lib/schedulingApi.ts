@@ -1,9 +1,10 @@
 import ky from "ky"
 import type { ShowDTO, ShowFilters } from "@repo/types"
 import { RADIO_SESSION_HEADER } from "../constants"
+import { getApiBaseUrl } from "./apiBaseUrl"
 import { getStoredUserId } from "./clientSession"
 
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = getApiBaseUrl()
 
 const api = ky.create({
   prefixUrl: API_URL,

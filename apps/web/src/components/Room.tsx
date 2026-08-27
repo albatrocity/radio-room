@@ -21,6 +21,8 @@ import {
 } from "../hooks/useActors"
 import { setCurrentArtworkUrl } from "../hooks/useDynamicTheme"
 import { HybridListeningTransportProvider } from "../hooks/useHybridListeningTransport"
+import { useMediaSession } from "../hooks/useMediaSession"
+import { ensureEmojiMart } from "../lib/ensureEmojiMart"
 
 const Room = ({ id }: { id: string }) => {
   const useDesktopSplitter = useBreakpointValue({ base: false, lg: true }) ?? false
@@ -34,6 +36,12 @@ const Room = ({ id }: { id: string }) => {
   const playlistSend = usePlaylistSend()
   const modalSend = useModalsSend()
   const nowPlaying = useNowPlaying()
+
+  useMediaSession()
+
+  useEffect(() => {
+    void ensureEmojiMart()
+  }, [])
 
   useEffect(() => {
     if (isNewUser && isAuthenticated) {

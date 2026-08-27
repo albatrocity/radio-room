@@ -7,7 +7,7 @@ import type {
   StoredArtifactPublic,
 } from "@repo/types"
 import { getPluginUserState } from "../../lib/getPluginUserState"
-import Modal from "../Modal"
+import Drawer from "../Drawer"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../actors/socketActor"
 import {
   useIsModalOpen,
@@ -540,29 +540,20 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   if (activePanelSlot === "gameState") return null
 
   return (
-    <Modal
+    <Drawer
       isOpen={isOpen}
       onClose={() => modalSend({ type: "CLOSE" })}
-      showFooter={showGameFooter}
-      footer={footer ?? undefined}
-      placement="top"
-      contentProps={{
-        mt: { base: 3, md: 8 },
-        mb: 3,
-        minH: { base: "min(70dvh, 36rem)", md: "32rem" },
-        maxH: "90dvh",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-      bodyProps={{
-        flex: "1",
-        minH: 0,
-        overflowY: "auto",
-      }}
+      placement="bottom"
+      size="full"
+      heading={
+        sessionName
+          ? `${INTEGRATED_PANEL_SLOTS.gameState.title} — ${sessionName}`
+          : INTEGRATED_PANEL_SLOTS.gameState.title
+      }
+      footer={showGameFooter ? footer ?? undefined : undefined}
     >
       {body}
-    </Modal>
+    </Drawer>
   )
 }
 

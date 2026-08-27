@@ -73,8 +73,8 @@ const Modal = ({
             {heading && <DialogHeader flexShrink={0}>{heading}</DialogHeader>}
 
             {canClose && (
-              <DialogCloseTrigger asChild position="absolute" top="2" right="2" zIndex={1}>
-                <CloseButton size="sm" />
+              <DialogCloseTrigger asChild zIndex={1}>
+                <CloseButton />
               </DialogCloseTrigger>
             )}
             <DialogBody {...bodyProps}>{children}</DialogBody>

@@ -2,11 +2,19 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 
+import { startAppHeightSync } from './lib/syncAppHeight'
+
 import '@fontsource/caveat/600.css'
+import '@fontsource/nunito/300.css'
+import '@fontsource/nunito/400.css'
+import '@fontsource/nunito/700.css'
+import './components/layout.css'
 import './styles/roomTransition.css'
 
 // Import the generated route tree
 import { routeTree } from './routeTree.gen'
+
+startAppHeightSync()
 
 // Create a new router instance
 const router = createRouter({ routeTree })

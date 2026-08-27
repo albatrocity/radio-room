@@ -16,6 +16,16 @@ export function useIntegratedPanelPresentation(): IntegratedPanelPresentation {
   return useBreakpointValue<IntegratedPanelPresentation>({ base: "modal", lg: "panel" }) ?? "modal"
 }
 
+/** Game State / Add to Queue use a bottom sheet below `lg` (panel is lg+). */
+export function useIsBelowLg(): boolean {
+  return useBreakpointValue({ base: true, lg: false }) ?? true
+}
+
+/** Playlist / listeners / schedule drawers become bottom sheets below `sm`. */
+export function useIsBelowSm(): boolean {
+  return useBreakpointValue({ base: true, sm: false }) ?? true
+}
+
 export function useActiveIntegratedPanelSlot(): IntegratedPanelSlotId | null {
   const presentation = useIntegratedPanelPresentation()
   return useSelector(modalsActor, (state) =>

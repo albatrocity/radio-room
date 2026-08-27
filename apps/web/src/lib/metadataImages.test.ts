@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { MetadataSourceUrl } from "@repo/types"
 import {
+  featureImageUrl,
   firstImageUrl,
   largestImageUrl,
   preferBrowserRenderableImages,
@@ -34,6 +35,7 @@ describe("metadataImages", () => {
     ]
     expect(firstImageUrl(urls)).toBe("https://img/small")
     expect(largestImageUrl(urls)).toBe("https://img/large")
+    expect(featureImageUrl(urls)).toBe("https://img/med")
   })
 
   it("falls back to the first image when dimensions are unparseable", () => {

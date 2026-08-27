@@ -58,12 +58,12 @@ const SelectablePlaylistItem = memo(function SelectablePlaylistItem({
   if (isSelectable && !isAvailable) {
     return (
       <Tooltip content={`Not available on ${serviceName}`}>
-        <HStack opacity={0.5} cursor="not-allowed">
+        <HStack opacity={0.5} cursor="not-allowed" minW={0} w="100%">
           <ChakraCheckbox.Root checked={false} disabled>
             <ChakraCheckbox.HiddenInput />
             <ChakraCheckbox.Control />
           </ChakraCheckbox.Root>
-          <Box flex={1}>
+          <Box flex={1} minW={0}>
             <PlaylistItem item={item} />
           </Box>
         </HStack>
@@ -72,14 +72,14 @@ const SelectablePlaylistItem = memo(function SelectablePlaylistItem({
   }
 
   return (
-    <HStack>
+    <HStack minW={0} w="100%">
       {isSelectable && (
         <ChakraCheckbox.Root checked={isSelected} onCheckedChange={handleChange}>
           <ChakraCheckbox.HiddenInput />
           <ChakraCheckbox.Control />
         </ChakraCheckbox.Root>
       )}
-      <Box flex={1}>
+      <Box flex={1} minW={0}>
         <PlaylistItem item={item} />
       </Box>
     </HStack>

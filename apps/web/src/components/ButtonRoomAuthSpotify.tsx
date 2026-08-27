@@ -10,6 +10,7 @@ import {
   useIsMetadataSourceLoading,
   useMetadataSourceAuthSend,
 } from "../hooks/useActors"
+import { getApiBaseUrl } from "../lib/apiBaseUrl"
 
 export default function ButtonRoomAuthSpotify({
   hideText = false,
@@ -51,7 +52,7 @@ export default function ButtonRoomAuthSpotify({
         <VStack align="flex-start">
           <Button asChild size="sm" colorPalette="action">
             <Link
-              href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
+              href={`${getApiBaseUrl()}/auth/${serviceName}/login?userId=${
                 currentUser?.userId
               }&redirect=${encodeURIComponent(location.pathname)}`}
             >

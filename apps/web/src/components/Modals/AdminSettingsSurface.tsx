@@ -147,8 +147,8 @@ export function AdminSettingsSurface({ variant }: Props) {
             <DialogHeader>
               <AdminSettingsHeader showBack={showBack} onBack={onBack} />
             </DialogHeader>
-            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-              <CloseButton size="sm" />
+            <DialogCloseTrigger asChild>
+              <CloseButton />
             </DialogCloseTrigger>
             {sections}
           </DialogContent>

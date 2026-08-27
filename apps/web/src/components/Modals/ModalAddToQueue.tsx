@@ -3,6 +3,7 @@ import { Box, Heading, Stack } from "@chakra-ui/react"
 
 import FormAddToQueue from "../FormAddToQueue"
 import Modal from "../Modal"
+import Drawer from "../Drawer"
 import { PluginArea } from "../PluginComponents"
 import SavedTracks from "../SavedTracks"
 import useAddToQueue from "../useAddToQueue"
@@ -16,6 +17,7 @@ import {
   useCurrentRoom,
   refreshEffectiveMetadataSources,
 } from "../../hooks/useActors"
+import { useIsBelowLg } from "../../hooks/useIntegratedPanelPresentation"
 
 /** Run after the browser paints so dialog chrome is not blocked by open-side work. */
 function afterNextPaint(callback: () => void): () => void {
@@ -79,6 +81,60 @@ function ModalAddToQueue() {
 
   const isLoading = state.matches("loading")
   const loadingItem = isLoading ? state.context.queuedTrack : undefined
+  const isSheet = useIsBelowLg()
+
+  const heading = (
+    <Heading as="h2" size="md">
+      Add to play queue
+    </Heading>
+  )
+
+  const body = (
+    <Stack direction="column" gap={8} flex="1" minH={0} h="100%">
+      <PluginArea area="addToQueue" direction="column" />
+      <Box flex="1" minH={0} minW={0} overflowX="hidden" display="flex" flexDirection="column">
+        <FormAddToQueue
+          onAddToQueue={addToQueue}
+          isDisabled={isLoading}
+          onSearchActiveChange={setSearchActive}
+          fillHeight
+        />
+      </Box>
+      {canViewSavedTracks && !searchActive && (
+        <Box
+          flexShrink={0}
+          maxH="28%"
+          overflowY="auto"
+          opacity={searchActive ? 0.1 : isLoading ? 0.5 : 1}
+          transition="opacity 0.2s"
+          pointerEvents={searchActive ? "none" : "auto"}
+        >
+          <Heading as="h4" size="sm" mb={2}>
+            Your recently liked tracks
+          </Heading>
+          <SavedTracks
+            isDisabled={isLoading || searchActive}
+            loadingItem={loadingItem}
+            onClick={searchActive ? undefined : addToQueue}
+          />
+        </Box>
+      )}
+    </Stack>
+  )
+
+  if (isSheet) {
+    return (
+      <Drawer
+        open={isAddingToQueue}
+        onClose={hideEditForm}
+        placement="bottom"
+        size="full"
+        heading={heading}
+      >
+        {body}
+      </Drawer>
+    )
+  }
 
   return (
     <Modal
@@ -87,11 +143,7 @@ function ModalAddToQueue() {
       // Keep Search/Browse warm across open/close (ADR 0090 / modal open latency).
       lazyMount={false}
       unmountOnExit={false}
-      heading={
-        <Heading as="h2" size="md">
-          Add to play queue
-        </Heading>
-      }
+      heading={heading}
       contentProps={{
         h: "min(90dvh, 44rem)",
         maxH: "90dvh",
@@ -107,36 +159,7 @@ function ModalAddToQueue() {
         flexDirection: "column",
       }}
     >
-      <Stack direction="column" gap={8} flex="1" minH={0} h="100%">
-        <PluginArea area="addToQueue" direction="column" />
-        <Box flex="1" minH={0} minW={0} overflowX="hidden" display="flex" flexDirection="column">
-          <FormAddToQueue
-            onAddToQueue={addToQueue}
-            isDisabled={isLoading}
-            onSearchActiveChange={setSearchActive}
-            fillHeight
-          />
-        </Box>
-        {canViewSavedTracks && !searchActive && (
-          <Box
-            flexShrink={0}
-            maxH="28%"
-            overflowY="auto"
-            opacity={searchActive ? 0.1 : isLoading ? 0.5 : 1}
-            transition="opacity 0.2s"
-            pointerEvents={searchActive ? "none" : "auto"}
-          >
-            <Heading as="h4" size="sm" mb={2}>
-              Your recently liked tracks
-            </Heading>
-            <SavedTracks
-              isDisabled={isLoading || searchActive}
-              loadingItem={loadingItem}
-              onClick={searchActive ? undefined : addToQueue}
-            />
-          </Box>
-        )}
-      </Stack>
+      {body}
     </Modal>
   )
 }

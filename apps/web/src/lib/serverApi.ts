@@ -14,7 +14,9 @@ import { Room, RoomSetup } from "../types/Room"
 import type { PluginSchemasResponse, PluginSchemaInfo } from "@repo/types/Plugin"
 import type { PluginComponentStores, PluginComponentState } from "../types/PluginComponent"
 
-const API_URL = import.meta.env.VITE_API_URL
+import { getApiBaseUrl } from "./apiBaseUrl"
+
+const API_URL = getApiBaseUrl()
 
 const api = ky.create({
   prefixUrl: API_URL,

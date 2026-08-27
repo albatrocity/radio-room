@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useCallback } from "react"
 import { Box, Button, Icon, ScrollArea, Separator, VStack } from "@chakra-ui/react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { LuArrowDown } from "react-icons/lu"
@@ -6,6 +6,7 @@ import { useStickToBottom } from "use-stick-to-bottom"
 import { MetadataSourceType } from "@repo/types"
 import { PlaylistItem } from "../types/PlaylistItem"
 import SelectablePlaylistItem from "./SelectablePlaylistItem"
+import VirtualizerContent, { virtualizerViewportCss } from "./VirtualizerContent"
 
 type Props = {
   playlist: PlaylistItem[]
@@ -22,15 +23,20 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
     damping: 0.8,
   })
 
+  const getItemKey = useCallback(
+    (index: number) => {
+      const item = playlist[index]
+      return item ? `${item.addedAt}-${item.track.id}` : index
+    },
+    [playlist],
+  )
+
   const virtualizer = useVirtualizer({
     count: playlist.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 88,
-    overscan: 6,
-    getItemKey: (index) => {
-      const item = playlist[index]
-      return item ? `${item.addedAt}-${item.track.id}` : index
-    },
+    overscan: 12,
+    getItemKey,
   })
 
   const handleJumpToBottom = () => {
@@ -43,14 +49,9 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
   return (
     <Box position="relative" height="100%">
       <ScrollArea.Root height="100%" size="sm" variant="hover">
-        <ScrollArea.Viewport ref={scrollRef} height="100%">
+        <ScrollArea.Viewport ref={scrollRef} height="100%" css={virtualizerViewportCss}>
           <ScrollArea.Content>
-            <Box
-              ref={contentRef}
-              position="relative"
-              width="100%"
-              height={`${virtualizer.getTotalSize()}px`}
-            >
+            <VirtualizerContent contentRef={contentRef} totalSize={virtualizer.getTotalSize()}>
               {virtualItems.map((virtualRow) => {
                 const item = playlist[virtualRow.index]
                 if (!item) return null
@@ -80,7 +81,7 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
                   </Box>
                 )
               })}
-            </Box>
+            </VirtualizerContent>
           </ScrollArea.Content>
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar>

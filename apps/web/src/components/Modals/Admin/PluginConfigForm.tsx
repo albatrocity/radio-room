@@ -280,8 +280,8 @@ function ActionButton({
                 <Dialog.Header>
                   <Dialog.Title>{element.label}</Dialog.Title>
                 </Dialog.Header>
-                <Dialog.CloseTrigger asChild position="absolute" top="2" right="2">
-                  <CloseButton size="sm" />
+                <Dialog.CloseTrigger asChild>
+                  <CloseButton />
                 </Dialog.CloseTrigger>
                 <Dialog.Body>
                   <VStack align="stretch" gap={3}>

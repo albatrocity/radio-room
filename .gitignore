@@ -54,9 +54,11 @@ typings/
 # dotenv environment variable files
 .env*
 
-# gatsby files
+# Gatsby leftover (Vite static assets are apps/web/public)
 .cache/
-public
+apps/web/public/page-data/
+apps/web/public/~partytown/
+apps/web/public/static/
 
 # Mac files
 .DS_Store

@@ -13,6 +13,29 @@ export function firstImageUrl(images?: MetadataSourceUrl[]): string | undefined 
   return images?.find((img) => img.type === "image")?.url
 }
 
+const FEATURE_TARGET_AREA = 320 * 320
+
+/**
+ * Cover sized for now-playing / lock-screen: closest to ~320px, not always the
+ * first (often tiny) or largest (often 640+). Falls back to first if ids lack WxH.
+ */
+export function featureImageUrl(images?: MetadataSourceUrl[]): string | undefined {
+  const candidates = images?.filter((img) => img.type === "image" && img.url) ?? []
+  if (candidates.length === 0) return undefined
+  const sized = candidates.filter((img) => pixelArea(img) > 0)
+  if (sized.length === 0) return candidates[0]?.url
+  let best = sized[0]!
+  let bestDelta = Math.abs(pixelArea(best) - FEATURE_TARGET_AREA)
+  for (const candidate of sized) {
+    const delta = Math.abs(pixelArea(candidate) - FEATURE_TARGET_AREA)
+    if (delta < bestDelta) {
+      best = candidate
+      bestDelta = delta
+    }
+  }
+  return best.url
+}
+
 /** Biggest cover available, for full-size preview. Falls back to the first. */
 export function largestImageUrl(images?: MetadataSourceUrl[]): string | undefined {
   const candidates = images?.filter((img) => img.type === "image" && img.url) ?? []

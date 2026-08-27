@@ -1,7 +1,7 @@
 import React, { useEffect } from "react"
 import { Center, Heading, Spinner, VStack } from "@chakra-ui/react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import Div100vh from "react-div-100vh"
+import Layout from "../../components/layout"
 import { useMachine } from "@xstate/react"
 import { roomSetupMachine } from "../../machines/roomSetupMachine"
 import { StationProtocol } from "../../types/StationProtocol"
@@ -87,13 +87,13 @@ function CreateRoomPage() {
   }, [isPending, session, isAdmin, send, navigate])
 
   return (
-    <Div100vh>
+    <Layout fill>
       <Center h="100%">
         <VStack gap={4}>
           <Heading>Setting up your room...</Heading>
           <Spinner size="lg" />
         </VStack>
       </Center>
-    </Div100vh>
+    </Layout>
   )
 }
