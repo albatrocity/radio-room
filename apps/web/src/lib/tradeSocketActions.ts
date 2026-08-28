@@ -28,6 +28,9 @@ function matchesInviteTrade(
   )
 }
 
+/** One in-flight TRADE_RESPOND per invite (toast ActionTrigger used to double-fire). */
+const inFlightInviteRespond = new Set<string>()
+
 export function emitTradeInviteRespond(params: {
   inviteId: string
   fromUserId: string
@@ -38,6 +41,8 @@ export function emitTradeInviteRespond(params: {
   errorTitle?: string
 }): void {
   const { inviteId, fromUserId, toUserId, accept, onAccepted, onDone, errorTitle } = params
+  if (inFlightInviteRespond.has(inviteId)) return
+  inFlightInviteRespond.add(inviteId)
   dismissTradeInviteToast(inviteId)
 
   const subscriptionId = `trade-invite-respond-${inviteId}-${Date.now()}`
@@ -59,6 +64,7 @@ export function emitTradeInviteRespond(params: {
   const finish = (success: boolean, message?: string) => {
     if (settled) return
     settled = true
+    inFlightInviteRespond.delete(inviteId)
     unsubscribeById(subscriptionId)
     onDone?.(success, message)
     if (!success && message) {

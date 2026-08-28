@@ -1,9 +1,12 @@
-import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { emitToSocket } from "../../../actors/socketActor"
 import { refreshUserGameState } from "../../../actors/userGameStateActor"
 import { clearTradesGiftsTabAttentionIfEmpty } from "../../../lib/tradesGiftsAttention"
+import { subscribeForSocketResult } from "../../../lib/subscribeForSocketResult"
 import { toaster } from "../../ui/toaster"
 
 export type GiftRespondAction = "ACCEPT_GIFT" | "DECLINE_GIFT" | "CANCEL_GIFT"
+
+type GiftActionResult = { success?: boolean; message?: string }
 
 export function emitGiftRespond(
   action: GiftRespondAction,
@@ -14,12 +17,12 @@ export function emitGiftRespond(
   },
 ): void {
   const subscriptionId = `gift-respond-${offerId}-${Date.now()}`
-  subscribeById(subscriptionId, {
-    send: (event: { type: string; data?: { success?: boolean; message?: string } }) => {
-      if (event.type !== "GIFT_ACTION_RESULT" || !event.data) return
-      unsubscribeById(subscriptionId)
-      const success = event.data.success === true
-      const message = event.data.message
+  subscribeForSocketResult<GiftActionResult>({
+    id: subscriptionId,
+    eventType: "GIFT_ACTION_RESULT",
+    onResult: (data) => {
+      const success = data.success === true
+      const message = data.message
       options?.onDone?.(success, message)
       if (success) {
         refreshUserGameState()
@@ -36,7 +39,7 @@ export function emitGiftRespond(
         })
       }
     },
-    eventTypes: ["GIFT_ACTION_RESULT"],
+    onTimeout: () => options?.onDone?.(false),
   })
   emitToSocket(action, { offerId })
 }
@@ -48,13 +51,14 @@ export function emitGiftOffer(
   onDone: (success: boolean, message?: string) => void,
 ): void {
   const subscriptionId = `gift-offer-${itemId}-${Date.now()}`
-  subscribeById(subscriptionId, {
-    send: (event: { type: string; data?: { success?: boolean; message?: string } }) => {
-      if (event.type !== "GIFT_ACTION_RESULT" || !event.data) return
-      unsubscribeById(subscriptionId)
-      onDone(event.data.success === true, event.data.message)
+  subscribeForSocketResult<GiftActionResult>({
+    id: subscriptionId,
+    eventType: "GIFT_ACTION_RESULT",
+    onResult: (data) => {
+      onDone(data.success === true, data.message)
     },
-    eventTypes: ["GIFT_ACTION_RESULT"],
+    toastTimeout: false,
+    onTimeout: () => onDone(false, "Action timed out"),
   })
   emitToSocket("OFFER_GIFT", { itemId, toUserId, quantity })
 }

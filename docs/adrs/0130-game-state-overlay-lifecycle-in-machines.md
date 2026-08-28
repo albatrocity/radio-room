@@ -1,7 +1,7 @@
 # 0130. Game State overlay lifecycle lives in machines
 
 **Date:** 2026-08-28
-**Status:** Accepted
+**Status:** Partially superseded by [0133](0133-stored-artifacts-once-per-session.md) (stored-artifacts fetch cadence)
 
 ## Context
 
@@ -15,7 +15,7 @@ That glue is not testable in the web app’s node vitest environment, and it is 
 2. **Tab-visible and child-actor work are actions on `gameStateNavMachine`.** `active` entry/exit, `SET_ACTIVE_TAB` while active, `PUSH_DETAIL` / `OPEN_DETAIL_ON_TAB` while active, and `SESSION_SNAPSHOT` while active call a shared `syncGameStateChildActors` helper (admin listener, trade actor, plugin-tab `TAB_VIEWED`, Trades/Gifts view, accepted-trade toast, trade-detail viewed). Picking a tab still returns that tab to its root ([ADR 0106](0106-game-state-nav-machine.md) point 4); `selectTab` is only `SET_ACTIVE_TAB`.
 3. **Invalid tabs snap on `SET_AVAILABLE_TABS`, not a targetless `always`.** The surface (the only place that knows plugin tab ids, stored-tab visibility, admin, and trading) sends `SET_AVAILABLE_TABS`. Until that arrives, `availableTabIds` is `null` and the snap does not run. A targetless `always` while `active` re-checks eventless transitions until XState’s max and **stops the actor**, after which tab clicks (`SET_ACTIVE_TAB`) are ignored. Guard the snap with the incoming `event.tabIds` (the assign has not run yet). `active` entry still snaps if the already-stored list omits the current tab.
 4. **Session fields that child actors need (`allowTrading`, `activeTrade`) arrive as `SESSION_SNAPSHOT`.** `userGameStateMachine` notifies via a sink (`notifyGameStateNavSession`) so the payload machine does not import the nav actor. Nav stores the snapshot and syncs if already `active`.
-5. **Stored artifacts live on `userGameStateMachine`**, fetched with `GET_STORED_ARTIFACTS` when a session is present on `USER_GAME_STATE`, not in the view.
+5. **Stored artifacts live on `userGameStateMachine`**, fetched with `GET_STORED_ARTIFACTS` when a session is present on `USER_GAME_STATE`, not in the view. **Cadence** (once per `session.id`, plus explicit refresh) is [ADR 0133](0133-stored-artifacts-once-per-session.md).
 6. **Attention while already viewing that tab is a no-op.** `TAB_ATTENTION` for the active plugin tab, and gift/trade-invite toasts while the Trades/Gifts tab is showing, do not badge or toast.
 
 This **partially supersedes [ADR 0106](0106-game-state-nav-machine.md) point 6**: `ACTIVATE`/`DEACTIVATE` still follow overlay open/close rather than mount, and frames are still kept on close; the sender is `modalsMachine` `gameState` entry/exit, not a surface `useEffect`. Points 1–5 and 7 of 0106 are unchanged.
@@ -37,3 +37,4 @@ Do **not** add a `userGameStateSurfaceMachine`. The surface stays presentational
 - `apps/web/src/machines/gameStateNavMachine.ts`
 - `apps/web/src/lib/gameStateNavEffects.ts`
 - `apps/web/src/components/Modals/UserGameStateSurface.tsx`
+- [0133. Stored artifacts fetched once per game session](0133-stored-artifacts-once-per-session.md)

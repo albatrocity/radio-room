@@ -155,9 +155,24 @@ describe("GiftTradeHandlers", () => {
     })
   })
 
-  test("tradeTyping does not emit when the operation fails", async () => {
-    tradeMocks.tradeTyping.mockResolvedValue({ success: false, message: "Trade is not open" })
-    await handlers.tradeTyping(connections, { tradeId: "t1", typing: true })
-    expect(emitMocks.emitToUserSocket).not.toHaveBeenCalled()
+  test("tradeRespond includes the session on TRADE_ACTION_RESULT", async () => {
+    const trade = { tradeId: "t1", status: "open" }
+    tradeMocks.tradeRespond.mockResolvedValue({
+      success: true,
+      message: "Trade started",
+      trade,
+    })
+    await handlers.tradeRespond(connections, { tradeId: "inv1", accept: true })
+    expect(tradeMocks.tradeRespond).toHaveBeenCalledWith({
+      roomId: "room123",
+      userId: "user123",
+      inviteId: "inv1",
+      accept: true,
+      context,
+    })
+    expect(socket.emit).toHaveBeenCalledWith("event", {
+      type: "TRADE_ACTION_RESULT",
+      data: { success: true, message: "Trade started", tradeId: "t1", trade },
+    })
   })
 })

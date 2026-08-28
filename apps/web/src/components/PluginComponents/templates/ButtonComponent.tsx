@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from "react"
+import React, { useState } from "react"
 import { Button, Popover, Text } from "@chakra-ui/react"
 import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import { usePluginComponentContext } from "../context"
-import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
-import { toaster } from "../../ui/toaster"
+import { emitPluginAction } from "../../../lib/emitPluginAction"
+import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import type { ButtonComponentProps } from "../../../types/PluginComponent"
 
 interface ButtonTemplateComponentProps extends ButtonComponentProps {
@@ -39,15 +39,8 @@ export function ButtonTemplateComponent({
   const { openModal } = usePluginComponentContext()
   const [isLoading, setIsLoading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const subscriptionIdRef = useRef<string | null>(null)
+  const { track } = useSocketResultHandle()
   const IconComponent = icon ? getIcon(icon) : undefined
-
-  useEffect(() => {
-    return () => {
-      const id = subscriptionIdRef.current
-      if (id) unsubscribeById(id)
-    }
-  }, [])
 
   const dispatchAction = () => {
     if (!action) return
@@ -57,42 +50,12 @@ export function ButtonTemplateComponent({
     }
 
     setIsLoading(true)
-
-    const subscriptionId = `plugin-action-${pluginName}-${action}-${Date.now()}`
-    subscriptionIdRef.current = subscriptionId
-
-    subscribeById(subscriptionId, {
-      send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
-        if (event.type !== "PLUGIN_ACTION_RESULT" || !event.data) return
-        setIsLoading(false)
-        unsubscribeById(subscriptionId)
-        if (subscriptionIdRef.current === subscriptionId) {
-          subscriptionIdRef.current = null
-        }
-        toaster.create({
-          title: event.data.success ? "Success" : "Error",
-          description:
-            event.data.message || (event.data.success ? "Action completed" : "Action failed"),
-          type: event.data.success ? "success" : "error",
-        })
-      },
-      eventTypes: ["PLUGIN_ACTION_RESULT"],
-    })
-
-    emitToSocket("EXECUTE_PLUGIN_ACTION", { pluginName, action })
-
-    setTimeout(() => {
-      if (subscriptionIdRef.current === subscriptionId) {
-        setIsLoading(false)
-        unsubscribeById(subscriptionId)
-        subscriptionIdRef.current = null
-        toaster.create({
-          title: "Timeout",
-          description: "Action timed out",
-          type: "error",
-        })
-      }
-    }, 10000)
+    track(
+      emitPluginAction(pluginName, action, {
+        onSettled: () => setIsLoading(false),
+        onTimeout: () => setIsLoading(false),
+      }),
+    )
   }
 
   const handleClick = () => {

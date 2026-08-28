@@ -1,5 +1,7 @@
+import { useMemo } from "react"
 import { Box, Heading, SimpleGrid, Stack, Text } from "@chakra-ui/react"
 import type { GameAttributeName, InventoryItem, ItemDefinition } from "@repo/types"
+import { useUserGameState } from "../UserGameStateContext"
 import InventoryTab from "./InventoryTab"
 
 function attributeLabel(attribute: GameAttributeName): string {
@@ -21,28 +23,31 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat().format(n)
 }
 
-interface GameStateInventoryContentProps {
-  enabledAttributes: GameAttributeName[]
-  attributes: Record<GameAttributeName, number>
-  inventoryEnabled: boolean
-  inventoryItems: InventoryItem[]
-  maxSlots: number
-  maxCollectionSlots: number
-  definitionMap: Map<string, ItemDefinition>
-}
+const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
+const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
 
-function GameStateInventoryContent({
-  enabledAttributes,
-  attributes,
-  inventoryEnabled,
-  inventoryItems,
-  maxSlots,
-  maxCollectionSlots,
-  definitionMap,
-}: GameStateInventoryContentProps) {
-  const enabledAttributesForGrid = enabledAttributes.filter(
-    (a) => a !== "score" && a !== "coin",
-  )
+function GameStateInventoryContent() {
+  const gameState = useUserGameState()
+  const enabledAttributes = gameState?.session?.config.enabledAttributes ?? []
+  const attributes = (gameState?.state?.attributes ?? EMPTY_ATTRIBUTES) as Record<
+    GameAttributeName,
+    number
+  >
+  const inventoryEnabled = gameState?.session?.config.inventoryEnabled ?? false
+  const rawInventoryItems = gameState?.inventory?.items
+  const inventoryItems =
+    rawInventoryItems && rawInventoryItems.length > 0 ? rawInventoryItems : EMPTY_INVENTORY_ITEMS
+  const maxSlots = gameState?.inventory?.maxSlots ?? 0
+  const maxCollectionSlots = gameState?.inventory?.maxCollectionSlots ?? 0
+  const definitionMap = useMemo(() => {
+    const map = new Map<string, ItemDefinition>()
+    for (const def of gameState?.itemDefinitions ?? []) {
+      map.set(def.id, def)
+    }
+    return map
+  }, [gameState?.itemDefinitions])
+
+  const enabledAttributesForGrid = enabledAttributes.filter((a) => a !== "score" && a !== "coin")
 
   return (
     <Stack gap={5} pt={2}>

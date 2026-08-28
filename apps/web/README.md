@@ -124,6 +124,10 @@ Actors are **singleton XState interpreters** that manage specific domains of sta
 | `errorsActor` | Error notifications |
 | `bookmarkedChatActor` | User's bookmarked messages |
 | `metadataSourceAuthActor` | Spotify/service authentication |
+| `userGameStateActor` | Current user's game-session payload and stored artifacts |
+| `giftInboxActor` | Gift/trade toasts and attention while Game State is closed ([ADR 0115](../../docs/adrs/0115-trade-invite-inbox.md), [ADR 0129](../../docs/adrs/0129-trade-session-lock-confirm-attention.md)) |
+| `tradeActor` | Live trade session (offer, lock, confirm, typing) |
+| `gameStateNavActor` | Game State tab + detail stack; overlay open/close is `modalsMachine` `gameState` entry/exit ([ADR 0130](../../docs/adrs/0130-game-state-overlay-lifecycle-in-machines.md)) |
 
 #### Actor Pattern
 
@@ -305,6 +309,10 @@ states: {
   },
 }
 ```
+
+### Gift, trade, and Game State overlay
+
+Room join activates `giftInboxActor` (toasts and Trades/Gifts attention when the overlay is closed). Opening Game State is `modalsMachine` entering `gameState`, which sends `gameStateNavActor` `ACTIVATE` / `REFRESH` — not a surface `useEffect` ([ADR 0130](../../docs/adrs/0130-game-state-overlay-lifecycle-in-machines.md)). While the overlay is active, `syncGameStateChildActors` starts `tradeActor` for the live session and the admin listener tab when needed. Stored artifacts are owned by `userGameStateMachine`, fetched once per `session.id` ([ADR 0133](../../docs/adrs/0133-stored-artifacts-once-per-session.md)).
 
 ---
 

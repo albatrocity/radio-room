@@ -23,13 +23,13 @@ export function detailFrameTitle(frame: GameStateDetailFrame): string {
 }
 
 export function isItemDetailFrame(
-  frame: GameStateDetailFrame,
+  frame: GameStateDetailFrame | null | undefined,
 ): frame is GameStateItemDetailFrame {
-  return frame.kind === "item"
+  return frame?.kind === "item"
 }
 
 export function isTradeDetailFrame(
-  frame: GameStateDetailFrame,
+  frame: GameStateDetailFrame | null | undefined,
 ): frame is GameStateTradeDetailFrame {
-  return frame.kind === "trade"
+  return frame?.kind === "trade"
 }

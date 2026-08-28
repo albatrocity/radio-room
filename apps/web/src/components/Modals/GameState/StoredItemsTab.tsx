@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import {
   Badge,
   Button,
@@ -18,8 +18,10 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import type { StoredArtifactPublic } from "@repo/types"
-import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { emitToSocket } from "../../../actors/socketActor"
+import { refreshStoredArtifacts } from "../../../actors/userGameStateActor"
+import { useStoredArtifacts } from "../../../hooks/useActors"
+import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import { toaster } from "../../ui/toaster"
 
 function formatWhen(ms: number): string {
@@ -33,61 +35,36 @@ function formatWhen(ms: number): string {
   }
 }
 
-export default function StoredItemsTab({
-  artifacts,
-  onRefresh,
-}: {
-  artifacts: StoredArtifactPublic[]
-  onRefresh: () => void
-}) {
+export default function StoredItemsTab() {
+  const artifacts = useStoredArtifacts()
   const [retrieveForId, setRetrieveForId] = useState<string | null>(null)
   const [password, setPassword] = useState("")
-  const subscriptionIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    return () => {
-      const id = subscriptionIdRef.current
-      if (id) unsubscribeById(id)
-    }
-  }, [])
+  const { subscribe } = useSocketResultHandle()
 
   const submitRetrieve = () => {
     if (!retrieveForId || !password.trim()) return
     const artifactId = retrieveForId
     const pw = password
-    const subscriptionId = `retrieve-artifact-${artifactId}-${Date.now()}`
-    subscriptionIdRef.current = subscriptionId
-
-    subscribeById(subscriptionId, {
-      send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
-        if (event.type !== "RETRIEVE_STORED_ARTIFACT_RESULT" || !event.data) return
-        unsubscribeById(subscriptionId)
-        subscriptionIdRef.current = null
+    subscribe<{ success: boolean; message?: string }>({
+      id: `retrieve-artifact-${artifactId}-${Date.now()}`,
+      eventType: "RETRIEVE_STORED_ARTIFACT_RESULT",
+      timeoutMs: 15_000,
+      onResult: (data) => {
         toaster.create({
-          title: event.data.success ? "Success" : "Error",
+          title: data.success ? "Success" : "Error",
           description:
-            event.data.message ??
-            (event.data.success ? "Retrieved from storage." : "Could not retrieve."),
-          type: event.data.success ? "success" : "error",
+            data.message ?? (data.success ? "Retrieved from storage." : "Could not retrieve."),
+          type: data.success ? "success" : "error",
         })
         setRetrieveForId(null)
         setPassword("")
-        if (event.data.success) {
-          onRefresh()
+        if (data.success) {
+          refreshStoredArtifacts()
         }
       },
-      eventTypes: ["RETRIEVE_STORED_ARTIFACT_RESULT"],
     })
 
     emitToSocket("RETRIEVE_STORED_ARTIFACT", { artifactId, password: pw })
-
-    setTimeout(() => {
-      if (subscriptionIdRef.current === subscriptionId) {
-        unsubscribeById(subscriptionId)
-        subscriptionIdRef.current = null
-        toaster.create({ title: "Timeout", description: "Action timed out", type: "error" })
-      }
-    }, 15000)
   }
 
   if (artifacts.length === 0) {

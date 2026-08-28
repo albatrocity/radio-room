@@ -18,24 +18,31 @@ export const gameStateTradesGiftsAttentionMachine = setup({
     context: {} as GameStateTradesGiftsAttentionContext,
     events: {} as GameStateTradesGiftsAttentionEvent,
   },
+  actions: {
+    markUnseen: assign({ unseen: () => true }),
+    markSessionUnseen: assign({ sessionUnseen: () => true }),
+    clearUnseen: assign({ unseen: () => false }),
+    clearSessionUnseen: assign({ sessionUnseen: () => false }),
+    resetAttention: assign({ unseen: () => false, sessionUnseen: () => false }),
+  },
 }).createMachine({
   id: "gameStateTradesGiftsAttention",
   context: { unseen: false, sessionUnseen: false },
   on: {
     MARK_UNSEEN: {
-      actions: assign({ unseen: () => true }),
+      actions: "markUnseen",
     },
     MARK_SESSION_UNSEEN: {
-      actions: assign({ sessionUnseen: () => true }),
+      actions: "markSessionUnseen",
     },
     TAB_VIEWED: {
-      actions: assign({ unseen: () => false }),
+      actions: "clearUnseen",
     },
     SESSION_VIEWED: {
-      actions: assign({ sessionUnseen: () => false }),
+      actions: "clearSessionUnseen",
     },
     RESET: {
-      actions: assign({ unseen: () => false, sessionUnseen: () => false }),
+      actions: "resetAttention",
     },
   },
 })

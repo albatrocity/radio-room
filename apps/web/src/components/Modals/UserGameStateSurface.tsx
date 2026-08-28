@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react"
 import { Box, HStack, ScrollArea, Spinner, Stack, Status, Tabs, Text } from "@chakra-ui/react"
-import type {
-  GameAttributeName,
-  InventoryItem,
-  ItemDefinition,
-  StoredArtifactPublic,
-} from "@repo/types"
+import type { GameAttributeName, ItemDefinition } from "@repo/types"
 import { getPluginUserState } from "../../lib/getPluginUserState"
 import Drawer from "../Drawer"
 import {
@@ -15,7 +10,6 @@ import {
   useUserGameStateLoading,
   useUserGameStateError,
   useStoredArtifacts,
-  refreshStoredArtifacts,
   useIsAdmin,
   useGameStateActiveTab,
   useGameStateDetailFrame,
@@ -27,7 +21,7 @@ import { ADMIN_LISTENERS_TAB, STORED_ITEMS_TAB, TRADES_GIFTS_TAB } from "../../c
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
 import { SvgIcon } from "../ui/svg-icon"
-import { UserGameStateContext, type UserGameStateSnapshot } from "./UserGameStateContext"
+import { UserGameStateContext, useUserGameState, type UserGameStateSnapshot } from "./UserGameStateContext"
 import {
   GameStateInventoryContent,
   GameStatePluginTabTriggers,
@@ -65,7 +59,6 @@ const EYE_ICON = getIcon("Eye")
 
 const TRADES_ICON = getIcon("ArrowLeftRight")
 
-const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
 const EMPTY_ITEM_DEFINITIONS: ItemDefinition[] = []
 const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
 
@@ -90,15 +83,6 @@ type TabsBodyProps = {
   tradesGiftsUnseen: boolean
   showStoredTab: boolean
   isAdmin: boolean
-  enabledAttributes: GameAttributeName[]
-  attributes: Record<GameAttributeName, number>
-  inventoryEnabled: boolean
-  inventoryItems: InventoryItem[]
-  maxSlots: number
-  maxCollectionSlots: number
-  definitionMap: Map<string, ItemDefinition>
-  itemDefinitions: ItemDefinition[]
-  storedArtifacts: StoredArtifactPublic[]
   tabScrollRef: RefObject<HTMLDivElement | null>
   /** Explicit height chain for the lg+ integrated panel (not the modal drawer). */
   fillHeight?: boolean
@@ -113,20 +97,20 @@ function GameStateTabsBody({
   tradesGiftsUnseen,
   showStoredTab,
   isAdmin,
-  enabledAttributes,
-  attributes,
-  inventoryEnabled,
-  inventoryItems,
-  maxSlots,
-  maxCollectionSlots,
-  definitionMap,
-  itemDefinitions,
-  storedArtifacts,
   tabScrollRef,
   fillHeight = false,
 }: TabsBodyProps) {
   const sendNav = useGameStateNavSend()
   const currentFrame = useGameStateDetailFrame()
+  const gameState = useUserGameState()
+  const itemDefinitions = gameState?.itemDefinitions ?? EMPTY_ITEM_DEFINITIONS
+  const definitionMap = useMemo(() => {
+    const map = new Map<string, ItemDefinition>()
+    for (const def of itemDefinitions) {
+      map.set(def.id, def)
+    }
+    return map
+  }, [itemDefinitions])
 
   const tabLabel = useMemo(() => {
     if (gameStateTab === "inventory") return "Inventory"
@@ -148,20 +132,12 @@ function GameStateTabsBody({
   const tabContents = (
     <>
       <Tabs.Content value="inventory">
-        <GameStateInventoryContent
-          enabledAttributes={enabledAttributes}
-          attributes={attributes}
-          inventoryEnabled={inventoryEnabled}
-          inventoryItems={inventoryItems}
-          maxSlots={maxSlots}
-          maxCollectionSlots={maxCollectionSlots}
-          definitionMap={definitionMap}
-        />
+        <GameStateInventoryContent />
       </Tabs.Content>
 
       {showStoredTab ? (
         <Tabs.Content value={STORED_ITEMS_TAB}>
-          <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
+          <StoredItemsTab />
         </Tabs.Content>
       ) : null}
 
@@ -350,17 +326,10 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
     return map
   }, [payload?.itemDefinitions])
 
-  const enabledAttributes = payload?.session?.config.enabledAttributes ?? []
   const attributes = (payload?.state?.attributes ?? EMPTY_ATTRIBUTES) as Record<
     GameAttributeName,
     number
   >
-  const inventoryEnabled = payload?.session?.config.inventoryEnabled ?? false
-  const rawInventoryItems = payload?.inventory?.items
-  const inventoryItems =
-    rawInventoryItems && rawInventoryItems.length > 0 ? rawInventoryItems : EMPTY_INVENTORY_ITEMS
-  const maxSlots = payload?.inventory?.maxSlots ?? 0
-  const maxCollectionSlots = payload?.inventory?.maxCollectionSlots ?? 0
 
   const showStoredTab = storedArtifacts.length > 0
   const showTradesGiftsTab = payload?.session?.config.allowTrading === true
@@ -486,15 +455,6 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
             tradesGiftsUnseen={tradesGiftsUnseen}
             showStoredTab={showStoredTab}
             isAdmin={isAdmin}
-            enabledAttributes={enabledAttributes}
-            attributes={attributes}
-            inventoryEnabled={inventoryEnabled}
-            inventoryItems={inventoryItems}
-            maxSlots={maxSlots}
-            maxCollectionSlots={maxCollectionSlots}
-            definitionMap={definitionMap}
-            itemDefinitions={payload?.itemDefinitions ?? EMPTY_ITEM_DEFINITIONS}
-            storedArtifacts={storedArtifacts}
             tabScrollRef={tabScrollRef}
             fillHeight={fillHeight}
           />

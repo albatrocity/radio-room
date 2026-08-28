@@ -462,7 +462,10 @@ export function subscribeActor(actor: AnyActorRef, eventTypes?: string[]): void 
     type: "SUBSCRIBE",
     id,
     subscriber: {
-      send: (event: EventObject) => actor.send(event),
+      send: (event: EventObject) => {
+        if (actor.getSnapshot().status !== "active") return
+        actor.send(event)
+      },
       ...(eventTypes ? { eventTypes } : {}),
     },
   })

@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  Button,
   HStack,
   Toaster as ChakraToaster,
   Portal,
@@ -46,27 +47,30 @@ export const Toaster = () => {
               </Stack>
               {hasActions && (
                 <HStack gap="2" align="center" flexShrink={0} alignSelf="center">
+                  {/* Plain buttons: Toast.ActionTrigger also invokes toast.action.onClick. */}
                   {meta?.secondaryAction && (
-                    <Toast.ActionTrigger
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={() => {
                         meta.secondaryAction?.onClick()
                         toaster.dismiss(toast.id)
                       }}
-                      css={{ borderWidth: 0, color: "inherit" }}
                     >
                       {meta.secondaryAction.label}
-                    </Toast.ActionTrigger>
+                    </Button>
                   )}
                   {toast.action && (
-                    <Toast.ActionTrigger
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => {
                         toast.action?.onClick?.()
                         toaster.dismiss(toast.id)
                       }}
-                      css={{ color: "inherit" }}
                     >
                       {toast.action.label}
-                    </Toast.ActionTrigger>
+                    </Button>
                   )}
                 </HStack>
               )}

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { Box, Button, HStack, Icon, Menu, Portal, Text } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition, ItemShopsUserGameState } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
-import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { emitToSocket } from "../../../actors/socketActor"
 import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
+import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
@@ -72,15 +73,8 @@ export default function InventoryGiftSellControls({
   const [giftPickerOpen, setGiftPickerOpen] = useState(false)
   const [tradeMenuOpen, setTradeMenuOpen] = useState(false)
   const secondaryActionRef = useRef<HTMLButtonElement>(null)
-  const subscriptionIdRef = useRef<string | null>(null)
+  const { subscribe } = useSocketResultHandle()
   const secondaryActionOpen = tradeMenuOpen || giftPickerOpen
-
-  useEffect(() => {
-    return () => {
-      const id = subscriptionIdRef.current
-      if (id) unsubscribeById(id)
-    }
-  }, [])
 
   if (!showGiftButton && !showSellButton) return null
 
@@ -98,45 +92,22 @@ export default function InventoryGiftSellControls({
   }
 
   const dispatchSell = () => {
-    const subscriptionId = `inventory-sell-${item.itemId}-${Date.now()}`
-    subscriptionIdRef.current = subscriptionId
     setPending("sell")
-
-    subscribeById(subscriptionId, {
-      send: (event: {
-        type: string
-        data?: { success: boolean; title?: string; message?: string }
-      }) => {
-        if (event.type !== "INVENTORY_ACTION_RESULT" || !event.data) return
-        unsubscribeById(subscriptionId)
-        if (subscriptionIdRef.current === subscriptionId) {
-          subscriptionIdRef.current = null
-        }
+    subscribe<{ success: boolean; title?: string; message?: string }>({
+      id: `inventory-sell-${item.itemId}-${Date.now()}`,
+      eventType: "INVENTORY_ACTION_RESULT",
+      onResult: (data) => {
         setPending(null)
         toaster.create({
-          title: event.data.title ?? (event.data.success ? "Success" : "Error"),
-          description:
-            event.data.message || (event.data.success ? "Action completed" : "Action failed"),
-          type: event.data.success ? "success" : "error",
+          title: data.title ?? (data.success ? "Success" : "Error"),
+          description: data.message || (data.success ? "Action completed" : "Action failed"),
+          type: data.success ? "success" : "error",
         })
       },
-      eventTypes: ["INVENTORY_ACTION_RESULT"],
+      onTimeout: () => setPending(null),
     })
 
     emitToSocket("SELL_INVENTORY_ITEM", { itemId: item.itemId })
-
-    window.setTimeout(() => {
-      if (subscriptionIdRef.current === subscriptionId) {
-        unsubscribeById(subscriptionId)
-        subscriptionIdRef.current = null
-        setPending(null)
-        toaster.create({
-          title: "Timeout",
-          description: "Action timed out",
-          type: "error",
-        })
-      }
-    }, 10000)
   }
 
   const giftButton = (

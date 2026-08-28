@@ -135,9 +135,10 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0127](0127-shared-item-detail-list-row.md) | Shared item-detail list row (`ItemDetailListItem`) | Accepted |
 | [0128](0128-add-to-queue-overlays-integrated-panel.md) | Add to Queue overlays the integrated panel (`modalsMachine` parallel `queue` region) | Accepted |
 | [0129](0129-trade-session-lock-confirm-attention.md) | Trade session lock/confirm notifications and session attention | Accepted |
-| [0130](0130-game-state-overlay-lifecycle-in-machines.md) | Game State overlay lifecycle in machines (not surface `useEffect`s) | Accepted |
+| [0130](0130-game-state-overlay-lifecycle-in-machines.md) | Game State overlay lifecycle in machines (not surface `useEffect`s) | Partially superseded by [0133](0133-stored-artifacts-once-per-session.md) |
 | [0131](0131-trade-complete-inventory-toast.md) | Completed-trade toast; Inventory nav only if viewing the session | Accepted |
 | [0132](0132-spotify-sdk-playback-error-lease-renewal.md) | Spotify SDK `playback_error` reconnects the device and reattaches playback | Accepted |
+| [0133](0133-stored-artifacts-once-per-session.md) | Stored artifacts fetched once per game session (`userGameStateMachine`) | Accepted |
 
 ## Creating a New ADR
 

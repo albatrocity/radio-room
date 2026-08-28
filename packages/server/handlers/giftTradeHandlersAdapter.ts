@@ -1,4 +1,4 @@
-import type { AppContext, HandlerConnections } from "@repo/types"
+import type { AppContext, HandlerConnections, TradeSession } from "@repo/types"
 import { emitToUserSocket } from "../lib/emitToUserSocket"
 import {
   acceptGift,
@@ -30,7 +30,12 @@ export class GiftTradeHandlers {
 
   private emitTradeResult(
     { socket }: HandlerConnections,
-    data: { success: boolean; message?: string; tradeId?: string },
+    data: {
+      success: boolean
+      message?: string
+      tradeId?: string
+      trade?: TradeSession
+    },
   ) {
     socket.emit("event", { type: "TRADE_ACTION_RESULT", data })
   }
@@ -155,6 +160,7 @@ export class GiftTradeHandlers {
       success: result.success,
       message: result.message,
       tradeId: result.trade?.tradeId,
+      trade: result.trade,
     })
   }
 

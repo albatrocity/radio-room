@@ -108,7 +108,10 @@ export const userGameStateMachine = setup({
     subscribe: assign(({ self }) => {
       const id = `userGameState-${self.id}-${++subscriptionCounter}`
       subscribeById(id, {
-        send: (event) => self.send(event as UserGameStateEvent),
+        send: (event) => {
+          if (self.getSnapshot().status !== "active") return
+          self.send(event as UserGameStateEvent)
+        },
         eventTypes: [
           "INIT",
           "USER_GAME_STATE",
@@ -156,7 +159,19 @@ export const userGameStateMachine = setup({
     scheduleRequestGameState: () => {
       debouncedRequest.schedule()
     },
-    applyTradeUpdated: enqueueActions(({ context, event, enqueue }) => {
+    /** Named assign: `enqueue.assign()` during socket broadcast warns (custom-action stack). */
+    patchActiveTrade: assign(({ context, event }) => {
+      if (event.type !== "TRADE_UPDATED") return {}
+      const trade = event.data?.trade
+      if (!trade || !context.payload) return {}
+      return {
+        payload: {
+          ...context.payload,
+          activeTrade: trade,
+        },
+      }
+    }),
+    scheduleRefetchIfTradeEscrowChanged: ({ context, event }) => {
       if (event.type !== "TRADE_UPDATED") return
       const trade = event.data?.trade
       if (!trade || !context.payload) return
@@ -164,19 +179,18 @@ export const userGameStateMachine = setup({
         tradeEscrowChanged(context.payload.activeTrade, trade) ||
         tradeHasUnknownDefinitions(trade, context.payload.itemDefinitions)
       ) {
-        enqueue("scheduleRequestGameState")
+        debouncedRequest.schedule()
       }
-      enqueue.assign({
-        payload: {
-          ...context.payload,
-          activeTrade: trade,
-        },
-      })
+    },
+    notifyNavSessionFromTrade: ({ context, event }) => {
+      if (event.type !== "TRADE_UPDATED") return
+      const trade = event.data?.trade
+      if (!trade || !context.payload) return
       notifyGameStateNavSession({
         allowTrading: context.payload.session?.config?.allowTrading === true,
         activeTrade: trade,
       })
-    }),
+    },
     setPayload: assign(({ event }) => {
       if (event.type !== "USER_GAME_STATE") return {}
       const d = event.data
@@ -209,10 +223,16 @@ export const userGameStateMachine = setup({
       const sessionId = event.data.session?.id
       if (!sessionId) return
       if (context.storedArtifactsSessionId === sessionId) return
-      enqueue.assign({ storedArtifactsSessionId: sessionId })
+      enqueue("assignStoredArtifactsSessionId")
       enqueue(() => {
         emitToSocket("GET_STORED_ARTIFACTS", {})
       })
+    }),
+    assignStoredArtifactsSessionId: assign(({ event }) => {
+      if (event.type !== "USER_GAME_STATE") return {}
+      const sessionId = event.data.session?.id
+      if (!sessionId) return {}
+      return { storedArtifactsSessionId: sessionId }
     }),
     setStoredArtifacts: assign(({ event }) => {
       if (event.type !== "STORED_ARTIFACTS_RESULT") return {}
@@ -299,7 +319,11 @@ export const userGameStateMachine = setup({
     TRADE_INVITE_ACCEPTED: refetchMyGiftTrade,
     TRADE_UPDATED: {
       guard: "isMyGiftTradeEvent",
-      actions: ["applyTradeUpdated"],
+      actions: [
+        "scheduleRefetchIfTradeEscrowChanged",
+        "patchActiveTrade",
+        "notifyNavSessionFromTrade",
+      ],
     },
     TRADE_COMPLETED: refetchMyGiftTrade,
     TRADE_CANCELLED: refetchMyGiftTrade,

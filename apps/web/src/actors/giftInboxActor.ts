@@ -116,7 +116,10 @@ const giftInboxMachine = setup({
     subscribe: assign(({ self }) => {
       const id = `giftInbox-${self.id}-${++subCounter}`
       subscribeById(id, {
-        send: (event) => self.send(event as Event),
+        send: (event) => {
+          if (self.getSnapshot().status !== "active") return
+          self.send(event as Event)
+        },
         eventTypes: [
           "GIFT_OFFERED",
           "GIFT_COMPLETED",

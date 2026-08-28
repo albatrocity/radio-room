@@ -46,7 +46,10 @@ export const tradeMachine = setup({
     subscribe: assign(({ self }) => {
       const id = `trade-${self.id}-${++subCounter}`
       subscribeById(id, {
-        send: (event) => self.send(event as TradeMachineEvent),
+        send: (event) => {
+          if (self.getSnapshot().status !== "active") return
+          self.send(event as TradeMachineEvent)
+        },
         eventTypes: [
           "TRADE_UPDATED",
           "TRADE_COMPLETED",
@@ -109,6 +112,10 @@ export const tradeMachine = setup({
       if (event.data.success) return { lastError: null }
       return { lastError: event.data.message ?? "Trade action failed" }
     }),
+    assignSetTrade: assign(({ event }) => {
+      if (event.type !== "SET_TRADE") return {}
+      return { trade: event.trade, counterpartTyping: false }
+    }),
     reset: assign({
       subscriptionId: () => null,
       trade: () => null,
@@ -148,11 +155,7 @@ export const tradeMachine = setup({
         TRADE_TYPING: { actions: ["assignTyping"] },
         TRADE_ACTION_RESULT: { actions: ["assignActionResult"] },
         USER_GAME_STATE: { actions: ["assignFromGameState"] },
-        SET_TRADE: {
-          actions: assign(({ event }) =>
-            event.type === "SET_TRADE" ? { trade: event.trade, counterpartTyping: false } : {},
-          ),
-        },
+        SET_TRADE: { actions: ["assignSetTrade"] },
       },
     },
   },

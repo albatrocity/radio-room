@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { Badge, Box, Center, HStack, Heading, Stack, Text, VStack } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
-import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { emitToSocket } from "../../../actors/socketActor"
+import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import ItemArtwork from "../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
 import { toaster } from "../../ui/toaster"
@@ -60,14 +61,7 @@ function InventoryRow({
   const opensDetail = Boolean(detailView && definition?.shortId)
 
   const [pendingUse, setPendingUse] = useState<PendingUse>(null)
-  const subscriptionIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    return () => {
-      const id = subscriptionIdRef.current
-      if (id) unsubscribeById(id)
-    }
-  }, [])
+  const { subscribe } = useSocketResultHandle()
 
   const dispatchUse = (extra?: {
     targetUserId?: string
@@ -76,34 +70,23 @@ function InventoryRow({
     password?: string
     coinAmount?: number
   }) => {
-    const subscriptionId = `inventory-use-${item.itemId}-${Date.now()}`
-    subscriptionIdRef.current = subscriptionId
     setPendingUse({ itemId: item.itemId })
-
-    subscribeById(subscriptionId, {
-      send: (event: {
-        type: string
-        data?: { success: boolean; title?: string; message?: string }
-      }) => {
-        if (event.type !== "INVENTORY_ACTION_RESULT" || !event.data) return
-        unsubscribeById(subscriptionId)
-        if (subscriptionIdRef.current === subscriptionId) {
-          subscriptionIdRef.current = null
-        }
+    subscribe<{ success: boolean; title?: string; message?: string }>({
+      id: `inventory-use-${item.itemId}-${Date.now()}`,
+      eventType: "INVENTORY_ACTION_RESULT",
+      onResult: (data) => {
         setPendingUse(null)
         const blocked =
-          !event.data.success &&
-          typeof event.data.message === "string" &&
-          event.data.message.toLowerCase().includes("blocked")
+          !data.success &&
+          typeof data.message === "string" &&
+          data.message.toLowerCase().includes("blocked")
         toaster.create({
-          title:
-            event.data.title ?? (event.data.success ? "Success" : blocked ? "Blocked" : "Error"),
-          description:
-            event.data.message || (event.data.success ? "Action completed" : "Action failed"),
-          type: event.data.success ? "success" : blocked ? "warning" : "error",
+          title: data.title ?? (data.success ? "Success" : blocked ? "Blocked" : "Error"),
+          description: data.message || (data.success ? "Action completed" : "Action failed"),
+          type: data.success ? "success" : blocked ? "warning" : "error",
         })
       },
-      eventTypes: ["INVENTORY_ACTION_RESULT"],
+      onTimeout: () => setPendingUse(null),
     })
 
     emitToSocket("USE_INVENTORY_ITEM", {
@@ -116,19 +99,6 @@ function InventoryRow({
       ...(extra?.password != null ? { password: extra.password } : {}),
       ...(extra?.coinAmount != null ? { coinAmount: extra.coinAmount } : {}),
     })
-
-    setTimeout(() => {
-      if (subscriptionIdRef.current === subscriptionId) {
-        unsubscribeById(subscriptionId)
-        subscriptionIdRef.current = null
-        setPendingUse(null)
-        toaster.create({
-          title: "Timeout",
-          description: "Action timed out",
-          type: "error",
-        })
-      }
-    }, 10000)
   }
 
   const handleDetails = () => {

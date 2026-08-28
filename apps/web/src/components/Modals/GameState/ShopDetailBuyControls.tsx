@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { Box, Button, Icon, Popover, Text } from "@chakra-ui/react"
 import type { ItemShopsUserGameState } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
-import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
+import { emitPluginAction } from "../../../lib/emitPluginAction"
+import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import { getIcon } from "../../PluginComponents/icons"
-import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
 import type { GameStateItemDetailFrame } from "../../../types/GameStateDetail"
 
@@ -22,14 +22,7 @@ export default function ShopDetailBuyControls({ frame, padded = false }: Props) 
   const gameState = useUserGameState()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const subscriptionIdRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    return () => {
-      const id = subscriptionIdRef.current
-      if (id) unsubscribeById(id)
-    }
-  }, [])
+  const { track } = useSocketResultHandle()
 
   if (frame.source !== "shop" || frame.shopOfferId == null) return null
 
@@ -47,41 +40,12 @@ export default function ShopDetailBuyControls({ frame, padded = false }: Props) 
 
   const dispatchBuy = () => {
     setIsLoading(true)
-    const subscriptionId = `shop-detail-buy-${action}-${Date.now()}`
-    subscriptionIdRef.current = subscriptionId
-
-    subscribeById(subscriptionId, {
-      eventTypes: ["PLUGIN_ACTION_RESULT"],
-      send: (event: { type: string; data?: { success: boolean; message?: string } }) => {
-        if (event.type !== "PLUGIN_ACTION_RESULT" || !event.data) return
-        setIsLoading(false)
-        unsubscribeById(subscriptionId)
-        if (subscriptionIdRef.current === subscriptionId) {
-          subscriptionIdRef.current = null
-        }
-        toaster.create({
-          title: event.data.success ? "Success" : "Error",
-          description:
-            event.data.message || (event.data.success ? "Action completed" : "Action failed"),
-          type: event.data.success ? "success" : "error",
-        })
-      },
-    })
-
-    emitToSocket("EXECUTE_PLUGIN_ACTION", { pluginName: ITEM_SHOPS_PLUGIN_NAME, action })
-
-    window.setTimeout(() => {
-      if (subscriptionIdRef.current === subscriptionId) {
-        setIsLoading(false)
-        unsubscribeById(subscriptionId)
-        subscriptionIdRef.current = null
-        toaster.create({
-          title: "Timeout",
-          description: "Action timed out",
-          type: "error",
-        })
-      }
-    }, 10000)
+    track(
+      emitPluginAction(ITEM_SHOPS_PLUGIN_NAME, action, {
+        onSettled: () => setIsLoading(false),
+        onTimeout: () => setIsLoading(false),
+      }),
+    )
   }
 
   const buyButton = (
