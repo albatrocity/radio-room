@@ -33,6 +33,7 @@ import { resetTradesGiftsTabAttention } from "./gameStateTradesGiftsAttentionAct
 import { mediaBridgeActor } from "./mediaBridgeActor"
 import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
+import { clearMediaSession } from "../lib/mediaSession"
 
 import {
   getPersistedRoomState,
@@ -165,14 +166,15 @@ export function teardownRoom(): void {
   pollActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
   addToQueueUiActor.send({ type: "DEACTIVATE" })
-  // Activated by the Game State modal, not by room entry; reset here so detail
-  // frames never outlive the room they came from.
+  // Activated by modalsMachine gameState entry (ADR 0130), not by room entry; reset
+  // here so detail frames never outlive the room they came from.
   gameStateNavActor.send({ type: "RESET" })
   mediaBridgeActor.send({ type: "DEACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })
   giftInboxActor.send({ type: "DEACTIVATE" })
   resetTradesGiftsTabAttention()
   teardownPluginComponentActors()
+  clearMediaSession()
 
   currentRoomId = null
   isInitialized = false

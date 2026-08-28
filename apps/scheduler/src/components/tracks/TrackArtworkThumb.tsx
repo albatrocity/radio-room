@@ -7,14 +7,7 @@ export function TrackArtworkThumb({ item }: { item: QueueItem }) {
   const url = queueItemCoverUrl(item)
   if (url) {
     return (
-      <Box
-        w="40px"
-        h="40px"
-        flexShrink={0}
-        borderRadius="md"
-        overflow="hidden"
-        bg="bg.muted"
-      >
+      <Box w="40px" h="40px" flexShrink={0} borderRadius="md" overflow="hidden" bg="bg.muted">
         <img
           src={url}
           alt=""

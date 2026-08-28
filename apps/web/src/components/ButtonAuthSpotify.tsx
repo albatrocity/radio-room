@@ -10,6 +10,7 @@ import {
   useIsMetadataSourceLoading,
   useMetadataSourceAuthSend,
 } from "../hooks/useActors"
+import { getApiBaseUrl } from "../lib/apiBaseUrl"
 import { useLocation } from "@tanstack/react-router"
 
 export default function ButtonAuthSpotify({
@@ -59,7 +60,7 @@ export default function ButtonAuthSpotify({
           disabled={isMetadataLoading}
         >
           <Link
-            href={`${import.meta.env.VITE_API_URL}/auth/${serviceName}/login?userId=${
+            href={`${getApiBaseUrl()}/auth/${serviceName}/login?userId=${
               userId ?? currentUser.userId
             }`}
           >

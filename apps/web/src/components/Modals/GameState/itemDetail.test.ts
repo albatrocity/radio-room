@@ -9,7 +9,12 @@ const defaultLayout: ItemDetailView = { layout: "default" }
 
 function clickEventOn(tagName: string | null) {
   return {
-    target: { closest: (selector: string) => (selector === "a" && tagName === "a" ? {} : null) },
+    target: {
+      closest: (selector: string) => {
+        const tags = selector.split(",").map((part) => part.trim())
+        return tagName != null && tags.includes(tagName) ? {} : null
+      },
+    },
   } as unknown as MouseEvent
 }
 
@@ -83,6 +88,8 @@ describe("itemDetailClickableProps", () => {
     const onOpen = vi.fn()
     const props = itemDetailClickableProps({ detailView: trackList, name: "Item", onOpen })
     props.onClick?.(clickEventOn("a"))
+    expect(onOpen).not.toHaveBeenCalled()
+    props.onClick?.(clickEventOn("button"))
     expect(onOpen).not.toHaveBeenCalled()
     props.onClick?.(clickEventOn(null))
     expect(onOpen).toHaveBeenCalledTimes(1)

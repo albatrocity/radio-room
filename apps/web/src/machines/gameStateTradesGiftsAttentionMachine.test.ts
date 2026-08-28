@@ -16,5 +16,18 @@ describe("gameStateTradesGiftsAttentionMachine", () => {
     actor.send({ type: "MARK_UNSEEN" })
     actor.send({ type: "RESET" })
     expect(actor.getSnapshot().context.unseen).toBe(false)
+    expect(actor.getSnapshot().context.sessionUnseen).toBe(false)
+  })
+
+  it("keeps session attention until the trade session is viewed", () => {
+    const actor = createActor(gameStateTradesGiftsAttentionMachine).start()
+    actor.send({ type: "MARK_SESSION_UNSEEN" })
+    expect(actor.getSnapshot().context.sessionUnseen).toBe(true)
+
+    actor.send({ type: "TAB_VIEWED" })
+    expect(actor.getSnapshot().context.sessionUnseen).toBe(true)
+
+    actor.send({ type: "SESSION_VIEWED" })
+    expect(actor.getSnapshot().context.sessionUnseen).toBe(false)
   })
 })

@@ -1,4 +1,4 @@
-import { useRef, memo, useMemo, RefObject } from "react"
+import { useRef, memo, useMemo, RefObject, lazy, Suspense } from "react"
 import {
   HStack,
   Wrap,
@@ -14,8 +14,9 @@ import {
 type AppColorPalette = "primary" | "secondary" | "action"
 import { LuPlus, LuSmile } from "react-icons/lu"
 
-import ReactionPicker from "./ReactionPicker"
 import ReactionCounterItem from "./ReactionCounterItem"
+
+const ReactionPicker = lazy(() => import("./ReactionPicker"))
 
 import { User } from "../types/User"
 import { Emoji } from "../types/Emoji"
@@ -150,6 +151,7 @@ const ReactionSelection = memo(function ReactionSelection({
                         "--background": "transparent",
                         "--rgb-color": "0 0 0",
                         "--rgb-input": "255 255 255",
+                        "--font-size": "17px",
                       },
                       _dark: {
                         "& em-emoji-picker": {
@@ -159,7 +161,9 @@ const ReactionSelection = memo(function ReactionSelection({
                       },
                     }}
                   >
-                    <ReactionPicker onSelect={onSelect} ref={pickerRef} autoFocus={autoFocus} />
+                    <Suspense fallback={null}>
+                      <ReactionPicker onSelect={onSelect} ref={pickerRef} autoFocus={autoFocus} />
+                    </Suspense>
                   </Popover.Body>
                 </Popover.Content>
               </Popover.Positioner>

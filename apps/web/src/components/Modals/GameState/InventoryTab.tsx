@@ -1,36 +1,17 @@
 import { useEffect, useRef, useState } from "react"
-import {
-  Badge,
-  Box,
-  Button,
-  Center,
-  HStack,
-  Heading,
-  Icon,
-  Menu,
-  Portal,
-  Stack,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
-import type { InventoryItem, ItemDefinition, ItemShopsUserGameState } from "@repo/types"
-import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { Badge, Box, Center, HStack, Heading, Stack, Text, VStack } from "@chakra-ui/react"
+import type { InventoryItem, ItemDefinition } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
-import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
 import ItemArtwork from "../../ItemArtwork"
-import { LinkifiedText } from "../../LinkifiedText"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
-import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
-import { useUserGameState } from "../UserGameStateContext"
 import { InventoryUseButton } from "./InventoryUseButton"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
-import { ItemDetailActionButton } from "./ItemDetailActionButton"
-import { itemDetailClickableProps } from "./itemDetailClickableProps"
+import ItemDetailListItem, { itemDetailListItemFrameProps } from "./ItemDetailListItem"
 import { buildItemDetailFrame } from "./itemDetailFrame"
 import { useOpenItemDetail } from "./useOpenItemDetail"
-import { InventoryTargetUserPopover } from "./TargetUserPicker"
+import InventoryGiftSellControls from "./InventoryGiftSellControls"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -48,30 +29,12 @@ interface InventoryRowProps {
   coinBalance: number
 }
 
-/**
- * Shared frame for each slot (item or empty placeholder).
- * Uses `primary.*` semantic tokens so background and border follow the active app theme
- * (see `chakraTheme.ts` + `[data-theme]` on the document).
- */
-const inventorySlotFrameProps = {
-  align: "center" as const,
-  gap: 4,
-  borderWidth: "1px",
-  borderColor: "primary.muted",
-  borderRadius: "md",
-  p: 3,
-  bg: "primary.subtle/30",
-  colorPalette: "primary" as const,
-  layerStyle: "themeTransition" as const,
-}
+/** Track per-item use-action loading state without re-rendering the whole tab. */
+type PendingUse = { itemId: string } | null
 
-/** Track per-item action loading state without re-rendering the whole tab. */
-type PendingAction = { itemId: string; action: "use" | "sell" | "gift" } | null
-
-import { emitGiftOffer } from "./giftSocketActions"
 function EmptyInventorySlot() {
   return (
-    <HStack {...inventorySlotFrameProps}>
+    <HStack {...itemDetailListItemFrameProps}>
       <Center width="full" height="full">
         <Text color="actionBg/60" fontSize="sm">
           Empty
@@ -88,68 +51,16 @@ function InventoryRow({
   definitionMap,
   coinBalance,
 }: InventoryRowProps) {
-  const gameState = useUserGameState()
   const openDetail = useOpenItemDetail("inventory")
   const name = definition?.name ?? item.definitionId
   const description = definition?.description
   const consumable = definition?.consumable ?? false
-  const tradeable = definition?.tradeable ?? false
-  const coinValue = definition?.coinValue ?? 0
-  const sellable = tradeable && coinValue > 0
-  const allowTrading = gameState?.session?.config.allowTrading === true
-  const showGiftButton = tradeable && allowTrading
-  const isItemShopsItem = item.sourcePlugin === ITEM_SHOPS_PLUGIN_NAME
-  const shopInstance =
-    gameState?.getPluginState<ItemShopsUserGameState>(ITEM_SHOPS_PLUGIN_NAME)
-      ?.currentShopInstance ?? null
-  const shopVisitOpen = shopInstance != null
-  const showSellButton = sellable && (!isItemShopsItem || shopVisitOpen)
   const detailView = definition?.detailView
-  const sellQuote =
-    isItemShopsItem && shopVisitOpen && definition && shopInstance
-      ? item.sellbackValue != null
-        ? item.sellbackValue
-        : quoteItemShopsSellCoins(shopInstance, definition)
-      : null
-  const sellButtonLabel =
-    sellQuote != null ? (
-      <Text>
-        Sell for <Icon as={getIcon("Coins")} boxSize="0.8rem" />
-        {sellQuote}
-      </Text>
-    ) : (
-      "Sell"
-    )
-  const sellMenuLabel =
-    sellQuote != null ? (
-      <>
-        Sell for <Icon as={getIcon("Coins")} boxSize="0.8rem" display="inline" /> {sellQuote}
-      </>
-    ) : (
-      "Sell"
-    )
+  const isCollection = definition?.slotPool === "collection"
+  const opensDetail = Boolean(detailView && definition?.shortId)
 
-  const [pending, setPending] = useState<PendingAction>(null)
-  const [giftPickerOpen, setGiftPickerOpen] = useState(false)
-  const [tradeMenuOpen, setTradeMenuOpen] = useState(false)
-  const secondaryActionRef = useRef<HTMLButtonElement>(null)
+  const [pendingUse, setPendingUse] = useState<PendingUse>(null)
   const subscriptionIdRef = useRef<string | null>(null)
-
-  const offerGiftTo = (toUserId: string) => {
-    setPending({ itemId: item.itemId, action: "gift" })
-    emitGiftOffer(item.itemId, toUserId, 1, (ok, message) => {
-      setPending(null)
-      toaster.create({
-        title: ok ? "Gift offered" : "Gift failed",
-        description: message,
-        type: ok ? "success" : "error",
-        duration: 4000,
-      })
-    })
-  }
-
-  const showTradeGiftMenu = allowTrading && (showSellButton || showGiftButton)
-  const secondaryActionOpen = tradeMenuOpen || giftPickerOpen
 
   useEffect(() => {
     return () => {
@@ -158,19 +69,16 @@ function InventoryRow({
     }
   }, [])
 
-  const dispatch = (
-    action: "use" | "sell",
-    extra?: {
-      targetUserId?: string
-      targetQueueItemId?: string
-      targetInventoryItemId?: string
-      password?: string
-      coinAmount?: number
-    },
-  ) => {
-    const subscriptionId = `inventory-${action}-${item.itemId}-${Date.now()}`
+  const dispatchUse = (extra?: {
+    targetUserId?: string
+    targetQueueItemId?: string
+    targetInventoryItemId?: string
+    password?: string
+    coinAmount?: number
+  }) => {
+    const subscriptionId = `inventory-use-${item.itemId}-${Date.now()}`
     subscriptionIdRef.current = subscriptionId
-    setPending({ itemId: item.itemId, action })
+    setPendingUse({ itemId: item.itemId })
 
     subscribeById(subscriptionId, {
       send: (event: {
@@ -182,7 +90,7 @@ function InventoryRow({
         if (subscriptionIdRef.current === subscriptionId) {
           subscriptionIdRef.current = null
         }
-        setPending(null)
+        setPendingUse(null)
         const blocked =
           !event.data.success &&
           typeof event.data.message === "string" &&
@@ -197,26 +105,22 @@ function InventoryRow({
       },
     })
 
-    if (action === "use") {
-      emitToSocket("USE_INVENTORY_ITEM", {
-        itemId: item.itemId,
-        ...(extra?.targetUserId != null ? { targetUserId: extra.targetUserId } : {}),
-        ...(extra?.targetQueueItemId != null ? { targetQueueItemId: extra.targetQueueItemId } : {}),
-        ...(extra?.targetInventoryItemId != null
-          ? { targetInventoryItemId: extra.targetInventoryItemId }
-          : {}),
-        ...(extra?.password != null ? { password: extra.password } : {}),
-        ...(extra?.coinAmount != null ? { coinAmount: extra.coinAmount } : {}),
-      })
-    } else {
-      emitToSocket("SELL_INVENTORY_ITEM", { itemId: item.itemId })
-    }
+    emitToSocket("USE_INVENTORY_ITEM", {
+      itemId: item.itemId,
+      ...(extra?.targetUserId != null ? { targetUserId: extra.targetUserId } : {}),
+      ...(extra?.targetQueueItemId != null ? { targetQueueItemId: extra.targetQueueItemId } : {}),
+      ...(extra?.targetInventoryItemId != null
+        ? { targetInventoryItemId: extra.targetInventoryItemId }
+        : {}),
+      ...(extra?.password != null ? { password: extra.password } : {}),
+      ...(extra?.coinAmount != null ? { coinAmount: extra.coinAmount } : {}),
+    })
 
     setTimeout(() => {
       if (subscriptionIdRef.current === subscriptionId) {
         unsubscribeById(subscriptionId)
         subscriptionIdRef.current = null
-        setPending(null)
+        setPendingUse(null)
         toaster.create({
           title: "Timeout",
           description: "Action timed out",
@@ -240,149 +144,58 @@ function InventoryRow({
     )
   }
 
-  return (
-    <HStack {...inventorySlotFrameProps}>
-      <VStack align="center" justify="center" minW="4rem">
-        <ItemArtwork
-          imageUrl={definition?.imageUrl}
-          imageUrlLarge={definition?.imageUrlLarge}
-          icon={definition?.icon}
-          rarity={definition?.rarity}
-          artworkFrame={definition?.artworkFrame}
-          boxSize={definition?.slotPool === "collection" ? FRAMED_ARTWORK_BOX_SIZE : 7}
-          alt={name}
-          onClick={detailView ? handleDetails : undefined}
+  const showRowActions = !isCollection || !opensDetail
+  const trailing = showRowActions ? (
+    <Stack direction="column" gap={1} align="stretch" w="fit-content">
+      {consumable && (
+        <InventoryUseButton
+          itemId={item.itemId}
+          requiresTarget={definition?.requiresTarget}
+          allItems={allItems}
+          definitionMap={definitionMap}
+          coinBalance={coinBalance}
+          useLoading={pendingUse?.itemId === item.itemId}
+          onUse={dispatchUse}
+          fullWidth
         />
-        {definition != null && (
-          <ItemRarityTag size={["xs", "sm"]} rarity={resolveItemRarity(definition)} />
-        )}
-      </VStack>
-      <VStack
-        align="start"
-        gap={0}
-        flex="1"
-        minW={0}
-        {...itemDetailClickableProps({ detailView, name, onOpen: handleDetails })}
-      >
-        <HStack gap={2} flexWrap="wrap">
-          <Text fontWeight="medium">{name}</Text>
-          {item.quantity > 1 && (
-            <Badge size="sm" variant="subtle">
-              ×{item.quantity}
-            </Badge>
+      )}
+      <InventoryGiftSellControls item={item} definition={definition} size="sm" />
+    </Stack>
+  ) : undefined
+
+  return (
+    <ItemDetailListItem
+      artwork={
+        <VStack align="center" minW="4rem" gap={1}>
+          <ItemArtwork
+            imageUrl={definition?.imageUrl}
+            imageUrlLarge={definition?.imageUrlLarge}
+            icon={definition?.icon}
+            rarity={definition?.rarity}
+            artworkFrame={definition?.artworkFrame}
+            boxSize={isCollection ? FRAMED_ARTWORK_BOX_SIZE : 7}
+            alt={name}
+            interactive={!opensDetail}
+          />
+          {definition != null && (
+            <ItemRarityTag size={["xs", "sm"]} rarity={resolveItemRarity(definition)} />
           )}
-        </HStack>
-        {definition?.artist?.trim() ? (
-          <Text fontSize="xs" color="fg.muted" lineClamp={1}>
-            {definition.artist.trim()}
-          </Text>
-        ) : null}
-        {description && (
-          <LinkifiedText fontSize="xs" color="fg.muted">
-            {description}
-          </LinkifiedText>
-        )}
-      </VStack>
-      <Stack direction="column" gap={2} flexShrink={0} align="stretch" minW="7.5rem">
-        {detailView && <ItemDetailActionButton detailView={detailView} onClick={handleDetails} />}
-        {(consumable || showTradeGiftMenu || showSellButton) && (
-          <Box position="relative">
-            <Stack gap={1} align="stretch">
-              {consumable && (
-                <InventoryUseButton
-                  itemId={item.itemId}
-                  requiresTarget={definition?.requiresTarget}
-                  allItems={allItems}
-                  definitionMap={definitionMap}
-                  coinBalance={coinBalance}
-                  useLoading={pending?.itemId === item.itemId && pending.action === "use"}
-                  onUse={(extra) => dispatch("use", extra)}
-                  fullWidth
-                />
-              )}
-              {showTradeGiftMenu ? (
-                <Menu.Root open={tradeMenuOpen} onOpenChange={(e) => setTradeMenuOpen(e.open)}>
-                  <Menu.Trigger asChild>
-                    <Button
-                      ref={secondaryActionRef}
-                      size="sm"
-                      width="full"
-                      variant="outline"
-                      aria-label="Gift or sell"
-                      aria-expanded={secondaryActionOpen}
-                      data-state={secondaryActionOpen ? "open" : undefined}
-                      bg={secondaryActionOpen ? "colorPalette.subtle" : undefined}
-                      loading={
-                        pending?.itemId === item.itemId &&
-                        (pending.action === "sell" || pending.action === "gift")
-                      }
-                    >
-                      Gift or sell…
-                    </Button>
-                  </Menu.Trigger>
-                  <Portal>
-                    <Menu.Positioner>
-                      <Menu.Content minW="8rem">
-                        {showSellButton && (
-                          <Menu.Item
-                            value="sell"
-                            onClick={() => {
-                              setTradeMenuOpen(false)
-                              dispatch("sell")
-                            }}
-                          >
-                            {sellMenuLabel}
-                          </Menu.Item>
-                        )}
-                        {showGiftButton && (
-                          <Menu.Item
-                            value="gift"
-                            onClick={() => {
-                              setTradeMenuOpen(false)
-                              // Wait for the menu dismiss layer to clear before opening.
-                              window.setTimeout(() => setGiftPickerOpen(true), 0)
-                            }}
-                          >
-                            Gift…
-                          </Menu.Item>
-                        )}
-                      </Menu.Content>
-                    </Menu.Positioner>
-                  </Portal>
-                </Menu.Root>
-              ) : (
-                showSellButton && (
-                  <Button
-                    size="xs"
-                    width="full"
-                    variant="outline"
-                    loading={pending?.itemId === item.itemId && pending.action === "sell"}
-                    onClick={() => dispatch("sell")}
-                  >
-                    {sellButtonLabel}
-                  </Button>
-                )
-              )}
-            </Stack>
-            {showTradeGiftMenu && showGiftButton && (
-              <InventoryTargetUserPopover
-                includeSelf={false}
-                placeholder="Gift to…"
-                open={giftPickerOpen}
-                onOpenChange={(e) => setGiftPickerOpen(e.open)}
-                anchorRef={secondaryActionRef}
-                onPick={(toUserId) => {
-                  setGiftPickerOpen(false)
-                  offerGiftTo(toUserId)
-                }}
-              >
-                <button type="button" tabIndex={-1} aria-hidden />
-              </InventoryTargetUserPopover>
-            )}
-          </Box>
-        )}
-      </Stack>
-    </HStack>
+        </VStack>
+      }
+      name={name}
+      titleAddon={
+        item.quantity > 1 ? (
+          <Badge size="sm" variant="subtle">
+            ×{item.quantity}
+          </Badge>
+        ) : undefined
+      }
+      subtitle={definition?.artist?.trim() || undefined}
+      description={description}
+      onOpen={opensDetail ? handleDetails : undefined}
+      openLabel={detailView?.actionLabel}
+      trailing={trailing}
+    />
   )
 }
 
@@ -393,9 +206,6 @@ function InventoryTab({
   definitionMap,
   coinBalance,
 }: InventoryTabProps) {
-  const gameState = useUserGameState()
-  const allowTrading = gameState?.session?.config.allowTrading === true
-
   const inventoryItems = items.filter(
     (item) => (definitionMap.get(item.definitionId)?.slotPool ?? "inventory") !== "collection",
   )

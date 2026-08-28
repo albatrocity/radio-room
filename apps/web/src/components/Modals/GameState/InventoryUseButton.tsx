@@ -28,7 +28,7 @@ interface InventoryUseButtonProps {
 function useTriggerButton(loading: boolean, onClick?: () => void, fullWidth = true) {
   return (
     <Button
-      size="xs"
+      size="sm"
       width={fullWidth ? "full" : undefined}
       variant="solid"
       colorPalette="action"
@@ -67,6 +67,7 @@ export function InventoryUseButton({
       return (
         <InventoryTargetUserPopover
           fullWidth={fullWidth}
+          size="sm"
           onPick={(targetUserId) => onUse({ targetUserId })}
         >
           {useTriggerButton(useLoading, undefined, fullWidth)}

@@ -12,8 +12,9 @@ import type { TradeInvite, TradeSession } from "./Trade"
  * Plugins contribute via `contributeToUserGameState` (ADR 0097).
  *
  * `itemDefinitions` is a **filtered** slice: inventory + modifier refs + plugin
- * extras (`referencedItemDefinitionIdsForUser`, e.g. shop offers) — not the
- * full room catalog.
+ * extras (`referencedItemDefinitionIdsForUser`, e.g. shop offers) + pending
+ * gift SKUs + active-trade draft/offer SKUs (escrowed and counterpart items
+ * are not in the bag) — not the full room catalog.
  */
 export interface UserGameStatePayload {
   session: GameSession | null

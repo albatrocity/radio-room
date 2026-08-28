@@ -1,16 +1,20 @@
 /**
- * Game State modal navigation (ADR 0104, superseded in part by ADR 0106).
+ * Game State modal navigation (ADR 0104, superseded in part by ADR 0106 / 0130).
  *
  * Owns the active tab and a per-tab stack of item detail frames, including
- * frames opened from outside the modal. Detail views play track previews, so
- * leaving a detail frame must stop preview audio — that rule lives on the
- * `detail` state here instead of in each component that happens to trigger the
- * transition.
+ * frames opened from outside the modal. Overlay open/close is ACTIVATE /
+ * DEACTIVATE from `modalsMachine` `gameState` entry/exit (ADR 0130). Detail
+ * views play track previews, so leaving a detail frame must stop preview
+ * audio — that rule lives on the `detail` state here instead of in each
+ * component that happens to trigger the transition.
  */
 
 import { assign, not, setup } from "xstate"
+import type { TradeSession } from "@repo/types"
 
 import { stopTrackPreview } from "../actors/trackPreviewActor"
+import { TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
+import { syncGameStateChildActors } from "../lib/gameStateNavEffects"
 import type { GameStateDetailFrame } from "../types/GameStateDetail"
 
 export const GAME_STATE_DEFAULT_TAB = "inventory"
@@ -21,12 +25,16 @@ export interface GameStateNavContext {
   activeTabId: string
   /** Detail frames per tab; empty or missing means that tab shows its index. */
   stacks: Record<string, TabStack>
+  /** Null until the surface reports which tabs exist; snap is skipped until then. */
+  availableTabIds: string[] | null
+  allowTrading: boolean
+  activeTrade: TradeSession | null
 }
 
 export type GameStateNavEvent =
-  /** Game State modal opened. */
+  /** Game State overlay opened (`modalsMachine` gameState entry). */
   | { type: "ACTIVATE" }
-  /** Modal closed. Frames are kept so the exit animation is not interrupted. */
+  /** Overlay closed. Frames are kept so the exit animation is not interrupted. */
   | { type: "DEACTIVATE" }
   /** Room left: drop everything, since frames belong to that room's game state. */
   | { type: "RESET" }
@@ -37,10 +45,17 @@ export type GameStateNavEvent =
   /** Deep-link: select `tabId` and show `frame` as its only detail frame. */
   | { type: "OPEN_DETAIL_ON_TAB"; tabId: string; frame: GameStateDetailFrame }
   | { type: "POP_TO_INDEX" }
+  /** Finished trade: drop the session frame; `goToInventory` when the viewer is on it (ADR 0131). */
+  | { type: "TRADE_SESSION_COMPLETED"; goToInventory: boolean }
+  | { type: "SET_AVAILABLE_TABS"; tabIds: string[] }
+  | { type: "SESSION_SNAPSHOT"; allowTrading: boolean; activeTrade: TradeSession | null }
 
 const emptyContext = (): GameStateNavContext => ({
   activeTabId: GAME_STATE_DEFAULT_TAB,
   stacks: {},
+  availableTabIds: null,
+  allowTrading: false,
+  activeTrade: null,
 })
 
 export function activeStack(context: GameStateNavContext): TabStack {
@@ -50,6 +65,32 @@ export function activeStack(context: GameStateNavContext): TabStack {
 export function currentDetailFrame(context: GameStateNavContext): GameStateDetailFrame | null {
   const stack = activeStack(context)
   return stack.length > 0 ? (stack[stack.length - 1] ?? null) : null
+}
+
+function tabMissingFrom(tabId: string, tabIds: string[] | null): boolean {
+  if (tabIds == null) return false
+  if (tabId === GAME_STATE_DEFAULT_TAB) return false
+  return !tabIds.includes(tabId)
+}
+
+function syncChildren(
+  context: GameStateNavContext,
+  navActive: boolean,
+  overrides?: { tabId?: string; frame?: GameStateDetailFrame | null },
+): void {
+  const tabId = overrides?.tabId ?? context.activeTabId
+  const frame = overrides?.frame !== undefined ? overrides.frame : currentDetailFrame(context)
+  try {
+    syncGameStateChildActors({
+      navActive,
+      tabId,
+      frame,
+      allowTrading: context.allowTrading,
+      activeTrade: context.activeTrade,
+    })
+  } catch (err) {
+    console.error("[gameStateNav] child-actor sync failed", err)
+  }
 }
 
 export const gameStateNavMachine = setup({
@@ -89,10 +130,98 @@ export const gameStateNavMachine = setup({
     popToIndex: assign(({ context }) => ({
       stacks: { ...context.stacks, [context.activeTabId]: [] },
     })),
+    finishTradeSession: assign(({ context, event }) => {
+      if (event.type !== "TRADE_SESSION_COMPLETED") return {}
+      const stacks = { ...context.stacks, [TRADES_GIFTS_TAB]: [] }
+      if (!event.goToInventory) return { stacks }
+      return {
+        activeTabId: GAME_STATE_DEFAULT_TAB,
+        stacks: { ...stacks, [GAME_STATE_DEFAULT_TAB]: [] },
+      }
+    }),
+    setAvailableTabs: assign(({ event }) => {
+      if (event.type !== "SET_AVAILABLE_TABS") return {}
+      return { availableTabIds: event.tabIds }
+    }),
+    assignSessionSnapshot: assign(({ event }) => {
+      if (event.type !== "SESSION_SNAPSHOT") return {}
+      return { allowTrading: event.allowTrading, activeTrade: event.activeTrade }
+    }),
+    snapToInventory: assign(({ context }) => ({
+      activeTabId: GAME_STATE_DEFAULT_TAB,
+      stacks: { ...context.stacks, [GAME_STATE_DEFAULT_TAB]: [] },
+    })),
+    snapIfUnavailable: assign(({ context }) => {
+      if (!tabMissingFrom(context.activeTabId, context.availableTabIds)) return {}
+      return {
+        activeTabId: GAME_STATE_DEFAULT_TAB,
+        stacks: { ...context.stacks, [GAME_STATE_DEFAULT_TAB]: [] },
+      }
+    }),
     resetContext: assign(() => emptyContext()),
+    syncChildrenActive: ({ context }) => {
+      if (tabMissingFrom(context.activeTabId, context.availableTabIds)) {
+        syncChildren(context, true, { tabId: GAME_STATE_DEFAULT_TAB, frame: null })
+        return
+      }
+      syncChildren(context, true)
+    },
+    syncChildrenAfterTab: ({ context, event }) => {
+      if (event.type !== "SET_ACTIVE_TAB") return
+      syncChildren(context, true, { tabId: event.tabId, frame: null })
+    },
+    syncChildrenAfterFinishTrade: ({ context, event, self }) => {
+      if (event.type !== "TRADE_SESSION_COMPLETED") return
+      if (!self.getSnapshot().matches("active")) return
+      if (event.goToInventory) {
+        syncChildren(context, true, { tabId: GAME_STATE_DEFAULT_TAB, frame: null })
+        return
+      }
+      const frame =
+        context.activeTabId === TRADES_GIFTS_TAB ? null : currentDetailFrame(context)
+      syncChildren(context, true, { frame })
+    },
+    syncChildrenAfterPush: ({ context, event }) => {
+      if (event.type !== "PUSH_DETAIL") return
+      syncChildren(context, true, { frame: event.frame })
+    },
+    syncChildrenAfterOpenDetail: ({ context, event, self }) => {
+      if (event.type !== "OPEN_DETAIL_ON_TAB") return
+      if (!self.getSnapshot().matches("active")) return
+      syncChildren(context, true, { tabId: event.tabId, frame: event.frame })
+    },
+    syncChildrenAfterSnap: ({ context, self }) => {
+      if (!self.getSnapshot().matches("active")) return
+      syncChildren(context, true, { tabId: GAME_STATE_DEFAULT_TAB, frame: null })
+    },
+    syncChildrenIfActive: ({ context, event, self }) => {
+      if (!self.getSnapshot().matches("active")) return
+      const allowTrading =
+        event.type === "SESSION_SNAPSHOT" ? event.allowTrading : context.allowTrading
+      const activeTrade =
+        event.type === "SESSION_SNAPSHOT" ? event.activeTrade : context.activeTrade
+      try {
+        syncGameStateChildActors({
+          navActive: true,
+          tabId: context.activeTabId,
+          frame: currentDetailFrame(context),
+          allowTrading,
+          activeTrade,
+        })
+      } catch (err) {
+        console.error("[gameStateNav] child-actor sync failed", err)
+      }
+    },
+    deactivateChildren: ({ context }) => {
+      syncChildren(context, false)
+    },
   },
   guards: {
     hasDetailFrame: ({ context }) => activeStack(context).length > 0,
+    /** Uses the incoming list so the guard is true before `setAvailableTabs` assigns. */
+    incomingTabsOmitCurrent: ({ context, event }) =>
+      event.type === "SET_AVAILABLE_TABS" &&
+      tabMissingFrom(context.activeTabId, event.tabIds),
   },
 }).createMachine({
   id: "gameStateNav",
@@ -103,12 +232,25 @@ export const gameStateNavMachine = setup({
     SET_ACTIVE_TAB: {
       actions: "setActiveTab",
     },
+    TRADE_SESSION_COMPLETED: {
+      actions: ["stopPreview", "finishTradeSession"],
+    },
     OPEN_DETAIL_ON_TAB: {
-      actions: ["stopPreview", "openDetailOnTab"],
+      actions: ["stopPreview", "openDetailOnTab", "syncChildrenAfterOpenDetail"],
+    },
+    SET_AVAILABLE_TABS: [
+      {
+        guard: "incomingTabsOmitCurrent",
+        actions: ["setAvailableTabs", "snapToInventory", "syncChildrenAfterSnap"],
+      },
+      { actions: "setAvailableTabs" },
+    ],
+    SESSION_SNAPSHOT: {
+      actions: ["assignSessionSnapshot", "syncChildrenIfActive"],
     },
     RESET: {
       target: ".inactive",
-      actions: "resetContext",
+      actions: ["deactivateChildren", "resetContext"],
     },
   },
   states: {
@@ -118,6 +260,8 @@ export const gameStateNavMachine = setup({
       },
     },
     active: {
+      entry: ["snapIfUnavailable", "syncChildrenActive"],
+      exit: ["deactivateChildren"],
       initial: "index",
       on: {
         // Leaves the frame in place: clearing it here would swap the modal back
@@ -125,11 +269,14 @@ export const gameStateNavMachine = setup({
         // the detail view, the way the selected tab already persists.
         DEACTIVATE: "inactive",
         SET_ACTIVE_TAB: {
-          actions: "setActiveTab",
+          actions: ["setActiveTab", "syncChildrenAfterTab"],
+        },
+        TRADE_SESSION_COMPLETED: {
+          actions: ["stopPreview", "finishTradeSession", "syncChildrenAfterFinishTrade"],
         },
         // Detail-to-detail keeps the state, so the exit action below never runs.
         PUSH_DETAIL: {
-          actions: ["stopPreview", "pushDetail"],
+          actions: ["stopPreview", "pushDetail", "syncChildrenAfterPush"],
         },
         POP_TO_INDEX: {
           actions: "popToIndex",

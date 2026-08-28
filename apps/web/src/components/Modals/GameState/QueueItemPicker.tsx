@@ -57,6 +57,8 @@ export function InventoryUseQueueItemPicker({
                   key={`${item.addedAt}-${item.track.id}`}
                   borderRadius="md"
                   cursor="pointer"
+                  minW={0}
+                  w="100%"
                   _hover={{ bg: "primary.subtle/40" }}
                   onClick={() => choose(item)}
                   role="button"

@@ -1,5 +1,7 @@
 import socketIOClient from "socket.io-client"
-const socketEndPoint: string = import.meta.env.VITE_API_URL || ""
+import { getApiBaseUrl } from "./apiBaseUrl"
+
+const socketEndPoint: string = getApiBaseUrl()
 
 const socket = socketIOClient(socketEndPoint, {
   transports: ["websocket", "polling"],

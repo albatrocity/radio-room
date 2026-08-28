@@ -66,6 +66,10 @@ export async function extractColors(
   imageUrl: string,
   paletteSize: number = 5,
 ): Promise<ExtractedColors | null> {
+  if (typeof document !== "undefined" && document.hidden) {
+    return null
+  }
+
   try {
     const img = await loadImage(imageUrl)
 

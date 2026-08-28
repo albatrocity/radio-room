@@ -7,15 +7,19 @@ import { isItemDetailFrame, isTradeDetailFrame } from "../../../types/GameStateD
 export default function GameStateDetailRouter({
   frame,
   definition,
+  fillHeight = false,
 }: {
   frame: GameStateDetailFrame
   definition?: ItemDefinition
+  fillHeight?: boolean
 }) {
   if (isTradeDetailFrame(frame)) {
     return <TradeDetailPanel tradeId={frame.tradeId} />
   }
   if (isItemDetailFrame(frame)) {
-    return <GameStateItemDetail frame={frame} definition={definition} />
+    return (
+      <GameStateItemDetail frame={frame} definition={definition} fillHeight={fillHeight} />
+    )
   }
   return null
 }

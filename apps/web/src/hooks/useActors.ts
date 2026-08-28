@@ -29,6 +29,7 @@ import { gameSessionActor } from "../actors/gameSessionActor"
 import {
   userGameStateActor,
   refreshUserGameState,
+  refreshStoredArtifacts,
   type UserGameStatePayload,
 } from "../actors/userGameStateActor"
 import {
@@ -39,6 +40,7 @@ import {
 import { roomGameStateActor } from "../actors/roomGameStateActor"
 import { sharedTickerActor } from "../actors/sharedTickerActor"
 import type { GameStateModifier } from "@repo/types"
+import { matchesModals, isModalsIdle } from "../lib/modalsState"
 import { modalsActor } from "../actors/modalsActor"
 import { themeActor } from "../actors/themeActor"
 import { errorsActor } from "../actors/errorsActor"
@@ -560,7 +562,7 @@ export const useHasActiveGameSession = () => {
 // User Game State Hooks
 // ============================================================================
 
-export { refreshUserGameState }
+export { refreshUserGameState, refreshStoredArtifacts }
 export type { UserGameStatePayload }
 
 export const useUserGameStatePayload = () => {
@@ -589,6 +591,10 @@ export const useUserInventory = () => {
 
 export const useUserItemDefinitions = () => {
   return useSelector(userGameStateActor, (s) => s.context.payload?.itemDefinitions ?? [])
+}
+
+export const useStoredArtifacts = () => {
+  return useSelector(userGameStateActor, (s) => s.context.storedArtifacts)
 }
 
 // ============================================================================
@@ -661,17 +667,11 @@ export const useModalsSnapshot = () => {
 }
 
 export const useIsModalOpen = (modalName: string) => {
-  return useSelector(modalsActor, (s) => {
-    if (typeof s.value === "string") {
-      return s.value === modalName
-    }
-    // Handle nested states like { settings: "overview" }
-    return Object.keys(s.value).includes(modalName)
-  })
+  return useSelector(modalsActor, (s) => matchesModals(s, modalName))
 }
 
 export const useIsAnyModalOpen = () => {
-  return useSelector(modalsActor, (s) => !s.matches("closed"))
+  return useSelector(modalsActor, (s) => !isModalsIdle(s))
 }
 
 /** Physical Media item to preselect in Add to Queue → Browse, when deep-linked. */
@@ -711,7 +711,10 @@ export const useIsGameStateNavActive = (): boolean => {
 export const useGameStateNavSend = () => sendToGameStateNav
 
 export const useTradesGiftsTabUnseen = (): boolean => {
-  return useSelector(gameStateTradesGiftsAttentionActor, (s) => s.context.unseen)
+  return useSelector(
+    gameStateTradesGiftsAttentionActor,
+    (s) => s.context.unseen || s.context.sessionUnseen,
+  )
 }
 
 /** Tab/button badge: live attention events or any pending incoming gift/trade invite. */

@@ -13,7 +13,7 @@
  * room-wide `USER_GAME_STATE_INVALIDATED` event (ADR 0097).
  */
 
-import type { TradeSession, UserGameStatePayload } from "@repo/types"
+import type { StoredArtifactPublic, TradeSession, UserGameStatePayload } from "@repo/types"
 import { setup, assign, enqueueActions } from "xstate"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { getCurrentUser } from "../actors/authActor"
@@ -21,9 +21,14 @@ import {
   isGameEventForUser,
   isGiftTradeEventForUser,
   tradeEscrowChanged,
+  tradeHasUnknownDefinitions,
   type GiftTradeEventData,
   type UserScopedEventData,
 } from "../lib/gameEventRelevance"
+import {
+  notifyGameStateNavSession,
+  sessionSnapshotFromPayload,
+} from "../lib/gameStateNavSession"
 import { createTrailingDebounce } from "../lib/trailingDebounce"
 
 export type { UserGameStatePayload }
@@ -31,6 +36,7 @@ export type { UserGameStatePayload }
 interface UserGameStateContext {
   subscriptionId: string | null
   payload: UserGameStatePayload | null
+  storedArtifacts: StoredArtifactPublic[]
   error: string | null
 }
 
@@ -65,6 +71,7 @@ type UserGameStateEvent =
   | { type: "GAME_SESSION_CONFIG_UPDATED"; data: unknown }
   | { type: "GAME_SESSION_ENDED"; data: unknown }
   | { type: "ERROR_OCCURRED"; data: { message?: string } }
+  | { type: "STORED_ARTIFACTS_RESULT"; data?: { artifacts?: StoredArtifactPublic[] } }
 
 /** Trailing debounce so bursts of invalidation collapse into one refetch. */
 const REQUEST_DEBOUNCE_MS = 150
@@ -128,6 +135,7 @@ export const userGameStateMachine = setup({
           "TRADE_COMPLETED",
           "TRADE_CANCELLED",
           "GAME_SESSION_CONFIG_UPDATED",
+          "STORED_ARTIFACTS_RESULT",
         ],
       })
       return { subscriptionId: id }
@@ -151,7 +159,10 @@ export const userGameStateMachine = setup({
       if (event.type !== "TRADE_UPDATED") return
       const trade = event.data?.trade
       if (!trade || !context.payload) return
-      if (tradeEscrowChanged(context.payload.activeTrade, trade)) {
+      if (
+        tradeEscrowChanged(context.payload.activeTrade, trade) ||
+        tradeHasUnknownDefinitions(trade, context.payload.itemDefinitions)
+      ) {
         enqueue("scheduleRequestGameState")
       }
       enqueue.assign({
@@ -159,6 +170,10 @@ export const userGameStateMachine = setup({
           ...context.payload,
           activeTrade: trade,
         },
+      })
+      notifyGameStateNavSession({
+        allowTrading: context.payload.session?.config?.allowTrading === true,
+        activeTrade: trade,
       })
     }),
     setPayload: assign(({ event }) => {
@@ -178,6 +193,26 @@ export const userGameStateMachine = setup({
         error: null,
       }
     }),
+    notifyNavSession: ({ event, context }) => {
+      if (event.type === "USER_GAME_STATE") {
+        notifyGameStateNavSession(sessionSnapshotFromPayload(event.data))
+        return
+      }
+      notifyGameStateNavSession(sessionSnapshotFromPayload(context.payload))
+    },
+    notifyNavSessionCleared: () => {
+      notifyGameStateNavSession(sessionSnapshotFromPayload(null))
+    },
+    requestStoredArtifacts: ({ event, context }) => {
+      const session =
+        event.type === "USER_GAME_STATE" ? event.data.session : context.payload?.session
+      if (!session) return
+      emitToSocket("GET_STORED_ARTIFACTS", {})
+    },
+    setStoredArtifacts: assign(({ event }) => {
+      if (event.type !== "STORED_ARTIFACTS_RESULT") return {}
+      return { storedArtifacts: event.data?.artifacts ?? [] }
+    }),
     clearPayload: assign({
       payload: () => ({
         session: null,
@@ -189,6 +224,7 @@ export const userGameStateMachine = setup({
         pendingTradeInvites: undefined,
         activeTrade: null,
       }),
+      storedArtifacts: () => [],
       error: () => null,
     }),
     setError: assign(({ event }) => {
@@ -198,6 +234,7 @@ export const userGameStateMachine = setup({
     reset: assign({
       subscriptionId: () => null,
       payload: () => null,
+      storedArtifacts: () => [],
       error: () => null,
     }),
   },
@@ -207,6 +244,7 @@ export const userGameStateMachine = setup({
   context: {
     subscriptionId: null,
     payload: null,
+    storedArtifacts: [],
     error: null,
   },
   /** Socket invalidations apply in every subscribed state (loading / ready / refreshing). */
@@ -257,6 +295,9 @@ export const userGameStateMachine = setup({
     },
     TRADE_COMPLETED: refetchMyGiftTrade,
     TRADE_CANCELLED: refetchMyGiftTrade,
+    STORED_ARTIFACTS_RESULT: {
+      actions: ["setStoredArtifacts"],
+    },
   },
   states: {
     idle: {
@@ -269,14 +310,14 @@ export const userGameStateMachine = setup({
       on: {
         DEACTIVATE: {
           target: "idle",
-          actions: ["unsubscribe", "reset"],
+          actions: ["unsubscribe", "reset", "notifyNavSessionCleared"],
         },
         INIT: {
           actions: ["requestGameState"],
         },
         USER_GAME_STATE: {
           target: "ready",
-          actions: ["setPayload"],
+          actions: ["setPayload", "notifyNavSession", "requestStoredArtifacts"],
         },
         ERROR_OCCURRED: {
           target: "error",
@@ -288,7 +329,7 @@ export const userGameStateMachine = setup({
       on: {
         DEACTIVATE: {
           target: "idle",
-          actions: ["unsubscribe", "reset"],
+          actions: ["unsubscribe", "reset", "notifyNavSessionCleared"],
         },
         REFRESH: {
           target: "refreshing",
@@ -297,7 +338,7 @@ export const userGameStateMachine = setup({
           actions: ["requestGameState"],
         },
         USER_GAME_STATE: {
-          actions: ["setPayload"],
+          actions: ["setPayload", "notifyNavSession", "requestStoredArtifacts"],
         },
         GAME_SESSION_STARTED: {
           actions: ["requestGameState"],
@@ -306,7 +347,7 @@ export const userGameStateMachine = setup({
           actions: ["requestGameState"],
         },
         GAME_SESSION_ENDED: {
-          actions: ["clearPayload"],
+          actions: ["clearPayload", "notifyNavSessionCleared"],
         },
       },
     },
@@ -315,14 +356,14 @@ export const userGameStateMachine = setup({
       on: {
         DEACTIVATE: {
           target: "idle",
-          actions: ["unsubscribe", "reset"],
+          actions: ["unsubscribe", "reset", "notifyNavSessionCleared"],
         },
         INIT: {
           actions: ["requestGameState"],
         },
         USER_GAME_STATE: {
           target: "ready",
-          actions: ["setPayload"],
+          actions: ["setPayload", "notifyNavSession", "requestStoredArtifacts"],
         },
         ERROR_OCCURRED: {
           target: "error",
@@ -334,7 +375,7 @@ export const userGameStateMachine = setup({
       on: {
         DEACTIVATE: {
           target: "idle",
-          actions: ["unsubscribe", "reset"],
+          actions: ["unsubscribe", "reset", "notifyNavSessionCleared"],
         },
         INIT: {
           target: "refreshing",

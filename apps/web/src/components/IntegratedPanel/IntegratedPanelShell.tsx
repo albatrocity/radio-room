@@ -15,6 +15,11 @@ type Props = {
   footer?: ReactNode
   showBack?: boolean
   onBack?: () => void
+  /**
+   * Body is a definite-height flex column (`overflow: hidden`). Children that
+   * should occupy leftover space opt in with `flex="1"` / `minH={0}`.
+   */
+  fill?: boolean
 }
 
 export function IntegratedPanelShell({
@@ -24,6 +29,7 @@ export function IntegratedPanelShell({
   footer,
   showBack = false,
   onBack,
+  fill = false,
 }: Props) {
   return (
     <Box
@@ -62,12 +68,20 @@ export function IntegratedPanelShell({
           <CloseButton size="sm" onClick={onClose} aria-label="Close panel" />
         </Flex>
 
-        <Box flex="1" minH={0} overflowY="auto" px={3} py={3}>
+        <Box
+          flex="1"
+          minH={0}
+          px={3}
+          py={3}
+          {...(fill
+            ? { display: "flex", flexDirection: "column", overflow: "hidden" }
+            : { overflowY: "auto" })}
+        >
           {children}
         </Box>
 
         {footer ? (
-          <Box px={3} pb={3} pt={0} flexShrink={0}>
+          <Box flexShrink={0} w="full">
             {footer}
           </Box>
         ) : null}

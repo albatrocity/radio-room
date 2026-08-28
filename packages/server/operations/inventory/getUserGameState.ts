@@ -7,7 +7,7 @@ import type {
   TradeSession,
   UserGameStatePayload,
 } from "@repo/types"
-import { collectInventoryAndModifierDefinitionIds } from "../../lib/collectUserGameStateDefinitionIds"
+import { collectGiftOfferDefinitionIds, collectInventoryAndModifierDefinitionIds, collectTradeSessionDefinitionIds } from "../../lib/collectUserGameStateDefinitionIds"
 
 type PluginRegistryHooks = {
   invokeGetSellbackValues?: (
@@ -56,11 +56,37 @@ export async function getUserGameState(params: {
   const inv = inventory ? await inventory.getInventory(roomId, userId) : null
 
   const registry = context.pluginRegistry as PluginRegistryHooks | undefined
+  const tradingEnabled = session.config.allowTrading === true
 
-  const pluginExtraIds = registry?.invokeReferencedItemDefinitionIdsForUser
-    ? await registry.invokeReferencedItemDefinitionIdsForUser(roomId, userId)
-    : []
-  const neededIds = [...collectInventoryAndModifierDefinitionIds(inv, state), ...pluginExtraIds]
+  const emptyGifts: GiftOffer[] = []
+  const [pluginExtraIds, incoming, outgoing, incomingInvites, outgoingInvites, trade] =
+    await Promise.all([
+      registry?.invokeReferencedItemDefinitionIdsForUser
+        ? registry.invokeReferencedItemDefinitionIdsForUser(roomId, userId)
+        : Promise.resolve([] as string[]),
+      tradingEnabled && context.gifts
+        ? context.gifts.listIncoming(roomId, userId)
+        : Promise.resolve(emptyGifts),
+      tradingEnabled && context.gifts
+        ? context.gifts.listOutgoing(roomId, userId)
+        : Promise.resolve(emptyGifts),
+      tradingEnabled && context.trades
+        ? context.trades.listIncomingInvites(roomId, userId)
+        : Promise.resolve([] as TradeInvite[]),
+      tradingEnabled && context.trades
+        ? context.trades.listOutgoingInvites(roomId, userId)
+        : Promise.resolve([] as TradeInvite[]),
+      tradingEnabled && context.trades
+        ? context.trades.getTradeForUser(roomId, userId)
+        : Promise.resolve(null as TradeSession | null),
+    ])
+
+  const neededIds = [
+    ...collectInventoryAndModifierDefinitionIds(inv, state),
+    ...pluginExtraIds,
+    ...collectGiftOfferDefinitionIds([...incoming, ...outgoing]),
+    ...collectTradeSessionDefinitionIds(trade),
+  ]
   const itemDefinitions = inventory ? await inventory.getItemDefinitions(roomId, neededIds) : []
 
   const definitionById = new Map<string, ItemDefinition>(
@@ -83,22 +109,10 @@ export async function getUserGameState(params: {
     ? await registry.invokeContributeToUserGameState(roomId, userId, { itemDefinitions })
     : {}
 
-  const tradingEnabled = session.config.allowTrading === true
   let pendingGifts: { incoming: GiftOffer[]; outgoing: GiftOffer[] } | undefined
   let pendingTradeInvites: { incoming: TradeInvite[]; outgoing: TradeInvite[] } | undefined
   let activeTrade: TradeSession | null | undefined
   if (tradingEnabled) {
-    const [incoming, outgoing, incomingInvites, outgoingInvites, trade] = await Promise.all([
-      context.gifts ? context.gifts.listIncoming(roomId, userId) : Promise.resolve([] as GiftOffer[]),
-      context.gifts ? context.gifts.listOutgoing(roomId, userId) : Promise.resolve([] as GiftOffer[]),
-      context.trades
-        ? context.trades.listIncomingInvites(roomId, userId)
-        : Promise.resolve([] as TradeInvite[]),
-      context.trades
-        ? context.trades.listOutgoingInvites(roomId, userId)
-        : Promise.resolve([] as TradeInvite[]),
-      context.trades ? context.trades.getTradeForUser(roomId, userId) : Promise.resolve(null),
-    ])
     if (context.gifts) {
       pendingGifts = { incoming, outgoing }
     }

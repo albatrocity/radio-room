@@ -1,10 +1,11 @@
-import { HStack, Icon, Status, Tabs, VStack } from "@chakra-ui/react"
+import { Status, Tabs, VStack } from "@chakra-ui/react"
 import type { PluginComponentDefinition, PluginTabComponent } from "@repo/types"
 import {
   PluginComponentProvider,
   PluginComponentRenderer,
 } from "../../PluginComponents/PluginComponentRenderer"
 import { getIcon } from "../../PluginComponents/icons"
+import { SvgIcon } from "../../ui/svg-icon"
 
 export interface PluginTabEntry {
   id: string
@@ -40,14 +41,13 @@ export function GameStatePluginTabTriggers({
             key={entry.id}
             value={entry.id}
             position="relative"
+            gap={1}
             pr={showNew ? 2 : undefined}
             whiteSpace="nowrap"
             onClick={() => onSelect?.(entry.id)}
           >
-            <HStack gap={1} align="center">
-              {TabIcon ? <Icon as={TabIcon} /> : null}
-              {entry.label}
-            </HStack>
+            {TabIcon ? <SvgIcon icon={TabIcon} boxSize="1em" /> : null}
+            {entry.label}
             {showNew ? (
               <Status.Root
                 size="sm"

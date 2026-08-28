@@ -2,7 +2,7 @@
  * Admin listener game state actor
  *
  * Singleton for the admin "all listeners" tab. Activate only while that tab
- * is visible (see ModalUserGameState).
+ * Activate only while that tab is visible (see gameStateNavMachine, ADR 0130).
  */
 
 import { createActor } from "xstate"

@@ -59,6 +59,21 @@ export function isGiftTradeEventForUser(
   return isGameEventForUser(data, currentUserId)
 }
 
+/** True when the session references a SKU not already in the viewer's definition slice. */
+export function tradeHasUnknownDefinitions(
+  trade: TradeSession,
+  definitions: readonly { id: string }[],
+): boolean {
+  const known = new Set(definitions.map((d) => d.id))
+  for (const participant of Object.values(trade.participants)) {
+    for (const row of [...(participant.draft ?? []), ...(participant.offer ?? [])]) {
+      const id = row.definitionId?.trim()
+      if (id && !known.has(id)) return true
+    }
+  }
+  return false
+}
+
 /** Lock/unlock moves items into or out of escrow — inventory must refetch. */
 export function tradeEscrowChanged(
   prev: TradeSession | null | undefined,

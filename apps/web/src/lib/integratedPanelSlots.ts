@@ -1,10 +1,6 @@
-import type { SnapshotFrom } from "xstate"
-
-import type { modalsMachine } from "../machines/modalsMachine"
+import { matchesModals, type ModalsSnapshot } from "./modalsState"
 
 export type IntegratedPanelSlotId = "gameState" | "adminSettings"
-
-export type ModalsSnapshot = SnapshotFrom<typeof modalsMachine>
 
 export type IntegratedPanelPresentation = "panel" | "modal"
 
@@ -18,8 +14,8 @@ export const INTEGRATED_PANEL_SLOTS: Record<
 
 /** Maps an open `modalsMachine` state to a panel slot, if any. */
 export function resolveIntegratedPanelSlot(state: ModalsSnapshot): IntegratedPanelSlotId | null {
-  if (state.matches("gameState")) return "gameState"
-  if (state.matches("settings")) return "adminSettings"
+  if (matchesModals(state, "gameState")) return "gameState"
+  if (matchesModals(state, "settings")) return "adminSettings"
   return null
 }
 

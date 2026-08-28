@@ -26,7 +26,7 @@ export default function GameSessions() {
   const room = useCurrentRoom()
   const modalSend = useModalsSend()
   const modalsState = useModalsSnapshot()
-  const panelOpen = modalsState.matches("settings.game_sessions")
+  const panelOpen = modalsState.matches("modal.settings.game_sessions")
 
   const [sessionName, setSessionName] = useState("")
   const [initialCoinsInput, setInitialCoinsInput] = useState("")

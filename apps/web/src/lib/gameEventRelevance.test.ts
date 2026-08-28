@@ -4,6 +4,7 @@ import {
   isGameEventForUser,
   isGiftTradeEventForUser,
   tradeEscrowChanged,
+  tradeHasUnknownDefinitions,
 } from "./gameEventRelevance"
 
 describe("isGameEventForUser", () => {
@@ -71,5 +72,35 @@ describe("tradeEscrowChanged", () => {
       },
     }
     expect(tradeEscrowChanged(base, locked)).toBe(true)
+  })
+})
+
+describe("tradeHasUnknownDefinitions", () => {
+  const trade = {
+    tradeId: "t1",
+    roomId: "r1",
+    status: "open",
+    fromUserId: "a",
+    toUserId: "b",
+    createdAt: 1,
+    updatedAt: 1,
+    participants: {
+      a: { userId: "a", draft: [], offer: [], locked: false, confirmed: false },
+      b: {
+        userId: "b",
+        draft: [{ itemId: "i1", quantity: 1, definitionId: "item-shops:their-lp", slotPool: "inventory" }],
+        offer: [],
+        locked: false,
+        confirmed: false,
+      },
+    },
+  } as TradeSession
+
+  it("is false when every SKU is already loaded", () => {
+    expect(tradeHasUnknownDefinitions(trade, [{ id: "item-shops:their-lp" }])).toBe(false)
+  })
+
+  it("is true when the counterpart offers an unloaded SKU", () => {
+    expect(tradeHasUnknownDefinitions(trade, [])).toBe(true)
   })
 })

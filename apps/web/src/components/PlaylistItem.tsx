@@ -9,7 +9,6 @@ import {
   Image,
   Box,
   HStack,
-  StackSeparator,
   IconButton,
   useSlotRecipe,
 } from "@chakra-ui/react"
@@ -194,124 +193,116 @@ const PlaylistItem = memo(function PlaylistItem({
   const canPlayQueuedTrackNow =
     canActOnQueueItem && isAppControlledQueue && (isAdmin || isRoomCreator)
 
+  const artistLine = artistElementProps.obscured
+    ? artistElementProps.placeholder ?? "???"
+    : preferredTrack?.artists?.map((a) => a.title).join(" · ")
+
   return (
     <Box
       w="100%"
+      minW={0}
       css={{
         containerType: "inline-size",
         containerName: "playlist-item",
       }}
     >
-      <Stack
+      <HStack
         key={item.playedAt?.toString() || item.addedAt.toString()}
-        direction={["column", "row"]}
         css={styles.root}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         <LinkBox css={styles.trackInfo}>
-          <Stack direction="row">
+          <HStack gap={2} align="center" minW={0}>
             {(artThumb || framedArt) && (
               <Box css={styles.artwork} overflow={framedArt ? "visible" : undefined}>
                 {artworkElementProps.obscured ? (
-                  <Box
-                    width="100%"
-                    height="100%"
-                    bg="colorPalette.muted"
-                    borderRadius="sm"
-                    css={shimmerCss}
-                  />
+                  <Box width="100%" height="100%" bg="colorPalette.muted" css={shimmerCss} />
                 ) : framedArt ? (
                   <FramedArtwork art={framedArt} size="row" squareSlot alt="" />
                 ) : (
-                  <Image loading="lazy" src={artThumb!} />
+                  <Image loading="lazy" src={artThumb!} w="100%" h="100%" objectFit="cover" />
                 )}
               </Box>
             )}
-            <Stack direction="column" css={styles.trackDetails}>
+            <Stack css={styles.trackDetails}>
               {preferredTrack && (
-                <HStack gap={1}>
-                  <LinkOverlay target="_blank" href={externalUrl} m={0}>
+                <HStack gap={1} minW={0} w="100%">
+                  <LinkOverlay
+                    target="_blank"
+                    href={externalUrl}
+                    m={0}
+                    display="block"
+                    minW={0}
+                    flex="1"
+                    overflow="hidden"
+                  >
                     <Text
                       css={{ ...styles.title, ...(titleElementProps.obscured ? shimmerCss : {}) }}
+                      title={titleElementProps.obscured ? undefined : preferredTrack.title}
                     >
                       {titleElementProps.obscured
                         ? titleElementProps.placeholder ?? "???"
                         : preferredTrack.title}
                     </Text>
                   </LinkOverlay>
-                  {isSkipped && <Icon as={LuSkipForward} color="orange.400" boxSize={3} />}
+                  {isSkipped && (
+                    <Icon as={LuSkipForward} color="orange.400" boxSize={3} flexShrink={0} />
+                  )}
                 </HStack>
               )}
-              <HStack color="colorPalette.fg/70" fontSize="xs" separator={<StackSeparator />}>
-                {artistElementProps.obscured ? (
-                  <Text as="span" css={{ ...styles.artist, ...shimmerCss }}>
-                    {artistElementProps.placeholder ?? "???"}
-                  </Text>
-                ) : (
-                  preferredTrack?.artists?.map((a) => (
-                    <Text key={a.id} as="span" css={styles.artist}>
-                      {a.title}
-                    </Text>
-                  ))
-                )}
-              </HStack>
-            </Stack>
-          </Stack>
-        </LinkBox>
-
-        <Stack
-          direction={["row", "column"]}
-          justifyContent={["space-between", "space-around"]}
-          css={styles.metadata}
-        >
-          <Stack
-            direction="row"
-            gap={2}
-            justifyContent="center"
-            alignItems="center"
-            flexWrap="wrap"
-            rowGap={1}
-            columnGap={2}
-          >
-            <Stack
-              direction="row"
-              gap={2}
-              alignItems="center"
-              justifyContent="flex-end"
-              minW={0}
-              css={{
-                "@container playlist-item (max-width: 30rem)": {
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  gap: "0.125rem",
-                },
-              }}
-            >
-              <Text color="colorPalette.fg/70" fontSize="xs" textAlign="right">
-                {item.playedAt ? format(item.playedAt, "p") : format(item.addedAt, "p")}
-              </Text>
-
-              {!!item.addedBy && (
-                <Stack direction="row" gap={1} justifyContent="center" alignItems="center">
-                  <Icon boxSize={3} color="colorPalette.fg/70" as={LuUser} />
-                  <Text as="i" fontSize="xs" color="colorPalette.fg/70">
-                    Added by {djUsername}
-                  </Text>
-                </Stack>
+              {artistLine && (
+                <Text
+                  css={{
+                    ...styles.artist,
+                    ...(artistElementProps.obscured ? shimmerCss : {}),
+                  }}
+                  fontSize="xs"
+                  title={artistElementProps.obscured ? undefined : artistLine}
+                >
+                  {artistLine}
+                </Text>
               )}
             </Stack>
+          </HStack>
+        </LinkBox>
 
-            <PluginArea area="playlistItem" />
-            {isSkipped && (
-              <Text fontSize="2xs">
-                {skipData
-                  ? `Skipped: ${skipData.voteCount}/${skipData.requiredCount} votes`
-                  : undefined}
-              </Text>
+        <HStack css={styles.metadata}>
+          <Stack css={styles.metaText}>
+            <Text color="colorPalette.fg/70" fontSize="xs" whiteSpace="nowrap" textAlign="right">
+              {item.playedAt ? format(item.playedAt, "p") : format(item.addedAt, "p")}
+            </Text>
+
+            {!!item.addedBy && (
+              <HStack
+                gap={1}
+                align="center"
+                minW={0}
+                css={{
+                  "@container playlist-item (max-width: 30rem)": {
+                    maxW: "8rem",
+                  },
+                }}
+              >
+                <Icon boxSize={3} color="colorPalette.fg/70" as={LuUser} flexShrink={0} />
+                <Text as="i" fontSize="xs" color="colorPalette.fg/70" truncate title={djUsername}>
+                  <Box as="span" css={styles.addedByLabel}>
+                    Added by{" "}
+                  </Box>
+                  {djUsername}
+                </Text>
+              </HStack>
             )}
 
-            {/* Delete button for playlist history (admin only) */}
+            {isSkipped && skipData && (
+              <Text fontSize="2xs" whiteSpace="nowrap" color="colorPalette.fg/70">
+                Skipped: {skipData.voteCount}/{skipData.requiredCount} votes
+              </Text>
+            )}
+          </Stack>
+
+          <HStack gap={0} flexShrink={0} align="center">
+            <PluginArea area="playlistItem" />
             {isAdmin && item.playedAt && !isQueueItem && (
               <IconButton
                 aria-label="Delete track from playlist"
@@ -335,7 +326,6 @@ const PlaylistItem = memo(function PlaylistItem({
                 <LuPlay />
               </IconButton>
             )}
-            {/* Queue removal: app-controlled removes in Redis; Spotify-controlled requests admin */}
             {canActOnQueueItem && (
               <IconButton
                 aria-label={
@@ -349,8 +339,8 @@ const PlaylistItem = memo(function PlaylistItem({
                 <LuX />
               </IconButton>
             )}
-          </Stack>
-        </Stack>
+          </HStack>
+        </HStack>
 
         <ConfirmationDialog
           open={isDeleteDialogOpen}
@@ -367,7 +357,7 @@ const PlaylistItem = memo(function PlaylistItem({
           confirmLabel="Delete"
           isDangerous
         />
-      </Stack>
+      </HStack>
     </Box>
   )
 })

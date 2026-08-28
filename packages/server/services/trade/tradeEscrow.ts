@@ -38,12 +38,16 @@ export async function refundEscrow(params: {
   roomId: string
   userId: string
   offer: TradeOfferItem[]
-}): Promise<void> {
+}): Promise<Array<InventoryItem | null>> {
   const inv = params.inventory
-  if (!inv) return
+  if (!inv) return params.offer.map(() => null)
+  const refunded: Array<InventoryItem | null> = []
   for (const e of params.offer) {
-    if (!e.definitionId) continue
-    const refunded = await inv.giveItem(
+    if (!e.definitionId) {
+      refunded.push(null)
+      continue
+    }
+    const item = await inv.giveItem(
       params.roomId,
       params.userId,
       e.definitionId,
@@ -51,10 +55,12 @@ export async function refundEscrow(params: {
       e.metadata,
       "trade",
     )
-    if (!refunded) {
+    if (!item) {
       console.error(`[TradeService] refund failed ${params.userId} ${e.definitionId}`)
     }
+    refunded.push(item)
   }
+  return refunded
 }
 
 export async function canAccommodateOfferList(params: {

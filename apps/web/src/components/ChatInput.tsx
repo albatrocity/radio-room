@@ -428,6 +428,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               ref={textareaRef}
               name="content"
               autoComplete="off"
+              enterKeyHint="send"
               height="100%"
               rows={1}
               value={content}

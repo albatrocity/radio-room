@@ -2,6 +2,7 @@ import type { UserGameStatePayload } from "@repo/types"
 import { getCurrentUser } from "../actors/authActor"
 import { markTradesGiftsTabViewed } from "../actors/gameStateTradesGiftsAttentionActor"
 import { getUserGameStatePayload } from "../actors/userGameStateActor"
+import { dismissIncomingTradeInviteToasts } from "./tradeInviteToast"
 
 export type TradesGiftsAttentionExclude = {
   excludeInviteId?: string
@@ -34,4 +35,10 @@ export function clearTradesGiftsTabAttentionIfEmpty(options?: TradesGiftsAttenti
   if (!hasIncomingTradesGiftsAttention(payload, options)) {
     markTradesGiftsTabViewed()
   }
+}
+
+/** Dismiss invite toasts and clear the tab badge when the Trades/Gifts tab is showing. */
+export function viewTradesGiftsTab(): void {
+  dismissIncomingTradeInviteToasts()
+  clearTradesGiftsTabAttentionIfEmpty()
 }

@@ -11,6 +11,7 @@ import { GAME_STATE_DEFAULT_TAB } from "../machines/gameStateNavMachine"
 import { TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
 import type { GameStateDetailFrame } from "../types/GameStateDetail"
 import { gameStateNavActor } from "./gameStateNavActor"
+import { isModalsIdle, matchesModals } from "../lib/modalsState"
 
 export { TRADES_GIFTS_TAB }
 
@@ -28,14 +29,14 @@ export const modalsActor = createActor(modalsMachine).start()
  * Check if a specific modal is currently open.
  */
 export function isModalOpen(modalName: string): boolean {
-  return modalsActor.getSnapshot().matches(modalName)
+  return matchesModals(modalsActor.getSnapshot(), modalName)
 }
 
 /**
  * Check if any modal is currently open.
  */
 export function isAnyModalOpen(): boolean {
-  return !modalsActor.getSnapshot().matches("closed")
+  return !isModalsIdle(modalsActor.getSnapshot())
 }
 
 /**
@@ -61,6 +62,11 @@ export function sendModalsEvent(event: ModalsEvent): void {
  * Close the currently open modal.
  */
 export function closeModal(): void {
+  const snapshot = modalsActor.getSnapshot()
+  if (matchesModals(snapshot, "queue")) {
+    modalsActor.send({ type: "CLOSE_QUEUE" })
+    return
+  }
   modalsActor.send({ type: "CLOSE" })
 }
 
@@ -79,6 +85,11 @@ export function openGameStateOnTab(params: {
     gameStateNavActor.send({ type: "SET_ACTIVE_TAB", tabId })
   }
   modalsActor.send({ type: "VIEW_GAME_STATE" })
+}
+
+/** Drop the finished trade frame; switch to Inventory only if already viewing it (ADR 0131). */
+export function onTradeSessionCompleted(goToInventory: boolean): void {
+  gameStateNavActor.send({ type: "TRADE_SESSION_COMPLETED", goToInventory })
 }
 
 /**

@@ -17,6 +17,7 @@ import type {
   UserInventory,
 } from "@repo/types"
 import { userGameStateMachine } from "../machines/userGameStateMachine"
+import { emitToSocket } from "./socketActor"
 
 export const userGameStateActor = createActor(userGameStateMachine).start()
 
@@ -25,6 +26,11 @@ export type { UserGameStatePayload }
 /** Request a fresh fetch of the user's game state. */
 export function refreshUserGameState(): void {
   userGameStateActor.send({ type: "REFRESH" })
+}
+
+/** Re-list global stored artifacts (e.g. after a successful retrieve). */
+export function refreshStoredArtifacts(): void {
+  emitToSocket("GET_STORED_ARTIFACTS", {})
 }
 
 /** Current payload (session, state, inventory, itemDefinitions). */

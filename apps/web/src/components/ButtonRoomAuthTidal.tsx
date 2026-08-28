@@ -4,6 +4,7 @@ import { Link, Box, Button, Icon, Text, HStack, VStack, Spinner } from "@chakra-
 import { LuCheck, LuPlus, LuUnlink, LuWaves } from "react-icons/lu"
 
 import { useCurrentUser, useCurrentRoom } from "../hooks/useActors"
+import { getApiBaseUrl } from "../lib/apiBaseUrl"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors"
 
 export default function ButtonRoomAuthTidal({ hideText = false }: { hideText?: boolean }) {
@@ -88,7 +89,7 @@ export default function ButtonRoomAuthTidal({ hideText = false }: { hideText?: b
         <VStack align="flex-start">
           <Button asChild>
             <Link
-              href={`${import.meta.env.VITE_API_URL}/auth/tidal/login?userId=${
+              href={`${getApiBaseUrl()}/auth/tidal/login?userId=${
                 currentUser?.userId
               }&redirect=${encodeURIComponent(location.pathname)}`}
             >

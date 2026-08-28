@@ -31,6 +31,27 @@ export type TradeDraftItem = {
   slotPool: "inventory" | "collection"
 }
 
+/** Rebuild a draft after escrow refund so unlock keeps the same offered rows. */
+export function draftFromEscrowedOffer(
+  offer: TradeOfferItem[],
+  refundedItemIds: Array<string | null | undefined>,
+): TradeDraftItem[] {
+  const draft: TradeDraftItem[] = []
+  for (let i = 0; i < offer.length; i++) {
+    const row = offer[i]
+    const itemId = refundedItemIds[i]
+    if (!row || !itemId) continue
+    draft.push({
+      itemId,
+      quantity: row.quantity,
+      definitionId: row.definitionId,
+      itemName: row.itemName,
+      slotPool: row.slotPool,
+    })
+  }
+  return draft
+}
+
 export type TradeParticipantState = {
   userId: string
   /** Selected items before lock (still in bag). */

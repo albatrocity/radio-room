@@ -6,6 +6,8 @@ interface Props {
   headingActions?: ReactNode
   children: ReactNode
   footer?: ReactNode
+  /** Skip Chakra footer padding so children can go edge-to-edge. */
+  footerFlush?: boolean
   open?: boolean
   onOpenChange?: (details: { open: boolean }) => void
   placement?: "start" | "end" | "top" | "bottom"
@@ -20,6 +22,7 @@ const Drawer = ({
   headingActions,
   children,
   footer,
+  footerFlush = false,
   open,
   isOpen,
   onOpenChange,
@@ -48,16 +51,29 @@ const Drawer = ({
       <ChakraDrawer.Backdrop />
       <ChakraDrawer.Positioner>
         <ChakraDrawer.Content>
-          <ChakraDrawer.CloseTrigger />
-          <ChakraDrawer.Header css={{ paddingBottom: 0 }}>
+          <ChakraDrawer.Header
+            css={{ paddingBottom: 0 }}
+            minH="44px"
+            alignItems="center"
+          >
             <ChakraDrawer.Title>{heading}</ChakraDrawer.Title>
             <ButtonGroup>{headingActions}</ButtonGroup>
-            <ChakraDrawer.CloseTrigger asChild pos="unset">
+            <ChakraDrawer.CloseTrigger asChild>
               <CloseButton colorPalette="secondary" variant="plain" />
             </ChakraDrawer.CloseTrigger>
           </ChakraDrawer.Header>
           <ChakraDrawer.Body>{children}</ChakraDrawer.Body>
-          {footer && <ChakraDrawer.Footer borderTopWidth="1px">{footer}</ChakraDrawer.Footer>}
+          {footer && (
+            <ChakraDrawer.Footer
+              borderTopWidth="1px"
+              p={footerFlush ? 0 : undefined}
+              flexDirection={footerFlush ? "column" : undefined}
+              alignItems={footerFlush ? "stretch" : undefined}
+              w="full"
+            >
+              {footer}
+            </ChakraDrawer.Footer>
+          )}
         </ChakraDrawer.Content>
       </ChakraDrawer.Positioner>
     </ChakraDrawer.Root>

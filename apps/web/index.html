@@ -1,25 +1,103 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-launch-splash>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <link rel="icon" type="image/png" href="/icon.png" />
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Caveat is self-hosted via @fontsource (see main.tsx); only Nunito comes from Google. -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;700&display=swap" rel="stylesheet">
-    
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0093A5" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Listening Room" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- apple-touch-startup-image:generated -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1320x2868.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2868x1320.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1260x2736.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2736x1260.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1290x2796.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2796x1290.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1206x2622.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2622x1206.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1179x2556.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2556x1179.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1170x2532.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2532x1170.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1284x2778.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2778x1284.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1125x2436.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2436x1125.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1242x2688.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2688x1242.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/828x1792.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/1792x828.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/1242x2208.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="/splash/2208x1242.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/750x1334.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/1334x750.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/640x1136.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/1136x640.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/2048x2732.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/2732x2048.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/1668x2388.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/2388x1668.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/1640x2360.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/2360x1640.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/1620x2160.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/2160x1620.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/1536x2048.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/2048x1536.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/1488x2266.png" />
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="/splash/2266x1488.png" />
+    <!-- /apple-touch-startup-image:generated -->
+
     <title>Listening Room</title>
     <meta name="description" content="Listen to something together" />
     <meta property="og:title" content="Listening Room" />
     <meta property="og:description" content="Listen to something together" />
     <meta property="og:type" content="website" />
+    <style>
+      /* Unlayered, so it would beat Chakra after mount — only while the splash is up. */
+      html[data-launch-splash],
+      html[data-launch-splash] body {
+        background: #0093a5;
+        margin: 0;
+      }
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #0093a5;
+        z-index: 2147483647;
+      }
+      #app-splash svg {
+        width: 192px;
+        height: 192px;
+      }
+    </style>
   </head>
   <body>
+    <div id="app-splash" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320">
+        <g transform="translate(16.4, 2.06) scale(0.977)">
+          <path
+            fill="#000"
+            d="M277.86,162.96c-3.3-4.03-7.12-7.57-10.44-10.57-2.49-2.25-5-3.85-7.44-5.4l-.95-.6c-13.25-8.49-21.24-22.25-21.39-36.82-.13-13.16-.96-24.29-4.54-35.87-5.57-18.02-13.92-32.57-25.52-44.49-10.77-11.06-22.67-18.36-36.37-22.3-4.68-1.35-9.49-2.17-14.32-2.44h-.02S90.97,0,90.97,0l-.09.15c-1.63-.1-3.28-.15-4.91-.15C59.84,0,35.01,13.38,19.56,35.79,8.09,52.42,1.42,72.85.25,94.88c-1.1,20.76,2.67,41.92,10.89,61.2,6.73,15.78,15.41,29.18,25.82,39.97h-6.54v33.77H13.54v33.79H0v51.45h51.45l35.52.03,38.04-41.24,18.82,16.53c8.99,7.89,17.12,14.06,27.59,18.51,10.92,4.64,21.73,7,32.13,7,1.35,0,2.71-.04,4.05-.12,20.11-1.17,37.37-11.28,47.37-27.74l-.18-.11h.25s.49-.84.49-.84c.13-.22.26-.43.38-.65l31.73-54.38h0c3.31-5.67,5.4-11.95,6.21-18.68,2.07-17.08-3.77-35.45-16.02-50.4ZM86.48,84.23c3.3-7.97,8.97-13.4,15.81-13.99l1.98-.04.44.11c7.2.82,13.05,7.26,16,15.84,1.22,3.55,1.9,7.28,2.11,11.17l.08.58-.02,3.2-.11,1.57c-.65,8.88-4.01,17.23-9.67,22.16-2.72,2.37-5.77,3.68-9,3.94h-1.86c-3.39-.31-6.58-1.79-9.36-4.4-9.42-8.81-11.86-26.9-6.38-40.14ZM73.36,238.72h-17.35v34.39h-13.9v34.42H7.4v-34.42h13.9v-34.42h17.35v-34.39h14.29v-34.42h34.7v34.42h-14.29v34.42Z"
+          />
+          <path
+            fill="#feb216"
+            d="M237.5,205.07c-3.7-4.52-8-8.54-12.34-12.46-2.94-2.66-6.04-4.52-9.46-6.72-18.65-11.95-31.34-32.09-31.57-54.71-.15-14.86-.98-28.88-5.37-43.06-6.15-19.89-15.71-37.97-30.3-52.95-11.93-12.26-25.64-21.19-42.24-25.97C75.02.22,43.68,12.72,25.6,38.94,3.18,71.46,2.53,116.17,17.89,152.18c6.31,14.79,14.94,28.62,26.46,39.87v-29.8h86.12v105.61l18.21,15.98c8.03,7.05,15.72,13.06,25.62,17.27,10.55,4.49,21.56,6.97,32.89,6.31,25.5-1.48,45.56-19.41,48.68-45.15,2.49-20.53-5.53-41.52-18.37-57.2ZM131.5,102.89l-.26,2.64c-1.45,14.95-8.96,28.99-21.6,37.29-6.07,3.99-12.9,6.19-20.12,6.63l-4.15-.02c-7.58-.5-14.69-3-20.92-7.38-21.05-14.83-26.49-45.28-14.26-67.55,7.37-13.42,20.04-22.55,35.33-23.55l4.41-.06.98.18c16.08,1.38,29.15,12.21,35.75,26.67,2.72,5.97,4.26,12.25,4.71,18.8l.17.97-.04,5.38Z"
+          />
+        </g>
+      </svg>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

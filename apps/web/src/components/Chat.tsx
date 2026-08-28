@@ -68,7 +68,15 @@ const Chat = () => {
           </Box>
         </Box>
       </GridItem>
-      <GridItem px={2} py={2} area={"input"} boxShadow="inner">
+      <GridItem
+        px={2}
+        pt={2}
+        area={"input"}
+        boxShadow="inner"
+        css={{
+          paddingBottom: "max(var(--chakra-spacing-2), var(--safe-area-bottom))",
+        }}
+      >
         <Stack gap={2}>
           <Box px={2} zIndex={1}>
             <TypingIndicator currentUserId={currentUserId} />

@@ -13,6 +13,7 @@ import { useCurrentRoom, useCurrentUser } from "../hooks/useActors"
 import { useGameStatePluginTabEntries } from "../hooks/useGameStatePluginTabEntries"
 import { gameStateNewPluginTabsMachine } from "../machines/gameStateNewPluginTabsMachine"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
+import { bindGameStatePluginTabsSend } from "../lib/gameStatePluginTabViewed"
 
 export interface GameStateNewPluginTabsContextValue {
   pluginTabs: PluginTabEntry[]
@@ -51,6 +52,11 @@ export function GameStateNewPluginTabsProvider({ children }: { children: ReactNo
   const [state, send] = useMachine(gameStateNewPluginTabsMachine, {
     input: { roomId },
   })
+
+  useEffect(() => {
+    bindGameStatePluginTabsSend(send)
+    return () => bindGameStatePluginTabsSend(null)
+  }, [send])
 
   useEffect(() => {
     send({ type: "ROOM_CHANGED", roomId })

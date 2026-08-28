@@ -1,3 +1,4 @@
+import { useArtworkOverlayIsCompact } from "./ArtworkOverlaySizeContext"
 import OverlaySvg from "./OverlaySvg"
 import {
   JEWEL_CASE_BEVEL_MM,
@@ -48,17 +49,21 @@ const spineRidges = Array.from(
  * millimetres; `frameArtworkInset` puts the cover art in the same window.
  */
 export default function JewelCaseOverlay({ idPrefix = "jc", coverless = false }: Props) {
+  const compact = useArtworkOverlayIsCompact()
   const sheenId = `${idPrefix}-sheen`
   const edgeId = `${idPrefix}-edge`
+  const ridges = compact ? spineRidges.filter((_, i) => i % 3 === 1) : spineRidges
 
   return (
     <OverlaySvg viewBox={`0 0 ${CASE.width} ${CASE.height}`}>
       <defs>
-        <linearGradient id={sheenId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#fff" stopOpacity="0.45" />
-          <stop offset="55%" stopColor="#fff" stopOpacity="0.16" />
-          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
+        {!compact && (
+          <linearGradient id={sheenId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.45" />
+            <stop offset="55%" stopColor="#fff" stopOpacity="0.16" />
+            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+          </linearGradient>
+        )}
         <linearGradient id={edgeId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#000" stopOpacity="0.3" />
           <stop offset="40%" stopColor="#000" stopOpacity="0" />
@@ -67,7 +72,7 @@ export default function JewelCaseOverlay({ idPrefix = "jc", coverless = false }:
       </defs>
 
       <rect x="0" y="0" width={SPINE_WIDTH} height={CASE.height} fill={SPINE_BASE} />
-      {spineRidges.map((x) => (
+      {ridges.map((x) => (
         <line
           key={x}
           x1={x}
@@ -75,7 +80,7 @@ export default function JewelCaseOverlay({ idPrefix = "jc", coverless = false }:
           x2={x}
           y2={CASE.height}
           stroke={SPINE_RIDGE}
-          strokeWidth="0.45"
+          strokeWidth={compact ? "0.9" : "0.45"}
         />
       ))}
       <line
@@ -97,7 +102,7 @@ export default function JewelCaseOverlay({ idPrefix = "jc", coverless = false }:
       />
       <rect {...BEVEL_RECT} fill="none" stroke="#000" strokeOpacity="0.28" strokeWidth="0.7" />
 
-      {!coverless && (
+      {!coverless && !compact && (
         <>
           <polygon
             points={`${INSERT.x},${INSERT.y} ${INSERT_RIGHT},${INSERT.y} ${INSERT_RIGHT - 25},${

@@ -160,8 +160,8 @@ export default function StoredItemsTab({
           <DialogBackdrop />
           <DialogPositioner>
             <DialogContent maxW="sm" mx={2} bg="appBg" layerStyle="themeTransition">
-              <DialogCloseTrigger asChild position="absolute" top="2" right="2" zIndex={1}>
-                <CloseButton size="sm" />
+              <DialogCloseTrigger asChild zIndex={1}>
+                <CloseButton />
               </DialogCloseTrigger>
               <DialogHeader fontWeight="semibold">Unlock storage</DialogHeader>
               <DialogBody>

@@ -13,6 +13,8 @@
     "@emotion/react": "^11.14.0",
     "@floating-ui/dom": "^1.6.13",
     "@fontsource/caveat": "^5.3.0",
+    "@fontsource/comic-neue": "^5.3.0",
+    "@fontsource/nunito": "^5.3.0",
     "@react-icons/all-files": "^4.1.0",
     "@repo/auth": "*",
     "@repo/game-logic": "*",
@@ -20,7 +22,7 @@
     "@repo/types": "*",
     "@repo/utils": "*",
     "@tanstack/react-router": "^1.169.1",
-    "@tanstack/react-virtual": "^3.13.23",
+    "@tanstack/react-virtual": "^3.14.10",
     "@tanstack/router-devtools": "^1.166.13",
     "@tanstack/router-plugin": "^1.167.32",
     "@vitejs/plugin-react": "^5.1.1",
@@ -42,7 +44,6 @@
     "normalize-url": "^8.0.0",
     "prop-types": "^15.7.2",
     "react": "^18.2.0",
-    "react-div-100vh": "^0.7.0",
     "react-dom": "^18.2.0",
     "react-hotkeys-hook": "^4.3.7",
     "react-howler": "^5.2.0",
@@ -86,7 +87,9 @@
     "preview": "vite preview",
     "lint": "eslint \"**/*.{ts,tsx}\"",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
-    "test": "vitest run --config vitest.config.mts"
+    "test": "vitest run --config vitest.config.mts",
+    "generate:splash": "node scripts/generateAppleSplash.mjs",
+    "generate:icons": "node scripts/generatePwaIcons.mjs"
   },
   "repository": {
     "type": "git",

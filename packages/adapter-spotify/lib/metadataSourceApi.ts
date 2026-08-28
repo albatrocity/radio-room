@@ -1,8 +1,34 @@
-import { MetadataSourceApi, MetadataSourceLifecycleCallbacks } from "@repo/types"
+import {
+  AdapterAuthentication,
+  MetadataSourceApi,
+  MetadataSourceLifecycleCallbacks,
+} from "@repo/types"
+import { isMetadataSourceAuthFailure } from "@repo/utils"
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk"
-import { mapSpotifyAlbumTrack, mapSpotifyBrowseAlbum, mapSpotifyBrowseArtist } from "./browseMappers"
+import {
+  mapSpotifyAlbumTrack,
+  mapSpotifyBrowseAlbum,
+  mapSpotifyBrowseArtist,
+} from "./browseMappers"
 import { trackItemSchema } from "./schemas"
+import { isSpotifyGatewayError } from "./spotifyErrors"
 import { spotifySdkConfig } from "./spotifyRequestTimeout"
+
+/** Short backoff between Spotify search/metadata 5xx retries. */
+const GATEWAY_RETRY_DELAYS_MS = [200, 400] as const
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function toAccessToken(tokens: { accessToken: string; refreshToken: string }): AccessToken {
+  return {
+    access_token: tokens.accessToken,
+    refresh_token: tokens.refreshToken,
+    token_type: "Bearer",
+    expires_in: 3600,
+  }
+}
 
 export async function makeApi({
   token,
@@ -11,10 +37,57 @@ export async function makeApi({
 }: {
   token: AccessToken
   clientId: string
-  config: MetadataSourceLifecycleCallbacks
+  config: MetadataSourceLifecycleCallbacks & { authentication: AdapterAuthentication }
 }) {
-  const spotifyApi = SpotifyApi.withAccessToken(clientId, token, spotifySdkConfig)
+  const getSpotifyApi = async (forceRefresh = false): Promise<SpotifyApi> => {
+    const auth = config.authentication
+    if (auth.type !== "oauth" && auth.type !== "token") {
+      return SpotifyApi.withAccessToken(clientId, token, spotifySdkConfig)
+    }
+    const tokens =
+      forceRefresh && auth.type === "oauth" && auth.refreshTokens
+        ? await auth.refreshTokens()
+        : await auth.getStoredTokens()
+    return SpotifyApi.withAccessToken(clientId, toAccessToken(tokens), spotifySdkConfig)
+  }
 
+  const retryOnGateway = async <T>(operation: () => Promise<T>): Promise<T> => {
+    const extraAttempts = GATEWAY_RETRY_DELAYS_MS.length
+    try {
+      return await operation()
+    } catch (error) {
+      if (!isSpotifyGatewayError(error)) throw error
+      let lastError: unknown = error
+      for (let i = 0; i < extraAttempts; i++) {
+        console.warn(
+          `[spotify] metadata API gateway error; retrying (${i + 1}/${extraAttempts})`,
+        )
+        await delay(GATEWAY_RETRY_DELAYS_MS[i]!)
+        try {
+          return await operation()
+        } catch (retryError) {
+          lastError = retryError
+          if (!isSpotifyGatewayError(retryError)) throw retryError
+        }
+      }
+      throw lastError
+    }
+  }
+
+  const withAuthRetry = async <T>(operation: (api: SpotifyApi) => Promise<T>): Promise<T> => {
+    try {
+      return await retryOnGateway(async () => operation(await getSpotifyApi()))
+    } catch (error) {
+      const auth = config.authentication
+      if (!isMetadataSourceAuthFailure(error) || auth.type !== "oauth" || !auth.refreshTokens) {
+        throw error
+      }
+      const refreshed = await getSpotifyApi(true)
+      return await retryOnGateway(() => operation(refreshed))
+    }
+  }
+
+  const spotifyApi = await getSpotifyApi()
   const accessToken = await spotifyApi.getAccessToken()
 
   if (!accessToken) {
@@ -27,12 +100,14 @@ export async function makeApi({
 
   const api: MetadataSourceApi = {
     async search(query) {
-      const searchResults = await spotifyApi.search(query, ["track"], undefined, 10)
+      const searchResults = await withAuthRetry((client) =>
+        client.search(query, ["track"], undefined, 10),
+      )
       return (searchResults.tracks?.items ?? []).map((item) => trackItemSchema.parse(item))
     },
     async findById(id) {
       try {
-        const item = await spotifyApi.tracks.get(id)
+        const item = await withAuthRetry((client) => client.tracks.get(id))
 
         return trackItemSchema.parse(item)
       } catch (error) {
@@ -73,34 +148,34 @@ export async function makeApi({
       const { title, trackIds, userId: _userId } = params
       // _userId accepted for API compatibility; we use POST /me/playlists (current user only)
 
-      // Create the playlist for the current user (POST /me/playlists)
-      const playlist = await spotifyApi.makeRequest<{ id: string; name: string; external_urls?: { spotify?: string } }>(
-        "POST",
-        "me/playlists",
-        {
+      return withAuthRetry(async (client) => {
+        const playlist = await client.makeRequest<{
+          id: string
+          name: string
+          external_urls?: { spotify?: string }
+        }>("POST", "me/playlists", {
           name: title,
           description: `Created by Listening Room on ${new Date().toLocaleDateString()}`,
           public: false,
-        },
-      )
+        })
 
-      // Add tracks via new items endpoint (POST /playlists/{id}/items)
-      const uris = trackIds.map((id) => `spotify:track:${id}`)
-      if (uris.length > 0 && playlist) {
-        await spotifyApi.makeRequest("POST", `playlists/${playlist.id}/items`, { uris })
-      }
+        const uris = trackIds.map((id) => `spotify:track:${id}`)
+        if (uris.length > 0 && playlist) {
+          await client.makeRequest("POST", `playlists/${playlist.id}/items`, { uris })
+        }
 
-      return {
-        id: playlist!.id,
-        title: playlist!.name,
-        trackIds,
-        url: playlist!.external_urls?.spotify,
-      }
+        return {
+          id: playlist!.id,
+          title: playlist!.name,
+          trackIds,
+          url: playlist!.external_urls?.spotify,
+        }
+      })
     },
     // Library management methods
     // getSavedTracks: still uses existing GET saved-tracks list endpoint (not replaced in Feb 2026 migration)
     async getSavedTracks() {
-      const savedTracks = await spotifyApi.currentUser.tracks.savedTracks()
+      const savedTracks = await withAuthRetry((client) => client.currentUser.tracks.savedTracks())
       // Transform Spotify tracks to MetadataSourceTrack format
       return (savedTracks.items ?? []).map((item) => trackItemSchema.parse(item.track))
     },
@@ -110,16 +185,16 @@ export async function makeApi({
       }
       const uris = trackIds.map((id) => `spotify:track:${id}`)
       const query = `me/library/contains?uris=${encodeURIComponent(uris.join(","))}`
-      const result = await spotifyApi.makeRequest<boolean[]>("GET", query)
+      const result = await withAuthRetry((client) => client.makeRequest<boolean[]>("GET", query))
       return result ?? []
     },
     async addToLibrary(trackIds: string[]) {
       const uris = trackIds.map((id) => `spotify:track:${id}`)
-      await spotifyApi.makeRequest("PUT", "me/library", { uris })
+      await withAuthRetry((client) => client.makeRequest("PUT", "me/library", { uris }))
     },
     async removeFromLibrary(trackIds: string[]) {
       const uris = trackIds.map((id) => `spotify:track:${id}`)
-      await spotifyApi.makeRequest("DELETE", "me/library", { uris })
+      await withAuthRetry((client) => client.makeRequest("DELETE", "me/library", { uris }))
     },
 
     getBrowseCapabilities() {
@@ -131,7 +206,9 @@ export async function makeApi({
       if (!query) return { items: [], total: 0 }
       const limit = Math.min(Math.max(params?.limit ?? 20, 1), 50) as 20
       const offset = Math.max(params?.offset ?? 0, 0)
-      const results = await spotifyApi.search(query, ["artist"], undefined, limit, offset)
+      const results = await withAuthRetry((client) =>
+        client.search(query, ["artist"], undefined, limit, offset),
+      )
       const items = (results.artists?.items ?? []).map((a) => mapSpotifyBrowseArtist(a))
       return { items, total: results.artists?.total }
     },
@@ -141,7 +218,9 @@ export async function makeApi({
       if (!query) return { items: [], total: 0 }
       const limit = Math.min(Math.max(params?.limit ?? 20, 1), 50) as 20
       const offset = Math.max(params?.offset ?? 0, 0)
-      const results = await spotifyApi.search(query, ["album"], undefined, limit, offset)
+      const results = await withAuthRetry((client) =>
+        client.search(query, ["album"], undefined, limit, offset),
+      )
       const items = (results.albums?.items ?? []).map((a) => mapSpotifyBrowseAlbum(a))
       return { items, total: results.albums?.total }
     },
@@ -149,10 +228,12 @@ export async function makeApi({
     async getArtist(artistId) {
       if (!artistId) return null
       try {
-        const [artist, albumsPage] = await Promise.all([
-          spotifyApi.artists.get(artistId),
-          spotifyApi.artists.albums(artistId, "album,single", undefined, 50, 0),
-        ])
+        const [artist, albumsPage] = await withAuthRetry((client) =>
+          Promise.all([
+            client.artists.get(artistId),
+            client.artists.albums(artistId, "album,single", undefined, 50, 0),
+          ]),
+        )
         return {
           artist: mapSpotifyBrowseArtist(artist),
           albums: (albumsPage.items ?? []).map((a) => mapSpotifyBrowseAlbum(a)),
@@ -166,7 +247,7 @@ export async function makeApi({
     async getAlbum(albumId) {
       if (!albumId) return null
       try {
-        const album = await spotifyApi.albums.get(albumId)
+        const album = await withAuthRetry((client) => client.albums.get(albumId))
         const browseAlbum = mapSpotifyBrowseAlbum(album)
         const albumEnvelope = {
           id: album.id,

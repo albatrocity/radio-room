@@ -2,6 +2,7 @@ import { Box, ScrollArea } from "@chakra-ui/react"
 
 import UserList from "../UserList"
 import Drawer from "../Drawer"
+import { useIsBelowSm } from "../../hooks/useIntegratedPanelPresentation"
 import {
   useListeners,
   useModalsSend,
@@ -15,6 +16,7 @@ function DrawerListeners() {
   const modalSend = useModalsSend()
   const hasAudio = useCurrentRoomHasAudio()
   const isModalViewingListeners = useIsModalOpen("listeners")
+  const isSheet = useIsBelowSm()
   const hideListeners = () => modalSend({ type: "CLOSE" })
   const handleEditUser = () => modalSend({ type: "EDIT_USERNAME" })
 
@@ -22,7 +24,8 @@ function DrawerListeners() {
     <Drawer
       isOpen={isModalViewingListeners}
       heading={`Listeners (${listeners.length})`}
-      size={["sm", "lg"]}
+      placement={isSheet ? "bottom" : "end"}
+      size={isSheet ? "lg" : ["sm", "lg"]}
       onClose={() => hideListeners()}
     >
       <ScrollArea.Root>

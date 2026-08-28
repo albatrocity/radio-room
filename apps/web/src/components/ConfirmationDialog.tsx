@@ -51,7 +51,7 @@ function ConfirmationDialog({
       <Portal>
         <DialogBackdrop />
         <DialogPositioner>
-          <DialogContent>
+          <DialogContent mx={2}>
             <DialogHeader fontSize="lg" fontWeight="bold">
               {title}
             </DialogHeader>

@@ -6,6 +6,12 @@ import { listItemUserRecipe } from "./listItemUserRecipe"
 import { playlistItemRecipe } from "./playlistItemRecipe"
 import { chatMessageRecipe } from "./chatMessageRecipe"
 import { tagRecipe } from "./tagRecipe"
+import { dialogRecipe } from "./dialogRecipe"
+import { drawerRecipe } from "./drawerRecipe"
+import { inputRecipe } from "./inputRecipe"
+import { textareaRecipe } from "./textareaRecipe"
+import { nativeSelectRecipe } from "./nativeSelectRecipe"
+import { comboboxRecipe } from "./comboboxRecipe"
 
 // Color shades we use
 const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const
@@ -194,6 +200,8 @@ const config = defineConfig({
         "2xs": { value: "0.625rem" },
       },
       fonts: {
+        body: { value: '"Nunito", sans-serif' },
+        heading: { value: '"Nunito", sans-serif' },
         handwriting: { value: '"Caveat", cursive' },
       },
       colors: colorTokens,
@@ -257,12 +265,18 @@ const config = defineConfig({
     },
     recipes: {
       button: buttonRecipe,
+      input: inputRecipe,
+      textarea: textareaRecipe,
     },
     slotRecipes: {
       listItemUser: listItemUserRecipe,
       playlistItem: playlistItemRecipe,
       chatMessage: chatMessageRecipe,
       tag: tagRecipe,
+      dialog: dialogRecipe,
+      drawer: drawerRecipe,
+      nativeSelect: nativeSelectRecipe,
+      combobox: comboboxRecipe,
     },
   },
   globalCss: {
@@ -272,6 +286,7 @@ const config = defineConfig({
     button: {
       colorPalette: "action",
       minWidth: "10px",
+      touchAction: "manipulation",
     },
   },
 })

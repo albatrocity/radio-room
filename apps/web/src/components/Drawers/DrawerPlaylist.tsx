@@ -5,6 +5,7 @@ import { useMachine } from "@xstate/react"
 import { MetadataSourceType } from "@repo/types"
 
 import Drawer from "../Drawer"
+import { useIsBelowSm } from "../../hooks/useIntegratedPanelPresentation"
 import DrawerPlaylistFooter from "./DrawerPlaylistFooter"
 import PlaylistFilters from "../PlaylistFilters"
 import usePlaylistFilter from "../usePlaylistFilter"
@@ -40,6 +41,7 @@ function DrawerPlaylist() {
   const [name, setName] = useState<string>(defaultPlaylistName)
   const hasInitialized = useRef(false)
   const isAdmin = useIsAdmin()
+  const isSheet = useIsBelowSm()
 
   // Available services for playlist saving (from room's metadataSourceIds)
   const availableServices = useMemo(() => {
@@ -224,10 +226,10 @@ function DrawerPlaylist() {
   return (
     <Drawer
       open={isOpen}
-      placement="start"
+      placement={isSheet ? "bottom" : "start"}
       heading="Playlist"
       headingActions={<ButtonExportRoom size="sm" />}
-      size={["full", "lg"]}
+      size={isSheet ? "full" : ["full", "lg"]}
       onClose={handleTogglePlaylist}
       footer={
         isAdmin && (

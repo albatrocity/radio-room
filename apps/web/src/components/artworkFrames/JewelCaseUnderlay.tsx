@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useArtworkOverlayIsCompact } from "./ArtworkOverlaySizeContext"
 import OverlaySvg from "./OverlaySvg"
 import {
   DISC_LABEL_PATH_RADIUS,
@@ -136,6 +137,7 @@ const DISC_EDGE = "#c6ccd6"
  * below the cover image in `FramedArtwork`; the case margin exposes the tray.
  */
 export default function JewelCaseUnderlay({ idPrefix = "jc", label }: Props) {
+  const compact = useArtworkOverlayIsCompact()
   const tabId = `${idPrefix}-tab`
   const discLeftId = `${idPrefix}-disc-left`
   const discRightId = `${idPrefix}-disc-right`
@@ -199,20 +201,22 @@ export default function JewelCaseUnderlay({ idPrefix = "jc", label }: Props) {
           <stop offset="45%" stopColor={DISC_MID} stopOpacity="0.92" />
           <stop offset="100%" stopColor={DISC_EDGE} stopOpacity="0.72" />
         </linearGradient>
-        <linearGradient
-          id={discIridescentId}
-          gradientUnits="userSpaceOnUse"
-          x1={DISC_CX - DISC_RADIUS * 0.7}
-          y1={DISC_CY - DISC_RADIUS * 0.7}
-          x2={DISC_CX + DISC_RADIUS * 0.7}
-          y2={DISC_CY + DISC_RADIUS * 0.7}
-        >
-          <stop offset="0%" stopColor="#f0f8d0" stopOpacity="0" />
-          <stop offset="22%" stopColor="#eef6c8" stopOpacity="0.22" />
-          <stop offset="45%" stopColor="#c8e8f0" stopOpacity="0.18" />
-          <stop offset="72%" stopColor="#f0d0e0" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#f8e8f0" stopOpacity="0" />
-        </linearGradient>
+        {!compact && (
+          <linearGradient
+            id={discIridescentId}
+            gradientUnits="userSpaceOnUse"
+            x1={DISC_CX - DISC_RADIUS * 0.7}
+            y1={DISC_CY - DISC_RADIUS * 0.7}
+            x2={DISC_CX + DISC_RADIUS * 0.7}
+            y2={DISC_CY + DISC_RADIUS * 0.7}
+          >
+            <stop offset="0%" stopColor="#f0f8d0" stopOpacity="0" />
+            <stop offset="22%" stopColor="#eef6c8" stopOpacity="0.22" />
+            <stop offset="45%" stopColor="#c8e8f0" stopOpacity="0.18" />
+            <stop offset="72%" stopColor="#f0d0e0" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#f8e8f0" stopOpacity="0" />
+          </linearGradient>
+        )}
         <mask id={discMaskId} maskUnits="userSpaceOnUse">
           <circle cx={DISC_CX} cy={DISC_CY} r={DISC_RADIUS} fill="#fff" />
           <circle cx={DISC_CX} cy={DISC_CY} r={DISC_CLAMP_RADIUS} fill="#000" />
@@ -254,7 +258,9 @@ export default function JewelCaseUnderlay({ idPrefix = "jc", label }: Props) {
         <path d={discBottomSector} fill={DISC_MID} fillOpacity={0.88} />
         <path d={discLeftSector} fill={`url(#${discLeftId})`} />
         <path d={discRightSector} fill={`url(#${discRightId})`} />
-        <circle cx={DISC_CX} cy={DISC_CY} r={DISC_RADIUS} fill={`url(#${discIridescentId})`} />
+        {!compact && (
+          <circle cx={DISC_CX} cy={DISC_CY} r={DISC_RADIUS} fill={`url(#${discIridescentId})`} />
+        )}
         <path d={discLeadInRing} fill={DISC_BRIGHT} fillOpacity="0.55" />
         <path d={discMirrorRing} fill={DISC_BRIGHT} />
       </g>
@@ -295,18 +301,19 @@ export default function JewelCaseUnderlay({ idPrefix = "jc", label }: Props) {
       )}
 
       <circle cx={DISC_CX} cy={DISC_CY} r={HUB_OUTER} fill={`url(#${hubId})`} />
-      {hubTeeth.map(({ x1, y1, x2, y2 }, i) => (
-        <line
-          key={i}
-          x1={x1}
-          y1={y1}
-          x2={x2}
-          y2={y2}
-          stroke={HUB_TOOTH_COLOR}
-          strokeWidth={HUB_TOOTH_WIDTH}
-          strokeLinecap="round"
-        />
-      ))}
+      {!compact &&
+        hubTeeth.map(({ x1, y1, x2, y2 }, i) => (
+          <line
+            key={i}
+            x1={x1}
+            y1={y1}
+            x2={x2}
+            y2={y2}
+            stroke={HUB_TOOTH_COLOR}
+            strokeWidth={HUB_TOOTH_WIDTH}
+            strokeLinecap="round"
+          />
+        ))}
       <circle cx={DISC_CX} cy={DISC_CY} r={HUB_INNER} fill={HUB_SPINDLE_COLOR} />
 
       {tabArcs.map((d, i) => (

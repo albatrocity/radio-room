@@ -32,7 +32,7 @@ export default function PublicPageLayout({ children }: Props) {
 
   return (
     <Layout fill dynamicFallbackToDefault>
-      <Grid templateRows="1fr auto" h="100vh" bg="primary.solid" layerStyle="themeTransition">
+      <Grid templateRows="1fr auto" h="100%" bg="primary.solid" layerStyle="themeTransition">
         <GridItem>
           <Box as="main" p={4} flex={1} height="100%">
             {children}

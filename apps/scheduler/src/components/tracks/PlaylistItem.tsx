@@ -12,14 +12,7 @@ export type PlaylistItemLines = {
 export function PlaylistArtworkThumb({ coverUrl }: { coverUrl?: string | null }) {
   if (coverUrl) {
     return (
-      <Box
-        w="40px"
-        h="40px"
-        flexShrink={0}
-        borderRadius="md"
-        overflow="hidden"
-        bg="bg.muted"
-      >
+      <Box w="40px" h="40px" flexShrink={0} borderRadius="md" overflow="hidden" bg="bg.muted">
         <img
           src={coverUrl}
           alt=""

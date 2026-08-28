@@ -453,8 +453,8 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
    * Responds with `USER_GAME_STATE` on this socket only.
    *
    * `itemDefinitions` includes only defs referenced by this user's inventory,
-   * modifiers, and plugin extras (e.g. open shop offers) — not the full room
-   * catalog (album-mode Physical Media can register thousands of SKUs).
+   * modifiers, plugin extras (e.g. open shop offers), and pending gifts — not
+   * the full room catalog (album-mode Physical Media can register thousands of SKUs).
    */
   socket.on("GET_MY_GAME_STATE", async () => {
     const data = await getUserGameState({

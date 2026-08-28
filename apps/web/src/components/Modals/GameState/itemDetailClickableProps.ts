@@ -12,12 +12,12 @@ type ClickableProps = {
 }
 
 /**
- * Turns an item row's name/description block into a second way to open the
- * detail view (ADR 0104), spread onto the Chakra element wrapping that text.
+ * Makes an item row (or its artwork+title block) open the detail view
+ * (ADR 0104 / 0127). Spread onto the Chakra element that should act as the
+ * button.
  *
- * Returns `{}` when the item has no detail view, so the block stays plain text
- * with no button semantics. Clicks that land on a link inside a linkified
- * description belong to the link, not the row.
+ * Returns `{}` when there is no detail view or handler. Clicks that land on a
+ * link or nested button belong to that control, not the row.
  */
 export function itemDetailClickableProps(params: {
   detailView?: ItemDetailView
@@ -34,7 +34,7 @@ export function itemDetailClickableProps(params: {
     tabIndex: 0,
     "aria-label": detailView.actionLabel ?? `View details for ${name}`,
     onClick: (event: MouseEvent) => {
-      if ((event.target as HTMLElement).closest("a")) return
+      if ((event.target as HTMLElement).closest("a, button")) return
       onOpen()
     },
     onKeyDown: (event: KeyboardEvent) => {

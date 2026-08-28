@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react"
 import { Box, Image, type BoxProps } from "@chakra-ui/react"
 import { parseArtworkFrame } from "@repo/types"
 import type { PhysicalMediaArt } from "../../lib/physicalMediaArtwork"
+import { ArtworkOverlaySizeContext } from "./ArtworkOverlaySizeContext"
 import ArtworkFrameOverlay from "./ArtworkFrameOverlay"
 import JewelCaseUnderlay from "./JewelCaseUnderlay"
 import {
@@ -10,6 +11,8 @@ import {
   frameContentRatio,
   framedArtworkLayout,
   framedMediaShadow,
+  FRAMED_ARTWORK_BOX_SIZE,
+  FRAMED_ARTWORK_TRACK_PX,
   type ArtworkSizePreset,
 } from "./frameStyles"
 
@@ -19,6 +22,13 @@ function srcForSize(art: PhysicalMediaArt, size: ArtworkSizePreset): string | un
   if (!art.imageUrl?.trim()) return undefined
   if (size === "feature") return art.imageUrlLarge?.trim() || art.imageUrl
   return art.imageUrl
+}
+
+/** Row/track thumbs are always compact; feature art uses full overlay detail. */
+function overlaySizeHint(size: ArtworkSizePreset) {
+  if (size === "feature") return undefined
+  const px = size === "track" ? FRAMED_ARTWORK_TRACK_PX : FRAMED_ARTWORK_BOX_SIZE * 4
+  return { width: px, height: px }
 }
 
 type Props = {
@@ -117,46 +127,48 @@ export default function FramedArtwork({
       lineHeight={0}
       overflow="visible"
     >
-      <Box position="absolute" inset={0} {...framedMediaShadow}>
-        <Box
-          position="relative"
-          w="100%"
-          h="100%"
-          borderRadius={0}
-          overflow={isJewelCase ? "visible" : "hidden"}
-          {...(isDieCut ? dieCutMaskStyles : {})}
-        >
-          {isJewelCase && (
-            <Box position="absolute" inset={0} zIndex={0} pointerEvents="none">
-              <JewelCaseUnderlay idPrefix={`${prefix}-jc`} label={art.discLabel} />
+      <ArtworkOverlaySizeContext.Provider value={overlaySizeHint(size)}>
+        <Box position="absolute" inset={0} {...framedMediaShadow}>
+          <Box
+            position="relative"
+            w="100%"
+            h="100%"
+            borderRadius={0}
+            overflow={isJewelCase ? "visible" : "hidden"}
+            {...(isDieCut ? dieCutMaskStyles : {})}
+          >
+            {isJewelCase && (
+              <Box position="absolute" inset={0} zIndex={0} pointerEvents="none">
+                <JewelCaseUnderlay idPrefix={`${prefix}-jc`} label={art.discLabel} />
+              </Box>
+            )}
+            {src && (
+              <Image
+                position="absolute"
+                top={pct(inset.top)}
+                left={pct(inset.left)}
+                w={pct(1 - inset.left - inset.right)}
+                h={pct(1 - inset.top - inset.bottom)}
+                zIndex={1}
+                src={src}
+                alt={alt}
+                borderRadius={0}
+                objectFit="cover"
+                objectPosition="center"
+                loading="lazy"
+                maxW="none"
+                onError={() => {
+                  const fallback = fallbackImageUrl?.trim()
+                  if (fallback && src !== fallback) setSrc(fallback)
+                }}
+              />
+            )}
+            <Box position="absolute" inset={0} zIndex={2} pointerEvents="none">
+              <ArtworkFrameOverlay frame={frame} idPrefix={prefix} coverless={!hasCover} />
             </Box>
-          )}
-          {src && (
-            <Image
-              position="absolute"
-              top={pct(inset.top)}
-              left={pct(inset.left)}
-              w={pct(1 - inset.left - inset.right)}
-              h={pct(1 - inset.top - inset.bottom)}
-              zIndex={1}
-              src={src}
-              alt={alt}
-              borderRadius={0}
-              objectFit="cover"
-              objectPosition="center"
-              loading="lazy"
-              maxW="none"
-              onError={() => {
-                const fallback = fallbackImageUrl?.trim()
-                if (fallback && src !== fallback) setSrc(fallback)
-              }}
-            />
-          )}
-          <Box position="absolute" inset={0} zIndex={2} pointerEvents="none">
-            <ArtworkFrameOverlay frame={frame} idPrefix={prefix} coverless={!hasCover} />
           </Box>
         </Box>
-      </Box>
+      </ArtworkOverlaySizeContext.Provider>
     </Box>
   )
 

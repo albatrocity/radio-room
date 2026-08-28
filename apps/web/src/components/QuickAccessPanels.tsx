@@ -169,22 +169,24 @@ function MobilePanel({ pluginName }: { pluginName: string }) {
         <DialogBackdrop />
         <DialogPositioner>
           <DialogContent>
-            <DialogHeader fontWeight="semibold" pr={16}>
+            <DialogHeader fontWeight="semibold" pe="24">
               {title}
             </DialogHeader>
             <IconButton
-              size="sm"
+              size="md"
               variant="ghost"
               aria-label={`Open ${title} settings`}
               position="absolute"
               top="2"
-              right="10"
+              right="12"
+              minW="44px"
+              minH="44px"
               onClick={openSettings}
             >
               <Icon as={LuSettings} />
             </IconButton>
-            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-              <CloseButton size="sm" />
+            <DialogCloseTrigger asChild>
+              <CloseButton />
             </DialogCloseTrigger>
             <DialogBody>
               <VStack align="stretch" gap={4}>

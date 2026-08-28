@@ -38,6 +38,9 @@ const FormUsername = ({
     <Formik
       initialValues={{ username: "", userId: currentUser?.userId }}
       onSubmit={(values, { setSubmitting }) => {
+        if (typeof document !== "undefined") {
+          ;(document.activeElement as HTMLElement | null)?.blur()
+        }
         if (!values.username || values.username === "") {
           return onClose()
         }

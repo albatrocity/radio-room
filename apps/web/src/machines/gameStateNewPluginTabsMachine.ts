@@ -1,4 +1,5 @@
 import { assign, setup } from "xstate"
+import { isViewingGameStateTab } from "../lib/isViewingGameStateTab"
 
 const STORAGE_PREFIX = "gameStateNewPluginTabs:"
 
@@ -124,6 +125,9 @@ export const gameStateNewPluginTabsMachine = setup({
       }
       const tabId = event.tabId
       if (!tabId || context.pendingIds.includes(tabId)) {
+        return {}
+      }
+      if (isViewingGameStateTab(tabId)) {
         return {}
       }
       // Only badge tabs we have already observed (or will prune if tab disappears).

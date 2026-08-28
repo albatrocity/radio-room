@@ -204,6 +204,13 @@ describe("TradeService", () => {
     expect((await inventory.getInventory(roomId, "a")).items).toHaveLength(1)
     const trade = await trades.getTrade(roomId, tradeId)
     expect(trade?.participants.a?.locked).toBe(false)
+    expect(trade?.participants.a?.draft).toEqual([
+      expect.objectContaining({
+        definitionId: aItem!.definitionId,
+        quantity: 1,
+      }),
+    ])
+    expect(trade?.participants.a?.draft[0]?.itemId).toBeTruthy()
   })
 
   test("setMessage replaces, clears, and rejects non-participants", async () => {

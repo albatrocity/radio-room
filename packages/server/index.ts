@@ -169,6 +169,7 @@ export class RadioRoomServer {
             "http://localhost:8000",
             "http://127.0.0.1:8001",
             "http://localhost:8001",
+            "http://ross.local:8000",
             "https://listen.show",
             "https://www.listen.show",
             "https://listeningroom.club",
@@ -303,6 +304,14 @@ export class RadioRoomServer {
       pingTimeout: 60000,
       pingInterval: 25000,
       allowEIO3: false,
+      cors: {
+        origin: [
+          "http://127.0.0.1:8000",
+          "http://localhost:8000",
+          "http://ross.local:8000",
+        ],
+        credentials: true,
+      },
     })
   }
 

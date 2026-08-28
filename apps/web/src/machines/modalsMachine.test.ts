@@ -10,7 +10,15 @@ vi.mock("../actors/authActor", () => ({
 vi.mock("../actors/djActor", () => ({
   canAddToQueue: () => true,
 }))
+vi.mock("../actors/gameStateNavActor", () => ({
+  gameStateNavActor: { send: vi.fn() },
+}))
+vi.mock("../actors/userGameStateActor", () => ({
+  refreshUserGameState: vi.fn(),
+}))
 
+import { gameStateNavActor } from "../actors/gameStateNavActor"
+import { refreshUserGameState } from "../actors/userGameStateActor"
 import { modalsMachine } from "./modalsMachine"
 
 describe("modalsMachine", () => {
@@ -18,10 +26,10 @@ describe("modalsMachine", () => {
     const actor = createActor(modalsMachine).start()
 
     actor.send({ type: "EDIT_QUEUE", browseMediaKey: "pm-nd-lp" })
-    expect(actor.getSnapshot().matches("queue")).toBe(true)
+    expect(actor.getSnapshot().matches("queue.open")).toBe(true)
     expect(actor.getSnapshot().context.queueBrowseMediaKey).toBe("pm-nd-lp")
 
-    actor.send({ type: "CLOSE" })
+    actor.send({ type: "CLOSE_QUEUE" })
     expect(actor.getSnapshot().context.queueBrowseMediaKey).toBeNull()
   })
 
@@ -33,5 +41,42 @@ describe("modalsMachine", () => {
     actor.send({ type: "EDIT_QUEUE" })
 
     expect(actor.getSnapshot().context.queueBrowseMediaKey).toBeNull()
+  })
+
+  it("keeps game state open when Add to Queue opens and closes", () => {
+    const actor = createActor(modalsMachine).start()
+
+    actor.send({ type: "VIEW_GAME_STATE" })
+    actor.send({ type: "EDIT_QUEUE" })
+
+    expect(actor.getSnapshot().matches("modal.gameState")).toBe(true)
+    expect(actor.getSnapshot().matches("queue.open")).toBe(true)
+
+    actor.send({ type: "CLOSE_QUEUE" })
+
+    expect(actor.getSnapshot().matches("modal.gameState")).toBe(true)
+    expect(actor.getSnapshot().matches("queue.closed")).toBe(true)
+  })
+
+  it("keeps settings open when Add to Queue opens", () => {
+    const actor = createActor(modalsMachine).start()
+
+    actor.send({ type: "EDIT_SETTINGS" })
+    actor.send({ type: "EDIT_DJ" })
+    actor.send({ type: "EDIT_QUEUE" })
+
+    expect(actor.getSnapshot().matches("modal.settings.dj")).toBe(true)
+    expect(actor.getSnapshot().matches("queue.open")).toBe(true)
+  })
+
+  it("activates game state nav and refreshes when Game State opens", () => {
+    const actor = createActor(modalsMachine).start()
+    actor.send({ type: "VIEW_GAME_STATE" })
+
+    expect(gameStateNavActor.send).toHaveBeenCalledWith({ type: "ACTIVATE" })
+    expect(refreshUserGameState).toHaveBeenCalled()
+
+    actor.send({ type: "CLOSE" })
+    expect(gameStateNavActor.send).toHaveBeenCalledWith({ type: "DEACTIVATE" })
   })
 })

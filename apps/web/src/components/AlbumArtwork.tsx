@@ -7,7 +7,7 @@ interface AlbumArtworkProps {
 
 const AlbumArtwork = ({ coverUrl }: AlbumArtworkProps) => (
   <Box>
-    <Image height="100%" width="100%" src={coverUrl} />
+    <Image height="100%" width="100%" src={coverUrl} fetchpriority="high" />
   </Box>
 )
 

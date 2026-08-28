@@ -13,6 +13,7 @@ import { useCurrentTheme } from "./useActors"
 import { extractColors, getDistinctColors } from "../lib/colorExtractor"
 import { generateDynamicPalette, type DynamicPalette } from "../lib/paletteGenerator"
 import type { ColorHues } from "../types/AppTheme"
+import { syncBrowserThemeColorFromCss } from "../lib/browserThemeColor"
 
 // CSS variable prefix for Chakra UI v3
 const CSS_VAR_PREFIX = "--chakra-colors"
@@ -123,6 +124,8 @@ function applyPalette(palette: DynamicPalette): void {
       root.style.setProperty(varName, value)
     }
   }
+
+  syncBrowserThemeColorFromCss()
 }
 
 /**
@@ -137,6 +140,8 @@ function clearPalette(): void {
       root.style.removeProperty(varName)
     }
   }
+
+  syncBrowserThemeColorFromCss()
 }
 
 /**
@@ -153,45 +158,46 @@ export function useDynamicTheme(): void {
   const lastArtworkRef = useRef<string | null>(null)
   const isDynamic = currentTheme === "dynamic"
 
-  // Extract colors whenever artwork changes (for preview and active use)
   useEffect(() => {
-    // Skip if no artwork or same artwork as before
     if (!artworkUrl || artworkUrl === lastArtworkRef.current) {
       return
     }
 
     let cancelled = false
 
-    // Extract colors and generate palette
-    extractColors(artworkUrl, 8).then((extracted) => {
-      if (cancelled) return
+    const run = () => {
+      if (cancelled || document.hidden) return
+      extractColors(artworkUrl, 8).then((extracted) => {
+        if (cancelled) return
 
-      if (!extracted) {
-        console.warn("Could not extract colors from artwork")
-        // Do not lock lastArtworkRef — allow retry when theme/artwork deps change
-        return
-      }
+        if (!extracted) {
+          console.warn("Could not extract colors from artwork")
+          return
+        }
 
-      lastArtworkRef.current = artworkUrl
+        lastArtworkRef.current = artworkUrl
 
-      // Combine dominant and palette colors, then get distinct ones
-      const allColors = [extracted.dominant, ...extracted.palette]
-      const distinctColors = getDistinctColors(allColors, 5)
+        const allColors = [extracted.dominant, ...extracted.palette]
+        const distinctColors = getDistinctColors(allColors, 5)
+        const palette = generateDynamicPalette(distinctColors)
 
-      // Generate the full palette
-      const palette = generateDynamicPalette(distinctColors)
+        setPalette(palette)
 
-      // Store palette for preview access
-      setPalette(palette)
+        if (currentTheme === "dynamic") {
+          applyPalette(palette)
+        }
+      })
+    }
 
-      // Apply to CSS only if dynamic theme is active
-      if (currentTheme === "dynamic") {
-        applyPalette(palette)
-      }
-    })
+    run()
+    const onVisible = () => {
+      if (!document.hidden) run()
+    }
+    document.addEventListener("visibilitychange", onVisible)
 
     return () => {
       cancelled = true
+      document.removeEventListener("visibilitychange", onVisible)
     }
   }, [artworkUrl, currentTheme])
 

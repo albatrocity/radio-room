@@ -16,18 +16,66 @@ import {
   mediaItemTracksMachine,
 } from "../../../machines/mediaItemTracksMachine"
 import useAddToQueue from "../../useAddToQueue"
-import type { GameStateDetailFrame } from "../../../types/GameStateDetail"
-import { LuArrowLeft } from "react-icons/lu"
+import type { GameStateItemDetailFrame } from "../../../types/GameStateDetail"
+import { LuChevronLeft } from "react-icons/lu"
+import { useUserGameState } from "../UserGameStateContext"
+import InventoryGiftSellControls from "./InventoryGiftSellControls"
+import ShopDetailBuyControls from "./ShopDetailBuyControls"
 
 type Props = {
-  frame: GameStateDetailFrame
+  frame: GameStateItemDetailFrame
   definition?: ItemDefinition
+  /** Fill leftover panel height via the explicit flex chain (lg+ integrated panel). */
+  fillHeight?: boolean
+}
+
+/**
+ * Gift/sell for a held collection item. Shop detail never owns the item, and
+ * bag items keep these actions on the inventory row.
+ */
+function CollectionGiftSell({
+  frame,
+  definition,
+  padded = false,
+}: {
+  frame: GameStateItemDetailFrame
+  definition?: ItemDefinition
+  padded?: boolean
+}) {
+  const gameState = useUserGameState()
+  if (frame.source !== "inventory") return null
+  if (definition?.slotPool !== "collection") return null
+  const item = gameState?.inventory?.items.find((entry) => entry.itemId === frame.inventoryItemId)
+  if (!item) return null
+  const controls = <InventoryGiftSellControls item={item} definition={definition} layout="split" />
+  if (!padded) return controls
+  return (
+    <Box px={1} py={2}>
+      {controls}
+    </Box>
+  )
+}
+
+/** Inventory Gift/Sell or shop Buy, in the same slot above the track list. */
+function ItemDetailPrimaryActions({
+  frame,
+  definition,
+  padded = false,
+}: {
+  frame: GameStateItemDetailFrame
+  definition?: ItemDefinition
+  padded?: boolean
+}) {
+  if (frame.source === "shop") {
+    return <ShopDetailBuyControls frame={frame} padded={padded} />
+  }
+  return <CollectionGiftSell frame={frame} definition={definition} padded={padded} />
 }
 
 /**
  * Game State item detail body (ADR 0104): lore + optional trackList album view.
  */
-export default function GameStateItemDetail({ frame, definition }: Props) {
+export default function GameStateItemDetail({ frame, definition, fillHeight = false }: Props) {
   const isAdmin = useIsAdmin()
   const canAddToQueue = useCanAddToQueue()
   const { addToQueue } = useAddToQueue()
@@ -79,6 +127,8 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
     }
   }, [name, description, definition, firstTrack])
 
+  const primaryActions = <ItemDetailPrimaryActions frame={frame} definition={definition} />
+
   if (showTrackList) {
     if (!mediaKey) {
       return (
@@ -88,13 +138,14 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
       )
     }
 
-    return (
+    const list = (
       <AlbumTrackListView
         header={albumHeader}
         tracks={tracks}
         loading={loading}
         error={error}
-        maxH="min(60vh, 28rem)"
+        fillHeight={fillHeight}
+        maxH={fillHeight ? undefined : "min(60vh, 28rem)"}
         defaultSourceId="local"
         canPreviewTrack={() => true}
         onPreview={(track, previewKey) =>
@@ -107,7 +158,14 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
         }
         onAddToQueue={(track) => addToQueue({ ...track, source: "local" } as MetadataSourceTrack)}
         showAddToQueue={canAdd}
+        beforeTracks={<ItemDetailPrimaryActions frame={frame} definition={definition} padded />}
       />
+    )
+    if (!fillHeight) return list
+    return (
+      <Box flex="1" minH={0} h="full" display="flex" flexDirection="column" overflow="hidden">
+        {list}
+      </Box>
     )
   }
 
@@ -135,6 +193,7 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
             {description}
           </LinkifiedText>
         ) : null}
+        {primaryActions}
       </VStack>
     </Stack>
   )
@@ -153,8 +212,9 @@ export function GameStateDetailBreadcrumb({ tabLabel, detailTitle, onBack }: Bre
       pb={1}
       color="fg.muted"
       size="sm"
+      flexShrink={0}
       items={[
-        { label: tabLabel, onClick: onBack, icon: <LuArrowLeft /> },
+        { label: tabLabel, onClick: onBack, icon: <LuChevronLeft /> },
         { label: detailTitle },
       ]}
     />

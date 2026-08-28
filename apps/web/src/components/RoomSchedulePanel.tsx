@@ -455,8 +455,8 @@ export default function RoomSchedulePanel() {
         <DialogPositioner>
           <DialogContent>
             <DialogHeader fontWeight="semibold">Activate segment</DialogHeader>
-            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-              <CloseButton size="sm" />
+            <DialogCloseTrigger asChild>
+              <CloseButton />
             </DialogCloseTrigger>
             <DialogBody>
               <Text fontSize="sm" mb={3}>
@@ -498,8 +498,8 @@ export default function RoomSchedulePanel() {
         <DialogPositioner>
           <DialogContent>
             <DialogHeader fontWeight="semibold">Add segment tracks to queue?</DialogHeader>
-            <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-              <CloseButton size="sm" />
+            <DialogCloseTrigger asChild>
+              <CloseButton />
             </DialogCloseTrigger>
             <DialogBody>
               <Text fontSize="sm" mb={3}>
@@ -535,23 +535,16 @@ export default function RoomSchedulePanel() {
             if (!e.open) closeMobileNotes()
           }}
           placement="center"
+          size="full"
         >
           <DialogBackdrop />
-          <DialogPositioner alignItems="stretch" justifyContent="stretch" p={0}>
-            <DialogContent
-              maxW="100vw"
-              w="100%"
-              minH="100dvh"
-              m={0}
-              rounded="none"
-              display="flex"
-              flexDirection="column"
-            >
+          <DialogPositioner>
+            <DialogContent display="flex" flexDirection="column">
               <DialogHeader fontWeight="semibold" flexShrink={0}>
                 Segment notes
               </DialogHeader>
-              <DialogCloseTrigger asChild position="absolute" top="2" right="2">
-                <CloseButton size="sm" />
+              <DialogCloseTrigger asChild>
+                <CloseButton />
               </DialogCloseTrigger>
               <DialogBody flex="1" overflowY="auto">
                 <Heading as="h2" size="sm" mb={3}>

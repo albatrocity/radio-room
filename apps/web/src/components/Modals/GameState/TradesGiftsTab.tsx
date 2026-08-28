@@ -10,7 +10,7 @@ import { InventoryTargetUserPopover } from "./TargetUserPicker"
 import PendingGiftsPanel from "./PendingGiftsPanel"
 import { useOpenTabDetail } from "./useOpenTabDetail"
 import { emitTradeInviteCancel, emitTradeInviteRespond } from "../../../lib/tradeSocketActions"
-import { LuArrowRight } from "react-icons/lu"
+import { LuChevronRight } from "react-icons/lu"
 
 function formatTimeRemaining(createdAt: number): string {
   const remaining = createdAt + PLAYER_TRANSFER_TTL_MS - Date.now()
@@ -154,14 +154,23 @@ export default function TradesGiftsTab() {
 
         {activeTrade && activeLabel && (
           <Button
-            variant="outline"
+            variant="solid"
+            colorPalette="action"
             width="full"
             justifyContent="space-between"
+            gap={2}
             mb={2}
+            minW={0}
+            overflow="hidden"
             onClick={openActiveTrade}
+            title={activeLabel}
           >
-            {activeLabel}
-            <LuArrowRight size={16} />
+            <Text as="span" truncate minW={0} flex="1" textAlign="start">
+              {activeLabel}
+            </Text>
+            <Box as="span" flexShrink={0} display="inline-flex">
+              <LuChevronRight size={16} />
+            </Box>
           </Button>
         )}
 
@@ -188,6 +197,7 @@ export default function TradesGiftsTab() {
                 <InventoryTargetUserPopover
                   includeSelf={false}
                   placeholder="Trade with…"
+                  size="sm"
                   onPick={(toUserId) => emitToSocket("TRADE_INVITE", { toUserId })}
                 >
                   <Button size="sm" variant="solid">

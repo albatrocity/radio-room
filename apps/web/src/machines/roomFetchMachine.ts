@@ -14,6 +14,16 @@ import { chatActor } from "../actors/chatActor"
 import { playlistActor } from "../actors/playlistActor"
 import { Room, RoomError } from "../types/Room"
 
+export const ROOM_EXPIRED_MESSAGE =
+  "This room has expired and its data has been permanently deleted."
+export const ROOM_MISSING_REDIRECT_MS = 10_000
+
+function fetchErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== "object" || !("response" in error)) return undefined
+  const response = (error as { response?: { status?: number } }).response
+  return response?.status
+}
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -122,6 +132,12 @@ export const roomFetchMachine = setup({
   actors: {
     socketConnection: socketConnectionLogic,
     fetchRoom: fetchRoomLogic,
+  },
+  guards: {
+    isRoomNotFound: ({ event }) => {
+      if (event.type !== "xstate.error.actor.fetchRoom") return false
+      return fetchErrorStatus(event.error) === 404
+    },
   },
   actions: {
     subscribe: assign(({ self }) => {
@@ -262,11 +278,17 @@ export const roomFetchMachine = setup({
     assignRoomDeleted: assign(() => {
       return {
         error: {
-          message: "This room has expired and its data has been permanently deleted.",
+          message: ROOM_EXPIRED_MESSAGE,
           status: 404,
         },
       }
     }),
+    redirectHome: () => {
+      window.location.replace("/")
+    },
+  },
+  delays: {
+    roomMissingRedirect: ROOM_MISSING_REDIRECT_MS,
   },
 }).createMachine({
   id: "roomFetch",
@@ -307,6 +329,7 @@ export const roomFetchMachine = setup({
           target: ".initial",
         },
         ROOM_DELETED: {
+          target: ".deleted",
           actions: ["assignRoomDeleted"],
         },
         SOCKET_ERROR: {
@@ -335,10 +358,17 @@ export const roomFetchMachine = setup({
               target: "success",
               actions: ["setRoom"],
             },
-            onError: {
-              target: "error",
-              actions: ["setError"],
-            },
+            onError: [
+              {
+                guard: "isRoomNotFound",
+                target: "deleted",
+                actions: ["setError"],
+              },
+              {
+                target: "error",
+                actions: ["setError"],
+              },
+            ],
           },
         },
         success: {
@@ -355,6 +385,22 @@ export const roomFetchMachine = setup({
           },
         },
         error: {},
+        deleted: {
+          after: {
+            roomMissingRedirect: {
+              target: "redirecting",
+              actions: ["redirectHome"],
+            },
+          },
+          on: {
+            FETCH: {},
+            RESET: {},
+            SOCKET_ERROR: {},
+            RECONNECTED: {},
+            SESSION_ENDED: {},
+          },
+        },
+        redirecting: {},
       },
     },
   },

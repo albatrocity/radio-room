@@ -90,6 +90,22 @@ describe("userGameStateMachine refetch characterization", () => {
     })
     actor.send({ type: "GAME_SESSION_ENDED", data: {} })
     expect(actor.getSnapshot().context.payload?.session).toBeNull()
+    expect(actor.getSnapshot().context.storedArtifacts).toEqual([])
+  })
+
+  it("fetches and stores artifacts when a session is present", () => {
+    activateReady()
+    vi.mocked(emitToSocket).mockClear()
+    actor.send({
+      type: "USER_GAME_STATE",
+      data: { ...emptyPayload, session: { id: "s1" } as any },
+    })
+    expect(emitToSocket).toHaveBeenCalledWith("GET_STORED_ARTIFACTS", {})
+    actor.send({
+      type: "STORED_ARTIFACTS_RESULT",
+      data: { artifacts: [{ id: "a1" }] as never },
+    })
+    expect(actor.getSnapshot().context.storedArtifacts).toEqual([{ id: "a1" }])
   })
 
   it("collapses the current user's own inventory burst into one refetch", async () => {
@@ -196,7 +212,11 @@ describe("userGameStateMachine refetch characterization", () => {
       }
       actor.send({
         type: "USER_GAME_STATE",
-        data: { ...emptyPayload, activeTrade: trade },
+        data: {
+          ...emptyPayload,
+          itemDefinitions: [{ id: "d" } as never],
+          activeTrade: trade,
+        },
       })
       vi.mocked(emitToSocket).mockClear()
 
@@ -216,6 +236,62 @@ describe("userGameStateMachine refetch characterization", () => {
       await vi.advanceTimersByTimeAsync(200)
       expect(emitToSocket).not.toHaveBeenCalled()
       expect(actor.getSnapshot().context.payload?.activeTrade?.updatedAt).toBe(2)
+    } finally {
+      actor.send({ type: "DEACTIVATE" })
+      await vi.runOnlyPendingTimersAsync()
+      vi.useRealTimers()
+    }
+  })
+
+  it("refetches when TRADE_UPDATED introduces an unknown counterpart SKU", async () => {
+    vi.useFakeTimers()
+    try {
+      activateReady()
+      const trade = {
+        tradeId: "t1",
+        roomId: "r1",
+        status: "open" as const,
+        fromUserId: "me",
+        toUserId: "b",
+        createdAt: 1,
+        updatedAt: 1,
+        participants: {
+          me: { userId: "me", draft: [], offer: [], locked: false, confirmed: false },
+          b: { userId: "b", draft: [], offer: [], locked: false, confirmed: false },
+        },
+      }
+      actor.send({
+        type: "USER_GAME_STATE",
+        data: { ...emptyPayload, activeTrade: trade },
+      })
+      vi.mocked(emitToSocket).mockClear()
+
+      actor.send({
+        type: "TRADE_UPDATED",
+        data: {
+          trade: {
+            ...trade,
+            updatedAt: 2,
+            participants: {
+              ...trade.participants,
+              b: {
+                ...trade.participants.b,
+                draft: [
+                  {
+                    itemId: "i2",
+                    quantity: 1,
+                    definitionId: "item-shops:their-lp",
+                    slotPool: "inventory" as const,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      })
+
+      await vi.advanceTimersByTimeAsync(200)
+      expect(emitToSocket).toHaveBeenCalledWith("GET_MY_GAME_STATE", {})
     } finally {
       actor.send({ type: "DEACTIVATE" })
       await vi.runOnlyPendingTimersAsync()

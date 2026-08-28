@@ -1,6 +1,4 @@
 import React, { useEffect, useRef } from "react"
-import data from "@emoji-mart/data"
-import { init } from "emoji-mart"
 import { Flex } from "@chakra-ui/react"
 import { usePageVisibility } from "react-page-visibility"
 import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router"
@@ -10,8 +8,6 @@ import AppToasts from "../../components/AppToasts"
 import Layout from "../../components/layout"
 import { useCurrentRoom } from "../../hooks/useActors"
 import { initializeRoom, teardownRoom, handleVisibilityChange } from "../../actors/roomLifecycle"
-
-init({ data })
 
 export const Route = createFileRoute("/rooms/$roomId")({
   component: RoomRoute,

@@ -6,9 +6,14 @@ vi.mock("../actors/trackPreviewActor", () => ({
   stopTrackPreview: () => stopTrackPreview(),
 }))
 
+const syncGameStateChildActors = vi.fn()
+vi.mock("../lib/gameStateNavEffects", () => ({
+  syncGameStateChildActors: (...args: unknown[]) => syncGameStateChildActors(...args),
+}))
+
 import { currentDetailFrame, gameStateNavMachine } from "./gameStateNavMachine"
 import type { GameStateDetailFrame } from "../types/GameStateDetail"
-import { TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
+import { STORED_ITEMS_TAB, TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
 
 const SHOP_TAB = "item-shops:item-shops-tab"
 
@@ -32,6 +37,7 @@ function startActive() {
 describe("gameStateNavMachine", () => {
   beforeEach(() => {
     stopTrackPreview.mockClear()
+    syncGameStateChildActors.mockClear()
   })
 
   it("shows the detail view once the active tab has a frame", () => {
@@ -138,6 +144,150 @@ describe("gameStateNavMachine", () => {
 
     expect(actor.getSnapshot().matches({ active: "index" })).toBe(true)
     expect(actor.getSnapshot().context.activeTabId).toBe(TRADES_GIFTS_TAB)
+  })
+
+  it("snaps an unavailable tab to inventory while active", () => {
+    const actor = startActive()
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({
+      type: "SET_AVAILABLE_TABS",
+      tabIds: ["inventory", TRADES_GIFTS_TAB],
+    })
+
+    expect(actor.getSnapshot().status).toBe("active")
+    expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
+    expect(syncGameStateChildActors).toHaveBeenCalledWith(
+      expect.objectContaining({ navActive: true, tabId: "inventory", frame: null }),
+    )
+  })
+
+  it("still accepts SET_ACTIVE_TAB after snapping an unavailable tab", () => {
+    const actor = startActive()
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({
+      type: "SET_AVAILABLE_TABS",
+      tabIds: ["inventory", SHOP_TAB],
+    })
+
+    expect(actor.getSnapshot().status).toBe("active")
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: SHOP_TAB })
+    expect(actor.getSnapshot().context.activeTabId).toBe(SHOP_TAB)
+    expect(actor.getSnapshot().status).toBe("active")
+  })
+
+  it("keeps running after available-tab updates so tab clicks still work", () => {
+    const actor = startActive()
+    actor.send({ type: "SET_AVAILABLE_TABS", tabIds: ["inventory", SHOP_TAB] })
+    actor.send({ type: "SET_AVAILABLE_TABS", tabIds: ["inventory", SHOP_TAB] })
+
+    expect(actor.getSnapshot().status).toBe("active")
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: SHOP_TAB })
+    expect(actor.getSnapshot().context.activeTabId).toBe(SHOP_TAB)
+    expect(actor.getSnapshot().status).toBe("active")
+  })
+
+  it("does not snap before available tabs are known", () => {
+    const actor = startActive()
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+
+    expect(actor.getSnapshot().context.activeTabId).toBe(STORED_ITEMS_TAB)
+  })
+
+  it("returns to inventory and drops the trade frame when the viewer is on the session", () => {
+    const actor = startActive()
+    actor.send({
+      type: "OPEN_DETAIL_ON_TAB",
+      tabId: TRADES_GIFTS_TAB,
+      frame: { kind: "trade", tradeId: "t1", title: "Trade with Alex" },
+    })
+    expect(actor.getSnapshot().matches({ active: "detail" })).toBe(true)
+
+    actor.send({ type: "TRADE_SESSION_COMPLETED", goToInventory: true })
+
+    expect(actor.getSnapshot().status).toBe("active")
+    expect(actor.getSnapshot().matches({ active: "index" })).toBe(true)
+    expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
+    expect(actor.getSnapshot().context.stacks[TRADES_GIFTS_TAB]).toEqual([])
+    expect(syncGameStateChildActors).toHaveBeenCalledWith(
+      expect.objectContaining({ navActive: true, tabId: "inventory", frame: null }),
+    )
+  })
+
+  it("drops the trade frame without changing tab when the viewer is elsewhere", () => {
+    const actor = startActive()
+    actor.send({
+      type: "OPEN_DETAIL_ON_TAB",
+      tabId: TRADES_GIFTS_TAB,
+      frame: { kind: "trade", tradeId: "t1", title: "Trade with Alex" },
+    })
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: SHOP_TAB })
+
+    actor.send({ type: "TRADE_SESSION_COMPLETED", goToInventory: false })
+
+    expect(actor.getSnapshot().context.activeTabId).toBe(SHOP_TAB)
+    expect(actor.getSnapshot().context.stacks[TRADES_GIFTS_TAB]).toEqual([])
+  })
+
+  it("snaps on activate when the stored list already omits the current tab", () => {
+    const actor = createActor(gameStateNavMachine).start()
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({
+      type: "SET_AVAILABLE_TABS",
+      tabIds: ["inventory", TRADES_GIFTS_TAB],
+    })
+    expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
+
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({ type: "ACTIVATE" })
+
+    expect(actor.getSnapshot().status).toBe("active")
+    expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
+  })
+
+  it("syncs child actors on activate, tab change, and deactivate", () => {
+    const actor = createActor(gameStateNavMachine).start()
+    actor.send({
+      type: "SESSION_SNAPSHOT",
+      allowTrading: true,
+      activeTrade: null,
+    })
+    actor.send({ type: "ACTIVATE" })
+
+    expect(syncGameStateChildActors).toHaveBeenCalledWith(
+      expect.objectContaining({ navActive: true, allowTrading: true }),
+    )
+
+    syncGameStateChildActors.mockClear()
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: TRADES_GIFTS_TAB })
+    expect(syncGameStateChildActors).toHaveBeenCalledWith(
+      expect.objectContaining({
+        navActive: true,
+        tabId: TRADES_GIFTS_TAB,
+        frame: null,
+      }),
+    )
+
+    syncGameStateChildActors.mockClear()
+    actor.send({ type: "DEACTIVATE" })
+    expect(syncGameStateChildActors).toHaveBeenCalledWith(
+      expect.objectContaining({ navActive: false }),
+    )
+  })
+
+  it("syncs a trade detail frame when it is pushed while active", () => {
+    const actor = startActive()
+    syncGameStateChildActors.mockClear()
+    actor.send({
+      type: "PUSH_DETAIL",
+      frame: { kind: "trade", tradeId: "t1", title: "Trade with Alex" },
+    })
+
+    expect(syncGameStateChildActors).toHaveBeenCalledWith(
+      expect.objectContaining({
+        navActive: true,
+        frame: { kind: "trade", tradeId: "t1", title: "Trade with Alex" },
+      }),
+    )
   })
 
   describe("preview audio", () => {
