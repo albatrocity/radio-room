@@ -5,6 +5,7 @@ import {
   Button,
   Circle,
   Float,
+  Grid,
   Heading,
   HStack,
   Icon,
@@ -24,6 +25,7 @@ import {
 import ItemArtwork from "../../ItemArtwork"
 import ScrollShadowViewport from "../../ScrollShadowViewport"
 import { useCurrentUser, useUserGameStatePayload } from "../../../hooks/useActors"
+import { useIntegratedPanelPresentation } from "../../../hooks/useIntegratedPanelPresentation"
 import { emitToSocket } from "../../../actors/socketActor"
 import { getUserById } from "../../../actors/usersActor"
 import { emitTradeCancel } from "../../../lib/tradeCancelledByMe"
@@ -34,6 +36,12 @@ const OFFER_ARTWORK_SIZE = 6
 const PICKER_ARTWORK_SIZE = FRAMED_ARTWORK_BOX_SIZE
 /** Tall enough for square row art plus chip padding. */
 const PICKER_ROW_H = "4.25rem"
+const PICKER_ROW_GAP = "0.25rem"
+
+function pickerStripHeight(rows: number): string {
+  if (rows <= 1) return PICKER_ROW_H
+  return `calc(${rows} * ${PICKER_ROW_H} + ${rows - 1} * ${PICKER_ROW_GAP})`
+}
 
 type TradeItemDef = {
   name?: string
@@ -239,10 +247,22 @@ function TradeColumn({
           {title}
         </Heading>
         {locked ? (
-          <Icon as={LuLock} boxSize={3.5} color="fg.muted" flexShrink={0} aria-label="Offer locked" />
+          <Icon
+            as={LuLock}
+            boxSize={3.5}
+            color="fg.muted"
+            flexShrink={0}
+            aria-label="Offer locked"
+          />
         ) : null}
         {confirmed ? (
-          <Icon as={LuThumbsUp} boxSize={3.5} color="fg.muted" flexShrink={0} aria-label="Trade confirmed" />
+          <Icon
+            as={LuThumbsUp}
+            boxSize={3.5}
+            color="fg.muted"
+            flexShrink={0}
+            aria-label="Trade confirmed"
+          />
         ) : null}
       </HStack>
       <TradeNoteBubble message={note} typing={typing} />
@@ -355,7 +375,7 @@ function useTradeOfferDraft(tradeId: string) {
     // After lock, escrow already debited the bag — don't subtract draft again.
     const subtractDraft = !mine?.locked
     for (const item of selectable) {
-      const offered = subtractDraft ? (offeredQtyById.get(item.itemId) ?? 0) : 0
+      const offered = subtractDraft ? offeredQtyById.get(item.itemId) ?? 0 : 0
       const left = Math.max(0, item.quantity - offered)
       for (let i = 0; i < left; i++) {
         rows.push({ ...item, quantity: 1, unitKey: `${item.itemId}:${i}` })
@@ -521,6 +541,8 @@ export function TradeDetailInventoryPicker({ tradeId }: { tradeId: string }) {
   const { activeTrade } = useTradeParticipants(tradeId)
   const { definitionMap, selectable, remainingInventory, offeredCount, canEdit, addToOffer } =
     useTradeOfferDraft(tradeId)
+  const presentation = useIntegratedPanelPresentation()
+  const pickerRows = presentation === "panel" ? 2 : 1
 
   if (!activeTrade) return null
 
@@ -530,7 +552,7 @@ export function TradeDetailInventoryPicker({ tradeId }: { tradeId: string }) {
       : "You've offered all you have"
 
   return (
-    <Box h={PICKER_ROW_H} w="full" minW={0} overflow="hidden">
+    <Box h={pickerStripHeight(pickerRows)} w="full" minW={0} overflow="hidden">
       <ScrollArea.Root width="full" height="full" size="xs">
         <ScrollShadowViewport
           orientation="horizontal"
@@ -538,9 +560,15 @@ export function TradeDetailInventoryPicker({ tradeId }: { tradeId: string }) {
           overflowY="hidden"
           css={{ "--scroll-shadow-size": "2rem" }}
         >
-          <ScrollArea.Content height="full">
+          <ScrollArea.Content height="full" minW="full">
             {remainingInventory.length > 0 ? (
-              <HStack gap={1} flexWrap="nowrap" align="stretch" h="full">
+              <Grid
+                autoFlow="column"
+                templateRows={`repeat(${pickerRows}, ${PICKER_ROW_H})`}
+                autoColumns="max-content"
+                gap={1}
+                h="full"
+              >
                 {remainingInventory.map((item) => (
                   <TradeItemRow
                     key={item.unitKey}
@@ -552,7 +580,7 @@ export function TradeDetailInventoryPicker({ tradeId }: { tradeId: string }) {
                     activateLabel={`Add ${item.name} to offer`}
                   />
                 ))}
-              </HStack>
+              </Grid>
             ) : (
               <HStack h="full" align="center" w="full">
                 <Text fontSize="xs" color="fg.muted" lineHeight="short">
