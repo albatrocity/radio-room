@@ -103,6 +103,7 @@ function InventoryRow({
           type: event.data.success ? "success" : blocked ? "warning" : "error",
         })
       },
+      eventTypes: ["INVENTORY_ACTION_RESULT"],
     })
 
     emitToSocket("USE_INVENTORY_ITEM", {

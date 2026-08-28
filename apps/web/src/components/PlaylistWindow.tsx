@@ -7,6 +7,8 @@ import { MetadataSourceType } from "@repo/types"
 import { PlaylistItem } from "../types/PlaylistItem"
 import SelectablePlaylistItem from "./SelectablePlaylistItem"
 import VirtualizerContent, { virtualizerViewportCss } from "./VirtualizerContent"
+import { virtualizerOverscan } from "../lib/virtualizerOverscan"
+import ScrollShadowViewport from "./ScrollShadowViewport"
 
 type Props = {
   playlist: PlaylistItem[]
@@ -35,7 +37,7 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
     count: playlist.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 88,
-    overscan: 12,
+    overscan: virtualizerOverscan(6, 12),
     getItemKey,
   })
 
@@ -49,7 +51,7 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
   return (
     <Box position="relative" height="100%">
       <ScrollArea.Root height="100%" size="sm" variant="hover">
-        <ScrollArea.Viewport ref={scrollRef} height="100%" css={virtualizerViewportCss}>
+        <ScrollShadowViewport ref={scrollRef} height="100%" css={virtualizerViewportCss}>
           <ScrollArea.Content>
             <VirtualizerContent contentRef={contentRef} totalSize={virtualizer.getTotalSize()}>
               {virtualItems.map((virtualRow) => {
@@ -83,7 +85,7 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
               })}
             </VirtualizerContent>
           </ScrollArea.Content>
-        </ScrollArea.Viewport>
+        </ScrollShadowViewport>
         <ScrollArea.Scrollbar>
           <ScrollArea.Thumb />
         </ScrollArea.Scrollbar>

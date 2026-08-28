@@ -22,7 +22,8 @@ import {
 import { setCurrentArtworkUrl } from "../hooks/useDynamicTheme"
 import { HybridListeningTransportProvider } from "../hooks/useHybridListeningTransport"
 import { useMediaSession } from "../hooks/useMediaSession"
-import { ensureEmojiMart } from "../lib/ensureEmojiMart"
+import { scheduleEmojiMartIdleLoad } from "../lib/ensureEmojiMart"
+import { featureImageUrl } from "../lib/metadataImages"
 
 const Room = ({ id }: { id: string }) => {
   const useDesktopSplitter = useBreakpointValue({ base: false, lg: true }) ?? false
@@ -40,7 +41,7 @@ const Room = ({ id }: { id: string }) => {
   useMediaSession()
 
   useEffect(() => {
-    void ensureEmojiMart()
+    scheduleEmojiMartIdleLoad()
   }, [])
 
   useEffect(() => {
@@ -50,13 +51,7 @@ const Room = ({ id }: { id: string }) => {
   }, [isNewUser, isAuthenticated, modalSend])
 
   useEffect(() => {
-    const firstImage = nowPlaying?.track?.album?.images?.[0]
-    const url =
-      typeof firstImage === "object" && firstImage?.url
-        ? firstImage.url
-        : typeof firstImage === "string"
-        ? firstImage
-        : null
+    const url = featureImageUrl(nowPlaying?.track?.album?.images) ?? null
     setCurrentArtworkUrl(url)
     return () => setCurrentArtworkUrl(null)
   }, [nowPlaying])

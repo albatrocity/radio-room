@@ -76,6 +76,7 @@ export default function StoredItemsTab({
           onRefresh()
         }
       },
+      eventTypes: ["RETRIEVE_STORED_ARTIFACT_RESULT"],
     })
 
     emitToSocket("RETRIEVE_STORED_ARTIFACT", { artifactId, password: pw })

@@ -76,6 +76,7 @@ export function ButtonTemplateComponent({
           type: event.data.success ? "success" : "error",
         })
       },
+      eventTypes: ["PLUGIN_ACTION_RESULT"],
     })
 
     emitToSocket("EXECUTE_PLUGIN_ACTION", { pluginName, action })

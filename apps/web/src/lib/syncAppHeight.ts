@@ -22,6 +22,11 @@ export function appHeightCssValue(
   return `${visualHeight ?? innerHeight}px`
 }
 
+/** Skip `setProperty` when the computed height string has not changed. */
+export function appHeightNeedsWrite(previous: string | null, next: string): boolean {
+  return previous !== next
+}
+
 function readStandalone(): boolean {
   return isStandaloneDisplay(
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -36,19 +41,30 @@ function resetWindowScroll() {
   document.body.scrollTop = 0
 }
 
+let lastWritten: string | null = null
+
 export function syncAppHeight() {
   const standalone = readStandalone()
   const vv = window.visualViewport
-  document.documentElement.style.setProperty(
-    APP_HEIGHT_VAR,
-    appHeightCssValue(vv?.height, window.innerHeight, standalone),
-  )
+  const next = appHeightCssValue(vv?.height, window.innerHeight, standalone)
+  if (appHeightNeedsWrite(lastWritten, next)) {
+    lastWritten = next
+    document.documentElement.style.setProperty(APP_HEIGHT_VAR, next)
+  }
   if (!standalone) resetWindowScroll()
 }
 
 export function startAppHeightSync(): () => void {
-  const onChange = () => syncAppHeight()
+  let frame = 0
+  const onChange = () => {
+    if (frame) return
+    frame = requestAnimationFrame(() => {
+      frame = 0
+      syncAppHeight()
+    })
+  }
 
+  lastWritten = null
   syncAppHeight()
   window.visualViewport?.addEventListener("resize", onChange)
   window.visualViewport?.addEventListener("scroll", onChange)
@@ -57,6 +73,7 @@ export function startAppHeightSync(): () => void {
   document.addEventListener("focusin", onChange, true)
   document.addEventListener("focusout", onChange, true)
   return () => {
+    if (frame) cancelAnimationFrame(frame)
     window.visualViewport?.removeEventListener("resize", onChange)
     window.visualViewport?.removeEventListener("scroll", onChange)
     window.removeEventListener("resize", onChange)

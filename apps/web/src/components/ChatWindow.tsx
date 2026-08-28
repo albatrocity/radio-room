@@ -14,6 +14,8 @@ import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import VirtualizerContent, { virtualizerViewportCss } from "./VirtualizerContent"
+import { ensureEmojiMart } from "../lib/ensureEmojiMart"
+import { virtualizerOverscan } from "../lib/virtualizerOverscan"
 
 /** Match `use-stick-to-bottom`'s STICK_TO_BOTTOM_OFFSET_PX. */
 const NEAR_BOTTOM_PX = 70
@@ -78,10 +80,14 @@ function ChatWindow() {
     count: messages.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 72,
-    // Extra rows so a fling does not hit unmeasured items as quickly.
-    overscan: 24,
+    // Extra rows on coarse pointer so a fling does not hit unmeasured items as quickly.
+    overscan: virtualizerOverscan(10, 24),
     getItemKey,
   })
+
+  useEffect(() => {
+    void ensureEmojiMart()
+  }, [])
 
   useEffect(() => {
     send({ type: isAtBottom ? "ATTACH" : "DETACH" })

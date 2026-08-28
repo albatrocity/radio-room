@@ -26,19 +26,10 @@ describe("imageUrlForExtraction", () => {
     expect(imageUrlForExtraction(blobUrl)).toBe(blobUrl)
   })
 
-  it("appends a cache-bust param that does not collide with Subsonic t=", () => {
+  it("leaves HTTP(S) cover URLs unchanged so the browser can reuse cache", () => {
     const coverUrl =
       "http://127.0.0.1:4533/rest/getCoverArt.view?id=song1&u=ross&t=authtoken&s=salt"
-    const result = imageUrlForExtraction(coverUrl)
-
-    expect(result.startsWith(`${coverUrl}&_cb=`)).toBe(true)
-    expect(result).toMatch(/&_cb=\d+$/)
-    // Auth token still present and not replaced
-    expect(result).toContain("t=authtoken")
-  })
-
-  it("uses ? when the URL has no query string", () => {
-    const result = imageUrlForExtraction("https://cdn.example/art.jpg")
-    expect(result).toMatch(/^https:\/\/cdn\.example\/art\.jpg\?_cb=\d+$/)
+    expect(imageUrlForExtraction(coverUrl)).toBe(coverUrl)
+    expect(imageUrlForExtraction("https://cdn.example/art.jpg")).toBe("https://cdn.example/art.jpg")
   })
 })

@@ -120,6 +120,7 @@ export default function InventoryGiftSellControls({
           type: event.data.success ? "success" : "error",
         })
       },
+      eventTypes: ["INVENTORY_ACTION_RESULT"],
     })
 
     emitToSocket("SELL_INVENTORY_ITEM", { itemId: item.itemId })

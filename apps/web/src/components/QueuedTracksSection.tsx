@@ -42,6 +42,8 @@ import socket from "../lib/socket"
 import { toast } from "../lib/toasts"
 import PlaylistItem from "./PlaylistItem"
 import VirtualizerContent, { virtualizerViewportCss } from "./VirtualizerContent"
+import { virtualizerOverscan } from "../lib/virtualizerOverscan"
+import ScrollShadowViewport from "./ScrollShadowViewport"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import RedactedQueueTracksPreview from "./RedactedQueueTracksPreview"
 import { Tooltip } from "./ui/tooltip"
@@ -545,7 +547,7 @@ function QueuedTracksSection() {
     count: virtualRowCount,
     getScrollElement: () => viewportRef.current,
     estimateSize: () => 78,
-    overscan: 8,
+    overscan: virtualizerOverscan(4, 8),
     getItemKey,
     enabled: (!canReorder || !hasSortableItems) && virtualRowCount > 0 && !queueTracksRedacted,
   })
@@ -767,9 +769,13 @@ function QueuedTracksSection() {
         {virtualRowCount > 0 ? (
           <Box w="100%">
             <ScrollArea.Root height={`${listHeight}px`} size="sm" variant="hover">
-              <ScrollArea.Viewport ref={viewportRef} height="100%" css={virtualizerViewportCss}>
+              <ScrollShadowViewport
+                ref={viewportRef}
+                height="100%"
+                css={{ ...virtualizerViewportCss, "--scroll-shadow-size": "2rem" }}
+              >
                 <ScrollArea.Content>{listBody}</ScrollArea.Content>
-              </ScrollArea.Viewport>
+              </ScrollShadowViewport>
               <ScrollArea.Scrollbar>
                 <ScrollArea.Thumb />
               </ScrollArea.Scrollbar>

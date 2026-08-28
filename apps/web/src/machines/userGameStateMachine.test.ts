@@ -93,7 +93,22 @@ describe("userGameStateMachine refetch characterization", () => {
     expect(actor.getSnapshot().context.storedArtifacts).toEqual([])
   })
 
-  it("fetches and stores artifacts when a session is present", () => {
+  it("fetches artifacts again after the session ends and a new one starts", () => {
+    activateReady()
+    actor.send({
+      type: "USER_GAME_STATE",
+      data: { ...emptyPayload, session: { id: "s1" } as any },
+    })
+    actor.send({ type: "GAME_SESSION_ENDED", data: {} })
+    vi.mocked(emitToSocket).mockClear()
+    actor.send({
+      type: "USER_GAME_STATE",
+      data: { ...emptyPayload, session: { id: "s2" } as any },
+    })
+    expect(emitToSocket).toHaveBeenCalledWith("GET_STORED_ARTIFACTS", {})
+  })
+
+  it("fetches artifacts once per session, not on every USER_GAME_STATE", () => {
     activateReady()
     vi.mocked(emitToSocket).mockClear()
     actor.send({
@@ -106,6 +121,13 @@ describe("userGameStateMachine refetch characterization", () => {
       data: { artifacts: [{ id: "a1" }] as never },
     })
     expect(actor.getSnapshot().context.storedArtifacts).toEqual([{ id: "a1" }])
+
+    vi.mocked(emitToSocket).mockClear()
+    actor.send({
+      type: "USER_GAME_STATE",
+      data: { ...emptyPayload, session: { id: "s1" } as any },
+    })
+    expect(emitToSocket).not.toHaveBeenCalledWith("GET_STORED_ARTIFACTS", {})
   })
 
   it("collapses the current user's own inventory burst into one refetch", async () => {

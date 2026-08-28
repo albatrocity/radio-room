@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { appHeightCssValue, isStandaloneDisplay } from "./syncAppHeight"
+import { appHeightCssValue, appHeightNeedsWrite, isStandaloneDisplay } from "./syncAppHeight"
 
 describe("appHeightCssValue", () => {
   it("uses visualViewport px in a Safari tab so overlay chrome is excluded", () => {
@@ -20,5 +20,13 @@ describe("isStandaloneDisplay", () => {
     expect(isStandaloneDisplay(true, false)).toBe(true)
     expect(isStandaloneDisplay(false, true)).toBe(true)
     expect(isStandaloneDisplay(false, false)).toBe(false)
+  })
+})
+
+describe("appHeightNeedsWrite", () => {
+  it("skips writes when the CSS value is unchanged", () => {
+    expect(appHeightNeedsWrite("620px", "620px")).toBe(false)
+    expect(appHeightNeedsWrite(null, "620px")).toBe(true)
+    expect(appHeightNeedsWrite("620px", "600px")).toBe(true)
   })
 })

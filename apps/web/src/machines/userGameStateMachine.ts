@@ -37,6 +37,7 @@ interface UserGameStateContext {
   subscriptionId: string | null
   payload: UserGameStatePayload | null
   storedArtifacts: StoredArtifactPublic[]
+  storedArtifactsSessionId: string | null
   error: string | null
 }
 
@@ -203,12 +204,16 @@ export const userGameStateMachine = setup({
     notifyNavSessionCleared: () => {
       notifyGameStateNavSession(sessionSnapshotFromPayload(null))
     },
-    requestStoredArtifacts: ({ event, context }) => {
-      const session =
-        event.type === "USER_GAME_STATE" ? event.data.session : context.payload?.session
-      if (!session) return
-      emitToSocket("GET_STORED_ARTIFACTS", {})
-    },
+    requestStoredArtifacts: enqueueActions(({ event, context, enqueue }) => {
+      if (event.type !== "USER_GAME_STATE") return
+      const sessionId = event.data.session?.id
+      if (!sessionId) return
+      if (context.storedArtifactsSessionId === sessionId) return
+      enqueue.assign({ storedArtifactsSessionId: sessionId })
+      enqueue(() => {
+        emitToSocket("GET_STORED_ARTIFACTS", {})
+      })
+    }),
     setStoredArtifacts: assign(({ event }) => {
       if (event.type !== "STORED_ARTIFACTS_RESULT") return {}
       return { storedArtifacts: event.data?.artifacts ?? [] }
@@ -225,6 +230,7 @@ export const userGameStateMachine = setup({
         activeTrade: null,
       }),
       storedArtifacts: () => [],
+      storedArtifactsSessionId: () => null,
       error: () => null,
     }),
     setError: assign(({ event }) => {
@@ -235,6 +241,7 @@ export const userGameStateMachine = setup({
       subscriptionId: () => null,
       payload: () => null,
       storedArtifacts: () => [],
+      storedArtifactsSessionId: () => null,
       error: () => null,
     }),
   },
@@ -245,6 +252,7 @@ export const userGameStateMachine = setup({
     subscriptionId: null,
     payload: null,
     storedArtifacts: [],
+    storedArtifactsSessionId: null,
     error: null,
   },
   /** Socket invalidations apply in every subscribed state (loading / ready / refreshing). */

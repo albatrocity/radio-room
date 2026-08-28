@@ -5,7 +5,6 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { startAppHeightSync } from './lib/syncAppHeight'
 
 import '@fontsource/caveat/600.css'
-import '@fontsource/comic-neue/400.css'
 import '@fontsource/nunito/300.css'
 import '@fontsource/nunito/400.css'
 import '@fontsource/nunito/700.css'

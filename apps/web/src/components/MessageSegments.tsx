@@ -1,8 +1,10 @@
 import { Box, Image, Stack } from "@chakra-ui/react"
+import { useEffect } from "react"
 import type { TextEffect, TextSegment } from "@repo/types"
 import ParsedEmojiMessage from "./ParsedEmojiMessage"
 import { textEffectStyles } from "@repo/game-logic"
 import { splitMarkdownImages } from "../lib/splitMarkdownImages"
+import { ensureComicNeue, textEffectsNeedComicNeue } from "../lib/ensureComicNeue"
 
 type InlinePiece = { effects?: TextEffect[]; text: string }
 
@@ -45,6 +47,11 @@ function segmentsToRows(segments: TextSegment[]): Row[] {
 }
 
 export function MessageSegments({ segments }: { segments: TextSegment[] }) {
+  useEffect(() => {
+    if (segments.some((seg) => textEffectsNeedComicNeue(seg.effects))) {
+      void ensureComicNeue()
+    }
+  }, [segments])
   const rows = segmentsToRows(segments)
 
   return (

@@ -19,20 +19,11 @@ const colorThief = new ColorThief()
 /**
  * Build the image URL used for canvas color extraction.
  *
- * HTTP(S) URLs get a cache-busting query param so CDNs don't serve a
- * non-CORS-cached copy. Data and blob URLs must be left untouched — appending
- * `?t=` corrupts base64 payloads (local metadata covers use data URIs).
- *
- * Uses `_cb` rather than `t` so Subsonic/Navidrome auth tokens (`t=`) are not
- * overwritten when cover URLs already include that parameter.
+ * Data and blob URLs must be left untouched. HTTP(S) covers are used as-is so
+ * the browser can reuse a cached bitmap instead of cache-busting every track.
  */
 export function imageUrlForExtraction(url: string): string {
-  if (url.startsWith("data:") || url.startsWith("blob:")) {
-    return url
-  }
-
-  const separator = url.includes("?") ? "&" : "?"
-  return `${url}${separator}_cb=${Date.now()}`
+  return url
 }
 
 /**
