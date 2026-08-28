@@ -34,7 +34,7 @@ export const playlistItemRecipe = defineSlotRecipe({
       minW: 12,
       flexShrink: 0,
       overflow: "hidden",
-      borderRadius: "sm",
+      borderRadius: 0,
     },
     trackDetails: {
       gap: 0,
