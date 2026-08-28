@@ -26,3 +26,4 @@ A service worker that precaches the shell would hide the wait on repeat launches
 
 - [0121](0121-installable-web-app-no-service-worker.md) — installable chrome, no service worker
 - [0124](0124-browser-chrome-follows-primary-solid.md) — live `theme-color` after splash
+- [0125](0125-padded-teal-pwa-icons.md) — padded teal home-screen icons

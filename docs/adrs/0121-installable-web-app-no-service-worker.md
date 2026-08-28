@@ -1,7 +1,7 @@
 # 0121. Installable web app without a service worker
 
 **Date:** 2026-08-27
-**Status:** Accepted
+**Status:** Partially superseded by [0125](0125-padded-teal-pwa-icons.md)
 
 ## Context
 
@@ -14,7 +14,7 @@ Guest identity is origin-scoped `localStorage` ([ADR 0058](0058-client-session-l
 ## Decision
 
 1. **Installable chrome, no service worker.** Ship a Web App Manifest (`display: standalone`), Apple web-app meta, `theme-color`, and icons. Do not register a service worker in this decision.
-2. **Icons.** Raster home-screen / maskable icons are generated from [`infra/cdn/assets/logo.png`](../../infra/cdn/assets/logo.png) (black square canvas). The tab favicon SVG uses the same path geometry as the in-app `Logo` ([`apps/web/src/components/ui/logo.tsx`](../../apps/web/src/components/ui/logo.tsx) / archive `Logo.svelte`).
+2. **Icons.** Raster home-screen / maskable icons are generated from [`infra/cdn/assets/logo.png`](../../infra/cdn/assets/logo.png) (black square canvas). The tab favicon SVG uses the same path geometry as the in-app `Logo` ([`apps/web/src/components/ui/logo.tsx`](../../apps/web/src/components/ui/logo.tsx) / archive `Logo.svelte`). **Superseded by [0125](0125-padded-teal-pwa-icons.md)** (teal canvas, padded mark from the favicon SVG).
 3. **No Workbox / `vite-plugin-pwa`** until a follow-up ADR specifies network-first HTML, cache-only hashed `/assets`, and no Socket.IO interception.
 4. **Identity.** Keep `clientSession` as the source of guest id. Do not promise that a home-screen icon and a Safari tab are the same person on every iOS version.
 

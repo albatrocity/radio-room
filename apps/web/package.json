@@ -87,7 +87,8 @@
     "lint": "eslint \"**/*.{ts,tsx}\"",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
     "test": "vitest run --config vitest.config.mts",
-    "generate:splash": "node scripts/generateAppleSplash.mjs"
+    "generate:splash": "node scripts/generateAppleSplash.mjs",
+    "generate:icons": "node scripts/generatePwaIcons.mjs"
   },
   "repository": {
     "type": "git",
