@@ -5,7 +5,9 @@ type FontValue = Extract<TextEffect, { type: "font" }>["value"]
 function fontFamilyFor(value: FontValue): string | undefined {
   switch (value) {
     case "comicSans":
-      return '"Comic Sans MS", "Comic Sans", cursive'
+      // Comic Sans MS is Windows-only. iOS/macOS ship Chalkboard SE as the analog;
+      // `cursive` on iOS is Snell Roundhand. Comic Neue is the OFL webfont fallback.
+      return '"Comic Sans MS", "Comic Sans", "Chalkboard SE", "Comic Neue", cursive'
     case "monospace":
       return "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
     case "serif":

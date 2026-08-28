@@ -96,23 +96,33 @@ function ChatWindow() {
     if (!el) return
 
     let prevHeight = el.clientHeight
+    let frame = 0
     const observer = new ResizeObserver(() => {
-      const nextHeight = el.clientHeight
-      const delta = prevHeight - nextHeight
-      prevHeight = nextHeight
-      if (delta <= 0) return
+      // Mutating scroll position inside the observer notification can loop
+      // (ResizeObserver loop completed with undelivered notifications).
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        const nextHeight = el.clientHeight
+        const delta = prevHeight - nextHeight
+        prevHeight = nextHeight
+        if (delta <= 0) return
 
-      // After shrink, distanceFromBottom grows by ~delta. Recover pre-shrink
-      // distance so a multi-line card (delta > NEAR_BOTTOM_PX) still re-pins.
-      const distanceAfter = el.scrollHeight - el.scrollTop - nextHeight
-      const wasNearBottom = distanceAfter - delta <= NEAR_BOTTOM_PX
-      if (wasNearBottom) {
-        void scrollToBottom({ animation: "instant" })
-      }
+        // After shrink, distanceFromBottom grows by ~delta. Recover pre-shrink
+        // distance so a multi-line card (delta > NEAR_BOTTOM_PX) still re-pins.
+        const distanceAfter = el.scrollHeight - el.scrollTop - nextHeight
+        const wasNearBottom = distanceAfter - delta <= NEAR_BOTTOM_PX
+        if (wasNearBottom) {
+          void scrollToBottom({ animation: "instant" })
+        }
+      })
     })
 
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
   }, [scrollRef, scrollToBottom])
 
   useEffect(() => {
