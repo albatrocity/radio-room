@@ -21,6 +21,7 @@ import {
   isGameEventForUser,
   isGiftTradeEventForUser,
   tradeEscrowChanged,
+  tradeHasUnknownDefinitions,
   type GiftTradeEventData,
   type UserScopedEventData,
 } from "../lib/gameEventRelevance"
@@ -151,7 +152,10 @@ export const userGameStateMachine = setup({
       if (event.type !== "TRADE_UPDATED") return
       const trade = event.data?.trade
       if (!trade || !context.payload) return
-      if (tradeEscrowChanged(context.payload.activeTrade, trade)) {
+      if (
+        tradeEscrowChanged(context.payload.activeTrade, trade) ||
+        tradeHasUnknownDefinitions(trade, context.payload.itemDefinitions)
+      ) {
         enqueue("scheduleRequestGameState")
       }
       enqueue.assign({

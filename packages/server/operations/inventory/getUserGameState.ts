@@ -7,7 +7,7 @@ import type {
   TradeSession,
   UserGameStatePayload,
 } from "@repo/types"
-import { collectGiftOfferDefinitionIds, collectInventoryAndModifierDefinitionIds } from "../../lib/collectUserGameStateDefinitionIds"
+import { collectGiftOfferDefinitionIds, collectInventoryAndModifierDefinitionIds, collectTradeSessionDefinitionIds } from "../../lib/collectUserGameStateDefinitionIds"
 
 type PluginRegistryHooks = {
   invokeGetSellbackValues?: (
@@ -85,6 +85,7 @@ export async function getUserGameState(params: {
     ...collectInventoryAndModifierDefinitionIds(inv, state),
     ...pluginExtraIds,
     ...collectGiftOfferDefinitionIds([...incoming, ...outgoing]),
+    ...collectTradeSessionDefinitionIds(trade),
   ]
   const itemDefinitions = inventory ? await inventory.getItemDefinitions(roomId, neededIds) : []
 

@@ -7,7 +7,7 @@ import type {
   TradeOfferItem,
   TradeSession,
 } from "@repo/types"
-import { PLAYER_TRANSFER_TTL_MS, TRADE_MESSAGE_MAX_LENGTH } from "@repo/types"
+import { PLAYER_TRANSFER_TTL_MS, TRADE_MESSAGE_MAX_LENGTH, draftFromEscrowedOffer } from "@repo/types"
 import generateId from "../lib/generateId"
 import { InventoryService } from "./InventoryService"
 import { canAccommodateOfferList, deliverOffer, refundEscrow } from "./trade/tradeEscrow"
@@ -382,14 +382,17 @@ export class TradeService {
     }
 
     for (const p of Object.values(trade.participants)) {
-      await refundEscrow({
+      const refunded = await refundEscrow({
         inventory: this.inventory,
         roomId: params.roomId,
         userId: p.userId,
         offer: p.offer,
       })
+      p.draft = draftFromEscrowedOffer(
+        p.offer,
+        refunded.map((item) => item?.itemId),
+      )
       p.offer = []
-      p.draft = []
       p.locked = false
       p.confirmed = false
     }

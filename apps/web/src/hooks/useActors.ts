@@ -706,7 +706,10 @@ export const useIsGameStateNavActive = (): boolean => {
 export const useGameStateNavSend = () => sendToGameStateNav
 
 export const useTradesGiftsTabUnseen = (): boolean => {
-  return useSelector(gameStateTradesGiftsAttentionActor, (s) => s.context.unseen)
+  return useSelector(
+    gameStateTradesGiftsAttentionActor,
+    (s) => s.context.unseen || s.context.sessionUnseen,
+  )
 }
 
 /** Tab/button badge: live attention events or any pending incoming gift/trade invite. */

@@ -17,7 +17,7 @@ import {
 } from "../../../machines/mediaItemTracksMachine"
 import useAddToQueue from "../../useAddToQueue"
 import type { GameStateItemDetailFrame } from "../../../types/GameStateDetail"
-import { LuArrowLeft } from "react-icons/lu"
+import { LuChevronLeft } from "react-icons/lu"
 import { useUserGameState } from "../UserGameStateContext"
 import InventoryGiftSellControls from "./InventoryGiftSellControls"
 import ShopDetailBuyControls from "./ShopDetailBuyControls"
@@ -25,6 +25,8 @@ import ShopDetailBuyControls from "./ShopDetailBuyControls"
 type Props = {
   frame: GameStateItemDetailFrame
   definition?: ItemDefinition
+  /** Fill leftover panel height via the explicit flex chain (lg+ integrated panel). */
+  fillHeight?: boolean
 }
 
 /**
@@ -73,7 +75,7 @@ function ItemDetailPrimaryActions({
 /**
  * Game State item detail body (ADR 0104): lore + optional trackList album view.
  */
-export default function GameStateItemDetail({ frame, definition }: Props) {
+export default function GameStateItemDetail({ frame, definition, fillHeight = false }: Props) {
   const isAdmin = useIsAdmin()
   const canAddToQueue = useCanAddToQueue()
   const { addToQueue } = useAddToQueue()
@@ -136,13 +138,14 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
       )
     }
 
-    return (
+    const list = (
       <AlbumTrackListView
         header={albumHeader}
         tracks={tracks}
         loading={loading}
         error={error}
-        maxH="min(60vh, 28rem)"
+        fillHeight={fillHeight}
+        maxH={fillHeight ? undefined : "min(60vh, 28rem)"}
         defaultSourceId="local"
         canPreviewTrack={() => true}
         onPreview={(track, previewKey) =>
@@ -157,6 +160,12 @@ export default function GameStateItemDetail({ frame, definition }: Props) {
         showAddToQueue={canAdd}
         beforeTracks={<ItemDetailPrimaryActions frame={frame} definition={definition} padded />}
       />
+    )
+    if (!fillHeight) return list
+    return (
+      <Box flex="1" minH={0} h="full" display="flex" flexDirection="column" overflow="hidden">
+        {list}
+      </Box>
     )
   }
 
@@ -203,7 +212,11 @@ export function GameStateDetailBreadcrumb({ tabLabel, detailTitle, onBack }: Bre
       pb={1}
       color="fg.muted"
       size="sm"
-      items={[{ label: tabLabel, onClick: onBack, icon: <LuArrowLeft /> }, { label: detailTitle }]}
+      flexShrink={0}
+      items={[
+        { label: tabLabel, onClick: onBack, icon: <LuChevronLeft /> },
+        { label: detailTitle },
+      ]}
     />
   )
 }

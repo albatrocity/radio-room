@@ -11,7 +11,15 @@ import {
   mapSpotifyBrowseArtist,
 } from "./browseMappers"
 import { trackItemSchema } from "./schemas"
+import { isSpotifyGatewayError } from "./spotifyErrors"
 import { spotifySdkConfig } from "./spotifyRequestTimeout"
+
+/** Short backoff between Spotify search/metadata 5xx retries. */
+const GATEWAY_RETRY_DELAYS_MS = [200, 400] as const
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function toAccessToken(tokens: { accessToken: string; refreshToken: string }): AccessToken {
   return {
@@ -43,15 +51,39 @@ export async function makeApi({
     return SpotifyApi.withAccessToken(clientId, toAccessToken(tokens), spotifySdkConfig)
   }
 
+  const retryOnGateway = async <T>(operation: () => Promise<T>): Promise<T> => {
+    const extraAttempts = GATEWAY_RETRY_DELAYS_MS.length
+    try {
+      return await operation()
+    } catch (error) {
+      if (!isSpotifyGatewayError(error)) throw error
+      let lastError: unknown = error
+      for (let i = 0; i < extraAttempts; i++) {
+        console.warn(
+          `[spotify] metadata API gateway error; retrying (${i + 1}/${extraAttempts})`,
+        )
+        await delay(GATEWAY_RETRY_DELAYS_MS[i]!)
+        try {
+          return await operation()
+        } catch (retryError) {
+          lastError = retryError
+          if (!isSpotifyGatewayError(retryError)) throw retryError
+        }
+      }
+      throw lastError
+    }
+  }
+
   const withAuthRetry = async <T>(operation: (api: SpotifyApi) => Promise<T>): Promise<T> => {
     try {
-      return await operation(await getSpotifyApi())
+      return await retryOnGateway(async () => operation(await getSpotifyApi()))
     } catch (error) {
       const auth = config.authentication
       if (!isMetadataSourceAuthFailure(error) || auth.type !== "oauth" || !auth.refreshTokens) {
         throw error
       }
-      return await operation(await getSpotifyApi(true))
+      const refreshed = await getSpotifyApi(true)
+      return await retryOnGateway(() => operation(refreshed))
     }
   }
 

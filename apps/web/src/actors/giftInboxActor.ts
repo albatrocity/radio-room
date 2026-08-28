@@ -9,10 +9,24 @@ import { subscribeById, unsubscribeById } from "./socketActor"
 import { getCurrentUser } from "./authActor"
 import { getUserById } from "./usersActor"
 import { openGameStateOnTab, TRADES_GIFTS_TAB } from "./modalsActor"
-import { markTradesGiftsTabUnseen } from "./gameStateTradesGiftsAttentionActor"
+import {
+  markTradesGiftsSessionUnseen,
+  markTradesGiftsTabUnseen,
+} from "./gameStateTradesGiftsAttentionActor"
 import { dismissTradeInviteToast, tradeInviteToastId } from "../lib/tradeInviteToast"
 import { clearTradeCancelledByMe, wasTradeCancelledByMe } from "../lib/tradeCancelledByMe"
 import { emitTradeInviteRespond } from "../lib/tradeSocketActions"
+import {
+  counterpartTradeAlerts,
+  dismissTradeSessionToasts,
+  isViewingTradeSession,
+  tradeAcceptedToastId,
+  tradeConfirmToastId,
+  tradeLockToastId,
+  watchSnapshotForUser,
+  type TradeWatchSnapshot,
+} from "../lib/tradeSessionNotifications"
+import { getUserGameStatePayload } from "./userGameStateActor"
 import { toaster } from "../components/ui/toaster"
 
 export { dismissTradeInviteToast, tradeInviteToastId } from "../lib/tradeInviteToast"
@@ -23,6 +37,7 @@ type Context = {
   toastedInviteIds: string[]
   toastedTradeAcceptedIds: string[]
   toastedTradeCancelledIds: string[]
+  watchedTrades: Record<string, TradeWatchSnapshot>
 }
 
 type Event =
@@ -65,6 +80,28 @@ type Event =
       }
     }
   | { type: "TRADE_COMPLETED"; data?: { trade?: { tradeId: string; participants: Record<string, unknown> } } }
+  | { type: "TRADE_UPDATED"; data?: { trade?: TradeSession } }
+
+function openTradeSession(tradeId: string, otherName: string): void {
+  openGameStateOnTab({
+    tabId: TRADES_GIFTS_TAB,
+    frame: {
+      kind: "trade",
+      tradeId,
+      title: `Trade with ${otherName}`,
+    },
+  })
+}
+
+function dropWatchedTrade(
+  watched: Record<string, TradeWatchSnapshot>,
+  tradeId: string,
+): Record<string, TradeWatchSnapshot> {
+  if (!(tradeId in watched)) return watched
+  const next = { ...watched }
+  delete next[tradeId]
+  return next
+}
 
 let subCounter = 0
 
@@ -88,6 +125,7 @@ const giftInboxMachine = setup({
           "TRADE_INVITE_DECLINED",
           "TRADE_INVITE_CANCELLED",
           "TRADE_INVITE_ACCEPTED",
+          "TRADE_UPDATED",
           "TRADE_CANCELLED",
           "TRADE_COMPLETED",
         ],
@@ -97,12 +135,21 @@ const giftInboxMachine = setup({
     unsubscribe: ({ context }) => {
       if (context.subscriptionId) unsubscribeById(context.subscriptionId)
     },
+    seedWatchedTrades: assign(() => {
+      const me = getCurrentUser()?.userId
+      const trade = getUserGameStatePayload()?.activeTrade
+      if (!me || !trade) return { watchedTrades: {} }
+      const snapshot = watchSnapshotForUser(trade, me)
+      if (!snapshot) return { watchedTrades: {} }
+      return { watchedTrades: { [trade.tradeId]: snapshot } }
+    }),
     reset: assign({
       subscriptionId: () => null,
       toastedOfferIds: () => [],
       toastedInviteIds: () => [],
       toastedTradeAcceptedIds: () => [],
       toastedTradeCancelledIds: () => [],
+      watchedTrades: () => ({}),
     }),
     notifyGiftOffered: assign(({ context, event }) => {
       if (event.type !== "GIFT_OFFERED") return {}
@@ -254,53 +301,122 @@ const giftInboxMachine = setup({
       const trade = event.data?.trade
       if (!trade) return {}
       const me = getCurrentUser()?.userId
-      if (!me || trade.fromUserId !== me) return {}
-      if (context.toastedTradeAcceptedIds.includes(trade.tradeId)) return {}
+      if (!me || !trade.participants[me]) return {}
 
-      const accepterName = getUserById(trade.toUserId)?.username?.trim() || "Someone"
-      markTradesGiftsTabUnseen()
-      toaster.create({
-        title: "Trade accepted",
-        description: `${accepterName} accepted your trade invite.`,
-        type: "info",
-        duration: 8000,
-        closable: true,
-        action: {
-          label: "Open",
-          onClick: () =>
-            openGameStateOnTab({
-              tabId: TRADES_GIFTS_TAB,
-              frame: {
-                kind: "trade",
-                tradeId: trade.tradeId,
-                title: `Trade with ${accepterName}`,
-              },
-            }),
-        },
+      const snapshot = watchSnapshotForUser(trade, me)
+      const watchedTrades = snapshot
+        ? { ...context.watchedTrades, [trade.tradeId]: snapshot }
+        : context.watchedTrades
+
+      if (trade.fromUserId !== me) return { watchedTrades }
+      if (context.toastedTradeAcceptedIds.includes(trade.tradeId)) return { watchedTrades }
+
+      if (!isViewingTradeSession(trade.tradeId)) {
+        const accepterName = getUserById(trade.toUserId)?.username?.trim() || "Someone"
+        markTradesGiftsSessionUnseen()
+        toaster.create({
+          id: tradeAcceptedToastId(trade.tradeId),
+          title: "Trade accepted",
+          description: `${accepterName} accepted your trade invite.`,
+          type: "info",
+          duration: 8000,
+          closable: true,
+          action: {
+            label: "Open",
+            onClick: () => openTradeSession(trade.tradeId, accepterName),
+          },
+        })
+      }
+
+      return {
+        toastedTradeAcceptedIds: [...context.toastedTradeAcceptedIds, trade.tradeId],
+        watchedTrades,
+      }
+    }),
+    notifyTradeUpdated: assign(({ context, event }) => {
+      if (event.type !== "TRADE_UPDATED") return {}
+      const trade = event.data?.trade
+      if (!trade) return {}
+      const me = getCurrentUser()?.userId
+      if (!me) return {}
+      const snapshot = watchSnapshotForUser(trade, me)
+      if (!snapshot) return {}
+
+      const mine = trade.participants[me]
+      const prev = context.watchedTrades[trade.tradeId] ?? {
+        otherLocked: false,
+        otherConfirmed: false,
+      }
+      const watchedTrades = { ...context.watchedTrades, [trade.tradeId]: snapshot }
+
+      if (isViewingTradeSession(trade.tradeId)) {
+        return { watchedTrades }
+      }
+
+      const alerts = counterpartTradeAlerts(prev, {
+        ...snapshot,
+        iConfirmed: Boolean(mine?.confirmed),
       })
+      if (alerts.length === 0) return { watchedTrades }
 
-      return { toastedTradeAcceptedIds: [...context.toastedTradeAcceptedIds, trade.tradeId] }
+      const otherId = trade.fromUserId === me ? trade.toUserId : trade.fromUserId
+      const otherName = getUserById(otherId)?.username?.trim() || "Someone"
+
+      if (alerts.includes("lock")) {
+        markTradesGiftsSessionUnseen()
+        toaster.create({
+          id: tradeLockToastId(trade.tradeId),
+          title: "Offer locked",
+          description: `${otherName} locked in their trade offer.`,
+          type: "info",
+          duration: 8000,
+          closable: true,
+          action: {
+            label: "Open",
+            onClick: () => openTradeSession(trade.tradeId, otherName),
+          },
+        })
+      }
+
+      if (alerts.includes("confirm")) {
+        markTradesGiftsSessionUnseen()
+        toaster.create({
+          id: tradeConfirmToastId(trade.tradeId),
+          title: "Trade confirmed",
+          description: `${otherName} confirmed the trade. Waiting for you.`,
+          type: "info",
+          duration: 8000,
+          closable: true,
+          action: {
+            label: "Open",
+            onClick: () => openTradeSession(trade.tradeId, otherName),
+          },
+        })
+      }
+
+      return { watchedTrades }
     }),
     notifyTradeCancelled: assign(({ context, event }) => {
       if (event.type !== "TRADE_CANCELLED") return {}
       const trade = event.data?.trade
       if (!trade) return {}
 
+      const watchedTrades = dropWatchedTrade(context.watchedTrades, trade.tradeId)
       const reason = event.data?.reason ?? "user"
-      if (reason !== "user") return {}
+      if (reason !== "user") return { watchedTrades }
 
       const me = getCurrentUser()?.userId
-      if (!me || !trade.participants[me]) return {}
+      if (!me || !trade.participants[me]) return { watchedTrades }
 
       if (wasTradeCancelledByMe(trade.tradeId)) {
         clearTradeCancelledByMe(trade.tradeId)
-        return {}
+        return { watchedTrades }
       }
 
       const cancelledBy = event.data?.cancelledByUserId
-      if (cancelledBy === me) return {}
+      if (cancelledBy === me) return { watchedTrades }
 
-      if (context.toastedTradeCancelledIds.includes(trade.tradeId)) return {}
+      if (context.toastedTradeCancelledIds.includes(trade.tradeId)) return { watchedTrades }
 
       const otherId =
         cancelledBy ??
@@ -317,14 +433,16 @@ const giftInboxMachine = setup({
 
       return {
         toastedTradeCancelledIds: [...context.toastedTradeCancelledIds, trade.tradeId],
+        watchedTrades,
       }
     }),
-    notifyTradeCompleted: ({ event }) => {
-      if (event.type !== "TRADE_COMPLETED") return
+    notifyTradeCompleted: assign(({ context, event }) => {
+      if (event.type !== "TRADE_COMPLETED") return {}
       const trade = event.data?.trade
       const me = getCurrentUser()?.userId
-      if (!me || !trade?.participants?.[me]) return
+      if (!me || !trade?.participants?.[me]) return {}
 
+      if (trade.tradeId) dismissTradeSessionToasts(trade.tradeId)
       toaster.dismiss(`trade-invite-${trade.tradeId}`)
       toaster.create({
         title: "Trade complete",
@@ -334,7 +452,13 @@ const giftInboxMachine = setup({
         closable: true,
       })
       openGameStateOnTab({ tabId: TRADES_GIFTS_TAB })
-    },
+
+      return {
+        watchedTrades: trade.tradeId
+          ? dropWatchedTrade(context.watchedTrades, trade.tradeId)
+          : context.watchedTrades,
+      }
+    }),
   },
 }).createMachine({
   id: "giftInbox",
@@ -345,13 +469,14 @@ const giftInboxMachine = setup({
     toastedInviteIds: [],
     toastedTradeAcceptedIds: [],
     toastedTradeCancelledIds: [],
+    watchedTrades: {},
   },
   states: {
     idle: {
       on: { ACTIVATE: "active" },
     },
     active: {
-      entry: ["subscribe"],
+      entry: ["subscribe", "seedWatchedTrades"],
       exit: ["unsubscribe"],
       on: {
         DEACTIVATE: { target: "idle", actions: ["reset"] },
@@ -365,6 +490,7 @@ const giftInboxMachine = setup({
         },
         TRADE_INVITE_CANCELLED: { actions: ["dismissTradeInviteToastIfMine"] },
         TRADE_INVITE_ACCEPTED: { actions: ["notifyTradeInviteAccepted"] },
+        TRADE_UPDATED: { actions: ["notifyTradeUpdated"] },
         TRADE_CANCELLED: { actions: ["notifyTradeCancelled"] },
         TRADE_COMPLETED: { actions: ["notifyTradeCompleted"] },
       },

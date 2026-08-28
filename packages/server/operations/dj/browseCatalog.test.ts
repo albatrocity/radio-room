@@ -148,6 +148,26 @@ describe("browseCatalog operations", () => {
     })
   })
 
+  test("browseArtists maps Spotify gateway dumps to a retryable client message", async () => {
+    listArtists.mockRejectedValueOnce(
+      new Error(
+        'Unrecognised response code: 502 - Bad Gateway. Body: {"error": {"status": 502, "message": "An unexpected error occurred. Please try again later." } }',
+      ),
+    )
+    const result = await browseArtists({
+      context: mockContext,
+      adapterService: adapterService as any,
+      roomId,
+      userId,
+      source: "local",
+      query: "art",
+    })
+    expect(result).toEqual({
+      ok: false,
+      message: "This catalog is temporarily unavailable. Please try again.",
+    })
+  })
+
   test("browseAlbum tags tracks with source", async () => {
     const result = await browseAlbum({
       context: mockContext,

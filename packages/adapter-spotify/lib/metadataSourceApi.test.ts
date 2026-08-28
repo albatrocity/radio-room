@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { makeApi } from "./metadataSourceApi"
 
 const search = vi.fn()
@@ -93,6 +93,55 @@ describe("metadataSourceApi.search", () => {
     search.mockRejectedValueOnce(new Error("Rate limited"))
 
     await expect(api.search("neon")).rejects.toThrow("Rate limited")
+    expect(refreshTokens).not.toHaveBeenCalled()
+  })
+})
+
+const gateway502 = new Error(
+  'Unrecognised response code: 502 - Bad Gateway. Body: {"error": {"status": 502, "message": "An unexpected error occurred. Please try again later." } }',
+)
+
+describe("metadataSourceApi.listArtists gateway retries", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    getAccessToken.mockResolvedValue({
+      access_token: "token",
+      refresh_token: "refresh",
+      expires_in: 3600,
+    })
+    getStoredTokens.mockResolvedValue({ accessToken: "fresh", refreshToken: "refresh" })
+    refreshTokens.mockResolvedValue({ accessToken: "forced", refreshToken: "refresh" })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("retries a 502 without refreshing tokens and returns results", async () => {
+    const api = await buildApi({ refreshTokens })
+    search
+      .mockRejectedValueOnce(gateway502)
+      .mockResolvedValueOnce({ artists: { items: [], total: 0 } })
+
+    const pending = api.listArtists!({ query: "neon" })
+    await vi.runAllTimersAsync()
+
+    await expect(pending).resolves.toEqual({ items: [], total: 0 })
+    expect(refreshTokens).not.toHaveBeenCalled()
+    expect(search).toHaveBeenCalledTimes(2)
+  })
+
+  it("gives up after gateway retries and does not treat 502 as auth failure", async () => {
+    const api = await buildApi({ refreshTokens })
+    search.mockRejectedValue(gateway502)
+
+    const pending = api.listArtists!({ query: "neon" })
+    const assertion = expect(pending).rejects.toThrow("502")
+    await vi.runAllTimersAsync()
+    await assertion
+
+    expect(search).toHaveBeenCalledTimes(3)
     expect(refreshTokens).not.toHaveBeenCalled()
   })
 })

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
-import { HStack, ScrollArea, Spinner, Stack, Status, Tabs, Text } from "@chakra-ui/react"
+import { Box, HStack, ScrollArea, Spinner, Stack, Status, Tabs, Text } from "@chakra-ui/react"
 import type {
   GameAttributeName,
   InventoryItem,
@@ -22,13 +22,16 @@ import {
   useGameStateDetailFrame,
   useGameStateNavSend,
   useTradesGiftsTabAttention,
-  useActiveGameSessionName,
 } from "../../hooks/useActors"
 import { useActiveIntegratedPanelSlot } from "../../hooks/useIntegratedPanelPresentation"
 import { TRADES_GIFTS_TAB } from "../../constants/gameStateTabs"
 import { activateTrade, deactivateTrade } from "../../actors/tradeActor"
 import { dismissIncomingTradeInviteToasts } from "../../lib/tradeInviteToast"
 import { clearTradesGiftsTabAttentionIfEmpty } from "../../lib/tradesGiftsAttention"
+import {
+  onTradeSessionViewed,
+  dismissAcceptedTradeToast,
+} from "../../lib/tradeSessionNotifications"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
 import { SvgIcon } from "../ui/svg-icon"
@@ -45,7 +48,16 @@ import ScrollShadowViewport from "../ScrollShadowViewport"
 import TradesGiftsTab from "./GameState/TradesGiftsTab"
 import GameStateDetailRouter from "./GameState/GameStateDetailRouter"
 import { GameStateDetailBreadcrumb } from "./GameState/GameStateItemDetail"
-import { detailFrameTitle, isItemDetailFrame } from "../../types/GameStateDetail"
+import {
+  TradeDetailActions,
+  TradeDetailComposer,
+  TradeDetailInventoryPicker,
+} from "./GameState/TradeDetailPanel"
+import {
+  detailFrameTitle,
+  isItemDetailFrame,
+  isTradeDetailFrame,
+} from "../../types/GameStateDetail"
 import { IntegratedPanelShell } from "../IntegratedPanel/IntegratedPanelShell"
 import { INTEGRATED_PANEL_SLOTS } from "../../lib/integratedPanelSlots"
 
@@ -105,6 +117,8 @@ type TabsBodyProps = {
   storedArtifacts: StoredArtifactPublic[]
   refreshStoredArtifacts: () => void
   tabScrollRef: RefObject<HTMLDivElement | null>
+  /** Explicit height chain for the lg+ integrated panel (not the modal drawer). */
+  fillHeight?: boolean
 }
 
 function GameStateTabsBody({
@@ -128,6 +142,7 @@ function GameStateTabsBody({
   storedArtifacts,
   refreshStoredArtifacts,
   tabScrollRef,
+  fillHeight = false,
 }: TabsBodyProps) {
   const sendNav = useGameStateNavSend()
   const currentFrame = useGameStateDetailFrame()
@@ -155,129 +170,173 @@ function GameStateTabsBody({
     }
   }
 
+  const tabContents = (
+    <>
+      <Tabs.Content value="inventory">
+        <GameStateInventoryContent
+          enabledAttributes={enabledAttributes}
+          attributes={attributes}
+          inventoryEnabled={inventoryEnabled}
+          inventoryItems={inventoryItems}
+          maxSlots={maxSlots}
+          maxCollectionSlots={maxCollectionSlots}
+          definitionMap={definitionMap}
+        />
+      </Tabs.Content>
+
+      {showStoredTab ? (
+        <Tabs.Content value="stored">
+          <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
+        </Tabs.Content>
+      ) : null}
+
+      {showTradesGiftsTab ? (
+        <Tabs.Content value={TRADES_GIFTS_TAB}>
+          <TradesGiftsTab />
+        </Tabs.Content>
+      ) : null}
+
+      <GameStatePluginTabContents tabs={pluginTabs} />
+
+      {isAdmin ? (
+        <Tabs.Content value={ADMIN_LISTENERS_TAB}>
+          <AdminListenersTab />
+        </Tabs.Content>
+      ) : null}
+    </>
+  )
+
   return (
     <Tabs.Root
       value={gameStateTab}
       onValueChange={(d) => selectTab(d.value)}
       variant="line"
       colorPalette="action"
+      {...(fillHeight ? { flex: "1", minH: 0, h: "full" } : {})}
     >
-      <ScrollArea.Root width="full" size="xs">
-        <ScrollShadowViewport
-          ref={tabScrollRef as RefObject<HTMLDivElement>}
-          orientation="horizontal"
-        >
-          <ScrollArea.Content>
-            <Tabs.List flexWrap="nowrap">
-              <Tabs.Trigger
-                value="inventory"
-                flexWrap="nowrap"
-                onClick={() => selectTab("inventory")}
-              >
-                {PACKAGE_ICON ? <SvgIcon icon={PACKAGE_ICON} mr={1} /> : null}
-                Inventory
-              </Tabs.Trigger>
-              {showStoredTab ? (
-                <Tabs.Trigger
-                  value="stored"
-                  whiteSpace="nowrap"
-                  onClick={() => selectTab("stored")}
-                >
-                  {STORED_ICON ? <SvgIcon icon={STORED_ICON} mr={1} /> : null}
-                  Stored Items
-                </Tabs.Trigger>
-              ) : null}
-              {showTradesGiftsTab ? (
-                <Tabs.Trigger
-                  value={TRADES_GIFTS_TAB}
-                  whiteSpace="nowrap"
-                  position="relative"
-                  pr={tradesGiftsUnseen ? 2 : undefined}
-                  onClick={() => selectTab(TRADES_GIFTS_TAB)}
-                >
-                  {TRADES_ICON ? <SvgIcon icon={TRADES_ICON} mr={1} /> : null}
-                  Trades/Gifts
-                  {tradesGiftsUnseen ? (
-                    <Status.Root
-                      size="sm"
-                      colorPalette="primary"
-                      position="absolute"
-                      top="0"
-                      right="0"
-                      pointerEvents="none"
+      <Box
+        {...(fillHeight
+          ? {
+              flex: "1",
+              h: "full",
+              minH: 0,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }
+          : {})}
+      >
+        <Box flexShrink={0}>
+          <ScrollArea.Root width="full" size="xs">
+            <ScrollShadowViewport
+              ref={tabScrollRef as RefObject<HTMLDivElement>}
+              orientation="horizontal"
+            >
+              <ScrollArea.Content>
+                <Tabs.List flexWrap="nowrap">
+                  <Tabs.Trigger
+                    value="inventory"
+                    flexWrap="nowrap"
+                    gap={1}
+                    onClick={() => selectTab("inventory")}
+                  >
+                    {PACKAGE_ICON ? <SvgIcon icon={PACKAGE_ICON} boxSize="1em" /> : null}
+                    Inventory
+                  </Tabs.Trigger>
+                  {showStoredTab ? (
+                    <Tabs.Trigger
+                      value="stored"
+                      whiteSpace="nowrap"
+                      gap={1}
+                      onClick={() => selectTab("stored")}
                     >
-                      <Status.Indicator />
-                    </Status.Root>
+                      {STORED_ICON ? <SvgIcon icon={STORED_ICON} boxSize="1em" /> : null}
+                      Stored Items
+                    </Tabs.Trigger>
                   ) : null}
-                </Tabs.Trigger>
-              ) : null}
-              <GameStatePluginTabTriggers
-                tabs={pluginTabs}
-                unseenTabIds={unseenPluginTabIds}
-                onSelect={selectTab}
-              />
-              {isAdmin ? (
-                <Tabs.Trigger
-                  value={ADMIN_LISTENERS_TAB}
-                  whiteSpace="nowrap"
-                  onClick={() => selectTab(ADMIN_LISTENERS_TAB)}
-                >
-                  {EYE_ICON ? <SvgIcon icon={EYE_ICON} mr={1} /> : null}
-                  Big Brother
-                </Tabs.Trigger>
-              ) : null}
-            </Tabs.List>
-          </ScrollArea.Content>
-        </ScrollShadowViewport>
-        <ScrollArea.Scrollbar orientation="horizontal" />
-      </ScrollArea.Root>
+                  {showTradesGiftsTab ? (
+                    <Tabs.Trigger
+                      value={TRADES_GIFTS_TAB}
+                      whiteSpace="nowrap"
+                      position="relative"
+                      gap={1}
+                      pr={tradesGiftsUnseen ? 2 : undefined}
+                      onClick={() => selectTab(TRADES_GIFTS_TAB)}
+                    >
+                      {TRADES_ICON ? <SvgIcon icon={TRADES_ICON} boxSize="1em" /> : null}
+                      Trades/Gifts
+                      {tradesGiftsUnseen ? (
+                        <Status.Root
+                          size="sm"
+                          colorPalette="primary"
+                          position="absolute"
+                          top="0"
+                          right="0"
+                          pointerEvents="none"
+                        >
+                          <Status.Indicator />
+                        </Status.Root>
+                      ) : null}
+                    </Tabs.Trigger>
+                  ) : null}
+                  <GameStatePluginTabTriggers
+                    tabs={pluginTabs}
+                    unseenTabIds={unseenPluginTabIds}
+                    onSelect={selectTab}
+                  />
+                  {isAdmin ? (
+                    <Tabs.Trigger
+                      value={ADMIN_LISTENERS_TAB}
+                      whiteSpace="nowrap"
+                      gap={1}
+                      onClick={() => selectTab(ADMIN_LISTENERS_TAB)}
+                    >
+                      {EYE_ICON ? <SvgIcon icon={EYE_ICON} boxSize="1em" /> : null}
+                      Big Brother
+                    </Tabs.Trigger>
+                  ) : null}
+                </Tabs.List>
+              </ScrollArea.Content>
+            </ScrollShadowViewport>
+            <ScrollArea.Scrollbar orientation="horizontal" />
+          </ScrollArea.Root>
+        </Box>
 
-      {currentFrame ? (
-        <Stack gap={4}>
-          <GameStateDetailBreadcrumb
-            tabLabel={tabLabel}
-            detailTitle={detailDefinition?.name ?? (currentFrame ? detailFrameTitle(currentFrame) : "Back")}
-            onBack={() => sendNav({ type: "POP_TO_INDEX" })}
-          />
-          {currentFrame ? (
-            <GameStateDetailRouter frame={currentFrame} definition={detailDefinition} />
-          ) : null}
-        </Stack>
-      ) : (
-        <>
-          <Tabs.Content value="inventory">
-            <GameStateInventoryContent
-              enabledAttributes={enabledAttributes}
-              attributes={attributes}
-              inventoryEnabled={inventoryEnabled}
-              inventoryItems={inventoryItems}
-              maxSlots={maxSlots}
-              maxCollectionSlots={maxCollectionSlots}
-              definitionMap={definitionMap}
+        {currentFrame ? (
+          <Stack gap={4} {...(fillHeight ? { flex: "1", minH: 0, overflow: "hidden" } : {})}>
+            <GameStateDetailBreadcrumb
+              tabLabel={tabLabel}
+              detailTitle={
+                detailDefinition?.name ?? (currentFrame ? detailFrameTitle(currentFrame) : "Back")
+              }
+              onBack={() => sendNav({ type: "POP_TO_INDEX" })}
             />
-          </Tabs.Content>
-
-          {showStoredTab ? (
-            <Tabs.Content value="stored">
-              <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
-            </Tabs.Content>
-          ) : null}
-
-          {showTradesGiftsTab ? (
-            <Tabs.Content value={TRADES_GIFTS_TAB}>
-              <TradesGiftsTab />
-            </Tabs.Content>
-          ) : null}
-
-          <GameStatePluginTabContents tabs={pluginTabs} />
-
-          {isAdmin ? (
-            <Tabs.Content value={ADMIN_LISTENERS_TAB}>
-              <AdminListenersTab />
-            </Tabs.Content>
-          ) : null}
-        </>
-      )}
+            <Box
+              {...(fillHeight
+                ? {
+                    flex: "1",
+                    minH: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    overflowY: "auto",
+                  }
+                : {})}
+            >
+              <GameStateDetailRouter
+                frame={currentFrame}
+                definition={detailDefinition}
+                fillHeight={fillHeight}
+              />
+            </Box>
+          </Stack>
+        ) : fillHeight ? (
+          <Box flex="1" minH={0} overflowY="auto">
+            {tabContents}
+          </Box>
+        ) : (
+          tabContents
+        )}
+      </Box>
     </Tabs.Root>
   )
 }
@@ -292,12 +351,12 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   const modalSend = useModalsSend()
   const isOpen = useIsModalOpen("gameState")
   const activePanelSlot = useActiveIntegratedPanelSlot()
-  const sessionName = useActiveGameSessionName()
   const isAdmin = useIsAdmin()
   const sendAdminListener = useAdminListenerSend()
   const { pluginTabs, unseenPluginTabIds, markPluginTabViewed } = useGameStateNewPluginTabs()
   const sendNav = useGameStateNavSend()
   const gameStateTab = useGameStateActiveTab()
+  const currentFrame = useGameStateDetailFrame()
   const setGameStateTab = useCallback(
     (tabId: string) => sendNav({ type: "SET_ACTIVE_TAB", tabId }),
     [sendNav],
@@ -421,6 +480,17 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
     }
   }, [isOpen, gameStateTab, payload])
 
+  useEffect(() => {
+    if (!isOpen) return
+    const tradeId = payload?.activeTrade?.tradeId
+    if (tradeId) dismissAcceptedTradeToast(tradeId)
+  }, [isOpen, payload?.activeTrade?.tradeId])
+
+  useEffect(() => {
+    if (!isOpen || !currentFrame || !isTradeDetailFrame(currentFrame)) return
+    onTradeSessionViewed(currentFrame.tradeId)
+  }, [isOpen, currentFrame])
+
   const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
     const pluginUserState = payload?.pluginUserState ?? {}
     return {
@@ -438,36 +508,56 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   }, [payload, attributes])
 
   const showGameFooter = !loading && !error && !!payload?.session
+  const tradeChrome =
+    currentFrame && isTradeDetailFrame(currentFrame) ? (
+      <Stack gap={2}>
+        <TradeDetailInventoryPicker tradeId={currentFrame.tradeId} />
+        <TradeDetailComposer tradeId={currentFrame.tradeId} />
+        <TradeDetailActions tradeId={currentFrame.tradeId} />
+      </Stack>
+    ) : null
 
   const footer = showGameFooter ? (
-    <Stack gap={3} width="full" borderTopWidth={1} borderColor="border" pt={3}>
-      <UserModifiersList modifiers={payload.state?.modifiers ?? []} definitionMap={definitionMap} />
-      <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>
-        <HStack gap={2}>
-          {TROPHY_ICON ? <SvgIcon icon={TROPHY_ICON} boxSize={4} color="fg.muted" /> : null}
-          <Text fontSize="sm" color="fg.muted">
-            Score
-          </Text>
-          <Text fontSize="sm" fontWeight="semibold">
-            {formatNumber(attributes.score ?? 0)}
-          </Text>
+    <Stack gap={0} width="full" bg="bg.muted" borderTopWidth={1} borderColor="border" px={3} py={3}>
+      {tradeChrome}
+      <Stack
+        gap={3}
+        width="full"
+        {...(tradeChrome ? { borderTopWidth: 1, borderColor: "border", pt: 3, mt: 3 } : {})}
+      >
+        <UserModifiersList
+          modifiers={payload.state?.modifiers ?? []}
+          definitionMap={definitionMap}
+        />
+        <HStack justify="space-between" width="full" flexWrap="wrap" gap={4}>
+          <HStack gap={2}>
+            {TROPHY_ICON ? <SvgIcon icon={TROPHY_ICON} boxSize={4} color="fg.muted" /> : null}
+            <Text fontSize="sm" color="fg.muted">
+              Score
+            </Text>
+            <Text fontSize="sm" fontWeight="semibold">
+              {formatNumber(attributes.score ?? 0)}
+            </Text>
+          </HStack>
+          <HStack gap={2}>
+            {COINS_ICON ? <SvgIcon icon={COINS_ICON} boxSize={4} color="fg.muted" /> : null}
+            <Text fontSize="sm" color="fg.muted">
+              Coins
+            </Text>
+            <Text fontSize="sm" fontWeight="semibold">
+              {formatNumber(attributes.coin ?? 0)}
+            </Text>
+          </HStack>
         </HStack>
-        <HStack gap={2}>
-          {COINS_ICON ? <SvgIcon icon={COINS_ICON} boxSize={4} color="fg.muted" /> : null}
-          <Text fontSize="sm" color="fg.muted">
-            Coins
-          </Text>
-          <Text fontSize="sm" fontWeight="semibold">
-            {formatNumber(attributes.coin ?? 0)}
-          </Text>
-        </HStack>
-      </HStack>
+      </Stack>
     </Stack>
   ) : null
 
+  const fillHeight = variant === "panel"
+
   const body = (
     <UserGameStateContext.Provider value={gameStateValue}>
-      <Stack gap={5}>
+      <Stack gap={5} {...(fillHeight ? { flex: "1", minH: 0, h: "full", overflow: "hidden" } : {})}>
         {loading && (
           <HStack>
             <Spinner size="sm" />
@@ -511,6 +601,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
             storedArtifacts={storedArtifacts}
             refreshStoredArtifacts={refreshStoredArtifacts}
             tabScrollRef={tabScrollRef}
+            fillHeight={fillHeight}
           />
         )}
       </Stack>
@@ -522,15 +613,12 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   if (variant === "panel") {
     if (activePanelSlot !== "gameState") return null
 
-    const title = sessionName
-      ? `${INTEGRATED_PANEL_SLOTS.gameState.title} — ${sessionName}`
-      : INTEGRATED_PANEL_SLOTS.gameState.title
-
     return (
       <IntegratedPanelShell
-        title={title}
+        title={INTEGRATED_PANEL_SLOTS.gameState.title}
         onClose={() => modalSend({ type: "CLOSE" })}
         footer={showGameFooter ? footer : undefined}
+        fill
       >
         {body}
       </IntegratedPanelShell>
@@ -545,12 +633,9 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
       onClose={() => modalSend({ type: "CLOSE" })}
       placement="bottom"
       size="full"
-      heading={
-        sessionName
-          ? `${INTEGRATED_PANEL_SLOTS.gameState.title} — ${sessionName}`
-          : INTEGRATED_PANEL_SLOTS.gameState.title
-      }
+      heading={INTEGRATED_PANEL_SLOTS.gameState.title}
       footer={showGameFooter ? footer ?? undefined : undefined}
+      footerFlush
     >
       {body}
     </Drawer>

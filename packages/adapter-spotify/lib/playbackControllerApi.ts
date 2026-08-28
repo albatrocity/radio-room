@@ -5,6 +5,7 @@ import {
 } from "@repo/types"
 import { AccessToken, SpotifyApi } from "@spotify/web-api-ts-sdk"
 import { trackItemSchema } from "./schemas"
+import { isSpotifyGatewayError } from "./spotifyErrors"
 import { spotifySdkConfig } from "./spotifyRequestTimeout"
 
 function clampVolumePercent(volumePercent: number): number {
@@ -14,18 +15,6 @@ function clampVolumePercent(volumePercent: number): number {
 function isSpotifyEmptyBodySuccess(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error)
   return message.includes("JSON") || message.includes("Unexpected")
-}
-
-/**
- * Spotify's player endpoints intermittently answer 5xx for a request that did take
- * effect, so the response alone cannot decide whether playback started.
- */
-function isSpotifyGatewayError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error)
-  return (
-    /\b(502|503|504)\b/.test(message) &&
-    /(bad gateway|service unavailable|gateway time-?out)/i.test(message)
-  )
 }
 
 /** Spotify needs a moment to reflect a new item, so confirm over a few polls. */

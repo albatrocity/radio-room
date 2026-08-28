@@ -120,7 +120,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0112](0112-observed-transport-state.md) | Playback snapshots distinguish "unobservable" from "stopped" | Accepted |
 | [0113](0113-cd-era-album-cd-lp-split.md) | CD-era catalog albums: 60/40 CD vs LP | Accepted |
 | [0114](0114-player-item-gifting-and-trading.md) | Player item gifting and trading (core inventory protocol) | Partially superseded by [0115](0115-trade-invite-inbox.md) |
-| [0115](0115-trade-invite-inbox.md) | Trade invite inbox and Trades/Gifts Game State tab | Accepted |
+| [0115](0115-trade-invite-inbox.md) | Trade invite inbox and Trades/Gifts Game State tab | Partially superseded by [0129](0129-trade-session-lock-confirm-attention.md) |
 | [0116](0116-trade-session-sticky-notes.md) | Trade session sticky notes | Partially superseded by [0120](0120-targeted-trade-typing.md) |
 | [0117](0117-integrated-room-panel-slot.md) | Integrated room panel slot (lg+) | Partially superseded by [0128](0128-add-to-queue-overlays-integrated-panel.md) |
 | [0118](0118-resizable-room-layout-columns.md) | Resizable room layout columns (lg+) | Accepted |
@@ -134,6 +134,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0126](0126-collection-row-opens-item-detail.md) | Collection row opens item detail; Gift/Sell lives on detail | Partially superseded by [0127](0127-shared-item-detail-list-row.md) |
 | [0127](0127-shared-item-detail-list-row.md) | Shared item-detail list row (`ItemDetailListItem`) | Accepted |
 | [0128](0128-add-to-queue-overlays-integrated-panel.md) | Add to Queue overlays the integrated panel (`modalsMachine` parallel `queue` region) | Accepted |
+| [0129](0129-trade-session-lock-confirm-attention.md) | Trade session lock/confirm notifications and session attention | Accepted |
 
 ## Creating a New ADR
 

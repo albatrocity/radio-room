@@ -142,6 +142,20 @@ export async function getEffectiveMetadataSources(params: {
 type BrowseFailure = { ok: false; message: string; authFailure?: { status: 401; source: string } }
 type BrowseListSuccess<T> = { ok: true; source: string; items: T[]; total?: number }
 
+/** Keep Spotify SDK dumps (and similar upstream 5xx bodies) off the socket. */
+function browseClientMessage(error: unknown, fallback: string): string {
+  const message = error instanceof Error && error.message ? error.message : ""
+  if (!message) return fallback
+  if (
+    /unrecognised response code/i.test(message) ||
+    (/\b(502|503|504)\b/.test(message) &&
+      /(bad gateway|service unavailable|gateway time-?out)/i.test(message))
+  ) {
+    return "This catalog is temporarily unavailable. Please try again."
+  }
+  return message
+}
+
 async function withBrowseAuthHandling<T>(params: {
   context: AppContext
   roomId: string
@@ -164,8 +178,7 @@ async function withBrowseAuthHandling<T>(params: {
         source,
       })
     }
-    const message =
-      error instanceof Error && error.message ? error.message : failureMessage
+    const message = browseClientMessage(error, failureMessage)
     return {
       ok: false,
       message,

@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest"
 import {
   collectGiftOfferDefinitionIds,
   collectInventoryAndModifierDefinitionIds,
+  collectTradeSessionDefinitionIds,
 } from "./collectUserGameStateDefinitionIds"
-import type { GiftOffer, UserGameState, UserInventory } from "@repo/types"
+import type { GiftOffer, TradeSession, UserGameState, UserInventory } from "@repo/types"
 
 describe("collectInventoryAndModifierDefinitionIds", () => {
   it("returns empty for null inventory and state", () => {
@@ -46,6 +47,47 @@ describe("collectGiftOfferDefinitionIds", () => {
     expect(collectGiftOfferDefinitionIds(offers).sort()).toEqual([
       "item-shops:beer",
       "item-shops:pm-al-1",
+    ])
+  })
+})
+
+describe("collectTradeSessionDefinitionIds", () => {
+  it("returns empty for null trade", () => {
+    expect(collectTradeSessionDefinitionIds(null)).toEqual([])
+    expect(collectTradeSessionDefinitionIds({ tradeId: "t1" } as TradeSession)).toEqual([])
+  })
+
+  it("collects draft and offer ids from every participant", () => {
+    const trade = {
+      participants: {
+        a: {
+          userId: "a",
+          draft: [{ itemId: "i1", quantity: 1, definitionId: "item-shops:lemon", slotPool: "inventory" }],
+          offer: [],
+          locked: false,
+          confirmed: false,
+        },
+        b: {
+          userId: "b",
+          draft: [],
+          offer: [
+            {
+              escrowKey: "e1",
+              originalItemId: "i2",
+              definitionId: "item-shops:cucumber",
+              sourcePlugin: "item-shops",
+              quantity: 1,
+              slotPool: "inventory",
+            },
+          ],
+          locked: true,
+          confirmed: false,
+        },
+      },
+    } as unknown as TradeSession
+    expect(collectTradeSessionDefinitionIds(trade).sort()).toEqual([
+      "item-shops:cucumber",
+      "item-shops:lemon",
     ])
   })
 })

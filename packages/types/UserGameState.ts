@@ -13,7 +13,8 @@ import type { TradeInvite, TradeSession } from "./Trade"
  *
  * `itemDefinitions` is a **filtered** slice: inventory + modifier refs + plugin
  * extras (`referencedItemDefinitionIdsForUser`, e.g. shop offers) + pending
- * gift SKUs (escrowed items are not in the bag) — not the full room catalog.
+ * gift SKUs + active-trade draft/offer SKUs (escrowed and counterpart items
+ * are not in the bag) — not the full room catalog.
  */
 export interface UserGameStatePayload {
   session: GameSession | null

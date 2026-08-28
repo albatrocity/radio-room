@@ -6,6 +6,8 @@ interface Props {
   headingActions?: ReactNode
   children: ReactNode
   footer?: ReactNode
+  /** Skip Chakra footer padding so children can go edge-to-edge. */
+  footerFlush?: boolean
   open?: boolean
   onOpenChange?: (details: { open: boolean }) => void
   placement?: "start" | "end" | "top" | "bottom"
@@ -20,6 +22,7 @@ const Drawer = ({
   headingActions,
   children,
   footer,
+  footerFlush = false,
   open,
   isOpen,
   onOpenChange,
@@ -61,7 +64,13 @@ const Drawer = ({
           </ChakraDrawer.Header>
           <ChakraDrawer.Body>{children}</ChakraDrawer.Body>
           {footer && (
-            <ChakraDrawer.Footer borderTopWidth="1px">
+            <ChakraDrawer.Footer
+              borderTopWidth="1px"
+              p={footerFlush ? 0 : undefined}
+              flexDirection={footerFlush ? "column" : undefined}
+              alignItems={footerFlush ? "stretch" : undefined}
+              w="full"
+            >
               {footer}
             </ChakraDrawer.Footer>
           )}

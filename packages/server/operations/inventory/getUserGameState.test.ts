@@ -82,6 +82,48 @@ describe("getUserGameState", () => {
     )
   })
 
+  test("includes counterpart trade offer definition ids when loading itemDefinitions", async () => {
+    const trade = {
+      tradeId: "t1",
+      participants: {
+        u1: { userId: "u1", draft: [], offer: [], locked: false, confirmed: false },
+        u2: {
+          userId: "u2",
+          draft: [{ itemId: "i2", quantity: 1, definitionId: "item-shops:their-lp", slotPool: "inventory" }],
+          offer: [],
+          locked: false,
+          confirmed: false,
+        },
+      },
+    }
+    const getItemDefinitions = vi.fn().mockResolvedValue([])
+    const context = {
+      gameSessions: {
+        getActiveSession: vi.fn().mockResolvedValue({ id: "s1", config: { allowTrading: true } }),
+        getUserState: vi.fn().mockResolvedValue({ coins: 0, modifiers: [] }),
+      },
+      inventory: {
+        getInventory: vi.fn().mockResolvedValue({ items: [] }),
+        getItemDefinitions,
+      },
+      gifts: {
+        listIncoming: vi.fn().mockResolvedValue([]),
+        listOutgoing: vi.fn().mockResolvedValue([]),
+      },
+      trades: {
+        listIncomingInvites: vi.fn().mockResolvedValue([]),
+        listOutgoingInvites: vi.fn().mockResolvedValue([]),
+        getTradeForUser: vi.fn().mockResolvedValue(trade),
+      },
+    } as unknown as AppContext
+
+    await getUserGameState({ context, roomId: "room1", userId: "u1" })
+    expect(getItemDefinitions).toHaveBeenCalledWith(
+      "room1",
+      expect.arrayContaining(["item-shops:their-lp"]),
+    )
+  })
+
   test("skips gift and trade Redis when allowTrading is off", async () => {
     const gifts = {
       listIncoming: vi.fn(),

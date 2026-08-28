@@ -1,3 +1,4 @@
+import { useArtworkOverlayIsCompact } from "./ArtworkOverlaySizeContext"
 import OverlaySvg from "./OverlaySvg"
 import { CASSETTE_CASE_MM, CASSETTE_INSERT_MM } from "./frameStyles"
 
@@ -23,6 +24,7 @@ const SHELL_PATH = [
  * `frameArtworkInset` keeps the cover art inside the same window.
  */
 export default function CassetteCaseOverlay({ idPrefix = "cc" }: Props) {
+  const compact = useArtworkOverlayIsCompact()
   const plasticId = `${idPrefix}-plastic`
   const sheenId = `${idPrefix}-sheen`
   const wrapId = `${idPrefix}-wrap`
@@ -36,15 +38,19 @@ export default function CassetteCaseOverlay({ idPrefix = "cc" }: Props) {
           <stop offset="45%" stopColor="#dfe6ec" stopOpacity="0.3" />
           <stop offset="100%" stopColor="#b3bec9" stopOpacity="0.38" />
         </linearGradient>
-        <linearGradient id={sheenId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#fff" stopOpacity="0.42" />
-          <stop offset="55%" stopColor="#fff" stopOpacity="0.14" />
-          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
-        <linearGradient id={wrapId} x1="1" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#fff" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-        </linearGradient>
+        {!compact && (
+          <>
+            <linearGradient id={sheenId} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#fff" stopOpacity="0.42" />
+              <stop offset="55%" stopColor="#fff" stopOpacity="0.14" />
+              <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id={wrapId} x1="1" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fff" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+            </linearGradient>
+          </>
+        )}
         <linearGradient id={edgeId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#000" stopOpacity="0.26" />
           <stop offset="45%" stopColor="#000" stopOpacity="0" />
@@ -116,14 +122,17 @@ export default function CassetteCaseOverlay({ idPrefix = "cc" }: Props) {
         strokeWidth="0.5"
       />
 
-      <polygon points="1.3,1.3 34,1.3 13,52 1.3,52" fill={`url(#${sheenId})`} />
-      <polygon
-        points={`44,1.3 ${CASE.width - 1.3},1.3 ${CASE.width - 1.3},24 26,${CASE.height - 1.3} 12,${CASE.height - 1.3}`}
-        fill={`url(#${wrapId})`}
-      />
-
-      <line x1="3" y1="34" x2={CASE.width - 3} y2="26" stroke="#fff" strokeOpacity="0.13" strokeWidth="0.5" />
-      <line x1="3" y1="72" x2={CASE.width - 3} y2="80" stroke="#fff" strokeOpacity="0.1" strokeWidth="0.45" />
+      {!compact && (
+        <>
+          <polygon points="1.3,1.3 34,1.3 13,52 1.3,52" fill={`url(#${sheenId})`} />
+          <polygon
+            points={`44,1.3 ${CASE.width - 1.3},1.3 ${CASE.width - 1.3},24 26,${CASE.height - 1.3} 12,${CASE.height - 1.3}`}
+            fill={`url(#${wrapId})`}
+          />
+          <line x1="3" y1="34" x2={CASE.width - 3} y2="26" stroke="#fff" strokeOpacity="0.13" strokeWidth="0.5" />
+          <line x1="3" y1="72" x2={CASE.width - 3} y2="80" stroke="#fff" strokeOpacity="0.1" strokeWidth="0.45" />
+        </>
+      )}
 
       <rect x="0" y="0" width={CASE.width} height={CASE.height} fill={`url(#${edgeId})`} />
     </OverlaySvg>

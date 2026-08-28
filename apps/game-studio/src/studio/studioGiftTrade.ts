@@ -11,7 +11,7 @@ import type {
   TradeSession,
 } from "@repo/types"
 import { PLAYER_TRANSFER_TTL_MS } from "@repo/types/PlayerTransfer"
-import { TRADE_MESSAGE_MAX_LENGTH } from "@repo/types"
+import { TRADE_MESSAGE_MAX_LENGTH, draftFromEscrowedOffer } from "@repo/types"
 import type { StudioRoom } from "./studioRoom"
 import { getStudio } from "./studioEnvironment"
 
@@ -81,16 +81,15 @@ async function giveEscrowed(
     metadata?: Record<string, unknown>
   },
   source: "gift" | "trade" = "gift",
-): Promise<boolean> {
+): Promise<InventoryItem | null> {
   const { itemShopsContext } = getStudio()
-  const given = await itemShopsContext.inventory.giveItem(
+  return itemShopsContext.inventory.giveItem(
     toUserId,
     row.definitionId,
     row.quantity,
     row.metadata,
     source,
   )
-  return given != null
 }
 
 export function pendingGiftsForUser(
@@ -396,10 +395,15 @@ export function studioTradeTyping(params: {
   return { success: true, message: "Typing", trade }
 }
 
-async function refundOffer(userId: string, offer: TradeOfferItem[]): Promise<void> {
+async function refundOffer(
+  userId: string,
+  offer: TradeOfferItem[],
+): Promise<Array<InventoryItem | null>> {
+  const refunded: Array<InventoryItem | null> = []
   for (const row of offer) {
-    await giveEscrowed(userId, row, "trade")
+    refunded.push(await giveEscrowed(userId, row, "trade"))
   }
+  return refunded
 }
 
 export async function studioTradeLock(params: {
@@ -472,9 +476,12 @@ export async function studioTradeUnlock(params: {
   }
 
   for (const p of Object.values(trade.participants)) {
-    await refundOffer(p.userId, p.offer)
+    const refunded = await refundOffer(p.userId, p.offer)
+    p.draft = draftFromEscrowedOffer(
+      p.offer,
+      refunded.map((item) => item?.itemId),
+    )
     p.offer = []
-    p.draft = []
     p.locked = false
     p.confirmed = false
   }

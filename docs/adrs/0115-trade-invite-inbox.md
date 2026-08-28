@@ -1,7 +1,7 @@
 # 0115. Trade invite inbox and Trades/Gifts Game State tab
 
 **Date:** 2026-08-25
-**Status:** Accepted
+**Status:** Partially superseded by [0129](0129-trade-session-lock-confirm-attention.md) (session attention + lock/confirm toasts; inbox badge rules remain)
 
 ## Context
 
@@ -23,7 +23,7 @@ Hosts also needed to disable gifting/trading mid-session (e.g. end-of-show) with
 
 4. **Trades/Gifts built-in Game State tab** (visible when `allowTrading`). Trades section: active row (0–1) + invite lists. Gifts section: extracted pending-gifts panel. Trade negotiation drill-down via `GameStateDetailFrame` `{ kind: "trade" }` and nav stack — not a standalone modal.
 
-5. **Attention + toasts.** Tab badge stays while any **incoming** gift or trade invite is pending (also set by live offer events and inviter “trade accepted”). That attention **bubbles to the Game State button** alongside plugin-tab attention. Viewing the tab dismisses offer toasts but does **not** clear the badge until the inbox is empty. Flash toasts via `giftInboxActor` + `gameStateTradesGiftsAttentionMachine`.
+5. **Attention + toasts.** Tab badge stays while any **incoming** gift or trade invite is pending (also set by live offer events). That attention **bubbles to the Game State button** alongside plugin-tab attention. Viewing the tab dismisses offer toasts but does **not** clear the inbox badge until the inbox is empty. Flash toasts via `giftInboxActor` + `gameStateTradesGiftsAttentionMachine`. Inviter “trade accepted,” counterpart lock, and counterpart confirm are **session attention** — [ADR 0129](0129-trade-session-lock-confirm-attention.md).
 
 6. **Mid-session `allowTrading` toggle.** Admin `UPDATE_GAME_SESSION_CONFIG` patches the active session. Disabling runs gift/trade/invite cleanup (refunds, cancel sessions) **without** ending the session. Emits `GAME_SESSION_CONFIG_UPDATED` so clients refetch.
 
@@ -38,6 +38,7 @@ Hosts also needed to disable gifting/trading mid-session (e.g. end-of-show) with
 
 ## See also
 
+- [0129. Trade session lock/confirm notifications](0129-trade-session-lock-confirm-attention.md)
 - [0114. Player item gifting and trading](0114-player-item-gifting-and-trading.md) — core escrow protocol (partially superseded)
 - [0043. Game state tabs](0043-game-state-tabs-and-composable-shop-helper.md)
 - [0106. Game state nav machine](0106-game-state-nav-machine.md)
