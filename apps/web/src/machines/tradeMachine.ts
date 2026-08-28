@@ -140,6 +140,7 @@ export const tradeMachine = setup({
       exit: ["unsubscribe"],
       on: {
         DEACTIVATE: { target: "idle", actions: ["reset"] },
+        ACTIVATE: { actions: ["assignFromActivate"] },
         RESET: { actions: ["reset"] },
         TRADE_UPDATED: { actions: ["assignTradeEvent"] },
         TRADE_COMPLETED: { actions: ["assignTradeEvent"] },

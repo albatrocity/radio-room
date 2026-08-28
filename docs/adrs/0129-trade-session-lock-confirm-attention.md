@@ -36,3 +36,4 @@ Live negotiation is different. If the counterpart locks or confirms while you ar
 - [0115. Trade invite inbox](0115-trade-invite-inbox.md)
 - [`apps/web/src/actors/giftInboxActor.ts`](../../apps/web/src/actors/giftInboxActor.ts)
 - [`apps/web/src/lib/tradeSessionNotifications.ts`](../../apps/web/src/lib/tradeSessionNotifications.ts)
+- [0131. Completed trades return to Inventory with a toast](0131-trade-complete-inventory-toast.md)

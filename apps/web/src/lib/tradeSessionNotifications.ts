@@ -4,33 +4,27 @@ import { isModalOpen } from "../actors/modalsActor"
 import { markTradesGiftsSessionViewed } from "../actors/gameStateTradesGiftsAttentionActor"
 import { currentDetailFrame } from "../machines/gameStateNavMachine"
 import { isTradeDetailFrame } from "../types/GameStateDetail"
-import { toaster } from "../components/ui/toaster"
+import {
+  dismissAcceptedTradeToast,
+  dismissTradeSessionToasts,
+  tradeAcceptedToastId,
+  tradeCompleteToastId,
+  tradeConfirmToastId,
+  tradeLockToastId,
+} from "./tradeToasts"
+
+export {
+  dismissAcceptedTradeToast,
+  dismissTradeSessionToasts,
+  tradeAcceptedToastId,
+  tradeCompleteToastId,
+  tradeConfirmToastId,
+  tradeLockToastId,
+}
 
 export type TradeWatchSnapshot = {
   otherLocked: boolean
   otherConfirmed: boolean
-}
-
-export function tradeAcceptedToastId(tradeId: string): string {
-  return `trade-accepted-${tradeId}`
-}
-
-export function tradeLockToastId(tradeId: string): string {
-  return `trade-lock-${tradeId}`
-}
-
-export function tradeConfirmToastId(tradeId: string): string {
-  return `trade-confirm-${tradeId}`
-}
-
-export function dismissAcceptedTradeToast(tradeId: string): void {
-  toaster.dismiss(tradeAcceptedToastId(tradeId))
-}
-
-export function dismissTradeSessionToasts(tradeId: string): void {
-  toaster.dismiss(tradeAcceptedToastId(tradeId))
-  toaster.dismiss(tradeLockToastId(tradeId))
-  toaster.dismiss(tradeConfirmToastId(tradeId))
 }
 
 export function watchSnapshotForUser(

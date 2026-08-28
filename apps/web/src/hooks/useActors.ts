@@ -29,6 +29,7 @@ import { gameSessionActor } from "../actors/gameSessionActor"
 import {
   userGameStateActor,
   refreshUserGameState,
+  refreshStoredArtifacts,
   type UserGameStatePayload,
 } from "../actors/userGameStateActor"
 import {
@@ -561,7 +562,7 @@ export const useHasActiveGameSession = () => {
 // User Game State Hooks
 // ============================================================================
 
-export { refreshUserGameState }
+export { refreshUserGameState, refreshStoredArtifacts }
 export type { UserGameStatePayload }
 
 export const useUserGameStatePayload = () => {
@@ -590,6 +591,10 @@ export const useUserInventory = () => {
 
 export const useUserItemDefinitions = () => {
   return useSelector(userGameStateActor, (s) => s.context.payload?.itemDefinitions ?? [])
+}
+
+export const useStoredArtifacts = () => {
+  return useSelector(userGameStateActor, (s) => s.context.storedArtifacts)
 }
 
 // ============================================================================

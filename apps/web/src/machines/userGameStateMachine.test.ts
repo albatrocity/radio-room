@@ -90,6 +90,22 @@ describe("userGameStateMachine refetch characterization", () => {
     })
     actor.send({ type: "GAME_SESSION_ENDED", data: {} })
     expect(actor.getSnapshot().context.payload?.session).toBeNull()
+    expect(actor.getSnapshot().context.storedArtifacts).toEqual([])
+  })
+
+  it("fetches and stores artifacts when a session is present", () => {
+    activateReady()
+    vi.mocked(emitToSocket).mockClear()
+    actor.send({
+      type: "USER_GAME_STATE",
+      data: { ...emptyPayload, session: { id: "s1" } as any },
+    })
+    expect(emitToSocket).toHaveBeenCalledWith("GET_STORED_ARTIFACTS", {})
+    actor.send({
+      type: "STORED_ARTIFACTS_RESULT",
+      data: { artifacts: [{ id: "a1" }] as never },
+    })
+    expect(actor.getSnapshot().context.storedArtifacts).toEqual([{ id: "a1" }])
   })
 
   it("collapses the current user's own inventory burst into one refetch", async () => {

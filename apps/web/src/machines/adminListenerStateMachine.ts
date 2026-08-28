@@ -5,7 +5,8 @@
  * subscribes to socket events and keeps a snapshot of every session
  * participant's attributes and inventory in sync.
  *
- * Send ACTIVATE when the tab is shown, DEACTIVATE when hidden or the modal closes.
+ * Send ACTIVATE when the tab is shown, DEACTIVATE when hidden or Game State closes
+ * (gameStateNavMachine, ADR 0130).
  */
 
 import type { GameSession, ItemDefinition, UserGameState, UserInventory } from "@repo/types"

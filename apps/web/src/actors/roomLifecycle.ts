@@ -166,8 +166,8 @@ export function teardownRoom(): void {
   pollActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
   addToQueueUiActor.send({ type: "DEACTIVATE" })
-  // Activated by the Game State modal, not by room entry; reset here so detail
-  // frames never outlive the room they came from.
+  // Activated by modalsMachine gameState entry (ADR 0130), not by room entry; reset
+  // here so detail frames never outlive the room they came from.
   gameStateNavActor.send({ type: "RESET" })
   mediaBridgeActor.send({ type: "DEACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })

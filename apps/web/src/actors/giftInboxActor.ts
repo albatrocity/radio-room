@@ -8,7 +8,8 @@ import type { GiftOffer, TradeInvite, TradeSession } from "@repo/types"
 import { subscribeById, unsubscribeById } from "./socketActor"
 import { getCurrentUser } from "./authActor"
 import { getUserById } from "./usersActor"
-import { openGameStateOnTab, TRADES_GIFTS_TAB } from "./modalsActor"
+import { onTradeSessionCompleted, openGameStateOnTab, TRADES_GIFTS_TAB } from "./modalsActor"
+import { isViewingGameStateTab } from "../lib/isViewingGameStateTab"
 import {
   markTradesGiftsSessionUnseen,
   markTradesGiftsTabUnseen,
@@ -21,6 +22,7 @@ import {
   dismissTradeSessionToasts,
   isViewingTradeSession,
   tradeAcceptedToastId,
+  tradeCompleteToastId,
   tradeConfirmToastId,
   tradeLockToastId,
   watchSnapshotForUser,
@@ -79,7 +81,7 @@ type Event =
         cancelledByUserId?: string
       }
     }
-  | { type: "TRADE_COMPLETED"; data?: { trade?: { tradeId: string; participants: Record<string, unknown> } } }
+  | { type: "TRADE_COMPLETED"; data?: { trade?: TradeSession } }
   | { type: "TRADE_UPDATED"; data?: { trade?: TradeSession } }
 
 function openTradeSession(tradeId: string, otherName: string): void {
@@ -162,18 +164,20 @@ const giftInboxMachine = setup({
       const fromName =
         getUserById(offer.fromUserId)?.username?.trim() || "Someone"
       const label = offer.itemName ?? "an item"
-      markTradesGiftsTabUnseen()
-      toaster.create({
-        title: "Gift received",
-        description: `${fromName} offered you ${label}. Open Trades/Gifts to accept or decline.`,
-        type: "info",
-        duration: 8000,
-        closable: true,
-        action: {
-          label: "Open",
-          onClick: () => openGameStateOnTab({ tabId: TRADES_GIFTS_TAB }),
-        },
-      })
+      if (!isViewingGameStateTab(TRADES_GIFTS_TAB)) {
+        markTradesGiftsTabUnseen()
+        toaster.create({
+          title: "Gift received",
+          description: `${fromName} offered you ${label}. Open Trades/Gifts to accept or decline.`,
+          type: "info",
+          duration: 8000,
+          closable: true,
+          action: {
+            label: "Open",
+            onClick: () => openGameStateOnTab({ tabId: TRADES_GIFTS_TAB }),
+          },
+        })
+      }
 
       return { toastedOfferIds: [...context.toastedOfferIds, offer.offerId] }
     }),
@@ -204,49 +208,51 @@ const giftInboxMachine = setup({
       const fromName =
         getUserById(invite.fromUserId)?.username?.trim() || "Someone"
 
-      markTradesGiftsTabUnseen()
-      toaster.create({
-        id: tradeInviteToastId(invite.inviteId),
-        title: "Trade invite",
-        description: `${fromName} wants to trade with you.`,
-        type: "info",
-        duration: 12000,
-        closable: true,
-        action: {
-          label: "Accept",
-          onClick: () => {
-            emitTradeInviteRespond({
-              inviteId: invite.inviteId,
-              fromUserId: invite.fromUserId,
-              toUserId: invite.toUserId,
-              accept: true,
-              onAccepted: ({ tradeId }) => {
-                openGameStateOnTab({
-                  tabId: TRADES_GIFTS_TAB,
-                  frame: {
-                    kind: "trade",
-                    tradeId,
-                    title: `Trade with ${fromName}`,
-                  },
-                })
-              },
-            })
-          },
-        },
-        meta: {
-          secondaryAction: {
-            label: "Decline",
+      if (!isViewingGameStateTab(TRADES_GIFTS_TAB)) {
+        markTradesGiftsTabUnseen()
+        toaster.create({
+          id: tradeInviteToastId(invite.inviteId),
+          title: "Trade invite",
+          description: `${fromName} wants to trade with you.`,
+          type: "info",
+          duration: 12000,
+          closable: true,
+          action: {
+            label: "Accept",
             onClick: () => {
               emitTradeInviteRespond({
                 inviteId: invite.inviteId,
                 fromUserId: invite.fromUserId,
                 toUserId: invite.toUserId,
-                accept: false,
+                accept: true,
+                onAccepted: ({ tradeId }) => {
+                  openGameStateOnTab({
+                    tabId: TRADES_GIFTS_TAB,
+                    frame: {
+                      kind: "trade",
+                      tradeId,
+                      title: `Trade with ${fromName}`,
+                    },
+                  })
+                },
               })
             },
           },
-        },
-      })
+          meta: {
+            secondaryAction: {
+              label: "Decline",
+              onClick: () => {
+                emitTradeInviteRespond({
+                  inviteId: invite.inviteId,
+                  fromUserId: invite.fromUserId,
+                  toUserId: invite.toUserId,
+                  accept: false,
+                })
+              },
+            },
+          },
+        })
+      }
 
       return { toastedInviteIds: [...context.toastedInviteIds, invite.inviteId] }
     }),
@@ -444,14 +450,18 @@ const giftInboxMachine = setup({
 
       if (trade.tradeId) dismissTradeSessionToasts(trade.tradeId)
       toaster.dismiss(`trade-invite-${trade.tradeId}`)
+
+      const otherId = trade.fromUserId === me ? trade.toUserId : trade.fromUserId
+      const otherName = getUserById(otherId)?.username?.trim() || "Someone"
       toaster.create({
+        id: tradeCompleteToastId(trade.tradeId),
         title: "Trade complete",
-        description: "Your items have been exchanged.",
+        description: `You exchanged items with ${otherName}.`,
         type: "success",
         duration: 5000,
         closable: true,
       })
-      openGameStateOnTab({ tabId: TRADES_GIFTS_TAB })
+      onTradeSessionCompleted(isViewingTradeSession(trade.tradeId))
 
       return {
         watchedTrades: trade.tradeId

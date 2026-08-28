@@ -1,7 +1,9 @@
 import { assign, setup } from "xstate"
 
 import { getIsAdmin } from "../actors/authActor"
+import { gameStateNavActor } from "../actors/gameStateNavActor"
 import { emitToSocket } from "../actors/socketActor"
+import { refreshUserGameState } from "../actors/userGameStateActor"
 import { canAddToQueue as canDjAddToQueue } from "../actors/djActor"
 
 type Context = {
@@ -105,6 +107,13 @@ export const modalsMachine = setup({
       queueBrowseMediaKey: event.type === "EDIT_QUEUE" ? event.browseMediaKey ?? null : null,
     })),
     clearQueueBrowseMediaKey: assign({ queueBrowseMediaKey: null }),
+    activateGameStateNav: () => {
+      gameStateNavActor.send({ type: "ACTIVATE" })
+      refreshUserGameState()
+    },
+    deactivateGameStateNav: () => {
+      gameStateNavActor.send({ type: "DEACTIVATE" })
+    },
   },
 }).createMachine({
   id: "modals",
@@ -160,7 +169,10 @@ export const modalsMachine = setup({
         listeners: {},
         help: {},
         schedule: {},
-        gameState: {},
+        gameState: {
+          entry: ["activateGameStateNav"],
+          exit: ["deactivateGameStateNav"],
+        },
         pollHistory: {},
         createRoom: {},
         settings: {

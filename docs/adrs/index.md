@@ -111,7 +111,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0103](0103-physical-media-track-previews.md) | Physical Media track previews (ffmpeg RPC, Redis cache, client ducking) | Accepted |
 | [0104](0104-game-state-item-detail-subroute.md) | Game State item detail subroute (`detailView`, per-tab stack) | Accepted (point 1 superseded by [0106](0106-game-state-nav-machine.md); list Details chrome superseded by [0126](0126-collection-row-opens-item-detail.md) / [0127](0127-shared-item-detail-list-row.md)) |
 | [0105](0105-add-to-queue-ui-session-persistence.md) | Add to Queue UI session persistence (mode, source, browse location) | Accepted |
-| [0106](0106-game-state-nav-machine.md) | Game State nav stack in a machine (tab + detail frames, preview teardown) | Accepted |
+| [0106](0106-game-state-nav-machine.md) | Game State nav stack in a machine (tab + detail frames, preview teardown) | Partially superseded by [0130](0130-game-state-overlay-lifecycle-in-machines.md) |
 | [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) | Game sessions independent of segment plugin activation | Accepted |
 | [0108](0108-local-catalog-browse-result-cache.md) | Local CatalogBrowse result cache (album/playlist tracks in Redis) | Accepted |
 | [0109](0109-local-remote-loopback-sidechain-ducking.md) | local-remote: Loopback sidechain ducking engine (Ableton replacement) | Accepted |
@@ -135,6 +135,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0127](0127-shared-item-detail-list-row.md) | Shared item-detail list row (`ItemDetailListItem`) | Accepted |
 | [0128](0128-add-to-queue-overlays-integrated-panel.md) | Add to Queue overlays the integrated panel (`modalsMachine` parallel `queue` region) | Accepted |
 | [0129](0129-trade-session-lock-confirm-attention.md) | Trade session lock/confirm notifications and session attention | Accepted |
+| [0130](0130-game-state-overlay-lifecycle-in-machines.md) | Game State overlay lifecycle in machines (not surface `useEffect`s) | Accepted |
+| [0131](0131-trade-complete-inventory-toast.md) | Completed-trade toast; Inventory nav only if viewing the session | Accepted |
 
 ## Creating a New ADR
 

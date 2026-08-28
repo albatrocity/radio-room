@@ -87,6 +87,11 @@ export function openGameStateOnTab(params: {
   modalsActor.send({ type: "VIEW_GAME_STATE" })
 }
 
+/** Drop the finished trade frame; switch to Inventory only if already viewing it (ADR 0131). */
+export function onTradeSessionCompleted(goToInventory: boolean): void {
+  gameStateNavActor.send({ type: "TRADE_SESSION_COMPLETED", goToInventory })
+}
+
 /**
  * Open Game State on an item detail frame (ADR 0104/0106).
  *

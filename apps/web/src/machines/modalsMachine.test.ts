@@ -10,7 +10,15 @@ vi.mock("../actors/authActor", () => ({
 vi.mock("../actors/djActor", () => ({
   canAddToQueue: () => true,
 }))
+vi.mock("../actors/gameStateNavActor", () => ({
+  gameStateNavActor: { send: vi.fn() },
+}))
+vi.mock("../actors/userGameStateActor", () => ({
+  refreshUserGameState: vi.fn(),
+}))
 
+import { gameStateNavActor } from "../actors/gameStateNavActor"
+import { refreshUserGameState } from "../actors/userGameStateActor"
 import { modalsMachine } from "./modalsMachine"
 
 describe("modalsMachine", () => {
@@ -59,5 +67,16 @@ describe("modalsMachine", () => {
 
     expect(actor.getSnapshot().matches("modal.settings.dj")).toBe(true)
     expect(actor.getSnapshot().matches("queue.open")).toBe(true)
+  })
+
+  it("activates game state nav and refreshes when Game State opens", () => {
+    const actor = createActor(modalsMachine).start()
+    actor.send({ type: "VIEW_GAME_STATE" })
+
+    expect(gameStateNavActor.send).toHaveBeenCalledWith({ type: "ACTIVATE" })
+    expect(refreshUserGameState).toHaveBeenCalled()
+
+    actor.send({ type: "CLOSE" })
+    expect(gameStateNavActor.send).toHaveBeenCalledWith({ type: "DEACTIVATE" })
   })
 })

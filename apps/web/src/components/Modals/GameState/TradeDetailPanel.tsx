@@ -15,7 +15,8 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import { LuLock, LuThumbsUp } from "react-icons/lu"
+import { ClassNames, css, keyframes } from "@emotion/react"
+import { LuLock, LuLockOpen, LuThumbsUp } from "react-icons/lu"
 import {
   TRADE_MESSAGE_MAX_LENGTH,
   type TradeDraftItem,
@@ -26,6 +27,7 @@ import ItemArtwork from "../../ItemArtwork"
 import ScrollShadowViewport from "../../ScrollShadowViewport"
 import { useCurrentUser, useUserGameStatePayload } from "../../../hooks/useActors"
 import { useIntegratedPanelPresentation } from "../../../hooks/useIntegratedPanelPresentation"
+import { useAnimationsEnabled } from "../../../hooks/useReducedMotion"
 import { emitToSocket } from "../../../actors/socketActor"
 import { getUserById } from "../../../actors/usersActor"
 import { emitTradeCancel } from "../../../lib/tradeCancelledByMe"
@@ -37,6 +39,23 @@ const PICKER_ARTWORK_SIZE = FRAMED_ARTWORK_BOX_SIZE
 /** Tall enough for square row art plus chip padding. */
 const PICKER_ROW_H = "4.25rem"
 const PICKER_ROW_GAP = "0.25rem"
+
+/** Unique name — Chakra/Panda also define `@keyframes pulse` as an opacity fade. */
+const kfConfirmPulse = keyframes`
+  from, to {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+`
+
+const confirmPulseAnim = css`
+  animation: ${kfConfirmPulse} 1s ease-in-out infinite;
+  display: inline-flex;
+  transform-origin: center;
+  will-change: transform;
+`
 
 function pickerStripHeight(rows: number): string {
   if (rows <= 1) return PICKER_ROW_H
@@ -645,7 +664,10 @@ function TradeSessionStatus({
 /** Lock / confirm / cancel — pinned in Game State chrome below the inventory picker. */
 export function TradeDetailActions({ tradeId }: { tradeId: string }) {
   const { activeTrade, mine, bothLocked } = useTradeParticipants(tradeId)
+  const animationsEnabled = useAnimationsEnabled()
   if (!activeTrade) return null
+
+  const pulseConfirm = bothLocked && !mine?.confirmed && animationsEnabled
 
   return (
     <HStack justify="space-between" align="center" flexWrap="wrap" gap={2} w="full">
@@ -659,6 +681,7 @@ export function TradeDetailActions({ tradeId }: { tradeId: string }) {
             colorPalette="action"
             onClick={() => emitToSocket("TRADE_LOCK", { tradeId: activeTrade.tradeId })}
           >
+            <Icon as={LuLock} />
             Lock offer
           </Button>
         )}
@@ -668,18 +691,25 @@ export function TradeDetailActions({ tradeId }: { tradeId: string }) {
             variant="outline"
             onClick={() => emitToSocket("TRADE_UNLOCK", { tradeId: activeTrade.tradeId })}
           >
+            <Icon as={LuLockOpen} />
             Unlock
           </Button>
         )}
         {bothLocked && (
-          <Button
-            size="sm"
-            colorPalette="action"
-            disabled={mine?.confirmed}
-            onClick={() => emitToSocket("TRADE_CONFIRM", { tradeId: activeTrade.tradeId })}
-          >
-            {mine?.confirmed ? "Waiting…" : "Confirm trade"}
-          </Button>
+          <ClassNames>
+            {({ css: cx }) => (
+              <Box display="inline-flex" className={pulseConfirm ? cx(confirmPulseAnim) : undefined}>
+                <Button
+                  size="sm"
+                  colorPalette="action"
+                  disabled={mine?.confirmed}
+                  onClick={() => emitToSocket("TRADE_CONFIRM", { tradeId: activeTrade.tradeId })}
+                >
+                  {mine?.confirmed ? "Waiting…" : "Confirm trade"}
+                </Button>
+              </Box>
+            )}
+          </ClassNames>
         )}
       </HStack>
     </HStack>

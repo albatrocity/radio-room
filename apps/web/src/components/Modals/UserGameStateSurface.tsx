@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react"
 import { Box, HStack, ScrollArea, Spinner, Stack, Status, Tabs, Text } from "@chakra-ui/react"
 import type {
   GameAttributeName,
@@ -8,30 +8,22 @@ import type {
 } from "@repo/types"
 import { getPluginUserState } from "../../lib/getPluginUserState"
 import Drawer from "../Drawer"
-import { emitToSocket, subscribeById, unsubscribeById } from "../../actors/socketActor"
 import {
   useIsModalOpen,
   useModalsSend,
   useUserGameStatePayload,
   useUserGameStateLoading,
   useUserGameStateError,
-  refreshUserGameState,
+  useStoredArtifacts,
+  refreshStoredArtifacts,
   useIsAdmin,
-  useAdminListenerSend,
   useGameStateActiveTab,
   useGameStateDetailFrame,
   useGameStateNavSend,
   useTradesGiftsTabAttention,
 } from "../../hooks/useActors"
 import { useActiveIntegratedPanelSlot } from "../../hooks/useIntegratedPanelPresentation"
-import { TRADES_GIFTS_TAB } from "../../constants/gameStateTabs"
-import { activateTrade, deactivateTrade } from "../../actors/tradeActor"
-import { dismissIncomingTradeInviteToasts } from "../../lib/tradeInviteToast"
-import { clearTradesGiftsTabAttentionIfEmpty } from "../../lib/tradesGiftsAttention"
-import {
-  onTradeSessionViewed,
-  dismissAcceptedTradeToast,
-} from "../../lib/tradeSessionNotifications"
+import { ADMIN_LISTENERS_TAB, STORED_ITEMS_TAB, TRADES_GIFTS_TAB } from "../../constants/gameStateTabs"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
 import { SvgIcon } from "../ui/svg-icon"
@@ -73,13 +65,6 @@ const EYE_ICON = getIcon("Eye")
 
 const TRADES_ICON = getIcon("ArrowLeftRight")
 
-function viewTradesGiftsTab(): void {
-  dismissIncomingTradeInviteToasts()
-  clearTradesGiftsTabAttentionIfEmpty()
-}
-
-const ADMIN_LISTENERS_TAB = "admin"
-
 const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
 const EMPTY_ITEM_DEFINITIONS: ItemDefinition[] = []
 const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
@@ -101,7 +86,6 @@ type TabsBodyProps = {
   setGameStateTab: (v: string) => void
   pluginTabs: ReturnType<typeof useGameStateNewPluginTabs>["pluginTabs"]
   unseenPluginTabIds: ReadonlySet<string>
-  markPluginTabViewed: (id: string) => void
   showTradesGiftsTab: boolean
   tradesGiftsUnseen: boolean
   showStoredTab: boolean
@@ -115,7 +99,6 @@ type TabsBodyProps = {
   definitionMap: Map<string, ItemDefinition>
   itemDefinitions: ItemDefinition[]
   storedArtifacts: StoredArtifactPublic[]
-  refreshStoredArtifacts: () => void
   tabScrollRef: RefObject<HTMLDivElement | null>
   /** Explicit height chain for the lg+ integrated panel (not the modal drawer). */
   fillHeight?: boolean
@@ -126,7 +109,6 @@ function GameStateTabsBody({
   setGameStateTab,
   pluginTabs,
   unseenPluginTabIds,
-  markPluginTabViewed,
   showTradesGiftsTab,
   tradesGiftsUnseen,
   showStoredTab,
@@ -140,7 +122,6 @@ function GameStateTabsBody({
   definitionMap,
   itemDefinitions,
   storedArtifacts,
-  refreshStoredArtifacts,
   tabScrollRef,
   fillHeight = false,
 }: TabsBodyProps) {
@@ -150,7 +131,7 @@ function GameStateTabsBody({
   const tabLabel = useMemo(() => {
     if (gameStateTab === "inventory") return "Inventory"
     if (gameStateTab === TRADES_GIFTS_TAB) return "Trades/Gifts"
-    if (gameStateTab === "stored") return "Stored Items"
+    if (gameStateTab === STORED_ITEMS_TAB) return "Stored Items"
     if (gameStateTab === ADMIN_LISTENERS_TAB) return "Big Brother"
     return pluginTabs.find((t) => t.id === gameStateTab)?.label ?? "Back"
   }, [gameStateTab, pluginTabs])
@@ -162,12 +143,6 @@ function GameStateTabsBody({
 
   const selectTab = (tabId: string) => {
     setGameStateTab(tabId)
-    if (pluginTabs.some((t) => t.id === tabId)) {
-      markPluginTabViewed(tabId)
-    }
-    if (tabId === TRADES_GIFTS_TAB) {
-      viewTradesGiftsTab()
-    }
   }
 
   const tabContents = (
@@ -185,7 +160,7 @@ function GameStateTabsBody({
       </Tabs.Content>
 
       {showStoredTab ? (
-        <Tabs.Content value="stored">
+        <Tabs.Content value={STORED_ITEMS_TAB}>
           <StoredItemsTab artifacts={storedArtifacts} onRefresh={refreshStoredArtifacts} />
         </Tabs.Content>
       ) : null}
@@ -245,10 +220,10 @@ function GameStateTabsBody({
                   </Tabs.Trigger>
                   {showStoredTab ? (
                     <Tabs.Trigger
-                      value="stored"
+                      value={STORED_ITEMS_TAB}
                       whiteSpace="nowrap"
                       gap={1}
-                      onClick={() => selectTab("stored")}
+                      onClick={() => selectTab(STORED_ITEMS_TAB)}
                     >
                       {STORED_ICON ? <SvgIcon icon={STORED_ICON} boxSize="1em" /> : null}
                       Stored Items
@@ -352,8 +327,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   const isOpen = useIsModalOpen("gameState")
   const activePanelSlot = useActiveIntegratedPanelSlot()
   const isAdmin = useIsAdmin()
-  const sendAdminListener = useAdminListenerSend()
-  const { pluginTabs, unseenPluginTabIds, markPluginTabViewed } = useGameStateNewPluginTabs()
+  const { pluginTabs, unseenPluginTabIds } = useGameStateNewPluginTabs()
   const sendNav = useGameStateNavSend()
   const gameStateTab = useGameStateActiveTab()
   const currentFrame = useGameStateDetailFrame()
@@ -366,27 +340,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   const payload = useUserGameStatePayload()
   const loading = useUserGameStateLoading()
   const error = useUserGameStateError()
-
-  useEffect(() => {
-    if (isOpen) {
-      refreshUserGameState()
-    }
-  }, [isOpen])
-
-  useEffect(() => {
-    sendNav({ type: isOpen ? "ACTIVATE" : "DEACTIVATE" })
-  }, [isOpen, sendNav])
-
-  useEffect(() => {
-    if (isOpen && isAdmin && gameStateTab === ADMIN_LISTENERS_TAB) {
-      sendAdminListener({ type: "ACTIVATE" })
-      return () => {
-        sendAdminListener({ type: "DEACTIVATE" })
-      }
-    }
-    sendAdminListener({ type: "DEACTIVATE" })
-    return undefined
-  }, [isOpen, isAdmin, gameStateTab, sendAdminListener])
+  const storedArtifacts = useStoredArtifacts()
 
   const definitionMap = useMemo(() => {
     const map = new Map<string, ItemDefinition>()
@@ -408,46 +362,14 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   const maxSlots = payload?.inventory?.maxSlots ?? 0
   const maxCollectionSlots = payload?.inventory?.maxCollectionSlots ?? 0
 
-  const [storedArtifacts, setStoredArtifacts] = useState<StoredArtifactPublic[]>([])
-
-  const refreshStoredArtifacts = useCallback(() => {
-    const subId = `stored-refresh-${Date.now()}`
-    subscribeById(subId, {
-      send: (ev: { type: string; data?: { artifacts?: StoredArtifactPublic[] } }) => {
-        if (ev.type !== "STORED_ARTIFACTS_RESULT" || !ev.data) return
-        setStoredArtifacts(ev.data.artifacts ?? [])
-        unsubscribeById(subId)
-      },
-      eventTypes: ["STORED_ARTIFACTS_RESULT"],
-    })
-    emitToSocket("GET_STORED_ARTIFACTS", {})
-  }, [])
-
-  useEffect(() => {
-    if (!isOpen || !payload?.session) {
-      setStoredArtifacts([])
-      return
-    }
-    refreshStoredArtifacts()
-  }, [isOpen, payload?.session?.id, inventoryItems, refreshStoredArtifacts])
-
   const showStoredTab = storedArtifacts.length > 0
   const showTradesGiftsTab = payload?.session?.config.allowTrading === true
   const tradesGiftsUnseen = useTradesGiftsTabAttention()
 
-  useEffect(() => {
-    if (isOpen && showTradesGiftsTab) {
-      activateTrade(payload?.activeTrade ?? null)
-      return () => deactivateTrade()
-    }
-    deactivateTrade()
-    return undefined
-  }, [isOpen, showTradesGiftsTab, payload?.activeTrade?.tradeId])
-
-  const validTabValues = useMemo(() => {
+  const availableTabIds = useMemo(() => {
     const ids = new Set<string>(["inventory"])
     if (showStoredTab) {
-      ids.add("stored")
+      ids.add(STORED_ITEMS_TAB)
     }
     if (showTradesGiftsTab || gameStateTab === TRADES_GIFTS_TAB) {
       ids.add(TRADES_GIFTS_TAB)
@@ -458,38 +380,13 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
     for (const t of pluginTabs) {
       ids.add(t.id)
     }
-    return ids
+    return [...ids]
   }, [pluginTabs, showStoredTab, showTradesGiftsTab, isAdmin, gameStateTab])
 
   useEffect(() => {
-    if (!validTabValues.has(gameStateTab)) {
-      setGameStateTab("inventory")
-    }
-  }, [validTabValues, gameStateTab])
-
-  const isPluginTabActive = pluginTabs.some((t) => t.id === gameStateTab)
-  useEffect(() => {
-    if (isOpen && isPluginTabActive) {
-      markPluginTabViewed(gameStateTab)
-    }
-  }, [isOpen, gameStateTab, isPluginTabActive, payload, markPluginTabViewed])
-
-  useEffect(() => {
-    if (isOpen && gameStateTab === TRADES_GIFTS_TAB) {
-      viewTradesGiftsTab()
-    }
-  }, [isOpen, gameStateTab, payload])
-
-  useEffect(() => {
-    if (!isOpen) return
-    const tradeId = payload?.activeTrade?.tradeId
-    if (tradeId) dismissAcceptedTradeToast(tradeId)
-  }, [isOpen, payload?.activeTrade?.tradeId])
-
-  useEffect(() => {
-    if (!isOpen || !currentFrame || !isTradeDetailFrame(currentFrame)) return
-    onTradeSessionViewed(currentFrame.tradeId)
-  }, [isOpen, currentFrame])
+    // Plugin tab ids live in this tree; invalid-tab snap is on SET_AVAILABLE_TABS.
+    sendNav({ type: "SET_AVAILABLE_TABS", tabIds: availableTabIds })
+  }, [availableTabIds, sendNav])
 
   const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
     const pluginUserState = payload?.pluginUserState ?? {}
@@ -585,7 +482,6 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
             setGameStateTab={setGameStateTab}
             pluginTabs={pluginTabs}
             unseenPluginTabIds={unseenPluginTabIds}
-            markPluginTabViewed={markPluginTabViewed}
             showTradesGiftsTab={showTradesGiftsTab}
             tradesGiftsUnseen={tradesGiftsUnseen}
             showStoredTab={showStoredTab}
@@ -599,7 +495,6 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
             definitionMap={definitionMap}
             itemDefinitions={payload?.itemDefinitions ?? EMPTY_ITEM_DEFINITIONS}
             storedArtifacts={storedArtifacts}
-            refreshStoredArtifacts={refreshStoredArtifacts}
             tabScrollRef={tabScrollRef}
             fillHeight={fillHeight}
           />
