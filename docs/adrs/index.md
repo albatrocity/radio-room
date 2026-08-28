@@ -137,6 +137,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0129](0129-trade-session-lock-confirm-attention.md) | Trade session lock/confirm notifications and session attention | Accepted |
 | [0130](0130-game-state-overlay-lifecycle-in-machines.md) | Game State overlay lifecycle in machines (not surface `useEffect`s) | Accepted |
 | [0131](0131-trade-complete-inventory-toast.md) | Completed-trade toast; Inventory nav only if viewing the session | Accepted |
+| [0132](0132-spotify-sdk-playback-error-lease-renewal.md) | Spotify SDK `playback_error` reconnects the device and reattaches playback | Accepted |
 
 ## Creating a New ADR
 

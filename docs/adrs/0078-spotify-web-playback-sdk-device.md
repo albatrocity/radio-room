@@ -36,8 +36,10 @@ Hosting a Spotify **Web Playback SDK** player in the daemon's existing Chrome pr
 - Requires Premium + `streaming` scope re-consent.
 - Slightly lower Spotify audio bitrate into the capture chain.
 - Chrome background throttling may idle the SDK; watchdog reloads the host page.
+- A long pause can leave the Player instance listed and paused while audio is dead (`playback_error`). The daemon reconnects that player and reattaches playback — see [0132](0132-spotify-sdk-playback-error-lease-renewal.md).
 
 ## See also
 
 - [0077](0077-bridge-composite-playback-controller.md)
+- [0132](0132-spotify-sdk-playback-error-lease-renewal.md)
 - [docs/BRIDGE_LOCAL_TESTING.md](../BRIDGE_LOCAL_TESTING.md)

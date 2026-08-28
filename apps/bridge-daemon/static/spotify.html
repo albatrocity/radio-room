@@ -38,6 +38,25 @@
           }
         }
 
+        /**
+         * Drop the current Player and connect a new one. Spotify binds the
+         * Web Playback / Widevine lease to the Player instance; after a long
+         * pause, resume fails with playback_error until this (or a tab refresh).
+         */
+        window.__spotifyRecreatePlayer = function () {
+          clearConnectTimer()
+          warmedToken = null
+          var old = window.__spotifyPlayer
+          window.__spotifyPlayer = null
+          function start() {
+            return window.__spotifyCreatePlayer()
+          }
+          if (old && typeof old.disconnect === "function") {
+            return Promise.resolve(old.disconnect()).then(start, start)
+          }
+          return Promise.resolve(start())
+        }
+
         window.__spotifyCreatePlayer = function () {
           if (typeof Spotify === "undefined" || !Spotify.Player) {
             setStatus("Spotify SDK not loaded")
@@ -120,6 +139,9 @@
           })
           player.addListener("playback_error", function (e) {
             setStatus("playback_error: " + e.message)
+            if (typeof window.__bridgeSpotifyError === "function") {
+              window.__bridgeSpotifyError("playback_error", e.message)
+            }
           })
 
           player.addListener("player_state_changed", function (state) {

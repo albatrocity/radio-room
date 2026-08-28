@@ -25,6 +25,8 @@ const TOKEN_POLL_ATTEMPTS = 40
  * so a blind SDK can otherwise persist forever. Reconnect once it stays blind.
  */
 const SDK_STATE_MISSING_RELOAD_MS = 15_000
+/** Stop retrying an unplayable URI; reset once we observe playing again. */
+const PLAYBACK_ERROR_MAX_ATTEMPTS = 2
 
 /**
  * Transport could not be read. Distinct from a genuine stop so the API's advance
@@ -59,6 +61,13 @@ export class SpotifyDeviceHost {
   private lastGoodPlayback: { state: DriverState; at: number } | null = null
   /** First time `getCurrentState()` came back null in the current blind streak. */
   private sdkStateMissingSince = 0
+  private playbackErrorRecoveryInFlight = false
+  private playbackErrorAttempts = 0
+  /** After a playback_error reconnect, transfer the existing Web API context onto the new device. */
+  private reattachPlaybackAfterReady = false
+  /** Watchdog must not treat a brief disconnect during lease renewal as "player missing". */
+  private sdkReconnecting = false
+  private sdkReconnectTimeout: NodeJS.Timeout | null = null
 
   constructor(
     private readonly chrome: ChromeManager,
@@ -110,6 +119,7 @@ export class SpotifyDeviceHost {
     this.watchdog = null
     if (this.statePulse) clearInterval(this.statePulse)
     this.statePulse = null
+    this.clearSdkReconnecting()
     await this.teardownTrackPlaybackCorsFix()
     try {
       await this.redis.del(spotifyDeviceKey(this.roomId))
@@ -140,7 +150,7 @@ export class SpotifyDeviceHost {
    * playing snapshot so the progress bar does not disappear.
    */
   async getPlaybackState(): Promise<DriverState> {
-    if (!this.page || this.page.isClosed()) {
+    if (!this.page || this.page.isClosed() || this.sdkReconnecting) {
       return UNOBSERVED
     }
 
@@ -241,6 +251,7 @@ export class SpotifyDeviceHost {
 
   private async onReady(deviceId: string) {
     if (this.stopped) return
+    this.clearSdkReconnecting()
     // Synthetic gesture so activateElement / autoplay policy accepts the player.
     if (this.page && !this.page.isClosed()) {
       await this.page
@@ -259,6 +270,11 @@ export class SpotifyDeviceHost {
     this.deviceId = resolvedId
     await this.redis.set(spotifyDeviceKey(this.roomId), resolvedId)
     console.log(`[spotify-device] ready device_id=${resolvedId} room=${this.roomId}`)
+
+    if (this.reattachPlaybackAfterReady) {
+      this.reattachPlaybackAfterReady = false
+      await this.reattachPlaybackToDevice(resolvedId)
+    }
   }
 
   /**
@@ -472,7 +488,7 @@ export class SpotifyDeviceHost {
   }
 
   private async tickWatchdog(url: string) {
-    if (this.stopped) return
+    if (this.stopped || this.sdkReconnecting) return
     try {
       if (!this.page || this.page.isClosed()) {
         console.warn("[spotify-device] page closed — recreating")
@@ -519,6 +535,99 @@ export class SpotifyDeviceHost {
     }
   }
 
+  /**
+   * Spotify binds the Web Playback / Widevine lease to the Player instance.
+   * After a long pause, `player.resume()` still returns while audio fails with
+   * `playback_error`; disconnect + new Player (same as a tab refresh) issues a
+   * new Connect device id. Then transfer the existing Web API context onto it
+   * so the play that triggered the error can actually start.
+   */
+  private async recoverFromPlaybackError(): Promise<void> {
+    if (this.stopped || this.playbackErrorRecoveryInFlight || this.sdkReconnecting || !this.page || this.page.isClosed()) {
+      return
+    }
+    if (this.playbackErrorAttempts >= PLAYBACK_ERROR_MAX_ATTEMPTS) {
+      console.warn(
+        "[spotify-device] playback_error — already reconnected twice without playing; not looping",
+      )
+      return
+    }
+    this.playbackErrorRecoveryInFlight = true
+    this.sdkReconnecting = true
+    this.playbackErrorAttempts += 1
+    this.reattachPlaybackAfterReady = true
+    this.sdkStateMissingSince = 0
+    this.lastGoodPlayback = null
+    this.lastSnapshot = null
+    this.armSdkReconnectTimeout()
+    try {
+      console.warn(
+        "[spotify-device] playback_error — reconnecting SDK player to renew the Connect lease",
+      )
+      const recreated = await this.page
+        .evaluate(async () => {
+          // @ts-expect-error page context
+          if (typeof window.__spotifyRecreatePlayer === "function") {
+            // @ts-expect-error page context
+            return window.__spotifyRecreatePlayer()
+          }
+          return false
+        })
+        .catch(() => false)
+      if (!recreated) {
+        this.clearSdkReconnecting()
+        console.warn("[spotify-device] __spotifyRecreatePlayer missing — reloading host page")
+        const baseUrl = await this.host.start()
+        await this.page.goto(`${baseUrl}/spotify.html`, { waitUntil: "domcontentloaded" }).catch(() => {})
+      }
+    } finally {
+      this.playbackErrorRecoveryInFlight = false
+    }
+  }
+
+  private armSdkReconnectTimeout() {
+    if (this.sdkReconnectTimeout) clearTimeout(this.sdkReconnectTimeout)
+    this.sdkReconnectTimeout = setTimeout(() => {
+      if (!this.sdkReconnecting) return
+      console.warn("[spotify-device] playback_error reconnect timed out waiting for ready")
+      this.clearSdkReconnecting()
+    }, 20_000)
+  }
+
+  private clearSdkReconnecting() {
+    this.sdkReconnecting = false
+    this.sdkStateMissingSince = 0
+    if (this.sdkReconnectTimeout) {
+      clearTimeout(this.sdkReconnectTimeout)
+      this.sdkReconnectTimeout = null
+    }
+  }
+
+  /** Move Spotify's current playback context onto the renewed SDK device and start it. */
+  private async reattachPlaybackToDevice(deviceId: string): Promise<void> {
+    try {
+      const token = await this.fetchAccessToken()
+      const res = await fetch(`https://api.spotify.com/v1/me/player`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ device_ids: [deviceId], play: true }),
+      })
+      if (!res.ok && res.status !== 204) {
+        const body = await res.text().catch(() => "")
+        console.warn(
+          `[spotify-device] transfer to renewed device ${deviceId} failed (${res.status}) ${body.slice(0, 200)}`,
+        )
+        return
+      }
+      console.log(`[spotify-device] transferred playback to renewed device ${deviceId}`)
+    } catch (e) {
+      console.warn("[spotify-device] reattach playback failed:", e)
+    }
+  }
+
   private async recoverFromAuthError(url: string): Promise<void> {
     if (this.stopped || this.authRecoveryInFlight || !this.page || this.page.isClosed()) return
     this.authRecoveryInFlight = true
@@ -559,6 +668,9 @@ export class SpotifyDeviceHost {
           )
           void this.recoverFromAuthError(url)
         }
+        if (kind === "playback_error") {
+          void this.recoverFromPlaybackError()
+        }
       },
     )
     await this.page.exposeFunction("__bridgeSpotifyBoot", () => {
@@ -591,6 +703,7 @@ export class SpotifyDeviceHost {
    */
   private async tickStatePulse() {
     if (this.stopped) return
+    if (this.sdkReconnecting) return
     try {
       const snapshot = await this.readSdkSnapshot()
       this.handleTransportSnapshot(snapshot, { publishState: true })
@@ -610,6 +723,7 @@ export class SpotifyDeviceHost {
     } | null,
     options?: { publishState?: boolean },
   ) {
+    if (this.sdkReconnecting) return
     if (!snapshot) {
       const previous = this.lastSnapshot
       if (
@@ -631,6 +745,10 @@ export class SpotifyDeviceHost {
       durationMs: snapshot.duration,
       trackId: snapshot.trackId,
       volumePercent: snapshot.volumePercent ?? null,
+    }
+
+    if (current.state === "playing") {
+      this.playbackErrorAttempts = 0
     }
 
     if (current.state === "playing" && current.trackId) {

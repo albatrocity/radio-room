@@ -51,6 +51,8 @@ export const Toaster = () => {
                     <Button
                       size="xs"
                       variant="ghost"
+                      color="inherit"
+                      _hover={{ bg: "bg.muted" }}
                       onClick={() => {
                         meta.secondaryAction?.onClick()
                         toaster.dismiss(toast.id)
@@ -63,6 +65,9 @@ export const Toaster = () => {
                     <Button
                       size="xs"
                       variant="outline"
+                      color="inherit"
+                      borderColor="border"
+                      _hover={{ bg: "bg.muted" }}
                       onClick={() => {
                         toast.action?.onClick?.()
                         toaster.dismiss(toast.id)
