@@ -67,7 +67,8 @@ export class AdapterService {
 
   /**
    * Load room-creator OAuth tokens, refreshing when expired or near expiry.
-   * Used by playback controllers (and mirrors metadata-source refresh behavior).
+   * Used by playback controllers and metadata sources so long-lived sockets
+   * pick up reauth / refresh-job tokens instead of a snapshot from first use.
    */
   private async getCreatorServiceTokensWithRefresh(params: {
     creatorUserId: string
@@ -95,9 +96,7 @@ export class AdapterService {
     const isExpired = expiresAt === 0 || Date.now() > expiresAt - 5 * 60 * 1000
 
     if (force || isExpired) {
-      console.log(
-        `[AdapterService] Token for ${serviceName} ${force ? "force-" : ""}refreshing...`,
-      )
+      console.log(`[AdapterService] Token for ${serviceName} ${force ? "force-" : ""}refreshing...`)
       const serviceAuthAdapter = this.context.adapters.serviceAuth.get(serviceName)
       if (serviceAuthAdapter?.refreshAuth) {
         try {
@@ -133,10 +132,7 @@ export class AdapterService {
     }
 
     const cachedService = this.roomPrimaryPlaybackService.get(roomId)
-    if (
-      this.roomPlaybackControllers.has(roomId) &&
-      cachedService === room.playbackControllerId
-    ) {
+    if (this.roomPlaybackControllers.has(roomId) && cachedService === room.playbackControllerId) {
       return this.roomPlaybackControllers.get(roomId)!
     }
 
@@ -258,9 +254,8 @@ export class AdapterService {
             ? async () => {
                 try {
                   return (
-                    (await this.context.redis.pubClient.get(
-                      `bridge:${roomId}:spotify_device`,
-                    )) ?? null
+                    (await this.context.redis.pubClient.get(`bridge:${roomId}:spotify_device`)) ??
+                    null
                   )
                 } catch {
                   return null
@@ -396,54 +391,17 @@ export class AdapterService {
               refreshToken: "",
             },
             getStoredTokens: async () => {
-              // This function is called on each API operation to get fresh tokens
-              // for the room creator
-              if (!this.context.data?.getUserServiceAuth) {
-                throw new Error("getUserServiceAuth not available in context")
-              }
-
-              const auth = await this.context.data.getUserServiceAuth({
-                userId: room.creator,
+              return this.getCreatorServiceTokensWithRefresh({
+                creatorUserId: room.creator,
                 serviceName: sourceId,
               })
-
-              if (!auth || !auth.accessToken) {
-                throw new Error(`No auth tokens found for room creator ${room.creator}`)
-              }
-
-              // Check if token is expired or about to expire (within 5 minutes)
-              const expiresAt = auth.expiresAt ?? 0
-              const isExpired = expiresAt > 0 && Date.now() > expiresAt - 5 * 60 * 1000
-
-              if (isExpired) {
-                console.log(`[AdapterService] Token for ${sourceId} is expired, refreshing...`)
-
-                // Get the service auth adapter to refresh
-                const serviceAuthAdapter = this.context.adapters.serviceAuth.get(sourceId)
-                if (serviceAuthAdapter?.refreshAuth) {
-                  try {
-                    const refreshed = await serviceAuthAdapter.refreshAuth(room.creator)
-                    console.log(`[AdapterService] Token refreshed for ${sourceId}`)
-                    return {
-                      accessToken: refreshed.accessToken,
-                      refreshToken: refreshed.refreshToken,
-                      metadata: auth.metadata, // Preserve metadata (e.g., tidalUserId)
-                    }
-                  } catch (refreshError) {
-                    console.error(
-                      `[AdapterService] Failed to refresh ${sourceId} token:`,
-                      refreshError,
-                    )
-                    // Return the old tokens and let the API call fail
-                  }
-                }
-              }
-
-              return {
-                accessToken: auth.accessToken,
-                refreshToken: auth.refreshToken,
-                metadata: auth.metadata,
-              }
+            },
+            refreshTokens: async () => {
+              return this.getCreatorServiceTokensWithRefresh({
+                creatorUserId: room.creator,
+                serviceName: sourceId,
+                force: true,
+              })
             },
           },
           cache: this.context.cache,

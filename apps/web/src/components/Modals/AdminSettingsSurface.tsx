@@ -29,7 +29,7 @@ import { AdminSettingsDialogContext } from "./Admin/AdminSettingsDialogContext"
 
 /** XState `matches` typing can lag nested settings substates; keep runtime checks correct. */
 function matchesSettingsPath(state: unknown, path: string) {
-  return (state as { matches: (p: string) => boolean }).matches(path)
+  return (state as { matches: (p: string) => boolean }).matches(`modal.${path}`)
 }
 
 export type AdminSettingsSurfaceVariant = "modal" | "panel"
@@ -106,7 +106,7 @@ export function AdminSettingsSurface({ variant }: Props) {
   const state = useModalsSnapshot()
   const send = useModalsSend()
   const activePanelSlot = useActiveIntegratedPanelSlot()
-  const isEditingSettings = state.matches("settings")
+  const isEditingSettings = state.matches("modal.settings")
 
   const hideEditForm = () => send({ type: "CLOSE" })
   const onBack = () => send({ type: "BACK" })

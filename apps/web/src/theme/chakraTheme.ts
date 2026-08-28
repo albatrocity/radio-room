@@ -11,6 +11,7 @@ import { drawerRecipe } from "./drawerRecipe"
 import { inputRecipe } from "./inputRecipe"
 import { textareaRecipe } from "./textareaRecipe"
 import { nativeSelectRecipe } from "./nativeSelectRecipe"
+import { comboboxRecipe } from "./comboboxRecipe"
 
 // Color shades we use
 const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const
@@ -275,6 +276,7 @@ const config = defineConfig({
       dialog: dialogRecipe,
       drawer: drawerRecipe,
       nativeSelect: nativeSelectRecipe,
+      combobox: comboboxRecipe,
     },
   },
   globalCss: {

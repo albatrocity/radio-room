@@ -1,7 +1,7 @@
 # 0117. Integrated room panel slot (lg+)
 
 **Date:** 2026-08-26
-**Status:** Accepted
+**Status:** Partially superseded by [0128](0128-add-to-queue-overlays-integrated-panel.md) (Add to Queue no longer replaces the panel slot)
 
 ## Context
 
@@ -27,5 +27,6 @@ Game State and Admin Settings use blocking center/top dialogs. While configuring
 
 - [0004. State machines for UI and socket event handling](0004-state-machines-for-ui-and-socket-events.md)
 - [0106. Game State nav stack in a machine](0106-game-state-nav-machine.md)
+- [0128. Add to Queue overlays the integrated panel](0128-add-to-queue-overlays-integrated-panel.md)
 - `apps/web/src/components/IntegratedPanel/`
 - `apps/web/src/lib/integratedPanelSlots.ts`

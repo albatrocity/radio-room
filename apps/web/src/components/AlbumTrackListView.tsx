@@ -1,3 +1,4 @@
+import { type ReactNode } from "react"
 import {
   Badge,
   Box,
@@ -62,6 +63,8 @@ type Props = {
   onPreview: (track: MetadataSourceTrackWithSource, previewKey: string) => void
   onAddToQueue?: (track: MetadataSourceTrackWithSource) => void
   showAddToQueue?: boolean | ((track: MetadataSourceTrackWithSource) => boolean)
+  /** Rendered between the album header and the track list. */
+  beforeTracks?: ReactNode
 }
 
 function AlbumTrackRow({
@@ -163,6 +166,7 @@ export default function AlbumTrackListView({
   onPreview,
   onAddToQueue,
   showAddToQueue = true,
+  beforeTracks,
 }: Props) {
   const allowAdd =
     typeof showAddToQueue === "function" ? showAddToQueue : () => showAddToQueue === true
@@ -172,14 +176,13 @@ export default function AlbumTrackListView({
       size="sm"
       variant="hover"
       w="100%"
-      {...(fillHeight
-        ? { flex: "1 1 auto", minH: 0, height: "100%" }
-        : { maxH })}
+      {...(fillHeight ? { flex: "1 1 auto", minH: 0, height: "100%" } : { maxH })}
     >
       <ScrollShadowViewport {...(fillHeight ? { height: "100%" } : {})}>
         <ScrollArea.Content>
           <VStack align="stretch" gap={0} w="100%" pr={1} separator={<StackSeparator />}>
             {header ? <AlbumHeader header={header} /> : null}
+            {beforeTracks}
 
             {loading ? (
               <Center py={6}>

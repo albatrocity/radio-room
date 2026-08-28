@@ -17,6 +17,7 @@ export function InventoryTargetUserPopover({
   onOpenChange,
   anchorRef,
   fullWidth = false,
+  size = "xs",
 }: {
   children: React.ReactNode
   onPick: (targetUserId: string) => void
@@ -29,6 +30,8 @@ export function InventoryTargetUserPopover({
   anchorRef?: RefObject<HTMLElement | null>
   /** Stretch to parent width (inventory Use button). Default shrinks to the trigger. */
   fullWidth?: boolean
+  /** Combobox size; applied to the trigger when `children` is the visible button. */
+  size?: "xs" | "sm"
 }) {
   const currentUser = useCurrentUser()
   const listeners = useListeners()
@@ -101,7 +104,7 @@ export function InventoryTargetUserPopover({
       openOnClick={!anchorRef}
       closeOnSelect
       selectionBehavior="clear"
-      size="xs"
+      size={size}
       value={selectedValue}
       inputValue={query}
       onValueChange={handleValueChange}
@@ -143,26 +146,49 @@ export function InventoryTargetUserPopover({
       )}
       <Portal>
         <Combobox.Positioner
-          style={{
-            minWidth: 0,
-            width: "min(220px, var(--available-width, 220px))",
-          }}
+          w="min(22rem, calc(100vw - 1.5rem))"
+          minW="min(16rem, calc(100vw - 1.5rem))"
         >
           <Combobox.Content
             css={{ "--popover-bg": "{colors.appBg}" }}
             width="100%"
-            maxHeight="var(--available-height, 50vh)"
+            maxHeight="min(70vh, 24rem)"
             overflow="hidden"
             px={0}
           >
-            <Combobox.Input placeholder={placeholder} border="none" outline="none" px={2} py={2} />
-            <Combobox.Empty px={2} py={1} fontSize="sm">
+            <Combobox.Input
+              placeholder={placeholder}
+              border="none"
+              outline="none"
+              px={3}
+              py={3}
+              minH="44px"
+              fontSize="16px"
+              lineHeight="1.25"
+            />
+            <Combobox.Empty px={3} py={3} fontSize="md">
               No listeners match
             </Combobox.Empty>
-            <Combobox.ItemGroup borderTopWidth="1px" pt={1} px={1} maxH="200px" overflowY="auto">
+            <Combobox.ItemGroup
+              borderTopWidth="1px"
+              pt={1}
+              px={1}
+              maxH="min(50vh, 16rem)"
+              overflowY="auto"
+            >
               {collection.items.map((item) => (
-                <Combobox.Item key={item.value} item={item} minW={0}>
-                  <Combobox.ItemText truncate>{item.label}</Combobox.ItemText>
+                <Combobox.Item
+                  key={item.value}
+                  item={item}
+                  minW={0}
+                  minH="44px"
+                  px={3}
+                  py={3}
+                  fontSize="md"
+                >
+                  <Combobox.ItemText truncate fontSize="md">
+                    {item.label}
+                  </Combobox.ItemText>
                   <Combobox.ItemIndicator />
                 </Combobox.Item>
               ))}

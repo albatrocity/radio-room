@@ -39,6 +39,15 @@ describe("integratedPanelSlots", () => {
     expect(resolveIntegratedPanelSlot(actor.getSnapshot())).toBeNull()
   })
 
+  it("keeps the panel slot when Add to Queue opens over it", () => {
+    const actor = createActor(modalsMachine).start()
+    actor.send({ type: "VIEW_GAME_STATE" })
+    actor.send({ type: "EDIT_QUEUE" })
+
+    expect(resolveIntegratedPanelSlot(actor.getSnapshot())).toBe("gameState")
+    expect(resolveActiveIntegratedPanelSlot(actor.getSnapshot(), "panel")).toBe("gameState")
+  })
+
   it("resolveActiveIntegratedPanelSlot respects presentation mode", () => {
     const actor = createActor(modalsMachine).start()
     actor.send({ type: "VIEW_GAME_STATE" })

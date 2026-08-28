@@ -100,7 +100,9 @@ function TradeColumn({
 }) {
   return (
     <VStack align="stretch" flex="1" minW={0} gap={2}>
-      <Heading size="sm">{title}</Heading>
+      <Heading size="sm" truncate minW={0} title={title}>
+        {title}
+      </Heading>
       <TradeNoteBubble message={note} typing={typing} />
       <Stack gap={2} minH="8rem">
         {rows.length === 0 && (

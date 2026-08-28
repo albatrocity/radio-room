@@ -157,11 +157,19 @@ export default function TradesGiftsTab() {
             variant="outline"
             width="full"
             justifyContent="space-between"
+            gap={2}
             mb={2}
+            minW={0}
+            overflow="hidden"
             onClick={openActiveTrade}
+            title={activeLabel}
           >
-            {activeLabel}
-            <LuArrowRight size={16} />
+            <Text as="span" truncate minW={0} flex="1" textAlign="start">
+              {activeLabel}
+            </Text>
+            <Box as="span" flexShrink={0} display="inline-flex">
+              <LuArrowRight size={16} />
+            </Box>
           </Button>
         )}
 
@@ -188,6 +196,7 @@ export default function TradesGiftsTab() {
                 <InventoryTargetUserPopover
                   includeSelf={false}
                   placeholder="Trade with…"
+                  size="sm"
                   onPick={(toUserId) => emitToSocket("TRADE_INVITE", { toUserId })}
                 >
                   <Button size="sm" variant="solid">

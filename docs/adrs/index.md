@@ -109,7 +109,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) | Queue-add undo: cancel held picks and restore Round Robin turns | Accepted |
 | [0102](0102-handwritten-disc-label-for-coverless-jewel-cases.md) | Handwritten disc label for coverless jewel cases | Accepted |
 | [0103](0103-physical-media-track-previews.md) | Physical Media track previews (ffmpeg RPC, Redis cache, client ducking) | Accepted |
-| [0104](0104-game-state-item-detail-subroute.md) | Game State item detail subroute (`detailView`, per-tab stack) | Accepted (point 1 superseded by [0106](0106-game-state-nav-machine.md)) |
+| [0104](0104-game-state-item-detail-subroute.md) | Game State item detail subroute (`detailView`, per-tab stack) | Accepted (point 1 superseded by [0106](0106-game-state-nav-machine.md); list Details chrome superseded by [0126](0126-collection-row-opens-item-detail.md) / [0127](0127-shared-item-detail-list-row.md)) |
 | [0105](0105-add-to-queue-ui-session-persistence.md) | Add to Queue UI session persistence (mode, source, browse location) | Accepted |
 | [0106](0106-game-state-nav-machine.md) | Game State nav stack in a machine (tab + detail frames, preview teardown) | Accepted |
 | [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) | Game sessions independent of segment plugin activation | Accepted |
@@ -122,7 +122,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0114](0114-player-item-gifting-and-trading.md) | Player item gifting and trading (core inventory protocol) | Partially superseded by [0115](0115-trade-invite-inbox.md) |
 | [0115](0115-trade-invite-inbox.md) | Trade invite inbox and Trades/Gifts Game State tab | Accepted |
 | [0116](0116-trade-session-sticky-notes.md) | Trade session sticky notes | Partially superseded by [0120](0120-targeted-trade-typing.md) |
-| [0117](0117-integrated-room-panel-slot.md) | Integrated room panel slot (lg+) | Accepted |
+| [0117](0117-integrated-room-panel-slot.md) | Integrated room panel slot (lg+) | Partially superseded by [0128](0128-add-to-queue-overlays-integrated-panel.md) |
 | [0118](0118-resizable-room-layout-columns.md) | Resizable room layout columns (lg+) | Accepted |
 | [0119](0119-private-music-uploads-presign.md) | Private music uploads via presigned S3 PUT (`uploads/` prefix) | Accepted |
 | [0120](0120-targeted-trade-typing.md) | Targeted TRADE_TYPING (socket-only, counterpart delivery) | Accepted |
@@ -131,6 +131,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0123](0123-launch-placeholder-without-service-worker.md) | Launch placeholder without a service worker | Accepted |
 | [0124](0124-browser-chrome-follows-primary-solid.md) | Browser chrome follows `primary.solid` after load | Accepted |
 | [0125](0125-padded-teal-pwa-icons.md) | Padded teal PWA icons | Accepted |
+| [0126](0126-collection-row-opens-item-detail.md) | Collection row opens item detail; Gift/Sell lives on detail | Partially superseded by [0127](0127-shared-item-detail-list-row.md) |
+| [0127](0127-shared-item-detail-list-row.md) | Shared item-detail list row (`ItemDetailListItem`) | Accepted |
+| [0128](0128-add-to-queue-overlays-integrated-panel.md) | Add to Queue overlays the integrated panel (`modalsMachine` parallel `queue` region) | Accepted |
 
 ## Creating a New ADR
 

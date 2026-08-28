@@ -41,7 +41,7 @@ function ModalAddToQueue() {
   const isAdmin = useIsAdmin()
   const currentUser = useCurrentUser()
   const room = useCurrentRoom()
-  const hideEditForm = () => modalSend({ type: "CLOSE" })
+  const hideEditForm = () => modalSend({ type: "CLOSE_QUEUE" })
 
   // Re-evaluate plugin grants (e.g. Library Card / Physical Media) after first paint.
   useEffect(() => {

@@ -39,6 +39,7 @@ import {
 import { roomGameStateActor } from "../actors/roomGameStateActor"
 import { sharedTickerActor } from "../actors/sharedTickerActor"
 import type { GameStateModifier } from "@repo/types"
+import { matchesModals, isModalsIdle } from "../lib/modalsState"
 import { modalsActor } from "../actors/modalsActor"
 import { themeActor } from "../actors/themeActor"
 import { errorsActor } from "../actors/errorsActor"
@@ -661,17 +662,11 @@ export const useModalsSnapshot = () => {
 }
 
 export const useIsModalOpen = (modalName: string) => {
-  return useSelector(modalsActor, (s) => {
-    if (typeof s.value === "string") {
-      return s.value === modalName
-    }
-    // Handle nested states like { settings: "overview" }
-    return Object.keys(s.value).includes(modalName)
-  })
+  return useSelector(modalsActor, (s) => matchesModals(s, modalName))
 }
 
 export const useIsAnyModalOpen = () => {
-  return useSelector(modalsActor, (s) => !s.matches("closed"))
+  return useSelector(modalsActor, (s) => !isModalsIdle(s))
 }
 
 /** Physical Media item to preselect in Add to Queue → Browse, when deep-linked. */

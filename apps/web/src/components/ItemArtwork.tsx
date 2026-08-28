@@ -35,6 +35,11 @@ type Props = {
    * preview dialog (e.g. navigate to Game State item detail).
    */
   onClick?: () => void
+  /**
+   * When false, render a static image (no button / preview). Use when a parent
+   * row is the click target so framed art does not nest a button.
+   */
+  interactive?: boolean
 }
 
 function artworkButtonLabel(alt: string, isDetailAction: boolean): string {
@@ -101,11 +106,14 @@ export default function ItemArtwork({
   artworkFrame,
   previewable = false,
   onClick,
+  interactive = true,
 }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const fill = size === "feature"
   const art = toPhysicalMediaArt({ imageUrl, imageUrlLarge, artworkFrame, name: alt })
   if (art) {
+    const framed = <FramedArtwork art={art} size={size} squareSlot={fill} alt="" />
+    if (!interactive) return framed
     return (
       <>
         <ArtworkButton
@@ -113,7 +121,7 @@ export default function ItemArtwork({
           fill={fill}
           onClick={onClick ?? (() => setPreviewOpen(true))}
         >
-          <FramedArtwork art={art} size={size} squareSlot={fill} alt="" />
+          {framed}
         </ArtworkButton>
         {!onClick ? (
           <ArtworkPreviewDialog
@@ -141,7 +149,7 @@ export default function ItemArtwork({
       />
     )
 
-    if (!onClick && !previewable) return image
+    if (!interactive || (!onClick && !previewable)) return image
 
     return (
       <>
