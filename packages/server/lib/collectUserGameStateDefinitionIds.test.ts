@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { collectInventoryAndModifierDefinitionIds } from "./collectUserGameStateDefinitionIds"
-import type { UserGameState, UserInventory } from "@repo/types"
+import {
+  collectGiftOfferDefinitionIds,
+  collectInventoryAndModifierDefinitionIds,
+} from "./collectUserGameStateDefinitionIds"
+import type { GiftOffer, UserGameState, UserInventory } from "@repo/types"
 
 describe("collectInventoryAndModifierDefinitionIds", () => {
   it("returns empty for null inventory and state", () => {
@@ -27,6 +30,21 @@ describe("collectInventoryAndModifierDefinitionIds", () => {
     expect(collectInventoryAndModifierDefinitionIds(inventory, state).sort()).toEqual([
       "item-shops:beer",
       "item-shops:buff",
+      "item-shops:pm-al-1",
+    ])
+  })
+})
+
+describe("collectGiftOfferDefinitionIds", () => {
+  it("returns unique definition ids from pending offers", () => {
+    const offers = [
+      { definitionId: "item-shops:beer" },
+      { definitionId: "item-shops:beer" },
+      { definitionId: " item-shops:pm-al-1 " },
+      { definitionId: "" },
+    ] as GiftOffer[]
+    expect(collectGiftOfferDefinitionIds(offers).sort()).toEqual([
+      "item-shops:beer",
       "item-shops:pm-al-1",
     ])
   })
