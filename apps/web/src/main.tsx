@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 
 import { startAppHeightSync } from './lib/syncAppHeight'
-// Howler HTML5 CORS for track preview / SFX (radio uses radioStreamPlayer — ADR 0137).
+// Howler HTML5 CORS for track preview / SFX (radio uses radioStreamEngine — ADR 0137).
 import { ensureHowlerHtml5Cors } from './lib/howlerHtml5Cors'
 ensureHowlerHtml5Cors()
 

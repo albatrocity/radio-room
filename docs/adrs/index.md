@@ -144,6 +144,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0136](0136-inventory-owned-client-visuals.md) | Inventory-owned client visuals (lazy web FX + room-type shop SKUs) | Accepted (radio tap amended by [0137](0137-radio-stream-player-web-audio.md)) |
 | [0137](0137-radio-stream-player-web-audio.md) | Radio stream player: Web Audio MPEG decode (no Howler) | Accepted (pause amended by [0138](0138-radio-pause-aborts-fetch.md)) |
 | [0138](0138-radio-pause-aborts-fetch.md) | Radio pause aborts fetch (no warm MPEG stream) | Accepted |
+| [0139](0139-radio-stream-lifecycle-machine.md) | Radio stream lifecycle in a machine, audio path imperative | Accepted |
 
 ## Creating a New ADR
 

@@ -1,11 +1,13 @@
 import { describe, expect, it, beforeEach } from "vitest"
 import {
   __resetRadioAudioTapForTests,
-  analyserLooksSilent,
   byteTimeDomainLooksSilent,
+  fillRadioTimeDomainData,
+  getRadioStreamAnalyser,
   getRegisteredRadioAudioElement,
   isSafariLikeBrowser,
   registerRadioAudioElement,
+  registerRadioStreamAnalyser,
   subscribeRadioAudioTap,
 } from "./radioAudioTap"
 
@@ -53,26 +55,26 @@ describe("radioAudioTap", () => {
     unsub()
   })
 
-  it("analyserLooksSilent detects flat midline buffers", () => {
-    const flat = {
+  it("serves time-domain data from the registered stream analyser", () => {
+    expect(getRadioStreamAnalyser()).toBeNull()
+    expect(fillRadioTimeDomainData(new Uint8Array(8))).toBe(false)
+
+    const node = {
       fftSize: 8,
       getByteTimeDomainData: (buf: Uint8Array) => {
         buf.fill(128)
-      },
-    } as AnalyserNode
-    expect(analyserLooksSilent(flat)).toBe(true)
-
-    const lively = {
-      fftSize: 8,
-      getByteTimeDomainData: (buf: Uint8Array) => {
         buf[0] = 200
-        buf.fill(128, 1)
       },
     } as AnalyserNode
-    expect(analyserLooksSilent(lively)).toBe(false)
+    registerRadioStreamAnalyser(node)
+    expect(getRadioStreamAnalyser()).toBe(node)
+
+    const out = new Uint8Array(8)
+    expect(fillRadioTimeDomainData(out)).toBe(true)
+    expect(out[0]).toBe(200)
   })
 
-  it("byteTimeDomainLooksSilent matches analyserLooksSilent semantics", () => {
+  it("byteTimeDomainLooksSilent detects flat midline buffers", () => {
     const flat = new Uint8Array(8).fill(128)
     expect(byteTimeDomainLooksSilent(flat)).toBe(true)
     flat[0] = 200

@@ -22,7 +22,7 @@ import {
   setRadioStreamPlayerUrl,
   setRadioStreamPlayerVolume,
   stopRadioStreamPlayer,
-} from "../lib/radioStreamPlayer"
+} from "../actors/radioStreamActor"
 
 interface RadioPlayerProps {
   volume: number

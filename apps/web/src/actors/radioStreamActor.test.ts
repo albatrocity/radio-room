@@ -5,9 +5,9 @@ import {
   setRadioStreamPlayerPlaying,
   setRadioStreamPlayerUrl,
   stopRadioStreamPlayer,
-} from "./radioStreamPlayer"
+} from "./radioStreamActor"
 
-describe("radioStreamPlayer", () => {
+describe("radioStreamActor", () => {
   beforeEach(() => {
     __resetRadioStreamPlayerForTests()
   })
@@ -29,5 +29,20 @@ describe("radioStreamPlayer", () => {
     expect(getRadioStreamPlayerStatus().playingDesired).toBe(false)
     expect(getRadioStreamPlayerStatus().suspended).toBe(true)
     expect(getRadioStreamPlayerStatus().phase).toBe("idle")
+  })
+
+  it("reports the engine failure when there is no AudioContext", () => {
+    setRadioStreamPlayerUrl("https://example.com/stream.mp3")
+    setRadioStreamPlayerPlaying(true)
+    expect(getRadioStreamPlayerStatus().phase).toBe("error")
+    expect(getRadioStreamPlayerStatus().error).toBe("noAudioContext")
+  })
+
+  it("pause leaves the failed state and clears playing intent", () => {
+    setRadioStreamPlayerUrl("https://example.com/stream.mp3")
+    setRadioStreamPlayerPlaying(true)
+    setRadioStreamPlayerPlaying(false)
+    expect(getRadioStreamPlayerStatus().phase).toBe("idle")
+    expect(getRadioStreamPlayerStatus().playingDesired).toBe(false)
   })
 })

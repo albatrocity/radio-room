@@ -8,12 +8,9 @@ import { Box, Text } from "@chakra-ui/react"
 import { useAnimationsEnabled } from "../../hooks/useReducedMotion"
 import { useIsPlaying } from "../../hooks/useActors"
 import {
-  byteTimeDomainLooksSilent,
   fillRadioTimeDomainData,
-  getRadioAnalyser,
   getRadioAudioTapDebugSnapshot,
-  rebindRadioAudioTap,
-  recoverRadioAudioTapFromSilence,
+  getRadioStreamAnalyser,
   resumeRadioAudioContext,
   subscribeRadioAudioTap,
   type RadioAudioTapDebugSnapshot,
@@ -21,7 +18,7 @@ import {
 import {
   getRadioStreamPlayerDebug,
   getRadioStreamPlayerStatus,
-} from "../../lib/radioStreamPlayer"
+} from "../../actors/radioStreamActor"
 import {
   PRIMARY_CONTRAST_CSS_VAR,
   PRIMARY_SOLID_CSS_VAR,
@@ -43,11 +40,11 @@ function formatDebugHud(s: RadioAudioTapDebugSnapshot): string {
   const d = getRadioStreamPlayerDebug()
   return [
     "TEMP oscope debug",
-    `safari=${s.safariLike} path=${s.path} peak=${s.analyserPeak ?? "—"} silent=${s.analyserSilent}`,
-    `stream phase=${stream.phase} susp=${stream.suspended} http=${stream.httpStatus ?? "—"} frames=${stream.framesScheduled} err=${stream.error ?? "null"}`,
-    `ct=${stream.contentType ?? "—"} playingDesired=${stream.playingDesired}`,
+    `safari=${s.safariLike} peak=${s.analyserPeak ?? "—"} silent=${s.analyserSilent}`,
+    `stream state=${d.state} http=${stream.httpStatus ?? "—"} frames=${d.framesScheduled} err=${d.error ?? "null"}`,
+    `ct=${stream.contentType ?? "—"} playingDesired=${d.playingDesired}`,
     `ctx=${d.contextState ?? "none"} rate=${d.contextSampleRate ?? "—"} ahead=${d.bufferedAheadSec?.toFixed(2) ?? "—"}`,
-    `gain=${d.gainValue ?? "—"} gate=${d.outputGateOpen} unlocked=${d.outputUnlocked} srcs=${d.activeSources}`,
+    `gain=${d.gainValue ?? "—"} gate=${d.gateOpen} unlocked=${d.outputUnlocked} srcs=${d.activeSources}`,
   ].join("\n")
 }
 
@@ -236,13 +233,8 @@ export default function OscilloscopeBackground() {
     }
   }, [])
 
-  // Chromium element capture may need rebind on resume; stream player keeps one socket.
   useEffect(() => {
-    if (isPlaying) {
-      resumeRadioAudioContext()
-      void rebindRadioAudioTap()
-    }
-    wasPlayingRef.current = isPlaying
+    if (isPlaying) resumeRadioAudioContext()
   }, [isPlaying])
 
   useEffect(() => {
@@ -272,8 +264,6 @@ export default function OscilloscopeBackground() {
     let timeData: Uint8Array<ArrayBuffer> | null = null
     let cssW = 0
     let cssH = 0
-    let ensureInFlight = false
-    let silentFrames = 0
 
     const resize = () => {
       const rect = graphArea.getBoundingClientRect()
@@ -298,24 +288,17 @@ export default function OscilloscopeBackground() {
     ro.observe(graphArea)
     resize()
 
-    const ensureAnalyser = async () => {
-      if (ensureInFlight || disposed) return
-      ensureInFlight = true
-      try {
-        resumeRadioAudioContext()
-        analyser = await getRadioAnalyser()
-        if (analyser && !timeData) {
-          timeData = new Uint8Array(analyser.fftSize) as Uint8Array<ArrayBuffer>
-        }
-      } finally {
-        ensureInFlight = false
+    const ensureAnalyser = () => {
+      if (disposed) return
+      resumeRadioAudioContext()
+      analyser = getRadioStreamAnalyser()
+      if (analyser && (!timeData || timeData.length !== analyser.fftSize)) {
+        timeData = new Uint8Array(analyser.fftSize) as Uint8Array<ArrayBuffer>
       }
     }
 
-    void ensureAnalyser()
-    const unsubTap = subscribeRadioAudioTap(() => {
-      void ensureAnalyser()
-    })
+    ensureAnalyser()
+    const unsubTap = subscribeRadioAudioTap(ensureAnalyser)
 
     const tick = (now: number) => {
       if (disposed) return
@@ -330,22 +313,13 @@ export default function OscilloscopeBackground() {
       if (document.hidden || !isPlayingRef.current) return
 
       if (!analyser || !timeData) {
-        void ensureAnalyser()
+        ensureAnalyser()
         return
       }
 
-      resumeRadioAudioContext()
       if (!fillRadioTimeDomainData(timeData)) {
-        void ensureAnalyser()
+        ensureAnalyser()
         return
-      }
-
-      const silent = byteTimeDomainLooksSilent(timeData)
-      if (silent) {
-        silentFrames += 1
-        recoverRadioAudioTapFromSilence(silentFrames)
-      } else {
-        silentFrames = 0
       }
 
       const { solid, contrast } = readThemeColors(graphArea)

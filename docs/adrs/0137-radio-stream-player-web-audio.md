@@ -9,7 +9,7 @@ Radio listen used ReactHowler (`html5: true`) while the Oscilloscope (ADR 0136) 
 
 ## Decision
 
-1. **Radio rooms play through one Web Audio decode pipeline** (`radioStreamPlayer`): CORS `fetch` → `mpg123-decoder` → `GainNode` → `AnalyserNode` → `destination`. Volume/mute are gain; unmount aborts the fetch. **Pause/resume:** see [ADR 0138](0138-radio-pause-aborts-fetch.md) (abort on pause, reconnect on resume — not warm-fetch).
+1. **Radio rooms play through one Web Audio decode pipeline** (`radioStreamEngine`, driven by `radioStreamMachine` — [ADR 0139](0139-radio-stream-lifecycle-machine.md)): CORS `fetch` → `mpg123-decoder` → `GainNode` → `AnalyserNode` → `destination`. Volume/mute are gain; unmount aborts the fetch. **Pause/resume:** see [ADR 0138](0138-radio-pause-aborts-fetch.md) (abort on pause, reconnect on resume — not warm-fetch).
 2. **Do not use Howler / ReactHowler for radio.** Keep Howler for track preview and sound effects only (including the existing HTML5 `crossOrigin` pool patch).
 3. **Oscilloscope reads the same `AnalyserNode`** via `registerRadioStreamAnalyser` — no Safari branch, no second socket.
 4. **MPEG (mp3) first.** Non-MPEG listen URLs error clearly until another decoder is added.
