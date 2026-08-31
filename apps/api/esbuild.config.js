@@ -21,6 +21,9 @@ const external = [
   "mustache",
   "execa",
   "remeda",
+  "sharp",
+  "heic-convert",
+  "multer",
 
   // Adapters
   "@spotify/web-api-ts-sdk",

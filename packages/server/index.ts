@@ -47,7 +47,7 @@ import { exportRoom } from "./controllers/exportController"
 import { streamHealth } from "./controllers/streamHealthController"
 import { getImage } from "./operations/data"
 import { getTrackPreviewByPreviewId, PREVIEW_TTL_SEC } from "./operations/data/trackPreviews"
-import { upload, uploadImages, uploadArtwork } from "./controllers/imageController"
+import { upload, uploadImages, uploadArtwork, chatImagesUploadMiddleware, artworkUploadMiddleware } from "./controllers/imageController"
 import {
   presignMusicUploadHandler,
   completeMusicUploadHandler,
@@ -231,9 +231,9 @@ export class RadioRoomServer {
       // Room export endpoint
       .get("/api/rooms/:roomId/export", exportRoom)
       // Room image upload endpoint (HTTP multipart)
-      .post("/api/rooms/:roomId/images", upload.array("images", 5), uploadImages)
+      .post("/api/rooms/:roomId/images", chatImagesUploadMiddleware, uploadImages)
       // Room artwork upload endpoint (admin-only, single file)
-      .post("/api/rooms/:roomId/artwork", upload.single("artwork"), uploadArtwork)
+      .post("/api/rooms/:roomId/artwork", artworkUploadMiddleware, uploadArtwork)
       // Music upload presign + lifecycle (Uploader persona required)
       .post("/api/rooms/:roomId/music-uploads/presign", presignMusicUploadHandler)
       .post("/api/rooms/:roomId/music-uploads/complete", completeMusicUploadHandler)

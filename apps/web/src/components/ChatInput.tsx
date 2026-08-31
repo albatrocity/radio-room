@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback, memo, useMemo, RefObject } from "react"
 import { createPortal } from "react-dom"
 
-import { Box, IconButton, Flex, Icon, Image, Wrap, Textarea } from "@chakra-ui/react"
+import { Box, IconButton, Flex, HStack, Icon, Image, Wrap, Textarea, Spinner, Text } from "@chakra-ui/react"
 import { LuCircleArrowUp, LuImage, LuX } from "react-icons/lu"
 import { debounce } from "lodash"
+import { CHAT_IMAGE_UPLOAD_MAX_BYTES } from "@repo/types"
 
 import MentionOverlay from "./MentionOverlay"
 import ImageUpload from "./ImageUpload"
@@ -24,8 +25,9 @@ import {
   type MentionPick,
 } from "../lib/encodeChatMentions"
 import { uploadImages } from "../lib/serverApi"
+import { toast } from "../lib/toasts"
 
-const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image
+const MAX_FILE_SIZE = CHAT_IMAGE_UPLOAD_MAX_BYTES
 const MAX_FILES = 5
 
 const borderColor = "var(--chakra-colors-secondary-border, #ccc)"
@@ -74,6 +76,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   })
   const [isTyping, setTyping] = useState(false)
   const [isSubmitting, setSubmitting] = useState(false)
+  const [uploadingImageCount, setUploadingImageCount] = useState(0)
   const [content, setContent] = useState("")
   const [cursor, setCursor] = useState(0)
   const [files, setFiles] = useState<File[]>([])
@@ -86,6 +89,14 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const addImageFiles = useCallback(
     (incoming: File[]) => {
       if (!isAuthenticated || !isAuthInitialized || !canUseChatImages) return
+      const tooLarge = incoming.filter((f) => f.size > MAX_FILE_SIZE)
+      if (tooLarge.length > 0) {
+        toast({
+          type: "error",
+          title: "Image too large",
+          description: `Each image must be under ${MAX_FILE_SIZE / (1024 * 1024)}MB.`,
+        })
+      }
       const valid = incoming.filter(
         (f) =>
           f.size <= MAX_FILE_SIZE &&
@@ -208,16 +219,25 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
         let messageContent = content
 
         if (files.length > 0) {
+          setUploadingImageCount(files.length)
           const uploadResult = await uploadImages(roomId, files)
+          setUploadingImageCount(0)
 
-          if (uploadResult.success && uploadResult.images.length > 0) {
-            const imageMarkdown = uploadResult.images
-              .map((img) => `![image](${img.url})`)
-              .join("\n")
-            messageContent = messageContent
-              ? `${messageContent}\n\n${imageMarkdown}`
-              : imageMarkdown
+          if (!uploadResult.success || uploadResult.images.length === 0) {
+            toast({
+              type: "error",
+              title: "Image upload failed",
+              description: "Could not upload one or more images. Try again or use a smaller file.",
+            })
+            return
           }
+
+          const imageMarkdown = uploadResult.images
+            .map((img) => `![image](${img.url})`)
+            .join("\n")
+          messageContent = messageContent
+            ? `${messageContent}\n\n${imageMarkdown}`
+            : imageMarkdown
         }
 
         const registryForEncode = reconcileMentionRegistryWithText(
@@ -239,7 +259,13 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
         setMentionRegistry([])
       } catch (error) {
         console.error("Error sending message:", error)
+        toast({
+          type: "error",
+          title: "Image upload failed",
+          description: "Could not upload images. Check your connection and try again.",
+        })
       } finally {
+        setUploadingImageCount(0)
         setSubmitting(false)
       }
     },
@@ -286,13 +312,26 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
     return null
   }
 
+  const isUploadingImages = uploadingImageCount > 0
+
   const isFileUploadDisabled =
     !isAuthenticated || !isAuthInitialized || isSubmitting || files.length >= MAX_FILES
+
+  const uploadStatusLabel =
+    uploadingImageCount === 1
+      ? "Uploading image…"
+      : `Uploading ${uploadingImageCount} images…`
 
   const imagePreviews = useMemo(
     () =>
       canUseChatImages && files.length > 0 ? (
-        <Wrap gap={2}>
+        <Wrap gap={2} align="center">
+          {isUploadingImages && (
+            <HStack gap={2} color="fg.muted" fontSize="sm" minH="60px" align="center">
+              <Spinner size="xs" />
+              <Text>{uploadStatusLabel}</Text>
+            </HStack>
+          )}
           {files.map((file, index) => (
             <Box
               key={`${file.name}-${index}-${file.size}`}
@@ -300,6 +339,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               borderRadius="md"
               overflow="hidden"
               width="fit-content"
+              opacity={isUploadingImages ? 0.6 : 1}
             >
               {isHeicFile(file) ? (
                 <Flex
@@ -320,24 +360,33 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
                   borderRadius="md"
                 />
               )}
-              <IconButton
-                aria-label="Remove image"
-                size="xs"
-                variant="solid"
-                colorPalette="red"
-                position="absolute"
-                top={0}
-                right={0}
-                borderRadius="full"
-                onClick={() => removeFileAt(index)}
-              >
-                <Icon as={LuX} boxSize={3} />
-              </IconButton>
+              {!isUploadingImages && (
+                <IconButton
+                  aria-label="Remove image"
+                  size="xs"
+                  variant="solid"
+                  colorPalette="red"
+                  position="absolute"
+                  top={0}
+                  right={0}
+                  borderRadius="full"
+                  onClick={() => removeFileAt(index)}
+                >
+                  <Icon as={LuX} boxSize={3} />
+                </IconButton>
+              )}
             </Box>
           ))}
         </Wrap>
       ) : null,
-    [canUseChatImages, files, filePreviewUrls, removeFileAt],
+    [
+      canUseChatImages,
+      files,
+      filePreviewUrls,
+      isUploadingImages,
+      removeFileAt,
+      uploadStatusLabel,
+    ],
   )
 
   const handlePasteImages = useCallback(
@@ -438,9 +487,15 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
               onClick={(e) => setCursor(e.currentTarget.selectionStart ?? 0)}
               onKeyDown={handleTextareaKeyDown}
               autoFocus={modalActive}
-              disabled={!isAuthenticated || !isAuthInitialized}
+              disabled={!isAuthenticated || !isAuthInitialized || isSubmitting}
               placeholder={
-                !isAuthenticated ? "" : !isAuthInitialized ? "Syncing session…" : "Say something..."
+                !isAuthenticated
+                  ? ""
+                  : !isAuthInitialized
+                    ? "Syncing session…"
+                    : isUploadingImages
+                      ? uploadStatusLabel
+                      : "Say something..."
               }
               _placeholder={{ color: "colorPalette.solid" }}
               w="100%"
@@ -475,14 +530,14 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
             }}
           >
             <IconButton
-              aria-label="Send Message"
+              aria-label={isUploadingImages ? uploadStatusLabel : "Send Message"}
               type="submit"
               variant="ghost"
               disabled={isSubmitting || !isValid || !isAuthInitialized}
               colorPalette="action"
               css={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}
             >
-              <Icon as={LuCircleArrowUp} />
+              {isUploadingImages ? <Spinner size="sm" /> : <Icon as={LuCircleArrowUp} />}
             </IconButton>
           </Box>
         </Flex>

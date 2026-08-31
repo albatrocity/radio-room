@@ -7,6 +7,7 @@ const mockStoreImage = vi.hoisted(() => vi.fn())
 const mockGetUser = vi.hoisted(() => vi.fn())
 const mockGetRoomUsers = vi.hoisted(() => vi.fn())
 const mockIsRoomAdmin = vi.hoisted(() => vi.fn())
+const mockPrepareRoomImage = vi.hoisted(() => vi.fn())
 
 vi.mock("../operations/data", () => ({
   findRoom: mockFindRoom,
@@ -17,6 +18,11 @@ vi.mock("../operations/data", () => ({
 
 vi.mock("../operations/data/admins", () => ({
   isRoomAdmin: mockIsRoomAdmin,
+}))
+
+vi.mock("../operations/data/prepareRoomImage", () => ({
+  prepareRoomImage: mockPrepareRoomImage,
+  PrepareRoomImageError: class PrepareRoomImageError extends Error {},
 }))
 
 import { RADIO_SESSION_HEADER } from "../lib/constants"
@@ -51,6 +57,10 @@ describe("uploadImages", () => {
     status = vi.fn().mockReturnValue({ json })
     mockRes = { status: status as any, json: json as any }
     mockStoreImage.mockResolvedValue({ success: true })
+    mockPrepareRoomImage.mockResolvedValue({
+      buffer: Buffer.from("jpeg-bytes"),
+      mimeType: "image/jpeg",
+    })
     mockReq = {
       params: { roomId: "room-1" },
       context: mockContext as any,
@@ -94,6 +104,7 @@ describe("uploadImages", () => {
       context: mockContext,
       userId: "guest-1",
     })
+    expect(mockPrepareRoomImage).toHaveBeenCalledTimes(1)
     expect(mockStoreImage).toHaveBeenCalledTimes(1)
     expect(status).not.toHaveBeenCalledWith(401)
     expect(json).toHaveBeenCalledWith({
@@ -118,7 +129,13 @@ describe("uploadImages", () => {
     mockIsRoomAdmin.mockResolvedValue(false)
     await uploadImages(mockReq as Request, mockRes as Response)
     expect(mockIsRoomAdmin).not.toHaveBeenCalled()
-    expect(mockStoreImage).toHaveBeenCalledTimes(1)
+    expect(mockPrepareRoomImage).toHaveBeenCalledTimes(1)
+    expect(mockStoreImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mimeType: "image/jpeg",
+        base64Data: Buffer.from("jpeg-bytes").toString("base64"),
+      }),
+    )
     expect(json).toHaveBeenCalledWith({
       success: true,
       images: expect.arrayContaining([
