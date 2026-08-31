@@ -16,7 +16,8 @@ WORKDIR /app
 
 # First install dependencies (as they change less often)
 COPY --from=builder /app/out/json/ .
-RUN npm install
+# sharp (and similar native modules) need platform optional deps (@img/sharp-linuxmusl-*)
+RUN npm install --include=optional
 
 # Build the project and its dependencies
 COPY --from=builder /app/out/full/ .

@@ -52,8 +52,15 @@
     "node-cron": "^4.2.1",
     "redis": "^4.7.0",
     "remeda": "^2.26.0",
+    "sharp": "^0.33.5",
     "sns-validator": "^0.3.5",
     "socket.io": "^4.8.1",
     "svix": "^1.64.1"
+  },
+  "optionalDependencies": {
+    "@img/sharp-darwin-arm64": "0.33.5",
+    "@img/sharp-darwin-x64": "0.33.5",
+    "@img/sharp-linuxmusl-arm64": "0.33.5",
+    "@img/sharp-linuxmusl-x64": "0.33.5"
   }
 }

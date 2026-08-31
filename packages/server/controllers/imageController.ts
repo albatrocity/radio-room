@@ -1,31 +1,108 @@
-import { Request, Response } from "express"
+import { Request, Response, NextFunction } from "express"
 import multer from "multer"
-import { AppContext } from "@repo/types"
-import { storeImage, findRoom } from "../operations/data"
+import { AppContext, CHAT_IMAGE_UPLOAD_MAX_BYTES } from "@repo/types"
+import { storeDedupedRoomImage, findRoom } from "../operations/data"
 import { isRoomAdmin } from "../operations/data/admins"
-import generateId from "../lib/generateId"
-import { isHeicMimeType, convertHeicToJpeg } from "../operations/data/imageConversion"
+import {
+  prepareRoomImage,
+  PrepareRoomImageError,
+} from "../operations/data/prepareRoomImage"
 import { resolveRoomMemberUserId } from "../lib/resolveRoomMemberUserId"
 
-const MAX_FILE_SIZE = 4 * 1024 * 1024 // 4MB per image
 const MAX_FILES = 5
 
 const storage = multer.memoryStorage()
 
+function isAllowedImageFile(file: Express.Multer.File): boolean {
+  if (file.mimetype.startsWith("image/")) return true
+  const lower = file.originalname.toLowerCase()
+  return lower.endsWith(".heic") || lower.endsWith(".heif")
+}
+
 export const upload = multer({
   storage,
   limits: {
-    fileSize: MAX_FILE_SIZE,
+    fileSize: CHAT_IMAGE_UPLOAD_MAX_BYTES,
     files: MAX_FILES,
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
+    if (isAllowedImageFile(file)) {
       cb(null, true)
     } else {
       cb(new Error("Only image files are allowed"))
     }
   },
 })
+
+/** Maps multer LIMIT_FILE_SIZE to HTTP 413 for image upload routes. */
+export function handleImageUploadMulterError(
+  err: unknown,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({
+      error: `Each image must be under ${CHAT_IMAGE_UPLOAD_MAX_BYTES / (1024 * 1024)}MB`,
+    })
+  }
+  if (err instanceof Error && err.message === "Only image files are allowed") {
+    return res.status(415).json({ error: err.message })
+  }
+  return next(err)
+}
+
+async function processAndStoreImage(params: {
+  roomId: string
+  file: Express.Multer.File
+  context: AppContext
+}): Promise<{ id: string; url: string } | { error: string; status: number }> {
+  const { roomId, file, context } = params
+
+  let prepared
+  try {
+    prepared = await prepareRoomImage(file.buffer, file.mimetype, file.originalname)
+  } catch (error) {
+    if (error instanceof PrepareRoomImageError) {
+      return { error: error.message, status: 400 }
+    }
+    console.error("[ImageController] Failed to prepare image:", error)
+    return { error: "Failed to process image", status: 500 }
+  }
+
+  const result = await storeDedupedRoomImage({
+    roomId,
+    buffer: prepared.buffer,
+    mimeType: prepared.mimeType,
+    context,
+  })
+
+  if (!result.success) {
+    console.error("[ImageController] Failed to store image:", result.error)
+    return { error: "Failed to store image", status: 500 }
+  }
+
+  const apiUrl = context.apiUrl || ""
+  return {
+    id: result.imageId,
+    url: `${apiUrl}/api/rooms/${roomId}/images/${result.imageId}`,
+  }
+}
+
+/** Wraps multer so LIMIT_FILE_SIZE returns 413 before the route handler runs. */
+export function chatImagesUploadMiddleware(req: Request, res: Response, next: NextFunction) {
+  upload.array("images", MAX_FILES)(req, res, (err) => {
+    if (err) return handleImageUploadMulterError(err, req, res, next)
+    next()
+  })
+}
+
+export function artworkUploadMiddleware(req: Request, res: Response, next: NextFunction) {
+  upload.single("artwork")(req, res, (err) => {
+    if (err) return handleImageUploadMulterError(err, req, res, next)
+    next()
+  })
+}
 
 export async function uploadImages(req: Request, res: Response) {
   const { roomId } = req.params
@@ -59,44 +136,13 @@ export async function uploadImages(req: Request, res: Response) {
   }
 
   const uploadedImages: { id: string; url: string }[] = []
-  const apiUrl = context.apiUrl || ""
 
   for (const file of files) {
-    const imageId = generateId()
-    let base64Data = file.buffer.toString("base64")
-    let mimeType = file.mimetype
-
-    // Convert HEIC to JPEG for browser compatibility
-    if (isHeicMimeType(mimeType) || file.originalname.toLowerCase().endsWith(".heic")) {
-      console.log(`[ImageController] Converting HEIC image to JPEG, size: ${base64Data.length} bytes`)
-      try {
-        base64Data = await convertHeicToJpeg(base64Data)
-        mimeType = "image/jpeg"
-        console.log(`[ImageController] HEIC conversion successful, new size: ${base64Data.length} bytes`)
-      } catch (error) {
-        console.error("[ImageController] HEIC conversion failed:", error)
-        return res.status(500).json({ error: "Failed to process HEIC image" })
-      }
+    const outcome = await processAndStoreImage({ roomId, file, context })
+    if ("error" in outcome) {
+      return res.status(outcome.status).json({ error: outcome.error })
     }
-
-    // Store image in Redis
-    const result = await storeImage({
-      roomId,
-      imageId,
-      base64Data,
-      mimeType,
-      context,
-    })
-
-    if (!result.success) {
-      console.error("[ImageController] Failed to store image:", result.error)
-      return res.status(500).json({ error: "Failed to store image" })
-    }
-
-    uploadedImages.push({
-      id: imageId,
-      url: `${apiUrl}/api/rooms/${roomId}/images/${imageId}`,
-    })
+    uploadedImages.push(outcome)
   }
 
   return res.json({
@@ -133,30 +179,13 @@ export async function uploadArtwork(req: Request, res: Response) {
     return res.status(403).json({ error: "Only room admins can upload artwork" })
   }
 
-  const imageId = generateId()
-  let base64Data = file.buffer.toString("base64")
-  let mimeType = file.mimetype
-
-  if (isHeicMimeType(mimeType) || file.originalname.toLowerCase().endsWith(".heic")) {
-    try {
-      base64Data = await convertHeicToJpeg(base64Data)
-      mimeType = "image/jpeg"
-    } catch (error) {
-      console.error("[ImageController] HEIC conversion failed:", error)
-      return res.status(500).json({ error: "Failed to process HEIC image" })
-    }
+  const outcome = await processAndStoreImage({ roomId, file, context })
+  if ("error" in outcome) {
+    return res.status(outcome.status).json({ error: outcome.error })
   }
 
-  const result = await storeImage({ roomId, imageId, base64Data, mimeType, context })
-
-  if (!result.success) {
-    console.error("[ImageController] Failed to store artwork image:", result.error)
-    return res.status(500).json({ error: "Failed to store image" })
-  }
-
-  const apiUrl = context.apiUrl || ""
   return res.json({
     success: true,
-    url: `${apiUrl}/api/rooms/${roomId}/images/${imageId}`,
+    url: outcome.url,
   })
 }
