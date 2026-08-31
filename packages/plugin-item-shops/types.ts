@@ -34,6 +34,14 @@ export const itemShopsConfigSchema = z.object({
     .array(localLibraryGrantConfigSchema)
     .default(() => [...DEFAULT_LOCAL_LIBRARY_GRANTS]),
   /**
+   * When true, open a new shopping round on {@link autoShopIntervalMs} while enabled.
+   */
+  autoShop: z.boolean().default(false),
+  /**
+   * Milliseconds between automatic shopping rounds when {@link autoShop} is on.
+   */
+  autoShopIntervalMs: z.number().int().min(60_000).default(10 * 60_000),
+  /**
    * When a Local track from a derived Physical Media playlist is now playing,
    * queued, or in playlist history, show the sleeve/case overlay. Missing
    * playlist cover falls back to track art.
@@ -67,4 +75,6 @@ export const defaultItemShopsConfig: ItemShopsConfig = {
   showPhysicalMediaFrameInNowPlaying: false,
   derivePrefixedPlaylistsAsPhysicalMedia: true,
   deriveAlbumsAsPhysicalMedia: false,
+  autoShop: false,
+  autoShopIntervalMs: 10 * 60_000,
 }

@@ -22,10 +22,11 @@ Component-schema `adminOnly` buttons (e.g. Guess the Tune in `nowPlayingInfo`) a
 - Plugin authors curate run-of-show actions once in `getConfigSchema` without a second component-schema area.
 - Admins can keep multiple plugin panels open across reloads within a session; panel placement resets each open.
 - Trade-off: enabling/disabling a plugin still requires Settings (or another surface); Quick Access deliberately does not edit config.
-- Future work could add scalar config fields to panels; public config is replace-on-write, so any such path must save the full merged plugin config.
+- Read-only status fields at the top of panels are covered by [ADR 0135](0135-quick-access-read-only-status.md); config **writes** from Quick Access remain actions-only.
 
 ## See also
 
+- [ADR 0135](0135-quick-access-read-only-status.md) — read-only status fields in Quick Access panels
 - [ADR 0004](0004-state-machines-for-ui-and-socket-events.md) — UI state machines
 - [ADR 0006](0006-plugin-system-for-room-features.md) — plugin system
 - [ADR 0068](0068-private-scoped-plugin-config-fields.md) — schema-driven config authoring

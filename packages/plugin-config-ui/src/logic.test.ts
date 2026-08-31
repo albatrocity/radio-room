@@ -10,6 +10,7 @@ import {
   getItemJsonSchema,
   getQuickAccessActions,
   getQuickAccessSchema,
+  getQuickAccessStatusFields,
 } from "./logic"
 
 describe("shouldShow (nested scope)", () => {
@@ -152,5 +153,49 @@ describe("getQuickAccessActions", () => {
     const filtered = getQuickAccessSchema(schema)
     expect(filtered?.layout).toEqual([advanceAction, startAction])
     expect(getQuickAccessSchema({ ...schema, quickAccess: ["nope"] })).toBeNull()
+  })
+})
+
+describe("getQuickAccessStatusFields", () => {
+  const schema: PluginConfigSchema = {
+    jsonSchema: {},
+    layout: [
+      "autoShop",
+      "autoShopIntervalMs",
+      "questions",
+      "enabledShopIds",
+      { type: "action", action: "start", label: "Start" },
+    ],
+    fieldMeta: {
+      autoShop: { type: "boolean", label: "Auto-shop" },
+      autoShopIntervalMs: {
+        type: "duration",
+        label: "Interval",
+        displayUnit: "minutes",
+        storageUnit: "milliseconds",
+      },
+      questions: { type: "object-array", label: "Questions", itemFields: [] },
+      enabledShopIds: { type: "checkbox-group", label: "Shops", options: [] },
+      secret: { type: "string", label: "Secret", scope: "private" },
+    },
+    quickAccessStatus: [
+      "autoShop",
+      "autoShopIntervalMs",
+      "questions",
+      "enabledShopIds",
+      "secret",
+      "missing",
+    ],
+    quickAccess: ["start"],
+  }
+
+  it("keeps public scalar fields and skips private / non-scalar / unknown", () => {
+    expect(getQuickAccessStatusFields(schema)).toEqual(["autoShop", "autoShopIntervalMs"])
+  })
+
+  it("prepends status fields before actions in getQuickAccessSchema", () => {
+    const startAction: PluginActionElement = { type: "action", action: "start", label: "Start" }
+    const filtered = getQuickAccessSchema(schema)
+    expect(filtered?.layout).toEqual(["autoShop", "autoShopIntervalMs", startAction])
   })
 })

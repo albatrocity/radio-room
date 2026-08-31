@@ -20,4 +20,5 @@ export {
   getItemJsonSchema,
   getQuickAccessActions,
   getQuickAccessSchema,
+  getQuickAccessStatusFields,
 } from "./logic"

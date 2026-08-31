@@ -273,7 +273,52 @@ getConfigSchema(): PluginConfigSchema {
 }
 ```
 
-The menu only lists plugins that declare `quickAccess` **and** have `enabled: true` in room config. Panels are actions-only (no arbitrary config field editing). A `configImport` action may still mutate config via `executeAction` (ADR 0075). Which panels are open persists in sessionStorage per room; desktop position/size is ephemeral.
+The menu only lists plugins that declare `quickAccess` **and** have `enabled: true` in room config. Panels do not live-edit config fields; mutations go through actions (`executeAction` → `setPluginConfig` when needed). A `configImport` action may still mutate config via `executeAction` (ADR 0075). Which panels are open persists in sessionStorage per room; desktop position/size is ephemeral.
+
+#### Read-only status (ADR 0135)
+
+Optionally show current public config at the top of a Quick Access panel without making widgets editable:
+
+```typescript
+getConfigSchema(): PluginConfigSchema {
+  return {
+    jsonSchema: z.toJSONSchema(myConfigSchema),
+    layout: [
+      "enabled",
+      "autoShop",
+      "autoShopIntervalMs",
+      {
+        type: "action",
+        action: "enableAutoShop",
+        label: "Enable auto-shop",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "autoShop", value: false },
+        ],
+      },
+      // ... more actions in layout for Settings + Quick Access resolution
+    ],
+    fieldMeta: {
+      autoShop: { type: "boolean", label: "Auto-shop", showWhen: { field: "enabled", value: true } },
+      autoShopIntervalMs: {
+        type: "duration",
+        label: "Interval",
+        displayUnit: "minutes",
+        storageUnit: "milliseconds",
+        showWhen: [
+          { field: "enabled", value: true },
+          { field: "autoShop", value: true },
+        ],
+      },
+    },
+    quickAccessStatus: ["autoShop", "autoShopIntervalMs"],
+    quickAccess: ["enableAutoShop", "startSession"],
+  }
+}
+```
+
+- `quickAccessStatus`: field names rendered **read-only** in the panel (public scalars only; skip `private` and object-array).
+- Config changes from Quick Access: implement `executeAction` handlers that merge `await getConfig()` and call `setPluginConfig` (same as volume-manager).
 
 ### Handling Actions
 
