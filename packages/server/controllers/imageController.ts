@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from "express"
 import multer from "multer"
 import { AppContext, CHAT_IMAGE_UPLOAD_MAX_BYTES } from "@repo/types"
-import { storeImage, findRoom } from "../operations/data"
+import { storeDedupedRoomImage, findRoom } from "../operations/data"
 import { isRoomAdmin } from "../operations/data/admins"
-import generateId from "../lib/generateId"
 import {
   prepareRoomImage,
   PrepareRoomImageError,
@@ -59,7 +58,6 @@ async function processAndStoreImage(params: {
   context: AppContext
 }): Promise<{ id: string; url: string } | { error: string; status: number }> {
   const { roomId, file, context } = params
-  const imageId = generateId()
 
   let prepared
   try {
@@ -72,11 +70,9 @@ async function processAndStoreImage(params: {
     return { error: "Failed to process image", status: 500 }
   }
 
-  const base64Data = prepared.buffer.toString("base64")
-  const result = await storeImage({
+  const result = await storeDedupedRoomImage({
     roomId,
-    imageId,
-    base64Data,
+    buffer: prepared.buffer,
     mimeType: prepared.mimeType,
     context,
   })
@@ -88,8 +84,8 @@ async function processAndStoreImage(params: {
 
   const apiUrl = context.apiUrl || ""
   return {
-    id: imageId,
-    url: `${apiUrl}/api/rooms/${roomId}/images/${imageId}`,
+    id: result.imageId,
+    url: `${apiUrl}/api/rooms/${roomId}/images/${result.imageId}`,
   }
 }
 

@@ -3,7 +3,7 @@ import { Request, Response } from "express"
 import { appContextFactory } from "@repo/factories"
 
 const mockFindRoom = vi.hoisted(() => vi.fn())
-const mockStoreImage = vi.hoisted(() => vi.fn())
+const mockStoreDedupedRoomImage = vi.hoisted(() => vi.fn())
 const mockGetUser = vi.hoisted(() => vi.fn())
 const mockGetRoomUsers = vi.hoisted(() => vi.fn())
 const mockIsRoomAdmin = vi.hoisted(() => vi.fn())
@@ -11,7 +11,7 @@ const mockPrepareRoomImage = vi.hoisted(() => vi.fn())
 
 vi.mock("../operations/data", () => ({
   findRoom: mockFindRoom,
-  storeImage: mockStoreImage,
+  storeDedupedRoomImage: mockStoreDedupedRoomImage,
   getUser: mockGetUser,
   getRoomUsers: mockGetRoomUsers,
 }))
@@ -56,7 +56,11 @@ describe("uploadImages", () => {
     json = vi.fn()
     status = vi.fn().mockReturnValue({ json })
     mockRes = { status: status as any, json: json as any }
-    mockStoreImage.mockResolvedValue({ success: true })
+    mockStoreDedupedRoomImage.mockResolvedValue({
+      success: true,
+      imageId: "img-1",
+      cached: false,
+    })
     mockPrepareRoomImage.mockResolvedValue({
       buffer: Buffer.from("jpeg-bytes"),
       mimeType: "image/jpeg",
@@ -105,7 +109,7 @@ describe("uploadImages", () => {
       userId: "guest-1",
     })
     expect(mockPrepareRoomImage).toHaveBeenCalledTimes(1)
-    expect(mockStoreImage).toHaveBeenCalledTimes(1)
+    expect(mockStoreDedupedRoomImage).toHaveBeenCalledTimes(1)
     expect(status).not.toHaveBeenCalledWith(401)
     expect(json).toHaveBeenCalledWith({
       success: true,
@@ -130,10 +134,11 @@ describe("uploadImages", () => {
     await uploadImages(mockReq as Request, mockRes as Response)
     expect(mockIsRoomAdmin).not.toHaveBeenCalled()
     expect(mockPrepareRoomImage).toHaveBeenCalledTimes(1)
-    expect(mockStoreImage).toHaveBeenCalledWith(
+    expect(mockStoreDedupedRoomImage).toHaveBeenCalledWith(
       expect.objectContaining({
+        roomId: "room-1",
         mimeType: "image/jpeg",
-        base64Data: Buffer.from("jpeg-bytes").toString("base64"),
+        buffer: expect.any(Buffer),
       }),
     )
     expect(json).toHaveBeenCalledWith({
@@ -158,7 +163,7 @@ describe("uploadImages", () => {
     expect(mockIsRoomAdmin).toHaveBeenCalled()
     expect(status).toHaveBeenCalledWith(403)
     expect(json).toHaveBeenCalledWith({ error: "Image uploads are not allowed in this room" })
-    expect(mockStoreImage).not.toHaveBeenCalled()
+    expect(mockStoreDedupedRoomImage).not.toHaveBeenCalled()
   })
 
   it("returns 200 for room admin when allowChatImages is false", async () => {
@@ -169,7 +174,7 @@ describe("uploadImages", () => {
     })
     mockIsRoomAdmin.mockResolvedValue(true)
     await uploadImages(mockReq as Request, mockRes as Response)
-    expect(mockStoreImage).toHaveBeenCalledTimes(1)
+    expect(mockStoreDedupedRoomImage).toHaveBeenCalledTimes(1)
     expect(json).toHaveBeenCalledWith({
       success: true,
       images: expect.any(Array),

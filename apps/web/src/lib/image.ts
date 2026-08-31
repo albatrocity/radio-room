@@ -14,3 +14,11 @@ export async function fileToBase64(file: File): Promise<string> {
     reader.readAsDataURL(file)
   })
 }
+
+/** SHA-256 hex digest of raw file bytes (for duplicate detection). */
+export async function hashFileContent(file: File | Blob): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer())
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+}

@@ -25,6 +25,7 @@ import {
   type MentionPick,
 } from "../lib/encodeChatMentions"
 import { uploadImages } from "../lib/serverApi"
+import { hashFileContent } from "../lib/image"
 import { toast } from "../lib/toasts"
 
 const MAX_FILE_SIZE = CHAT_IMAGE_UPLOAD_MAX_BYTES
@@ -80,6 +81,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const [content, setContent] = useState("")
   const [cursor, setCursor] = useState(0)
   const [files, setFiles] = useState<File[]>([])
+  const attachedContentHashesRef = useRef<Set<string>>(new Set())
   /**
    * Overlay picks (ordered; supports duplicate display names).
    * Pruned on blur and again at submit via reconcileMentionRegistryWithText (not on every keystroke).
@@ -87,7 +89,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   const [mentionRegistry, setMentionRegistry] = useState<MentionPick[]>([])
 
   const addImageFiles = useCallback(
-    (incoming: File[]) => {
+    async (incoming: File[]) => {
       if (!isAuthenticated || !isAuthInitialized || !canUseChatImages) return
       const tooLarge = incoming.filter((f) => f.size > MAX_FILE_SIZE)
       if (tooLarge.length > 0) {
@@ -104,7 +106,34 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
             /\.(heic|heif|png|jpe?g|gif|webp|bmp|svg)$/i.test(f.name)),
       )
       if (valid.length === 0) return
-      setFiles((prev) => [...prev, ...valid].slice(0, MAX_FILES))
+
+      const knownHashes = attachedContentHashesRef.current
+      const unique: File[] = []
+      let skippedDuplicates = 0
+
+      for (const file of valid) {
+        const hash = await hashFileContent(file)
+        if (knownHashes.has(hash)) {
+          skippedDuplicates += 1
+          continue
+        }
+        knownHashes.add(hash)
+        unique.push(file)
+      }
+
+      if (skippedDuplicates > 0) {
+        toast({
+          type: "info",
+          title: "Duplicate image skipped",
+          description:
+            skippedDuplicates === 1
+              ? "That image is already attached."
+              : `${skippedDuplicates} duplicate images were already attached.`,
+        })
+      }
+
+      if (unique.length === 0) return
+      setFiles((prev) => [...prev, ...unique].slice(0, MAX_FILES))
     },
     [isAuthenticated, isAuthInitialized, canUseChatImages],
   )
@@ -137,7 +166,15 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
   }, [handleTypingStop])
 
   const removeFileAt = useCallback((index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index))
+    setFiles((prev) => {
+      const removed = prev[index]
+      if (removed) {
+        void hashFileContent(removed).then((hash) => {
+          attachedContentHashesRef.current.delete(hash)
+        })
+      }
+      return prev.filter((_, i) => i !== index)
+    })
   }, [])
 
   const filePreviewUrls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files])
@@ -255,6 +292,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
 
         setContent("")
         setFiles([])
+        attachedContentHashesRef.current.clear()
         setCursor(0)
         setMentionRegistry([])
       } catch (error) {
@@ -396,7 +434,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
       const images = fromClipboard.filter((f) => f.type.startsWith("image/"))
       if (images.length === 0) return
       e.preventDefault()
-      addImageFiles(images)
+      void addImageFiles(images)
     },
     [addImageFiles, canUseChatImages, isAuthenticated, isAuthInitialized],
   )
@@ -417,7 +455,7 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
       e.stopPropagation()
       const dt = e.dataTransfer.files
       if (dt?.length) {
-        addImageFiles(Array.from(dt))
+      void addImageFiles(Array.from(dt))
       }
     },
     [addImageFiles, canUseChatImages, isAuthenticated, isAuthInitialized],
