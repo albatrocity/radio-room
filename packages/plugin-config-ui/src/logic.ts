@@ -5,6 +5,41 @@ import type {
   ShowWhenCondition,
 } from "@repo/types/Plugin"
 
+const QUICK_ACCESS_STATUS_SCALAR_TYPES = new Set([
+  "boolean",
+  "number",
+  "duration",
+  "enum",
+  "string",
+  "percentage",
+  "url",
+  "color",
+])
+
+function isQuickAccessStatusField(meta: PluginFieldMeta | undefined): meta is PluginFieldMeta {
+  if (!meta) return false
+  if (meta.scope === "private") return false
+  if (!QUICK_ACCESS_STATUS_SCALAR_TYPES.has(meta.type)) return false
+  return true
+}
+
+/**
+ * Resolve read-only status field names for Quick Access (ADR 0135).
+ * Unknown names and non-scalar / private fields are skipped.
+ */
+export function getQuickAccessStatusFields(schema: PluginConfigSchema): string[] {
+  const names = schema.quickAccessStatus
+  if (!names?.length) return []
+
+  const result: string[] = []
+  for (const name of names) {
+    if (isQuickAccessStatusField(schema.fieldMeta[name])) {
+      result.push(name)
+    }
+  }
+  return result
+}
+
 /**
  * Check if an element should be visible based on its showWhen condition(s).
  * If an array is provided, ALL conditions must be true (AND logic).
@@ -139,15 +174,18 @@ export function getQuickAccessActions(schema: PluginConfigSchema): PluginActionE
 }
 
 /**
- * Build a config schema whose `layout` is only the Quick Access actions (for panel rendering).
+ * Build a config schema for Quick Access panel rendering: read-only status fields
+ * (ADR 0135) then action buttons (ADR 0074).
  */
 export function getQuickAccessSchema(schema: PluginConfigSchema): PluginConfigSchema | null {
   const actions = getQuickAccessActions(schema)
   if (actions.length === 0) return null
+  const statusFields = getQuickAccessStatusFields(schema)
   return {
     jsonSchema: schema.jsonSchema,
     fieldMeta: schema.fieldMeta,
-    layout: actions,
+    layout: [...statusFields, ...actions],
     quickAccess: schema.quickAccess,
+    quickAccessStatus: schema.quickAccessStatus,
   }
 }

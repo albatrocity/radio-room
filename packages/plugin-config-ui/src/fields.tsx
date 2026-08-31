@@ -36,6 +36,8 @@ export interface FieldProps {
   value: unknown
   onChange: (value: unknown) => void
   jsonSchema: Record<string, unknown>
+  /** When true, render a non-interactive control (Quick Access status, ADR 0135). */
+  readOnly?: boolean
   /** Host loader for `remote-select` fields (keyed by `meta.remoteSource`). */
   loadRemoteOptions?: (
     remoteSource: string,
@@ -64,9 +66,13 @@ function getEnumOptions(jsonSchema: Record<string, unknown>, fieldName: string):
   return properties[fieldName].enum || []
 }
 
-function BooleanField({ meta, value, onChange }: FieldProps) {
+function BooleanField({ meta, value, onChange, readOnly }: FieldProps) {
   return (
-    <Checkbox.Root checked={value as boolean} onCheckedChange={(e) => onChange(e.checked)}>
+    <Checkbox.Root
+      checked={value as boolean}
+      disabled={readOnly}
+      onCheckedChange={(e) => !readOnly && onChange(e.checked)}
+    >
       <Checkbox.HiddenInput />
       <Checkbox.Control>
         <Checkbox.Indicator />
@@ -76,12 +82,14 @@ function BooleanField({ meta, value, onChange }: FieldProps) {
   )
 }
 
-function StringField({ meta, value, onChange }: FieldProps) {
+function StringField({ meta, value, onChange, readOnly }: FieldProps) {
   return (
     <>
       <Field.Label>{meta.label}</Field.Label>
       <Input
         value={(value as string) || ""}
+        readOnly={readOnly}
+        disabled={readOnly}
         onChange={(e) => onChange(e.target.value)}
         placeholder={meta.placeholder}
       />
@@ -89,7 +97,7 @@ function StringField({ meta, value, onChange }: FieldProps) {
   )
 }
 
-function NumberField({ meta, value, onChange }: FieldProps) {
+function NumberField({ meta, value, onChange, readOnly }: FieldProps) {
   const displayValue = toDisplayValue(value, meta)
   const suffix = meta.type === "percentage" ? "%" : ""
   const label =
@@ -103,7 +111,8 @@ function NumberField({ meta, value, onChange }: FieldProps) {
       </Field.Label>
       <NumberInput.Root
         value={String(displayValue as number)}
-        onValueChange={(details) => onChange(toStorageValue(details.valueAsNumber, meta))}
+        disabled={readOnly}
+        onValueChange={(details) => !readOnly && onChange(toStorageValue(details.valueAsNumber, meta))}
       >
         <NumberInput.Input />
       </NumberInput.Root>
@@ -591,8 +600,17 @@ export function renderField(
   onChange: (value: unknown) => void,
   jsonSchema: Record<string, unknown>,
   loadRemoteOptions?: FieldProps["loadRemoteOptions"],
+  readOnly?: boolean,
 ): React.ReactNode {
-  const props: FieldProps = { fieldName, meta, value, onChange, jsonSchema, loadRemoteOptions }
+  const props: FieldProps = {
+    fieldName,
+    meta,
+    value,
+    onChange,
+    jsonSchema,
+    loadRemoteOptions,
+    readOnly,
+  }
   switch (meta.type) {
     case "boolean":
       return <BooleanField {...props} />

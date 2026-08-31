@@ -52,6 +52,8 @@ import { LocalLibraryModule } from "./localLibrary"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
+const AUTO_SHOP_TIMER_ID = "auto-shop"
+const MIN_AUTO_SHOP_INTERVAL_MS = 60_000
 
 /**
  * Shops eligible for random assignment. `playbackControllerId` drops shops that
@@ -117,11 +119,18 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.scheduleAlbumArtworkHydrate()
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
+    this.on("GAME_SESSION_STARTED", this.handleGameSessionStarted.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
     this.on("MEDIA_BRIDGE_STATUS_CHANGED", this.handleMediaBridgeStatusChanged.bind(this))
     this.onConfigChange(async () => {
       await this.applyLocalLibraryGrantConfig()
+      await this.syncAutoShopTimer()
     })
+    await this.syncAutoShopTimer()
+  }
+
+  private async handleGameSessionStarted(): Promise<void> {
+    await this.syncAutoShopTimer()
   }
 
   private async handleMediaBridgeStatusChanged(): Promise<void> {
@@ -426,6 +435,96 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     })
   }
 
+  private resolveAutoShopIntervalMs(config: ItemShopsConfig): number {
+    return Math.max(MIN_AUTO_SHOP_INTERVAL_MS, config.autoShopIntervalMs ?? 10 * 60_000)
+  }
+
+  private async syncAutoShopTimer(): Promise<void> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    if (!this.context || !config.enabled || !config.autoShop) {
+      this.clearTimer(AUTO_SHOP_TIMER_ID)
+      return
+    }
+    const duration = this.resolveAutoShopIntervalMs(config)
+    this.startTimer(AUTO_SHOP_TIMER_ID, {
+      duration,
+      callback: async () => {
+        await this.onAutoShopTick()
+      },
+    })
+  }
+
+  private async onAutoShopTick(): Promise<void> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    if (!this.context || !config.enabled || !config.autoShop) {
+      return
+    }
+    const gameSession = await this.context.game.getActiveSession()
+    if (!gameSession) {
+      await this.syncAutoShopTimer()
+      return
+    }
+    const eligible = await this.resolveEligibleShops(config)
+    if (eligible.length === 0) {
+      await this.syncAutoShopTimer()
+      return
+    }
+    await this.openShoppingRound(config)
+    await this.syncAutoShopTimer()
+  }
+
+  private async openShoppingRound(
+    config: ItemShopsConfig,
+  ): Promise<{ success: boolean; message?: string }> {
+    if (!this.context) {
+      return { success: false, message: "Plugin not initialized" }
+    }
+    const eligible = await this.resolveEligibleShops(config)
+    if (eligible.length === 0) {
+      return {
+        success: false,
+        message: "Select at least one shop in Item Shops settings (Shops in rotation).",
+      }
+    }
+    await this.invokeShoppingRoundSessionEndHooks()
+    const users = await this.context.api.getUsers(this.context.roomId)
+    await this.shopping.startSession(users, eligible)
+    await this.invokeShoppingRoundSessionStartHooks(eligible)
+    await this.emit("SHOPPING_SESSION_STARTED", { roomId: this.context.roomId })
+    for (const u of users) {
+      await this.requestShopTabAttention(u.userId)
+    }
+    return { success: true, message: "Shopping session started." }
+  }
+
+  private async persistConfigPatch(
+    initiator: PluginActionInitiator | undefined,
+    patch: Partial<ItemShopsConfig>,
+    message: string,
+  ): Promise<
+    | { success: true; message: string; configPatch: Partial<ItemShopsConfig> }
+    | { success: false; message: string }
+  > {
+    const admin = await this.requireRoomAdminForAction(initiator)
+    if (!admin.ok) return admin.result
+    if (!this.context) {
+      return { success: false, message: "Plugin not initialized" }
+    }
+    const current = (await this.getConfig()) ?? defaultItemShopsConfig
+    const next = { ...current, ...patch }
+    await this.context.api.setPluginConfig(this.context.roomId, this.name, next)
+    // Keep in-memory cache aligned with what we just wrote (PluginAPI.setPluginConfig
+    // does not emit CONFIG_CHANGED, so getConfig() would otherwise stay stale).
+    ;(this as { configCache?: ItemShopsConfig | null }).configCache = next
+    await this.syncAutoShopTimer()
+    const keys = Object.keys(patch) as (keyof ItemShopsConfig)[]
+    const configPatch = Object.fromEntries(keys.map((k) => [k, next[k]])) as Partial<ItemShopsConfig>
+    if ("autoShopIntervalMs" in patch) {
+      configPatch.autoShop = next.autoShop
+    }
+    return { success: true, message, configPatch }
+  }
+
   /** Remove every inventory stack owned by this plugin for all users currently in the room. */
   private async stripOwnedItemsFromAllUsers(): Promise<void> {
     if (!this.context) return
@@ -460,13 +559,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           variant: "info",
         },
         "enabled",
-        "enabledShopIds",
-        "assignShopOnJoin",
-        "showPhysicalMediaFrameInNowPlaying",
-        "derivePrefixedPlaylistsAsPhysicalMedia",
-        "deriveAlbumsAsPhysicalMedia",
-        "localLibraryGrants",
-        "physicalMediaOverrides",
         {
           type: "action",
           action: "startShoppingSession",
@@ -474,6 +566,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           variant: "solid",
           confirmMessage: "Start a new shopping session for everyone in the room?",
           confirmText: "Start",
+          showWhen: { field: "enabled", value: true },
+        },
+        {
+          type: "action",
+          action: "endShoppingSessions",
+          label: "End all shopping sessions",
+          variant: "outline",
+          confirmMessage: "End every active shop instance and clear the current round?",
+          confirmText: "End all",
           showWhen: { field: "enabled", value: true },
         },
         {
@@ -504,15 +605,75 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             },
           ],
         },
+        "enabledShopIds",
+        "assignShopOnJoin",
         {
-          type: "action",
-          action: "endShoppingSessions",
-          label: "End all shopping sessions",
-          variant: "outline",
-          confirmMessage: "End every active shop instance and clear the current round?",
-          confirmText: "End all",
+          type: "heading",
+          content: "Auto-shop",
           showWhen: { field: "enabled", value: true },
         },
+        {
+          type: "text-block",
+          content:
+            "When auto-shop is on, a new shopping round opens for everyone on the interval below. Manual Start still opens immediately and resets the countdown. Auto-shop ticks require an active game session.",
+          variant: "info",
+          showWhen: { field: "enabled", value: true },
+        },
+        "autoShop",
+        "autoShopIntervalMs",
+        {
+          type: "action",
+          action: "enableAutoShop",
+          label: "Enable auto-shop",
+          variant: "outline",
+          showWhen: [
+            { field: "enabled", value: true },
+            { field: "autoShop", value: false },
+          ],
+        },
+        {
+          type: "action",
+          action: "disableAutoShop",
+          label: "Disable auto-shop",
+          variant: "outline",
+          showWhen: [
+            { field: "enabled", value: true },
+            { field: "autoShop", value: true },
+          ],
+        },
+        {
+          type: "action",
+          action: "setAutoShopInterval",
+          label: "Set auto-shop interval",
+          variant: "outline",
+          showWhen: { field: "enabled", value: true },
+          formFields: [
+            {
+              name: "intervalMinutes",
+              label: "Interval (minutes)",
+              type: "string",
+              required: true,
+              placeholder: "10",
+              seedFromField: "autoShopIntervalMs",
+              seedDivide: 60_000,
+            },
+          ],
+        },
+        {
+          type: "heading",
+          content: "Physical Media",
+          showWhen: { field: "enabled", value: true },
+        },
+        "showPhysicalMediaFrameInNowPlaying",
+        "derivePrefixedPlaylistsAsPhysicalMedia",
+        "deriveAlbumsAsPhysicalMedia",
+        "physicalMediaOverrides",
+        {
+          type: "heading",
+          content: "Local Library",
+          showWhen: { field: "enabled", value: true },
+        },
+        "localLibraryGrants",
         {
           type: "action",
           action: "refreshLocalLibrary",
@@ -548,6 +709,23 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           description:
             "If a shopping round is active, give late joiners their own random shop instance.",
           showWhen: { field: "enabled", value: true },
+        },
+        autoShop: {
+          type: "boolean",
+          label: "Auto-shop",
+          description: "Automatically open a new shopping round on the interval below.",
+          showWhen: { field: "enabled", value: true },
+        },
+        autoShopIntervalMs: {
+          type: "duration",
+          label: "Auto-shop interval",
+          description: "How long to wait between automatic shopping rounds.",
+          displayUnit: "minutes",
+          storageUnit: "milliseconds",
+          showWhen: [
+            { field: "enabled", value: true },
+            { field: "autoShop", value: true },
+          ],
         },
         showPhysicalMediaFrameInNowPlaying: {
           type: "boolean",
@@ -657,7 +835,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           ],
         },
       },
-      quickAccess: ["startShoppingSession", "endShoppingSessions", "refreshLocalLibrary"],
+      quickAccessStatus: ["autoShop", "autoShopIntervalMs"],
+      quickAccess: [
+        "enableAutoShop",
+        "disableAutoShop",
+        "setAutoShopInterval",
+        "startShoppingSession",
+        "endShoppingSessions",
+        "refreshLocalLibrary",
+      ],
     }
   }
 
@@ -687,7 +873,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     action: string,
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
-  ): Promise<{ success: boolean; message?: string }> {
+  ): Promise<{ success: boolean; message?: string; configPatch?: Record<string, unknown> }> {
     if (!this.context) {
       return { success: false, message: "Plugin not initialized" }
     }
@@ -762,26 +948,46 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         message: `Granted ${itemName}.`,
       }
     }
+    if (action === "enableAutoShop") {
+      if (!config?.enabled) {
+        return { success: false, message: "Item Shops are disabled." }
+      }
+      return this.persistConfigPatch(initiator, { autoShop: true }, "Auto-shop enabled.")
+    }
+    if (action === "disableAutoShop") {
+      if (!config?.enabled) {
+        return { success: false, message: "Item Shops are disabled." }
+      }
+      return this.persistConfigPatch(initiator, { autoShop: false }, "Auto-shop disabled.")
+    }
+    if (action === "setAutoShopInterval") {
+      if (!config?.enabled) {
+        return { success: false, message: "Item Shops are disabled." }
+      }
+      const raw = params?.intervalMinutes
+      const minutes =
+        typeof raw === "number"
+          ? raw
+          : Number.parseInt(typeof raw === "string" ? raw.trim() : "", 10)
+      if (!Number.isFinite(minutes) || minutes < 1) {
+        return { success: false, message: "Interval must be at least 1 minute." }
+      }
+      const autoShopIntervalMs = Math.max(MIN_AUTO_SHOP_INTERVAL_MS, minutes * 60_000)
+      return this.persistConfigPatch(
+        initiator,
+        { autoShopIntervalMs },
+        `Auto-shop interval set to ${Math.round(autoShopIntervalMs / 60_000)} minutes.`,
+      )
+    }
     if (action === "startShoppingSession") {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
       }
-      const eligible = await this.resolveEligibleShops(config)
-      if (eligible.length === 0) {
-        return {
-          success: false,
-          message: "Select at least one shop in Item Shops settings (Shops in rotation).",
-        }
+      const result = await this.openShoppingRound(config)
+      if (result.success) {
+        await this.syncAutoShopTimer()
       }
-      await this.invokeShoppingRoundSessionEndHooks()
-      const users = await this.context.api.getUsers(this.context.roomId)
-      await this.shopping.startSession(users, eligible)
-      await this.invokeShoppingRoundSessionStartHooks(eligible)
-      await this.emit("SHOPPING_SESSION_STARTED", { roomId: this.context.roomId })
-      for (const u of users) {
-        await this.requestShopTabAttention(u.userId)
-      }
-      return { success: true, message: "Shopping session started." }
+      return result
     }
     if (action === "endShoppingSessions") {
       if (!config?.enabled) {
@@ -790,6 +996,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       await this.invokeShoppingRoundSessionEndHooks()
       await this.shopping.clearSessionRound()
       await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
+      await this.syncAutoShopTimer()
       return { success: true, message: "All shopping sessions ended." }
     }
     if (action === "refreshLocalLibrary") {

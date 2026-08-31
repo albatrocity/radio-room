@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   CloseButton,
   DialogBackdrop,
@@ -15,7 +15,7 @@ import {
   useBreakpointValue,
   VStack,
 } from "@chakra-ui/react"
-import { getQuickAccessSchema } from "@repo/plugin-config-ui/logic"
+import { getQuickAccessSchema, getQuickAccessStatusFields } from "@repo/plugin-config-ui/logic"
 import { LuMaximize2, LuMinus, LuSettings, LuSquare, LuX } from "react-icons/lu"
 import {
   useIsAdmin,
@@ -60,15 +60,54 @@ function useQuickAccessPanelModel(pluginName: string) {
   if (!configSchema || !pluginSchema) return null
 
   const title = toPluginDisplayName(pluginName)
-  const values = {
-    ...(pluginSchema.defaultConfig ?? {}),
-    ...(pluginConfigs?.[pluginName] ?? {}),
-  }
+  const values = useMemo(
+    () => ({
+      ...(pluginSchema.defaultConfig ?? {}),
+      ...(pluginConfigs?.[pluginName] ?? {}),
+    }),
+    [pluginSchema, pluginConfigs, pluginName],
+  )
   const openSettings = () => {
     modalSend({ type: toPluginSettingsEventType(pluginName) } as ModalsEvent)
   }
 
-  return { title, values, configSchema, openSettings }
+  const readOnlyFields =
+    pluginSchema.configSchema && getQuickAccessStatusFields(pluginSchema.configSchema)
+
+  return { title, values, configSchema, readOnlyFields, openSettings }
+}
+
+function QuickAccessPanelForm({
+  pluginName,
+  configSchema,
+  baseValues,
+  readOnlyFields,
+}: {
+  pluginName: string
+  configSchema: NonNullable<ReturnType<typeof getQuickAccessSchema>>
+  baseValues: Record<string, unknown>
+  readOnlyFields?: string[]
+}) {
+  const [localPatch, setLocalPatch] = useState<Record<string, unknown>>({})
+
+  const baseValuesKey = JSON.stringify(baseValues)
+
+  useEffect(() => {
+    setLocalPatch({})
+  }, [baseValuesKey])
+
+  const values = { ...baseValues, ...localPatch }
+
+  return (
+    <PluginConfigForm
+      schema={configSchema}
+      values={values}
+      allValues={values}
+      readOnlyFields={readOnlyFields}
+      onChange={(field, value) => setLocalPatch((prev) => ({ ...prev, [field]: value }))}
+      pluginName={pluginName}
+    />
+  )
 }
 
 function DesktopPanel({
@@ -82,7 +121,7 @@ function DesktopPanel({
   const model = useQuickAccessPanelModel(pluginName)
   if (!model) return null
 
-  const { title, values, configSchema, openSettings } = model
+  const { title, values, configSchema, readOnlyFields, openSettings } = model
 
   return (
     <FloatingPanel.Root
@@ -133,12 +172,11 @@ function DesktopPanel({
               </FloatingPanel.Control>
             </FloatingPanel.Header>
             <FloatingPanel.Body>
-              <PluginConfigForm
-                schema={configSchema}
-                values={values}
-                allValues={values}
-                onChange={() => {}}
+              <QuickAccessPanelForm
                 pluginName={pluginName}
+                configSchema={configSchema}
+                baseValues={values}
+                readOnlyFields={readOnlyFields}
               />
             </FloatingPanel.Body>
             <FloatingPanel.ResizeTriggers />
@@ -154,7 +192,7 @@ function MobilePanel({ pluginName }: { pluginName: string }) {
   const model = useQuickAccessPanelModel(pluginName)
   if (!model) return null
 
-  const { title, values, configSchema, openSettings } = model
+  const { title, values, configSchema, readOnlyFields, openSettings } = model
 
   return (
     <DialogRoot
@@ -190,12 +228,11 @@ function MobilePanel({ pluginName }: { pluginName: string }) {
             </DialogCloseTrigger>
             <DialogBody>
               <VStack align="stretch" gap={4}>
-                <PluginConfigForm
-                  schema={configSchema}
-                  values={values}
-                  allValues={values}
-                  onChange={() => {}}
+                <QuickAccessPanelForm
                   pluginName={pluginName}
+                  configSchema={configSchema}
+                  baseValues={values}
+                  readOnlyFields={readOnlyFields}
                 />
               </VStack>
             </DialogBody>

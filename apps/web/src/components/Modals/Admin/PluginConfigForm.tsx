@@ -33,11 +33,27 @@ interface PluginConfigFormProps {
   onChange: (field: string, value: unknown) => void
   allValues?: Record<string, unknown>
   pluginName?: string
+  readOnlyFields?: string[]
 }
 
 function emptyPluginActionFormState(fields: PluginActionFormField[]): Record<string, string> {
   const out: Record<string, string> = {}
   for (const f of fields) out[f.name] = ""
+  return out
+}
+
+function buildActionFormState(
+  fields: PluginActionFormField[],
+  allValues: Record<string, unknown>,
+): Record<string, string> {
+  const out = emptyPluginActionFormState(fields)
+  for (const f of fields) {
+    if (!f.seedFromField) continue
+    const raw = allValues[f.seedFromField]
+    if (typeof raw !== "number" || !Number.isFinite(raw)) continue
+    const divide = f.seedDivide ?? 1
+    out[f.name] = String(Math.round(raw / divide))
+  }
   return out
 }
 
@@ -68,10 +84,12 @@ type PluginActionResultData = {
 function ActionButton({
   element,
   pluginName,
+  allValues,
   onConfigPatch,
 }: {
   element: PluginActionElement
   pluginName: string
+  allValues: Record<string, unknown>
   onConfigPatch?: (patch: Record<string, unknown>) => void
 }) {
   const users = useUsers()
@@ -256,7 +274,7 @@ function ActionButton({
           colorPalette={buttonColorPalette}
           loading={isLoading}
           onClick={() => {
-            setFormValues(emptyPluginActionFormState(formFields))
+            setFormValues(buildActionFormState(formFields, allValues))
             setConfirmReplace(false)
             setFormPopoverOpen(true)
           }}
@@ -343,7 +361,9 @@ function ActionButton({
         open={formPopoverOpen}
         onOpenChange={(e) => {
           setFormPopoverOpen(e.open)
-          if (e.open && formFields?.length) setFormValues(emptyPluginActionFormState(formFields))
+          if (e.open && formFields?.length) {
+            setFormValues(buildActionFormState(formFields, allValues))
+          }
         }}
       >
         <Popover.Trigger asChild>
@@ -429,7 +449,9 @@ export default function PluginConfigForm({
   onChange,
   allValues,
   pluginName,
+  readOnlyFields,
 }: PluginConfigFormProps) {
+  const effectiveAllValues = allValues ?? values
   const loadRemoteOptions = React.useCallback(
     (remoteSource: string): Promise<{ value: string; label: string }[]> => {
       if (remoteSource !== "bridgeLocalPlaylists") {
@@ -472,7 +494,8 @@ export default function PluginConfigForm({
       schema={schema}
       values={values}
       onChange={onChange}
-      allValues={allValues}
+      allValues={effectiveAllValues}
+      readOnlyFields={readOnlyFields}
       loadRemoteOptions={loadRemoteOptions}
       renderAction={(element) => {
         if (!pluginName) {
@@ -483,6 +506,7 @@ export default function PluginConfigForm({
           <ActionButton
             element={element as PluginActionElement}
             pluginName={pluginName}
+            allValues={effectiveAllValues}
             onConfigPatch={(patch) => {
               for (const [field, value] of Object.entries(patch)) {
                 onChange(field, value)

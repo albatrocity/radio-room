@@ -140,6 +140,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0132](0132-spotify-sdk-playback-error-lease-renewal.md) | Spotify SDK `playback_error` reconnects the device and reattaches playback | Accepted |
 | [0133](0133-stored-artifacts-once-per-session.md) | Stored artifacts fetched once per game session (`userGameStateMachine`) | Accepted |
 | [0134](0134-chat-image-server-processing.md) | Chat image server-side resize, compress, and EXIF strip | Accepted |
+| [0135](0135-quick-access-read-only-status.md) | Quick Access read-only status fields (`quickAccessStatus`) | Accepted |
 
 ## Creating a New ADR
 

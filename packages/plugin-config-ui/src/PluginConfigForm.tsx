@@ -41,6 +41,8 @@ export interface PluginConfigFormProps {
   loadRemoteOptions?: (
     remoteSource: string,
   ) => Promise<{ value: string; label: string }[]>
+  /** Field names rendered read-only (Quick Access status, ADR 0135). */
+  readOnlyFields?: string[]
 }
 
 export type { ApplyConfigImportFn }
@@ -126,8 +128,10 @@ export function PluginConfigForm({
   onConfigImportSuccess,
   renderTemplateComponent = defaultTemplateComponent,
   loadRemoteOptions,
+  readOnlyFields,
 }: PluginConfigFormProps) {
   const effectiveValues = allValues || values
+  const readOnlySet = readOnlyFields?.length ? new Set(readOnlyFields) : null
 
   return (
     <VStack gap={6} align="stretch">
@@ -136,15 +140,17 @@ export function PluginConfigForm({
           const meta = schema.fieldMeta[item]
           if (!meta) return null
           if (!shouldShow(meta.showWhen, effectiveValues)) return null
+          const readOnly = readOnlySet?.has(item) ?? false
           return (
             <Field.Root key={item}>
               {renderField(
                 item,
                 meta,
                 values[item],
-                (value) => onChange(item, value),
+                readOnly ? () => {} : (value) => onChange(item, value),
                 schema.jsonSchema,
                 loadRemoteOptions,
+                readOnly,
               )}
               {meta.description && <Field.HelperText>{meta.description}</Field.HelperText>}
             </Field.Root>

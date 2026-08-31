@@ -133,6 +133,13 @@ export interface PluginActionFormField {
   placeholder?: string
   /** Preferred rows for `textarea` (host may clamp). */
   rows?: number
+  /**
+   * When the action form opens, seed this field from `seedFromField` in config `values`
+   * (e.g. `autoShopIntervalMs` → minutes via `seedDivide: 60000`).
+   */
+  seedFromField?: string
+  /** Divisor applied to the seeded config value (default `1`). */
+  seedDivide?: number
 }
 
 /** How a config-import action merges parsed rows onto the target field (ADR 0075). */
@@ -267,6 +274,11 @@ export interface PluginConfigSchema {
    * Each entry must match a `type: "action"` layout element's `action` id.
    */
   quickAccess?: string[]
+  /**
+   * Public scalar field names shown read-only at the top of Quick Access panels (ADR 0135).
+   * Must exist in `fieldMeta`. Mutations use `quickAccess` actions, not live field edits.
+   */
+  quickAccessStatus?: string[]
 }
 
 /**
