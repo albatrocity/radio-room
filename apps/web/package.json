@@ -40,6 +40,7 @@
     "lucide-react": "^1.14.0",
     "mediamtx-webrtc-react": "^0.1.0",
     "memoize-one": "^6.0.0",
+    "mpg123-decoder": "^1.0.3",
     "next-themes": "^0.4.4",
     "normalize-url": "^8.0.0",
     "prop-types": "^15.7.2",

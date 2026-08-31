@@ -34,6 +34,7 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
   const handleMute = () => audioSend({ type: "TOGGLE_MUTE" })
   const handleLoad = () => audioSend({ type: "LOADED" })
   const handlePlay = () => audioSend({ type: "PLAY" })
+  const handleError = () => audioSend({ type: "STOP" })
 
   useEffect(() => {
     return () => {
@@ -71,6 +72,7 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
           onPlayPause={handlePlayPause}
           onLoad={handleLoad}
           onPlay={handlePlay}
+          onError={handleError}
           onMute={handleMute}
           onShowPlaylist={onShowPlaylist}
           hasPlaylist={hasPlaylist}

@@ -1,8 +1,7 @@
-import { useRef, memo, useEffect, useCallback } from "react"
+import { memo, useEffect, useCallback } from "react"
 import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
 
 import { LuListMusic, LuVolume2, LuVolumeX } from "react-icons/lu"
-import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
@@ -13,11 +12,22 @@ import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import { useIsAdmin } from "../hooks/useActors"
 import ButtonSchedule from "./ButtonSchedule"
+import {
+  configureRadioStreamPlayer,
+  getRadioStreamPlayerDebug,
+  installRadioStreamPlayerAutoUnlock,
+  primeRadioStreamPlayerFromGesture,
+  setRadioStreamPlayerMuted,
+  setRadioStreamPlayerPlaying,
+  setRadioStreamPlayerUrl,
+  setRadioStreamPlayerVolume,
+  stopRadioStreamPlayer,
+} from "../lib/radioStreamPlayer"
 
 interface RadioPlayerProps {
   volume: number
   playing: boolean
-  /** Mute the stream element (user mute or preview ducking). */
+  /** Mute the stream (user mute or preview ducking). */
   muted: boolean
   /** User-initiated mute — controls slider display and mute button state. */
   volumeMuted?: boolean
@@ -27,8 +37,10 @@ interface RadioPlayerProps {
   onShowPlaylist: () => void
   onLoad: () => void
   onPlay: () => void
+  /** Connection failed — leave the loading state instead of spinning forever. */
+  onError: () => void
   hasPlaylist: boolean
-  trackId: string // For reactions (stable ID)
+  trackId: string
   loading: boolean
   streamUrl: string
 }
@@ -42,6 +54,7 @@ const RadioPlayer = ({
   onPlayPause,
   onLoad,
   onPlay,
+  onError,
   onMute,
   onShowPlaylist,
   hasPlaylist,
@@ -49,32 +62,51 @@ const RadioPlayer = ({
   loading,
   streamUrl,
 }: RadioPlayerProps) => {
-  const player = useRef<ReactHowler>(null)
   const isAdmin = useIsAdmin()
   const showVolumeMuted = volumeMuted ?? muted
 
-  useHotkeys("space", () => {
-    onPlayPause()
-  })
-
   useEffect(() => {
-    const ref = player.current
-    if (ref && !ref.howler?.playing() && !playing && ref.howlerState() === "loaded") {
-      ref.howler?.stop()
+    configureRadioStreamPlayer({
+      onLoad,
+      onPlay,
+      onError,
+    })
+    const removeAutoUnlock = installRadioStreamPlayerAutoUnlock()
+    if (import.meta.env.DEV) {
+      ;(window as Window & { __radioAudioDebug?: () => unknown }).__radioAudioDebug =
+        getRadioStreamPlayerDebug
     }
-  }, [playing])
-
-  useEffect(() => {
     return () => {
-      player.current?.howler?.unload()
+      removeAutoUnlock()
+      stopRadioStreamPlayer()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleError = useCallback(() => {
-    if (playing && player.current) {
-      player.current.howler?.stop()
-    }
-  }, [playing, player.current])
+  useEffect(() => {
+    setRadioStreamPlayerUrl(streamUrl)
+  }, [streamUrl])
+
+  useEffect(() => {
+    setRadioStreamPlayerVolume(volume)
+  }, [volume])
+
+  useEffect(() => {
+    setRadioStreamPlayerMuted(muted)
+  }, [muted])
+
+  useEffect(() => {
+    setRadioStreamPlayerPlaying(playing)
+  }, [playing])
+
+  const handlePlayPauseClick = useCallback(() => {
+    primeRadioStreamPlayerFromGesture()
+    onPlayPause()
+  }, [onPlayPause])
+
+  useHotkeys("space", () => {
+    handlePlayPauseClick()
+  })
 
   return (
     <Box>
@@ -110,7 +142,7 @@ const RadioPlayer = ({
               <PlayPauseButton
                 playing={playing}
                 loading={loading}
-                onClick={() => onPlayPause()}
+                onClick={handlePlayPauseClick}
               />
               {!isAdmin && (
                 <IconButton
@@ -157,22 +189,6 @@ const RadioPlayer = ({
             </Box>
           </HStack>
         </Container>
-        <ReactHowler
-          src={streamUrl}
-          preload={false}
-          playing={playing}
-          mute={muted}
-          html5={true}
-          ref={player}
-          volume={volume}
-          onPlayError={handleError}
-          onLoadError={handleError}
-          onStop={handleError}
-          onEnd={handleError}
-          onPlay={onPlay}
-          onLoad={onLoad}
-          autoSuspend={false}
-        />
       </Box>
     </Box>
   )

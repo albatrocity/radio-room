@@ -165,7 +165,12 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
             <LinkBox width="100%">
               <Stack direction={["row", "column"]} gap={5} justify="center">
                 {(coverUrl || framedArt) && (
-                  <Box position="relative" width={artworkSize} flexShrink={0}>
+                  <Box
+                    position="relative"
+                    width={artworkSize}
+                    flexShrink={0}
+                    data-now-playing-artwork=""
+                  >
                     <Box position="absolute">
                       <PluginArea area="nowPlayingArt" color="primaryBg" />
                     </Box>

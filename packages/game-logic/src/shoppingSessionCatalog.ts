@@ -143,6 +143,12 @@ export type ItemCatalogEntry = {
    * playlist or album key resolved via Item Shops derived maps / config.
    */
   localLibraryGrant?: LocalLibraryGrant
+  /**
+   * When set, shopping offers omit this SKU unless `room.type` is in the list.
+   * Gift/trade into other room types remains allowed; the item is inert there.
+   * Omitted = available in every room type.
+   */
+  availableInRoomTypes?: ReadonlyArray<"jukebox" | "radio" | "live">
 }
 
 export const DEFAULT_RARITY_WEIGHTS: Record<ItemRarity, number> = {
@@ -164,6 +170,43 @@ export function buildItemCatalogMap(
     m.set(e.definition.shortId, e)
   }
   return m
+}
+
+export type RoomTypeForShopFilter = "jukebox" | "radio" | "live"
+
+/**
+ * Whether a catalog SKU may appear in shopping offers for `roomType`.
+ * Missing `availableInRoomTypes` = unrestricted.
+ */
+export function isItemAvailableInRoomType(
+  entry: ItemCatalogEntry | undefined,
+  roomType: RoomTypeForShopFilter,
+): boolean {
+  const allowed = entry?.availableInRoomTypes
+  if (!allowed || allowed.length === 0) return true
+  return allowed.includes(roomType)
+}
+
+/**
+ * Drop shop `availableItems` whose catalog entry restricts room types and
+ * does not include `roomType`. Shops with an empty list after filtering remain
+ * (assignment may yield no offers — callers that need to hide empty shops
+ * should filter further).
+ */
+export function filterShopCatalogByRoomType<T extends ShopCatalogEntry>(
+  shops: readonly T[],
+  catalogByShortId: Map<string, ItemCatalogEntry>,
+  roomType: RoomTypeForShopFilter,
+): T[] {
+  return shops.map((shop) => {
+    const availableItems = shop.availableItems.filter((ai) =>
+      isItemAvailableInRoomType(catalogByShortId.get(ai.shortId), roomType),
+    )
+    if (availableItems.length === shop.availableItems.length) {
+      return shop
+    }
+    return { ...shop, availableItems }
+  })
 }
 
 /**

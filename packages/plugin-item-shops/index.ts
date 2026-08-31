@@ -5,7 +5,7 @@ import type {
   ShopSessionContext,
 } from "@repo/plugin-base/helpers"
 import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugin-base"
-import { countFlagStacks, resolveItemRarity } from "@repo/game-logic"
+import { countFlagStacks, resolveItemRarity, buildItemCatalogMap, filterShopCatalogByRoomType } from "@repo/game-logic"
 import {
   type ChatMessage,
   type ContributeToUserGameStateContext,
@@ -58,11 +58,14 @@ const MIN_AUTO_SHOP_INTERVAL_MS = 60_000
 /**
  * Shops eligible for random assignment. `playbackControllerId` drops shops that
  * declare `requiresPlaybackControllerId` when the room controller does not match.
+ * `roomType` strips SKUs whose `availableInRoomTypes` does not include the type
+ * (ADR 0136).
  */
 export function getEligibleShops(
   config: ItemShopsConfig,
   playbackControllerId?: string | null,
   derivedPhysicalMedia: readonly ItemCatalogEntry[] = [],
+  roomType?: "jukebox" | "radio" | "live" | null,
 ): ItemShopsShopCatalogEntry[] {
   const shopCatalog = buildEffectiveShopCatalog(
     config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,
@@ -70,13 +73,19 @@ export function getEligibleShops(
   )
   const knownIds = new Set(shopCatalog.map((s) => s.shopId))
   const selected = new Set(config.enabledShopIds.filter((id) => knownIds.has(id)))
-  return shopCatalog.filter((s) => {
+  const eligible = shopCatalog.filter((s) => {
     if (!selected.has(s.shopId)) return false
     if (s.requiresPlaybackControllerId && s.requiresPlaybackControllerId !== playbackControllerId) {
       return false
     }
     return true
   })
+  if (!roomType) return eligible
+  const catalogMap = buildItemCatalogMap([
+    ...ITEM_CATALOG,
+    ...derivedPhysicalMedia,
+  ])
+  return filterShopCatalogByRoomType(eligible, catalogMap, roomType)
 }
 
 export type { ItemShopsConfig } from "./types"
@@ -423,6 +432,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       config,
       room?.playbackControllerId,
       this.localLibrary.derivedPhysicalMedia,
+      room?.type,
     )
   }
 

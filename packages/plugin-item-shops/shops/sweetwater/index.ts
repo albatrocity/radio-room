@@ -86,6 +86,7 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.snoozePedal.shortId, coinValue: 30 },
     { shortId: items.coffeePedal.shortId, coinValue: 10 },
     { shortId: items.nineVoltBattery.shortId, coinValue: 20 },
+    { shortId: items.oscilloscope.shortId, coinValue: 35 },
   ],
   listedBuybackRate: 0.5,
   unlistedBuybackRate: 0.25,

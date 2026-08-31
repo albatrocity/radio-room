@@ -78,6 +78,11 @@ export function createItem<TShortId extends string>(config: {
    */
   localLibraryGrant?: ItemCatalogEntry["localLibraryGrant"]
   /**
+   * When set, shopping offers omit this SKU unless `room.type` is listed.
+   * See ADR 0136.
+   */
+  availableInRoomTypes?: ItemCatalogEntry["availableInRoomTypes"]
+  /**
    * Called when a user activates this item from inventory.
    * Omit for passive/defense items that only apply via game rules.
    * Use `timedModifierEffect()` for pedal-style timed chat modifiers.
@@ -100,6 +105,9 @@ export function createItem<TShortId extends string>(config: {
     catalogEntry: {
       definition: { shortId: config.shortId, ...config.definition },
       ...(config.localLibraryGrant ? { localLibraryGrant: config.localLibraryGrant } : {}),
+      ...(config.availableInRoomTypes
+        ? { availableInRoomTypes: config.availableInRoomTypes }
+        : {}),
     },
     use: config.use,
     onDefenseTriggered: config.onDefenseTriggered,
