@@ -31,8 +31,12 @@ import type {
 } from "@repo/types"
 import type { MetadataSourceTrack } from "@repo/types/MetadataSource"
 import type { QueueItem } from "@repo/types/Queue"
+import { resolveBrowserApiBaseUrl } from "@repo/utils"
 
-const API_URL = import.meta.env.VITE_API_URL || ""
+const API_URL = resolveBrowserApiBaseUrl(
+  String(import.meta.env.VITE_API_URL ?? ""),
+  typeof window === "undefined" ? null : window.location,
+)
 
 const api = ky.create({
   prefixUrl: API_URL,

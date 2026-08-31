@@ -1,6 +1,7 @@
 import { createAuthClient } from "better-auth/react"
 import { adminClient } from "better-auth/client/plugins"
 import { inviteOnlyClient } from "better-auth-invitation-only/client"
+import { resolveBrowserApiBaseUrl } from "@repo/utils"
 
 const INVITE_COOKIE_NAME = "ba-invite-code"
 
@@ -31,33 +32,27 @@ export function clearInviteCodeCookieForOAuth(cookieName: string = INVITE_COOKIE
   document.cookie = `${cookieName}=; path=/; max-age=0; SameSite=Lax${domain}`
 }
 
+function configuredApiUrl(): string {
+  return String(import.meta.env.VITE_API_URL ?? "")
+}
+
+function browserApiBaseUrl(): string {
+  return resolveBrowserApiBaseUrl(
+    configuredApiUrl(),
+    typeof window === "undefined" ? null : window.location,
+  )
+}
+
 /** Use for raw fetch() to Better-Auth routes; matches authClient base + /api/auth (Vite proxy when VITE_API_URL is unset). */
 export function authApiUrl(path: string): string {
-  const configured = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "")
-  const base =
-    typeof window !== "undefined" &&
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1" &&
-    window.location.hostname !== "[::1]"
-      ? `${window.location.protocol}//${window.location.hostname}:3000`
-      : configured
+  const base = browserApiBaseUrl()
   const prefix = base ? `${base}/api/auth` : "/api/auth"
   const p = path.startsWith("/") ? path : `/${path}`
   return `${prefix}${p}`
 }
 
-function authClientBaseURL(): string {
-  const configured = import.meta.env.VITE_API_URL || ""
-  if (typeof window === "undefined") return configured
-  const { hostname, protocol } = window.location
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") {
-    return configured
-  }
-  return `${protocol}//${hostname}:3000`
-}
-
 export const authClient = createAuthClient({
-  baseURL: authClientBaseURL(),
+  baseURL: browserApiBaseUrl(),
   plugins: [adminClient(), inviteOnlyClient()],
   fetchOptions: {
     credentials: "include" as RequestCredentials,

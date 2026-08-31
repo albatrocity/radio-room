@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@repo/db": "*",
+    "@repo/utils": "*",
     "better-auth": "^1.5.0",
     "better-auth-invitation-only": "^1.0.0",
     "drizzle-orm": "^0.45.1"
