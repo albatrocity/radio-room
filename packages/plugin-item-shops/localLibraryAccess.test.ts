@@ -307,6 +307,20 @@ describe("getEligibleShops", () => {
     )
     expect(shops.some((s) => s.shopId === "green-room")).toBe(true)
   })
+
+  it("keeps oscilloscope offers in radio rooms and strips them in jukebox/live", () => {
+    const radioShops = getEligibleShops(config, "spotify", [], "radio")
+    const sweetwaterRadio = radioShops.find((s) => s.shopId === "sweetwater")
+    expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(true)
+
+    const jukeboxShops = getEligibleShops(config, "spotify", [], "jukebox")
+    const sweetwaterJukebox = jukeboxShops.find((s) => s.shopId === "sweetwater")
+    expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(false)
+
+    const liveShops = getEligibleShops(config, "spotify", [], "live")
+    const sweetwaterLive = liveShops.find((s) => s.shopId === "sweetwater")
+    expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(false)
+  })
 })
 
 describe("ItemShopsPlugin local library grants", () => {

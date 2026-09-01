@@ -1,4 +1,4 @@
-import { memo } from "react"
+import { memo, lazy, Suspense } from "react"
 import { Box, Heading, HStack, VStack } from "@chakra-ui/react"
 
 import {
@@ -8,8 +8,10 @@ import {
   useIsAdmin,
   useMediaSourceStatus,
   useNowPlaying,
+  useUserInventory,
 } from "../../hooks/useActors"
 import { RoomMeta } from "../../types/Room"
+import { inventoryOwnsOscilloscope } from "../../lib/oscilloscopeOwnership"
 
 import { NowPlayingLoading } from "./NowPlayingLoading"
 import { NowPlayingEmpty } from "./NowPlayingEmpty"
@@ -17,6 +19,8 @@ import { NowPlayingTrack } from "./NowPlayingTrack"
 import ButtonAddToQueue from "../ButtonAddToQueue"
 import ButtonPolls from "../ButtonPolls"
 import { PluginArea } from "../PluginComponents"
+
+const OscilloscopeBackground = lazy(() => import("./OscilloscopeBackground"))
 
 interface NowPlayingProps {
   meta?: RoomMeta
@@ -57,13 +61,16 @@ function NowPlaying({ meta }: NowPlayingProps) {
   const users = useUsers()
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
+  const inventory = useUserInventory()
 
   const displayState = useDisplayState(meta)
+  const showOscilloscope =
+    room?.type === "radio" && inventoryOwnsOscilloscope(inventory)
 
   return (
     <Box
       p={3}
-      // background="primary"
+      position="relative"
       alignContent="center"
       alignItems="center"
       justifyContent="center"
@@ -72,7 +79,15 @@ function NowPlaying({ meta }: NowPlayingProps) {
       overflow="hidden"
       layerStyle="themeTransition"
     >
+      {showOscilloscope && (
+        <Suspense fallback={null}>
+          <OscilloscopeBackground />
+        </Suspense>
+      )}
+
       <VStack
+        position="relative"
+        zIndex={1}
         gap={4}
         justify="space-between"
         height="100%"

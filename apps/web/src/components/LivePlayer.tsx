@@ -20,6 +20,10 @@ import {
 } from "../hooks/useActors"
 import { useLiveTransport } from "../hooks/useLiveTransport"
 import { useHotkeys } from "react-hotkeys-hook"
+import {
+  registerRadioAudioElement,
+  resumeRadioAudioContext,
+} from "../lib/radioAudioTap"
 
 type Props = {
   trackId: string
@@ -46,6 +50,19 @@ const LivePlayer = ({
 
   const { audioRef } = useLiveTransport(whepUrl, hlsUrl, audioSend as
     (event: { type: "LOADED" } | { type: "PLAY" } | { type: "STOP" }) => void)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    registerRadioAudioElement(audio)
+    return () => {
+      registerRadioAudioElement(null)
+    }
+  }, [audioRef])
+
+  useEffect(() => {
+    if (playing) resumeRadioAudioContext()
+  }, [playing])
 
   const handleVolume = (v: number) => audioSend({ type: "CHANGE_VOLUME", volume: v })
   const handlePlayPause = () => audioSend({ type: "TOGGLE" })

@@ -40,6 +40,7 @@ import type {
   ItemSellbackValueHandler,
 } from "./shared/types"
 import { greenPeas } from "./green-peas"
+import { oscilloscope } from "./oscilloscope"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -82,6 +83,7 @@ export const items = {
   lemons,
   privateBathroom,
   coldBeer,
+  oscilloscope,
 } as const
 
 /**

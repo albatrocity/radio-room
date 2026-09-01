@@ -53,6 +53,20 @@ npm run create-item -w @repo/plugin-item-shops
 - **Custom behavior:** generated async `use` handler stub with `ItemShopsBehaviorDeps`
 - **Room messages naming the actor:** when a `use` handler calls `sendSystemMessage` with the inventory owner’s name, use **`resolveItemUseActorDisplayName(deps, userId)`** from `items/shared/resolveItemUseActorDisplayName.ts` so the **`anonymous_actions`** timed modifier (Ski Mask) is respected. It reads `deps.game.getUserState(userId)`; in tests, **`applyTimedModifier` is mocked**, so mirror modifier state by mocking **`getUserState`** when asserting anonymous copy.
 
+### Room-type shop availability (`availableInRoomTypes`)
+
+Some items only make sense in certain room types (e.g. an Oscilloscope that visualizes radio stream audio). Pass **`availableInRoomTypes`** to **`createItem`** (catalog metadata — not an `ItemDefinition` field):
+
+```ts
+export const oscilloscope = createItem({
+  shortId: "oscilloscope",
+  definition: { /* … */, consumable: false },
+  availableInRoomTypes: ["radio"],
+})
+```
+
+Shopping offer assignment filters out SKUs whose list does not include `room.type` ([ADR 0136](adrs/0136-inventory-owned-client-visuals.md)). Gift/trade into other room types remains allowed; client visuals stay inert there. Omit the field for unrestricted SKUs.
+
 ### Custom sellback value (per-stack)
 
 Some items need a **sellback** coin amount that depends on the **inventory stack** (e.g. time held via `acquiredAt`), not the shop’s `listedBuybackRate`. Put the pure function in a small module (e.g. **`items/mars-egg/sellbackValue.ts`**) and pass it as **`sellbackValue`** in **`createItem`**. The plugin exposes **`getSellbackValues`**; the server attaches **`sellbackValue`** on each `InventoryItem` in **`USER_GAME_STATE`**, and **`onItemSold`** uses the same handler so the client **Sell (N)** label matches the coins credited. **Game Studio / studio-bridge** can import **`@repo/plugin-item-shops/mars-egg-sellback`** (package export) so preview uses the same math without duplicating constants.

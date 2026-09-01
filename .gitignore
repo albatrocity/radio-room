@@ -108,3 +108,6 @@ _old/
 
 # Local MCP config (may contain API tokens); use .cursor/mcp.json.example
 .cursor/mcp.json
+
+# Locally-trusted TLS pairs (mkcert) for LAN device testing — never commit private keys
+*.pem

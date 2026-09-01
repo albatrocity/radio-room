@@ -36,6 +36,38 @@ export function featureImageUrl(images?: MetadataSourceUrl[]): string | undefine
   return best.url
 }
 
+/** WebKit scores candidates against a 512x512 ideal; match it so we agree. */
+const LOCK_SCREEN_TARGET_EDGE = 512
+
+/**
+ * Lock-screen artwork, ordered closest-to-512 first.
+ *
+ * Declares each image's real dimensions rather than a guessed size, and falls
+ * back to room artwork so stations whose tracks the metadata sources cannot
+ * match still show a cover instead of a grey box. Order matters because older
+ * WebKit reads only the first entry, so the best candidate has to lead.
+ */
+export function mediaSessionArtwork(
+  images?: MetadataSourceUrl[],
+  fallbackUrl?: string,
+): MediaImage[] {
+  const entries = (images ?? [])
+    .filter((img) => img.type === "image" && img.url)
+    .map((img) => {
+      const sized = /^\d+x\d+$/.test(img.id)
+      const edge = sized ? Math.max(...img.id.split("x").map(Number)) : 0
+      return {
+        image: sized ? { src: img.url, sizes: img.id } : { src: img.url },
+        // Unsized images sort last: WebKit has to download them to rank them.
+        distance: sized ? Math.abs(edge - LOCK_SCREEN_TARGET_EDGE) : Infinity,
+      }
+    })
+    .sort((a, b) => a.distance - b.distance)
+    .map((entry) => entry.image)
+  if (entries.length > 0) return entries
+  return fallbackUrl ? [{ src: fallbackUrl }] : []
+}
+
 /** Biggest cover available, for full-size preview. Falls back to the first. */
 export function largestImageUrl(images?: MetadataSourceUrl[]): string | undefined {
   const candidates = images?.filter((img) => img.type === "image" && img.url) ?? []

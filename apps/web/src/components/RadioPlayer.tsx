@@ -1,8 +1,7 @@
-import { useRef, memo, useEffect, useCallback } from "react"
+import { memo, useEffect, useCallback, useState } from "react"
 import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
 
 import { LuListMusic, LuVolume2, LuVolumeX } from "react-icons/lu"
-import ReactHowler from "react-howler"
 import ReactionCounter from "./ReactionCounter"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
@@ -13,11 +12,22 @@ import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import { useIsAdmin } from "../hooks/useActors"
 import ButtonSchedule from "./ButtonSchedule"
+import {
+  configureRadioStreamPlayer,
+  getRadioStreamPlayerDebug,
+  primeRadioStreamPlayerFromGesture,
+  radioStreamVolumeIsSettable,
+  setRadioStreamPlayerMuted,
+  setRadioStreamPlayerPlaying,
+  setRadioStreamPlayerUrl,
+  setRadioStreamPlayerVolume,
+  stopRadioStreamPlayer,
+} from "../actors/radioStreamActor"
 
 interface RadioPlayerProps {
   volume: number
   playing: boolean
-  /** Mute the stream element (user mute or preview ducking). */
+  /** Mute the stream (user mute or preview ducking). */
   muted: boolean
   /** User-initiated mute — controls slider display and mute button state. */
   volumeMuted?: boolean
@@ -27,8 +37,10 @@ interface RadioPlayerProps {
   onShowPlaylist: () => void
   onLoad: () => void
   onPlay: () => void
+  /** Connection failed — leave the loading state instead of spinning forever. */
+  onError: () => void
   hasPlaylist: boolean
-  trackId: string // For reactions (stable ID)
+  trackId: string
   loading: boolean
   streamUrl: string
 }
@@ -42,6 +54,7 @@ const RadioPlayer = ({
   onPlayPause,
   onLoad,
   onPlay,
+  onError,
   onMute,
   onShowPlaylist,
   hasPlaylist,
@@ -49,32 +62,54 @@ const RadioPlayer = ({
   loading,
   streamUrl,
 }: RadioPlayerProps) => {
-  const player = useRef<ReactHowler>(null)
   const isAdmin = useIsAdmin()
   const showVolumeMuted = volumeMuted ?? muted
-
-  useHotkeys("space", () => {
-    onPlayPause()
-  })
+  /** iOS reserves level to the hardware buttons — hide the slider there. */
+  const [volumeSettable, setVolumeSettable] = useState(true)
 
   useEffect(() => {
-    const ref = player.current
-    if (ref && !ref.howler?.playing() && !playing && ref.howlerState() === "loaded") {
-      ref.howler?.stop()
+    configureRadioStreamPlayer({
+      onLoad,
+      onPlay,
+      onError,
+    })
+    setVolumeSettable(radioStreamVolumeIsSettable())
+    if (import.meta.env.DEV) {
+      ;(window as Window & { __radioAudioDebug?: () => unknown }).__radioAudioDebug =
+        getRadioStreamPlayerDebug
     }
-  }, [playing])
-
-  useEffect(() => {
     return () => {
-      player.current?.howler?.unload()
+      stopRadioStreamPlayer()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleError = useCallback(() => {
-    if (playing && player.current) {
-      player.current.howler?.stop()
-    }
-  }, [playing, player.current])
+  useEffect(() => {
+    setRadioStreamPlayerUrl(streamUrl)
+  }, [streamUrl])
+
+  useEffect(() => {
+    setRadioStreamPlayerVolume(volume)
+  }, [volume])
+
+  useEffect(() => {
+    setRadioStreamPlayerMuted(muted)
+  }, [muted])
+
+  useEffect(() => {
+    setRadioStreamPlayerPlaying(playing)
+  }, [playing])
+
+  const handlePlayPauseClick = useCallback(() => {
+    // Only on the way into playback — priming a pause click would briefly
+    // start the element before the machine caught up.
+    if (!playing) primeRadioStreamPlayerFromGesture()
+    onPlayPause()
+  }, [onPlayPause, playing])
+
+  useHotkeys("space", () => {
+    handlePlayPauseClick()
+  })
 
   return (
     <Box>
@@ -110,7 +145,7 @@ const RadioPlayer = ({
               <PlayPauseButton
                 playing={playing}
                 loading={loading}
-                onClick={() => onPlayPause()}
+                onClick={handlePlayPauseClick}
               />
               {!isAdmin && (
                 <IconButton
@@ -127,7 +162,7 @@ const RadioPlayer = ({
                 </IconButton>
               )}
             </HStack>
-            <Box hideBelow="sm" w="100%" pr={3}>
+            <Box hideBelow="sm" w="100%" pr={3} display={volumeSettable ? undefined : "none"}>
               <Slider.Root
                 aria-label={["Volume"]}
                 value={[showVolumeMuted ? 0 : volume]}
@@ -157,22 +192,6 @@ const RadioPlayer = ({
             </Box>
           </HStack>
         </Container>
-        <ReactHowler
-          src={streamUrl}
-          preload={false}
-          playing={playing}
-          mute={muted}
-          html5={true}
-          ref={player}
-          volume={volume}
-          onPlayError={handleError}
-          onLoadError={handleError}
-          onStop={handleError}
-          onEnd={handleError}
-          onPlay={onPlay}
-          onLoad={onLoad}
-          autoSuspend={false}
-        />
       </Box>
     </Box>
   )

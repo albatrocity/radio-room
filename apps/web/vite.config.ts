@@ -1,3 +1,4 @@
+import fs from "node:fs"
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
@@ -6,6 +7,18 @@ const vitePort = 8000
 
 /** Docker bind mounts often don't propagate fs events (especially Docker Desktop). */
 const pollFiles = process.env.VITE_DOCKER === "1" || process.env.CHOKIDAR_USEPOLLING === "true"
+
+/**
+ * Opt-in TLS for LAN phone testing. Service workers and other secure-context APIs are
+ * unavailable over plain http on a real device, since only localhost is exempt.
+ * Generate a trusted pair with mkcert and point both vars at it.
+ */
+const httpsKeyPath = process.env.VITE_HTTPS_KEY
+const httpsCertPath = process.env.VITE_HTTPS_CERT
+const httpsOptions =
+  httpsKeyPath && httpsCertPath
+    ? { key: fs.readFileSync(httpsKeyPath), cert: fs.readFileSync(httpsCertPath) }
+    : undefined
 
 export default defineConfig(({ mode }) => ({
   plugins: [
@@ -17,6 +30,7 @@ export default defineConfig(({ mode }) => ({
     port: vitePort,
     strictPort: true,
     host: "0.0.0.0",
+    https: httpsOptions,
     // Bind mounts — without polling, saves on the host often never reach Chokidar inside the container.
     watch: pollFiles
       ? {
