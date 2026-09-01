@@ -1,7 +1,7 @@
 # 0139. Radio Stream Lifecycle in a Machine, Audio Path Imperative
 
 **Date:** 2026-08-31
-**Status:** Accepted
+**Status:** Accepted (structure stands; [0140](0140-radio-element-playback-oscilloscope-tabled.md) replaced the invoked decode run with an element-playback actor and deleted `radioStreamEngine`)
 
 ## Context
 

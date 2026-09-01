@@ -16,6 +16,7 @@ import {
   type RadioAudioTapDebugSnapshot,
 } from "../../lib/radioAudioTap"
 import {
+  attachRadioScope,
   getRadioStreamPlayerDebug,
   getRadioStreamPlayerStatus,
 } from "../../actors/radioStreamActor"
@@ -44,7 +45,13 @@ function formatDebugHud(s: RadioAudioTapDebugSnapshot): string {
     `stream state=${d.state} http=${stream.httpStatus ?? "—"} frames=${d.framesScheduled} err=${d.error ?? "null"}`,
     `ct=${stream.contentType ?? "—"} playingDesired=${d.playingDesired}`,
     `ctx=${d.contextState ?? "none"} rate=${d.contextSampleRate ?? "—"} ahead=${d.bufferedAheadSec?.toFixed(2) ?? "—"}`,
-    `gain=${d.gainValue ?? "—"} gate=${d.gateOpen} unlocked=${d.outputUnlocked} srcs=${d.activeSources}`,
+    `el paused=${d.paused ?? "—"} ready=${d.readyState ?? "—"} elAhead=${d.elementBufferedAheadSec?.toFixed(2) ?? "—"}`,
+    `align delay=${d.alignmentDelaySec?.toFixed(2) ?? "—"} residual=${
+      d.elementBufferedAheadSec != null && d.bufferedAheadSec != null && d.alignmentDelaySec != null
+        ? (d.elementBufferedAheadSec - d.bufferedAheadSec - d.alignmentDelaySec).toFixed(2)
+        : "—"
+    }`,
+    `scope=${d.scopeAttached} visible=${d.visible} srcs=${d.activeSources}`,
   ].join("\n")
 }
 
@@ -236,6 +243,10 @@ export default function OscilloscopeBackground() {
   useEffect(() => {
     if (isPlaying) resumeRadioAudioContext()
   }, [isPlaying])
+
+  // The analysis connection is demand-driven: opened only while a scope is
+  // mounted to watch it (ADR 0140).
+  useEffect(() => attachRadioScope(), [])
 
   useEffect(() => {
     if (!OSCILLOSCOPE_TEMP_DEBUG) return

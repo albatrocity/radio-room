@@ -1,10 +1,11 @@
 /**
- * Shared analyser access for room listen visuals (ADR 0136 / 0137 / 0139).
+ * Shared analyser access for room listen visuals (ADR 0136 / 0139 / 0140).
  *
- * Radio owns the audible graph in `radioStreamEngine` and registers its
- * AnalyserNode here, so consumers read time-domain data without touching the
- * audio path. The AudioContext is a singleton because WebKit locks output for
- * contexts created outside a user gesture — create it from the play gesture.
+ * Radio's audible output belongs to an `<audio>` element and never enters an
+ * AudioContext. What registers here is the analyser from `radioAnalysisEngine`,
+ * a separate silent decode, so consumers read time-domain data from a graph
+ * that makes no sound. The AudioContext is a singleton because WebKit will not
+ * start one created outside a user gesture.
  *
  * Live / hybrid register their listen element for a future visualisation; the
  * Chromium `captureStream` / `MediaElementSource` wiring that radio needed
@@ -72,7 +73,7 @@ export function resumeRadioAudioContext(): void {
   }
 }
 
-/** The audible graph registers its analyser (radio: `radioStreamEngine`). */
+/** The silent analysis graph registers its analyser (`radioAnalysisEngine`). */
 export function registerRadioStreamAnalyser(node: AnalyserNode | null): void {
   if (streamAnalyser === node) return
   streamAnalyser = node

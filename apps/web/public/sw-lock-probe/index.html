@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Lock-screen probe</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: #101014;
+        color: #e8e8ef;
+        font: 15px/1.45 ui-sans-serif, system-ui, sans-serif;
+        -webkit-text-size-adjust: 100%;
+      }
+      h1 {
+        font-size: 17px;
+        margin: 0 0 12px;
+      }
+      section {
+        border: 1px solid #2a2a35;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #8f8fa3;
+        margin-bottom: 6px;
+      }
+      input[type="url"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #3a3a48;
+        background: #1a1a22;
+        color: inherit;
+        font: inherit;
+      }
+      .modes {
+        display: flex;
+        gap: 8px;
+        margin: 12px 0;
+      }
+      .modes button {
+        flex: 1;
+        padding: 14px 8px;
+        border-radius: 8px;
+        border: 1px solid #3a3a48;
+        background: #1a1a22;
+        color: inherit;
+        font: inherit;
+        font-weight: 600;
+      }
+      .modes button[aria-pressed="true"] {
+        background: #2f6df6;
+        border-color: #2f6df6;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+      .actions button {
+        flex: 1;
+        padding: 16px 8px;
+        border-radius: 8px;
+        border: 0;
+        background: #2b2b38;
+        color: inherit;
+        font: inherit;
+        font-size: 16px;
+        font-weight: 700;
+      }
+      .actions button.primary {
+        background: #1f9d55;
+      }
+      audio {
+        width: 100%;
+        margin-top: 12px;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      dt {
+        color: #8f8fa3;
+      }
+      dd {
+        margin: 0;
+        text-align: right;
+      }
+      #verdict {
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.4;
+      }
+      #verdict.pass {
+        color: #43d17c;
+      }
+      #verdict.fail {
+        color: #ff6b6b;
+      }
+      #verdict.idle {
+        color: #8f8fa3;
+        font-weight: 400;
+      }
+      #log {
+        margin: 0;
+        max-height: 45vh;
+        overflow: auto;
+        font: 12px/1.5 ui-monospace, monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .hint {
+        color: #8f8fa3;
+        font-size: 13px;
+        margin: 8px 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Service worker lock-screen probe</h1>
+
+    <section>
+      <label for="url">Station stream URL (must be https)</label>
+      <input id="url" type="url" value="https://stream1.rcast.net/66341" spellcheck="false" />
+      <div class="modes">
+        <button id="mode-direct" aria-pressed="true">Direct</button>
+        <button id="mode-pass" aria-pressed="false">Worker<br />pass-through</button>
+        <button id="mode-tee" aria-pressed="false">Worker<br />teed</button>
+      </div>
+      <div class="actions">
+        <button id="play" class="primary">Play</button>
+        <button id="stop">Stop</button>
+      </div>
+      <audio id="audio" controls preload="none"></audio>
+      <p class="hint">
+        Start playback, lock the phone for ~2 minutes, then unlock and read the verdict.
+      </p>
+    </section>
+
+    <section>
+      <label>Verdict (measured across the last freeze)</label>
+      <div id="verdict" class="idle">Lock the screen while playing to measure.</div>
+    </section>
+
+    <section>
+      <label>Status</label>
+      <dl>
+        <dt>Worker</dt>
+        <dd id="s-sw">-</dd>
+        <dt>Mode</dt>
+        <dd id="s-mode">direct</dd>
+        <dt>Audio</dt>
+        <dd id="s-audio">idle</dd>
+        <dt>Played</dt>
+        <dd id="s-time">0.0s</dd>
+        <dt>Worker saw request</dt>
+        <dd id="s-handled">-</dd>
+        <dt>Worker bytes</dt>
+        <dd id="s-bytes">-</dd>
+        <dt>Last byte</dt>
+        <dd id="s-lastbyte">-</dd>
+      </dl>
+    </section>
+
+    <section>
+      <label>Log</label>
+      <pre id="log"></pre>
+      <div class="actions" style="margin-top: 10px">
+        <button id="clear">Clear log</button>
+        <button id="unregister">Unregister worker</button>
+      </div>
+    </section>
+
+    <script>
+      const SCOPE = "/sw-lock-probe/"
+      const LOG_KEY = "sw-lock-probe:log"
+      const URL_KEY = "sw-lock-probe:url"
+
+      const audio = document.getElementById("audio")
+      const urlInput = document.getElementById("url")
+      const logEl = document.getElementById("log")
+      const verdictEl = document.getElementById("verdict")
+
+      let mode = "direct"
+      let startedAt = 0
+      let lines = []
+
+      /* ---------- logging (persisted so a reload doesn't lose the run) ---------- */
+
+      try {
+        const saved = localStorage.getItem(LOG_KEY)
+        if (saved) lines = JSON.parse(saved)
+        const savedUrl = localStorage.getItem(URL_KEY)
+        if (savedUrl) urlInput.value = savedUrl
+      } catch {}
+
+      function render() {
+        logEl.textContent = lines.slice(-300).join("\n")
+        logEl.scrollTop = logEl.scrollHeight
+      }
+
+      function log(message) {
+        const stamp = startedAt ? "T+" + ((Date.now() - startedAt) / 1000).toFixed(1) + "s" : "--"
+        lines.push(
+          new Date().toLocaleTimeString([], { hour12: false }) + " " + stamp + "  " + message,
+        )
+        if (lines.length > 400) lines = lines.slice(-400)
+        try {
+          localStorage.setItem(LOG_KEY, JSON.stringify(lines))
+        } catch {}
+        render()
+      }
+
+      render()
+      urlInput.addEventListener("change", () => {
+        try {
+          localStorage.setItem(URL_KEY, urlInput.value)
+        } catch {}
+      })
+
+      /* ---------- service worker ---------- */
+
+      const swSupported = "serviceWorker" in navigator
+      const statusSw = document.getElementById("s-sw")
+
+      if (!swSupported) {
+        statusSw.textContent = window.isSecureContext ? "unsupported" : "needs https"
+        log(
+          "service worker unavailable — " +
+            (window.isSecureContext
+              ? "this browser has no support"
+              : "page is not a secure context, serve over https"),
+        )
+      } else {
+        navigator.serviceWorker
+          .register(SCOPE + "sw.js", { scope: SCOPE })
+          .then(async (registration) => {
+            await navigator.serviceWorker.ready
+            statusSw.textContent = navigator.serviceWorker.controller ? "controlling" : "registered"
+            log("worker registered, scope " + registration.scope)
+            if (!navigator.serviceWorker.controller) {
+              log("worker not controlling this page yet — reload once before using worker mode")
+            }
+          })
+          .catch((error) => {
+            statusSw.textContent = "failed"
+            log("worker registration failed: " + error)
+          })
+
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          statusSw.textContent = "controlling"
+          log("worker took control")
+        })
+      }
+
+      /* ---------- mode selection ---------- */
+
+      const MODE_LABELS = {
+        direct: "direct",
+        passthrough: "worker pass-through",
+        tee: "worker teed",
+      }
+      const modeButtons = {
+        direct: document.getElementById("mode-direct"),
+        passthrough: document.getElementById("mode-pass"),
+        tee: document.getElementById("mode-tee"),
+      }
+
+      function setMode(next) {
+        mode = next
+        for (const [name, button] of Object.entries(modeButtons)) {
+          button.setAttribute("aria-pressed", String(name === next))
+        }
+        document.getElementById("s-mode").textContent = MODE_LABELS[next]
+      }
+
+      for (const [name, button] of Object.entries(modeButtons)) {
+        button.addEventListener("click", () => setMode(name))
+      }
+
+      /* ---------- playback ---------- */
+
+      function sourceUrl() {
+        const upstream = urlInput.value.trim()
+        if (mode === "direct") return upstream
+        return (
+          SCOPE +
+          "stream?u=" +
+          encodeURIComponent(upstream) +
+          "&mode=" +
+          mode +
+          "&t=" +
+          Date.now()
+        )
+      }
+
+      document.getElementById("play").addEventListener("click", async () => {
+        if (mode !== "direct" && swSupported && !navigator.serviceWorker.controller) {
+          log("cannot use worker mode: no controller yet, reload the page")
+          return
+        }
+        startedAt = Date.now()
+        lastTickAt = Date.now()
+        lastTickTime = 0
+        reportedError = null
+        reportedGaps = 0
+        reportedRange = false
+        reportedRestart = false
+        try {
+          await fetch(SCOPE + "reset").catch(() => {})
+        } catch {}
+        audio.src = sourceUrl()
+        log("play requested (" + mode + ")")
+        try {
+          await audio.play()
+          log("play() resolved")
+        } catch (error) {
+          log("play() rejected: " + error)
+        }
+      })
+
+      document.getElementById("stop").addEventListener("click", () => {
+        audio.pause()
+        audio.removeAttribute("src")
+        audio.load()
+        log("stopped")
+      })
+
+      document.getElementById("clear").addEventListener("click", () => {
+        lines = []
+        try {
+          localStorage.removeItem(LOG_KEY)
+        } catch {}
+        render()
+      })
+
+      document.getElementById("unregister").addEventListener("click", async () => {
+        if (!swSupported) return
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(registrations.map((registration) => registration.unregister()))
+        log("unregistered " + registrations.length + " worker(s)")
+      })
+
+      for (const type of [
+        "playing",
+        "pause",
+        "waiting",
+        "stalled",
+        "suspend",
+        "ended",
+        "emptied",
+        "error",
+      ]) {
+        audio.addEventListener(type, () => {
+          const detail = type === "error" && audio.error ? " code=" + audio.error.code : ""
+          log("audio: " + type + detail)
+          document.getElementById("s-audio").textContent = type
+        })
+      }
+
+      /* ---------- media session, so the lock screen shows a real Now Playing card ---------- */
+
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: "Lock-screen probe",
+          artist: "Listening Room",
+          album: "Experiment",
+        })
+        navigator.mediaSession.setActionHandler("play", () => audio.play())
+        navigator.mediaSession.setActionHandler("pause", () => audio.pause())
+      }
+
+      /* ---------- freeze detection: the actual measurement ---------- */
+
+      let lastTickAt = Date.now()
+      let lastTickTime = 0
+
+      function describeFreeze(wallSeconds, audioSeconds) {
+        const ratio = wallSeconds > 0 ? audioSeconds / wallSeconds : 0
+        if (ratio > 0.8) {
+          verdictEl.className = "pass"
+          return (
+            "KEPT PLAYING — froze for " +
+            wallSeconds.toFixed(0) +
+            "s, audio advanced " +
+            audioSeconds.toFixed(0) +
+            "s"
+          )
+        }
+        if (ratio < 0.2) {
+          verdictEl.className = "fail"
+          return (
+            "STOPPED — froze for " +
+            wallSeconds.toFixed(0) +
+            "s, audio advanced only " +
+            audioSeconds.toFixed(0) +
+            "s"
+          )
+        }
+        verdictEl.className = "fail"
+        return (
+          "PARTIAL — froze for " +
+          wallSeconds.toFixed(0) +
+          "s, audio advanced " +
+          audioSeconds.toFixed(0) +
+          "s"
+        )
+      }
+
+      setInterval(() => {
+        const now = Date.now()
+        const currentTime = audio.currentTime
+        const wallGap = (now - lastTickAt) / 1000
+
+        // The page's timers stop while the screen is locked. When they resume, the gap in
+        // wall time versus the gap in audio playback position tells us whether audio
+        // actually kept playing while we were frozen.
+        if (wallGap > 3 && startedAt && !audio.paused) {
+          const played = currentTime - lastTickTime
+          const summary = describeFreeze(wallGap, played)
+          verdictEl.textContent = summary + " (" + MODE_LABELS[mode] + ")"
+          log(summary)
+        }
+
+        lastTickAt = now
+        lastTickTime = currentTime
+        document.getElementById("s-time").textContent = currentTime.toFixed(1) + "s"
+      }, 1000)
+
+      /* ---------- worker liveness readout ---------- */
+
+      let reportedError = null
+      let reportedGaps = 0
+      let reportedRange = false
+      let reportedRestart = false
+
+      setInterval(async () => {
+        if (!swSupported || !navigator.serviceWorker.controller) return
+        try {
+          const response = await fetch(SCOPE + "probe", { cache: "no-store" })
+          const data = await response.json()
+          const state = data.live || data.persisted
+          if (!state) {
+            document.getElementById("s-handled").textContent = "no"
+            return
+          }
+
+          // Distinguishes "WebKit never routed the media request through the worker" from
+          // "the worker served it and WebKit rejected the response".
+          document.getElementById("s-handled").textContent =
+            "yes (" + state.streamMode + ", upstream " + state.upstreamStatus + ")"
+          document.getElementById("s-bytes").textContent =
+            state.streamMode === "passthrough"
+              ? "n/a (pass-through)"
+              : (state.bytes / 1024).toFixed(0) + " KiB / " + state.chunks + " chunks"
+          document.getElementById("s-lastbyte").textContent =
+            state.streamMode === "passthrough"
+              ? "n/a"
+              : ((data.now - state.lastChunkAt) / 1000).toFixed(1) + "s ago"
+
+          if (state.error && state.error !== reportedError) {
+            reportedError = state.error
+            log("worker reports: " + state.error)
+          }
+          if (state.sawRangeRequest && !reportedRange) {
+            reportedRange = true
+            log("worker saw a Range request from the media element")
+          }
+          for (const gap of state.gaps.slice(reportedGaps)) {
+            log("worker byte gap of " + (gap.ms / 1000).toFixed(1) + "s")
+          }
+          reportedGaps = state.gaps.length
+          if (!data.live && data.persisted && !reportedRestart) {
+            reportedRestart = true
+            log("worker was restarted — in-memory state lost, showing persisted record")
+          }
+        } catch {}
+      }, 2000)
+    </script>
+  </body>
+</html>

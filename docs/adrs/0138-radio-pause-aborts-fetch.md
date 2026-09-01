@@ -1,7 +1,7 @@
 # 0138. Radio Pause Aborts Fetch (No Warm MPEG Stream)
 
 **Date:** 2026-08-31
-**Status:** Accepted
+**Status:** Accepted (decisions 3–6 superseded by [0140](0140-radio-element-playback-oscilloscope-tabled.md) — the audible path is an `<audio>` element, so soft-start, buffer depth, WebKit unlock, and clock-based start announcement no longer apply; decisions 1 and 2 carry over to the element transport)
 **Supersedes:** warm-fetch-on-pause clause of [0137](0137-radio-stream-player-web-audio.md)
 
 ## Context

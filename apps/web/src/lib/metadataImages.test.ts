@@ -4,6 +4,7 @@ import {
   featureImageUrl,
   firstImageUrl,
   largestImageUrl,
+  mediaSessionArtwork,
   preferBrowserRenderableImages,
 } from "./metadataImages"
 
@@ -51,5 +52,47 @@ describe("metadataImages", () => {
     expect(preferBrowserRenderableImages([image("x", "https://cdn.example/a.jpg")], data)).toEqual([
       image("x", "https://cdn.example/a.jpg"),
     ])
+  })
+
+  describe("mediaSessionArtwork", () => {
+    it("declares each image's real dimensions, closest to 512 first", () => {
+      const urls = [
+        image("64x64", "https://img/sm"),
+        image("640x640", "https://img/lg"),
+        image("300x300", "https://img/med"),
+      ]
+      expect(mediaSessionArtwork(urls)).toEqual([
+        { src: "https://img/lg", sizes: "640x640" },
+        { src: "https://img/med", sizes: "300x300" },
+        { src: "https://img/sm", sizes: "64x64" },
+      ])
+    })
+
+    it("omits sizes rather than guessing when the id has no dimensions", () => {
+      expect(mediaSessionArtwork([image("cover", "https://img/a")])).toEqual([
+        { src: "https://img/a" },
+      ])
+    })
+
+    it("sorts unsized images last, since WebKit must download them to rank them", () => {
+      const urls = [image("cover", "https://img/unsized"), image("512x512", "https://img/ideal")]
+      expect(mediaSessionArtwork(urls)).toEqual([
+        { src: "https://img/ideal", sizes: "512x512" },
+        { src: "https://img/unsized" },
+      ])
+    })
+
+    it("falls back to room artwork so unmatched tracks are not a grey box", () => {
+      expect(mediaSessionArtwork(undefined, "https://img/room.jpg")).toEqual([
+        { src: "https://img/room.jpg" },
+      ])
+      expect(mediaSessionArtwork([], "https://img/room.jpg")).toEqual([
+        { src: "https://img/room.jpg" },
+      ])
+    })
+
+    it("is empty when there is nothing to show", () => {
+      expect(mediaSessionArtwork(undefined, undefined)).toEqual([])
+    })
   })
 })

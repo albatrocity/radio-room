@@ -1,4 +1,4 @@
-import { memo, useEffect, useCallback } from "react"
+import { memo, useEffect, useCallback, useState } from "react"
 import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
 
 import { LuListMusic, LuVolume2, LuVolumeX } from "react-icons/lu"
@@ -15,8 +15,9 @@ import ButtonSchedule from "./ButtonSchedule"
 import {
   configureRadioStreamPlayer,
   getRadioStreamPlayerDebug,
-  installRadioStreamPlayerAutoUnlock,
+  installRadioStreamPlayerListeners,
   primeRadioStreamPlayerFromGesture,
+  radioStreamVolumeIsSettable,
   setRadioStreamPlayerMuted,
   setRadioStreamPlayerPlaying,
   setRadioStreamPlayerUrl,
@@ -64,6 +65,8 @@ const RadioPlayer = ({
 }: RadioPlayerProps) => {
   const isAdmin = useIsAdmin()
   const showVolumeMuted = volumeMuted ?? muted
+  /** iOS reserves level to the hardware buttons — hide the slider there. */
+  const [volumeSettable, setVolumeSettable] = useState(true)
 
   useEffect(() => {
     configureRadioStreamPlayer({
@@ -71,13 +74,14 @@ const RadioPlayer = ({
       onPlay,
       onError,
     })
-    const removeAutoUnlock = installRadioStreamPlayerAutoUnlock()
+    const removeListeners = installRadioStreamPlayerListeners()
+    setVolumeSettable(radioStreamVolumeIsSettable())
     if (import.meta.env.DEV) {
       ;(window as Window & { __radioAudioDebug?: () => unknown }).__radioAudioDebug =
         getRadioStreamPlayerDebug
     }
     return () => {
-      removeAutoUnlock()
+      removeListeners()
       stopRadioStreamPlayer()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,9 +104,11 @@ const RadioPlayer = ({
   }, [playing])
 
   const handlePlayPauseClick = useCallback(() => {
-    primeRadioStreamPlayerFromGesture()
+    // Only on the way into playback — priming a pause click would briefly
+    // start the element before the machine caught up.
+    if (!playing) primeRadioStreamPlayerFromGesture()
     onPlayPause()
-  }, [onPlayPause])
+  }, [onPlayPause, playing])
 
   useHotkeys("space", () => {
     handlePlayPauseClick()
@@ -159,7 +165,7 @@ const RadioPlayer = ({
                 </IconButton>
               )}
             </HStack>
-            <Box hideBelow="sm" w="100%" pr={3}>
+            <Box hideBelow="sm" w="100%" pr={3} display={volumeSettable ? undefined : "none"}>
               <Slider.Root
                 aria-label={["Volume"]}
                 value={[showVolumeMuted ? 0 : volume]}

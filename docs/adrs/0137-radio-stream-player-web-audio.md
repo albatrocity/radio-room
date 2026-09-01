@@ -1,7 +1,7 @@
 # 0137. Radio Stream Player (Web Audio Decode, No Howler)
 
 **Date:** 2026-08-31
-**Status:** Accepted (pause/resume amended by [0138](0138-radio-pause-aborts-fetch.md))
+**Status:** Superseded by [0140](0140-radio-element-playback-oscilloscope-tabled.md) (pause/resume amended by [0138](0138-radio-pause-aborts-fetch.md) first) — playback returned to an `<audio>` element and the decode pipeline was dropped entirely
 
 ## Context
 

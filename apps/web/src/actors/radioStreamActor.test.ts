@@ -7,6 +7,8 @@ import {
   stopRadioStreamPlayer,
 } from "./radioStreamActor"
 
+const STREAM_URL = "https://example.com/stream.mp3"
+
 describe("radioStreamActor", () => {
   beforeEach(() => {
     __resetRadioStreamPlayerForTests()
@@ -14,35 +16,46 @@ describe("radioStreamActor", () => {
 
   it("starts idle and clears on stop", () => {
     expect(getRadioStreamPlayerStatus().phase).toBe("idle")
-    setRadioStreamPlayerUrl("https://example.com/stream.mp3")
+    setRadioStreamPlayerUrl(STREAM_URL)
     expect(getRadioStreamPlayerStatus().url).toContain("example.com")
     stopRadioStreamPlayer()
     expect(getRadioStreamPlayerStatus().url).toBeNull()
     expect(getRadioStreamPlayerStatus().phase).toBe("idle")
   })
 
-  it("records playingDesired without throwing when AudioContext is unavailable", () => {
-    setRadioStreamPlayerUrl("https://example.com/stream.mp3")
+  it("tracks play intent", () => {
+    setRadioStreamPlayerUrl(STREAM_URL)
     setRadioStreamPlayerPlaying(true)
     expect(getRadioStreamPlayerStatus().playingDesired).toBe(true)
+
     setRadioStreamPlayerPlaying(false)
     expect(getRadioStreamPlayerStatus().playingDesired).toBe(false)
     expect(getRadioStreamPlayerStatus().suspended).toBe(true)
     expect(getRadioStreamPlayerStatus().phase).toBe("idle")
   })
 
-  it("reports the engine failure when there is no AudioContext", () => {
-    setRadioStreamPlayerUrl("https://example.com/stream.mp3")
+  /**
+   * Playback stays "connecting" until the element reports `playing` — the
+   * element, not a decode pipeline, now decides when audio actually started.
+   * (These tests run without a DOM, so that event never arrives.)
+   */
+  it("leaves idle for the element on play", () => {
+    setRadioStreamPlayerUrl(STREAM_URL)
     setRadioStreamPlayerPlaying(true)
-    expect(getRadioStreamPlayerStatus().phase).toBe("error")
-    expect(getRadioStreamPlayerStatus().error).toBe("noAudioContext")
+    expect(getRadioStreamPlayerStatus().phase).toBe("connecting")
   })
 
-  it("pause leaves the failed state and clears playing intent", () => {
-    setRadioStreamPlayerUrl("https://example.com/stream.mp3")
+  it("pause returns to idle and clears play intent", () => {
+    setRadioStreamPlayerUrl(STREAM_URL)
     setRadioStreamPlayerPlaying(true)
     setRadioStreamPlayerPlaying(false)
     expect(getRadioStreamPlayerStatus().phase).toBe("idle")
     expect(getRadioStreamPlayerStatus().playingDesired).toBe(false)
+  })
+
+  it("does not open the analysis connection without a scope", () => {
+    setRadioStreamPlayerUrl(STREAM_URL)
+    setRadioStreamPlayerPlaying(true)
+    expect(getRadioStreamPlayerStatus().framesScheduled).toBe(0)
   })
 })

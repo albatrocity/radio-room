@@ -1,22 +1,31 @@
 /**
  * Radio Stream Actor
  *
- * Singleton wrapper around `radioStreamMachine` (ADR 0139). Components drive
- * play/pause/volume through these helpers; the machine owns connection
- * lifecycle and the engine owns the audio path.
+ * Singleton wrapper around `radioStreamMachine` (ADR 0139 / 0140). Components
+ * drive play/pause/volume through these helpers; the machine owns lifecycle,
+ * `radioPlaybackElement` owns audible output, and `radioAnalysisEngine` owns
+ * the silent decode behind the oscilloscope.
  */
 
 import { createActor } from "xstate"
 import { radioStreamMachine } from "../machines/radioStreamMachine"
 import {
-  getRadioStreamEngineDebug,
-  installRadioStreamAutoUnlock,
-  primeRadioStreamFromGesture,
-  setRadioStreamMuted,
-  setRadioStreamVolume,
-  teardownRadioStreamGraph,
-  type RadioStreamEngineDebug,
-} from "../lib/radioStreamEngine"
+  getRadioAnalysisEngineDebug,
+  resumeRadioAnalysisFromGesture,
+  teardownRadioAnalysisGraph,
+  type RadioAnalysisEngineDebug,
+} from "../lib/radioAnalysisEngine"
+import {
+  ensureRadioPlaybackElement,
+  getRadioPlaybackDebug,
+  playRadioPlayback,
+  radioPlaybackVolumeIsSettable,
+  setRadioPlaybackMuted,
+  setRadioPlaybackUrl,
+  setRadioPlaybackVolume,
+  teardownRadioPlaybackElement,
+  type RadioPlaybackDebug,
+} from "../lib/radioPlaybackElement"
 
 export type RadioStreamPlayerStatus = {
   phase: "idle" | "connecting" | "streaming" | "error"
@@ -49,9 +58,11 @@ radioStreamActor.on("failed", ({ message }) => {
 })
 
 function phaseFor(snapshot: ReturnType<typeof radioStreamActor.getSnapshot>) {
-  if (snapshot.matches("failed")) return "error" as const
-  if (snapshot.matches({ active: "streaming" })) return "streaming" as const
-  if (snapshot.matches("active") || snapshot.matches("reconnecting")) return "connecting" as const
+  if (snapshot.matches({ playback: "failed" })) return "error" as const
+  if (snapshot.matches({ playback: { active: "playing" } })) return "streaming" as const
+  if (snapshot.matches({ playback: "active" }) || snapshot.matches({ playback: "reconnecting" })) {
+    return "connecting" as const
+  }
   return "idle" as const
 }
 
@@ -64,7 +75,7 @@ export function getRadioStreamPlayerStatus(): RadioStreamPlayerStatus {
     contentType,
     httpStatus,
     error,
-    framesScheduled: getRadioStreamEngineDebug().framesScheduled,
+    framesScheduled: getRadioAnalysisEngineDebug().framesScheduled,
     suspended: !playing,
     playingDesired: playing,
   }
@@ -88,44 +99,79 @@ export function setRadioStreamPlayerPlaying(playing: boolean): void {
 }
 
 export function setRadioStreamPlayerVolume(next: number): void {
-  setRadioStreamVolume(next)
+  setRadioPlaybackVolume(next)
 }
 
+/** Covers user mute and preview ducking alike (ADR 0140). */
 export function setRadioStreamPlayerMuted(next: boolean): void {
-  setRadioStreamMuted(next)
+  setRadioPlaybackMuted(next)
 }
 
-/** Resume + unlock the AudioContext on the user-gesture turn (play click). */
+/** False on iOS, where level belongs to the hardware buttons. */
+export function radioStreamVolumeIsSettable(): boolean {
+  return radioPlaybackVolumeIsSettable()
+}
+
+/**
+ * Called from the play gesture. iOS only grants playback to an element started
+ * inside a user gesture, and the machine's own `play()` lands a few React ticks
+ * later — so start it here, where the gesture is still live. Redundant on
+ * desktop and harmless: an already-playing element ignores `play()`.
+ */
 export function primeRadioStreamPlayerFromGesture(): void {
-  primeRadioStreamFromGesture()
+  const { url } = radioStreamActor.getSnapshot().context
+  ensureRadioPlaybackElement()
+  if (url) setRadioPlaybackUrl(url)
+  playRadioPlayback()
+  resumeRadioAnalysisFromGesture()
 }
 
-export function installRadioStreamPlayerAutoUnlock(): () => void {
-  return installRadioStreamAutoUnlock()
+/** Visibility drives whether the silent analysis connection is worth holding. */
+export function installRadioStreamPlayerListeners(): () => void {
+  if (typeof document === "undefined") return () => {}
+  const onVisibility = () => {
+    radioStreamActor.send({ type: "VISIBILITY", visible: !document.hidden })
+  }
+  document.addEventListener("visibilitychange", onVisibility)
+  onVisibility()
+  return () => document.removeEventListener("visibilitychange", onVisibility)
+}
+
+/** The oscilloscope reports itself so the second connection is demand-driven. */
+export function attachRadioScope(): () => void {
+  radioStreamActor.send({ type: "SCOPE_ATTACHED" })
+  return () => radioStreamActor.send({ type: "SCOPE_DETACHED" })
 }
 
 export function stopRadioStreamPlayer(): void {
   radioStreamActor.send({ type: "TEARDOWN" })
-  teardownRadioStreamGraph()
+  teardownRadioAnalysisGraph()
+  teardownRadioPlaybackElement()
   callbacks = {}
 }
 
-export type RadioStreamPlayerDebug = RadioStreamEngineDebug & {
-  phase: RadioStreamPlayerStatus["phase"]
-  state: string
-  error: string | null
-  playingDesired: boolean
-}
+export type RadioStreamPlayerDebug = RadioAnalysisEngineDebug &
+  RadioPlaybackDebug & {
+    phase: RadioStreamPlayerStatus["phase"]
+    state: string
+    error: string | null
+    playingDesired: boolean
+    scopeAttached: boolean
+    visible: boolean
+  }
 
 /** Console diagnostics: `window.__radioAudioDebug?.()` in a room. */
 export function getRadioStreamPlayerDebug(): RadioStreamPlayerDebug {
   const snapshot = radioStreamActor.getSnapshot()
   return {
-    ...getRadioStreamEngineDebug(),
+    ...getRadioAnalysisEngineDebug(),
+    ...getRadioPlaybackDebug(),
     phase: phaseFor(snapshot),
     state: JSON.stringify(snapshot.value),
     error: snapshot.context.error,
     playingDesired: snapshot.context.playing,
+    scopeAttached: snapshot.context.scopeAttached,
+    visible: snapshot.context.visible,
   }
 }
 
