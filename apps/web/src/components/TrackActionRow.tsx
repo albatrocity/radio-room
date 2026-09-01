@@ -1,8 +1,10 @@
 import type { Ref } from "react"
-import { HStack, Text } from "@chakra-ui/react"
+import { HStack, Text, VStack } from "@chakra-ui/react"
 import type { MetadataSourceTrackWithSource } from "@repo/types"
+import type { TrackRoomPresence } from "../lib/trackRoomPresence"
 import { SourceBadge } from "./SourceBadge"
 import TrackItem from "./TrackItem"
+import { TrackPresenceBadges } from "./TrackPresenceBadges"
 import { TrackRowActions } from "./TrackRowActions"
 
 export type TrackPreviewStatus = "idle" | "loading" | "playing"
@@ -31,6 +33,7 @@ type Props = {
   "aria-selected"?: boolean
   onMouseEnter?: () => void
   rowRef?: Ref<HTMLDivElement>
+  presence?: TrackRoomPresence
 }
 
 function TrackActionRow({
@@ -49,6 +52,7 @@ function TrackActionRow({
   "aria-selected": ariaSelected,
   onMouseEnter,
   rowRef,
+  presence,
 }: Props) {
   const previewLabel =
     previewStatus === "playing"
@@ -69,7 +73,7 @@ function TrackActionRow({
       minW={0}
       p={2}
       borderRadius="md"
-      align="center"
+      align="flex-start"
       bg={isActive ? "actionBgLite" : undefined}
       onMouseEnter={onMouseEnter}
     >
@@ -79,23 +83,29 @@ function TrackActionRow({
             {track.trackNumber}
           </Text>
         ) : null}
-        <TrackItem
-          {...track}
-          size={size}
-          showArtwork={showArtwork}
-          detailLevel={detailLevel}
-          sourcePlacement={compact ? "none" : "below"}
-        />
+        <Box flex="1" minW={0} overflow="hidden">
+          <TrackItem
+            {...track}
+            size={size}
+            showArtwork={showArtwork}
+            detailLevel={detailLevel}
+            sourcePlacement={compact ? "none" : "below"}
+          />
+        </Box>
       </HStack>
       {!compact && track.source && <SourceBadge source={track.source} hideBelow="md" />}
-      <TrackRowActions
-        previewStatus={previewStatus}
-        canPreview={canPreview}
-        previewLabel={previewLabel}
-        disabled={disabled}
-        onPreview={onPreview}
-        onAddToQueue={onAddToQueue}
-      />
+      <VStack align="flex-end" gap={1} flexShrink={0}>
+        <TrackRowActions
+          previewStatus={previewStatus}
+          canPreview={canPreview}
+          previewLabel={previewLabel}
+          disabled={disabled}
+          addDisabled={presence?.inQueue}
+          onPreview={onPreview}
+          onAddToQueue={onAddToQueue}
+        />
+        {presence ? <TrackPresenceBadges presence={presence} /> : null}
+      </VStack>
     </HStack>
   )
 }

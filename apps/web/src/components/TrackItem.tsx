@@ -70,20 +70,19 @@ const TrackItem = ({
 
   if (detailLevel === "titleDuration") {
     return (
-      <HStack gap={2} w="100%" minW={0} align="flex-start">
+      <HStack gap={2} w="100%" minW={0} flex="1" align="flex-start" overflow="hidden">
         {leadingVisual}
-        <Text
-          fontWeight="medium"
-          wordBreak="break-word"
-          whiteSpace="normal"
-          minW={0}
-          flex="1"
-          lineHeight="short"
-        >
+        <Text fontWeight="medium" lineClamp={2} minW={0} flex="1" lineHeight="short">
           {title}
         </Text>
         {durationLabel ? (
-          <Text fontSize="xs" color="fg.muted" fontVariantNumeric="tabular-nums" pt="0.1em">
+          <Text
+            fontSize="xs"
+            color="fg.muted"
+            fontVariantNumeric="tabular-nums"
+            pt="0.1em"
+            flexShrink={0}
+          >
             {durationLabel}
           </Text>
         ) : null}

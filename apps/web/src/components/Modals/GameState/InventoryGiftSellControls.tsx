@@ -168,7 +168,11 @@ export default function InventoryGiftSellControls({
       onKeyDown={(event) => event.stopPropagation()}
     >
       {showTradeGiftMenu ? (
-        <Menu.Root open={tradeMenuOpen} onOpenChange={(e) => setTradeMenuOpen(e.open)}>
+        <Menu.Root
+          size="md"
+          open={tradeMenuOpen}
+          onOpenChange={(e) => setTradeMenuOpen(e.open)}
+        >
           <Menu.Trigger asChild>
             <Button
               ref={secondaryActionRef}
@@ -192,23 +196,29 @@ export default function InventoryGiftSellControls({
                 {showSellButton && (
                   <Menu.Item
                     value="sell"
+                    asChild
                     onClick={() => {
                       setTradeMenuOpen(false)
                       dispatchSell()
                     }}
                   >
-                    {sellMenuLabel}
+                    <Button size="md" variant="ghost" width="full" justifyContent="flex-start">
+                      {sellMenuLabel}
+                    </Button>
                   </Menu.Item>
                 )}
                 {showGiftButton && (
                   <Menu.Item
                     value="gift"
+                    asChild
                     onClick={() => {
                       setTradeMenuOpen(false)
                       window.setTimeout(() => setGiftPickerOpen(true), 0)
                     }}
                   >
-                    Gift…
+                    <Button size="md" variant="ghost" width="full" justifyContent="flex-start">
+                      Gift…
+                    </Button>
                   </Menu.Item>
                 )}
               </Menu.Content>

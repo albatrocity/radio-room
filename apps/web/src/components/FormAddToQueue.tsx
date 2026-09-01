@@ -25,6 +25,7 @@ import {
   useMyMedia,
   useQueueBrowseMediaKey,
 } from "../hooks/useActors"
+import { useTrackRoomPresence } from "../hooks/useTrackRoomPresence"
 import { metadataSourceLabel } from "../lib/metadataSourceLabels"
 import type {
   AddToQueueBrowseLocation,
@@ -68,6 +69,7 @@ const FormAddToQueue = ({
   const isQueueModalOpen = useIsModalOpen("queue")
   const { mode, sourceFilter, pendingNavigation, canBrowse } = useAddToQueueUi()
   const send = useAddToQueueUiSend()
+  const { getPresence: getTrackPresence } = useTrackRoomPresence(isQueueModalOpen)
 
   const fallbackSourceIds = useMemo(() => {
     const policy = (room?.metadataSourceIds ?? []).filter(Boolean)
@@ -259,6 +261,7 @@ const FormAddToQueue = ({
           onSearchActiveChange={mode === "search" ? onSearchActiveChange : undefined}
           autoFocus={mode === "search"}
           fillHeight={fillHeight}
+          getTrackPresence={getTrackPresence}
         />
       </Box>
 
@@ -282,6 +285,7 @@ const FormAddToQueue = ({
             onChoose={handleSelect}
             disabled={isDisabled}
             fillHeight={fillHeight}
+            getTrackPresence={getTrackPresence}
           />
         </Box>
       )}

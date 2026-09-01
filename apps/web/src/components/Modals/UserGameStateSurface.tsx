@@ -377,9 +377,13 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   const tradeChrome =
     currentFrame && isTradeDetailFrame(currentFrame) ? (
       <Stack gap={2}>
-        <TradeDetailInventoryPicker tradeId={currentFrame.tradeId} />
+        <Box className="game-state-keyboard-hide">
+          <TradeDetailInventoryPicker tradeId={currentFrame.tradeId} />
+        </Box>
         <TradeDetailComposer tradeId={currentFrame.tradeId} />
-        <TradeDetailActions tradeId={currentFrame.tradeId} />
+        <Box className="game-state-keyboard-hide">
+          <TradeDetailActions tradeId={currentFrame.tradeId} />
+        </Box>
       </Stack>
     ) : null
 
@@ -387,6 +391,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
     <Stack gap={0} width="full" bg="bg.muted" borderTopWidth={1} borderColor="border" px={3} py={3}>
       {tradeChrome}
       <Stack
+        className="game-state-keyboard-hide"
         gap={3}
         width="full"
         {...(tradeChrome ? { borderTopWidth: 1, borderColor: "border", pt: 3, mt: 3 } : {})}

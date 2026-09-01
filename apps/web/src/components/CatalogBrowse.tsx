@@ -29,6 +29,7 @@ import ScrollShadowViewport from "./ScrollShadowViewport"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
 import { artistsLabel, releaseYear } from "../lib/albumHeaderFields"
 import { preferBrowserRenderableImages } from "../lib/metadataImages"
+import type { GetTrackPresence } from "../hooks/useTrackRoomPresence"
 
 type BrowseRowButtonProps = {
   disabled?: boolean
@@ -120,6 +121,7 @@ type Props = {
   disabled?: boolean
   /** Stretch list scrollports to fill a flex parent (Add to Queue modal). */
   fillHeight?: boolean
+  getTrackPresence?: GetTrackPresence
 }
 
 function CatalogBrowse({
@@ -134,6 +136,7 @@ function CatalogBrowse({
   onChoose,
   disabled = false,
   fillHeight = false,
+  getTrackPresence,
 }: Props) {
   const [state, send] = useSocketMachine(
     catalogBrowseMachine,
@@ -591,6 +594,7 @@ function CatalogBrowse({
           onPreview={handlePreview}
           onAddToQueue={onChoose}
           fillHeight={fillHeight}
+          getTrackPresence={getTrackPresence}
         />
       ) : (
         <Box
@@ -626,10 +630,10 @@ function CatalogBrowse({
                             disabled={disabled}
                             onClick={() => openArtist(artist)}
                           >
-                            <HStack gap={2} minW={0} w="100%">
+                            <HStack gap={2} minW={0} w="100%" overflow="hidden">
                               <EntityThumb images={artist.images} shape="circle" size="track" />
-                              <VStack align="start" gap={0} minW={0}>
-                                <Text fontWeight="medium" truncate>
+                              <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">
+                                <Text fontWeight="medium" lineClamp={2} minW={0} w="100%">
                                   {artist.title}
                                 </Text>
                                 {artist.albumCount != null && (
@@ -660,7 +664,7 @@ function CatalogBrowse({
                               disabled={disabled}
                               onClick={() => openMedia(item)}
                             >
-                              <HStack gap={2} minW={0} w="100%">
+                              <HStack gap={2} minW={0} w="100%" overflow="hidden">
                                 <EntityThumb
                                   images={physicalMediaImages(item)}
                                   shape="square"
@@ -668,8 +672,8 @@ function CatalogBrowse({
                                   artworkFrame={item.artworkFrame}
                                   size="track"
                                 />
-                                <VStack align="start" gap={0} minW={0}>
-                                  <Text fontWeight="medium" truncate>
+                                <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">
+                                  <Text fontWeight="medium" lineClamp={2} minW={0} w="100%">
                                     {item.name}
                                   </Text>
                                 </VStack>
@@ -691,13 +695,13 @@ function CatalogBrowse({
                             disabled={disabled}
                             onClick={() => openAlbum(album)}
                           >
-                            <HStack gap={2} minW={0} w="100%">
+                            <HStack gap={2} minW={0} w="100%" overflow="hidden">
                               <EntityThumb images={album.images} shape="square" size="track" />
-                              <VStack align="start" gap={0} minW={0}>
-                                <Text fontWeight="medium" truncate>
+                              <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">
+                                <Text fontWeight="medium" lineClamp={2} minW={0} w="100%">
                                   {album.title}
                                 </Text>
-                                <Text fontSize="xs" color="fg.muted" truncate>
+                                <Text fontSize="xs" color="fg.muted" lineClamp={1} minW={0} w="100%">
                                   {[
                                     album.artists?.[0]?.title,
                                     album.year,

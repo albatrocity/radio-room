@@ -3,11 +3,11 @@ import { splitTextWithHttpUrls } from "@repo/utils"
 
 type LinkifiedTextProps = Omit<TextProps, "children"> & { children: string }
 
-/** Plain text with http(s) URLs turned into links. Preserves newlines. */
-export function LinkifiedText({ children, ...props }: LinkifiedTextProps) {
+/** Plain text with http(s) URLs turned into links. Preserves newlines unless `lineClamp` is set. */
+export function LinkifiedText({ children, lineClamp, ...props }: LinkifiedTextProps) {
   const parts = splitTextWithHttpUrls(children)
   return (
-    <Text {...props} whiteSpace="pre-wrap">
+    <Text {...props} lineClamp={lineClamp} whiteSpace={lineClamp != null ? "normal" : "pre-wrap"}>
       {parts.map((part, i) =>
         part.type === "url" ? (
           <Link

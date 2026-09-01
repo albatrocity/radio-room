@@ -71,6 +71,13 @@
       "when": 1783377221210,
       "tag": "0009_panoramic_dragon_lord",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783460000000,
+      "tag": "0010_track_playlist_stats_indexes",
+      "breakpoints": true
     }
   ]
 }

@@ -83,11 +83,12 @@ export function TradeDetailComposer({ tradeId }: { tradeId: string }) {
   if (!activeTrade) return null
 
   return (
-    <HStack gap={2} align="center" w="full">
+    <HStack gap={2} align="center" w="full" flexShrink={0}>
       <Input
         size="sm"
         flex="1"
         placeholder="Say something…"
+        enterKeyHint="send"
         value={draftNote}
         maxLength={TRADE_MESSAGE_MAX_LENGTH}
         onChange={(e) => onDraftChange(e.target.value)}
@@ -103,7 +104,10 @@ export function TradeDetailComposer({ tradeId }: { tradeId: string }) {
         size="sm"
         colorPalette="action"
         disabled={!draftNote.trim() && !myPublishedNote}
-        onClick={() => publishNote(draftNote)}
+        onPointerDown={(e) => {
+          e.preventDefault()
+          publishNote(draftNote)
+        }}
       >
         {draftNote.trim() ? "Send" : myPublishedNote ? "Clear" : "Send"}
       </Button>

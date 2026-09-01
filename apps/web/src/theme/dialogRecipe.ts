@@ -1,6 +1,12 @@
 import { defineSlotRecipe } from "@chakra-ui/react"
 import { dialogAnatomy } from "@chakra-ui/react/anatomy"
-import { overlayCloseTrigger, overlayBackdropFill, overlayFlushBottomContent, overlayPositionerSafeArea } from "./overlayChrome"
+import {
+  overlayCloseTrigger,
+  overlayBackdropFill,
+  overlayFlushBottomContent,
+  overlayPositionerSafeArea,
+  OVERLAY_BOTTOM_INSET,
+} from "./overlayChrome"
 
 /**
  * Extends Chakra’s default dialog recipe (deep-merged). New Dialogs inherit
@@ -31,7 +37,7 @@ export const dialogRecipe = defineSlotRecipe({
         positioner: {
           paddingTop: "calc(var(--safe-area-top) + var(--chakra-spacing-10))",
           paddingInlineEnd: "calc(var(--safe-area-right) + var(--chakra-spacing-10))",
-          paddingBottom: "calc(var(--safe-area-bottom) + var(--chakra-spacing-10))",
+          paddingBottom: `calc(${OVERLAY_BOTTOM_INSET} + var(--chakra-spacing-10))`,
           paddingInlineStart: "calc(var(--safe-area-left) + var(--chakra-spacing-10))",
         },
       },

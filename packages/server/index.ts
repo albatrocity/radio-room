@@ -53,6 +53,7 @@ import {
   completeMusicUploadHandler,
   failMusicUploadHandler,
 } from "./controllers/musicUploadController"
+import { getTrackStatsHandler } from "./controllers/trackStatsController"
 import { getPublicReadyShowById, getPublicReadyShows } from "./routes/publicSchedulingRoutes"
 import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/schedulingRouter"
 import {
@@ -230,6 +231,8 @@ export class RadioRoomServer {
       .get("/api/rooms/:roomId/plugins/:pluginName/components", getPluginComponentState)
       // Room export endpoint
       .get("/api/rooms/:roomId/export", exportRoom)
+      // Published-show track history stats
+      .get("/api/rooms/:roomId/track-stats", getTrackStatsHandler)
       // Room image upload endpoint (HTTP multipart)
       .post("/api/rooms/:roomId/images", chatImagesUploadMiddleware, uploadImages)
       // Room artwork upload endpoint (admin-only, single file)

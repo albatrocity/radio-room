@@ -28,9 +28,10 @@ function GiftOfferRow({
 }) {
   const counterpartId = direction === "incoming" ? offer.fromUserId : offer.toUserId
   const name = offer.itemName ?? definition?.name ?? offer.definitionId
-  const label = `${direction === "incoming" ? "From" : "To"} ${counterpartyLabel(counterpartId, me)}: ${name}${
-    offer.quantity > 1 ? ` ×${offer.quantity}` : ""
-  }`
+  const label = `${direction === "incoming" ? "From" : "To"} ${counterpartyLabel(
+    counterpartId,
+    me,
+  )}: ${name}${offer.quantity > 1 ? ` ×${offer.quantity}` : ""}`
 
   return (
     <HStack
@@ -102,7 +103,6 @@ export default function PendingGiftsPanel({
             actions={
               <>
                 <Button
-                  size="xs"
                   colorPalette="action"
                   loading={pendingOfferId === offer.offerId}
                   onClick={() => respond(offer.offerId, "accept")}
@@ -110,7 +110,6 @@ export default function PendingGiftsPanel({
                   Accept
                 </Button>
                 <Button
-                  size="xs"
                   variant="outline"
                   loading={pendingOfferId === offer.offerId}
                   onClick={() => respond(offer.offerId, "decline")}

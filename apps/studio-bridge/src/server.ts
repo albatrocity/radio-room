@@ -1999,6 +1999,20 @@ app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
   res.status(200).json({ state })
 })
 
+/** Published-show track stats stub for Game Studio playlist preview. */
+app.get("/api/rooms/:roomId/track-stats", (_req, res) => {
+  res.status(200).json({
+    stats: {
+      firstPlay: true,
+      showCount: 0,
+      appearanceCount: 0,
+      firstAppearance: null,
+      recentAppearances: [],
+      topDjs: [],
+    },
+  })
+})
+
 /** Must be registered before `/rooms/:roomId` — otherwise `/rooms/all` is captured as roomId `"all"`. */
 app.get("/rooms/all", (_req, res) => {
   const snap = getBridgeSnapshot()

@@ -26,6 +26,7 @@ import TrackActionRow from "./TrackActionRow"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
 import { useTrackPreviewStatus } from "../hooks/useActors"
 import { trackPreviewKey } from "../lib/trackPreviewKey"
+import type { GetTrackPresence } from "../hooks/useTrackRoomPresence"
 import type { CatalogBrowseNavigation } from "./CatalogBrowse"
 
 /** Search hits carry their own `source`; this only guards a malformed payload. */
@@ -43,6 +44,7 @@ type Props = {
   autoFocus?: boolean
   /** Stretch result lists to fill a flex parent (Add to Queue modal). */
   fillHeight?: boolean
+  getTrackPresence?: GetTrackPresence
 }
 
 function SearchTrackRow({
@@ -53,6 +55,7 @@ function SearchTrackRow({
   onChoose,
   onActivate,
   rowRef,
+  getTrackPresence,
 }: {
   track: MetadataSourceTrackWithSource
   disabled?: boolean
@@ -61,6 +64,7 @@ function SearchTrackRow({
   onChoose: () => void
   onActivate: () => void
   rowRef: (el: HTMLDivElement | null) => void
+  getTrackPresence?: GetTrackPresence
 }) {
   const previewKey = trackPreviewKey(track, SEARCH_FALLBACK_SOURCE)
   const previewStatus = useTrackPreviewStatus(previewKey)
@@ -85,6 +89,7 @@ function SearchTrackRow({
       aria-selected={isActive}
       onMouseEnter={onActivate}
       rowRef={rowRef}
+      presence={getTrackPresence?.(track.id)}
     />
   )
 }
@@ -98,6 +103,7 @@ function TrackSearch({
   disabled = false,
   autoFocus = true,
   fillHeight = false,
+  getTrackPresence,
 }: Props) {
   const listboxId = useId()
   const [state, send] = useSocketMachine(trackSearchMachine, undefined, TRACK_SEARCH_EVENT_TYPES)
@@ -252,6 +258,7 @@ function TrackSearch({
             rowRef={(el) => {
               optionRefs.current[index] = el
             }}
+            getTrackPresence={getTrackPresence}
           />
         ))
       )}

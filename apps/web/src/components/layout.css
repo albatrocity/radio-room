@@ -7,6 +7,8 @@
   --safe-area-left: env(safe-area-inset-left, 0px);
   /* Safari tabs: JS overwrites with visualViewport height. Installed: 100lvh. */
   --app-height: 100dvh;
+  /* Gap below the visual viewport while a text field is focused (software keyboard). */
+  --keyboard-inset: 0px;
 }
 
 html[data-theme-morphing] {
@@ -99,4 +101,8 @@ p {
 button,
 [role="button"] {
   touch-action: manipulation;
+}
+
+[data-keyboard-inset="open"] .game-state-keyboard-hide {
+  display: none;
 }

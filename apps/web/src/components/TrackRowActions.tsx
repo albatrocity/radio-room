@@ -12,6 +12,7 @@ type Props = {
   canPreview?: boolean
   previewLabel: string
   disabled?: boolean
+  addDisabled?: boolean
   onPreview: () => void
   onAddToQueue?: () => void
 }
@@ -24,6 +25,7 @@ export function TrackRowActions({
   canPreview = true,
   previewLabel,
   disabled = false,
+  addDisabled = false,
   onPreview,
   onAddToQueue,
 }: Props) {
@@ -55,7 +57,8 @@ export function TrackRowActions({
           size="sm"
           variant="outline"
           colorPalette="action"
-          disabled={disabled}
+          disabled={disabled || addDisabled}
+          title={addDisabled ? "Already in queue" : undefined}
           onClick={onAddToQueue}
         >
           {AddIcon && <SvgIcon icon={AddIcon} boxSize={{ base: "1rem", md: "0.85rem" }} />}

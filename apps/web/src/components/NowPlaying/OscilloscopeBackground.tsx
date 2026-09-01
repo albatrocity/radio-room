@@ -315,10 +315,36 @@ export default function OscilloscopeBackground() {
       drawTrace(traceCtx, timeData, cssW, cssH, contrast, solid, !reduced)
     }
 
+    const drawNow = (now = performance.now()) => {
+      if (disposed || document.hidden || !isPlayingRef.current) return
+      const reduced = !animationsEnabledRef.current
+      if (reduced) {
+        if (now - lastReducedDraw < REDUCED_MOTION_INTERVAL_MS) return
+        lastReducedDraw = now
+      }
+      if (!fillRadioTimeDomainData(timeData)) return
+      const { solid, contrast } = readThemeColors(graphArea)
+      drawTrace(traceCtx, timeData, cssW, cssH, contrast, solid, !reduced)
+    }
+
+    const restartLoop = () => {
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(tick)
+    }
+
+    const onVisibilityChange = () => {
+      if (document.hidden) return
+      backfillRadioMseAnalysisTap()
+      restartLoop()
+      drawNow()
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange)
     rafId = requestAnimationFrame(tick)
 
     return () => {
       disposed = true
+      document.removeEventListener("visibilitychange", onVisibilityChange)
       cancelAnimationFrame(rafId)
       ro.disconnect()
     }

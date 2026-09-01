@@ -1,6 +1,11 @@
 import { defineSlotRecipe } from "@chakra-ui/react"
 import { drawerAnatomy } from "@chakra-ui/react/anatomy"
-import { overlayCloseTrigger, overlayBackdropFill, overlayFlushBottomContent } from "./overlayChrome"
+import {
+  overlayCloseTrigger,
+  overlayBackdropFill,
+  overlayFlushBottomContent,
+  OVERLAY_BOTTOM_INSET,
+} from "./overlayChrome"
 
 /**
  * Extends Chakra’s default drawer recipe (deep-merged). Inset flush edges and
@@ -20,6 +25,12 @@ export const drawerRecipe = defineSlotRecipe({
       maxH: "100%",
       boxSizing: "border-box",
     },
+    body: {
+      minH: 0,
+    },
+    footer: {
+      flexShrink: 0,
+    },
     closeTrigger: {
       ...overlayCloseTrigger,
       pos: "relative",
@@ -33,13 +44,13 @@ export const drawerRecipe = defineSlotRecipe({
       start: {
         content: {
           paddingTop: "var(--safe-area-top)",
-          paddingBottom: "var(--safe-area-bottom)",
+          paddingBottom: OVERLAY_BOTTOM_INSET,
         },
       },
       end: {
         content: {
           paddingTop: "var(--safe-area-top)",
-          paddingBottom: "var(--safe-area-bottom)",
+          paddingBottom: OVERLAY_BOTTOM_INSET,
         },
       },
       top: {
@@ -57,7 +68,7 @@ export const drawerRecipe = defineSlotRecipe({
           h: "100%",
           maxH: "100%",
           paddingTop: "var(--safe-area-top)",
-          paddingBottom: "var(--safe-area-bottom)",
+          paddingBottom: OVERLAY_BOTTOM_INSET,
         },
       },
     },
@@ -66,7 +77,7 @@ export const drawerRecipe = defineSlotRecipe({
         positioner: {
           paddingTop: "calc(var(--safe-area-top) + var(--chakra-spacing-4))",
           paddingInlineEnd: "calc(var(--safe-area-right) + var(--chakra-spacing-4))",
-          paddingBottom: "calc(var(--safe-area-bottom) + var(--chakra-spacing-4))",
+          paddingBottom: `calc(${OVERLAY_BOTTOM_INSET} + var(--chakra-spacing-4))`,
           paddingInlineStart: "calc(var(--safe-area-left) + var(--chakra-spacing-4))",
         },
       },

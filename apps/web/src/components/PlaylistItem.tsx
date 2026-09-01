@@ -14,13 +14,14 @@ import {
 } from "@chakra-ui/react"
 
 import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
-import { LuPlay, LuSkipForward, LuTrash2, LuUser, LuX } from "react-icons/lu"
+import { LuPlay, LuSkipForward, LuTrash2, LuUser, LuX, LuChartColumn } from "react-icons/lu"
 import {
   useUsername,
   usePreferredMetadataSource,
   useIsAdmin,
   useIsRoomCreator,
   useCurrentUser,
+  useCurrentRoom,
 } from "../hooks/useActors"
 import { PluginArea } from "./PluginComponents"
 import { emitToSocket } from "../actors/socketActor"
@@ -33,6 +34,7 @@ import { usePluginElementProps } from "../hooks/usePluginElementProps"
 import { getTrackExternalUrl } from "../lib/getTrackExternalUrl"
 import { usePhysicalMediaArt } from "../hooks/usePhysicalMediaArt"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
+import TrackStatsPopover from "./TrackStatsPopover"
 
 const shimmerCss = {
   "@keyframes playlistItemShimmer": {
@@ -62,6 +64,7 @@ const PlaylistItem = memo(function PlaylistItem({
   const isAdmin = useIsAdmin()
   const isRoomCreator = useIsRoomCreator()
   const currentUser = useCurrentUser()
+  const room = useCurrentRoom()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
 
@@ -193,6 +196,8 @@ const PlaylistItem = memo(function PlaylistItem({
   const canPlayQueuedTrackNow =
     canActOnQueueItem && isAppControlledQueue && (isAdmin || isRoomCreator)
 
+  const showTrackStats = !titleElementProps.obscured && Boolean(room?.id)
+
   const artistLine = artistElementProps.obscured
     ? artistElementProps.placeholder ?? "???"
     : preferredTrack?.artists?.map((a) => a.title).join(" · ")
@@ -303,6 +308,26 @@ const PlaylistItem = memo(function PlaylistItem({
 
           <HStack gap={0} flexShrink={0} align="center">
             <PluginArea area="playlistItem" />
+            {showTrackStats && (
+              <TrackStatsPopover
+                roomId={room?.id}
+                item={item}
+                trackTitle={
+                  titleElementProps.obscured
+                    ? titleElementProps.placeholder ?? "???"
+                    : preferredTrack?.title ?? "Track"
+                }
+              >
+                <IconButton
+                  aria-label="Track stats"
+                  size="xs"
+                  variant="ghost"
+                  colorPalette="primary"
+                >
+                  <LuChartColumn />
+                </IconButton>
+              </TrackStatsPopover>
+            )}
             {isAdmin && item.playedAt && !isQueueItem && (
               <IconButton
                 aria-label="Delete track from playlist"

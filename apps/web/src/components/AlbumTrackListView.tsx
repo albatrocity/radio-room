@@ -18,6 +18,8 @@ import type {
   MetadataSourceUrl,
 } from "@repo/types"
 import { labelForMetadataSource } from "@repo/types"
+import type { GetTrackPresence } from "../hooks/useTrackRoomPresence"
+import type { TrackRoomPresence } from "../lib/trackRoomPresence"
 import ItemArtwork from "./ItemArtwork"
 import { LinkifiedText } from "./LinkifiedText"
 import { ItemRarityTag } from "./PluginComponents/ItemRarityTag"
@@ -65,6 +67,7 @@ type Props = {
   showAddToQueue?: boolean | ((track: MetadataSourceTrackWithSource) => boolean)
   /** Rendered between the album header and the track list. */
   beforeTracks?: ReactNode
+  getTrackPresence?: GetTrackPresence
 }
 
 function AlbumTrackRow({
@@ -74,6 +77,7 @@ function AlbumTrackRow({
   canPreview,
   onPreview,
   onAddToQueue,
+  presence,
 }: {
   track: MetadataSourceTrackWithSource
   previewKey: string
@@ -81,6 +85,7 @@ function AlbumTrackRow({
   canPreview: boolean
   onPreview: () => void
   onAddToQueue?: () => void
+  presence?: TrackRoomPresence
 }) {
   const previewStatus = useTrackPreviewStatus(previewKey)
   return (
@@ -93,6 +98,7 @@ function AlbumTrackRow({
       canPreview={canPreview}
       onPreview={onPreview}
       onAddToQueue={onAddToQueue}
+      presence={presence}
     />
   )
 }
@@ -116,12 +122,12 @@ function AlbumHeader({ header }: { header: AlbumViewHeader }) {
           previewable
         />
       </Box>
-      <VStack align="start" gap={1} minW={0} flex="1" pt={1}>
-        <Text fontWeight="semibold" lineClamp={2}>
+      <VStack align="start" gap={1} minW={0} flex="1" pt={1} overflow="hidden">
+        <Text fontWeight="semibold" lineClamp={2} minW={0} w="100%">
           {header.title}
         </Text>
         {header.artists ? (
-          <Text fontSize="sm" color="fg.muted" lineClamp={2}>
+          <Text fontSize="sm" color="fg.muted" lineClamp={2} minW={0} w="100%">
             {header.artists}
           </Text>
         ) : null}
@@ -139,7 +145,7 @@ function AlbumHeader({ header }: { header: AlbumViewHeader }) {
           {header.rarity != null ? <ItemRarityTag size="sm" rarity={header.rarity} /> : null}
         </HStack>
         {header.description ? (
-          <LinkifiedText fontSize="sm" color="fg.muted">
+          <LinkifiedText fontSize="sm" color="fg.muted" lineClamp={2}>
             {header.description}
           </LinkifiedText>
         ) : null}
@@ -167,6 +173,7 @@ export default function AlbumTrackListView({
   onAddToQueue,
   showAddToQueue = true,
   beforeTracks,
+  getTrackPresence,
 }: Props) {
   const allowAdd =
     typeof showAddToQueue === "function" ? showAddToQueue : () => showAddToQueue === true
@@ -214,6 +221,7 @@ export default function AlbumTrackListView({
                     onAddToQueue={
                       onAddToQueue && allowAdd(track) ? () => onAddToQueue(track) : undefined
                     }
+                    presence={getTrackPresence?.(track.id)}
                   />
                 )
               })

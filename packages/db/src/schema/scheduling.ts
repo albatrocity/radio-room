@@ -170,6 +170,12 @@ export const roomPlaylistTrack = pgTable(
   },
   (table) => [
     index("room_playlist_track_show_id_idx").on(table.showId),
+    index("room_playlist_track_media_source_idx").on(
+      table.mediaSourceType,
+      table.mediaSourceTrackId,
+    ),
+    index("room_playlist_track_spotify_track_id_idx").on(table.spotifyTrackId),
+    index("room_playlist_track_tidal_track_id_idx").on(table.tidalTrackId),
     unique("room_playlist_track_show_position_unique").on(table.showId, table.position),
   ],
 )

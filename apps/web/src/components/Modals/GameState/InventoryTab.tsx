@@ -117,7 +117,17 @@ function InventoryRow({
 
   const showRowActions = !isCollection || !opensDetail
   const trailing = showRowActions ? (
-    <Stack direction="column" gap={1} align="stretch" w="fit-content">
+    <Box
+      display="grid"
+      gap={1}
+      w={isCollection ? "fit-content" : { base: "full", md: "fit-content" }}
+      gridTemplateColumns={
+        isCollection
+          ? "1fr"
+          : { base: "repeat(auto-fit, minmax(0, 1fr))", md: "1fr" }
+      }
+    >
+      <InventoryGiftSellControls item={item} definition={definition} size="sm" />
       {consumable && (
         <InventoryUseButton
           itemId={item.itemId}
@@ -130,8 +140,7 @@ function InventoryRow({
           fullWidth
         />
       )}
-      <InventoryGiftSellControls item={item} definition={definition} size="sm" />
-    </Stack>
+    </Box>
   ) : undefined
 
   return (
@@ -166,6 +175,7 @@ function InventoryRow({
       onOpen={opensDetail ? handleDetails : undefined}
       openLabel={detailView?.actionLabel}
       trailing={trailing}
+      actionsBelowOnMobile={!isCollection}
     />
   )
 }

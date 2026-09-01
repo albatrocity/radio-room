@@ -200,7 +200,7 @@ export default function TradesGiftsTab() {
                   size="sm"
                   onPick={(toUserId) => emitToSocket("TRADE_INVITE", { toUserId })}
                 >
-                  <Button size="sm" variant="solid">
+                  <Button size="sm" variant="outline">
                     Request a trade…
                   </Button>
                 </InventoryTargetUserPopover>

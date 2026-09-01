@@ -7,6 +7,8 @@ import type {
   RoomScheduleSnapshotDTO,
   SubscribeNewsletterRequest,
   SubscribeNewsletterResponse,
+  TrackStatsDTO,
+  TrackStatsIdentityQuery,
 } from "@repo/types"
 import { RADIO_SESSION_HEADER } from "../constants"
 import { getStoredUserId } from "./clientSession"
@@ -213,6 +215,33 @@ export function downloadBlob(blob: Blob, filename: string): void {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// =============================================================================
+// Track stats (published-show history)
+// =============================================================================
+
+export async function fetchTrackStats(
+  roomId: string,
+  identity: TrackStatsIdentityQuery,
+): Promise<TrackStatsDTO> {
+  const searchParams: Record<string, string> = {
+    mediaSourceType: identity.mediaSourceType,
+    mediaSourceTrackId: identity.mediaSourceTrackId,
+  }
+  if (identity.spotifyTrackId) {
+    searchParams.spotifyTrackId = identity.spotifyTrackId
+  }
+  if (identity.tidalTrackId) {
+    searchParams.tidalTrackId = identity.tidalTrackId
+  }
+
+  const res = await api.get(`api/rooms/${roomId}/track-stats`, {
+    searchParams,
+    headers: musicUploadHeaders(),
+  })
+  const data = await res.json<{ stats: TrackStatsDTO }>()
+  return data.stats
 }
 
 // =============================================================================

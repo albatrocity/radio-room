@@ -147,6 +147,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0139](0139-radio-stream-lifecycle-machine.md) | Radio stream lifecycle in a machine, audio path imperative | Accepted |
 | [0140](0140-radio-element-playback-oscilloscope-tabled.md) | Radio playback owned by an `<audio>` element; oscilloscope tabled | Superseded by [0141](0141-radio-mse-transport-and-oscilloscope.md) |
 | [0141](0141-radio-mse-transport-and-oscilloscope.md) | Radio MSE transport and aligned Oscilloscope | Accepted |
+| [0142](0142-track-playlist-stats.md) | Track playlist stats (published-show history) | Accepted |
 
 ## Creating a New ADR
 
