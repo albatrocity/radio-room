@@ -3,8 +3,7 @@
  *
  * A plain `HTMLAudioElement` owns decode and output so playback survives an iOS
  * screen lock — routing it through an AudioContext, in any arrangement, does
- * not. Nothing here touches Web Audio; the oscilloscope's samples come from the
- * separate silent decode in `radioAnalysisEngine`.
+ * not. Nothing here touches Web Audio.
  *
  * `crossOrigin` is deliberately unset: we never read samples from this element,
  * so stations without CORS headers still play.

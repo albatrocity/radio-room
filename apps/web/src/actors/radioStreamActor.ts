@@ -1,20 +1,14 @@
 /**
  * Radio Stream Actor
  *
- * Singleton wrapper around `radioStreamMachine` (ADR 0139 / 0140). Components
- * drive play/pause/volume through these helpers; the machine owns lifecycle,
- * `radioPlaybackElement` owns audible output, and `radioAnalysisEngine` owns
- * the silent decode behind the oscilloscope.
+ * Singleton wrapper around `radioStreamMachine`. Components drive play/pause/volume
+ * through these helpers; the machine owns lifecycle and the active transport owns
+ * audible output. The oscilloscope reads aligned PCM from `analysisTap`.
  */
 
 import { createActor } from "xstate"
 import { radioStreamMachine } from "../machines/radioStreamMachine"
-import {
-  getRadioAnalysisEngineDebug,
-  resumeRadioAnalysisFromGesture,
-  teardownRadioAnalysisGraph,
-  type RadioAnalysisEngineDebug,
-} from "../lib/radioAnalysisEngine"
+import { getAnalysisTapDebug } from "../lib/mse/analysisTap"
 import {
   ensureRadioPlaybackElement,
   getRadioPlaybackDebug,
@@ -26,14 +20,23 @@ import {
   teardownRadioPlaybackElement,
   type RadioPlaybackDebug,
 } from "../lib/radioPlaybackElement"
+import {
+  ensureRadioMseElement,
+  getRadioMseDebug,
+  playRadioMse,
+  radioMseVolumeIsSettable,
+  setRadioMseMuted,
+  setRadioMseVolume,
+  startRadioMseStream,
+  teardownRadioMseElement,
+  useMseRadioTransport,
+  type RadioMseDebug,
+} from "../lib/mse/radioMseTransport"
 
 export type RadioStreamPlayerStatus = {
   phase: "idle" | "connecting" | "streaming" | "error"
   url: string | null
-  contentType: string | null
-  httpStatus: number | null
   error: string | null
-  framesScheduled: number
   suspended: boolean
   playingDesired: boolean
 }
@@ -58,9 +61,9 @@ radioStreamActor.on("failed", ({ message }) => {
 })
 
 function phaseFor(snapshot: ReturnType<typeof radioStreamActor.getSnapshot>) {
-  if (snapshot.matches({ playback: "failed" })) return "error" as const
-  if (snapshot.matches({ playback: { active: "playing" } })) return "streaming" as const
-  if (snapshot.matches({ playback: "active" }) || snapshot.matches({ playback: "reconnecting" })) {
+  if (snapshot.matches("failed")) return "error" as const
+  if (snapshot.matches({ active: "playing" })) return "streaming" as const
+  if (snapshot.matches("active") || snapshot.matches("reconnecting")) {
     return "connecting" as const
   }
   return "idle" as const
@@ -68,14 +71,11 @@ function phaseFor(snapshot: ReturnType<typeof radioStreamActor.getSnapshot>) {
 
 export function getRadioStreamPlayerStatus(): RadioStreamPlayerStatus {
   const snapshot = radioStreamActor.getSnapshot()
-  const { url, playing, contentType, httpStatus, error } = snapshot.context
+  const { url, playing, error } = snapshot.context
   return {
     phase: phaseFor(snapshot),
     url,
-    contentType,
-    httpStatus,
     error,
-    framesScheduled: getRadioAnalysisEngineDebug().framesScheduled,
     suspended: !playing,
     playingDesired: playing,
   }
@@ -100,78 +100,74 @@ export function setRadioStreamPlayerPlaying(playing: boolean): void {
 
 export function setRadioStreamPlayerVolume(next: number): void {
   setRadioPlaybackVolume(next)
+  setRadioMseVolume(next)
 }
 
-/** Covers user mute and preview ducking alike (ADR 0140). */
 export function setRadioStreamPlayerMuted(next: boolean): void {
   setRadioPlaybackMuted(next)
+  setRadioMseMuted(next)
 }
 
-/** False on iOS, where level belongs to the hardware buttons. */
 export function radioStreamVolumeIsSettable(): boolean {
+  const { mseRejected } = radioStreamActor.getSnapshot().context
+  if (useMseRadioTransport(mseRejected)) return radioMseVolumeIsSettable()
   return radioPlaybackVolumeIsSettable()
 }
 
-/**
- * Called from the play gesture. iOS only grants playback to an element started
- * inside a user gesture, and the machine's own `play()` lands a few React ticks
- * later — so start it here, where the gesture is still live. Redundant on
- * desktop and harmless: an already-playing element ignores `play()`.
- */
+/** Oscilloscope requires MSE — hidden on plain-element fallback. */
+export function radioStreamOscilloscopeSupported(): boolean {
+  const { mseRejected } = radioStreamActor.getSnapshot().context
+  return useMseRadioTransport(mseRejected)
+}
+
 export function primeRadioStreamPlayerFromGesture(): void {
-  const { url } = radioStreamActor.getSnapshot().context
-  ensureRadioPlaybackElement()
-  if (url) setRadioPlaybackUrl(url)
-  playRadioPlayback()
-  resumeRadioAnalysisFromGesture()
-}
-
-/** Visibility drives whether the silent analysis connection is worth holding. */
-export function installRadioStreamPlayerListeners(): () => void {
-  if (typeof document === "undefined") return () => {}
-  const onVisibility = () => {
-    radioStreamActor.send({ type: "VISIBILITY", visible: !document.hidden })
+  const { url, mseRejected } = radioStreamActor.getSnapshot().context
+  if (useMseRadioTransport(mseRejected)) {
+    ensureRadioMseElement()
+    if (url) startRadioMseStream(url)
+    playRadioMse()
+  } else {
+    ensureRadioPlaybackElement()
+    if (url) setRadioPlaybackUrl(url)
+    playRadioPlayback()
   }
-  document.addEventListener("visibilitychange", onVisibility)
-  onVisibility()
-  return () => document.removeEventListener("visibilitychange", onVisibility)
-}
-
-/** The oscilloscope reports itself so the second connection is demand-driven. */
-export function attachRadioScope(): () => void {
-  radioStreamActor.send({ type: "SCOPE_ATTACHED" })
-  return () => radioStreamActor.send({ type: "SCOPE_DETACHED" })
 }
 
 export function stopRadioStreamPlayer(): void {
   radioStreamActor.send({ type: "TEARDOWN" })
-  teardownRadioAnalysisGraph()
+  teardownRadioMseElement()
   teardownRadioPlaybackElement()
   callbacks = {}
 }
 
-export type RadioStreamPlayerDebug = RadioAnalysisEngineDebug &
-  RadioPlaybackDebug & {
+export type RadioStreamPlayerDebug = RadioPlaybackDebug &
+  RadioMseDebug & {
     phase: RadioStreamPlayerStatus["phase"]
     state: string
     error: string | null
     playingDesired: boolean
-    scopeAttached: boolean
-    visible: boolean
+    mseRejected: boolean
+    transport: "mse" | "element"
+    tapActive: boolean
+    tapBufferedSec: number
   }
 
 /** Console diagnostics: `window.__radioAudioDebug?.()` in a room. */
 export function getRadioStreamPlayerDebug(): RadioStreamPlayerDebug {
   const snapshot = radioStreamActor.getSnapshot()
+  const { mseRejected } = snapshot.context
+  const tap = getAnalysisTapDebug()
   return {
-    ...getRadioAnalysisEngineDebug(),
     ...getRadioPlaybackDebug(),
+    ...getRadioMseDebug(),
     phase: phaseFor(snapshot),
     state: JSON.stringify(snapshot.value),
     error: snapshot.context.error,
     playingDesired: snapshot.context.playing,
-    scopeAttached: snapshot.context.scopeAttached,
-    visible: snapshot.context.visible,
+    mseRejected,
+    transport: useMseRadioTransport(mseRejected) ? "mse" : "element",
+    tapActive: tap.active,
+    tapBufferedSec: tap.bufferedSec,
   }
 }
 

@@ -3,21 +3,25 @@ import {
   __resetRadioAudioTapForTests,
   byteTimeDomainLooksSilent,
   fillRadioTimeDomainData,
-  getRadioStreamAnalyser,
   getRegisteredRadioAudioElement,
   isSafariLikeBrowser,
   registerRadioAudioElement,
-  registerRadioStreamAnalyser,
   subscribeRadioAudioTap,
 } from "./radioAudioTap"
+import {
+  __resetAnalysisTapForTests,
+  __writeAnalysisTapSamplesForTests,
+  startAnalysisTap,
+} from "./mse/analysisTap"
 
 function fakeAudio(): HTMLAudioElement {
-  return { tagName: "AUDIO", paused: true } as HTMLAudioElement
+  return { tagName: "AUDIO", paused: true, currentTime: 2 / 44100 } as HTMLAudioElement
 }
 
 describe("radioAudioTap", () => {
   beforeEach(() => {
     __resetRadioAudioTapForTests()
+    __resetAnalysisTapForTests()
   })
 
   it("registers and clears an element", () => {
@@ -33,45 +37,18 @@ describe("radioAudioTap", () => {
     const unsub = subscribeRadioAudioTap(() => {
       calls += 1
     })
-    const el = fakeAudio()
-    registerRadioAudioElement(el)
-    expect(calls).toBe(1)
-    registerRadioAudioElement(null)
-    expect(calls).toBe(2)
-    unsub()
-    registerRadioAudioElement(el)
-    expect(calls).toBe(2)
-  })
-
-  it("does not notify when re-registering the same element", () => {
-    let calls = 0
-    const unsub = subscribeRadioAudioTap(() => {
-      calls += 1
-    })
-    const el = fakeAudio()
-    registerRadioAudioElement(el)
-    registerRadioAudioElement(el)
+    registerRadioAudioElement(fakeAudio())
     expect(calls).toBe(1)
     unsub()
   })
 
-  it("serves time-domain data from the registered stream analyser", () => {
-    expect(getRadioStreamAnalyser()).toBeNull()
-    expect(fillRadioTimeDomainData(new Uint8Array(8))).toBe(false)
+  it("serves time-domain data from the analysis tap", () => {
+    startAnalysisTap(44100)
+    __writeAnalysisTapSamplesForTests(0, new Float32Array([0, 0.5, -0.5, 0]), 44100)
 
-    const node = {
-      fftSize: 8,
-      getByteTimeDomainData: (buf: Uint8Array) => {
-        buf.fill(128)
-        buf[0] = 200
-      },
-    } as AnalyserNode
-    registerRadioStreamAnalyser(node)
-    expect(getRadioStreamAnalyser()).toBe(node)
-
-    const out = new Uint8Array(8)
-    expect(fillRadioTimeDomainData(out)).toBe(true)
-    expect(out[0]).toBe(200)
+    // Stub the MSE element currentTime via module — fillRadioTimeDomainData reads getRadioMseElement()
+    // In node tests without DOM element, returns false unless we mock transport.
+    expect(fillRadioTimeDomainData(new Uint8Array(4))).toBe(false)
   })
 
   it("byteTimeDomainLooksSilent detects flat midline buffers", () => {

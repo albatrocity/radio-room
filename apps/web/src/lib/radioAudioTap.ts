@@ -1,24 +1,18 @@
 /**
- * Shared analyser access for room listen visuals (ADR 0136 / 0139 / 0140).
+ * Shared listen-visual hooks (ADR 0136 / MSE Phase 2).
  *
- * Radio's audible output belongs to an `<audio>` element and never enters an
- * AudioContext. What registers here is the analyser from `radioAnalysisEngine`,
- * a separate silent decode, so consumers read time-domain data from a graph
- * that makes no sound. The AudioContext is a singleton because WebKit will not
- * start one created outside a user gesture.
- *
- * Live / hybrid register their listen element for a future visualisation; the
- * Chromium `captureStream` / `MediaElementSource` wiring that radio needed
- * before ADR 0137 is gone. A live scope would register its own analyser here.
+ * Live / hybrid rooms register their listen element for future visualisations.
+ * Radio oscilloscope reads aligned PCM from `analysisTap` via the MSE element's
+ * `currentTime` — no AnalyserNode or second connection.
  */
+
+import { fillTimeDomainAt, getAnalysisTapDebug, isAnalysisTapActive } from "./mse/analysisTap"
+import { getRadioMseElement } from "./mse/radioMseTransport"
 
 type TapListener = () => void
 
 let registeredElement: HTMLAudioElement | null = null
-let streamAnalyser: AnalyserNode | null = null
 const listeners = new Set<TapListener>()
-
-let audioContext: AudioContext | null = null
 
 function notify(): void {
   for (const listener of listeners) listener()
@@ -33,15 +27,11 @@ export function getRegisteredRadioAudioElement(): HTMLAudioElement | null {
   return registeredElement
 }
 
-type AudioContextCtor = typeof AudioContext
-
-function getAudioContextConstructor(): AudioContextCtor | null {
-  if (typeof window === "undefined") return null
-  const w = window as Window & {
-    AudioContext?: AudioContextCtor
-    webkitAudioContext?: AudioContextCtor
-  }
-  return w.AudioContext ?? w.webkitAudioContext ?? null
+/** Live / hybrid register the active listen element. */
+export function registerRadioAudioElement(element: HTMLAudioElement | null): void {
+  if (element === registeredElement) return
+  registeredElement = element
+  notify()
 }
 
 export function isSafariLikeBrowser(): boolean {
@@ -51,45 +41,8 @@ export function isSafariLikeBrowser(): boolean {
   return /safari/i.test(ua) || /iPhone|iPad|iPod/i.test(ua)
 }
 
-export function ensureRadioAudioContext(): AudioContext | null {
-  if (audioContext) return audioContext
-  const Ctor = getAudioContextConstructor()
-  if (!Ctor) return null
-  audioContext = new Ctor()
-  return audioContext
-}
-
-/**
- * Context if one already exists. Use this on teardown/idle paths — creating a
- * context outside a user gesture leaves WebKit output locked.
- */
-export function getExistingRadioAudioContext(): AudioContext | null {
-  return audioContext
-}
-
-export function resumeRadioAudioContext(): void {
-  if (audioContext?.state === "suspended") {
-    void audioContext.resume()
-  }
-}
-
-/** The silent analysis graph registers its analyser (`radioAnalysisEngine`). */
-export function registerRadioStreamAnalyser(node: AnalyserNode | null): void {
-  if (streamAnalyser === node) return
-  streamAnalyser = node
-  notify()
-}
-
-export function getRadioStreamAnalyser(): AnalyserNode | null {
-  return streamAnalyser
-}
-
-/** Live / hybrid register the active listen element. */
-export function registerRadioAudioElement(element: HTMLAudioElement | null): void {
-  if (element === registeredElement) return
-  registeredElement = element
-  notify()
-}
+/** @deprecated LivePlayer resume helper — no AudioContext in the radio path. */
+export function resumeRadioAudioContext(): void {}
 
 export function byteTimeDomainLooksSilent(buf: Uint8Array, minPeak = 2): boolean {
   let peak = 0
@@ -101,59 +54,30 @@ export function byteTimeDomainLooksSilent(buf: Uint8Array, minPeak = 2): boolean
 }
 
 export function fillRadioTimeDomainData(out: Uint8Array<ArrayBuffer>): boolean {
-  const node = streamAnalyser
-  if (!node) return false
-  if (out.length !== node.fftSize) {
-    const tmp = new Uint8Array(node.fftSize)
-    node.getByteTimeDomainData(tmp)
-    const n = Math.min(out.length, tmp.length)
-    out.set(tmp.subarray(0, n))
-    if (n < out.length) out.fill(128, n)
-  } else {
-    node.getByteTimeDomainData(out)
-  }
-  return true
+  if (!isAnalysisTapActive()) return false
+  const el = getRadioMseElement()
+  if (!el) return false
+  return fillTimeDomainAt(el.currentTime, out)
 }
 
 export type RadioAudioTapDebugSnapshot = {
   safariLike: boolean
-  hasStreamAnalyser: boolean
   hasRegisteredElement: boolean
-  audioContextState: string | null
-  analyserPeak: number | null
-  analyserSilent: boolean | null
+  tapActive: boolean
+  tapBufferedSec: number
 }
 
 export function getRadioAudioTapDebugSnapshot(): RadioAudioTapDebugSnapshot {
-  let analyserPeak: number | null = null
-  let analyserSilent: boolean | null = null
-  if (streamAnalyser) {
-    const buf = new Uint8Array(streamAnalyser.fftSize)
-    streamAnalyser.getByteTimeDomainData(buf)
-    let peak = 0
-    for (let i = 0; i < buf.length; i++) {
-      peak = Math.max(peak, Math.abs((buf[i] ?? 128) - 128))
-    }
-    analyserPeak = peak
-    analyserSilent = peak < 2
-  }
-
+  const tap = getAnalysisTapDebug()
   return {
     safariLike: isSafariLikeBrowser(),
-    hasStreamAnalyser: Boolean(streamAnalyser),
     hasRegisteredElement: Boolean(registeredElement),
-    audioContextState: audioContext?.state ?? null,
-    analyserPeak,
-    analyserSilent,
+    tapActive: tap.active,
+    tapBufferedSec: tap.bufferedSec,
   }
 }
 
 export function __resetRadioAudioTapForTests(): void {
   registeredElement = null
-  streamAnalyser = null
   listeners.clear()
-  if (audioContext) {
-    void audioContext.close().catch(() => {})
-    audioContext = null
-  }
 }

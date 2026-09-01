@@ -7,36 +7,24 @@ const URL_B = "https://example.com/b.mp3"
 
 type Run = { url: string; stopped: boolean }
 
-/** Stub both transports so lifecycle is testable without media or Web Audio. */
+/** Stub playback so lifecycle is testable without media or Web Audio. */
 function setup() {
   const playbacks: Run[] = []
-  const analyses: Run[] = []
   const machine = radioStreamMachine.provide({
     actors: {
-      elementPlayback: fromCallback<AnyEventObject, { url: string }>(({ input }) => {
-        const run = { url: input.url, stopped: false }
-        playbacks.push(run)
-        return () => {
-          run.stopped = true
-        }
-      }),
-      analysisRun: fromCallback<AnyEventObject, { url: string }>(({ input }) => {
-        const run = { url: input.url, stopped: false }
-        analyses.push(run)
-        return () => {
-          run.stopped = true
-        }
-      }),
+      playbackRun: fromCallback<AnyEventObject, { url: string; mseRejected: boolean }>(
+        ({ input }) => {
+          const run = { url: input.url, stopped: false }
+          playbacks.push(run)
+          return () => {
+            run.stopped = true
+          }
+        },
+      ),
     },
   })
   const actor = createActor(machine).start()
-  return { actor, playbacks, analyses }
-}
-
-/** Analysis only runs when watched — most playback tests want it enabled. */
-function watchScope(actor: ReturnType<typeof setup>["actor"]) {
-  actor.send({ type: "VISIBILITY", visible: true })
-  actor.send({ type: "SCOPE_ATTACHED" })
+  return { actor, playbacks }
 }
 
 afterEach(() => {
@@ -47,18 +35,18 @@ describe("radioStreamMachine playback", () => {
   it("waits for a url before starting the element", () => {
     const { actor, playbacks } = setup()
     actor.send({ type: "PLAY" })
-    expect(actor.getSnapshot().matches({ playback: "idle" })).toBe(true)
+    expect(actor.getSnapshot().matches("idle")).toBe(true)
     expect(playbacks).toHaveLength(0)
 
     actor.send({ type: "SET_URL", url: URL_A })
-    expect(actor.getSnapshot().matches({ playback: { active: "loading" } })).toBe(true)
+    expect(actor.getSnapshot().matches({ active: "loading" })).toBe(true)
     expect(playbacks[0]?.url).toBe(URL_A)
   })
 
   it("does not start while paused", () => {
     const { actor, playbacks } = setup()
     actor.send({ type: "SET_URL", url: URL_A })
-    expect(actor.getSnapshot().matches({ playback: "idle" })).toBe(true)
+    expect(actor.getSnapshot().matches("idle")).toBe(true)
     expect(playbacks).toHaveLength(0)
   })
 
@@ -69,11 +57,11 @@ describe("radioStreamMachine playback", () => {
 
     actor.send({ type: "SET_URL", url: URL_A })
     actor.send({ type: "PLAY" })
-    expect(actor.getSnapshot().matches({ playback: { active: "loading" } })).toBe(true)
+    expect(actor.getSnapshot().matches({ active: "loading" })).toBe(true)
     expect(started).toBe(0)
 
     actor.send({ type: "ELEMENT_PLAYING" })
-    expect(actor.getSnapshot().matches({ playback: { active: "playing" } })).toBe(true)
+    expect(actor.getSnapshot().matches({ active: "playing" })).toBe(true)
     expect(started).toBe(1)
   })
 
@@ -84,7 +72,7 @@ describe("radioStreamMachine playback", () => {
     actor.send({ type: "ELEMENT_PLAYING" })
 
     actor.send({ type: "PAUSE" })
-    expect(actor.getSnapshot().matches({ playback: "idle" })).toBe(true)
+    expect(actor.getSnapshot().matches("idle")).toBe(true)
     expect(playbacks[0]?.stopped).toBe(true)
   })
 
@@ -106,9 +94,9 @@ describe("radioStreamMachine playback", () => {
     actor.send({ type: "PLAY" })
     actor.send({ type: "ELEMENT_ERROR", message: "mediaNetwork" })
 
-    expect(actor.getSnapshot().matches({ playback: "reconnecting" })).toBe(true)
+    expect(actor.getSnapshot().matches("reconnecting")).toBe(true)
     vi.advanceTimersByTime(1200)
-    expect(actor.getSnapshot().matches({ playback: { active: "loading" } })).toBe(true)
+    expect(actor.getSnapshot().matches({ active: "loading" })).toBe(true)
     expect(playbacks).toHaveLength(2)
   })
 
@@ -126,11 +114,11 @@ describe("radioStreamMachine playback", () => {
     }
     actor.send({ type: "ELEMENT_ERROR", message: "mediaSrcNotSupported" })
 
-    expect(actor.getSnapshot().matches({ playback: "failed" })).toBe(true)
+    expect(actor.getSnapshot().matches("failed")).toBe(true)
     expect(failures).toEqual(["mediaSrcNotSupported"])
 
     actor.send({ type: "PLAY" })
-    expect(actor.getSnapshot().matches({ playback: { active: "loading" } })).toBe(true)
+    expect(actor.getSnapshot().matches({ active: "loading" })).toBe(true)
   })
 
   it("a stream that recovers resets the retry budget", () => {
@@ -145,7 +133,7 @@ describe("radioStreamMachine playback", () => {
       actor.send({ type: "ELEMENT_PLAYING" })
     }
 
-    expect(actor.getSnapshot().matches({ playback: { active: "playing" } })).toBe(true)
+    expect(actor.getSnapshot().matches({ active: "playing" })).toBe(true)
   })
 
   it("teardown stops the element and forgets the url", () => {
@@ -154,95 +142,19 @@ describe("radioStreamMachine playback", () => {
     actor.send({ type: "PLAY" })
     actor.send({ type: "TEARDOWN" })
 
-    expect(actor.getSnapshot().matches({ playback: "idle" })).toBe(true)
+    expect(actor.getSnapshot().matches("idle")).toBe(true)
     expect(actor.getSnapshot().context.url).toBeNull()
     expect(playbacks[0]?.stopped).toBe(true)
   })
-})
 
-describe("radioStreamMachine analysis gating", () => {
-  it("stays closed for a listener without the oscilloscope", () => {
-    const { actor, analyses } = setup()
+  it("marks mse rejected when MSE falls back before playing", () => {
+    const { actor, playbacks } = setup()
     actor.send({ type: "SET_URL", url: URL_A })
     actor.send({ type: "PLAY" })
-    actor.send({ type: "ELEMENT_PLAYING" })
+    actor.send({ type: "MSE_FALLBACK" })
 
-    expect(actor.getSnapshot().matches({ analysis: "off" })).toBe(true)
-    expect(analyses).toHaveLength(0)
-  })
-
-  it("opens once a scope is watching and playback is wanted", () => {
-    const { actor, analyses } = setup()
-    watchScope(actor)
-    expect(analyses).toHaveLength(0)
-
-    actor.send({ type: "SET_URL", url: URL_A })
-    actor.send({ type: "PLAY" })
-    expect(actor.getSnapshot().matches({ analysis: "on" })).toBe(true)
-    expect(analyses[0]?.url).toBe(URL_A)
-  })
-
-  it("closes when the scope unmounts or the tab is hidden", () => {
-    const { actor, analyses } = setup()
-    watchScope(actor)
-    actor.send({ type: "SET_URL", url: URL_A })
-    actor.send({ type: "PLAY" })
-
-    actor.send({ type: "VISIBILITY", visible: false })
-    expect(actor.getSnapshot().matches({ analysis: "off" })).toBe(true)
-    expect(analyses[0]?.stopped).toBe(true)
-
-    actor.send({ type: "VISIBILITY", visible: true })
-    expect(analyses).toHaveLength(2)
-
-    actor.send({ type: "SCOPE_DETACHED" })
-    expect(actor.getSnapshot().matches({ analysis: "off" })).toBe(true)
-    expect(analyses[1]?.stopped).toBe(true)
-  })
-
-  it("closes on pause alongside playback", () => {
-    const { actor, analyses } = setup()
-    watchScope(actor)
-    actor.send({ type: "SET_URL", url: URL_A })
-    actor.send({ type: "PLAY" })
-    actor.send({ type: "PAUSE" })
-
-    expect(actor.getSnapshot().matches({ analysis: "off" })).toBe(true)
-    expect(analyses[0]?.stopped).toBe(true)
-  })
-
-  it("gives up on an undecodable station without disturbing playback", () => {
-    vi.useFakeTimers()
-    const { actor, analyses } = setup()
-    watchScope(actor)
-    actor.send({ type: "SET_URL", url: URL_A })
-    actor.send({ type: "PLAY" })
-    actor.send({ type: "ELEMENT_PLAYING" })
-
-    for (let i = 0; i < 3; i++) {
-      actor.send({ type: "ANALYSIS_ERROR", message: "unsupportedContentType:audio/aacp" })
-      vi.advanceTimersByTime(5000)
-    }
-
-    expect(analyses).toHaveLength(3)
-    expect(actor.getSnapshot().matches({ analysis: "off" })).toBe(true)
-    expect(actor.getSnapshot().matches({ playback: { active: "playing" } })).toBe(true)
-  })
-
-  it("a recovered analysis connection resets its failure budget", () => {
-    vi.useFakeTimers()
-    const { actor, analyses } = setup()
-    watchScope(actor)
-    actor.send({ type: "SET_URL", url: URL_A })
-    actor.send({ type: "PLAY" })
-
-    for (let i = 0; i < 5; i++) {
-      actor.send({ type: "ANALYSIS_STREAMING" })
-      actor.send({ type: "ANALYSIS_ENDED" })
-      vi.advanceTimersByTime(5000)
-    }
-
-    expect(actor.getSnapshot().matches({ analysis: "on" })).toBe(true)
-    expect(analyses.length).toBeGreaterThan(3)
+    expect(actor.getSnapshot().context.mseRejected).toBe(true)
+    expect(actor.getSnapshot().matches({ active: "loading" })).toBe(true)
+    expect(playbacks.length).toBeGreaterThanOrEqual(1)
   })
 })

@@ -15,7 +15,6 @@ import ButtonSchedule from "./ButtonSchedule"
 import {
   configureRadioStreamPlayer,
   getRadioStreamPlayerDebug,
-  installRadioStreamPlayerListeners,
   primeRadioStreamPlayerFromGesture,
   radioStreamVolumeIsSettable,
   setRadioStreamPlayerMuted,
@@ -74,14 +73,12 @@ const RadioPlayer = ({
       onPlay,
       onError,
     })
-    const removeListeners = installRadioStreamPlayerListeners()
     setVolumeSettable(radioStreamVolumeIsSettable())
     if (import.meta.env.DEV) {
       ;(window as Window & { __radioAudioDebug?: () => unknown }).__radioAudioDebug =
         getRadioStreamPlayerDebug
     }
     return () => {
-      removeListeners()
       stopRadioStreamPlayer()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

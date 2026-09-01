@@ -52,10 +52,4 @@ describe("radioStreamActor", () => {
     expect(getRadioStreamPlayerStatus().phase).toBe("idle")
     expect(getRadioStreamPlayerStatus().playingDesired).toBe(false)
   })
-
-  it("does not open the analysis connection without a scope", () => {
-    setRadioStreamPlayerUrl(STREAM_URL)
-    setRadioStreamPlayerPlaying(true)
-    expect(getRadioStreamPlayerStatus().framesScheduled).toBe(0)
-  })
 })

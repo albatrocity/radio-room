@@ -1,5 +1,5 @@
 /**
- * CRT-style oscilloscope behind Now Playing (ADR 0136 / 0137).
+ * CRT-style oscilloscope behind Now Playing (ADR 0136 / MSE Phase 2).
  * Lazy-loaded only when the user owns item-shops:oscilloscope in a radio room.
  */
 
@@ -10,21 +10,22 @@ import { useIsPlaying } from "../../hooks/useActors"
 import {
   fillRadioTimeDomainData,
   getRadioAudioTapDebugSnapshot,
-  getRadioStreamAnalyser,
-  resumeRadioAudioContext,
-  subscribeRadioAudioTap,
   type RadioAudioTapDebugSnapshot,
 } from "../../lib/radioAudioTap"
+import { startAnalysisTap, stopAnalysisTap } from "../../lib/mse/analysisTap"
+import { backfillRadioMseAnalysisTap } from "../../lib/mse/radioMseTransport"
 import {
-  attachRadioScope,
   getRadioStreamPlayerDebug,
   getRadioStreamPlayerStatus,
+  radioStreamOscilloscopeSupported,
+  subscribeRadioStreamPlayerStatus,
 } from "../../actors/radioStreamActor"
 import {
   PRIMARY_CONTRAST_CSS_VAR,
   PRIMARY_SOLID_CSS_VAR,
 } from "../../lib/oscilloscopeOwnership"
 
+const TRACE_SAMPLES = 2048
 const MAJOR_X = 10
 const MAJOR_Y = 8
 const MINOR_TICKS_PER_DIV = 5
@@ -41,17 +42,11 @@ function formatDebugHud(s: RadioAudioTapDebugSnapshot): string {
   const d = getRadioStreamPlayerDebug()
   return [
     "TEMP oscope debug",
-    `safari=${s.safariLike} peak=${s.analyserPeak ?? "—"} silent=${s.analyserSilent}`,
-    `stream state=${d.state} http=${stream.httpStatus ?? "—"} frames=${d.framesScheduled} err=${d.error ?? "null"}`,
-    `ct=${stream.contentType ?? "—"} playingDesired=${d.playingDesired}`,
-    `ctx=${d.contextState ?? "none"} rate=${d.contextSampleRate ?? "—"} ahead=${d.bufferedAheadSec?.toFixed(2) ?? "—"}`,
-    `el paused=${d.paused ?? "—"} ready=${d.readyState ?? "—"} elAhead=${d.elementBufferedAheadSec?.toFixed(2) ?? "—"}`,
-    `align delay=${d.alignmentDelaySec?.toFixed(2) ?? "—"} residual=${
-      d.elementBufferedAheadSec != null && d.bufferedAheadSec != null && d.alignmentDelaySec != null
-        ? (d.elementBufferedAheadSec - d.bufferedAheadSec - d.alignmentDelaySec).toFixed(2)
-        : "—"
-    }`,
-    `scope=${d.scopeAttached} visible=${d.visible} srcs=${d.activeSources}`,
+    `safari=${s.safariLike} tap=${s.tapActive} buf=${s.tapBufferedSec.toFixed(2)}s`,
+    `stream state=${d.state} transport=${d.transport} err=${d.error ?? "null"}`,
+    `playingDesired=${d.playingDesired}`,
+    `el paused=${d.paused ?? "—"} ready=${d.readyState ?? "—"} ct=${d.currentTime?.toFixed(2) ?? "—"}`,
+    `mse frames=${d.framesAppended} appended=${d.appendedSec.toFixed(2)}s`,
   ].join("\n")
 }
 
@@ -133,7 +128,6 @@ function drawTrace(
   }
 
   const slice = width / Math.max(1, data.length - 1)
-  // Soften against Now Playing text (same contrast token as headings).
   const stroke = mixContrastOnSolid(solid, contrast, 0.55)
 
   ctx.beginPath()
@@ -173,17 +167,28 @@ export default function OscilloscopeBackground() {
   const animationsEnabled = useAnimationsEnabled()
   const isPlaying = useIsPlaying()
   const [debugHud, setDebugHud] = useState("")
+  const [supported, setSupported] = useState(radioStreamOscilloscopeSupported)
   /** Desktop: offset below artwork so the graph isn't under the cover. */
   const [desktopTopPx, setDesktopTopPx] = useState(0)
 
-  // Keep the rAF loop alive across pause/resume — do not tear down on isPlaying.
   const isPlayingRef = useRef(isPlaying)
-  const wasPlayingRef = useRef(isPlaying)
   isPlayingRef.current = isPlaying
   const animationsEnabledRef = useRef(animationsEnabled)
   animationsEnabledRef.current = animationsEnabled
 
-  // Position under artwork on desktop; full-bleed on mobile (row layout).
+  useEffect(() => {
+    return subscribeRadioStreamPlayerStatus(() => {
+      setSupported(radioStreamOscilloscopeSupported())
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!supported) return
+    startAnalysisTap()
+    backfillRadioMseAnalysisTap()
+    return () => stopAnalysisTap()
+  }, [supported])
+
   useEffect(() => {
     const host = containerRef.current?.parentElement
     if (!host) return
@@ -241,14 +246,6 @@ export default function OscilloscopeBackground() {
   }, [])
 
   useEffect(() => {
-    if (isPlaying) resumeRadioAudioContext()
-  }, [isPlaying])
-
-  // The analysis connection is demand-driven: opened only while a scope is
-  // mounted to watch it (ADR 0140).
-  useEffect(() => attachRadioScope(), [])
-
-  useEffect(() => {
     if (!OSCILLOSCOPE_TEMP_DEBUG) return
     const refresh = () => {
       setDebugHud(formatDebugHud(getRadioAudioTapDebugSnapshot()))
@@ -259,6 +256,8 @@ export default function OscilloscopeBackground() {
   }, [])
 
   useEffect(() => {
+    if (!supported) return
+
     const graphArea = graphAreaRef.current
     const gridCanvas = gridRef.current
     const traceCanvas = traceRef.current
@@ -271,8 +270,7 @@ export default function OscilloscopeBackground() {
     let disposed = false
     let rafId = 0
     let lastReducedDraw = 0
-    let analyser: AnalyserNode | null = null
-    let timeData: Uint8Array<ArrayBuffer> | null = null
+    const timeData = new Uint8Array(TRACE_SAMPLES) as Uint8Array<ArrayBuffer>
     let cssW = 0
     let cssH = 0
 
@@ -299,18 +297,6 @@ export default function OscilloscopeBackground() {
     ro.observe(graphArea)
     resize()
 
-    const ensureAnalyser = () => {
-      if (disposed) return
-      resumeRadioAudioContext()
-      analyser = getRadioStreamAnalyser()
-      if (analyser && (!timeData || timeData.length !== analyser.fftSize)) {
-        timeData = new Uint8Array(analyser.fftSize) as Uint8Array<ArrayBuffer>
-      }
-    }
-
-    ensureAnalyser()
-    const unsubTap = subscribeRadioAudioTap(ensureAnalyser)
-
     const tick = (now: number) => {
       if (disposed) return
       rafId = requestAnimationFrame(tick)
@@ -323,15 +309,7 @@ export default function OscilloscopeBackground() {
 
       if (document.hidden || !isPlayingRef.current) return
 
-      if (!analyser || !timeData) {
-        ensureAnalyser()
-        return
-      }
-
-      if (!fillRadioTimeDomainData(timeData)) {
-        ensureAnalyser()
-        return
-      }
+      if (!fillRadioTimeDomainData(timeData)) return
 
       const { solid, contrast } = readThemeColors(graphArea)
       drawTrace(traceCtx, timeData, cssW, cssH, contrast, solid, !reduced)
@@ -343,9 +321,10 @@ export default function OscilloscopeBackground() {
       disposed = true
       cancelAnimationFrame(rafId)
       ro.disconnect()
-      unsubTap()
     }
-  }, [desktopTopPx])
+  }, [desktopTopPx, supported])
+
+  if (!supported) return null
 
   return (
     <Box
@@ -354,11 +333,9 @@ export default function OscilloscopeBackground() {
       inset={0}
       pointerEvents="none"
       overflow="hidden"
-      // TEMP debug: lift above Add to Queue / action chrome so the HUD is selectable.
       zIndex={OSCILLOSCOPE_TEMP_DEBUG ? 40 : 0}
       aria-hidden={!OSCILLOSCOPE_TEMP_DEBUG}
     >
-      {/* Graph/graticule: below artwork on desktop; full-bleed on mobile. */}
       <Box
         ref={graphAreaRef}
         position="absolute"
@@ -372,13 +349,11 @@ export default function OscilloscopeBackground() {
           ref={traceRef}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
         />
-        {/* Grid above the trace so phosphor trail fades never cover the graticule. */}
         <canvas
           ref={gridRef}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
         />
       </Box>
-      {/* Inset shadow covers the full Now Playing frame (including over artwork). */}
       <Box
         position="absolute"
         inset={0}

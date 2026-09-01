@@ -1,7 +1,7 @@
 # 0140. Radio Playback Owned by an `<audio>` Element; Oscilloscope Tabled
 
 **Date:** 2026-08-31
-**Status:** Accepted
+**Status:** Superseded by [0141](0141-radio-mse-transport-and-oscilloscope.md)
 **Supersedes:** decisions 1 and 3 of [0137](0137-radio-stream-player-web-audio.md); decisions 3, 4, 5 and 6 of [0138](0138-radio-pause-aborts-fetch.md); the radio analysis clause of [0136](0136-inventory-owned-client-visuals.md)
 
 This ADR consolidates the whole radio-audio exploration. It records what shipped, what was abandoned, and — importantly — which approaches were tested and ruled out, so they are not attempted again.
@@ -63,10 +63,7 @@ The probe used to establish this is on `feature/oscilloscope-item` at `apps/web/
 
 ## Path forward
 
-Media Source Extensions is the only remaining way to hold the bytes and keep an element. `ManagedMediaSource` (Safari 17.0 desktop/iPadOS, 17.1 iPhone) and `MediaSource` (everywhere else) are API-compatible for our purposes, so one transport covers all browsers — unlike `captureStream`, this is not a platform branch. Because we would append the bytes ourselves, the element's `currentTime` maps deterministically onto our own timeline and alignment stops being a guess.
-
-Tracked on `explore/mms`, where [the implementation plan](../MMS_RADIO_TRANSPORT_PLAN.md) sets
-out the phases, the device matrix, and the checks that would abort the attempt. Not scheduled.
+~~Media Source Extensions is the only remaining way…~~ **Implemented in [ADR 0141](0141-radio-mse-transport-and-oscilloscope.md)** on branch `explore/mms`.
 
 ## Posterity
 
@@ -79,7 +76,7 @@ Both predate the move to element playback, so the Oscilloscope works there at th
 
 ## See also
 
-- [ADR 0136](0136-inventory-owned-client-visuals.md) — inventory-owned client visuals
+- [ADR 0141](adrs/0141-radio-mse-transport-and-oscilloscope.md) — MSE transport and Oscilloscope (supersedes this ADR's "tabled" outcome)
 - [ADR 0137](0137-radio-stream-player-web-audio.md) — the Web Audio decode pipeline this replaces
 - [ADR 0138](0138-radio-pause-aborts-fetch.md) — the audible-quality machinery this makes unnecessary
 - [ADR 0139](0139-radio-stream-lifecycle-machine.md) — lifecycle in a machine, audio path imperative

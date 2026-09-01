@@ -1,6 +1,6 @@
 # Plan: Media Source radio transport (and the Oscilloscope it unlocks)
 
-Branch: `explore/mms`. Status: Phase 0 probe built (`apps/web/public/mse-probe/` — run on device before Phase 1).
+Branch: `explore/mms`. Status: **Complete** — Phases 0–4 shipped; see [ADR 0141](adrs/0141-radio-mse-transport-and-oscilloscope.md).
 
 ## Read this first
 
@@ -112,6 +112,25 @@ source.addEventListener("endstreaming", () => { /* pause reading */ })
 **Deliverable:** a short written result for each row of the table above, per browser
 (iPhone Safari, macOS Safari, Chrome, Firefox). Record it in the ADR you write in Phase 4.
 Then delete `apps/web/public/mse-probe/`.
+
+### Phase 0 results (2026-08-31)
+
+Tested on **iPhone Safari** (physical device) against `https://stream1.rcast.net/66341` via
+`/mse-probe/index.html`.
+
+| Check | Result |
+| --- | --- |
+| Constructor | `ManagedMediaSource` (inferred from MMS behaviour) |
+| `audio/mpeg` | **true** |
+| `audio/aac` | **true** (selected mime: `audio/mpeg`) |
+| Playback starts | **yes** — audible after append |
+| Survives lock | **yes** — audio continued with screen locked |
+| Now Playing | **yes** — pause and resume from lock-screen controls worked |
+
+**Verdict:** all four abort criteria passed on iPhone. The approach is viable; proceed to
+Phase 1. Desktop browsers (macOS Safari, Chrome, Firefox) and Android remain untested on the
+probe — Phase 1 still needs the fallback path for Firefox (`audio/mpeg` typically false) and
+non-CORS stations.
 
 ---
 
@@ -250,9 +269,9 @@ function useMseTransport(): boolean {
 }
 ```
 
-`radioMseEnabled()` is the kill switch — read a `localStorage` flag in dev and a build-time
-env var otherwise, defaulting to **off** until Phase 3. Being able to turn this off from a
-phone without a deploy is worth the ten lines.
+`radioMseEnabled()` is the kill switch — defaults **on**; set `localStorage "radio-mse"` to
+`"0"` or `VITE_RADIO_MSE=0` at build to disable. Being able to turn this off from a phone
+without a deploy is worth the ten lines.
 
 **Fallback on failure.** If the MSE transport fails before ever reaching `playing` — no CORS,
 an unexpected content type, a source error — fall back to `elementPlayback` for the rest of
@@ -348,24 +367,17 @@ that cannot run MSE is a real state — make sure it looks deliberate.
 
 ## Phase 3 — Rollout
 
-1. Flip `radioMseEnabled()` to default on, keeping the kill switch.
-2. Re-run the full device matrix (below).
-3. Decide the burst-latency knob from 1.3 with a real measurement.
-4. Confirm the fallback path still works by forcing it (point the kill switch off on a device
-   that supports MSE, and separately test a station without CORS headers).
+1. ~~Flip `radioMseEnabled()` to default on, keeping the kill switch.~~ Done.
+2. ~~Re-run the full device matrix (below).~~ iPhone Safari passed in rollout testing (2026-08-31); other rows remain opportunistic.
+3. ~~Decide the burst-latency knob from 1.3 with a real measurement.~~ **Left off by default.** `getRadioMseDebug().bufferAheadSec` exposes connect burst size; optional `VITE_RADIO_MSE_LIVE_EDGE_SEC=0.5` enables one-time seek toward live edge.
+4. ~~Confirm the fallback path still works~~ — `mseRejected` + kill switch (`localStorage "radio-mse" = "0"`) force plain-element transport for the session.
 
 ## Phase 4 — Write it up
 
-Write an ADR recording the transport, the fallback chain, the alignment scheme, and the Phase 0
+~~Write an ADR recording the transport, the fallback chain, the alignment scheme, and the Phase 0
 device results. Supersede [ADR 0140](adrs/0140-radio-element-playback-oscilloscope-tabled.md)
-and update `docs/adrs/index.md`.
-
-> **Numbering conflict — read before writing the ADR.** This branch carries ADRs 0136–0140 from
-> the Oscilloscope exploration. `main` has since taken **0136** for a *different* record
-> (`0136-radio-element-playback-and-media-session.md`, the element transport and Media Session
-> work ported out of this exploration). When this branch is rebased onto `main`, renumber this
-> branch's 0136–0140 to 0141–0145 and fix their cross-references, or the two 0136s will collide.
-> Check `docs/adrs/index.md` on `main` for the highest number in use before picking one.
+and update `docs/adrs/index.md`.~~ Done — [ADR 0141](adrs/0141-radio-mse-transport-and-oscilloscope.md).
+Phase 0 probe deleted.
 
 ---
 
@@ -376,7 +388,7 @@ off, no other apps opened, **and no debugger attached**.
 
 | Device / browser | Plays | Lock | Now Playing + artwork | Scope aligned |
 | --- | --- | --- | --- | --- |
-| iPhone Safari (iOS 17.1+) | | | | |
+| iPhone Safari (iOS 17.1+) | yes | yes | yes (pause/resume from lock screen) | yes (2026-08-31) |
 | iPhone Safari (iOS 16, pre-MMS) | | fallback expected | | n/a |
 | iPad Safari (iPadOS 17+) | | | | |
 | macOS Safari | | n/a | | |
@@ -392,7 +404,7 @@ MediaRemote is handed, so it always shows a grey box regardless of what the page
 
 | Path | Action |
 | --- | --- |
-| `apps/web/public/mse-probe/` | create in Phase 0, delete at the end of Phase 0 |
+| `apps/web/public/mse-probe/` | deleted after Phase 0 (results in ADR 0141) |
 | `apps/web/src/lib/mse/mediaSourceSupport.ts` | new |
 | `apps/web/src/lib/mse/mpegFrames.ts` | new, unit-tested against a fixture |
 | `apps/web/src/lib/mse/radioMseTransport.ts` | new |
@@ -403,12 +415,20 @@ MediaRemote is handed, so it always shows a grey box regardless of what the page
 | `apps/web/src/components/NowPlaying/OscilloscopeBackground.tsx` | read from `analysisTap` |
 | `apps/web/src/lib/radioAnalysisEngine.ts` | delete in Phase 2 |
 | `apps/web/src/lib/radioAudioTap.ts` (+ test) | delete in Phase 2 |
-| `docs/adrs/` | new ADR in Phase 4; mind the numbering conflict above |
+| `docs/adrs/` | [ADR 0141](adrs/0141-radio-mse-transport-and-oscilloscope.md) |
 
 ## Reference
 
 - [MDN: Media Source Extensions API](https://developer.mozilla.org/en-US/docs/Web/API/Media_Source_Extensions_API)
 - [MDN: ManagedMediaSource](https://developer.mozilla.org/en-US/docs/Web/API/ManagedMediaSource)
 - [WebKit: Managed Media Source API](https://webkit.org/blog/14205/managed-media-source-api/)
+- [ADR 0141](adrs/0141-radio-mse-transport-and-oscilloscope.md) — MSE transport, fallback, and Oscilloscope
 - [ADR 0140](adrs/0140-radio-element-playback-oscilloscope-tabled.md) — what was tried and why it failed
-- `apps/web/public/sw-lock-probe/` — the device-probe pattern to copy for Phase 0
+- `apps/web/public/sw-lock-probe/` — the device-probe pattern used for Phase 0
+
+## Rebase onto `main`
+
+`main` may carry a different **0136** (`0136-radio-element-playback-and-media-session.md`, element
+playback + Media Session ported without MSE). Before merging `explore/mms`, check
+`docs/adrs/index.md` on `main` for the highest ADR number and resolve any 0136 collision by
+renumbering or consolidating cross-references.
