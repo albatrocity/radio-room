@@ -1,6 +1,6 @@
 # Plan: Media Source radio transport (and the Oscilloscope it unlocks)
 
-Branch: `explore/mms`. Status: not started.
+Branch: `explore/mms`. Status: Phase 0 probe built (`apps/web/public/mse-probe/` — run on device before Phase 1).
 
 ## Read this first
 
