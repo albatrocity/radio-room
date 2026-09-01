@@ -65,7 +65,8 @@ The probe used to establish this is on `feature/oscilloscope-item` at `apps/web/
 
 Media Source Extensions is the only remaining way to hold the bytes and keep an element. `ManagedMediaSource` (Safari 17.0 desktop/iPadOS, 17.1 iPhone) and `MediaSource` (everywhere else) are API-compatible for our purposes, so one transport covers all browsers — unlike `captureStream`, this is not a platform branch. Because we would append the bytes ourselves, the element's `currentTime` maps deterministically onto our own timeline and alignment stops being a guess.
 
-Tracked on `explore/mms`. Not scheduled.
+Tracked on `explore/mms`, where [the implementation plan](../MMS_RADIO_TRANSPORT_PLAN.md) sets
+out the phases, the device matrix, and the checks that would abort the attempt. Not scheduled.
 
 ## Posterity
 
