@@ -365,6 +365,8 @@
       Ableton Live on the DJ Mac. Default map: sidechain <strong>1/2</strong>, programme
       <strong>3/4</strong>, ducked out <strong>5/6</strong> on device <code>Ducking</code>.
       Quit Ableton; keep the Audio Hijack session and Loopback graph unchanged (ADR 0109).
+      <strong>Enable</strong> and <strong>Bypass</strong> apply immediately. Saving Redis, OSC, or
+      Media Bridge settings does not restart the ducking streams.
     </p>
 
     <fieldset>
@@ -377,6 +379,9 @@
         <input id="duckingBypass" type="checkbox" />
         <label for="duckingBypass" style="margin: 0">Bypass (pass programme through)</label>
       </div>
+      <p class="hint" style="margin-top: 0.35rem">
+        These two checkboxes apply as soon as you click them — no Save &amp; apply.
+      </p>
       <label for="duckingDeviceName">Device name</label>
       <input id="duckingDeviceName" type="text" placeholder="Ducking" autocomplete="off" />
       <label for="duckingDeviceUid">Device UID (optional)</label>
@@ -565,8 +570,11 @@
       <fieldset>
         <legend>Bridge Now Playing.txt</legend>
         <label for="bridgeNowPlayingPath">Path for Audio Hijack</label>
-        <input type="text" id="bridgeNowPlayingPath" placeholder="default under ~/.config/listening-room-bridge/" />
-        <p class="hint">File uses <code>Title:</code> / <code>Artist:</code> / <code>Album:</code> lines.</p>
+        <input type="text" id="bridgeNowPlayingPath" placeholder="~/Now Playing.txt" />
+        <p class="hint">
+          Defaults to <code>~/Now Playing.txt</code> (same file Audio Hijack and the local-remote
+          watcher use). File uses <code>Title:</code> / <code>Artist:</code> / <code>Album:</code> lines.
+        </p>
       </fieldset>
 
       <div class="row" style="margin: 0.5rem 0 1rem">
@@ -885,31 +893,67 @@
         if (!c.features.bridge.childApiBase) {
           c.features.bridge.childApiBase = "http://127.0.0.1:18766";
         }
-        c.features.ducking = c.features.ducking || {};
-        const dk = c.features.ducking;
-        dk.enabled = $("duckingEnabled").checked;
-        dk.bypass = $("duckingBypass").checked;
-        dk.deviceName = $("duckingDeviceName").value.trim() || "Ducking";
-        const uid = $("duckingDeviceUid").value.trim();
-        dk.deviceUid = uid ? uid : null;
+        c.features.ducking = duckingFromForm();
+        return c;
+      }
+
+      function duckingFromForm() {
         const num = (id, fallback) => {
           const n = Number($(id).value);
           return Number.isFinite(n) ? n : fallback;
         };
-        dk.sidechainLeft = num("duckingSidechainLeft", 1);
-        dk.sidechainRight = num("duckingSidechainRight", 2);
-        dk.programmeLeft = num("duckingProgrammeLeft", 3);
-        dk.programmeRight = num("duckingProgrammeRight", 4);
-        dk.outputLeft = num("duckingOutputLeft", 5);
-        dk.outputRight = num("duckingOutputRight", 6);
-        dk.thresholdDb = num("duckingThresholdDb", -31.5);
-        dk.ratio = num("duckingRatio", 100);
-        dk.attackMs = num("duckingAttackMs", 2.9);
-        dk.releaseMs = num("duckingReleaseMs", 1714);
-        dk.kneeDb = num("duckingKneeDb", 6);
-        dk.makeupDb = num("duckingMakeupDb", 0);
-        dk.sidechainHpfHz = num("duckingSidechainHpfHz", 80);
-        return c;
+        const uid = $("duckingDeviceUid").value.trim();
+        return {
+          enabled: $("duckingEnabled").checked,
+          bypass: $("duckingBypass").checked,
+          deviceName: $("duckingDeviceName").value.trim() || "Ducking",
+          deviceUid: uid ? uid : null,
+          sidechainLeft: num("duckingSidechainLeft", 1),
+          sidechainRight: num("duckingSidechainRight", 2),
+          programmeLeft: num("duckingProgrammeLeft", 3),
+          programmeRight: num("duckingProgrammeRight", 4),
+          outputLeft: num("duckingOutputLeft", 5),
+          outputRight: num("duckingOutputRight", 6),
+          thresholdDb: num("duckingThresholdDb", -31.5),
+          ratio: num("duckingRatio", 100),
+          attackMs: num("duckingAttackMs", 2.9),
+          releaseMs: num("duckingReleaseMs", 1714),
+          kneeDb: num("duckingKneeDb", 6),
+          makeupDb: num("duckingMakeupDb", 0),
+          sidechainHpfHz: num("duckingSidechainHpfHz", 80),
+        };
+      }
+
+      async function applyDuckingLive() {
+        const errEl = $("duckingError");
+        try {
+          const r = await fetch("/api/ducking", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(duckingFromForm()),
+          });
+          const t = await r.text();
+          if (!r.ok) {
+            let msg = t;
+            try {
+              msg = JSON.parse(t).error || t;
+            } catch (_) {}
+            errEl.hidden = false;
+            errEl.textContent = msg;
+            return;
+          }
+          const dk = JSON.parse(t);
+          if (lastConfig) {
+            lastConfig.features = lastConfig.features || {};
+            lastConfig.features.ducking = dk;
+          }
+          errEl.hidden = true;
+          errEl.textContent = "";
+          void refreshDuckingStatus();
+        } catch (e) {
+          errEl.hidden = false;
+          errEl.textContent = e.message || String(e);
+        }
       }
 
       let lastConfig = null;
@@ -966,7 +1010,8 @@
       function collectBridgeConfig() {
         const userData = $("chromeUserData").value.trim();
         const socket = $("mpvSocket").value.trim();
-        const np = $("bridgeNowPlayingPath").value.trim();
+        const np =
+          $("bridgeNowPlayingPath").value.trim() || $("nowPlayingFilePath").value.trim();
         const defaultRoom = $("bridgeDefaultRoomId").value.trim();
         const musicFolder = $("navMusicFolder").value.trim();
         const prevNav = (bridgeLoadedConfig && bridgeLoadedConfig.navidrome) || {};
@@ -1196,6 +1241,8 @@
       }
 
       $("bridgeEnabled").onchange = syncBridgeUiState;
+      $("duckingEnabled").onchange = () => void applyDuckingLive();
+      $("duckingBypass").onchange = () => void applyDuckingLive();
 
       $("save").onclick = async () => {
         $("msg").textContent = "";

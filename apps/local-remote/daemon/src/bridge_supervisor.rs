@@ -123,6 +123,12 @@ impl BridgeSupervisor {
             .stderr(Stdio::inherit())
             .kill_on_drop(true);
 
+        // Same file Audio Hijack already reads from the local-remote watcher (tilde expanded in Node).
+        let np = cfg.features.now_playing.now_playing_file_path.trim();
+        if !np.is_empty() {
+            cmd.env("BRIDGE_NOW_PLAYING_PATH", np);
+        }
+
         if !cfg.room_id.trim().is_empty() {
             cmd.env("BRIDGE_DEFAULT_ROOM_ID", cfg.room_id.trim());
         }

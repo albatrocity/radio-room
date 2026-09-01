@@ -1,6 +1,6 @@
 //! Tokio supervisor: start/stop/restart the ducking audio engine from config.
 
-use crate::config::{Config, DuckingFeature};
+use crate::config::{Config, DuckingFeature, DuckingStreamKey};
 use crate::ducking::dsp::DuckingParams;
 use crate::ducking::engine::{start_engine, EngineHandle};
 use crate::state::SharedState;
@@ -27,6 +27,7 @@ pub struct DuckingStatusSnapshot {
 pub struct DuckingSupervisor {
     engine: Mutex<Option<EngineHandle>>,
     last_error: Mutex<Option<String>>,
+    last_stream_key: Mutex<Option<DuckingStreamKey>>,
     pub running: AtomicBool,
     stop_requested: AtomicBool,
 }
@@ -36,6 +37,7 @@ impl DuckingSupervisor {
         Arc::new(Self {
             engine: Mutex::new(None),
             last_error: Mutex::new(None),
+            last_stream_key: Mutex::new(None),
             running: AtomicBool::new(false),
             stop_requested: AtomicBool::new(false),
         })
@@ -79,6 +81,7 @@ impl DuckingSupervisor {
             info!("ducking engine stopped");
         }
         self.running.store(false, Ordering::SeqCst);
+        *self.last_stream_key.lock().await = None;
     }
 
     async fn set_error(&self, msg: Option<String>) {
@@ -92,14 +95,30 @@ impl DuckingSupervisor {
         }
     }
 
+    async fn engine_is_live(&self) -> bool {
+        if !self.running.load(Ordering::SeqCst) {
+            return false;
+        }
+        let guard = self.engine.lock().await;
+        guard.as_ref().map(|e| e.is_alive()).unwrap_or(false)
+    }
+
     async fn start_from_feature(&self, feature: &DuckingFeature) {
+        let had_engine = self.engine.lock().await.is_some();
+        self.stop().await;
+        if had_engine {
+            // Give Core Audio / Loopback a beat to drop the previous output client
+            // before we open another (stacked clients = delayed duplicate music).
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
         self.stop_requested.store(false, Ordering::SeqCst);
-        let feature = feature.clone();
-        let result = tokio::task::spawn_blocking(move || start_engine(&feature)).await;
+        let feature_clone = feature.clone();
+        let result = tokio::task::spawn_blocking(move || start_engine(&feature_clone)).await;
         match result {
             Ok(Ok(handle)) => {
                 self.set_error(None).await;
                 self.running.store(true, Ordering::SeqCst);
+                *self.last_stream_key.lock().await = Some(feature.stream_key());
                 *self.engine.lock().await = Some(handle);
                 info!("ducking engine started");
             }
@@ -117,16 +136,23 @@ impl DuckingSupervisor {
         }
     }
 
-    /// Restart engine to pick up device/channel changes; hot-swap DSP params when possible.
-    pub async fn restart(&self, cfg: &Config) {
-        let dk = &cfg.features.ducking;
-        if !dk.enabled {
+    /// Hot-swap DSP (bypass, threshold, …) when the Loopback stream can stay open.
+    /// Only tear down Core Audio when enable/device/channels change.
+    pub async fn apply_or_restart(&self, feature: &DuckingFeature) {
+        if !feature.enabled {
             self.stop().await;
             self.set_error(None).await;
             return;
         }
-        self.stop().await;
-        self.start_from_feature(dk).await;
+        if self.engine_is_live().await {
+            let same = self.last_stream_key.lock().await.as_ref() == Some(&feature.stream_key());
+            if same {
+                self.apply_config(feature).await;
+                info!(bypass = feature.bypass, "ducking params hot-applied");
+                return;
+            }
+        }
+        self.start_from_feature(feature).await;
     }
 }
 
@@ -140,11 +166,7 @@ pub async fn run_ducking_supervisor(state: SharedState) {
                     Ok(c) => c.clone(),
                     Err(_) => continue,
                 };
-                // Device / enable changes need full restart; params also applied after start.
-                state.ducking_supervisor.restart(&cfg).await;
-                if cfg.features.ducking.enabled {
-                    state.ducking_supervisor.apply_config(&cfg.features.ducking).await;
-                }
+                state.ducking_supervisor.apply_or_restart(&cfg.features.ducking).await;
                 backoff = Duration::from_secs(2);
             }
             _ = tokio::time::sleep(backoff) => {
@@ -156,8 +178,7 @@ pub async fn run_ducking_supervisor(state: SharedState) {
                 if !dk.enabled {
                     continue;
                 }
-                if state.ducking_supervisor.running.load(Ordering::SeqCst) {
-                    // Hot-apply params periodically in case UI saved without notify race.
+                if state.ducking_supervisor.engine_is_live().await {
                     state.ducking_supervisor.apply_config(dk).await;
                     continue;
                 }

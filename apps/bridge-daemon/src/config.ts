@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { z } from "zod"
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { isAbsolute, join } from "node:path"
 import {
   DEFAULT_PUBLIC_URL_TAG_PRIORITY,
   PUBLIC_URL_TAG_TOKENS,
@@ -89,8 +89,34 @@ export function configPath(): string {
   return join(configDir(), "config.json")
 }
 
+/** Expand `~` / `~/…` the way local-remote's Now Playing watcher does. */
+export function expandUserPath(path: string, home: string = homedir()): string {
+  if (path === "~") return home
+  if (path.startsWith("~/")) return join(home, path.slice(2))
+  return path
+}
+
+/**
+ * Audio Hijack on the DJ Mac historically reads `~/Now Playing.txt` (local-remote default).
+ * Relative paths resolve against home so a configured `Now Playing.txt` still hits that file
+ * even when the packed daemon's cwd is the zip's `bridge-daemon/` folder.
+ */
+export function defaultNowPlayingPath(home: string = homedir()): string {
+  return join(home, "Now Playing.txt")
+}
+
+export function resolveNowPlayingPath(
+  configured?: string | null,
+  home: string = homedir(),
+): string {
+  const raw = configured?.trim()
+  if (!raw) return defaultNowPlayingPath(home)
+  const expanded = expandUserPath(raw, home)
+  return isAbsolute(expanded) ? expanded : join(home, expanded)
+}
+
 /** Env overrides used when local-remote supervises a packed daemon. */
-function applyEnvOverrides(config: BridgeDaemonConfig): BridgeDaemonConfig {
+export function applyEnvOverrides(config: BridgeDaemonConfig): BridgeDaemonConfig {
   const next = { ...config }
   const redis = process.env.BRIDGE_REDIS_URL?.trim()
   if (redis) next.redisUrl = redis
@@ -98,6 +124,9 @@ function applyEnvOverrides(config: BridgeDaemonConfig): BridgeDaemonConfig {
   if (room) next.defaultRoomId = room
   const mpv = process.env.BRIDGE_MPV_PATH?.trim()
   if (mpv) next.mpv = { ...next.mpv, path: mpv }
+  // Fill only when the bridge config has no path — explicit UI value wins.
+  const nowPlaying = process.env.BRIDGE_NOW_PLAYING_PATH?.trim()
+  if (nowPlaying && !next.nowPlayingPath?.trim()) next.nowPlayingPath = nowPlaying
   return next
 }
 
@@ -124,6 +153,3 @@ export function saveConfig(config: BridgeDaemonConfig): void {
   writeFileSync(configPath(), JSON.stringify(config, null, 2) + "\n")
 }
 
-export function defaultNowPlayingPath(): string {
-  return join(configDir(), "Now Playing.txt")
-}

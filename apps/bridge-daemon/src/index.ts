@@ -157,12 +157,12 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
     }
   }
 
-  const nowPlayingPath = activeConfig.nowPlayingPath ?? defaultNowPlayingPath()
   const nowPlaying = new NowPlayingPublisher(
     redis as any,
-    nowPlayingPath,
+    () => activeConfig.nowPlayingPath ?? defaultNowPlayingPath(),
     activeConfig.nowPlayingFormat,
   )
+  const nowPlayingPath = nowPlaying.resolvedPath()
   const presence = new Presence(redis as any, roomId)
 
   // Spotify SDK device is opt-in via services; not a Driver / not in CAPABILITIES

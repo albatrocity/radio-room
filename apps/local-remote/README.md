@@ -113,7 +113,7 @@ Sidechain compressor on a multi-channel Loopback device (default name **`Ducking
 
 1. Keep the existing Loopback **Ducking** graph and Audio Hijack session as-is (AH still writes sidechain/programme into Ducking; return via Neve).
 2. **Quit Ableton Live** (it must not also open the Ducking device).
-3. In **http://127.0.0.1:9876/** → **Audio Ducking**: enable the engine, confirm device name `Ducking`, channels **1/2** sidechain / **3/4** programme / **5/6** out (1-based), Save & apply.
+3. In **http://127.0.0.1:9876/** → **Audio Ducking**: enable the engine (applies immediately), confirm device name `Ducking`, channels **1/2** sidechain / **3/4** programme / **5/6** out (1-based). Device/channel edits still need **Save & apply**; **Enable** / **Bypass** do not. Saving Redis, OSC, or Media Bridge settings does not restart ducking streams.
 4. Talk into mics: meters should show sidechain level + gain reduction; music on Neve Out / Show Output should duck.
 5. Rebuild via `npm run pack:dj-mac` after changing this binary — ducking ships inside `local-remote` (no Node child).
 

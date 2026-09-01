@@ -1,5 +1,5 @@
 use crate::bridge_supervisor::proxy_to_child;
-use crate::config::{save, Config};
+use crate::config::{save, Config, DuckingFeature};
 use crate::farrago::FarragoBoardSnapshot;
 use crate::osc_send::{default_args_to_osc, run_osc_connection_test, send_osc_datagram};
 use crate::state::{SharedState, StatusSnapshot};
@@ -8,7 +8,7 @@ use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{RawQuery, State};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::{Html, IntoResponse, Json, Response};
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::Router;
 use rosc::OscType;
 use serde::Deserialize;
@@ -44,6 +44,7 @@ pub fn build_router(state: SharedState) -> Router {
         .route("/api/bridge/disconnect", post(bridge_proxy_post))
         .route("/api/bridge/restart", post(bridge_restart))
         .route("/api/ducking/status", get(get_ducking_status))
+        .route("/api/ducking", put(put_ducking))
         .with_state(state)
         .layer(
             CorsLayer::new()
@@ -177,26 +178,64 @@ async fn put_config(
         )
             .into_response();
     }
-    if let Err(e) = save(&body) {
+    let prev_ducking = state.config.read().ok().map(|c| c.features.ducking.clone());
+    if let Err(e) = persist_config(&state, body.clone()) {
+        return e;
+    }
+    state.reconnect.notify_one();
+    state.bridge_apply.notify_one();
+    // Leave the Loopback ducking streams alone when Save is for Redis/OSC/bridge.
+    if prev_ducking.as_ref() != Some(&body.features.ducking) {
+        state.ducking_apply.notify_one();
+    }
+    Json(body).into_response()
+}
+
+/// Persist ducking only — does not reconnect Redis or restart the bridge child.
+async fn put_ducking(
+    State(state): State<SharedState>,
+    Json(ducking): Json<DuckingFeature>,
+) -> impl IntoResponse {
+    let mut body = match state.config.read() {
+        Ok(c) => c.clone(),
+        Err(_) => {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+    let prev = body.features.ducking.clone();
+    body.features.ducking = ducking;
+    if let Err(e) = body.validate() {
         return (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::BAD_REQUEST,
             Json(serde_json::json!({ "error": e.to_string() })),
         )
             .into_response();
     }
-    {
-        let mut w = match state.config.write() {
-            Ok(w) => w,
-            Err(_) => {
-                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-            }
-        };
-        *w = body.clone();
+    if let Err(e) = persist_config(&state, body.clone()) {
+        return e;
     }
-    state.reconnect.notify_one();
-    state.bridge_apply.notify_one();
-    state.ducking_apply.notify_one();
-    Json(body).into_response()
+    if prev != body.features.ducking {
+        state.ducking_apply.notify_one();
+    }
+    Json(body.features.ducking).into_response()
+}
+
+fn persist_config(state: &SharedState, body: Config) -> Result<(), Response> {
+    if let Err(e) = save(&body) {
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": e.to_string() })),
+        )
+            .into_response());
+    }
+    let mut w = match state.config.write() {
+        Ok(w) => w,
+        Err(_) => {
+            return Err(StatusCode::INTERNAL_SERVER_ERROR.into_response());
+        }
+    };
+    *w = body;
+    Ok(())
 }
 
 async fn get_status(State(state): State<SharedState>) -> Json<StatusSnapshot> {

@@ -82,7 +82,7 @@ Edit `~/.config/listening-room-bridge/config.json`:
     ]
   },
   "mpv": { "path": "/opt/homebrew/bin/mpv" },
-  "nowPlayingPath": "/Users/YOU/path/to/Now Playing.txt"
+  "nowPlayingPath": "~/Now Playing.txt"
 }
 ```
 
@@ -132,7 +132,7 @@ In Audio Hijack’s Broadcast/Live Stream block, set **Track Source** to that fi
 
 **Redis URL:** If Redis is only inside Docker, publish port `6379` to the host (usual for local compose) or use `host.docker.internal` from containers and `127.0.0.1` from the Mac daemon.
 
-**Now Playing.txt:** Point Audio Hijack’s title source at this file (application metadata detection off). Disable **local-remote** Now Playing for this room so you don’t double-publish.
+**Now Playing.txt:** Default is `~/Now Playing.txt` — the same path local-remote’s watcher used, and the path Audio Hijack should already be reading. `~` is expanded (Node does not do this on its own). When local-remote supervises the packed daemon, it also injects `BRIDGE_NOW_PLAYING_PATH` from the watcher path if the bridge config field is empty. Application metadata detection off. The macOS watcher is forced off while Media Bridge is enabled so you don’t double-publish.
 
 **Tidal (Phase 2):** add `"tidal"` to `services` and ensure TIDAL.app is installed. First connect launches it with `--remote-debugging-port=9223`.
 

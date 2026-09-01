@@ -50,12 +50,23 @@ impl EngineHandle {
         self.alive.load(Ordering::SeqCst)
     }
 
-    pub fn stop(mut self) {
+    fn request_stop_and_join(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
         if let Some(j) = self.join.take() {
             let _ = j.join();
         }
         self.alive.store(false, Ordering::SeqCst);
+    }
+
+    pub fn stop(mut self) {
+        self.request_stop_and_join();
+    }
+}
+
+impl Drop for EngineHandle {
+    fn drop(&mut self) {
+        // Prevent leaked Loopback output clients if the handle is overwritten.
+        self.request_stop_and_join();
     }
 }
 

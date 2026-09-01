@@ -149,7 +149,7 @@ fn default_sidechain_hpf_hz() -> f32 {
 
 /// Loopback (etc.) sidechain ducker — replaces Ableton Live compressor on the DJ Mac.
 /// Channel indices are **1-based** (Ableton / operator numbering).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DuckingFeature {
     #[serde(default)]
@@ -215,6 +215,35 @@ impl Default for DuckingFeature {
             sidechain_hpf_hz: default_sidechain_hpf_hz(),
             // Default bypass false so enabling the feature actually ducks.
             bypass: false,
+        }
+    }
+}
+
+/// Device + channel map. Changing these requires tearing down Core Audio streams.
+/// Bypass / compressor numbers are not part of this key (hot-applied on the running engine).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DuckingStreamKey {
+    pub device_name: String,
+    pub device_uid: Option<String>,
+    pub sidechain_left: u16,
+    pub sidechain_right: u16,
+    pub programme_left: u16,
+    pub programme_right: u16,
+    pub output_left: u16,
+    pub output_right: u16,
+}
+
+impl DuckingFeature {
+    pub fn stream_key(&self) -> DuckingStreamKey {
+        DuckingStreamKey {
+            device_name: self.device_name.clone(),
+            device_uid: self.device_uid.clone(),
+            sidechain_left: self.sidechain_left,
+            sidechain_right: self.sidechain_right,
+            programme_left: self.programme_left,
+            programme_right: self.programme_right,
+            output_left: self.output_left,
+            output_right: self.output_right,
         }
     }
 }
@@ -419,4 +448,37 @@ pub fn save(cfg: &Config) -> Result<()> {
     fs::write(&tmp, raw).with_context(|| format!("write {}", tmp.display()))?;
     fs::rename(&tmp, &path).with_context(|| format!("rename {} -> {}", tmp.display(), path.display()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ducking_stream_key_ignores_bypass_and_compressor() {
+        let a = DuckingFeature::default();
+        let mut b = a.clone();
+        b.bypass = true;
+        b.threshold_db = -12.0;
+        b.ratio = 4.0;
+        assert_eq!(a.stream_key(), b.stream_key());
+    }
+
+    #[test]
+    fn ducking_stream_key_includes_device_and_channels() {
+        let a = DuckingFeature::default();
+        let mut b = a.clone();
+        b.output_left = 7;
+        assert_ne!(a.stream_key(), b.stream_key());
+        let mut c = a.clone();
+        c.device_name = "Other".into();
+        assert_ne!(a.stream_key(), c.stream_key());
+    }
+
+    #[test]
+    fn ducking_partial_eq_treats_identical_config_as_equal() {
+        let a = DuckingFeature::default();
+        let b = a.clone();
+        assert_eq!(a, b);
+    }
 }
