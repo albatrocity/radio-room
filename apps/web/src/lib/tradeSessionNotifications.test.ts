@@ -1,30 +1,18 @@
-import { describe, expect, it, vi } from "vitest"
-import type { TradeSession } from "@repo/types"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   counterpartTradeAlerts,
-  isViewingTradeSession,
   tradeAcceptedToastId,
   watchSnapshotForUser,
 } from "./tradeSessionNotifications"
 import { isItemDetailFrame, isTradeDetailFrame } from "../types/GameStateDetail"
+import type { TradeSession } from "@repo/types"
+import { locationMatchesTarget } from "./notificationTargets"
+import { getNotificationLocation } from "../actors/notificationsActor"
+import { TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
 
-vi.mock("../actors/modalsActor", () => ({
-  isModalOpen: vi.fn(() => false),
+vi.mock("../actors/notificationsActor", () => ({
+  getNotificationLocation: vi.fn(() => ({ surface: null })),
 }))
-vi.mock("../actors/gameStateNavActor", () => ({
-  gameStateNavActor: {
-    getSnapshot: vi.fn(() => ({
-      matches: () => false,
-      context: { activeTabId: "inventory", stacks: {} },
-    })),
-  },
-}))
-vi.mock("../actors/gameStateTradesGiftsAttentionActor", () => ({
-  markTradesGiftsSessionViewed: vi.fn(),
-}))
-
-import { isModalOpen } from "../actors/modalsActor"
-import { gameStateNavActor } from "../actors/gameStateNavActor"
 
 function participant(userId: string, locked: boolean, confirmed: boolean) {
   return { userId, draft: [], offer: [], locked, confirmed }
@@ -53,6 +41,14 @@ function trade(overrides?: {
       ),
     },
   }
+}
+
+function isViewingTradeSession(tradeId: string): boolean {
+  return locationMatchesTarget(getNotificationLocation(), {
+    surface: "gameState",
+    tabId: TRADES_GIFTS_TAB,
+    frame: { kind: "trade", tradeId, title: "" },
+  })
 }
 
 describe("watchSnapshotForUser", () => {
@@ -119,28 +115,21 @@ describe("detail frame guards", () => {
   })
 })
 
-describe("isViewingTradeSession", () => {
-  it("does not throw when Game State is open on a tab with no detail frame", () => {
-    vi.mocked(isModalOpen).mockReturnValue(true)
-    vi.mocked(gameStateNavActor.getSnapshot).mockReturnValue({
-      matches: (state: string) => state === "active",
-      context: { activeTabId: "inventory", stacks: {} },
-    } as ReturnType<typeof gameStateNavActor.getSnapshot>)
+describe("isViewingTradeSession (via location)", () => {
+  beforeEach(() => {
+    vi.mocked(getNotificationLocation).mockReturnValue({ surface: null })
+  })
 
+  it("is false when location has no gameState surface", () => {
     expect(isViewingTradeSession("t1")).toBe(false)
   })
 
   it("is true only for the open trade detail frame", () => {
-    vi.mocked(isModalOpen).mockReturnValue(true)
-    vi.mocked(gameStateNavActor.getSnapshot).mockReturnValue({
-      matches: (state: string) => state === "active",
-      context: {
-        activeTabId: "trades-gifts",
-        stacks: {
-          "trades-gifts": [{ kind: "trade", tradeId: "t1", title: "Trade with Alex" }],
-        },
-      },
-    } as ReturnType<typeof gameStateNavActor.getSnapshot>)
+    vi.mocked(getNotificationLocation).mockReturnValue({
+      surface: "gameState",
+      tabId: TRADES_GIFTS_TAB,
+      frame: { kind: "trade", tradeId: "t1", title: "Trade with Alex" },
+    })
 
     expect(isViewingTradeSession("t1")).toBe(true)
     expect(isViewingTradeSession("other")).toBe(false)

@@ -9,17 +9,16 @@ import {
 } from "react"
 import { useMachine } from "@xstate/react"
 import type { PluginTabEntry } from "./Modals/GameState"
-import { useCurrentRoom, useCurrentUser } from "../hooks/useActors"
+import { useCurrentRoom, useCurrentUser, useTabNotificationIds } from "../hooks/useActors"
 import { useGameStatePluginTabEntries } from "../hooks/useGameStatePluginTabEntries"
 import { gameStateNewPluginTabsMachine } from "../machines/gameStateNewPluginTabsMachine"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
-import { bindGameStatePluginTabsSend } from "../lib/gameStatePluginTabViewed"
+import { raiseNotification } from "../actors/notificationsActor"
+import { pluginTabNotificationId } from "../lib/notificationIds"
 
 export interface GameStateNewPluginTabsContextValue {
   pluginTabs: PluginTabEntry[]
   unseenPluginTabIds: ReadonlySet<string>
-  hasUnseenPluginTabs: boolean
-  markPluginTabViewed: (tabId: string) => void
   markPluginTabAttention: (tabId: string) => void
 }
 
@@ -33,6 +32,7 @@ export function GameStateNewPluginTabsProvider({ children }: { children: ReactNo
   const currentUser = useCurrentUser()
   const currentUserId = currentUser?.userId
   const pluginTabs = useGameStatePluginTabEntries()
+  const tabNotificationIds = useTabNotificationIds("gameState")
 
   /** Stable dependency so empty ↔ non-empty tab lists always re-sync the machine (see baseline empty handler). */
   const pluginTabIdsKey = useMemo(
@@ -52,11 +52,8 @@ export function GameStateNewPluginTabsProvider({ children }: { children: ReactNo
   const [state, send] = useMachine(gameStateNewPluginTabsMachine, {
     input: { roomId },
   })
-
-  useEffect(() => {
-    bindGameStatePluginTabsSend(send)
-    return () => bindGameStatePluginTabsSend(null)
-  }, [send])
+  // `state` is unused: the machine only drives raises/resolves; badges come from notificationsActor.
+  void state
 
   useEffect(() => {
     send({ type: "ROOM_CHANGED", roomId })
@@ -66,13 +63,6 @@ export function GameStateNewPluginTabsProvider({ children }: { children: ReactNo
     const ids = pluginTabs.map((t) => t.id).sort((a, b) => a.localeCompare(b))
     send({ type: "PLUGIN_TABS_CHANGED", ids })
   }, [pluginTabIdsKey, pluginTabs, send])
-
-  const markPluginTabViewed = useCallback(
-    (tabId: string) => {
-      send({ type: "TAB_VIEWED", tabId })
-    },
-    [send],
-  )
 
   const markPluginTabAttention = useCallback(
     (tabId: string) => {
@@ -109,27 +99,28 @@ export function GameStateNewPluginTabsProvider({ children }: { children: ReactNo
         if (!tabId) return
         send({ type: "TAB_ATTENTION", tabId })
       },
+      eventTypes: ["PLUGIN_TAB_ATTENTION"],
     })
     return () => unsubscribeById(subId)
   }, [roomId, send, currentTabIdSet])
 
+  const unseenPluginTabIds = useMemo(() => {
+    const pending = new Set<string>()
+    for (const tabId of tabNotificationIds) {
+      if (currentTabIdSet.has(tabId)) {
+        pending.add(tabId)
+      }
+    }
+    return pending
+  }, [tabNotificationIds, currentTabIdSet])
+
   const value = useMemo((): GameStateNewPluginTabsContextValue => {
-    // Drop ids for tabs no longer in the UI so the button clears even if the machine event is one frame late.
-    const pending = state.context.pendingIds.filter((id) => currentTabIdSet.has(id))
     return {
       pluginTabs,
-      unseenPluginTabIds: new Set(pending),
-      hasUnseenPluginTabs: pending.length > 0,
-      markPluginTabViewed,
+      unseenPluginTabIds,
       markPluginTabAttention,
     }
-  }, [
-    pluginTabs,
-    state.context.pendingIds,
-    markPluginTabViewed,
-    markPluginTabAttention,
-    currentTabIdSet,
-  ])
+  }, [pluginTabs, unseenPluginTabIds, markPluginTabAttention])
 
   return (
     <GameStateNewPluginTabsContext.Provider value={value}>
@@ -144,4 +135,15 @@ export function useGameStateNewPluginTabs(): GameStateNewPluginTabsContextValue 
     throw new Error("useGameStateNewPluginTabs must be used within GameStateNewPluginTabsProvider")
   }
   return ctx
+}
+
+/** Imperative helper for tests / non-React callers. */
+export function markPluginTabAttentionDirect(tabId: string): void {
+  raiseNotification({
+    id: pluginTabNotificationId(tabId),
+    source: "plugin-tab",
+    target: { surface: "gameState", tabId },
+    clearOn: "view",
+    persist: true,
+  })
 }

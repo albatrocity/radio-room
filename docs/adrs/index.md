@@ -120,7 +120,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0112](0112-observed-transport-state.md) | Playback snapshots distinguish "unobservable" from "stopped" | Accepted |
 | [0113](0113-cd-era-album-cd-lp-split.md) | CD-era catalog albums: 60/40 CD vs LP | Accepted |
 | [0114](0114-player-item-gifting-and-trading.md) | Player item gifting and trading (core inventory protocol) | Partially superseded by [0115](0115-trade-invite-inbox.md) |
-| [0115](0115-trade-invite-inbox.md) | Trade invite inbox and Trades/Gifts Game State tab | Partially superseded by [0129](0129-trade-session-lock-confirm-attention.md) |
+| [0115](0115-trade-invite-inbox.md) | Trade invite inbox and Trades/Gifts Game State tab | Partially superseded by [0129](0129-trade-session-lock-confirm-attention.md), [0144](0144-client-notification-center.md) |
 | [0116](0116-trade-session-sticky-notes.md) | Trade session sticky notes | Partially superseded by [0120](0120-targeted-trade-typing.md) |
 | [0117](0117-integrated-room-panel-slot.md) | Integrated room panel slot (lg+) | Partially superseded by [0128](0128-add-to-queue-overlays-integrated-panel.md) |
 | [0118](0118-resizable-room-layout-columns.md) | Resizable room layout columns (lg+) | Partially superseded by [0143](0143-resizable-room-layout-columns-at-md.md) |
@@ -134,9 +134,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0126](0126-collection-row-opens-item-detail.md) | Collection row opens item detail; Gift/Sell lives on detail | Partially superseded by [0127](0127-shared-item-detail-list-row.md) |
 | [0127](0127-shared-item-detail-list-row.md) | Shared item-detail list row (`ItemDetailListItem`) | Accepted |
 | [0128](0128-add-to-queue-overlays-integrated-panel.md) | Add to Queue overlays the integrated panel (`modalsMachine` parallel `queue` region) | Accepted |
-| [0129](0129-trade-session-lock-confirm-attention.md) | Trade session lock/confirm notifications and session attention | Accepted |
+| [0129](0129-trade-session-lock-confirm-attention.md) | Trade session lock/confirm notifications and session attention | Partially superseded by [0144](0144-client-notification-center.md) |
 | [0130](0130-game-state-overlay-lifecycle-in-machines.md) | Game State overlay lifecycle in machines (not surface `useEffect`s) | Partially superseded by [0133](0133-stored-artifacts-once-per-session.md) |
-| [0131](0131-trade-complete-inventory-toast.md) | Completed-trade toast; Inventory nav only if viewing the session | Accepted |
+| [0131](0131-trade-complete-inventory-toast.md) | Completed-trade toast; Inventory nav only if viewing the session | Partially superseded by [0144](0144-client-notification-center.md) |
 | [0132](0132-spotify-sdk-playback-error-lease-renewal.md) | Spotify SDK `playback_error` reconnects the device and reattaches playback | Accepted |
 | [0133](0133-stored-artifacts-once-per-session.md) | Stored artifacts fetched once per game session (`userGameStateMachine`) | Accepted |
 | [0134](0134-chat-image-server-processing.md) | Chat image server-side resize, compress, and EXIF strip | Accepted |
@@ -149,6 +149,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0141](0141-radio-mse-transport-and-oscilloscope.md) | Radio MSE transport and aligned Oscilloscope | Accepted |
 | [0142](0142-track-playlist-stats.md) | Track playlist stats (published-show history) | Accepted |
 | [0143](0143-resizable-room-layout-columns-at-md.md) | Resizable room layout columns at md+ (integrated panel stays lg+) | Accepted |
+| [0144](0144-client-notification-center.md) | Client notification center (attention records + toasts) | Accepted |
 
 ## Creating a New ADR
 

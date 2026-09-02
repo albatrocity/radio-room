@@ -1,32 +1,36 @@
-import { assign, setup } from "xstate"
-import { isViewingGameStateTab } from "../lib/isViewingGameStateTab"
+/**
+ * Detects newly offered Game State plugin tabs and TAB_ATTENTION events,
+ * then raises notifications on the center (ADR 0144). Does not own pending
+ * badge state — that lives on notificationsActor.
+ */
 
-const STORAGE_PREFIX = "gameStateNewPluginTabs:"
+import { assign, setup } from "xstate"
+import { raiseNotification, resolveNotifications } from "../actors/notificationsActor"
+import { pluginTabNotificationId } from "../lib/notificationIds"
+
+const PLUGIN_TAB_SOURCE = "plugin-tab"
 
 function sortIds(ids: string[]): string[] {
   return [...ids].sort((a, b) => a.localeCompare(b))
 }
 
-export function loadPendingTabIds(roomId: string | null): string[] {
-  if (roomId == null || typeof sessionStorage === "undefined") return []
-  try {
-    const raw = sessionStorage.getItem(STORAGE_PREFIX + roomId)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : []
-  } catch {
-    return []
-  }
+function raisePluginTabAttention(tabId: string): void {
+  raiseNotification({
+    id: pluginTabNotificationId(tabId),
+    source: PLUGIN_TAB_SOURCE,
+    target: { surface: "gameState", tabId },
+    clearOn: "view",
+    persist: true,
+  })
 }
 
-export function savePendingTabIds(roomId: string | null, ids: string[]): void {
-  if (roomId == null || typeof sessionStorage === "undefined") return
-  sessionStorage.setItem(STORAGE_PREFIX + roomId, JSON.stringify(sortIds(ids)))
+function resolvePluginTabAttention(tabIds: string[]): void {
+  if (tabIds.length === 0) return
+  resolveNotifications(tabIds.map(pluginTabNotificationId))
 }
 
 export interface GameStateNewPluginTabsMachineContext {
   roomId: string | null
-  pendingIds: string[]
   /**
    * Last observed plugin tab id list (sorted).
    * - `null`: no non-empty sync yet (initial / room change).
@@ -37,7 +41,6 @@ export interface GameStateNewPluginTabsMachineContext {
 
 export type GameStateNewPluginTabsEvent =
   | { type: "PLUGIN_TABS_CHANGED"; ids: string[] }
-  | { type: "TAB_VIEWED"; tabId: string }
   /** Mark an existing tab as needing attention (e.g. bingo cell covered). */
   | { type: "TAB_ATTENTION"; tabId: string }
   | { type: "ROOM_CHANGED"; roomId: string | null }
@@ -49,53 +52,39 @@ export const gameStateNewPluginTabsMachine = setup({
     input: {} as { roomId: string | null },
   },
   actions: {
-    persistPending: ({ context }) => {
-      savePendingTabIds(context.roomId, context.pendingIds)
-    },
     setRoomAndResetBaseline: assign(({ event }) => {
       if (event.type !== "ROOM_CHANGED") {
         return {}
       }
-      const roomId = event.roomId
       return {
-        roomId,
-        pendingIds: loadPendingTabIds(roomId),
+        roomId: event.roomId,
         previousObservedIds: null,
       }
     }),
     /**
      * First non-empty tab list while still in baseline.
-     * - `previousObservedIds === null`: first sync (e.g. room opened with tabs already on) — record snapshot, do not add pending.
-     * - `previousObservedIds.length === 0`: we already observed `[]` — treat current ids as newly offered (e.g. sale just enabled).
+     * - `previousObservedIds === null`: first sync — record snapshot, do not raise.
+     * - `previousObservedIds.length === 0`: we already observed `[]` — raise as newly offered.
      */
     establishFromBaseline: assign(({ context, event }) => {
       if (event.type !== "PLUGIN_TABS_CHANGED") {
         return {}
       }
       const sorted = sortIds(event.ids)
-      const pendingPruned = context.pendingIds.filter((id) => sorted.includes(id))
       const prev = context.previousObservedIds
 
       if (prev === null) {
-        return {
-          previousObservedIds: sorted,
-          pendingIds: pendingPruned,
-        }
+        return { previousObservedIds: sorted }
       }
 
       if (prev.length === 0) {
-        const added = sorted
-        const nextPending = sortIds([...new Set([...pendingPruned, ...added])])
-        return {
-          previousObservedIds: sorted,
-          pendingIds: nextPending,
+        for (const id of sorted) {
+          raisePluginTabAttention(id)
         }
+        return { previousObservedIds: sorted }
       }
 
-      return {
-        previousObservedIds: sorted,
-        pendingIds: pendingPruned,
-      }
+      return { previousObservedIds: sorted }
     }),
     mergeNewPluginTabs: assign(({ context, event }) => {
       if (event.type !== "PLUGIN_TABS_CHANGED") {
@@ -104,53 +93,39 @@ export const gameStateNewPluginTabsMachine = setup({
       const sorted = sortIds(event.ids)
       const prev = context.previousObservedIds ?? []
       const added = sorted.filter((id) => !prev.includes(id))
-      const pruned = context.pendingIds.filter((id) => sorted.includes(id))
-      const nextPending = sortIds([...new Set([...pruned, ...added])])
-      return {
-        previousObservedIds: sorted,
-        pendingIds: nextPending,
+      const removed = prev.filter((id) => !sorted.includes(id))
+      for (const id of added) {
+        raisePluginTabAttention(id)
       }
+      resolvePluginTabAttention(removed)
+      return { previousObservedIds: sorted }
     }),
-    removePendingTab: assign(({ context, event }) => {
-      if (event.type !== "TAB_VIEWED") {
-        return {}
-      }
-      return {
-        pendingIds: context.pendingIds.filter((id) => id !== event.tabId),
-      }
-    }),
-    addPendingTab: assign(({ context, event }) => {
-      if (event.type !== "TAB_ATTENTION") {
-        return {}
-      }
+    raiseTabAttention: ({ context, event }) => {
+      if (event.type !== "TAB_ATTENTION") return
       const tabId = event.tabId
-      if (!tabId || context.pendingIds.includes(tabId)) {
-        return {}
-      }
-      if (isViewingGameStateTab(tabId)) {
-        return {}
-      }
+      if (!tabId) return
       // Only badge tabs we have already observed (or will prune if tab disappears).
       const observed = context.previousObservedIds
       if (observed != null && observed.length > 0 && !observed.includes(tabId)) {
-        return {}
+        return
       }
-      return {
-        pendingIds: sortIds([...context.pendingIds, tabId]),
-      }
-    }),
-    /** Baseline must handle empty updates — otherwise PLUGIN_TABS_CHANGED [] is dropped and stale pending persists. */
-    prunePendingToObservedTabs: assign(({ context, event }) => {
+      raisePluginTabAttention(tabId)
+    },
+    pruneToEmpty: assign(({ event }) => {
       if (event.type !== "PLUGIN_TABS_CHANGED") {
         return {}
       }
-      const sorted = sortIds(event.ids)
-      return {
-        pendingIds: context.pendingIds.filter((id) => sorted.includes(id)),
-        /** Empty snapshot seen — next non-empty list is treated as newly offered tabs. */
-        previousObservedIds: [],
-      }
+      // Resolve any notifications for tabs that disappeared with the empty list.
+      // We don't know prior ids here beyond previousObservedIds — handled in merge
+      // when going non-empty→empty via mergeNewPluginTabs when not empty guard.
+      return { previousObservedIds: [] as string[] }
     }),
+    resolveAllObserved: ({ context }) => {
+      const prev = context.previousObservedIds
+      if (prev && prev.length > 0) {
+        resolvePluginTabAttention(prev)
+      }
+    },
   },
   guards: {
     isEmptyPluginTabs: ({ event }) =>
@@ -162,7 +137,6 @@ export const gameStateNewPluginTabsMachine = setup({
   id: "gameStateNewPluginTabs",
   context: ({ input }) => ({
     roomId: input.roomId,
-    pendingIds: loadPendingTabIds(input.roomId),
     previousObservedIds: null,
   }),
   initial: "baseline",
@@ -181,16 +155,16 @@ export const gameStateNewPluginTabsMachine = setup({
         PLUGIN_TABS_CHANGED: [
           {
             guard: "isEmptyPluginTabs",
-            actions: ["prunePendingToObservedTabs", "persistPending"],
+            actions: ["resolveAllObserved", "pruneToEmpty"],
           },
           {
             guard: "isNonEmptyPluginTabs",
             target: "tracking",
-            actions: ["establishFromBaseline", "persistPending"],
+            actions: ["establishFromBaseline"],
           },
         ],
         TAB_ATTENTION: {
-          actions: ["addPendingTab", "persistPending"],
+          actions: ["raiseTabAttention"],
         },
       },
     },
@@ -200,14 +174,18 @@ export const gameStateNewPluginTabsMachine = setup({
           actions: "setRoomAndResetBaseline",
           target: "baseline",
         },
-        PLUGIN_TABS_CHANGED: {
-          actions: ["mergeNewPluginTabs", "persistPending"],
-        },
-        TAB_VIEWED: {
-          actions: ["removePendingTab", "persistPending"],
-        },
+        PLUGIN_TABS_CHANGED: [
+          {
+            guard: "isEmptyPluginTabs",
+            actions: ["resolveAllObserved", "pruneToEmpty"],
+            target: "baseline",
+          },
+          {
+            actions: ["mergeNewPluginTabs"],
+          },
+        ],
         TAB_ATTENTION: {
-          actions: ["addPendingTab", "persistPending"],
+          actions: ["raiseTabAttention"],
         },
       },
     },

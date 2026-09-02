@@ -1,36 +1,47 @@
-import type { TradeInvite, TradeSession } from "@repo/types"
+import type { TradeInvite, TradeSession, UserGameStatePayload } from "@repo/types"
 import { getCurrentUser } from "../actors/authActor"
-import { openGameStateOnTab, onTradeSessionCompleted, TRADES_GIFTS_TAB } from "../actors/modalsActor"
 import {
-  markTradesGiftsSessionUnseen,
-  markTradesGiftsTabUnseen,
-} from "../actors/gameStateTradesGiftsAttentionActor"
+  getNotificationLocation,
+  raiseNotification,
+  reconcileNotifications,
+  resolveNotifications,
+} from "../actors/notificationsActor"
+import { onTradeSessionCompleted, TRADES_GIFTS_TAB } from "../actors/modalsActor"
 import { emitTradeInviteRespond } from "./tradeSocketActions"
-import { isViewingGameStateTab } from "./isViewingGameStateTab"
 import { displayNameForUserId } from "./listenerDisplayName"
-import { dismissTradeInviteToast, tradeInviteToastId } from "./tradeInviteToast"
 import { clearTradeCancelledByMe, wasTradeCancelledByMe } from "./tradeCancelledByMe"
 import {
   counterpartTradeAlerts,
-  dismissTradeSessionToasts,
-  isViewingTradeSession,
-  tradeAcceptedToastId,
-  tradeCompleteToastId,
-  tradeConfirmToastId,
-  tradeLockToastId,
   watchSnapshotForUser,
   type TradeWatchSnapshot,
 } from "./tradeSessionNotifications"
-import { toaster } from "../components/ui/toaster"
+import { locationMatchesTarget } from "./notificationTargets"
+import { navigateToTarget } from "./navigateToNotificationTarget"
+import {
+  tradeAcceptedNotificationId,
+  tradeCompleteNotificationId,
+  tradeConfirmNotificationId,
+  tradeInviteNotificationId,
+  tradeLockNotificationId,
+} from "./notificationIds"
 
-function openTradeSession(tradeId: string, otherName: string): void {
-  openGameStateOnTab({
+const TRADE_INVITE_SOURCE = "trade-invite"
+const TRADE_SESSION_SOURCE = "trade-session"
+
+function tradeFrame(tradeId: string, otherName: string) {
+  return {
+    kind: "trade" as const,
+    tradeId,
+    title: `Trade with ${otherName}`,
+  }
+}
+
+function isViewingTradeSession(tradeId: string): boolean {
+  const location = getNotificationLocation()
+  return locationMatchesTarget(location, {
+    surface: "gameState",
     tabId: TRADES_GIFTS_TAB,
-    frame: {
-      kind: "trade",
-      tradeId,
-      title: `Trade with ${otherName}`,
-    },
+    frame: { kind: "trade", tradeId, title: "" },
   })
 }
 
@@ -44,27 +55,24 @@ export function dropWatchedTrade(
   return next
 }
 
-export function applyTradeInviteOffered(params: {
-  toastedInviteIds: string[]
-  invite?: TradeInvite
-}): { toastedInviteIds?: string[] } {
-  const invite = params.invite
-  if (!invite) return {}
+export function applyTradeInviteOffered(invite?: TradeInvite): void {
+  if (!invite) return
   const me = getCurrentUser()?.userId
-  if (!me || invite.toUserId !== me) return {}
-  if (params.toastedInviteIds.includes(invite.inviteId)) return {}
+  if (!me || invite.toUserId !== me) return
 
   const fromName = displayNameForUserId(invite.fromUserId)
+  const id = tradeInviteNotificationId(invite.inviteId)
 
-  if (!isViewingGameStateTab(TRADES_GIFTS_TAB)) {
-    markTradesGiftsTabUnseen()
-    toaster.create({
-      id: tradeInviteToastId(invite.inviteId),
+  raiseNotification({
+    id,
+    source: TRADE_INVITE_SOURCE,
+    target: { surface: "gameState", tabId: TRADES_GIFTS_TAB },
+    clearOn: "resolve",
+    toast: {
       title: "Trade invite",
       description: `${fromName} wants to trade with you.`,
       type: "info",
       duration: 12000,
-      closable: true,
       action: {
         label: "Accept",
         onClick: () => {
@@ -74,35 +82,28 @@ export function applyTradeInviteOffered(params: {
             toUserId: invite.toUserId,
             accept: true,
             onAccepted: ({ tradeId }) => {
-              openGameStateOnTab({
+              navigateToTarget({
+                surface: "gameState",
                 tabId: TRADES_GIFTS_TAB,
-                frame: {
-                  kind: "trade",
-                  tradeId,
-                  title: `Trade with ${fromName}`,
-                },
+                frame: tradeFrame(tradeId, fromName),
               })
             },
           })
         },
       },
-      meta: {
-        secondaryAction: {
-          label: "Decline",
-          onClick: () => {
-            emitTradeInviteRespond({
-              inviteId: invite.inviteId,
-              fromUserId: invite.fromUserId,
-              toUserId: invite.toUserId,
-              accept: false,
-            })
-          },
+      secondaryAction: {
+        label: "Decline",
+        onClick: () => {
+          emitTradeInviteRespond({
+            inviteId: invite.inviteId,
+            fromUserId: invite.fromUserId,
+            toUserId: invite.toUserId,
+            accept: false,
+          })
         },
       },
-    })
-  }
-
-  return { toastedInviteIds: [...params.toastedInviteIds, invite.inviteId] }
+    },
+  })
 }
 
 export function notifyTradeInviteExpired(invite?: TradeInvite): void {
@@ -110,26 +111,32 @@ export function notifyTradeInviteExpired(invite?: TradeInvite): void {
   if (!me || !invite) return
   if (invite.fromUserId !== me && invite.toUserId !== me) return
 
-  dismissTradeInviteToast(invite.inviteId)
+  resolveNotifications([tradeInviteNotificationId(invite.inviteId)])
+
   const otherId = invite.fromUserId === me ? invite.toUserId : invite.fromUserId
   const otherName = displayNameForUserId(otherId, "the other listener")
   const description =
     invite.fromUserId === me
       ? `Your trade invite to ${otherName} expired.`
       : `Trade invite from ${otherName} expired.`
-  toaster.create({
-    title: "Trade invite expired",
-    description,
-    type: "info",
-    duration: 6000,
-    closable: true,
+  raiseNotification({
+    id: `trade-invite-expired-${invite.inviteId}`,
+    source: TRADE_INVITE_SOURCE,
+    target: null,
+    clearOn: "resolve",
+    toast: {
+      title: "Trade invite expired",
+      description,
+      type: "info",
+      duration: 6000,
+    },
   })
 }
 
 export function dismissTradeInviteToastIfMine(invite?: TradeInvite): void {
   const me = getCurrentUser()?.userId
   if (!me || !invite || invite.toUserId !== me) return
-  dismissTradeInviteToast(invite.inviteId)
+  resolveNotifications([tradeInviteNotificationId(invite.inviteId)])
 }
 
 export function notifyTradeInviteDeclined(invite?: TradeInvite): void {
@@ -137,20 +144,24 @@ export function notifyTradeInviteDeclined(invite?: TradeInvite): void {
   if (!me || !invite || invite.fromUserId !== me) return
 
   const toName = displayNameForUserId(invite.toUserId)
-  toaster.create({
-    title: "Trade invite declined",
-    description: `${toName} declined your trade invite.`,
-    type: "info",
-    duration: 6000,
-    closable: true,
+  raiseNotification({
+    id: `trade-invite-declined-${invite.inviteId}`,
+    source: TRADE_INVITE_SOURCE,
+    target: null,
+    clearOn: "resolve",
+    toast: {
+      title: "Trade invite declined",
+      description: `${toName} declined your trade invite.`,
+      type: "info",
+      duration: 6000,
+    },
   })
 }
 
 export function applyTradeInviteAccepted(params: {
-  toastedTradeAcceptedIds: string[]
   watchedTrades: Record<string, TradeWatchSnapshot>
   trade?: TradeSession
-}): { toastedTradeAcceptedIds?: string[]; watchedTrades?: Record<string, TradeWatchSnapshot> } {
+}): { watchedTrades?: Record<string, TradeWatchSnapshot> } {
   const trade = params.trade
   if (!trade) return {}
   const me = getCurrentUser()?.userId
@@ -161,30 +172,34 @@ export function applyTradeInviteAccepted(params: {
     ? { ...params.watchedTrades, [trade.tradeId]: snapshot }
     : params.watchedTrades
 
-  if (trade.fromUserId !== me) return { watchedTrades }
-  if (params.toastedTradeAcceptedIds.includes(trade.tradeId)) return { watchedTrades }
+  // Resolve the invite notification for the recipient.
+  if (trade.toUserId === me) {
+    // invite id is not on trade; recipient's invite was resolved via respond.
+  }
 
-  if (!isViewingTradeSession(trade.tradeId)) {
-    const accepterName = displayNameForUserId(trade.toUserId)
-    markTradesGiftsSessionUnseen()
-    toaster.create({
-      id: tradeAcceptedToastId(trade.tradeId),
+  if (trade.fromUserId !== me) return { watchedTrades }
+
+  const accepterName = displayNameForUserId(trade.toUserId)
+  raiseNotification({
+    id: tradeAcceptedNotificationId(trade.tradeId),
+    source: TRADE_SESSION_SOURCE,
+    target: {
+      surface: "gameState",
+      tabId: TRADES_GIFTS_TAB,
+      frame: tradeFrame(trade.tradeId, accepterName),
+    },
+    clearOn: "view",
+    dismissToastOn: "surface",
+    toast: {
       title: "Trade accepted",
       description: `${accepterName} accepted your trade invite.`,
       type: "info",
       duration: 8000,
-      closable: true,
-      action: {
-        label: "Open",
-        onClick: () => openTradeSession(trade.tradeId, accepterName),
-      },
-    })
-  }
+      action: "open",
+    },
+  })
 
-  return {
-    toastedTradeAcceptedIds: [...params.toastedTradeAcceptedIds, trade.tradeId],
-    watchedTrades,
-  }
+  return { watchedTrades }
 }
 
 export function applyTradeUpdated(params: {
@@ -205,6 +220,8 @@ export function applyTradeUpdated(params: {
   }
   const watchedTrades = { ...params.watchedTrades, [trade.tradeId]: snapshot }
 
+  // Skip alerts while viewing — RAISE also no-ops view-type at target, but
+  // we avoid computing counterpart alerts work; center handles toast skip.
   if (isViewingTradeSession(trade.tradeId)) {
     return { watchedTrades }
   }
@@ -217,35 +234,38 @@ export function applyTradeUpdated(params: {
 
   const otherId = trade.fromUserId === me ? trade.toUserId : trade.fromUserId
   const otherName = displayNameForUserId(otherId)
+  const frame = tradeFrame(trade.tradeId, otherName)
 
   if (alerts.includes("lock")) {
-    markTradesGiftsSessionUnseen()
-    toaster.create({
-      id: tradeLockToastId(trade.tradeId),
-      title: "Offer locked",
-      description: `${otherName} locked in their trade offer.`,
-      type: "info",
-      duration: 8000,
-      closable: true,
-      action: {
-        label: "Open",
-        onClick: () => openTradeSession(trade.tradeId, otherName),
+    raiseNotification({
+      id: tradeLockNotificationId(trade.tradeId),
+      source: TRADE_SESSION_SOURCE,
+      target: { surface: "gameState", tabId: TRADES_GIFTS_TAB, frame },
+      clearOn: "view",
+      dismissToastOn: "target",
+      toast: {
+        title: "Offer locked",
+        description: `${otherName} locked in their trade offer.`,
+        type: "info",
+        duration: 8000,
+        action: "open",
       },
     })
   }
 
   if (alerts.includes("confirm")) {
-    markTradesGiftsSessionUnseen()
-    toaster.create({
-      id: tradeConfirmToastId(trade.tradeId),
-      title: "Trade confirmed",
-      description: `${otherName} confirmed the trade. Waiting for you.`,
-      type: "info",
-      duration: 8000,
-      closable: true,
-      action: {
-        label: "Open",
-        onClick: () => openTradeSession(trade.tradeId, otherName),
+    raiseNotification({
+      id: tradeConfirmNotificationId(trade.tradeId),
+      source: TRADE_SESSION_SOURCE,
+      target: { surface: "gameState", tabId: TRADES_GIFTS_TAB, frame },
+      clearOn: "view",
+      dismissToastOn: "target",
+      toast: {
+        title: "Trade confirmed",
+        description: `${otherName} confirmed the trade. Waiting for you.`,
+        type: "info",
+        duration: 8000,
+        action: "open",
       },
     })
   }
@@ -254,16 +274,21 @@ export function applyTradeUpdated(params: {
 }
 
 export function applyTradeCancelled(params: {
-  toastedTradeCancelledIds: string[]
   watchedTrades: Record<string, TradeWatchSnapshot>
   trade?: TradeSession
   reason?: "user" | "session_end" | "user_left" | "trading_disabled"
   cancelledByUserId?: string
-}): { toastedTradeCancelledIds?: string[]; watchedTrades?: Record<string, TradeWatchSnapshot> } {
+}): { watchedTrades?: Record<string, TradeWatchSnapshot> } {
   const trade = params.trade
   if (!trade) return {}
 
   const watchedTrades = dropWatchedTrade(params.watchedTrades, trade.tradeId)
+  resolveNotifications([
+    tradeAcceptedNotificationId(trade.tradeId),
+    tradeLockNotificationId(trade.tradeId),
+    tradeConfirmNotificationId(trade.tradeId),
+  ])
+
   const reason = params.reason ?? "user"
   if (reason !== "user") return { watchedTrades }
 
@@ -278,24 +303,24 @@ export function applyTradeCancelled(params: {
   const cancelledBy = params.cancelledByUserId
   if (cancelledBy === me) return { watchedTrades }
 
-  if (params.toastedTradeCancelledIds.includes(trade.tradeId)) return { watchedTrades }
-
   const otherId =
     cancelledBy ?? (trade.fromUserId === me ? trade.toUserId : trade.fromUserId)
   const otherName = displayNameForUserId(otherId)
 
-  toaster.create({
-    title: "Trade cancelled",
-    description: `${otherName} cancelled the trade.`,
-    type: "info",
-    duration: 6000,
-    closable: true,
+  raiseNotification({
+    id: `trade-cancelled-${trade.tradeId}`,
+    source: TRADE_SESSION_SOURCE,
+    target: null,
+    clearOn: "resolve",
+    toast: {
+      title: "Trade cancelled",
+      description: `${otherName} cancelled the trade.`,
+      type: "info",
+      duration: 6000,
+    },
   })
 
-  return {
-    toastedTradeCancelledIds: [...params.toastedTradeCancelledIds, trade.tradeId],
-    watchedTrades,
-  }
+  return { watchedTrades }
 }
 
 export function applyTradeCompleted(params: {
@@ -306,18 +331,25 @@ export function applyTradeCompleted(params: {
   const me = getCurrentUser()?.userId
   if (!me || !trade?.participants?.[me]) return {}
 
-  if (trade.tradeId) dismissTradeSessionToasts(trade.tradeId)
-  toaster.dismiss(`trade-invite-${trade.tradeId}`)
+  resolveNotifications([
+    tradeAcceptedNotificationId(trade.tradeId),
+    tradeLockNotificationId(trade.tradeId),
+    tradeConfirmNotificationId(trade.tradeId),
+  ])
 
   const otherId = trade.fromUserId === me ? trade.toUserId : trade.fromUserId
   const otherName = displayNameForUserId(otherId)
-  toaster.create({
-    id: tradeCompleteToastId(trade.tradeId),
-    title: "Trade complete",
-    description: `You exchanged items with ${otherName}.`,
-    type: "success",
-    duration: 5000,
-    closable: true,
+  raiseNotification({
+    id: tradeCompleteNotificationId(trade.tradeId),
+    source: TRADE_SESSION_SOURCE,
+    target: null,
+    clearOn: "resolve",
+    toast: {
+      title: "Trade complete",
+      description: `You exchanged items with ${otherName}.`,
+      type: "success",
+      duration: 5000,
+    },
   })
   onTradeSessionCompleted(isViewingTradeSession(trade.tradeId))
 
@@ -326,4 +358,27 @@ export function applyTradeCompleted(params: {
       ? dropWatchedTrade(params.watchedTrades, trade.tradeId)
       : params.watchedTrades,
   }
+}
+
+/** Silent re-raise + reconcile from USER_GAME_STATE. */
+export function reconcileTradeInvitesFromPayload(
+  payload: UserGameStatePayload | null | undefined,
+): void {
+  const incoming = payload?.pendingTradeInvites?.incoming ?? []
+  const keepIds: string[] = []
+  for (const invite of incoming) {
+    const id = tradeInviteNotificationId(invite.inviteId)
+    keepIds.push(id)
+    raiseNotification({
+      id,
+      source: TRADE_INVITE_SOURCE,
+      target: { surface: "gameState", tabId: TRADES_GIFTS_TAB },
+      clearOn: "resolve",
+    })
+  }
+  reconcileNotifications(TRADE_INVITE_SOURCE, keepIds)
+}
+
+export function resolveTradeInvite(inviteId: string): void {
+  resolveNotifications([tradeInviteNotificationId(inviteId)])
 }

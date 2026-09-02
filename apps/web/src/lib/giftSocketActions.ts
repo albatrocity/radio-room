@@ -1,6 +1,6 @@
 import { emitToSocket } from "../actors/socketActor"
 import { refreshUserGameState } from "../actors/userGameStateActor"
-import { clearTradesGiftsTabAttentionIfEmpty } from "./tradesGiftsAttention"
+import { resolveGiftOffer } from "./giftInboxNotifications"
 import { subscribeForSocketResult } from "./subscribeForSocketResult"
 import { toaster } from "../components/ui/toaster"
 
@@ -27,7 +27,7 @@ export function emitGiftRespond(
       if (success) {
         refreshUserGameState()
         if (action === "ACCEPT_GIFT" || action === "DECLINE_GIFT") {
-          clearTradesGiftsTabAttentionIfEmpty({ excludeGiftOfferId: offerId })
+          resolveGiftOffer(offerId)
         }
       } else if (message) {
         toaster.create({

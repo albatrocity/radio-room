@@ -39,6 +39,18 @@ export {
   openGameStateItemDetail,
 } from "./modalsActor"
 
+// Notifications Actor (ADR 0144)
+export {
+  notificationsActor,
+  raiseNotification,
+  resolveNotifications,
+  reconcileNotifications,
+  getNotificationLocation,
+  notifyRoomEntered,
+  notifyRoomLeft,
+  setNotificationLocation,
+} from "./notificationsActor"
+
 // Game State Nav Actor
 export { gameStateNavActor } from "./gameStateNavActor"
 

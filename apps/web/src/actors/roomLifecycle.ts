@@ -29,7 +29,7 @@ import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 import { addToQueueUiActor } from "./addToQueueUiActor"
 import { gameStateNavActor } from "./gameStateNavActor"
 import { giftInboxActor } from "./giftInboxActor"
-import { resetTradesGiftsTabAttention } from "./gameStateTradesGiftsAttentionActor"
+import { notifyRoomEntered, notifyRoomLeft } from "./notificationsActor"
 import { mediaBridgeActor } from "./mediaBridgeActor"
 import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
@@ -112,6 +112,7 @@ export function initializeRoom(roomId: string): void {
   mediaBridgeActor.send({ type: "ACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "ACTIVATE" })
   giftInboxActor.send({ type: "ACTIVATE" })
+  notifyRoomEntered(roomId)
 
   // Start fetching room data
   fetchRoom(roomId)
@@ -172,7 +173,7 @@ export function teardownRoom(): void {
   mediaBridgeActor.send({ type: "DEACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "DEACTIVATE" })
   giftInboxActor.send({ type: "DEACTIVATE" })
-  resetTradesGiftsTabAttention()
+  notifyRoomLeft()
   teardownPluginComponentActors()
   clearMediaSession()
 

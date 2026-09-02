@@ -53,9 +53,14 @@ import { pollActor } from "../actors/pollActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
 import { addToQueueUiActor } from "../actors/addToQueueUiActor"
 import { gameStateNavActor } from "../actors/gameStateNavActor"
-import { gameStateTradesGiftsAttentionActor } from "../actors/gameStateTradesGiftsAttentionActor"
+import {
+  notificationsActor,
+  surfaceHasNotifications,
+  tabNotificationIds,
+} from "../actors/notificationsActor"
 import { currentDetailFrame } from "../machines/gameStateNavMachine"
 import { mediaBridgeActor } from "../actors/mediaBridgeActor"
+import type { NotificationSurface } from "../types/Notification"
 import {
   effectiveMetadataSourcesActor,
   refreshEffectiveMetadataSources,
@@ -65,7 +70,6 @@ import type { RoomScheduleSnapshotDTO } from "@repo/types"
 import { MetadataSourceType, QueueItem } from "../types/Queue"
 
 import { sortByTimestamp } from "../lib/sortByTimestamp"
-import { hasIncomingTradesGiftsAttention } from "../lib/tradesGiftsAttention"
 import { ChatMessage } from "../types/ChatMessage"
 import { ReactionSubject } from "../types/ReactionSubject"
 import { Reaction } from "../types/Reaction"
@@ -710,20 +714,20 @@ export const useIsGameStateNavActive = (): boolean => {
 
 export const useGameStateNavSend = () => sendToGameStateNav
 
-export const useTradesGiftsTabUnseen = (): boolean => {
-  return useSelector(
-    gameStateTradesGiftsAttentionActor,
-    (s) => s.context.unseen || s.context.sessionUnseen,
-  )
+// ============================================================================
+// Notification Center Hooks (ADR 0144)
+// ============================================================================
+
+/** True when any notification targets this surface (entry-point indicator). */
+export const useSurfaceHasNotifications = (surface: NotificationSurface): boolean => {
+  return useSelector(notificationsActor, (s) => surfaceHasNotifications(s.context, surface))
 }
 
-/** Tab/button badge: live attention events or any pending incoming gift/trade invite. */
-export const useTradesGiftsTabAttention = (): boolean => {
-  const unseen = useTradesGiftsTabUnseen()
-  const hasIncoming = useSelector(userGameStateActor, (s) =>
-    hasIncomingTradesGiftsAttention(s.context.payload),
-  )
-  return unseen || hasIncoming
+/** Tab ids with active notifications on a surface (default gameState). */
+export const useTabNotificationIds = (
+  surface: NotificationSurface = "gameState",
+): ReadonlySet<string> => {
+  return useSelector(notificationsActor, (s) => tabNotificationIds(s.context, surface))
 }
 
 // ============================================================================

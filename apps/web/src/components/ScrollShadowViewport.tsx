@@ -1,5 +1,6 @@
 import * as React from "react"
 import { ScrollArea, type SystemStyleObject } from "@chakra-ui/react"
+import { SCROLL_SHADOW_SIZE } from "../lib/scrollShadow"
 
 type ScrollShadowOrientation = "vertical" | "horizontal"
 
@@ -11,7 +12,7 @@ type ScrollShadowViewportProps = React.ComponentPropsWithoutRef<
 }
 
 const scrollShadowBase: SystemStyleObject = {
-  "--scroll-shadow-size": "6rem",
+  "--scroll-shadow-size": SCROLL_SHADOW_SIZE,
   maskImage: "linear-gradient(#000, #000)",
 }
 

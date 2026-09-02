@@ -8,14 +8,13 @@ import { useCoinFeedbackButtonAnimation } from "../animations/useCoinFeedbackBut
 import {
   useActiveGameSessionName,
   useHasActiveGameSession,
-  useTradesGiftsTabAttention,
+  useSurfaceHasNotifications,
   useUserGameSession,
   useUserState,
 } from "../hooks/useActors"
 import { useIntegratedPanelToggle } from "../hooks/useIntegratedPanelPresentation"
 import { useAnimationsEnabled } from "../hooks/useReducedMotion"
 import { coinGainFeedbackMachine } from "../machines/coinGainFeedbackMachine"
-import { useGameStateNewPluginTabs } from "./GameStateNewPluginTabsProvider"
 
 /** ≥1000 shows compact `k` units (`+1k`, `-3.5k`); smaller values stay integer with sign. */
 function formatSignedCoinDeltaCompact(delta: number): string {
@@ -36,8 +35,7 @@ function ButtonGameState() {
   const hasActiveSession = useHasActiveGameSession()
   const sessionName = useActiveGameSessionName()
   const session = useUserGameSession()
-  const { hasUnseenPluginTabs } = useGameStateNewPluginTabs()
-  const tradesGiftsAttention = useTradesGiftsTabAttention()
+  const gameStateAttention = useSurfaceHasNotifications("gameState")
   const userState = useUserState()
   const modifiers = userState?.modifiers
   const animationsEnabled = useAnimationsEnabled()
@@ -164,7 +162,7 @@ function ButtonGameState() {
           </IconButton>
         </Box>
       </Box>
-      {hasUnseenPluginTabs || tradesGiftsAttention ? (
+      {gameStateAttention ? (
         <Status.Root
           size="sm"
           colorPalette="primary"

@@ -16,12 +16,8 @@ vi.mock("../actors/userGameStateActor", () => ({
   refreshUserGameState: vi.fn(),
 }))
 
-vi.mock("./tradeInviteToast", () => ({
-  dismissTradeInviteToast: vi.fn(),
-}))
-
-vi.mock("./tradesGiftsAttention", () => ({
-  clearTradesGiftsTabAttentionIfEmpty: vi.fn(),
+vi.mock("../actors/notificationsActor", () => ({
+  resolveNotifications: vi.fn(),
 }))
 
 vi.mock("../components/ui/toaster", () => ({

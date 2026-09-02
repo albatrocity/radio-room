@@ -1,7 +1,7 @@
 # 0115. Trade invite inbox and Trades/Gifts Game State tab
 
 **Date:** 2026-08-25
-**Status:** Partially superseded by [0129](0129-trade-session-lock-confirm-attention.md) (session attention + lock/confirm toasts; inbox badge rules remain)
+**Status:** Partially superseded by [0129](0129-trade-session-lock-confirm-attention.md) (session attention + lock/confirm toasts; inbox badge rules remain) and [0144](0144-client-notification-center.md) (attention machine + toast ownership → `notificationsActor`; product rules unchanged)
 
 ## Context
 

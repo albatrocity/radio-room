@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Box, HStack, ScrollArea, Spinner, Stack, Status, Tabs, Text } from "@chakra-ui/react"
 import type { GameAttributeName, ItemDefinition } from "@repo/types"
 import { getPluginUserState } from "../../lib/getPluginUserState"
@@ -15,7 +15,7 @@ import {
   useGameStateActiveTab,
   useGameStateDetailFrame,
   useGameStateNavSend,
-  useTradesGiftsTabAttention,
+  useTabNotificationIds,
 } from "../../hooks/useActors"
 import { useActiveIntegratedPanelSlot } from "../../hooks/useIntegratedPanelPresentation"
 import { ADMIN_LISTENERS_TAB, STORED_ITEMS_TAB, TRADES_GIFTS_TAB } from "../../constants/gameStateTabs"
@@ -35,6 +35,7 @@ import ScrollShadowViewport from "../ScrollShadowViewport"
 import TradesGiftsTab from "./GameState/TradesGiftsTab"
 import GameStateDetailRouter from "./GameState/GameStateDetailRouter"
 import { GameStateDetailBreadcrumb } from "./GameState/GameStateItemDetail"
+import { TabStripOverflowAttention } from "./GameState/TabStripOverflowAttention"
 import {
   TradeDetailActions,
   TradeDetailComposer,
@@ -81,11 +82,13 @@ type TabsBodyProps = {
   setGameStateTab: (v: string) => void
   pluginTabs: ReturnType<typeof useGameStateNewPluginTabs>["pluginTabs"]
   unseenPluginTabIds: ReadonlySet<string>
-  showTradesGiftsTab: boolean
+  /** Show the Trades/Gifts tab (allowTrading, or active deep-link before config is known). */
+  includeTradesGiftsTab: boolean
   tradesGiftsUnseen: boolean
   showStoredTab: boolean
   isAdmin: boolean
-  tabScrollRef: RefObject<HTMLDivElement | null>
+  tabScrollViewport: HTMLElement | null
+  tabScrollRef: (node: HTMLDivElement | null) => void
   /** Explicit height chain so tab lists and album track lists fill leftover body space. */
   fillHeight?: boolean
 }
@@ -95,10 +98,11 @@ function GameStateTabsBody({
   setGameStateTab,
   pluginTabs,
   unseenPluginTabIds,
-  showTradesGiftsTab,
+  includeTradesGiftsTab,
   tradesGiftsUnseen,
   showStoredTab,
   isAdmin,
+  tabScrollViewport,
   tabScrollRef,
   fillHeight = false,
 }: TabsBodyProps) {
@@ -115,6 +119,12 @@ function GameStateTabsBody({
     if (gameStateTab === ADMIN_LISTENERS_TAB) return "Big Brother"
     return pluginTabs.find((t) => t.id === gameStateTab)?.label ?? "Back"
   }, [gameStateTab, pluginTabs])
+
+  const overflowUnseenTabValues = useMemo(() => {
+    const ids = new Set<string>(unseenPluginTabIds)
+    if (tradesGiftsUnseen) ids.add(TRADES_GIFTS_TAB)
+    return ids
+  }, [unseenPluginTabIds, tradesGiftsUnseen])
 
   const detailDefinition =
     currentFrame && isItemDetailFrame(currentFrame)
@@ -137,7 +147,7 @@ function GameStateTabsBody({
         </Tabs.Content>
       ) : null}
 
-      {showTradesGiftsTab ? (
+      {includeTradesGiftsTab ? (
         <Tabs.Content value={TRADES_GIFTS_TAB}>
           <TradesGiftsTab />
         </Tabs.Content>
@@ -187,12 +197,9 @@ function GameStateTabsBody({
             }
           : {})}
       >
-        <Box flexShrink={0}>
+        <Box flexShrink={0} position="relative">
           <ScrollArea.Root width="full" size="xs">
-            <ScrollShadowViewport
-              ref={tabScrollRef as RefObject<HTMLDivElement>}
-              orientation="horizontal"
-            >
+            <ScrollShadowViewport ref={tabScrollRef} orientation="horizontal">
               <ScrollArea.Content>
                 <Tabs.List flexWrap="nowrap">
                   <Tabs.Trigger
@@ -215,7 +222,7 @@ function GameStateTabsBody({
                       Stored Items
                     </Tabs.Trigger>
                   ) : null}
-                  {showTradesGiftsTab ? (
+                  {includeTradesGiftsTab ? (
                     <Tabs.Trigger
                       value={TRADES_GIFTS_TAB}
                       whiteSpace="nowrap"
@@ -261,6 +268,10 @@ function GameStateTabsBody({
             </ScrollShadowViewport>
             <ScrollArea.Scrollbar orientation="horizontal" />
           </ScrollArea.Root>
+          <TabStripOverflowAttention
+            viewport={tabScrollViewport}
+            unseenTabValues={overflowUnseenTabValues}
+          />
         </Box>
 
         {currentFrame ? (
@@ -327,7 +338,10 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
     (tabId: string) => sendNav({ type: "SET_ACTIVE_TAB", tabId }),
     [sendNav],
   )
-  const tabScrollRef = useRef<HTMLDivElement>(null)
+  const [tabScrollViewport, setTabScrollViewport] = useState<HTMLDivElement | null>(null)
+  const tabScrollRef = useCallback((node: HTMLDivElement | null) => {
+    setTabScrollViewport(node)
+  }, [])
 
   const payload = useUserGameStatePayload()
   const loading = useUserGameStateLoading()
@@ -346,14 +360,19 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
 
   const showStoredTab = storedArtifacts.length > 0
   const showTradesGiftsTab = payload?.session?.config.allowTrading === true
-  const tradesGiftsUnseen = useTradesGiftsTabAttention()
+  // Keep the tab mounted when deep-linking (Accept toast) before USER_GAME_STATE
+  // has allowTrading — otherwise Chakra Tabs coerces to Inventory and SET_ACTIVE_TAB
+  // clears the visible stack, stranding the trade frame on trades-gifts.
+  const includeTradesGiftsTab = showTradesGiftsTab || gameStateTab === TRADES_GIFTS_TAB
+  const tabNotificationIds = useTabNotificationIds("gameState")
+  const tradesGiftsUnseen = tabNotificationIds.has(TRADES_GIFTS_TAB)
 
   const availableTabIds = useMemo(() => {
     const ids = new Set<string>(["inventory"])
     if (showStoredTab) {
       ids.add(STORED_ITEMS_TAB)
     }
-    if (showTradesGiftsTab || gameStateTab === TRADES_GIFTS_TAB) {
+    if (includeTradesGiftsTab) {
       ids.add(TRADES_GIFTS_TAB)
     }
     if (isAdmin) {
@@ -363,7 +382,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
       ids.add(t.id)
     }
     return [...ids]
-  }, [pluginTabs, showStoredTab, showTradesGiftsTab, isAdmin, gameStateTab])
+  }, [pluginTabs, showStoredTab, includeTradesGiftsTab, isAdmin])
 
   useEffect(() => {
     // Plugin tab ids live in this tree; invalid-tab snap is on SET_AVAILABLE_TABS.
@@ -470,10 +489,11 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
             setGameStateTab={setGameStateTab}
             pluginTabs={pluginTabs}
             unseenPluginTabIds={unseenPluginTabIds}
-            showTradesGiftsTab={showTradesGiftsTab}
+            includeTradesGiftsTab={includeTradesGiftsTab}
             tradesGiftsUnseen={tradesGiftsUnseen}
             showStoredTab={showStoredTab}
             isAdmin={isAdmin}
+            tabScrollViewport={tabScrollViewport}
             tabScrollRef={tabScrollRef}
             fillHeight={fillHeight}
           />

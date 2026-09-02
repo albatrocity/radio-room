@@ -1,7 +1,7 @@
 # 0129. Trade session lock/confirm notifications and session attention
 
 **Date:** 2026-08-28
-**Status:** Accepted
+**Status:** Partially superseded by [0144](0144-client-notification-center.md) (session attention flags and toast ownership → `notificationsActor`; points 1 and 5 detection remain)
 
 ## Context
 

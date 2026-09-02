@@ -1,7 +1,7 @@
 # 0131. Completed trades toast both parties; Inventory nav if viewing the session
 
 **Date:** 2026-08-28
-**Status:** Accepted
+**Status:** Partially superseded by [0144](0144-client-notification-center.md) (`giftInboxActor` remains the domain *source*; toast + nav still from trade-complete handling, via `raiseNotification` / `onTradeSessionCompleted`)
 
 ## Context
 

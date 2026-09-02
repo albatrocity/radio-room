@@ -1,26 +1,9 @@
 import type { TradeSession } from "@repo/types"
-import { gameStateNavActor } from "../actors/gameStateNavActor"
-import { isModalOpen } from "../actors/modalsActor"
-import { markTradesGiftsSessionViewed } from "../actors/gameStateTradesGiftsAttentionActor"
-import { currentDetailFrame } from "../machines/gameStateNavMachine"
-import { isTradeDetailFrame } from "../types/GameStateDetail"
 import {
-  dismissAcceptedTradeToast,
-  dismissTradeSessionToasts,
-  tradeAcceptedToastId,
-  tradeCompleteToastId,
-  tradeConfirmToastId,
-  tradeLockToastId,
-} from "./tradeToasts"
-
-export {
-  dismissAcceptedTradeToast,
-  dismissTradeSessionToasts,
-  tradeAcceptedToastId,
-  tradeCompleteToastId,
-  tradeConfirmToastId,
-  tradeLockToastId,
-}
+  tradeAcceptedNotificationId,
+  tradeConfirmNotificationId,
+  tradeLockNotificationId,
+} from "./notificationIds"
 
 export type TradeWatchSnapshot = {
   otherLocked: boolean
@@ -54,15 +37,9 @@ export function counterpartTradeAlerts(
   return alerts
 }
 
-export function isViewingTradeSession(tradeId: string): boolean {
-  if (!isModalOpen("gameState")) return false
-  const snap = gameStateNavActor.getSnapshot()
-  if (!snap.matches("active")) return false
-  const frame = currentDetailFrame(snap.context)
-  return isTradeDetailFrame(frame) && frame.tradeId === tradeId
-}
-
-export function onTradeSessionViewed(tradeId: string): void {
-  dismissTradeSessionToasts(tradeId)
-  markTradesGiftsSessionViewed()
-}
+/** @deprecated Use tradeAcceptedNotificationId from notificationIds. */
+export const tradeAcceptedToastId = tradeAcceptedNotificationId
+/** @deprecated Use tradeLockNotificationId from notificationIds. */
+export const tradeLockToastId = tradeLockNotificationId
+/** @deprecated Use tradeConfirmNotificationId from notificationIds. */
+export const tradeConfirmToastId = tradeConfirmNotificationId

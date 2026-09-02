@@ -125,7 +125,8 @@ Actors are **singleton XState interpreters** that manage specific domains of sta
 | `bookmarkedChatActor` | User's bookmarked messages |
 | `metadataSourceAuthActor` | Spotify/service authentication |
 | `userGameStateActor` | Current user's game-session payload and stored artifacts |
-| `giftInboxActor` | Gift/trade toasts and attention while Game State is closed; notify helpers in `giftInboxNotifications` / `tradeInboxNotifications` ([ADR 0115](../../docs/adrs/0115-trade-invite-inbox.md), [ADR 0129](../../docs/adrs/0129-trade-session-lock-confirm-attention.md)) |
+| `giftInboxActor` | Gift/trade *source*: raises/resolves notifications from gift/trade socket events + `USER_GAME_STATE` reconcile ([ADR 0144](../../docs/adrs/0144-client-notification-center.md); product rules in [0115](../../docs/adrs/0115-trade-invite-inbox.md), [0129](../../docs/adrs/0129-trade-session-lock-confirm-attention.md)) |
+| `notificationsActor` | Headless attention store + toast side effects; `useSurfaceHasNotifications` / `useTabNotificationIds` ([ADR 0144](../../docs/adrs/0144-client-notification-center.md)) |
 | `tradeActor` | Live trade session (offer, lock, confirm, typing) |
 | `gameStateNavActor` | Game State tab + detail stack; overlay open/close is `modalsMachine` `gameState` entry/exit ([ADR 0130](../../docs/adrs/0130-game-state-overlay-lifecycle-in-machines.md)) |
 
@@ -312,7 +313,11 @@ states: {
 
 ### Gift, trade, and Game State overlay
 
-Room join activates `giftInboxActor` (toasts and Trades/Gifts attention when the overlay is closed). Opening Game State is `modalsMachine` entering `gameState`, which sends `gameStateNavActor` `ACTIVATE` / `REFRESH` — not a surface `useEffect` ([ADR 0130](../../docs/adrs/0130-game-state-overlay-lifecycle-in-machines.md)). While the overlay is active, `syncGameStateChildActors` starts `tradeActor` for the live session and the admin listener tab when needed. Stored artifacts are owned by `userGameStateMachine`, fetched once per `session.id` ([ADR 0133](../../docs/adrs/0133-stored-artifacts-once-per-session.md)).
+Room join activates `giftInboxActor` (domain source for gift/trade notifications) and sends `notificationsActor` `ROOM_ENTERED`. Opening Game State is `modalsMachine` entering `gameState`, which sends `gameStateNavActor` `ACTIVATE` / `REFRESH` — not a surface `useEffect` ([ADR 0130](../../docs/adrs/0130-game-state-overlay-lifecycle-in-machines.md)). While the overlay is active, `syncGameStateChildActors` starts `tradeActor` for the live session, the admin listener tab when needed, and feeds `LOCATION_CHANGED` into the notification center so view-type badges and toasts clear ([ADR 0144](../../docs/adrs/0144-client-notification-center.md)). Stored artifacts are owned by `userGameStateMachine`, fetched once per `session.id` ([ADR 0133](../../docs/adrs/0133-stored-artifacts-once-per-session.md)).
+
+### Notification center (ADR 0144)
+
+`notificationsActor` owns attention records (indicators) and optional toast side effects. Domain code calls `raiseNotification` / `resolveNotifications` / `reconcileNotifications`. UI reads `useSurfaceHasNotifications("gameState")` (Game State button) and `useTabNotificationIds("gameState")` (Trades/Gifts + plugin tab dots). When the Game State tab strip overflows horizontally and a tab Status dot sits under the scroll fade, `TabStripOverflowAttention` shows an edge cue and scrolls that tab into view on click (presentation only — still driven by the same unseen tab ids). There is no notification inbox UI — pending gifts/invites still come from `USER_GAME_STATE`. Plugin-tab attention is the only persisted client record (`persist: true` → sessionStorage).
 
 ---
 

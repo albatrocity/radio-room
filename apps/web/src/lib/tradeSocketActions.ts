@@ -2,9 +2,13 @@ import type { TradeSession } from "@repo/types"
 import { activateTrade } from "../actors/tradeActor"
 import { refreshUserGameState } from "../actors/userGameStateActor"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
-import { dismissTradeInviteToast } from "./tradeInviteToast"
-import { clearTradesGiftsTabAttentionIfEmpty } from "./tradesGiftsAttention"
+import { resolveNotifications } from "../actors/notificationsActor"
+import { tradeInviteNotificationId } from "./notificationIds"
 import { toaster } from "../components/ui/toaster"
+
+function resolveTradeInvite(inviteId: string): void {
+  resolveNotifications([tradeInviteNotificationId(inviteId)])
+}
 
 type TradeActionResultData = {
   success?: boolean
@@ -43,7 +47,7 @@ export function emitTradeInviteRespond(params: {
   const { inviteId, fromUserId, toUserId, accept, onAccepted, onDone, errorTitle } = params
   if (inFlightInviteRespond.has(inviteId)) return
   inFlightInviteRespond.add(inviteId)
-  dismissTradeInviteToast(inviteId)
+  resolveTradeInvite(inviteId)
 
   const subscriptionId = `trade-invite-respond-${inviteId}-${Date.now()}`
   let settled = false
@@ -78,7 +82,7 @@ export function emitTradeInviteRespond(params: {
       return
     }
     if (success) {
-      clearTradesGiftsTabAttentionIfEmpty({ excludeInviteId: inviteId })
+      resolveTradeInvite(inviteId)
     }
   }
 
@@ -123,7 +127,7 @@ export function emitTradeInviteRespond(params: {
 }
 
 export function emitTradeInviteCancel(inviteId: string): void {
-  dismissTradeInviteToast(inviteId)
+  resolveTradeInvite(inviteId)
   emitToSocket("TRADE_CANCEL", { tradeId: inviteId })
 }
 

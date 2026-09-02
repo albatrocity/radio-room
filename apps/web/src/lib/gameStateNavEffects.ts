@@ -1,18 +1,10 @@
 import type { TradeSession } from "@repo/types"
 import { getIsAdmin } from "../actors/authActor"
 import { adminListenerStateActor } from "../actors/adminListenerStateActor"
-import { markTradesGiftsSessionViewed } from "../actors/gameStateTradesGiftsAttentionActor"
+import { notifyNotificationLocation } from "./notificationLocationSink"
 import { activateTrade, deactivateTrade, tradeActor } from "../actors/tradeActor"
-import {
-  ADMIN_LISTENERS_TAB,
-  isCoreGameStateTab,
-  TRADES_GIFTS_TAB,
-} from "../constants/gameStateTabs"
+import { ADMIN_LISTENERS_TAB } from "../constants/gameStateTabs"
 import type { GameStateDetailFrame } from "../types/GameStateDetail"
-import { isTradeDetailFrame } from "../types/GameStateDetail"
-import { markGameStatePluginTabViewed } from "./gameStatePluginTabViewed"
-import { dismissAcceptedTradeToast, dismissTradeSessionToasts } from "./tradeToasts"
-import { viewTradesGiftsTab } from "./tradesGiftsAttention"
 
 export type GameStateNavChildSyncInput = {
   navActive: boolean
@@ -23,7 +15,7 @@ export type GameStateNavChildSyncInput = {
 }
 
 /**
- * Child-actor and "this tab/frame is showing" side effects for Game State (ADR 0130).
+ * Child-actor and "this tab/frame is showing" side effects for Game State (ADR 0130 / 0144).
  * Callers pass explicit ids so assign+sync in the same transition can use the new tab/frame.
  */
 export function syncGameStateChildActors(input: GameStateNavChildSyncInput): void {
@@ -46,19 +38,9 @@ export function syncGameStateChildActors(input: GameStateNavChildSyncInput): voi
     deactivateTrade()
   }
 
-  if (!navActive) return
-
-  if (tabId === TRADES_GIFTS_TAB) {
-    viewTradesGiftsTab()
-  } else if (!isCoreGameStateTab(tabId)) {
-    markGameStatePluginTabViewed(tabId)
-  }
-
-  const tradeId = activeTrade?.tradeId
-  if (tradeId) dismissAcceptedTradeToast(tradeId)
-
-  if (frame && isTradeDetailFrame(frame)) {
-    dismissTradeSessionToasts(frame.tradeId)
-    markTradesGiftsSessionViewed()
-  }
+  notifyNotificationLocation(
+    navActive
+      ? { surface: "gameState", tabId, frame }
+      : { surface: null },
+  )
 }

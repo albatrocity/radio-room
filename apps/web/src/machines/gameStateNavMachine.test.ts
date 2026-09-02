@@ -244,6 +244,26 @@ describe("gameStateNavMachine", () => {
     expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
   })
 
+  it("clears available tabs on deactivate so a trade deep-link is not snapped on reopen", () => {
+    const actor = startActive()
+    actor.send({
+      type: "SET_AVAILABLE_TABS",
+      tabIds: ["inventory", SHOP_TAB],
+    })
+    actor.send({ type: "DEACTIVATE" })
+    expect(actor.getSnapshot().context.availableTabIds).toBeNull()
+
+    actor.send({
+      type: "OPEN_DETAIL_ON_TAB",
+      tabId: TRADES_GIFTS_TAB,
+      frame: { kind: "trade", tradeId: "t1", title: "Trade with Alex" },
+    })
+    actor.send({ type: "ACTIVATE" })
+
+    expect(actor.getSnapshot().context.activeTabId).toBe(TRADES_GIFTS_TAB)
+    expect(currentDetailFrame(actor.getSnapshot().context)?.kind).toBe("trade")
+  })
+
   it("syncs child actors on activate, tab change, and deactivate", () => {
     const actor = createActor(gameStateNavMachine).start()
     actor.send({

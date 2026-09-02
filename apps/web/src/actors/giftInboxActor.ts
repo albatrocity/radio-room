@@ -1,14 +1,18 @@
 /**
- * Gift inbox toasts + accept/decline when Game State is closed (ADR 0114).
+ * Gift / trade notification source (ADR 0114 / 0144).
+ * Translates domain socket events into raise/resolve/reconcile on notificationsActor.
  * Trades/Gifts tab lists pending gifts and trade invites from USER_GAME_STATE.
- * Toast implementations live in `giftInboxNotifications` / `tradeInboxNotifications`.
  */
 
 import { createActor, setup, assign } from "xstate"
-import type { GiftOffer, TradeInvite, TradeSession } from "@repo/types"
+import type { GiftOffer, TradeInvite, TradeSession, UserGameStatePayload } from "@repo/types"
 import { subscribeById, unsubscribeById } from "./socketActor"
 import { getCurrentUser } from "./authActor"
-import { applyGiftOffered, notifyGiftDeclined as toastGiftDeclined } from "../lib/giftInboxNotifications"
+import {
+  raiseGiftOffered,
+  notifyGiftDeclined as toastGiftDeclined,
+  reconcileGiftsFromPayload,
+} from "../lib/giftInboxNotifications"
 import {
   applyTradeCancelled,
   applyTradeCompleted,
@@ -18,21 +22,22 @@ import {
   dismissTradeInviteToastIfMine as dismissInviteToastIfRecipient,
   notifyTradeInviteDeclined as toastTradeInviteDeclined,
   notifyTradeInviteExpired as toastTradeInviteExpired,
+  reconcileTradeInvitesFromPayload,
+  resolveTradeInvite,
 } from "../lib/tradeInboxNotifications"
 import {
   watchSnapshotForUser,
   type TradeWatchSnapshot,
 } from "../lib/tradeSessionNotifications"
 import { getUserGameStatePayload } from "./userGameStateActor"
+import { tradeInviteNotificationId } from "../lib/notificationIds"
+import { resolveNotifications } from "./notificationsActor"
 
-export { dismissTradeInviteToast, tradeInviteToastId } from "../lib/tradeInviteToast"
+export { resolveTradeInvite }
+export { tradeInviteNotificationId }
 
 type Context = {
   subscriptionId: string | null
-  toastedOfferIds: string[]
-  toastedInviteIds: string[]
-  toastedTradeAcceptedIds: string[]
-  toastedTradeCancelledIds: string[]
   watchedTrades: Record<string, TradeWatchSnapshot>
 }
 
@@ -77,6 +82,7 @@ type Event =
     }
   | { type: "TRADE_COMPLETED"; data?: { trade?: TradeSession } }
   | { type: "TRADE_UPDATED"; data?: { trade?: TradeSession } }
+  | { type: "USER_GAME_STATE"; data?: UserGameStatePayload }
 
 let subCounter = 0
 
@@ -106,6 +112,7 @@ const giftInboxMachine = setup({
           "TRADE_UPDATED",
           "TRADE_CANCELLED",
           "TRADE_COMPLETED",
+          "USER_GAME_STATE",
         ],
       })
       return { subscriptionId: id }
@@ -123,30 +130,20 @@ const giftInboxMachine = setup({
     }),
     reset: assign({
       subscriptionId: () => null,
-      toastedOfferIds: () => [],
-      toastedInviteIds: () => [],
-      toastedTradeAcceptedIds: () => [],
-      toastedTradeCancelledIds: () => [],
       watchedTrades: () => ({}),
     }),
-    notifyGiftOffered: assign(({ context, event }) => {
-      if (event.type !== "GIFT_OFFERED") return {}
-      return applyGiftOffered({
-        toastedOfferIds: context.toastedOfferIds,
-        offer: event.data?.offer,
-      })
-    }),
+    notifyGiftOffered: ({ event }) => {
+      if (event.type !== "GIFT_OFFERED") return
+      raiseGiftOffered(event.data?.offer)
+    },
     notifyGiftDeclined: ({ event }) => {
       if (event.type !== "GIFT_DECLINED") return
       toastGiftDeclined(event.data?.offer)
     },
-    notifyTradeInvite: assign(({ context, event }) => {
-      if (event.type !== "TRADE_INVITE_OFFERED") return {}
-      return applyTradeInviteOffered({
-        toastedInviteIds: context.toastedInviteIds,
-        invite: event.data?.invite,
-      })
-    }),
+    notifyTradeInvite: ({ event }) => {
+      if (event.type !== "TRADE_INVITE_OFFERED") return
+      applyTradeInviteOffered(event.data?.invite)
+    },
     notifyTradeInviteExpired: ({ event }) => {
       if (event.type !== "TRADE_INVITE_EXPIRED") return
       toastTradeInviteExpired(event.data?.invite)
@@ -164,7 +161,6 @@ const giftInboxMachine = setup({
     notifyTradeInviteAccepted: assign(({ context, event }) => {
       if (event.type !== "TRADE_INVITE_ACCEPTED") return {}
       return applyTradeInviteAccepted({
-        toastedTradeAcceptedIds: context.toastedTradeAcceptedIds,
         watchedTrades: context.watchedTrades,
         trade: event.data?.trade,
       })
@@ -179,7 +175,6 @@ const giftInboxMachine = setup({
     notifyTradeCancelled: assign(({ context, event }) => {
       if (event.type !== "TRADE_CANCELLED") return {}
       return applyTradeCancelled({
-        toastedTradeCancelledIds: context.toastedTradeCancelledIds,
         watchedTrades: context.watchedTrades,
         trade: event.data?.trade,
         reason: event.data?.reason,
@@ -193,16 +188,17 @@ const giftInboxMachine = setup({
         trade: event.data?.trade,
       })
     }),
+    reconcileFromGameState: ({ event }) => {
+      if (event.type !== "USER_GAME_STATE") return
+      reconcileGiftsFromPayload(event.data)
+      reconcileTradeInvitesFromPayload(event.data)
+    },
   },
 }).createMachine({
   id: "giftInbox",
   initial: "idle",
   context: {
     subscriptionId: null,
-    toastedOfferIds: [],
-    toastedInviteIds: [],
-    toastedTradeAcceptedIds: [],
-    toastedTradeCancelledIds: [],
     watchedTrades: {},
   },
   states: {
@@ -227,9 +223,15 @@ const giftInboxMachine = setup({
         TRADE_UPDATED: { actions: ["notifyTradeUpdated"] },
         TRADE_CANCELLED: { actions: ["notifyTradeCancelled"] },
         TRADE_COMPLETED: { actions: ["notifyTradeCompleted"] },
+        USER_GAME_STATE: { actions: ["reconcileFromGameState"] },
       },
     },
   },
 })
 
 export const giftInboxActor = createActor(giftInboxMachine).start()
+
+/** @deprecated Prefer resolveTradeInvite from notificationIds / tradeInboxNotifications. */
+export function dismissTradeInviteToast(inviteId: string): void {
+  resolveNotifications([tradeInviteNotificationId(inviteId)])
+}

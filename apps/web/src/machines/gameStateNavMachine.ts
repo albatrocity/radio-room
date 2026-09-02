@@ -215,6 +215,11 @@ export const gameStateNavMachine = setup({
     deactivateChildren: ({ context }) => {
       syncChildren(context, false)
     },
+    /** Drop the list on close so ACTIVATE cannot snap using a stale set (e.g. trading
+     * enabled after a prior open, or Accept-toast deep-link before the surface reports). */
+    clearAvailableTabs: assign({
+      availableTabIds: () => null as string[] | null,
+    }),
   },
   guards: {
     hasDetailFrame: ({ context }) => activeStack(context).length > 0,
@@ -261,7 +266,7 @@ export const gameStateNavMachine = setup({
     },
     active: {
       entry: ["snapIfUnavailable", "syncChildrenActive"],
-      exit: ["deactivateChildren"],
+      exit: ["deactivateChildren", "clearAvailableTabs"],
       initial: "index",
       on: {
         // Leaves the frame in place: clearing it here would swap the modal back
