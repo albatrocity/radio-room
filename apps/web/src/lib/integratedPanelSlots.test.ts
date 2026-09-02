@@ -48,6 +48,24 @@ describe("integratedPanelSlots", () => {
     expect(resolveActiveIntegratedPanelSlot(actor.getSnapshot(), "panel")).toBe("gameState")
   })
 
+  it("keeps the panel slot when Feedback opens over it", () => {
+    const actor = createActor(modalsMachine).start()
+    actor.send({ type: "VIEW_GAME_STATE" })
+    actor.send({ type: "VIEW_FEEDBACK" })
+
+    expect(resolveIntegratedPanelSlot(actor.getSnapshot())).toBe("gameState")
+    expect(resolveActiveIntegratedPanelSlot(actor.getSnapshot(), "panel")).toBe("gameState")
+  })
+
+  it("keeps the panel slot when Help opens over it", () => {
+    const actor = createActor(modalsMachine).start()
+    actor.send({ type: "VIEW_GAME_STATE" })
+    actor.send({ type: "VIEW_HELP" })
+
+    expect(resolveIntegratedPanelSlot(actor.getSnapshot())).toBe("gameState")
+    expect(resolveActiveIntegratedPanelSlot(actor.getSnapshot(), "panel")).toBe("gameState")
+  })
+
   it("resolveActiveIntegratedPanelSlot respects presentation mode", () => {
     const actor = createActor(modalsMachine).start()
     actor.send({ type: "VIEW_GAME_STATE" })

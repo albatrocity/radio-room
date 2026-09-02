@@ -11,6 +11,15 @@ export function locationMatchesTarget(
 ): boolean {
   if (!target) return false
   if (location.surface !== target.surface) return false
+
+  if (location.surface === "feedback" && target.surface === "feedback") {
+    return true
+  }
+
+  if (location.surface === "adminSettings" && target.surface === "adminSettings") {
+    return location.tabId === target.tabId
+  }
+
   if (location.surface === "gameState" && target.surface === "gameState") {
     if (location.tabId !== target.tabId) return false
     if (!target.frame) return true
@@ -27,6 +36,7 @@ export function locationMatchesTarget(
     }
     return false
   }
+
   return false
 }
 

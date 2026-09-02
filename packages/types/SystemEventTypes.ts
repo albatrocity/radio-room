@@ -29,6 +29,7 @@ import type { InventoryAcquisitionSource, InventoryItem, ItemUseResult } from ".
 import type { GiftOffer } from "./Gift"
 import type { TradeInvite, TradeSession } from "./Trade"
 import type { Poll, PollResults } from "./Poll"
+import type { FeedbackTopic } from "./Feedback"
 
 /**
  * System event handler signatures
@@ -500,6 +501,15 @@ export type SystemEventHandlers = {
   POLL_CLOSED: (data: { roomId: string; poll: Poll; results: PollResults }) => Promise<void> | void
 
   POLL_DELETED: (data: { roomId: string; pollId: string }) => Promise<void> | void
+
+  // ==========================================================================
+  // Feedback (ADR 0145) — topics only; response bodies are private/admin
+  // ==========================================================================
+
+  FEEDBACK_TOPICS_CHANGED: (data: {
+    roomId: string
+    topics: FeedbackTopic[]
+  }) => Promise<void> | void
 }
 
 /**

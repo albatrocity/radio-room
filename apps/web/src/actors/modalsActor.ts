@@ -63,6 +63,14 @@ export function sendModalsEvent(event: ModalsEvent): void {
  */
 export function closeModal(): void {
   const snapshot = modalsActor.getSnapshot()
+  if (matchesModals(snapshot, "help")) {
+    modalsActor.send({ type: "CLOSE_HELP" })
+    return
+  }
+  if (matchesModals(snapshot, "feedback")) {
+    modalsActor.send({ type: "CLOSE_FEEDBACK" })
+    return
+  }
   if (matchesModals(snapshot, "queue")) {
     modalsActor.send({ type: "CLOSE_QUEUE" })
     return

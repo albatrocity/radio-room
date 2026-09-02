@@ -27,3 +27,8 @@ export function tradeCompleteNotificationId(tradeId: string): string {
 export function pluginTabNotificationId(tabId: string): string {
   return `plugin-tab-${tabId}`
 }
+
+export {
+  feedbackTopicNotificationId,
+  feedbackInboxNotificationId,
+} from "./feedbackNotificationIds"

@@ -14,6 +14,7 @@ import ScreenEffectsProvider from "./ScreenEffectsProvider"
 import { ModifierBlurLayer } from "./ModifierBlurLayer"
 import DrawerSchedule from "./Drawers/DrawerSchedule"
 import PollHistoryModal from "./Poll/PollHistoryModal"
+import FeedbackModal from "./Feedback/FeedbackModal"
 import { useIsAdmin } from "../hooks/useActors"
 import { useIntegratedPanelPresentation } from "../hooks/useIntegratedPanelPresentation"
 
@@ -47,6 +48,7 @@ function Overlays() {
       <ModalPassword />
       {showModalSurfaces && <ModalUserGameState />}
       <PollHistoryModal />
+      <FeedbackModal />
 
       {isAdmin && (
         <Suspense fallback={null}>

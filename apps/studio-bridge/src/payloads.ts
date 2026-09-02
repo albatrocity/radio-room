@@ -12,6 +12,11 @@ import type { TradeInvite, TradeSession } from "@repo/types/Trade"
 import { toAdminAssignablePersonas } from "@repo/types"
 import type { User } from "@repo/types/User"
 import { STUB_MY_MEDIA } from "./stubMetadataCatalog.js"
+import {
+  buildStubFeedbackTopics,
+  GENERAL_FEEDBACK_TOPIC_ID,
+  getStudioMyFeedbackResponses,
+} from "./stubFeedback.js"
 import type { BridgeSnapshot } from "./types.js"
 
 /** Align with `apps/game-studio/src/studio/buildSessionConfig.ts` (`maxInventorySlots` default). */
@@ -260,6 +265,13 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
     ]),
     activePoll: snap.activePoll ?? null,
     pollHistory: snap.pollHistory ?? [],
+    feedbackTopics: snap.feedbackTopics ?? buildStubFeedbackTopics(),
+    myFeedbackResponses:
+      snap.myFeedbackResponses ??
+      getStudioMyFeedbackResponses(snap.roomId, user.userId, [
+        ...(snap.feedbackTopics ?? buildStubFeedbackTopics()).map((t) => t.id),
+        GENERAL_FEEDBACK_TOPIC_ID,
+      ]),
     // Stub multi-source search/browse hydrate (see stubMetadataCatalog)
     effectiveMetadataSourceIds: ["spotify", "local"],
     browseableSourceIds: ["local"],

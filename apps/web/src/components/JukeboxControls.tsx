@@ -1,8 +1,8 @@
-import { Box, HStack, IconButton, Icon } from "@chakra-ui/react"
-import { LuListMusic } from "react-icons/lu"
+import { Box, HStack } from "@chakra-ui/react"
 
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import ButtonPlaylist from "./ButtonPlaylist"
 import ButtonPolls from "./ButtonPolls"
 import ButtonListeners from "./ButtonListeners"
 import ReactionCounter from "./ReactionCounter"
@@ -39,15 +39,7 @@ export default function JukeboxControls({ trackId, hasPlaylist, onShowPlaylist }
         <Box>
           <HStack px={2} justifyContent={hasPlaylist ? "space-between" : "flex-end"}>
             {hasPlaylist && (
-              <IconButton
-                size="md"
-                aria-label="Playlist"
-                colorPalette="action"
-                variant="bright"
-                onClick={onShowPlaylist}
-              >
-                <Icon boxSize={5} as={LuListMusic} />
-              </IconButton>
+              <ButtonPlaylist variant="bright" colorPalette="action" onClick={onShowPlaylist} />
             )}
             <Box hideFrom="sm">
               <HStack>

@@ -1,30 +1,17 @@
-import { memo, useEffect } from "react"
-import {
-  Badge,
-  Box,
-  Button,
-  Icon,
-  IconButton,
-  Popover,
-  VStack,
-  HStack,
-  Flex,
-  Switch,
-  Separator,
-  Field,
-  Text,
-  ScrollArea,
-} from "@chakra-ui/react"
-import { LuMoon, LuSettings, LuZap } from "react-icons/lu"
+import { memo, useEffect, useState } from "react"
+import { Box, Button, Icon, IconButton, Popover, VStack, HStack, Flex, Switch, Separator, Field, Text, ScrollArea, Status, Badge } from "@chakra-ui/react"
+import { LuMoon, LuZap } from "react-icons/lu"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
+import ButtonFeedback from "./ButtonFeedback"
 import { ServiceSelect } from "./ServiceSelect"
 import {
   useCurrentRoom,
   useAvailableMetadataSources,
   usePreferredMetadataSource,
   useMetadataPreferenceSend,
+  useSurfaceHasNotifications,
 } from "../hooks/useActors"
 import { useColorMode } from "./ui/color-mode"
 import { setAvailableSources } from "../actors"
@@ -42,6 +29,8 @@ const PopoverPreferences = (props: Props) => {
   const availableSources = useAvailableMetadataSources()
   const preferredSource = usePreferredMetadataSource()
   const sendMetadataPreference = useMetadataPreferenceSend()
+  const hasFeedbackAttention = useSurfaceHasNotifications("feedback")
+  const [open, setOpen] = useState(false)
   const { listeningTransport, persistTransport, isHybrid, hybridReady } =
     useHybridListeningTransport()
 
@@ -62,14 +51,28 @@ const PopoverPreferences = (props: Props) => {
   const showMetadataSourceSelect = availableSources.length > 1
 
   return (
-    <Popover.Root lazyMount>
+    <Popover.Root lazyMount open={open} onOpenChange={(e) => setOpen(e.open)}>
       <Popover.Trigger asChild>
-        <IconButton aria-label="Settings" variant="ghost" size="md">
-          <Logo
-            primaryColor={{ base: "black", _dark: "colorPalette.contrast" }}
-            secondaryColor={{ base: "action.solid", _dark: "primary.subtle" }}
-          />
-        </IconButton>
+        <Box position="relative">
+          <IconButton aria-label="Settings" variant="ghost" size="md">
+            <Logo
+              primaryColor={{ base: "black", _dark: "colorPalette.contrast" }}
+              secondaryColor={{ base: "action.solid", _dark: "primary.subtle" }}
+            />
+          </IconButton>
+          {hasFeedbackAttention ? (
+            <Status.Root
+              size="sm"
+              colorPalette="primary"
+              position="absolute"
+              top="1"
+              right="1"
+              pointerEvents="none"
+            >
+              <Status.Indicator />
+            </Status.Root>
+          ) : null}
+        </Box>
       </Popover.Trigger>
       <Popover.Positioner>
         <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
@@ -172,6 +175,10 @@ const PopoverPreferences = (props: Props) => {
                       </Switch.Root>
                     </HStack>
                   </HStack>
+                  <Separator />
+                  <Box p={2} px={4}>
+                    <ButtonFeedback w="100%" beforeOpen={() => setOpen(false)} />
+                  </Box>
                   {room?.enableSpotifyLogin && (
                     <>
                       <Separator />

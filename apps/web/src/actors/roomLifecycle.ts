@@ -25,6 +25,7 @@ import { soundEffectsActor } from "./soundEffectsActor"
 import { trackPreviewActor } from "./trackPreviewActor"
 import { screenEffectsActor } from "./screenEffectsActor"
 import { pollActor } from "./pollActor"
+import { feedbackActor } from "./feedbackActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 import { addToQueueUiActor } from "./addToQueueUiActor"
 import { gameStateNavActor } from "./gameStateNavActor"
@@ -107,6 +108,7 @@ export function initializeRoom(roomId: string): void {
   trackPreviewActor.send({ type: "ACTIVATE" })
   screenEffectsActor.send({ type: "ACTIVATE" })
   pollActor.send({ type: "ACTIVATE" })
+  feedbackActor.send({ type: "ACTIVATE", roomId })
   quickAccessPanelsActor.send({ type: "ACTIVATE", roomId })
   addToQueueUiActor.send({ type: "ACTIVATE", roomId })
   mediaBridgeActor.send({ type: "ACTIVATE" })
@@ -165,6 +167,7 @@ export function teardownRoom(): void {
   trackPreviewActor.send({ type: "DEACTIVATE" })
   screenEffectsActor.send({ type: "DEACTIVATE" })
   pollActor.send({ type: "DEACTIVATE" })
+  feedbackActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
   addToQueueUiActor.send({ type: "DEACTIVATE" })
   // Activated by modalsMachine gameState entry (ADR 0130), not by room entry; reset

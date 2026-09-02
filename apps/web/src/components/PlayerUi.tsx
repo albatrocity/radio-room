@@ -1,5 +1,5 @@
 import { memo, lazy, Suspense, useMemo } from "react"
-import { Box, Center, Flex, Icon, IconButton, Spinner } from "@chakra-ui/react"
+import { Box, Center, Flex, Spinner } from "@chakra-ui/react"
 
 import NowPlaying from "./NowPlaying"
 
@@ -13,7 +13,7 @@ import {
   useCurrentRoomHasAudio,
 } from "../hooks/useActors"
 import JukeboxControls from "./JukeboxControls"
-import { LuListMusic } from "react-icons/lu"
+import ButtonPlaylist from "./ButtonPlaylist"
 const RadioControls = lazy(() => import("./RadioControls"))
 const LivePlayer = lazy(() => import("./LivePlayer"))
 import { useHybridListeningTransport } from "../hooks/useHybridListeningTransport"
@@ -111,14 +111,7 @@ const PlayerUi = ({ onShowPlaylist, hasPlaylist }: PlayerUiProps) => {
 
           {showPlaylistOnly && (
             <Box p={2} bg="actionBg">
-              <IconButton
-                size="md"
-                aria-label="Playlist"
-                variant="ghost"
-                onClick={onShowPlaylist}
-              >
-                <Icon boxSize={5} as={LuListMusic} />
-              </IconButton>
+              <ButtonPlaylist onClick={onShowPlaylist} />
             </Box>
           )}
         </>

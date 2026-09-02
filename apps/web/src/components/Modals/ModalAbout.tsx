@@ -8,7 +8,12 @@ function ModalAbout() {
   const isModalViewingHelp = useIsModalOpen("help")
 
   return (
-    <Modal isOpen={isModalViewingHelp} onClose={() => modalSend({ type: "CLOSE" })}>
+    <Modal
+      isOpen={isModalViewingHelp}
+      onClose={() => modalSend({ type: "CLOSE_HELP" })}
+      heading="Room guide"
+      contentProps={{ maxW: "lg" }}
+    >
       <AboutContent />
     </Modal>
   )

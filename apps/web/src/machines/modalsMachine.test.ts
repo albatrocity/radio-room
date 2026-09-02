@@ -69,6 +69,36 @@ describe("modalsMachine", () => {
     expect(actor.getSnapshot().matches("queue.open")).toBe(true)
   })
 
+  it("keeps game state open when Feedback opens and closes", () => {
+    const actor = createActor(modalsMachine).start()
+
+    actor.send({ type: "VIEW_GAME_STATE" })
+    actor.send({ type: "VIEW_FEEDBACK" })
+
+    expect(actor.getSnapshot().matches("modal.gameState")).toBe(true)
+    expect(actor.getSnapshot().matches("feedback.open")).toBe(true)
+
+    actor.send({ type: "CLOSE_FEEDBACK" })
+
+    expect(actor.getSnapshot().matches("modal.gameState")).toBe(true)
+    expect(actor.getSnapshot().matches("feedback.closed")).toBe(true)
+  })
+
+  it("keeps game state open when Help opens and closes", () => {
+    const actor = createActor(modalsMachine).start()
+
+    actor.send({ type: "VIEW_GAME_STATE" })
+    actor.send({ type: "VIEW_HELP" })
+
+    expect(actor.getSnapshot().matches("modal.gameState")).toBe(true)
+    expect(actor.getSnapshot().matches("help.open")).toBe(true)
+
+    actor.send({ type: "CLOSE_HELP" })
+
+    expect(actor.getSnapshot().matches("modal.gameState")).toBe(true)
+    expect(actor.getSnapshot().matches("help.closed")).toBe(true)
+  })
+
   it("activates game state nav and refreshes when Game State opens", () => {
     const actor = createActor(modalsMachine).start()
     actor.send({ type: "VIEW_GAME_STATE" })

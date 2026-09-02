@@ -4,6 +4,7 @@ import type { GameSession, UserGameState } from "@repo/types/GameSession"
 import type { GiftOffer } from "@repo/types/Gift"
 import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
 import type { Poll, PollHistoryEntry } from "@repo/types/Poll"
+import type { FeedbackResponse, FeedbackTopic } from "@repo/types/Feedback"
 import type { QueueItem } from "@repo/types/Queue"
 import type { BingoCard } from "@repo/types/PlaylistBingo"
 import type { ShoppingSessionInstance } from "@repo/types/ShoppingSession"
@@ -29,6 +30,9 @@ export type BridgeSnapshot = {
   /** Optional — when set, included on socket INIT (overrides query-param stub). */
   activePoll?: Poll | null
   pollHistory?: PollHistoryEntry[]
+  /** Optional feedback topics for Preferences → Feedback preview (ADR 0145). */
+  feedbackTopics?: FeedbackTopic[]
+  myFeedbackResponses?: Record<string, FeedbackResponse>
   /** Attached show id for schedule panel preview. */
   showId?: string | null
   /** When set with `showId`, drives `SEGMENT_TRACKS_AVAILABLE` after `SET_ACTIVE_SEGMENT`. */

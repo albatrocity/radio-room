@@ -3,12 +3,15 @@ import type { GameStateDetailFrame } from "./GameStateDetail"
 /** Where a notification points the user (entry point + optional detail frame). */
 export type NotificationTarget =
   | { surface: "gameState"; tabId: string; frame?: GameStateDetailFrame }
-// Future surfaces extend this union (e.g. { surface: "polls" }).
+  | { surface: "feedback" }
+  | { surface: "adminSettings"; tabId: "feedback" }
 
 /** Current UI location the user is looking at (fed by nav / panel lifecycle). */
 export type NotificationLocation =
   | { surface: null }
   | { surface: "gameState"; tabId: string; frame: GameStateDetailFrame | null }
+  | { surface: "feedback" }
+  | { surface: "adminSettings"; tabId: string }
 
 export type NotificationToastAction =
   | "open"

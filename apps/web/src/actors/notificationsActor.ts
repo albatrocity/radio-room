@@ -60,14 +60,14 @@ export function surfaceHasNotifications(
   )
 }
 
-/** Tab ids with active notifications on a gameState surface. */
+/** Tab ids with active notifications on a surface that uses tabId. */
 export function tabNotificationIds(
   context: NotificationsContext,
   surface: NotificationSurface = "gameState",
 ): Set<string> {
   const ids = new Set<string>()
   for (const item of Object.values(context.items)) {
-    if (item.target?.surface === surface) {
+    if (item.target?.surface === surface && "tabId" in item.target) {
       ids.add(item.target.tabId)
     }
   }

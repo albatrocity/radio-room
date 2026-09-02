@@ -22,6 +22,7 @@ import Password from "./Admin/Password"
 import Schedule from "./Admin/Schedule"
 import GameSessions from "./Admin/GameSessions"
 import Polls from "./Admin/Polls"
+import Feedback from "./Admin/Feedback"
 import DjFeatures from "./Admin/DjFeatures"
 import DynamicPluginSettings from "./Admin/DynamicPluginSettings"
 import { AdminSettingsHeader } from "./Admin/AdminSettingsHeader"
@@ -83,6 +84,11 @@ function AdminSettingsCollapsibleSections() {
       <Collapsible.Root open={matchesSettingsPath(state, "settings.polls")}>
         <Collapsible.Content>
           <Polls />
+        </Collapsible.Content>
+      </Collapsible.Root>
+      <Collapsible.Root open={matchesSettingsPath(state, "settings.feedback")}>
+        <Collapsible.Content>
+          <Feedback />
         </Collapsible.Content>
       </Collapsible.Root>
 

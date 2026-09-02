@@ -213,6 +213,13 @@ export {
   getLastPollChange,
 } from "./pollActor"
 
+export {
+  feedbackActor,
+  getFeedbackTopics,
+  getMyFeedbackResponses,
+  getFeedbackInbox,
+} from "./feedbackActor"
+
 // Quick Access Panels Actor
 export { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 

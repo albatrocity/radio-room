@@ -47,6 +47,9 @@ export function formatRoomExportAsMarkdown(
   // Polls
   sections.push(formatPolls(data))
 
+  // Feedback
+  sections.push(formatFeedback(data))
+
   // Queue
   if (data.queue.length > 0) {
     sections.push(formatQueue(data, pluginRegistry, roomId))
@@ -327,6 +330,37 @@ function formatPolls(data: RoomExportData): string {
       const isWinner = results.winners.includes(option.id)
       const marker = isWinner ? " 🏆" : ""
       lines.push(`- **${escapeMarkdown(option.label)}**: ${count} (${pct}%)${marker}`)
+    }
+    lines.push("")
+  }
+
+  return lines.join("\n")
+}
+
+function formatFeedback(data: RoomExportData): string {
+  const topics = data.feedback?.topics ?? []
+  if (topics.length === 0) {
+    return "## Feedback\n\n*No feedback*"
+  }
+
+  const lines = ["## Feedback", ""]
+
+  for (const entry of topics) {
+    const { topic, upCount, downCount, responses } = entry
+    const archived = topic.status === "archived" ? " (archived)" : ""
+    lines.push(`### ${escapeMarkdown(topic.title)}${archived}`)
+    lines.push("")
+    lines.push(`*👍 ${upCount} · 👎 ${downCount} · ${responses.length} response${responses.length === 1 ? "" : "s"}*`)
+    lines.push("")
+
+    for (const r of responses) {
+      const vote =
+        r.vote === "up" ? "👍" : r.vote === "down" ? "👎" : "💬"
+      const comment =
+        r.comment.trim().length > 0
+          ? ` — ${escapeMarkdown(r.comment.trim())}`
+          : ""
+      lines.push(`- **${escapeMarkdown(r.username)}** ${vote}${comment}`)
     }
     lines.push("")
   }

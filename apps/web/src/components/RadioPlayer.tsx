@@ -1,10 +1,11 @@
 import { memo, useEffect, useCallback, useState } from "react"
 import { Box, Icon, IconButton, HStack, Slider, Container } from "@chakra-ui/react"
 
-import { LuListMusic, LuVolume2, LuVolumeX } from "react-icons/lu"
+import { LuVolume2, LuVolumeX } from "react-icons/lu"
 import ReactionCounter from "./ReactionCounter"
 import ButtonListeners from "./ButtonListeners"
 import ButtonAddToQueue from "./ButtonAddToQueue"
+import ButtonPlaylist from "./ButtonPlaylist"
 import ButtonPolls from "./ButtonPolls"
 import { useHotkeys } from "react-hotkeys-hook"
 import PlayPauseButton from "./PlayPauseButton"
@@ -132,16 +133,7 @@ const RadioPlayer = ({
         <Container px={3}>
           <HStack w="100%" direction="row" justify="space-between" align="center">
             <HStack>
-              {hasPlaylist && (
-                <IconButton
-                  size="md"
-                  aria-label="Playlist"
-                  variant="ghost"
-                  onClick={onShowPlaylist}
-                >
-                  <Icon boxSize={5} as={LuListMusic} />
-                </IconButton>
-              )}
+              {hasPlaylist && <ButtonPlaylist onClick={onShowPlaylist} />}
               <PlayPauseButton
                 playing={playing}
                 loading={loading}

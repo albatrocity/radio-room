@@ -34,6 +34,7 @@ import { createAdminController } from "./controllers/adminController"
 import { createAuthController, me, logout } from "./controllers/authController"
 import { createDJController } from "./controllers/djController"
 import { createPollController } from "./controllers/pollController"
+import { createFeedbackController } from "./controllers/feedbackController"
 import { createLobbyController } from "./controllers/lobbyController"
 import { createMessageController } from "./controllers/messageController"
 import {
@@ -406,6 +407,7 @@ export class RadioRoomServer {
       createDJController(socketWithContext, this.io)
       createAdminController(socketWithContext, this.io)
       createPollController(socketWithContext, this.io)
+      createFeedbackController(socketWithContext, this.io)
       createRoomsController(socketWithContext, this.io)
       createLobbyController(socketWithContext)
     })

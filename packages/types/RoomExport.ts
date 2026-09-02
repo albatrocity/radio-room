@@ -5,6 +5,7 @@ import type { QueueItem } from "./Queue"
 import type { ChatMessage } from "./ChatMessage"
 import type { ReactionStore } from "./Reaction"
 import type { PollHistoryEntry } from "./Poll"
+import type { FeedbackExportData } from "./Feedback"
 
 // =============================================================================
 // Export Format Schema & Type
@@ -80,6 +81,11 @@ export interface RoomExportData {
    * Includes question, options, vote tallies, and winners.
    */
   polls: PollHistoryEntry[]
+
+  /**
+   * Feedback topics (active + archived + general) with per-user responses (ADR 0145).
+   */
+  feedback?: FeedbackExportData
 
   /**
    * Snapshot of how many users were counted as listening via each transport

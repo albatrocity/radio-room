@@ -5,6 +5,7 @@ import { gameStateNavActor } from "../actors/gameStateNavActor"
 import { emitToSocket } from "../actors/socketActor"
 import { refreshUserGameState } from "../actors/userGameStateActor"
 import { canAddToQueue as canDjAddToQueue } from "../actors/djActor"
+import { notifyNotificationLocation } from "../lib/notificationLocationSink"
 
 type Context = {
   /**
@@ -24,8 +25,11 @@ export type Event =
   | { type: "VIEW_SCHEDULE" }
   | { type: "VIEW_GAME_STATE" }
   | { type: "VIEW_POLL_HISTORY" }
+  | { type: "VIEW_FEEDBACK" }
   | { type: "CLOSE" }
   | { type: "CLOSE_QUEUE" }
+  | { type: "CLOSE_FEEDBACK" }
+  | { type: "CLOSE_HELP" }
   | { type: "CREATE_ROOM" }
   | { type: "BACK" }
   | { type: "EDIT_CONTENT" }
@@ -36,6 +40,7 @@ export type Event =
   | { type: "EDIT_SCHEDULE" }
   | { type: "EDIT_GAME_SESSIONS" }
   | { type: "EDIT_POLLS" }
+  | { type: "EDIT_FEEDBACK" }
   | { type: "EDIT_PLAYLIST_DEMOCRACY" }
   | { type: "EDIT_SPECIAL_WORDS" }
   | { type: "EDIT_ABSENT_DJ" }
@@ -68,6 +73,7 @@ const settingsSectionOn = {
   EDIT_SCHEDULE: ".schedule",
   EDIT_GAME_SESSIONS: ".game_sessions",
   EDIT_POLLS: ".polls",
+  EDIT_FEEDBACK: ".feedback",
   EDIT_PLAYLIST_DEMOCRACY: ".playlist_democracy",
   EDIT_SPECIAL_WORDS: ".special_words",
   EDIT_ABSENT_DJ: ".absent_dj",
@@ -114,6 +120,15 @@ export const modalsMachine = setup({
     deactivateGameStateNav: () => {
       gameStateNavActor.send({ type: "DEACTIVATE" })
     },
+    enterFeedbackLocation: () => {
+      notifyNotificationLocation({ surface: "feedback" })
+    },
+    enterAdminFeedbackLocation: () => {
+      notifyNotificationLocation({ surface: "adminSettings", tabId: "feedback" })
+    },
+    clearNotificationLocation: () => {
+      notifyNotificationLocation({ surface: null })
+    },
   },
 }).createMachine({
   id: "modals",
@@ -136,6 +151,7 @@ export const modalsMachine = setup({
         EDIT_SCHEDULE: openSettingsSection("schedule"),
         EDIT_GAME_SESSIONS: openSettingsSection("game_sessions"),
         EDIT_POLLS: openSettingsSection("polls"),
+        EDIT_FEEDBACK: openSettingsSection("feedback"),
         EDIT_PLAYLIST_DEMOCRACY: openSettingsSection("playlist_democracy"),
         EDIT_SPECIAL_WORDS: openSettingsSection("special_words"),
         EDIT_ABSENT_DJ: openSettingsSection("absent_dj"),
@@ -150,7 +166,6 @@ export const modalsMachine = setup({
         EDIT_ROUND_ROBIN_DJ: openSettingsSection("round_robin_dj"),
         EDIT_PLAYLIST_BINGO: openSettingsSection("playlist_bingo"),
         EDIT_MUSIC_UPLOAD: openSettingsSection("music_upload"),
-        VIEW_HELP: ".help",
         VIEW_BOOKMARKS: {
           target: ".bookmarks",
           guard: "isAdmin",
@@ -167,7 +182,6 @@ export const modalsMachine = setup({
         closed: {},
         username: {},
         listeners: {},
-        help: {},
         schedule: {},
         gameState: {
           entry: ["activateGameStateNav"],
@@ -198,6 +212,11 @@ export const modalsMachine = setup({
             schedule: { on: { BACK: "overview" } },
             game_sessions: { on: { BACK: "overview" } },
             polls: { on: { BACK: "overview" } },
+            feedback: {
+              entry: ["enterAdminFeedbackLocation"],
+              exit: ["clearNotificationLocation"],
+              on: { BACK: "overview" },
+            },
             reaction_triggers: { on: { BACK: "overview" } },
             message_triggers: { on: { BACK: "overview" } },
             quiz_sessions: { on: { BACK: "overview" } },
@@ -224,6 +243,31 @@ export const modalsMachine = setup({
           target: ".closed",
           actions: "clearQueueBrowseMediaKey",
         },
+      },
+      states: {
+        closed: {},
+        open: {},
+      },
+    },
+    feedback: {
+      initial: "closed",
+      on: {
+        VIEW_FEEDBACK: ".open",
+        CLOSE_FEEDBACK: ".closed",
+      },
+      states: {
+        closed: {},
+        open: {
+          entry: ["enterFeedbackLocation"],
+          exit: ["clearNotificationLocation"],
+        },
+      },
+    },
+    help: {
+      initial: "closed",
+      on: {
+        VIEW_HELP: ".open",
+        CLOSE_HELP: ".closed",
       },
       states: {
         closed: {},

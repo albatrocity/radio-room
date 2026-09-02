@@ -23,11 +23,11 @@ import {
   LuMessageCircle,
   LuMic,
   LuMusic,
-  LuPencil,
 } from "react-icons/lu"
 import type { AdminAssignablePersona } from "@repo/types"
 import { User } from "../types/User"
 import { PluginArea } from "./PluginComponents"
+import ButtonEditUsername from "./ButtonEditUsername"
 import { listItemUserRecipe } from "../theme/listItemUserRecipe"
 import { UserEffectBars } from "./UserEffectBars"
 import { getUserListPersonaBadges, userHasPersona } from "../lib/userPersonas"
@@ -153,18 +153,7 @@ const ListItemUser = ({
           </HStack>
 
           <HStack css={styles.actions}>
-            {isSelf && (
-              <IconButton
-                variant="plain"
-                aria-label="Edit Username"
-                onClick={() => {
-                  onEditUser(user)
-                }}
-                size="xs"
-              >
-                <LuPencil />
-              </IconButton>
-            )}
+            {isSelf && <ButtonEditUsername onClick={() => onEditUser(user)} />}
             {currentUser?.isAdmin && !isSelf && (
               <Tooltip
                 positioning={{ placement: "top" }}

@@ -246,6 +246,8 @@ export class AuthService {
         totalVotes: initPayload.pollInit.totalVotes,
         pollHistory: initPayload.pollInit.pollHistory,
         ...(initPayload.pollInit.myVote ? { myVote: initPayload.pollInit.myVote } : {}),
+        feedbackTopics: initPayload.feedbackInit.feedbackTopics,
+        myFeedbackResponses: initPayload.feedbackInit.myFeedbackResponses,
         ...(initPayload.streamHealthStatus
           ? { streamHealthStatus: initPayload.streamHealthStatus }
           : {}),

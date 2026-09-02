@@ -50,6 +50,7 @@ import { chatScrollTargetActor } from "../actors/chatScrollTargetActor"
 import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
+import { feedbackActor } from "../actors/feedbackActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
 import { addToQueueUiActor } from "../actors/addToQueueUiActor"
 import { gameStateNavActor } from "../actors/gameStateNavActor"
@@ -107,6 +108,7 @@ const sendToMetadataPreference = boundSendRef(metadataPreferenceActor)
 const sendToLobby = boundSendRef(lobbyActor)
 const sendToAdminListener = boundSendRef(adminListenerStateActor)
 const sendToPoll = boundSendRef(pollActor)
+const sendToFeedback = boundSendRef(feedbackActor)
 const sendToQuickAccessPanels = boundSendRef(quickAccessPanelsActor)
 const sendToAddToQueueUi = boundSendRef(addToQueueUiActor)
 const sendToMediaBridge = boundSendRef(mediaBridgeActor)
@@ -832,6 +834,31 @@ export const useVotePending = () => {
 }
 
 export const usePollSend = () => sendToPoll
+
+export const useFeedbackTopics = () => {
+  return useSelector(feedbackActor, (s) => s.context.topics)
+}
+
+export const useMyFeedbackResponses = () => {
+  return useSelector(feedbackActor, (s) => s.context.myResponses)
+}
+
+export const useFeedbackInbox = () => {
+  return useSelector(feedbackActor, (s) => s.context.inbox)
+}
+
+export const useFeedbackInboxTopics = () => {
+  return useSelector(feedbackActor, (s) => s.context.inboxTopics)
+}
+
+export const useFeedbackSend = () => sendToFeedback
+
+export const useFeedbackLastFailed = () => {
+  return useSelector(feedbackActor, (s) => ({
+    topicId: s.context.lastFailedTopicId,
+    at: s.context.lastFailedAt,
+  }))
+}
 
 // ============================================================================
 // Quick Access Panels Hooks

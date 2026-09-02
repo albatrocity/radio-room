@@ -23,7 +23,7 @@ Add to Queue is a blocking overlay (dialog / bottom sheet), not a panel slot. Li
 - Opening Add to Queue from the player (or `ctrl+a`) no longer collapses a docked Game State / Settings column; dismissing the queue returns to the same panel.
 - Two layers can be open at once (panel + queue). Dismiss events are scoped: panel chrome still sends `CLOSE`; the queue dialog sends `CLOSE_QUEUE`.
 - Call sites that used `state.matches("queue")` or `state.matches("closed")` must use the helpers (or `queue.open` / `{ modal: "closed", queue: "closed" }`).
-- Follow-up: other overlays could move to the `queue` pattern if they should also sit on the panel; that is not implied here.
+- Follow-up: other overlays could move to the `queue` pattern if they should also sit on the panel; that is not implied here. **Done for Feedback and Help:** [0146](0146-feedback-overlays-integrated-panel.md).
 
 ## See also
 

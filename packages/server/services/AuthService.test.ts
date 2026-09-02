@@ -21,12 +21,17 @@ import { onListeningUserDisconnected } from "../operations/room/listeningTranspo
 import systemMessage from "../lib/systemMessage"
 
 const loadPollInitDataMock = vi.hoisted(() => vi.fn())
+const loadFeedbackInitDataMock = vi.hoisted(() => vi.fn())
 
 // Mock the operations that interact with Redis
 vi.mock("../operations/data")
 
 vi.mock("../operations/polls/loadPollSnapshot", () => ({
   loadPollInitData: loadPollInitDataMock,
+}))
+
+vi.mock("../operations/feedback/loadFeedbackSnapshot", () => ({
+  loadFeedbackInitData: loadFeedbackInitDataMock,
 }))
 
 vi.mock("../operations/room/listeningTransportStats", () => ({
@@ -65,6 +70,10 @@ describe("AuthService", () => {
       myVote: null,
       totalVotes: null,
       pollHistory: [],
+    })
+    loadFeedbackInitDataMock.mockResolvedValue({
+      feedbackTopics: [],
+      myFeedbackResponses: {},
     })
 
     mockContext = {

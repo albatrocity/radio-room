@@ -27,5 +27,10 @@ describe("modalsState", () => {
     actor.send({ type: "EDIT_QUEUE" })
     expect(matchesModals(actor.getSnapshot(), "gameState")).toBe(true)
     expect(matchesModals(actor.getSnapshot(), "queue")).toBe(true)
+
+    actor.send({ type: "VIEW_FEEDBACK" })
+    expect(matchesModals(actor.getSnapshot(), "gameState")).toBe(true)
+    expect(matchesModals(actor.getSnapshot(), "queue")).toBe(true)
+    expect(matchesModals(actor.getSnapshot(), "feedback")).toBe(true)
   })
 })

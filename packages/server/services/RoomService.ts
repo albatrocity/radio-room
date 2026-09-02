@@ -9,6 +9,7 @@ import {
 } from "../operations/data"
 import { readRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 import { loadPollRoomDataSince } from "../operations/polls/loadPollSnapshot"
+import { loadFeedbackRoomData } from "../operations/feedback/loadFeedbackSnapshot"
 
 /**
  * A service that handles Room-related operations without Socket.io dependencies
@@ -75,6 +76,12 @@ export class RoomService {
       since: snapshot.lastPollChange,
     })
 
+    const feedbackData = await loadFeedbackRoomData({
+      context: this.context,
+      roomId: room.id,
+      userId,
+    })
+
     return {
       room: isAdmin ? room : removeSensitiveRoomAttributes(room),
       messages,
@@ -83,6 +90,8 @@ export class RoomService {
       activePoll: pollData.activePoll,
       totalVotes: pollData.totalVotes,
       pollHistorySince: pollData.pollHistorySince,
+      feedbackTopics: feedbackData.feedbackTopics,
+      myFeedbackResponses: feedbackData.myFeedbackResponses,
     }
   }
 }

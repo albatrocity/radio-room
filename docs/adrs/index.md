@@ -150,6 +150,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0142](0142-track-playlist-stats.md) | Track playlist stats (published-show history) | Accepted |
 | [0143](0143-resizable-room-layout-columns-at-md.md) | Resizable room layout columns at md+ (integrated panel stays lg+) | Accepted |
 | [0144](0144-client-notification-center.md) | Client notification center (attention records + toasts) | Accepted |
+| [0145](0145-feedback-topics-as-core-feature.md) | Feedback topics as a core feature (Redis + admin inbox + export) | Accepted |
+| [0146](0146-feedback-overlays-integrated-panel.md) | Feedback overlays the integrated panel (`modalsMachine` parallel `feedback` region) | Accepted |
 
 ## Creating a New ADR
 

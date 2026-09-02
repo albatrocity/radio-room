@@ -38,6 +38,12 @@ import {
 import { bridgePluginSchemasForApi } from "./stubPluginSchemas.js"
 import { buildStubActivePoll } from "./stubPoll.js"
 import {
+  buildStubFeedbackTopics,
+  GENERAL_FEEDBACK_TOPIC_ID,
+  listStudioFeedbackInbox,
+  upsertStudioFeedbackResponse,
+} from "./stubFeedback.js"
+import {
   QUIZ_PREVIEW_PLUGIN,
   buildStubQuizComponentState,
   buildStubQuizSessionStarted,
@@ -1846,6 +1852,102 @@ function wireSocketHandlers(io: IOServer): void {
       io.to(roomSocketPath(roomId)).emit("event", {
         type: "POLL_DELETED",
         data: { roomId, pollId: ack.deletedPollId ?? pollId },
+      })
+    })
+
+    socket.on(
+      "SET_FEEDBACK_TOPICS",
+      (data: { topics?: { id?: string; title: string; description?: string }[] }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const snap = getBridgeSnapshot()
+        if (!roomId || !snap || snap.roomId !== roomId) return
+        const now = Date.now()
+        const topics = (data?.topics ?? []).map((t, i) => ({
+          id: t.id ?? `studio-feedback-${i}-${now}`,
+          title: t.title,
+          description: t.description,
+          sortOrder: i,
+          status: "active" as const,
+          createdAt: now,
+          updatedAt: now,
+        }))
+        snap.feedbackTopics = topics
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "FEEDBACK_TOPICS_CHANGED",
+          data: { roomId, topics },
+        })
+      },
+    )
+
+    socket.on(
+      "SAVE_FEEDBACK_RESPONSE",
+      (data: { topicId?: string; vote?: "up" | "down"; comment?: string }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        const username = (socket.data.username as string | undefined) ?? "Unknown"
+        const topicId = data?.topicId
+        if (!roomId || !userId || !topicId) {
+          socket.emit("event", {
+            type: "FEEDBACK_RESPONSE_FAILED",
+            data: { topicId: topicId ?? "", reason: "UNAUTHORIZED" },
+          })
+          return
+        }
+        const result = upsertStudioFeedbackResponse({
+          roomId,
+          userId,
+          username,
+          topicId,
+          vote: data.vote,
+          comment: data.comment,
+        })
+        if (!result.ok) {
+          socket.emit("event", {
+            type: "FEEDBACK_RESPONSE_FAILED",
+            data: { topicId, reason: result.reason },
+          })
+          return
+        }
+        socket.emit("event", {
+          type: "FEEDBACK_RESPONSE_SAVED",
+          data: { response: result.response },
+        })
+        socket.emit("event", {
+          type: "FEEDBACK_INBOX_UPDATED",
+          data: {
+            entry: {
+              topicId: result.response.topicId,
+              userId: result.response.userId,
+              username,
+              vote: result.response.vote,
+              comment: result.response.comment,
+              updatedAt: result.response.updatedAt,
+            },
+          },
+        })
+      },
+    )
+
+    socket.on("GET_FEEDBACK_INBOX", () => {
+      const roomId = socket.data.roomId as string | undefined
+      const snap = getBridgeSnapshot()
+      if (!roomId || !snap || snap.roomId !== roomId) return
+      const usernameById = new Map(snap.users.map((u) => [u.userId, u.username]))
+      const responses = listStudioFeedbackInbox(roomId, usernameById)
+      const topics = [
+        ...(snap.feedbackTopics ?? buildStubFeedbackTopics()),
+        {
+          id: GENERAL_FEEDBACK_TOPIC_ID,
+          title: "General feedback",
+          sortOrder: Number.MAX_SAFE_INTEGER,
+          status: "active" as const,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ]
+      socket.emit("event", {
+        type: "FEEDBACK_INBOX",
+        data: { topics, responses },
       })
     })
 

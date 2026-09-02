@@ -6,6 +6,7 @@ import {
   useAdminSend,
   useHasActiveGameSession,
   useActivePoll,
+  useTabNotificationIds,
 } from "../../../hooks/useActors"
 import {
   Box,
@@ -39,6 +40,8 @@ function Overview() {
   const hasActiveGameSession = useHasActiveGameSession()
   const activePoll = useActivePoll()
   const hasActiveOpenPoll = activePoll?.status === "open"
+  const adminTabNotifs = useTabNotificationIds("adminSettings")
+  const hasFeedbackInboxAttention = adminTabNotifs.has("feedback")
 
   const hasPassword = !!settings.password
   const hasSettings = !!settings.extraInfo || !!settings.artwork || !!settings.radioMetaUrl
@@ -195,6 +198,21 @@ function Overview() {
                 Polls
                 <HStack>
                   {hasActiveOpenPoll && <ActiveIndicator />}
+                  <LuChevronRight />
+                </HStack>
+              </Button>
+              <Button
+                variant="subtle"
+                borderRadius="none"
+                w="100%"
+                textAlign="left"
+                fontWeight="400"
+                justifyContent="space-between"
+                onClick={() => send({ type: "EDIT_FEEDBACK" })}
+              >
+                Feedback
+                <HStack>
+                  {hasFeedbackInboxAttention && <ActiveIndicator />}
                   <LuChevronRight />
                 </HStack>
               </Button>

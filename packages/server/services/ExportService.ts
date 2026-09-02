@@ -18,6 +18,7 @@ import {
   getUsersByIds,
 } from "../operations/data"
 import { getPollHistoryEntries } from "../operations/data/polls"
+import { loadFeedbackExportData } from "../operations/feedback/loadFeedbackExportData"
 import {
   getListeningTransportCounts,
   shouldSnapshotListeningTransports,
@@ -101,7 +102,7 @@ export class ExportService {
     playlistOverride?: QueueItem[],
   ): Promise<RoomExportData> {
     // Fetch all data in parallel (including user history IDs)
-    const [room, playlist, messages, users, queue, reactions, userHistoryIds, pollHistory] =
+    const [room, playlist, messages, users, queue, reactions, userHistoryIds, pollHistory, feedback] =
       await Promise.all([
       findRoom({ context: this.context, roomId }),
       playlistOverride !== undefined
@@ -113,6 +114,7 @@ export class ExportService {
       getAllRoomReactions({ context: this.context, roomId }),
       getRoomUserHistory({ context: this.context, roomId }),
       getPollHistoryEntries({ context: this.context, roomId, limit: 100 }),
+      loadFeedbackExportData({ context: this.context, roomId }),
     ])
 
     if (!room) {
@@ -147,6 +149,7 @@ export class ExportService {
       queue,
       reactions: reactions || { message: {}, track: {} },
       polls: pollHistory,
+      feedback,
       ...(listeningTransportSnapshot ? { listeningTransportSnapshot } : {}),
     }
   }

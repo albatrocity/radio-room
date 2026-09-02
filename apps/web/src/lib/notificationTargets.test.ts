@@ -42,6 +42,27 @@ describe("locationMatchesTarget", () => {
     ).toBe(false)
   })
 
+  it("matches feedback surface", () => {
+    expect(
+      locationMatchesTarget({ surface: "feedback" }, { surface: "feedback" }),
+    ).toBe(true)
+  })
+
+  it("matches adminSettings feedback tab", () => {
+    expect(
+      locationMatchesTarget(
+        { surface: "adminSettings", tabId: "feedback" },
+        { surface: "adminSettings", tabId: "feedback" },
+      ),
+    ).toBe(true)
+    expect(
+      locationMatchesTarget(
+        { surface: "adminSettings", tabId: "overview" },
+        { surface: "adminSettings", tabId: "feedback" },
+      ),
+    ).toBe(false)
+  })
+
   it("returns false when surface is null", () => {
     expect(
       locationMatchesTarget({ surface: null }, {

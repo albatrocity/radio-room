@@ -17,6 +17,7 @@ import {
 } from "./handleStreamHealth"
 import { isAppControlledPlayback, isHybridRadioRoom } from "../../lib/roomTypeHelpers"
 import { loadPollInitData } from "../polls/loadPollSnapshot"
+import { loadFeedbackInitData } from "../feedback/loadFeedbackSnapshot"
 
 /** Most recent playlist rows included in INIT; older history loads via drawers / since-queries. */
 export const INIT_PLAYLIST_COUNT = 200
@@ -37,6 +38,7 @@ export type RoomInitPayload = {
   assignablePersonas: ReturnType<typeof toAdminAssignablePersonas>
   accessToken: string | undefined
   pollInit: Awaited<ReturnType<typeof loadPollInitData>>
+  feedbackInit: Awaited<ReturnType<typeof loadFeedbackInitData>>
   effectiveMetadataSourceIds?: string[]
   browseableSourceIds?: string[]
   browseSourceCapabilities?: Record<
@@ -74,6 +76,7 @@ export async function buildRoomInitPayload(params: {
     assignablePersonas,
     accessToken,
     pollInit,
+    feedbackInit,
     metadataAccess,
   ] = await Promise.all([
     getMessages({ context, roomId, offset: 0, size: 100 }),
@@ -132,6 +135,7 @@ export async function buildRoomInitPayload(params: {
       }
     })(),
     loadPollInitData({ context, roomId, userId }),
+    loadFeedbackInitData({ context, roomId, userId }),
     (async (): Promise<{
       effectiveMetadataSourceIds?: string[]
       browseableSourceIds?: string[]
@@ -182,6 +186,7 @@ export async function buildRoomInitPayload(params: {
     assignablePersonas,
     accessToken,
     pollInit,
+    feedbackInit,
     ...metadataAccess,
   }
 }

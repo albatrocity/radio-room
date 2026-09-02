@@ -7,6 +7,7 @@ import { QueueItem } from "@repo/types/Queue"
 
 const mockIsRoomAdmin = vi.hoisted(() => vi.fn())
 const loadPollRoomDataSinceMock = vi.hoisted(() => vi.fn())
+const loadFeedbackRoomDataMock = vi.hoisted(() => vi.fn())
 
 // Mock dependencies
 vi.mock("../operations/data", () => ({
@@ -19,6 +20,10 @@ vi.mock("../operations/data", () => ({
 
 vi.mock("../operations/polls/loadPollSnapshot", () => ({
   loadPollRoomDataSince: loadPollRoomDataSinceMock,
+}))
+
+vi.mock("../operations/feedback/loadFeedbackSnapshot", () => ({
+  loadFeedbackRoomData: loadFeedbackRoomDataMock,
 }))
 
 // Import mocked dependencies
@@ -58,6 +63,10 @@ describe("RoomService", () => {
       activePoll: null,
       totalVotes: null,
       pollHistorySince: [],
+    })
+    loadFeedbackRoomDataMock.mockResolvedValue({
+      feedbackTopics: [],
+      myFeedbackResponses: {},
     })
     mockContext = appContextFactory.build()
     roomService = new RoomService(mockContext)
@@ -172,6 +181,8 @@ describe("RoomService", () => {
         activePoll: null,
         totalVotes: null,
         pollHistorySince: [],
+        feedbackTopics: [],
+        myFeedbackResponses: {},
       })
 
       expect(removeSensitiveRoomAttributes).not.toHaveBeenCalled()
@@ -208,6 +219,8 @@ describe("RoomService", () => {
         activePoll: null,
         totalVotes: null,
         pollHistorySince: [],
+        feedbackTopics: [],
+        myFeedbackResponses: {},
       })
     })
 
