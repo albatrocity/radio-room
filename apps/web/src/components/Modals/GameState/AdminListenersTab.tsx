@@ -1,6 +1,7 @@
 import { Box, Button, HStack, Spinner, Stack, Table, Text } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
 import { useMemo } from "react"
+import { itemDefinitionMap } from "../../../lib/itemDefinitionMap"
 import {
   useAdminListenerError,
   useAdminListenerLoading,
@@ -35,13 +36,10 @@ export default function AdminListenersTab() {
   const loading = useAdminListenerLoading()
   const error = useAdminListenerError()
 
-  const definitionMap = useMemo(() => {
-    const map = new Map<string, ItemDefinition>()
-    for (const def of payload?.itemDefinitions ?? EMPTY_DEFINITIONS) {
-      map.set(def.id, def)
-    }
-    return map
-  }, [payload?.itemDefinitions])
+  const definitionMap = useMemo(
+    () => itemDefinitionMap(payload?.itemDefinitions ?? EMPTY_DEFINITIONS),
+    [payload?.itemDefinitions],
+  )
 
   const rows = useMemo(() => {
     const list = payload?.listeners ?? []

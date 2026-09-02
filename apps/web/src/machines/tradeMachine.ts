@@ -1,13 +1,11 @@
 import { setup, assign } from "xstate"
-import type { InventoryItem, ItemDefinition, TradeSession } from "@repo/types"
+import type { TradeSession } from "@repo/types"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { getCurrentUser } from "../actors/authActor"
 
 export type TradeMachineContext = {
   subscriptionId: string | null
   trade: TradeSession | null
-  myInventory: InventoryItem[]
-  definitions: ItemDefinition[]
   lastError: string | null
   /** Counterparty currently typing (ephemeral TRADE_TYPING). */
   counterpartTyping: boolean
@@ -29,8 +27,6 @@ export type TradeMachineEvent =
   | {
       type: "USER_GAME_STATE"
       data?: {
-        inventory?: { items: InventoryItem[] } | null
-        itemDefinitions?: ItemDefinition[]
         activeTrade?: TradeSession | null
       }
     }
@@ -101,8 +97,6 @@ export const tradeMachine = setup({
     assignFromGameState: assign(({ event }) => {
       if (event.type !== "USER_GAME_STATE") return {}
       return {
-        myInventory: event.data?.inventory?.items ?? [],
-        definitions: event.data?.itemDefinitions ?? [],
         trade: event.data?.activeTrade ?? null,
         counterpartTyping: false,
       }
@@ -119,8 +113,6 @@ export const tradeMachine = setup({
     reset: assign({
       subscriptionId: () => null,
       trade: () => null,
-      myInventory: () => [],
-      definitions: () => [],
       lastError: () => null,
       counterpartTyping: () => false,
     }),
@@ -131,8 +123,6 @@ export const tradeMachine = setup({
   context: {
     subscriptionId: null,
     trade: null,
-    myInventory: [],
-    definitions: [],
     lastError: null,
     counterpartTyping: false,
   },

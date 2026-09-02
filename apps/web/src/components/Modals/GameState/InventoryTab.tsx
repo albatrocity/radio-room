@@ -3,16 +3,16 @@ import { Badge, Box, Center, HStack, Heading, Stack, Text, VStack } from "@chakr
 import type { InventoryItem, ItemDefinition } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket } from "../../../actors/socketActor"
+import { subscribeInventoryActionResult } from "../../../lib/inventoryActionResult"
 import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import ItemArtwork from "../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
-import { toaster } from "../../ui/toaster"
-import { InventoryUseButton } from "./InventoryUseButton"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
 import ItemDetailListItem, { itemDetailListItemFrameProps } from "./ItemDetailListItem"
 import { buildItemDetailFrame } from "./itemDetailFrame"
 import { useOpenItemDetail } from "./useOpenItemDetail"
 import InventoryGiftSellControls from "./InventoryGiftSellControls"
+import { InventoryUseButton } from "./InventoryUseButton"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -61,7 +61,7 @@ function InventoryRow({
   const opensDetail = Boolean(detailView && definition?.shortId)
 
   const [pendingUse, setPendingUse] = useState<PendingUse>(null)
-  const { subscribe } = useSocketResultHandle()
+  const { track } = useSocketResultHandle()
 
   const dispatchUse = (extra?: {
     targetUserId?: string
@@ -71,23 +71,13 @@ function InventoryRow({
     coinAmount?: number
   }) => {
     setPendingUse({ itemId: item.itemId })
-    subscribe<{ success: boolean; title?: string; message?: string }>({
-      id: `inventory-use-${item.itemId}-${Date.now()}`,
-      eventType: "INVENTORY_ACTION_RESULT",
-      onResult: (data) => {
-        setPendingUse(null)
-        const blocked =
-          !data.success &&
-          typeof data.message === "string" &&
-          data.message.toLowerCase().includes("blocked")
-        toaster.create({
-          title: data.title ?? (data.success ? "Success" : blocked ? "Blocked" : "Error"),
-          description: data.message || (data.success ? "Action completed" : "Action failed"),
-          type: data.success ? "success" : blocked ? "warning" : "error",
-        })
-      },
-      onTimeout: () => setPendingUse(null),
-    })
+    track(
+      subscribeInventoryActionResult({
+        id: `inventory-use-${item.itemId}-${Date.now()}`,
+        onSettled: () => setPendingUse(null),
+        onTimeout: () => setPendingUse(null),
+      }),
+    )
 
     emitToSocket("USE_INVENTORY_ITEM", {
       itemId: item.itemId,

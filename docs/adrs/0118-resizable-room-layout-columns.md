@@ -1,7 +1,7 @@
 # 0118. Resizable room layout columns (lg+)
 
 **Date:** 2026-08-26
-**Status:** Accepted
+**Status:** Partially superseded by [0143](0143-resizable-room-layout-columns-at-md.md) (splitter starts at md; storage, 3/4-panel keys, and constraints remain)
 
 ## Context
 
@@ -26,6 +26,7 @@ The room desktop layout fixed column widths via CSS Grid (`md` token, sidebar `1
 ## See also
 
 - [0117. Integrated room panel slot (lg+)](0117-integrated-room-panel-slot.md)
+- [0143. Resizable room layout columns at md+](0143-resizable-room-layout-columns-at-md.md)
 - [0105. Add to Queue UI session persistence](0105-add-to-queue-ui-session-persistence.md)
 - `apps/web/src/lib/roomLayoutStorage.ts`
 - `apps/web/src/machines/roomLayoutMachine.ts`

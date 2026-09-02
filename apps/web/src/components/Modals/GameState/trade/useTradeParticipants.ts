@@ -1,6 +1,6 @@
 import { useSelector } from "@xstate/react"
 import { useCurrentUser, useUserGameStatePayload } from "../../../../hooks/useActors"
-import { getUserById } from "../../../../actors/usersActor"
+import { displayNameForUserId } from "../../../../lib/listenerDisplayName"
 import { tradeActor } from "../../../../actors/tradeActor"
 
 export function useTradeParticipants(tradeId: string) {
@@ -22,7 +22,7 @@ export function useTradeParticipants(tradeId: string) {
         ? activeTrade.toUserId
         : activeTrade.fromUserId
       : null
-  const otherName = otherId ? getUserById(otherId)?.username?.trim() || "them" : "them"
+  const otherName = otherId ? displayNameForUserId(otherId, "them") : "them"
   const mine = myId && activeTrade ? activeTrade.participants[myId] : undefined
   const theirs = otherId && activeTrade ? activeTrade.participants[otherId] : undefined
   const bothLocked = !!(mine?.locked && theirs?.locked)

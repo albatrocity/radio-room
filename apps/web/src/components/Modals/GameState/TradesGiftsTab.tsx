@@ -1,15 +1,18 @@
 import { useMemo } from "react"
 import { Box, Button, Heading, HStack, Stack, Text, VStack } from "@chakra-ui/react"
 import { PLAYER_TRANSFER_TTL_MS, type TradeInvite, type TradeSession } from "@repo/types"
-import { emitToSocket } from "../../../actors/socketActor"
-import { getUserById } from "../../../actors/usersActor"
 import { useCurrentUser } from "../../../hooks/useActors"
 import { TRADES_GIFTS_TAB } from "../../../constants/gameStateTabs"
+import { counterpartyLabel } from "../../../lib/listenerDisplayName"
+import {
+  emitTradeInvite,
+  emitTradeInviteCancel,
+  emitTradeInviteRespond,
+} from "../../../lib/tradeSocketActions"
 import { useUserGameState } from "../UserGameStateContext"
 import { InventoryTargetUserPopover } from "./TargetUserPicker"
 import PendingGiftsPanel from "./PendingGiftsPanel"
 import { useOpenTabDetail } from "./useOpenTabDetail"
-import { emitTradeInviteCancel, emitTradeInviteRespond } from "../../../lib/tradeSocketActions"
 import { LuChevronRight } from "react-icons/lu"
 
 function formatTimeRemaining(createdAt: number): string {
@@ -17,11 +20,6 @@ function formatTimeRemaining(createdAt: number): string {
   if (remaining <= 0) return "Expired"
   const mins = Math.ceil(remaining / 60_000)
   return `${mins}m left`
-}
-
-function counterpartyLabel(userId: string, me: string | undefined): string {
-  if (userId === me) return "you"
-  return getUserById(userId)?.username?.trim() || "Someone"
 }
 
 function inviteSummary(
@@ -198,7 +196,7 @@ export default function TradesGiftsTab() {
                   includeSelf={false}
                   placeholder="Trade with…"
                   size="sm"
-                  onPick={(toUserId) => emitToSocket("TRADE_INVITE", { toUserId })}
+                  onPick={(toUserId) => emitTradeInvite(toUserId)}
                 >
                   <Button size="sm" variant="outline">
                     Request a trade…

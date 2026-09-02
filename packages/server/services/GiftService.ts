@@ -1,4 +1,10 @@
 import type { AppContext, GiftActionResult, GiftOffer, InventoryItem } from "@repo/types"
+import {
+  failIfDuplicateGiftPair,
+  failIfOutgoingGift,
+  failIfSelfTransfer,
+  failIfTradingDisabled,
+} from "@repo/game-logic"
 import generateId from "../lib/generateId"
 import { hydrateIndexedJson } from "../lib/hydrateIndexedJson"
 import { InventoryService } from "./InventoryService"
@@ -61,25 +67,21 @@ export class GiftService {
     const inv = this.inventory
     if (!inv) return { success: false, message: "Inventory unavailable" }
 
-    if (fromUserId === toUserId) {
-      return { success: false, message: "You can't gift an item to yourself" }
-    }
+    const self = failIfSelfTransfer(fromUserId, toUserId, "gift")
+    if (self) return self
 
-    if (!(await this.assertTradingAllowed(roomId))) {
-      return { success: false, message: "Trading is not enabled for this session" }
-    }
+    const trading = failIfTradingDisabled(await this.assertTradingAllowed(roomId))
+    if (trading) return trading
 
     const outgoing = await this.listOutgoing(roomId, fromUserId)
-    if (outgoing.length > 0) {
-      return { success: false, message: "You already have a pending gift offer" }
-    }
+    const outgoingBusy = failIfOutgoingGift(outgoing.length > 0)
+    if (outgoingBusy) return outgoingBusy
 
     const existingPair = (await this.listIncoming(roomId, toUserId)).find(
       (o) => o.fromUserId === fromUserId,
     )
-    if (existingPair) {
-      return { success: false, message: "You already have a pending gift to that listener" }
-    }
+    const pairBusy = failIfDuplicateGiftPair(Boolean(existingPair))
+    if (pairBusy) return pairBusy
 
     try {
       return await inv.withInventoryLocks(roomId, [fromUserId], async () => {
@@ -144,9 +146,8 @@ export class GiftService {
     if (offer.toUserId !== userId) {
       return { success: false, message: "This gift is not for you" }
     }
-    if (!(await this.assertTradingAllowed(roomId))) {
-      return { success: false, message: "Trading is not enabled for this session" }
-    }
+    const trading = failIfTradingDisabled(await this.assertTradingAllowed(roomId))
+    if (trading) return trading
 
     try {
       return await inv.withInventoryLocks(roomId, [offer.fromUserId, offer.toUserId], async () => {

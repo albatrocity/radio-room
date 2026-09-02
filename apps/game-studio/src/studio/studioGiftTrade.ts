@@ -10,6 +10,15 @@ import type {
   TradeParticipantState,
   TradeSession,
 } from "@repo/types"
+import {
+  failIfActiveTrade,
+  failIfDuplicateGiftPair,
+  failIfDuplicateInvitePair,
+  failIfOutgoingGift,
+  failIfOutgoingInvite,
+  failIfSelfTransfer,
+  failIfTradingDisabled,
+} from "@repo/game-logic"
 import { PLAYER_TRANSFER_TTL_MS } from "@repo/types/PlayerTransfer"
 import { TRADE_MESSAGE_MAX_LENGTH, draftFromEscrowedOffer } from "@repo/types"
 import type { StudioRoom } from "./studioRoom"
@@ -133,18 +142,16 @@ export async function studioOfferGift(params: {
   const { fromUserId, toUserId, itemId } = params
   const quantity = Math.max(1, Math.floor(params.quantity ?? 1))
 
-  if (fromUserId === toUserId) {
-    return { success: false, message: "You can't gift an item to yourself" }
-  }
-  if (!tradingAllowed(room)) {
-    return { success: false, message: "Trading is not enabled for this session" }
-  }
-  if (room.pendingGifts.some((o) => o.fromUserId === fromUserId)) {
-    return { success: false, message: "You already have a pending gift offer" }
-  }
-  if (room.pendingGifts.some((o) => o.fromUserId === fromUserId && o.toUserId === toUserId)) {
-    return { success: false, message: "You already have a pending gift to that listener" }
-  }
+  const self = failIfSelfTransfer(fromUserId, toUserId, "gift")
+  if (self) return self
+  const trading = failIfTradingDisabled(tradingAllowed(room))
+  if (trading) return trading
+  const outgoingBusy = failIfOutgoingGift(room.pendingGifts.some((o) => o.fromUserId === fromUserId))
+  if (outgoingBusy) return outgoingBusy
+  const pairBusy = failIfDuplicateGiftPair(
+    room.pendingGifts.some((o) => o.fromUserId === fromUserId && o.toUserId === toUserId),
+  )
+  if (pairBusy) return pairBusy
 
   const inv = [...room.getInventory(fromUserId)]
   const idx = inv.findIndex((i) => i.itemId === itemId)
@@ -186,9 +193,8 @@ export async function studioAcceptGift(params: {
   if (offer.toUserId !== params.userId) {
     return { success: false, message: "This gift is not for you" }
   }
-  if (!tradingAllowed(room)) {
-    return { success: false, message: "Trading is not enabled for this session" }
-  }
+  const trading = failIfTradingDisabled(tradingAllowed(room))
+  if (trading) return trading
 
   const ok = await giveEscrowed(offer.toUserId, offer)
   if (!ok) {
@@ -237,29 +243,23 @@ export function studioTradeInvite(params: {
 }): TradeActionResult {
   const { room } = getStudio()
   const { fromUserId, toUserId } = params
-  if (fromUserId === toUserId) {
-    return { success: false, message: "You can't trade with yourself" }
-  }
-  if (!tradingAllowed(room)) {
-    return { success: false, message: "Trading is not enabled for this session" }
-  }
+  const self = failIfSelfTransfer(fromUserId, toUserId, "trade")
+  if (self) return self
+  const trading = failIfTradingDisabled(tradingAllowed(room))
+  if (trading) return trading
   expireStaleInvites(room)
-  if (findTradeForUser(room, fromUserId)) {
-    return { success: false, message: "You already have an active trade" }
-  }
-  if (findTradeForUser(room, toUserId)) {
-    return { success: false, message: "That listener is already in a trade" }
-  }
-  if (room.pendingTradeInvites.some((i) => i.fromUserId === fromUserId)) {
-    return { success: false, message: "You already have a pending trade invite" }
-  }
-  if (
-    room.pendingTradeInvites.some(
-      (i) => i.fromUserId === fromUserId && i.toUserId === toUserId,
-    )
-  ) {
-    return { success: false, message: "You already invited that listener" }
-  }
+  const fromBusy = failIfActiveTrade(Boolean(findTradeForUser(room, fromUserId)), "self")
+  if (fromBusy) return fromBusy
+  const toBusy = failIfActiveTrade(Boolean(findTradeForUser(room, toUserId)), "other")
+  if (toBusy) return toBusy
+  const outgoingBusy = failIfOutgoingInvite(
+    room.pendingTradeInvites.some((i) => i.fromUserId === fromUserId),
+  )
+  if (outgoingBusy) return outgoingBusy
+  const pairBusy = failIfDuplicateInvitePair(
+    room.pendingTradeInvites.some((i) => i.fromUserId === fromUserId && i.toUserId === toUserId),
+  )
+  if (pairBusy) return pairBusy
 
   const invite: TradeInvite = {
     inviteId: newId(),

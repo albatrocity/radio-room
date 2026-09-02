@@ -4,11 +4,12 @@ import type { InventoryItem, ItemDefinition, ItemShopsUserGameState } from "@rep
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { emitToSocket } from "../../../actors/socketActor"
 import { quoteItemShopsSellCoins } from "../../../lib/itemShopsSellQuote"
+import { subscribeInventoryActionResult } from "../../../lib/inventoryActionResult"
+import { emitGiftOffer } from "../../../lib/giftSocketActions"
 import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
-import { emitGiftOffer } from "./giftSocketActions"
 import { InventoryTargetUserPopover } from "./TargetUserPicker"
 
 type Props = {
@@ -73,7 +74,7 @@ export default function InventoryGiftSellControls({
   const [giftPickerOpen, setGiftPickerOpen] = useState(false)
   const [tradeMenuOpen, setTradeMenuOpen] = useState(false)
   const secondaryActionRef = useRef<HTMLButtonElement>(null)
-  const { subscribe } = useSocketResultHandle()
+  const { track } = useSocketResultHandle()
   const secondaryActionOpen = tradeMenuOpen || giftPickerOpen
 
   if (!showGiftButton && !showSellButton) return null
@@ -93,20 +94,13 @@ export default function InventoryGiftSellControls({
 
   const dispatchSell = () => {
     setPending("sell")
-    subscribe<{ success: boolean; title?: string; message?: string }>({
-      id: `inventory-sell-${item.itemId}-${Date.now()}`,
-      eventType: "INVENTORY_ACTION_RESULT",
-      onResult: (data) => {
-        setPending(null)
-        toaster.create({
-          title: data.title ?? (data.success ? "Success" : "Error"),
-          description: data.message || (data.success ? "Action completed" : "Action failed"),
-          type: data.success ? "success" : "error",
-        })
-      },
-      onTimeout: () => setPending(null),
-    })
-
+    track(
+      subscribeInventoryActionResult({
+        id: `inventory-sell-${item.itemId}-${Date.now()}`,
+        onSettled: () => setPending(null),
+        onTimeout: () => setPending(null),
+      }),
+    )
     emitToSocket("SELL_INVENTORY_ITEM", { itemId: item.itemId })
   }
 
@@ -167,7 +161,20 @@ export default function InventoryGiftSellControls({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      {showTradeGiftMenu ? (
+      {giftPickerOpen && showGiftButton ? (
+        <InventoryTargetUserPopover
+          includeSelf={false}
+          placeholder="Gift to…"
+          open={giftPickerOpen}
+          onOpenChange={(e) => setGiftPickerOpen(e.open)}
+          onPick={(toUserId) => {
+            setGiftPickerOpen(false)
+            offerGiftTo(toUserId)
+          }}
+        >
+          {giftButton}
+        </InventoryTargetUserPopover>
+      ) : showTradeGiftMenu ? (
         <Menu.Root
           size="md"
           open={tradeMenuOpen}
@@ -213,7 +220,7 @@ export default function InventoryGiftSellControls({
                     asChild
                     onClick={() => {
                       setTradeMenuOpen(false)
-                      window.setTimeout(() => setGiftPickerOpen(true), 0)
+                      setGiftPickerOpen(true)
                     }}
                   >
                     <Button size="md" variant="ghost" width="full" justifyContent="flex-start">
@@ -235,21 +242,6 @@ export default function InventoryGiftSellControls({
         >
           {sellButtonLabel}
         </Button>
-      )}
-      {showTradeGiftMenu && showGiftButton && (
-        <InventoryTargetUserPopover
-          includeSelf={false}
-          placeholder="Gift to…"
-          open={giftPickerOpen}
-          onOpenChange={(e) => setGiftPickerOpen(e.open)}
-          anchorRef={secondaryActionRef}
-          onPick={(toUserId) => {
-            setGiftPickerOpen(false)
-            offerGiftTo(toUserId)
-          }}
-        >
-          <button type="button" tabIndex={-1} aria-hidden />
-        </InventoryTargetUserPopover>
       )}
     </Box>
   )

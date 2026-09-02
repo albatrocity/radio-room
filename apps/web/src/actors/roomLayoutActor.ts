@@ -1,7 +1,7 @@
 /**
  * Room Layout Actor
  *
- * Global desktop column width preferences for the lg+ Splitter layout.
+ * Global desktop column width preferences for the md+ Splitter layout.
  * Persisted to localStorage.
  */
 

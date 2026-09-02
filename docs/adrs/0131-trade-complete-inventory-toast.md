@@ -30,4 +30,5 @@ This replaces the post-complete `openGameStateOnTab({ tabId: TRADES_GIFTS_TAB })
 - [0129. Trade session lock/confirm notifications](0129-trade-session-lock-confirm-attention.md)
 - [0130. Game State overlay lifecycle in machines](0130-game-state-overlay-lifecycle-in-machines.md)
 - `apps/web/src/actors/giftInboxActor.ts`
+- `apps/web/src/lib/tradeInboxNotifications.ts`
 - `apps/web/src/machines/gameStateNavMachine.ts`

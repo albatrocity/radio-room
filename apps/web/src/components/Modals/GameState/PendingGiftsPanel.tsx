@@ -1,17 +1,12 @@
-import { useMemo, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { Box, Button, HStack, Stack, Text } from "@chakra-ui/react"
 import type { GiftOffer, ItemDefinition } from "@repo/types"
-import { getUserById } from "../../../actors/usersActor"
 import { useCurrentUser } from "../../../hooks/useActors"
+import { counterpartyLabel } from "../../../lib/listenerDisplayName"
 import { useUserGameState } from "../UserGameStateContext"
 import ItemArtwork from "../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
-import { emitGiftRespond, type GiftRespondAction } from "./giftSocketActions"
-
-function counterpartyLabel(userId: string, me: string | undefined): string {
-  if (userId === me) return "you"
-  return getUserById(userId)?.username?.trim() || "Someone"
-}
+import { emitGiftRespond, type GiftRespondAction } from "../../../lib/giftSocketActions"
 
 function GiftOfferRow({
   offer,
@@ -70,13 +65,7 @@ export default function PendingGiftsPanel({
   const me = useCurrentUser()?.userId
   const gameState = useUserGameState()
   const [pendingOfferId, setPendingOfferId] = useState<string | null>(null)
-  const definitionMap = useMemo(() => {
-    const map = new Map<string, ItemDefinition>()
-    for (const def of gameState?.itemDefinitions ?? []) {
-      map.set(def.id, def)
-    }
-    return map
-  }, [gameState?.itemDefinitions])
+  const definitionMap = gameState?.definitionMap
 
   if (incoming.length === 0 && outgoing.length === 0) return null
 
@@ -98,7 +87,7 @@ export default function PendingGiftsPanel({
             key={offer.offerId}
             offer={offer}
             me={me}
-            definition={definitionMap.get(offer.definitionId)}
+            definition={definitionMap?.get(offer.definitionId)}
             direction="incoming"
             actions={
               <>
@@ -125,7 +114,7 @@ export default function PendingGiftsPanel({
             key={offer.offerId}
             offer={offer}
             me={me}
-            definition={definitionMap.get(offer.definitionId)}
+            definition={definitionMap?.get(offer.definitionId)}
             direction="outgoing"
             actions={
               <Button

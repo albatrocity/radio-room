@@ -1,33 +1,8 @@
 import type { AppContext, GiftActionResult, GiftOffer, InventoryItem } from "@repo/types"
-import { getUser } from "../data/users"
 import { postSystemChatMessage } from "../polls/postSystemChatMessage"
+import { displayName, emitInventoryTransferred } from "./transferEvents"
 
 export type GiftOpResult = GiftActionResult & { item?: InventoryItem }
-
-async function displayName(context: AppContext, userId: string): Promise<string> {
-  const user = await getUser({ userId, context })
-  return user?.username?.trim() || "Someone"
-}
-
-async function emitInventoryTransferred(params: {
-  context: AppContext
-  roomId: string
-  fromUserId: string
-  toUserId: string
-  item: InventoryItem
-  quantity: number
-}): Promise<void> {
-  if (!params.context.systemEvents) return
-  const sessionId = (await params.context.gameSessions?.getActiveSession(params.roomId))?.id ?? ""
-  await params.context.systemEvents.emit(params.roomId, "INVENTORY_ITEM_TRANSFERRED", {
-    roomId: params.roomId,
-    sessionId,
-    fromUserId: params.fromUserId,
-    toUserId: params.toUserId,
-    item: params.item,
-    quantity: params.quantity,
-  })
-}
 
 export async function emitGiftCancelled(params: {
   context: AppContext

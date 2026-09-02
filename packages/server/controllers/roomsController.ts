@@ -22,6 +22,8 @@ import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
 import { createGiftTradeHandlers } from "../handlers/giftTradeHandlersAdapter"
 import { getUserGameState } from "../operations/inventory/getUserGameState"
+import { sellInventoryItem } from "../operations/inventory/sellInventoryItem"
+import { useInventoryItem } from "../operations/inventory/useInventoryItem"
 import {
   ensureBridgeMetadataSources as ensureBridgeMetadataSourcesBase,
   stripBridgeOnlyMetadataSources,
@@ -29,8 +31,6 @@ import {
 import {
   AppContext,
   RoomScheduleSnapshotDTO,
-  type InventoryItem,
-  type ItemDefinition,
 } from "@repo/types"
 import { readRoomScheduleSnapshot, refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 
@@ -596,10 +596,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
-   * Use an inventory item. Looks up the item in the user's inventory and
-   * dispatches to the source plugin's `onItemUsed` handler. The plugin
-   * decides whether the item is consumed.
-   *
+   * Use an inventory item. Dispatches to the source plugin's `onItemUsed`.
    * Responds with `INVENTORY_ACTION_RESULT` on this socket only.
    */
   socket.on(
@@ -612,44 +609,24 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       password?: string
       coinAmount?: number
     }) => {
-      const inventory = socket.context.inventory
-      if (!inventory) {
-        socket.emit("event", {
-          type: "INVENTORY_ACTION_RESULT",
-          data: { success: false, message: "Inventory service not available" },
-        })
-        return
-      }
-
-      if (!data?.itemId) {
-        socket.emit("event", {
-          type: "INVENTORY_ACTION_RESULT",
-          data: { success: false, message: "Missing itemId" },
-        })
-        return
-      }
-
       const callContextRaw: Record<string, unknown> = {}
-      if (data.targetUserId != null) callContextRaw.targetUserId = data.targetUserId
-      if (data.targetQueueItemId != null) callContextRaw.targetQueueItemId = data.targetQueueItemId
-      if (data.targetInventoryItemId != null)
+      if (data?.targetUserId != null) callContextRaw.targetUserId = data.targetUserId
+      if (data?.targetQueueItemId != null) callContextRaw.targetQueueItemId = data.targetQueueItemId
+      if (data?.targetInventoryItemId != null)
         callContextRaw.targetInventoryItemId = data.targetInventoryItemId
-      if (data.password != null) callContextRaw.password = data.password
-      if (data.coinAmount != null) callContextRaw.coinAmount = data.coinAmount
+      if (data?.password != null) callContextRaw.password = data.password
+      if (data?.coinAmount != null) callContextRaw.coinAmount = data.coinAmount
       const callContext =
         Object.keys(callContextRaw).length > 0 ? callContextRaw : undefined
 
-      const result = await inventory.useItem(
-        socket.data.roomId,
-        socket.data.userId,
-        data.itemId,
+      const result = await useInventoryItem({
+        roomId: socket.data.roomId,
+        userId: socket.data.userId,
+        itemId: data?.itemId,
         callContext,
-      )
-
-      socket.emit("event", {
-        type: "INVENTORY_ACTION_RESULT",
-        data: { success: result.success, message: result.message },
+        context: socket.context,
       })
+      socket.emit("event", { type: "INVENTORY_ACTION_RESULT", data: result })
     },
   )
 
@@ -790,85 +767,16 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
 
   /**
    * Sell an inventory item back to its owning plugin (typically a shop).
-   * Looks up the item, finds its source plugin, and dispatches to the
-   * plugin's `onItemSold` handler. The plugin handles the sale (removing
-   * the item, crediting coins, restocking, etc.).
-   *
    * Responds with `INVENTORY_ACTION_RESULT` on this socket only.
    */
   socket.on("SELL_INVENTORY_ITEM", async (data: { itemId: string }) => {
-    const inventory = socket.context.inventory
-    const registry = socket.context.pluginRegistry as
-      | {
-          invokeOnItemSold?: (
-            roomId: string,
-            pluginName: string,
-            userId: string,
-            item: import("@repo/types").InventoryItem,
-            definition: import("@repo/types").ItemDefinition,
-            callContext: unknown,
-          ) => Promise<import("@repo/types").ItemSellResult | null>
-        }
-      | undefined
-
-    if (!inventory || !registry?.invokeOnItemSold) {
-      socket.emit("event", {
-        type: "INVENTORY_ACTION_RESULT",
-        data: { success: false, message: "Inventory service not available" },
-      })
-      return
-    }
-
-    if (!data?.itemId) {
-      socket.emit("event", {
-        type: "INVENTORY_ACTION_RESULT",
-        data: { success: false, message: "Missing itemId" },
-      })
-      return
-    }
-
-    const inv = await inventory.getInventory(socket.data.roomId, socket.data.userId)
-    const item = (inv.items as import("@repo/types").InventoryItem[]).find(
-      (i) => i.itemId === data.itemId,
-    )
-    if (!item) {
-      socket.emit("event", {
-        type: "INVENTORY_ACTION_RESULT",
-        data: { success: false, message: "Item not found in inventory" },
-      })
-      return
-    }
-
-    const definition = await inventory.getItemDefinition(socket.data.roomId, item.definitionId)
-    if (!definition) {
-      socket.emit("event", {
-        type: "INVENTORY_ACTION_RESULT",
-        data: { success: false, message: "Item definition not found" },
-      })
-      return
-    }
-
-    const result = await registry.invokeOnItemSold(
-      socket.data.roomId,
-      definition.sourcePlugin,
-      socket.data.userId,
-      item,
-      definition,
-      undefined,
-    )
-
-    if (!result) {
-      socket.emit("event", {
-        type: "INVENTORY_ACTION_RESULT",
-        data: { success: false, message: "This item can't be sold." },
-      })
-      return
-    }
-
-    socket.emit("event", {
-      type: "INVENTORY_ACTION_RESULT",
-      data: { success: result.success, message: result.message, refund: result.refund },
+    const result = await sellInventoryItem({
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
+      itemId: data?.itemId,
+      context: socket.context,
     })
+    socket.emit("event", { type: "INVENTORY_ACTION_RESULT", data: result })
   })
 
   // ==========================================================================

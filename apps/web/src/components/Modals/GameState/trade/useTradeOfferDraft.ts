@@ -1,8 +1,7 @@
 import { useMemo } from "react"
-import { useSelector } from "@xstate/react"
 import { useUserGameStatePayload } from "../../../../hooks/useActors"
-import { emitToSocket } from "../../../../actors/socketActor"
-import { tradeActor } from "../../../../actors/tradeActor"
+import { itemDefinitionMap } from "../../../../lib/itemDefinitionMap"
+import { emitTradeSetOffer } from "../../../../lib/tradeSocketActions"
 import { useTradeParticipants } from "./useTradeParticipants"
 
 type SelectableTradeItem = {
@@ -16,17 +15,14 @@ type PickerUnit = SelectableTradeItem & { unitKey: string }
 
 export function useTradeOfferDraft(tradeId: string) {
   const payload = useUserGameStatePayload()
-  const myInventory = useSelector(tradeActor, (s) => s.context.myInventory)
-  const definitions = useSelector(tradeActor, (s) => s.context.definitions)
   const { activeTrade, mine } = useTradeParticipants(tradeId)
 
-  const definitionMap = useMemo(() => {
-    const m = new Map(definitions.map((d) => [d.id, d]))
-    for (const d of payload?.itemDefinitions ?? []) m.set(d.id, d)
-    return m
-  }, [definitions, payload?.itemDefinitions])
+  const definitionMap = useMemo(
+    () => itemDefinitionMap(payload?.itemDefinitions),
+    [payload?.itemDefinitions],
+  )
 
-  const bagItems = myInventory.length > 0 ? myInventory : (payload?.inventory?.items ?? [])
+  const bagItems = payload?.inventory?.items ?? []
   const selectable = useMemo(() => {
     const rows: SelectableTradeItem[] = []
     for (const item of bagItems) {
@@ -69,7 +65,7 @@ export function useTradeOfferDraft(tradeId: string) {
 
   const emitOffer = (items: { itemId: string; quantity: number }[]) => {
     if (!activeTrade) return
-    emitToSocket("TRADE_SET_OFFER", { tradeId: activeTrade.tradeId, items })
+    emitTradeSetOffer(activeTrade.tradeId, items)
   }
 
   const addToOffer = (itemId: string) => {

@@ -26,7 +26,9 @@ import { scheduleEmojiMartIdleLoad } from "../lib/ensureEmojiMart"
 import { featureImageUrl } from "../lib/metadataImages"
 
 const Room = ({ id }: { id: string }) => {
-  const useDesktopSplitter = useBreakpointValue({ base: false, lg: true }) ?? false
+  // Splitter from md so smaller non-mobile screens can resize columns (ADR 0143).
+  // Integrated panel stays lg+ (ADR 0117).
+  const useDesktopSplitter = useBreakpointValue({ base: false, md: true }) ?? false
 
   const currentUser = useCurrentUser()
   const isNewUser = useIsNewUser()

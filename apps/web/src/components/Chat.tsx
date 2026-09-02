@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef } from "react"
 import { useSelector } from "@xstate/react"
-import { Box, Grid, GridItem, HStack, Stack } from "@chakra-ui/react"
+import { Box, Grid, GridItem, Stack } from "@chakra-ui/react"
 
 import ChatInput, { MessagePayload } from "./ChatInput"
 import TypingIndicator from "./TypingIndicator"
@@ -55,6 +55,8 @@ const Chat = () => {
       ]}
       gridTemplateRows={"1fr auto"}
       css={{
+        containerType: "inline-size",
+        containerName: "chat",
         filter: isUnauthorized ? "blur(0.5rem)" : "none",
         overflowX: "visible",
       }}
@@ -83,23 +85,37 @@ const Chat = () => {
           </Box>
           {/* Image previews will be portaled here from ChatInput */}
           <Box ref={imagePreviewRef} />
-          <HStack
+          <Box
             zIndex={2}
             w="100%"
+            display="grid"
             gap={1}
-            align="center"
-            justifyContent="center"
+            alignItems="center"
             colorPalette="action"
+            gridTemplateColumns="auto auto auto minmax(0, 1fr)"
+            gridTemplateAreas='"game prefs upload field"'
+            css={{
+              "@container chat (max-width: 380px)": {
+                gridTemplateAreas: `
+                  "field field field field"
+                  "game prefs upload ."
+                `,
+              },
+            }}
           >
-            <ButtonGameState />
-            <PopoverPreferences />
+            <Box gridArea="game">
+              <ButtonGameState />
+            </Box>
+            <Box gridArea="prefs">
+              <PopoverPreferences />
+            </Box>
             <ChatInput
               onTypingStart={handleTypingStart}
               onTypingStop={handleTypingStop}
               onSend={handleSend}
               imagePreviewContainer={imagePreviewRef}
             />
-          </HStack>
+          </Box>
         </Stack>
       </GridItem>
     </Grid>

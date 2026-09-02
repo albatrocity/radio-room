@@ -123,7 +123,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0115](0115-trade-invite-inbox.md) | Trade invite inbox and Trades/Gifts Game State tab | Partially superseded by [0129](0129-trade-session-lock-confirm-attention.md) |
 | [0116](0116-trade-session-sticky-notes.md) | Trade session sticky notes | Partially superseded by [0120](0120-targeted-trade-typing.md) |
 | [0117](0117-integrated-room-panel-slot.md) | Integrated room panel slot (lg+) | Partially superseded by [0128](0128-add-to-queue-overlays-integrated-panel.md) |
-| [0118](0118-resizable-room-layout-columns.md) | Resizable room layout columns (lg+) | Accepted |
+| [0118](0118-resizable-room-layout-columns.md) | Resizable room layout columns (lg+) | Partially superseded by [0143](0143-resizable-room-layout-columns-at-md.md) |
 | [0119](0119-private-music-uploads-presign.md) | Private music uploads via presigned S3 PUT (`uploads/` prefix) | Accepted |
 | [0120](0120-targeted-trade-typing.md) | Targeted TRADE_TYPING (socket-only, counterpart delivery) | Accepted |
 | [0121](0121-installable-web-app-no-service-worker.md) | Installable web app without a service worker | Partially superseded by [0125](0125-padded-teal-pwa-icons.md) |
@@ -148,6 +148,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0140](0140-radio-element-playback-oscilloscope-tabled.md) | Radio playback owned by an `<audio>` element; oscilloscope tabled | Superseded by [0141](0141-radio-mse-transport-and-oscilloscope.md) |
 | [0141](0141-radio-mse-transport-and-oscilloscope.md) | Radio MSE transport and aligned Oscilloscope | Accepted |
 | [0142](0142-track-playlist-stats.md) | Track playlist stats (published-show history) | Accepted |
+| [0143](0143-resizable-room-layout-columns-at-md.md) | Resizable room layout columns at md+ (integrated panel stays lg+) | Accepted |
 
 ## Creating a New ADR
 

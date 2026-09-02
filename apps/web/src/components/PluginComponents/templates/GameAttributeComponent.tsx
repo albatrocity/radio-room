@@ -7,9 +7,9 @@ const NUMBER_FORMAT = new Intl.NumberFormat()
 
 /**
  * Display a single game attribute (e.g. `coin`, `score`) for the current
- * user. Reads from `UserGameStateContext` provided by `ModalUserGameState`,
- * so this only renders meaningful values inside the game state modal (or
- * any other surface that wraps content with `UserGameStateContext`).
+ * user. Reads from `UserGameStateContext` provided by `UserGameStateSurface`,
+ * so this only renders meaningful values inside Game State (modal or lg+
+ * panel) — or any other surface that wraps content with `UserGameStateContext`.
  *
  * Renders nothing when there's no game state context available, to avoid
  * showing stale zeros outside the modal.

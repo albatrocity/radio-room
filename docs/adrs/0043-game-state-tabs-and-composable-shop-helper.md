@@ -3,7 +3,7 @@
 **Date:** 2026-05-01
 **Status:** Partially superseded by [0047](0047-shop-plugin-base-class.md)
 
-> **Note:** The "Composable `ShopHelper` instead of a `ShopBasePlugin`" decision below is partially superseded by [ADR 0047](0047-shop-plugin-base-class.md), which introduces a `ShopPlugin` base class for the typical inheritance case while keeping `ShopHelper` available for composition. The other decisions in this ADR — the tabbed game state modal, `onItemSold` as a first-class lifecycle hook, and the `isSellingItems` config convention — remain in force.
+> **Note:** The "Composable `ShopHelper` instead of a `ShopBasePlugin`" decision below is partially superseded by [ADR 0047](0047-shop-plugin-base-class.md), which introduces a `ShopPlugin` base class for the typical inheritance case while keeping `ShopHelper` available for composition. The other decisions in this ADR — the tabbed game state modal, `onItemSold` as a first-class lifecycle hook, and the `isSellingItems` config convention — remain in force. The tabbed **surface** is `UserGameStateSurface` (`ModalUserGameState` is a one-line modal wrapper). Collection Gift/Sell lives on item detail, not the list row ([ADR 0126](0126-collection-row-opens-item-detail.md) / [ADR 0127](0127-shared-item-detail-list-row.md)).
 
 ## Context
 

@@ -1,5 +1,5 @@
 import type { Ref } from "react"
-import { HStack, Text, VStack } from "@chakra-ui/react"
+import { Box, HStack, Text, VStack } from "@chakra-ui/react"
 import type { MetadataSourceTrackWithSource } from "@repo/types"
 import type { TrackRoomPresence } from "../lib/trackRoomPresence"
 import { SourceBadge } from "./SourceBadge"

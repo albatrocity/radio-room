@@ -163,7 +163,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
     )
     if (!fillHeight) return list
     return (
-      <Box flex="1" minH={0} h="full" display="flex" flexDirection="column" overflow="hidden">
+      <Box flex="1" minH={0} w="full" display="flex" flexDirection="column" overflow="hidden">
         {list}
       </Box>
     )

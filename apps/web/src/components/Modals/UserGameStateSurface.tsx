@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react"
 import { Box, HStack, ScrollArea, Spinner, Stack, Status, Tabs, Text } from "@chakra-ui/react"
 import type { GameAttributeName, ItemDefinition } from "@repo/types"
 import { getPluginUserState } from "../../lib/getPluginUserState"
+import { itemDefinitionMap } from "../../lib/itemDefinitionMap"
 import Drawer from "../Drawer"
 import {
   useIsModalOpen,
@@ -60,6 +61,7 @@ const EYE_ICON = getIcon("Eye")
 const TRADES_ICON = getIcon("ArrowLeftRight")
 
 const EMPTY_ITEM_DEFINITIONS: ItemDefinition[] = []
+const EMPTY_DEFINITION_MAP = new Map<string, ItemDefinition>()
 const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
 
 function resolveDefinition(
@@ -84,7 +86,7 @@ type TabsBodyProps = {
   showStoredTab: boolean
   isAdmin: boolean
   tabScrollRef: RefObject<HTMLDivElement | null>
-  /** Explicit height chain for the lg+ integrated panel (not the modal drawer). */
+  /** Explicit height chain so tab lists and album track lists fill leftover body space. */
   fillHeight?: boolean
 }
 
@@ -104,13 +106,7 @@ function GameStateTabsBody({
   const currentFrame = useGameStateDetailFrame()
   const gameState = useUserGameState()
   const itemDefinitions = gameState?.itemDefinitions ?? EMPTY_ITEM_DEFINITIONS
-  const definitionMap = useMemo(() => {
-    const map = new Map<string, ItemDefinition>()
-    for (const def of itemDefinitions) {
-      map.set(def.id, def)
-    }
-    return map
-  }, [itemDefinitions])
+  const definitionMap = gameState?.definitionMap ?? EMPTY_DEFINITION_MAP
 
   const tabLabel = useMemo(() => {
     if (gameStateTab === "inventory") return "Inventory"
@@ -157,19 +153,33 @@ function GameStateTabsBody({
     </>
   )
 
+  const trackListFillsHeight =
+    fillHeight &&
+    currentFrame != null &&
+    isItemDetailFrame(currentFrame) &&
+    detailDefinition?.detailView?.layout === "trackList"
+
   return (
     <Tabs.Root
       value={gameStateTab}
       onValueChange={(d) => selectTab(d.value)}
       variant="line"
       colorPalette="action"
-      {...(fillHeight ? { flex: "1", minH: 0, h: "full" } : {})}
+      {...(fillHeight
+        ? {
+            flex: "1",
+            minH: 0,
+            h: "full",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }
+        : {})}
     >
       <Box
         {...(fillHeight
           ? {
               flex: "1",
-              h: "full",
               minH: 0,
               display: "flex",
               flexDirection: "column",
@@ -254,7 +264,12 @@ function GameStateTabsBody({
         </Box>
 
         {currentFrame ? (
-          <Stack gap={4} {...(fillHeight ? { flex: "1", minH: 0, overflow: "hidden" } : {})}>
+          <Stack
+            gap={4}
+            {...(fillHeight
+              ? { flex: "1", minH: 0, overflow: "hidden", display: "flex", flexDirection: "column" }
+              : {})}
+          >
             <GameStateDetailBreadcrumb
               tabLabel={tabLabel}
               detailTitle={
@@ -269,7 +284,8 @@ function GameStateTabsBody({
                     minH: 0,
                     display: "flex",
                     flexDirection: "column",
-                    overflowY: "auto",
+                    overflow: trackListFillsHeight ? "hidden" : undefined,
+                    overflowY: trackListFillsHeight ? undefined : "auto",
                   }
                 : {})}
             >
@@ -318,13 +334,10 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   const error = useUserGameStateError()
   const storedArtifacts = useStoredArtifacts()
 
-  const definitionMap = useMemo(() => {
-    const map = new Map<string, ItemDefinition>()
-    for (const def of payload?.itemDefinitions ?? EMPTY_ITEM_DEFINITIONS) {
-      map.set(def.id, def)
-    }
-    return map
-  }, [payload?.itemDefinitions])
+  const definitionMap = useMemo(
+    () => itemDefinitionMap(payload?.itemDefinitions),
+    [payload?.itemDefinitions],
+  )
 
   const attributes = (payload?.state?.attributes ?? EMPTY_ATTRIBUTES) as Record<
     GameAttributeName,
@@ -364,6 +377,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
       state: payload?.state ?? null,
       inventory: payload?.inventory ?? null,
       itemDefinitions: payload?.itemDefinitions ?? [],
+      definitionMap,
       pendingGifts: payload?.pendingGifts,
       pendingTradeInvites: payload?.pendingTradeInvites,
       activeTrade: payload?.activeTrade ?? null,
@@ -371,7 +385,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
         getPluginUserState<T>(pluginUserState, pluginName),
       getAttribute: (attribute: GameAttributeName) => attributes[attribute] ?? 0,
     }
-  }, [payload, attributes])
+  }, [payload, attributes, definitionMap])
 
   const showGameFooter = !loading && !error && !!payload?.session
   const tradeChrome =
@@ -424,7 +438,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
     </Stack>
   ) : null
 
-  const fillHeight = variant === "panel"
+  const fillHeight = true
 
   const body = (
     <UserGameStateContext.Provider value={gameStateValue}>
@@ -496,6 +510,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
       heading={INTEGRATED_PANEL_SLOTS.gameState.title}
       footer={showGameFooter ? footer ?? undefined : undefined}
       footerFlush
+      fill
     >
       {body}
     </Drawer>

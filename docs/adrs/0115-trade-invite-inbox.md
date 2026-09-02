@@ -44,3 +44,5 @@ Hosts also needed to disable gifting/trading mid-session (e.g. end-of-show) with
 - [0106. Game state nav machine](0106-game-state-nav-machine.md)
 - [`packages/server/services/TradeService.ts`](../../packages/server/services/TradeService.ts)
 - [`apps/web/src/components/Modals/GameState/TradesGiftsTab.tsx`](../../apps/web/src/components/Modals/GameState/TradesGiftsTab.tsx)
+- [`apps/web/src/lib/giftInboxNotifications.ts`](../../apps/web/src/lib/giftInboxNotifications.ts)
+- [`apps/web/src/lib/tradeInboxNotifications.ts`](../../apps/web/src/lib/tradeInboxNotifications.ts)

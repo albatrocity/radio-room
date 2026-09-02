@@ -1,8 +1,8 @@
-import { emitToSocket } from "../../../actors/socketActor"
-import { refreshUserGameState } from "../../../actors/userGameStateActor"
-import { clearTradesGiftsTabAttentionIfEmpty } from "../../../lib/tradesGiftsAttention"
-import { subscribeForSocketResult } from "../../../lib/subscribeForSocketResult"
-import { toaster } from "../../ui/toaster"
+import { emitToSocket } from "../actors/socketActor"
+import { refreshUserGameState } from "../actors/userGameStateActor"
+import { clearTradesGiftsTabAttentionIfEmpty } from "./tradesGiftsAttention"
+import { subscribeForSocketResult } from "./subscribeForSocketResult"
+import { toaster } from "../components/ui/toaster"
 
 export type GiftRespondAction = "ACCEPT_GIFT" | "DECLINE_GIFT" | "CANCEL_GIFT"
 

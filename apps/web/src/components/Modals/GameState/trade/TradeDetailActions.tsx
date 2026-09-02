@@ -1,8 +1,12 @@
 import { Box, Button, HStack, Icon } from "@chakra-ui/react"
 import { ClassNames } from "@emotion/react"
 import { LuLock, LuLockOpen } from "react-icons/lu"
-import { emitToSocket } from "../../../../actors/socketActor"
-import { emitTradeCancel } from "../../../../lib/tradeCancelledByMe"
+import {
+  emitTradeCancel,
+  emitTradeConfirm,
+  emitTradeLock,
+  emitTradeUnlock,
+} from "../../../../lib/tradeSocketActions"
 import { useAnimationsEnabled } from "../../../../hooks/useReducedMotion"
 import { confirmPulseAnim } from "./tradeDetailConstants"
 import { useTradeParticipants } from "./useTradeParticipants"
@@ -25,7 +29,7 @@ export function TradeDetailActions({ tradeId }: { tradeId: string }) {
           <Button
             size="sm"
             colorPalette="action"
-            onClick={() => emitToSocket("TRADE_LOCK", { tradeId: activeTrade.tradeId })}
+            onClick={() => emitTradeLock(activeTrade.tradeId)}
           >
             <Icon as={LuLock} />
             Lock offer
@@ -35,7 +39,7 @@ export function TradeDetailActions({ tradeId }: { tradeId: string }) {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => emitToSocket("TRADE_UNLOCK", { tradeId: activeTrade.tradeId })}
+            onClick={() => emitTradeUnlock(activeTrade.tradeId)}
           >
             <Icon as={LuLockOpen} />
             Unlock
@@ -49,7 +53,7 @@ export function TradeDetailActions({ tradeId }: { tradeId: string }) {
                   size="sm"
                   colorPalette="action"
                   disabled={mine?.confirmed}
-                  onClick={() => emitToSocket("TRADE_CONFIRM", { tradeId: activeTrade.tradeId })}
+                  onClick={() => emitTradeConfirm(activeTrade.tradeId)}
                 >
                   {mine?.confirmed ? "Waiting…" : "Confirm trade"}
                 </Button>

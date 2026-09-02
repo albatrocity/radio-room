@@ -466,31 +466,37 @@ const ChatInput = ({ onTypingStart, onTypingStop, onSend, imagePreviewContainer 
       {imagePreviews &&
         imagePreviewContainer?.current &&
         createPortal(imagePreviews, imagePreviewContainer.current)}
-      <form onSubmit={handleSubmit} onPaste={handlePasteImages} style={{ width: "100%" }}>
+      <form
+        onSubmit={handleSubmit}
+        onPaste={handlePasteImages}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        style={{ display: "contents" }}
+      >
+        {canUseChatImages && files.length < MAX_FILES && (
+          <Box
+            gridArea="upload"
+            opacity={0}
+            data-authenticated={isAuthenticated || undefined}
+            css={{
+              "&[data-authenticated]": {
+                opacity: 1,
+              },
+            }}
+          >
+            <ImageUpload onFilesPicked={addImageFiles} disabled={isFileUploadDisabled} />
+          </Box>
+        )}
+
         <Flex
           direction="row"
+          gridArea="field"
           w="100%"
-          grow={1}
+          minW={0}
           justify="center"
           overflowX="clip"
           gap={1}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
         >
-          {canUseChatImages && files.length < MAX_FILES && (
-            <Box
-              opacity={0}
-              data-authenticated={isAuthenticated || undefined}
-              css={{
-                "&[data-authenticated]": {
-                  opacity: 1,
-                },
-              }}
-            >
-              <ImageUpload onFilesPicked={addImageFiles} disabled={isFileUploadDisabled} />
-            </Box>
-          )}
-
           <Box
             w="100%"
             opacity={0}

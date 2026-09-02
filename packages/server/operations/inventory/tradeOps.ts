@@ -1,11 +1,6 @@
 import type { AppContext, TradeActionResult, TradeInvite, TradeSession } from "@repo/types"
-import { getUser } from "../data/users"
 import { postSystemChatMessage } from "../polls/postSystemChatMessage"
-
-async function displayName(context: AppContext, userId: string): Promise<string> {
-  const user = await getUser({ userId, context })
-  return user?.username?.trim() || "Someone"
-}
+import { displayName, emitInventoryTransferred } from "./transferEvents"
 
 async function emitUpdated(context: AppContext, roomId: string, trade: TradeSession) {
   if (context.systemEvents) {
@@ -21,26 +16,6 @@ export async function emitTradeInviteExpired(params: {
   await params.context.systemEvents.emit(params.invite.roomId, "TRADE_INVITE_EXPIRED", {
     roomId: params.invite.roomId,
     invite: params.invite,
-  })
-}
-
-async function emitInventoryTransferred(params: {
-  context: AppContext
-  roomId: string
-  fromUserId: string
-  toUserId: string
-  item: import("@repo/types").InventoryItem
-  quantity: number
-}): Promise<void> {
-  if (!params.context.systemEvents) return
-  const sessionId = (await params.context.gameSessions?.getActiveSession(params.roomId))?.id ?? ""
-  await params.context.systemEvents.emit(params.roomId, "INVENTORY_ITEM_TRANSFERRED", {
-    roomId: params.roomId,
-    sessionId,
-    fromUserId: params.fromUserId,
-    toUserId: params.toUserId,
-    item: params.item,
-    quantity: params.quantity,
   })
 }
 

@@ -7,6 +7,13 @@ import type {
   TradeOfferItem,
   TradeSession,
 } from "@repo/types"
+import {
+  failIfActiveTrade,
+  failIfDuplicateInvitePair,
+  failIfOutgoingInvite,
+  failIfSelfTransfer,
+  failIfTradingDisabled,
+} from "@repo/game-logic"
 import { PLAYER_TRANSFER_TTL_MS, TRADE_MESSAGE_MAX_LENGTH, draftFromEscrowedOffer } from "@repo/types"
 import generateId from "../lib/generateId"
 import { InventoryService } from "./InventoryService"
@@ -66,28 +73,24 @@ export class TradeService {
     toUserId: string
   }): Promise<TradeActionResult> {
     const { roomId, fromUserId, toUserId } = params
-    if (fromUserId === toUserId) {
-      return { success: false, message: "You can't trade with yourself" }
-    }
-    if (!(await this.assertTradingAllowed(roomId))) {
-      return { success: false, message: "Trading is not enabled for this session" }
-    }
-    if (await this.getTradeForUser(roomId, fromUserId)) {
-      return { success: false, message: "You already have an active trade" }
-    }
-    if (await this.getTradeForUser(roomId, toUserId)) {
-      return { success: false, message: "That listener is already in a trade" }
-    }
+    const self = failIfSelfTransfer(fromUserId, toUserId, "trade")
+    if (self) return self
+    const trading = failIfTradingDisabled(await this.assertTradingAllowed(roomId))
+    if (trading) return trading
+    const fromBusy = failIfActiveTrade(Boolean(await this.getTradeForUser(roomId, fromUserId)), "self")
+    if (fromBusy) return fromBusy
+    const toBusy = failIfActiveTrade(Boolean(await this.getTradeForUser(roomId, toUserId)), "other")
+    if (toBusy) return toBusy
 
     const outgoing = await this.listOutgoingInvites(roomId, fromUserId)
-    if (outgoing.length > 0) {
-      return { success: false, message: "You already have a pending trade invite" }
-    }
+    const outgoingBusy = failIfOutgoingInvite(outgoing.length > 0)
+    if (outgoingBusy) return outgoingBusy
 
     const incomingToTarget = await this.listIncomingInvites(roomId, toUserId)
-    if (incomingToTarget.some((i) => i.fromUserId === fromUserId)) {
-      return { success: false, message: "You already sent a trade invite to that listener" }
-    }
+    const pairBusy = failIfDuplicateInvitePair(
+      incomingToTarget.some((i) => i.fromUserId === fromUserId),
+    )
+    if (pairBusy) return pairBusy
 
     const invite: TradeInvite = {
       inviteId: generateId(),
@@ -122,9 +125,10 @@ export class TradeService {
       return { success: true, message: "Trade declined", invite }
     }
 
-    if (!(await this.assertTradingAllowed(params.roomId))) {
+    const trading = failIfTradingDisabled(await this.assertTradingAllowed(params.roomId))
+    if (trading) {
       await this.invites.deleteInvite(invite)
-      return { success: false, message: "Trading is not enabled for this session" }
+      return trading
     }
     if (await this.getTradeForUser(params.roomId, invite.fromUserId)) {
       await this.invites.deleteInvite(invite)

@@ -13,14 +13,16 @@ import { getPluginUserState } from "../../lib/getPluginUserState"
 
 /**
  * Snapshot of the current user's game state, exposed inside the
- * `ModalUserGameState` so plugin tabs can read coin balances, inventory
- * counts, modifiers, etc. without re-fetching `GET_MY_GAME_STATE`.
+ * `UserGameStateSurface` (modal or lg+ panel) so plugin tabs can read coin
+ * balances, inventory counts, modifiers, etc. without re-fetching
+ * `GET_MY_GAME_STATE`.
  */
 export interface UserGameStateSnapshot {
   session: GameSession | null
   state: UserGameState | null
   inventory: UserInventory | null
   itemDefinitions: ItemDefinition[]
+  definitionMap: Map<string, ItemDefinition>
   pendingGifts?: { incoming: GiftOffer[]; outgoing: GiftOffer[] }
   pendingTradeInvites?: { incoming: TradeInvite[]; outgoing: TradeInvite[] }
   activeTrade?: TradeSession | null

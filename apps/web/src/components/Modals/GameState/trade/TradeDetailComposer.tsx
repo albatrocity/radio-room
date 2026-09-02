@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Button, HStack, Input } from "@chakra-ui/react"
 import { TRADE_MESSAGE_MAX_LENGTH } from "@repo/types"
-import { emitToSocket } from "../../../../actors/socketActor"
+import { emitTradeSetMessage, emitTradeTyping } from "../../../../lib/tradeSocketActions"
 import { TYPING_IDLE_MS } from "./tradeDetailConstants"
 import { useTradeParticipants } from "./useTradeParticipants"
 
@@ -28,7 +28,7 @@ export function TradeDetailComposer({ tradeId }: { tradeId: string }) {
         window.clearTimeout(typingIdleTimerRef.current)
       }
       if (typingActiveRef.current && activeTrade) {
-        emitToSocket("TRADE_TYPING", { tradeId: activeTrade.tradeId, typing: false })
+        emitTradeTyping(activeTrade.tradeId, false)
       }
     }
     // Only on unmount / trade change via tradeId effect reset
@@ -39,7 +39,7 @@ export function TradeDetailComposer({ tradeId }: { tradeId: string }) {
     if (!activeTrade) return
     if (typingActiveRef.current === typing) return
     typingActiveRef.current = typing
-    emitToSocket("TRADE_TYPING", { tradeId: activeTrade.tradeId, typing })
+    emitTradeTyping(activeTrade.tradeId, typing)
   }
 
   const scheduleTypingIdleClear = () => {
@@ -73,10 +73,7 @@ export function TradeDetailComposer({ tradeId }: { tradeId: string }) {
       typingIdleTimerRef.current = null
     }
     emitTyping(false)
-    emitToSocket("TRADE_SET_MESSAGE", {
-      tradeId: activeTrade.tradeId,
-      message: raw.slice(0, TRADE_MESSAGE_MAX_LENGTH),
-    })
+    emitTradeSetMessage(activeTrade.tradeId, raw.slice(0, TRADE_MESSAGE_MAX_LENGTH))
     setDraftNote("")
   }
 

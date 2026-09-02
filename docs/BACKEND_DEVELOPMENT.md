@@ -53,6 +53,7 @@ Events are defined in `packages/types/SystemEventTypes.ts`. Common events includ
 - `QUEUE_CHANGED` - Queue was modified
 - `MESSAGE_RECEIVED` - Chat message received
 - `REACTION_ADDED` / `REACTION_REMOVED` - Reaction changes
+- `GIFT_*` / `TRADE_INVITE_*` / `TRADE_UPDATED` / `TRADE_COMPLETED` / `TRADE_CANCELLED` - Player gift and trade protocol (emitted from `operations/inventory/`, [ADR 0114](adrs/0114-player-item-gifting-and-trading.md)). `TRADE_TYPING` is socket-only, not a SystemEvent ([ADR 0120](adrs/0120-targeted-trade-typing.md)).
 
 ---
 

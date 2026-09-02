@@ -1,4 +1,3 @@
-import { useMemo } from "react"
 import { Box, Heading, SimpleGrid, Stack, Text } from "@chakra-ui/react"
 import type { GameAttributeName, InventoryItem, ItemDefinition } from "@repo/types"
 import { useUserGameState } from "../UserGameStateContext"
@@ -25,6 +24,7 @@ function formatNumber(n: number): string {
 
 const EMPTY_INVENTORY_ITEMS: InventoryItem[] = []
 const EMPTY_ATTRIBUTES = {} as Record<GameAttributeName, number>
+const EMPTY_DEFINITION_MAP = new Map<string, ItemDefinition>()
 
 function GameStateInventoryContent() {
   const gameState = useUserGameState()
@@ -39,13 +39,7 @@ function GameStateInventoryContent() {
     rawInventoryItems && rawInventoryItems.length > 0 ? rawInventoryItems : EMPTY_INVENTORY_ITEMS
   const maxSlots = gameState?.inventory?.maxSlots ?? 0
   const maxCollectionSlots = gameState?.inventory?.maxCollectionSlots ?? 0
-  const definitionMap = useMemo(() => {
-    const map = new Map<string, ItemDefinition>()
-    for (const def of gameState?.itemDefinitions ?? []) {
-      map.set(def.id, def)
-    }
-    return map
-  }, [gameState?.itemDefinitions])
+  const definitionMap = gameState?.definitionMap ?? EMPTY_DEFINITION_MAP
 
   const enabledAttributesForGrid = enabledAttributes.filter((a) => a !== "score" && a !== "coin")
 

@@ -15,6 +15,7 @@ export type RoomLayoutState = {
   layout4: number[]
 }
 
+export const PLAYER_COLUMN_MIN_WIDTH = "200px"
 export const INTEGRATED_PANEL_MIN_WIDTH = "440px"
 
 export type RoomPanelConstraints = {
@@ -23,7 +24,7 @@ export type RoomPanelConstraints = {
 }
 
 export const ROOM_PANEL_CONSTRAINTS: Record<RoomPanelId, RoomPanelConstraints> = {
-  player: { minSize: 15, maxSize: 35 },
+  player: { minSize: PLAYER_COLUMN_MIN_WIDTH, maxSize: 35 },
   chat: { minSize: 25 },
   sidebar: { minSize: 12, maxSize: 30 },
   panel: { minSize: INTEGRATED_PANEL_MIN_WIDTH, maxSize: 35 },

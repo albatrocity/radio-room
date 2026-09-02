@@ -126,3 +126,36 @@ export function emitTradeInviteCancel(inviteId: string): void {
   dismissTradeInviteToast(inviteId)
   emitToSocket("TRADE_CANCEL", { tradeId: inviteId })
 }
+
+export function emitTradeInvite(toUserId: string): void {
+  emitToSocket("TRADE_INVITE", { toUserId })
+}
+
+export function emitTradeLock(tradeId: string): void {
+  emitToSocket("TRADE_LOCK", { tradeId })
+}
+
+export function emitTradeUnlock(tradeId: string): void {
+  emitToSocket("TRADE_UNLOCK", { tradeId })
+}
+
+export function emitTradeConfirm(tradeId: string): void {
+  emitToSocket("TRADE_CONFIRM", { tradeId })
+}
+
+export function emitTradeSetOffer(
+  tradeId: string,
+  items: { itemId: string; quantity: number }[],
+): void {
+  emitToSocket("TRADE_SET_OFFER", { tradeId, items })
+}
+
+export function emitTradeSetMessage(tradeId: string, message: string): void {
+  emitToSocket("TRADE_SET_MESSAGE", { tradeId, message })
+}
+
+export function emitTradeTyping(tradeId: string, typing: boolean): void {
+  emitToSocket("TRADE_TYPING", { tradeId, typing })
+}
+
+export { emitTradeCancel } from "./tradeCancelledByMe"
