@@ -7,7 +7,7 @@ import {
   type ItemShopsBehaviorDeps,
 } from "../shared/types"
 
-const p2pFileSharingOnDefenseTriggered: DefenseTriggeredHandler = async (
+const honeypotOnDefenseTriggered: DefenseTriggeredHandler = async (
   deps: ItemShopsBehaviorDeps,
   ctx,
 ): Promise<DefenseTriggeredResult | null> => {
@@ -41,10 +41,10 @@ const p2pFileSharingOnDefenseTriggered: DefenseTriggeredHandler = async (
   }
 }
 
-export const p2pFileSharing = createItem({
-  shortId: "p2p-file-sharing",
+export const honeypot = createItem({
+  shortId: "honeypot",
   definition: {
-    name: "P2P File Sharing",
+    name: "Honeypot",
     description: "HA HA. STEAL THE NEXT ITEM USED ON YOU, IGNORE ITS EFFECTS AND KEEP IT FOR YOURSELF >:)",
     stackable: true,
     maxStack: 3,
@@ -61,5 +61,5 @@ export const p2pFileSharing = createItem({
     },
   },
   use: usePassiveDefenseItem,
-  onDefenseTriggered: p2pFileSharingOnDefenseTriggered,
+  onDefenseTriggered: honeypotOnDefenseTriggered,
 })

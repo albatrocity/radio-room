@@ -66,10 +66,10 @@ describe("modifierMatchesTargeting", () => {
 
 describe("DefenseService.checkModifierDefense", () => {
   const defenseDefinition: ItemDefinition = {
-    id: "item-shops:p2p-file-sharing",
-    shortId: "p2p-file-sharing",
+    id: "item-shops:honeypot",
+    shortId: "honeypot",
     sourcePlugin: "item-shops",
-    name: "P2P File Sharing",
+    name: "Honeypot",
     description: "",
     stackable: true,
     maxStack: 3,

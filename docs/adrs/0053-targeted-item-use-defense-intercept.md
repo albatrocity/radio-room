@@ -7,9 +7,9 @@
 
 ADR [0050](0050-inventory-defense-items.md) added passive defense for **modifiers** and **queue** moves: core matches targeting, **consumes** one quantity from the defender’s stack, and emits **`GAME_EFFECT_BLOCKED`**.
 
-Some defense items need **extra behavior** after that consume — e.g. **P2P File Sharing**: award the defender a copy of the attacker’s item definition. That logic must stay with the **item definition** (plugin item module), not in core inventory or defense matching.
+Some defense items need **extra behavior** after that consume — e.g. **Honeypot**: award the defender a copy of the attacker’s item definition. That logic must stay with the **item definition** (plugin item module), not in core inventory or defense matching.
 
-We briefly considered a separate **`DefenseScope` value `"itemUse"`** and an **`InventoryService.useItem` intercept** before `onItemUsed`. That duplicated the modifier-defense path for every `requiresTarget: "user"` item today (they all apply modifiers via `applyTimedModifier`). We **rejected** a separate scope: **P2P File Sharing uses `scope: ["modifier"]`** and the same `sourcePlugins` / `modifierMatchesTargeting` rules as other modifier defenses.
+We briefly considered a separate **`DefenseScope` value `"itemUse"`** and an **`InventoryService.useItem` intercept** before `onItemUsed`. That duplicated the modifier-defense path for every `requiresTarget: "user"` item today (they all apply modifiers via `applyTimedModifier`). We **rejected** a separate scope: **Honeypot uses `scope: ["modifier"]`** and the same `sourcePlugins` / `modifierMatchesTargeting` rules as other modifier defenses.
 
 ## Decision
 
@@ -34,4 +34,4 @@ We briefly considered a separate **`DefenseScope` value `"itemUse"`** and an **`
 - **Positive:** One defense pipeline; `DefenseTargeting.sourcePlugins` always filters **`GameStateModifier.source`**. Item authors co-locate `defense`, `use`, and `onDefenseTriggered` in one file.
 - **Negative:** A future **`requiresTarget: "user"`** item that does **not** go through `applyModifier` / `applyTimedModifier` would not trigger modifier defense automatically; that item’s plugin would need to call defense explicitly or apply a modifier-shaped hook for consistency.
 
-**Example items:** **P2P File Sharing** (`shortId: "p2p-file-sharing"`) — `scope: ["modifier"]`, `targeting: { sourcePlugins: ["item-shops"] }`, **`onDefenseTriggered`** calls `giveItem(defender, attackerItemDefinition.id, …, "defense_intercept")` and returns custom **`attackerMessage` / `roomMessage`**. **Rubber Band** (`shortId: "rubber-band"`) — same defense shape; **`onDefenseTriggered`** redirects **`payload.blockedModifier`** onto **`attackerUserId`** via **`game.reboundModifier(attackerUserId, blockedModifier)`**.
+**Example items:** **Honeypot** (`shortId: "honeypot"`) — `scope: ["modifier"]`, `targeting: { sourcePlugins: ["item-shops"] }`, **`onDefenseTriggered`** calls `giveItem(defender, attackerItemDefinition.id, …, "defense_intercept")` and returns custom **`attackerMessage` / `roomMessage`**. **Rubber Band** (`shortId: "rubber-band"`) — same defense shape; **`onDefenseTriggered`** redirects **`payload.blockedModifier`** onto **`attackerUserId`** via **`game.reboundModifier(attackerUserId, blockedModifier)`**.

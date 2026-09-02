@@ -9,19 +9,19 @@ import {
   stubRoomUsers,
 } from "../shared/testHelpers"
 import type { ItemShopsBehaviorDeps } from "../shared/types"
-import { p2pFileSharing } from "./index"
+import { honeypot } from "./index"
 
-describe("p2p-file-sharing", () => {
+describe("honeypot", () => {
   it("registers the expected shortId", () => {
-    expect(p2pFileSharing.shortId).toBe("p2p-file-sharing")
+    expect(honeypot.shortId).toBe("honeypot")
   })
 
   it("declares modifier defense for item-shops", () => {
-    expect(p2pFileSharing.catalogEntry.definition.defense?.scope).toContain("modifier")
-    expect(p2pFileSharing.catalogEntry.definition.defense?.targeting.sourcePlugins).toEqual([
+    expect(honeypot.catalogEntry.definition.defense?.scope).toContain("modifier")
+    expect(honeypot.catalogEntry.definition.defense?.targeting.sourcePlugins).toEqual([
       "item-shops",
     ])
-    expect(typeof p2pFileSharing.onDefenseTriggered).toBe("function")
+    expect(typeof honeypot.onDefenseTriggered).toBe("function")
   })
 
   it("onDefenseTriggered awards a copy with defense_intercept source", async () => {
@@ -69,13 +69,13 @@ describe("p2p-file-sharing", () => {
     } as ItemDefinition
 
     const defenseItemDefinition = {
-      ...p2pFileSharing.catalogEntry.definition,
-      id: "item-shops:p2p-file-sharing",
-      shortId: "p2p-file-sharing",
+      ...honeypot.catalogEntry.definition,
+      id: "item-shops:honeypot",
+      shortId: "honeypot",
       sourcePlugin: "item-shops",
     } as ItemDefinition
 
-    await p2pFileSharing.onDefenseTriggered!(deps, {
+    await honeypot.onDefenseTriggered!(deps, {
       roomId: "room-1",
       defenderUserId: "def-1",
       attackerUserId: "atk-1",
@@ -100,8 +100,8 @@ describe("p2p-file-sharing", () => {
     vi.mocked(deps.game.applyTimedModifier).mockResolvedValue({
       ok: false,
       reason: "defense_blocked",
-      blockingItemName: "P2P File Sharing",
-      attackerMessage: "P2P File Sharing intercepted your Boost Pedal.",
+      blockingItemName: "Honeypot",
+      attackerMessage: "Honeypot intercepted your Boost Pedal.",
     })
     const def = createMockDefinition(boostPedal.shortId, {
       name: boostPedal.catalogEntry.definition.name,

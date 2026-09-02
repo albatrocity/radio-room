@@ -19,7 +19,7 @@ import { marsEgg } from "./mars-egg"
 import { coldBeer } from "./cold-beer"
 import { cucumberSlices } from "./cucumber-slices"
 import { sampleHold } from "./sample-hold"
-import { p2pFileSharing } from "./p2p-file-sharing"
+import { honeypot } from "./honeypot"
 import { blueberries } from "./blueberries"
 import { rubberBand } from "./rubber-band"
 import { disguise } from "./disguise"
@@ -71,7 +71,7 @@ export const items = {
   gravityBong,
   marsEgg,
   disguise,
-  p2pFileSharing,
+  honeypot,
   nineVoltBattery,
   rubberBand,
   carrots,

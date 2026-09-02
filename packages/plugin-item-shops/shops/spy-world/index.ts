@@ -8,7 +8,7 @@ export const SPY_WORLD_SHOP: ItemShopsShopCatalogEntry = {
     "THE EYE IN THE SKY IS WATCHING... TAKE REFUGE IN {{shopName}}",
   availableItems: [
     { shortId: items.disguise.shortId, coinValue: 30 },
-    { shortId: items.p2pFileSharing.shortId, coinValue: 30 },
+    { shortId: items.honeypot.shortId, coinValue: 30 },
     { shortId: items.rubberBand.shortId, coinValue: 30 },
   ],
   listedBuybackRate: 0.35,
