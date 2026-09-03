@@ -3,12 +3,14 @@ import {
   addDeputy,
   advanceRound,
   applyAdminRobin,
+  applyModeChange,
   canAccessSources,
   canHold,
   clearAdminRobin,
   createInitialState,
   getEligibleUserIds,
   isEligible,
+  isOrderedMode,
   recordSuccessfulQueue,
   restoreTurnToEndOfRound,
   removeUser,
@@ -319,6 +321,169 @@ describe("round-robin state", () => {
       state = recordSuccessfulQueue(state, "a", true).state
       const t = restoreTurnToEndOfRound(state, "a", [{ addedBy: { userId: "a" } }])
       expect(t.state).toBe(state)
+    })
+  })
+
+  describe("isOrderedMode", () => {
+    it("is true for sequential and forwardAndBack", () => {
+      expect(isOrderedMode("sequential")).toBe(true)
+      expect(isOrderedMode("forwardAndBack")).toBe(true)
+      expect(isOrderedMode("nonSequential")).toBe(false)
+    })
+  })
+
+  describe("forwardAndBack", () => {
+    it("snakes after discovery: A,B,C then C goes again with direction -1", () => {
+      let state = createInitialState("forwardAndBack", ["a", "b", "c"])
+      expect(state.direction).toBe(1)
+
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      const t = recordSuccessfulQueue(state, "c", true)
+      state = t.state
+
+      expect(state.orderLocked).toBe(true)
+      expect(state.order).toEqual(["a", "b", "c"])
+      expect(state.round).toBe(2)
+      expect(state.direction).toBe(-1)
+      expect(getEligibleUserIds(state)).toEqual(["c"])
+      expect(t.turnStartedFor).toEqual(["c"])
+      expect(t.roundAdvanced).toBe(true)
+    })
+
+    it("continues C,B,A then flips back so A goes again", () => {
+      let state = createInitialState("forwardAndBack", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "c", true).state
+      // round 2, direction -1, C's turn
+      state = recordSuccessfulQueue(state, "c", true).state
+      expect(getEligibleUserIds(state)).toEqual(["b"])
+
+      state = recordSuccessfulQueue(state, "b", true).state
+      expect(getEligibleUserIds(state)).toEqual(["a"])
+
+      const t = recordSuccessfulQueue(state, "a", true)
+      state = t.state
+      expect(state.round).toBe(3)
+      expect(state.direction).toBe(1)
+      expect(getEligibleUserIds(state)).toEqual(["a"])
+      expect(t.turnStartedFor).toEqual(["a"])
+    })
+
+    it("with two deputies alternates double-turns: A,B then B,A then A,…", () => {
+      let state = createInitialState("forwardAndBack", ["a", "b"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      let t = recordSuccessfulQueue(state, "b", true)
+      state = t.state
+      expect(state.round).toBe(2)
+      expect(state.direction).toBe(-1)
+      expect(getEligibleUserIds(state)).toEqual(["b"])
+      expect(t.turnStartedFor).toEqual(["b"])
+
+      t = recordSuccessfulQueue(state, "b", true)
+      state = t.state
+      expect(getEligibleUserIds(state)).toEqual(["a"])
+
+      t = recordSuccessfulQueue(state, "a", true)
+      state = t.state
+      expect(state.round).toBe(3)
+      expect(state.direction).toBe(1)
+      expect(getEligibleUserIds(state)).toEqual(["a"])
+      expect(t.turnStartedFor).toEqual(["a"])
+    })
+
+    it("sequential still restarts at first name after lock", () => {
+      let state = createInitialState("sequential", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "c", true).state
+      expect(state.round).toBe(2)
+      expect(state.direction).toBe(1)
+      expect(getEligibleUserIds(state)).toEqual(["a"])
+    })
+
+    it("manual advanceRound after C locks and starts C's reverse turn", () => {
+      let state = createInitialState("forwardAndBack", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", false).state
+      state = recordSuccessfulQueue(state, "b", false).state
+      state = recordSuccessfulQueue(state, "c", false).state
+      expect(state.phase).toBe("roundComplete")
+      expect(state.orderLocked).toBe(true)
+
+      const t = advanceRound(state)
+      expect(t.state.round).toBe(2)
+      expect(t.state.direction).toBe(-1)
+      expect(getEligibleUserIds(t.state)).toEqual(["c"])
+      expect(t.turnStartedFor).toEqual(["c"])
+    })
+
+    it("rewinds auto-advance undo of C's discovery finish back to round 1 forward", () => {
+      let state = createInitialState("forwardAndBack", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "c", true).state
+      expect(state.round).toBe(2)
+      expect(state.direction).toBe(-1)
+      expect(getEligibleUserIds(state)).toEqual(["c"])
+      expect(state.lastTurn).toEqual({
+        userId: "c",
+        completedRound: 1,
+        roundAdvanced: true,
+      })
+
+      const t = restoreTurnToEndOfRound(state, "c", [])
+      expect(t.state.round).toBe(1)
+      expect(t.state.direction).toBe(1)
+      expect(t.state.queuedThisRound).toEqual(["a", "b"])
+      expect(getEligibleUserIds(t.state)).toEqual(["c"])
+    })
+
+    it("prepends undoer when walking backward and keeps current player", () => {
+      let state = createInitialState("forwardAndBack", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "c", true).state
+      // round 2 back: C then B
+      state = recordSuccessfulQueue(state, "c", true).state
+      expect(getEligibleUserIds(state)).toEqual(["b"])
+      expect(state.direction).toBe(-1)
+      expect(state.queuedThisRound).toEqual(["c"])
+
+      const t = restoreTurnToEndOfRound(state, "c", [])
+      expect(t.state.queuedThisRound).toEqual([])
+      expect(t.state.order[0]).toBe("c")
+      expect(getEligibleUserIds(t.state)).toEqual(["b"])
+    })
+
+    it("preserves order when switching sequential ↔ forwardAndBack", () => {
+      let state = createInitialState("sequential", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "c", true).state
+      // round 2 locked, a then b then c
+      state = recordSuccessfulQueue(state, "a", true).state
+      expect(state.order).toEqual(["a", "b", "c"])
+      expect(getEligibleUserIds(state)).toEqual(["b"])
+
+      state = applyModeChange(state, "forwardAndBack")
+      expect(state.mode).toBe("forwardAndBack")
+      expect(state.order).toEqual(["a", "b", "c"])
+      expect(state.round).toBe(2)
+      expect(state.direction).toBe(1)
+      expect(state.queuedThisRound).toEqual(["a"])
+      expect(getEligibleUserIds(state)).toEqual(["b"])
+    })
+
+    it("allows hold in forwardAndBack when defer enabled", () => {
+      let state = createInitialState("forwardAndBack", ["a", "b", "c"])
+      state = recordSuccessfulQueue(state, "a", true).state
+      state = recordSuccessfulQueue(state, "b", true).state
+      state = recordSuccessfulQueue(state, "c", true).state
+      // round 2, C's turn (reverse)
+      expect(canHold(state, "b", true)).toBe(true)
+      expect(canHold(state, "c", true)).toBe(false)
+      expect(canAccessSources(state, "a", true)).toBe(true)
     })
   })
 })

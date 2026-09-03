@@ -28,6 +28,7 @@ import {
   roundRobinDjConfigSchema,
   type HeldQueueTrack,
   type RoundRobinDjConfig,
+  type RoundRobinMode,
   type RoundRobinState,
 } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
@@ -53,10 +54,22 @@ import { DeputyRosterLifecycle } from "./roster"
 
 export type { RoundRobinDjConfig, RoundRobinState, HeldQueueTrack } from "./types"
 export { roundRobinDjConfigSchema, defaultRoundRobinDjConfig, ROBIN_PERSONA_ID } from "./types"
+
+function modeLabel(mode: RoundRobinMode): string {
+  switch (mode) {
+    case "forwardAndBack":
+      return "forward-and-back"
+    case "nonSequential":
+      return "non-sequential"
+    default:
+      return "sequential"
+  }
+}
 export {
   createInitialState,
   getEligibleUserIds,
   isEligible,
+  isOrderedMode,
   canEnqueueNow,
   canHold,
   canAccessSources,
@@ -67,6 +80,7 @@ export {
   applyAdminRobin,
   clearAdminRobin,
   advanceRound,
+  applyModeChange,
   shouldUseExclusiveRobin,
 } from "./state"
 export {
@@ -78,14 +92,14 @@ export {
 /**
  * Round Robin DJ Plugin
  *
- * Gates deputy queueing by round order (sequential or FCFS). Assigns a Robin
- * persona to eligible deputies and grants restricted metadata access to them.
+ * Gates deputy queueing by round order (sequential, forward-and-back, or FCFS).
+ * Assigns a Robin persona to eligible deputies and grants restricted metadata access.
  */
 export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   name = PLUGIN_NAME
   version = packageJson.version
   description =
-    "Round-robin deputy DJ queueing with sequential or FCFS rounds, Robin persona, and turn messages."
+    "Round-robin deputy DJ queueing with sequential, forward-and-back, or FCFS rounds, Robin persona, and turn messages."
 
   static readonly configSchema = roundRobinDjConfigSchema as any
   static readonly defaultConfig = defaultRoundRobinDjConfig
@@ -319,7 +333,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
       await this.syncRobinAndPublish(state, config)
       await this.context.api.sendSystemMessage(
         this.context.roomId,
-        `Round Robin: switched to ${config.mode === "sequential" ? "sequential" : "non-sequential"} mode`,
+        `Round Robin: switched to ${modeLabel(config.mode)} mode`,
         { type: "alert", status: "info" },
       )
     } else if (
@@ -347,7 +361,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     await this.syncRobinAndPublish(state, config)
     await this.context.api.sendSystemMessage(
       this.context.roomId,
-      `Round Robin DJ enabled (${config.mode === "sequential" ? "sequential" : "non-sequential"}). Deputies take turns queueing.`,
+      `Round Robin DJ enabled (${modeLabel(config.mode)}). Deputies take turns queueing.`,
       { type: "alert", status: "info" },
     )
   }
@@ -498,7 +512,9 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
       return null
     }
     try {
-      this.stateCache = JSON.parse(raw) as RoundRobinState
+      const parsed = JSON.parse(raw) as RoundRobinState
+      parsed.direction = parsed.direction === -1 ? -1 : 1
+      this.stateCache = parsed
       return this.stateCache
     } catch {
       this.stateCache = null

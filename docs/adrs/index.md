@@ -156,6 +156,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0148](0148-transactional-defense-and-user-toast.md) | Transactional defense check (`omitBlockedModifier`) + `USER_TOAST` | Accepted |
 | [0149](0149-inventory-peek-flag-and-identity-pierce.md) | Timed `inventory_peek` flag + viewer identity pierce (X-Ray) | Accepted |
 | [0150](0150-presented-identity-grant.md) | Core presented-identity grant (optional engage toggle) | Accepted |
+| [0151](0151-round-robin-forward-and-back-mode.md) | Round Robin forward-and-back (snake) mode | Accepted |
 
 ## Creating a New ADR
 

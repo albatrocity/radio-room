@@ -1,4 +1,4 @@
-import type { RoundRobinMode, RoundRobinState } from "./types"
+import type { RoundRobinDirection, RoundRobinMode, RoundRobinState } from "./types"
 
 export type StateTransition = {
   state: RoundRobinState
@@ -8,12 +8,22 @@ export type StateTransition = {
   roundCompleted: boolean
 }
 
+/** Modes that discover/lock a turn order (vs FCFS `nonSequential`). */
+export function isOrderedMode(mode: RoundRobinMode): boolean {
+  return mode === "sequential" || mode === "forwardAndBack"
+}
+
+function normalizeDirection(direction: RoundRobinDirection | undefined): RoundRobinDirection {
+  return direction === -1 ? -1 : 1
+}
+
 function clone(state: RoundRobinState): RoundRobinState {
   return {
     ...state,
     order: [...state.order],
     participants: [...state.participants],
     queuedThisRound: [...state.queuedThisRound],
+    direction: normalizeDirection(state.direction),
     lastTurn: state.lastTurn ? { ...state.lastTurn } : undefined,
   }
 }
@@ -26,13 +36,14 @@ export function createInitialState(
   return {
     mode,
     phase: "open",
-    order: mode === "sequential" ? [] : [...participants],
+    order: isOrderedMode(mode) ? [] : [...participants],
     participants,
     queuedThisRound: [],
     currentIndex: 0,
     adminForcedUserId: null,
     round: 1,
     orderLocked: false,
+    direction: 1,
   }
 }
 
@@ -53,7 +64,7 @@ export function getEligibleUserIds(state: RoundRobinState): string[] {
     return notQueued
   }
 
-  // Sequential
+  // Ordered modes (sequential / forwardAndBack)
   if (!state.orderLocked) {
     return notQueued
   }
@@ -73,7 +84,7 @@ export function isEligible(state: RoundRobinState, userId: string): boolean {
 export const canEnqueueNow = isEligible
 
 /**
- * May select a track to hold (sequential + defer option):
+ * May select a track to hold (ordered mode + defer option):
  * - Locked rounds: out-of-turn deputies who have not queued yet (until their turn)
  * - Open discovery: deputies who already queued this round (held for next round)
  */
@@ -83,7 +94,7 @@ export function canHold(
   deferEnabled: boolean,
 ): boolean {
   if (!deferEnabled) return false
-  if (state.mode !== "sequential") return false
+  if (!isOrderedMode(state.mode)) return false
   if (state.phase === "roundComplete") return false
   if (!state.participants.includes(userId)) return false
   if (canEnqueueNow(state, userId)) return false
@@ -113,18 +124,43 @@ function allParticipantsQueued(state: RoundRobinState): boolean {
   return state.participants.every((id) => state.queuedThisRound.includes(id))
 }
 
+/**
+ * Clamp currentIndex onto a participant still in order.
+ * Prefer keeping the existing slot when present (forwardAndBack round boundary).
+ */
+function clampCurrentIndexToParticipant(state: RoundRobinState): RoundRobinState {
+  if (state.order.length === 0) {
+    state.currentIndex = 0
+    return state
+  }
+  const current = state.order[state.currentIndex]
+  if (current && state.participants.includes(current)) {
+    return state
+  }
+  const idx = state.order.findIndex((id) => state.participants.includes(id))
+  state.currentIndex = idx >= 0 ? idx : 0
+  return state
+}
+
 function startNextRound(state: RoundRobinState): RoundRobinState {
   const next = clone(state)
   next.queuedThisRound = []
   next.adminForcedUserId = null
   next.round += 1
-  next.phase = next.mode === "sequential" && next.orderLocked ? "locked" : "open"
-  next.currentIndex = 0
+  next.phase = isOrderedMode(next.mode) && next.orderLocked ? "locked" : "open"
 
-  if (next.mode === "sequential" && next.orderLocked && next.order.length > 0) {
-    // Ensure currentIndex points at first participant still in order
+  if (next.mode === "forwardAndBack" && next.orderLocked && next.order.length > 0) {
+    // Snake: flip walk direction; keep currentIndex on the endpoint who just finished.
+    next.direction = normalizeDirection(next.direction) === 1 ? -1 : 1
+    clampCurrentIndexToParticipant(next)
+  } else if (isOrderedMode(next.mode) && next.orderLocked && next.order.length > 0) {
+    // Sequential: restart at first participant still in order
+    next.direction = 1
     const idx = next.order.findIndex((id) => next.participants.includes(id))
     next.currentIndex = idx >= 0 ? idx : 0
+  } else {
+    next.currentIndex = 0
+    next.direction = 1
   }
 
   if (next.mode === "nonSequential") {
@@ -143,7 +179,7 @@ function maybeCompleteRound(
     return { state, roundCompleted: false, roundAdvanced: false }
   }
 
-  if (state.mode === "sequential" && !state.orderLocked) {
+  if (isOrderedMode(state.mode) && !state.orderLocked) {
     // First round finished — lock discovery order (append any who somehow missed order)
     const locked = clone(state)
     for (const id of locked.participants) {
@@ -151,6 +187,14 @@ function maybeCompleteRound(
     }
     locked.orderLocked = true
     locked.phase = "roundComplete"
+    // Ensure currentIndex lands on the last person who queued (endpoint for snake).
+    if (locked.order.length > 0) {
+      const lastQueued = [...locked.queuedThisRound]
+        .reverse()
+        .find((id) => locked.order.includes(id))
+      const idx = lastQueued ? locked.order.indexOf(lastQueued) : locked.order.length - 1
+      locked.currentIndex = idx >= 0 ? idx : locked.order.length - 1
+    }
     if (autoAdvanceRounds) {
       const advanced = startNextRound(locked)
       return { state: advanced, roundCompleted: true, roundAdvanced: true }
@@ -167,13 +211,14 @@ function maybeCompleteRound(
 }
 
 function advanceSequentialIndex(state: RoundRobinState): RoundRobinState {
-  if (state.mode !== "sequential" || !state.orderLocked || state.order.length === 0) {
+  if (!isOrderedMode(state.mode) || !state.orderLocked || state.order.length === 0) {
     return state
   }
   const next = clone(state)
   const n = next.order.length
+  const direction = normalizeDirection(next.direction)
   for (let step = 1; step <= n; step++) {
-    const idx = (next.currentIndex + step) % n
+    const idx = (((next.currentIndex + direction * step) % n) + n) % n
     const candidate = next.order[idx]
     if (
       candidate &&
@@ -233,13 +278,16 @@ export function recordSuccessfulQueue(
 
   next.queuedThisRound = [...next.queuedThisRound, userId]
 
-  if (next.mode === "sequential" && !next.orderLocked) {
+  if (isOrderedMode(next.mode) && !next.orderLocked) {
     if (!next.order.includes(userId)) {
       next.order = [...next.order, userId]
     }
+    // Track who just queued so forwardAndBack can keep this slot across lock→next round.
+    const idx = next.order.indexOf(userId)
+    if (idx >= 0) next.currentIndex = idx
   }
 
-  if (next.mode === "sequential" && next.orderLocked) {
+  if (isOrderedMode(next.mode) && next.orderLocked) {
     next = advanceSequentialIndex(next)
   }
 
@@ -251,9 +299,21 @@ export function recordSuccessfulQueue(
     roundAdvanced: completed.roundAdvanced,
   }
 
+  const afterEligible = getEligibleUserIds(next)
+  let turnStartedFor = singleNewEligible(beforeEligible, afterEligible, userId)
+  // Endpoint double-turn: after round advance the same person is still sole eligible.
+  if (
+    completed.roundAdvanced &&
+    afterEligible.length === 1 &&
+    afterEligible[0] === userId &&
+    !turnStartedFor.includes(userId)
+  ) {
+    turnStartedFor = [userId]
+  }
+
   return {
     state: next,
-    turnStartedFor: singleNewEligible(beforeEligible, getEligibleUserIds(next), userId),
+    turnStartedFor,
     roundAdvanced: completed.roundAdvanced,
     roundCompleted: completed.roundCompleted,
   }
@@ -263,7 +323,7 @@ export function addDeputy(state: RoundRobinState, userId: string): RoundRobinSta
   if (state.participants.includes(userId)) return state
   const next = clone(state)
   next.participants = [...next.participants, userId]
-  if (next.mode === "sequential") {
+  if (isOrderedMode(next.mode)) {
     if (next.orderLocked || next.order.length > 0) {
       next.order = [...next.order, userId]
     }
@@ -292,11 +352,11 @@ export function removeUser(state: RoundRobinState, userId: string): StateTransit
     next.adminForcedUserId = null
   }
 
-  if (next.mode === "sequential" && next.orderLocked && next.order.length > 0) {
+  if (isOrderedMode(next.mode) && next.orderLocked && next.order.length > 0) {
     if (next.currentIndex >= next.order.length) {
-      next.currentIndex = 0
+      next.currentIndex = Math.max(0, next.order.length - 1)
     }
-    // If current slot was removed, land on next eligible
+    // If current slot was removed, land on next eligible in current direction
     const current = next.order[next.currentIndex]
     if (!current || next.queuedThisRound.includes(current)) {
       Object.assign(next, advanceSequentialIndex(next))
@@ -314,7 +374,7 @@ export function removeUser(state: RoundRobinState, userId: string): StateTransit
 }
 
 /**
- * Admin designates Robin: sequential reorders so they are current;
+ * Admin designates Robin: ordered modes reorder so they are current;
  * non-sequential forces exclusive eligibility until they queue.
  */
 export function applyAdminRobin(state: RoundRobinState, userId: string): StateTransition {
@@ -323,7 +383,7 @@ export function applyAdminRobin(state: RoundRobinState, userId: string): StateTr
     next.participants = [...next.participants, userId]
   }
 
-  if (next.mode === "sequential") {
+  if (isOrderedMode(next.mode)) {
     next.adminForcedUserId = null
     // Move user to current turn position
     next.order = next.order.filter((id) => id !== userId)
@@ -371,7 +431,7 @@ export function clearAdminRobin(state: RoundRobinState): RoundRobinState {
 export function advanceRound(state: RoundRobinState): StateTransition {
   const next = clone(state)
 
-  if (next.mode === "sequential" && !next.orderLocked) {
+  if (isOrderedMode(next.mode) && !next.orderLocked) {
     for (const id of next.participants) {
       if (!next.order.includes(id)) next.order.push(id)
     }
@@ -395,6 +455,27 @@ export function applyModeChange(
   participantIds?: string[],
 ): RoundRobinState {
   const participants = participantIds ?? state.participants
+
+  // sequential ↔ forwardAndBack: preserve roster/order/round; reset direction to forward
+  if (isOrderedMode(state.mode) && isOrderedMode(mode)) {
+    const next = clone(state)
+    next.mode = mode
+    next.participants = [...new Set(participants)]
+    // Drop departed participants from order/queued lists
+    next.order = next.order.filter((id) => next.participants.includes(id))
+    next.queuedThisRound = next.queuedThisRound.filter((id) => next.participants.includes(id))
+    for (const id of next.participants) {
+      if (!next.order.includes(id) && (next.orderLocked || next.order.length > 0)) {
+        next.order.push(id)
+      }
+    }
+    next.direction = 1
+    if (next.currentIndex >= next.order.length) {
+      next.currentIndex = Math.max(0, next.order.length - 1)
+    }
+    return next
+  }
+
   return createInitialState(mode, participants)
 }
 
@@ -410,7 +491,7 @@ export function rejectionReason(state: RoundRobinState): string {
   if (state.adminForcedUserId) {
     return "Round Robin: wait for the designated Robin to queue a song"
   }
-  if (state.mode === "sequential" && state.orderLocked) {
+  if (isOrderedMode(state.mode) && state.orderLocked) {
     return "Round Robin: wait for your turn to queue"
   }
   return "Round Robin: you have already queued this round"
@@ -419,7 +500,7 @@ export function rejectionReason(state: RoundRobinState): string {
 export type QueueOwnerRef = { addedBy?: { userId?: string } | null }
 
 function pointAtEligible(state: RoundRobinState, preferId?: string): RoundRobinState {
-  if (state.mode !== "sequential" || !state.orderLocked || state.order.length === 0) {
+  if (!isOrderedMode(state.mode) || !state.orderLocked || state.order.length === 0) {
     return state
   }
   const next = clone(state)
@@ -434,10 +515,45 @@ function pointAtEligible(state: RoundRobinState, preferId?: string): RoundRobinS
       return next
     }
   }
-  const idx = next.order.findIndex(
-    (id) => next.participants.includes(id) && !next.queuedThisRound.includes(id),
-  )
-  next.currentIndex = idx >= 0 ? idx : 0
+  // Prefer next eligible in current direction from currentIndex; fall back to any.
+  const direction = normalizeDirection(next.direction)
+  const n = next.order.length
+  for (let step = 0; step < n; step++) {
+    const idx = (((next.currentIndex + direction * step) % n) + n) % n
+    const id = next.order[idx]
+    if (id && next.participants.includes(id) && !next.queuedThisRound.includes(id)) {
+      next.currentIndex = idx
+      return next
+    }
+  }
+  next.currentIndex = 0
+  return next
+}
+
+/**
+ * Move `userId` to the end of the current round in the walk direction:
+ * append when forward, prepend when backward (ADR 0151 / 0101).
+ */
+function moveToEndOfDirectionalRound(
+  state: RoundRobinState,
+  userId: string,
+): RoundRobinState {
+  const next = clone(state)
+  const without = next.order.filter((id) => id !== userId)
+  const direction = normalizeDirection(next.direction)
+  if (direction === 1) {
+    next.order = [...without, userId]
+  } else {
+    const prevCurrent = next.order[next.currentIndex]
+    next.order = [userId, ...without]
+    // Prepend shifts everyone; keep pointing at the same person when possible.
+    if (prevCurrent && prevCurrent !== userId) {
+      const idx = next.order.indexOf(prevCurrent)
+      next.currentIndex = idx >= 0 ? idx : next.currentIndex + 1
+    } else {
+      next.currentIndex = Math.min(next.currentIndex + 1, next.order.length - 1)
+    }
+  }
   return next
 }
 
@@ -472,23 +588,27 @@ export function restoreTurnToEndOfRound(
   const beforeEligible = new Set(getEligibleUserIds(state))
   let next = clone(state)
   const currentId =
-    next.mode === "sequential" && next.orderLocked ? next.order[next.currentIndex] : undefined
+    isOrderedMode(next.mode) && next.orderLocked ? next.order[next.currentIndex] : undefined
 
   if (rewind) {
     next.round = state.lastTurn!.completedRound
     next.queuedThisRound = next.participants.filter((id) => id !== userId)
     next.phase = next.orderLocked ? "locked" : "open"
+    // Undo the direction flip that startNextRound applied for forwardAndBack
+    if (next.mode === "forwardAndBack" && next.orderLocked) {
+      next.direction = normalizeDirection(next.direction) === 1 ? -1 : 1
+    }
   } else {
     next.queuedThisRound = next.queuedThisRound.filter((id) => id !== userId)
     if (next.phase === "roundComplete") {
-      next.phase = next.mode === "sequential" && next.orderLocked ? "locked" : "open"
+      next.phase = isOrderedMode(next.mode) && next.orderLocked ? "locked" : "open"
     }
   }
 
-  if (next.mode === "sequential" && !next.orderLocked) {
+  if (isOrderedMode(next.mode) && !next.orderLocked) {
     next.order = next.order.filter((id) => id !== userId)
-  } else if (next.mode === "sequential" && next.orderLocked) {
-    next.order = [...next.order.filter((id) => id !== userId), userId]
+  } else if (isOrderedMode(next.mode) && next.orderLocked) {
+    next = moveToEndOfDirectionalRound(next, userId)
     const onlyRemaining =
       next.participants.filter((id) => !next.queuedThisRound.includes(id)).length === 1
     next = pointAtEligible(next, onlyRemaining || rewind ? userId : currentId)

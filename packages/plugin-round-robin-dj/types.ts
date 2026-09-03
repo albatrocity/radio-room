@@ -1,7 +1,10 @@
 import { z } from "zod"
 
-export const roundRobinModeSchema = z.enum(["sequential", "nonSequential"])
+export const roundRobinModeSchema = z.enum(["sequential", "nonSequential", "forwardAndBack"])
 export type RoundRobinMode = z.infer<typeof roundRobinModeSchema>
+
+/** Walk direction for locked ordered modes (`forwardAndBack` flips each round). */
+export type RoundRobinDirection = 1 | -1
 
 export const roundRobinDjConfigSchema = z.object({
   enabled: z.boolean(),
@@ -9,7 +12,7 @@ export const roundRobinDjConfigSchema = z.object({
   /** When true, start the next round automatically once every deputy has queued. */
   autoAdvanceRounds: z.boolean(),
   /**
-   * Sequential only: out-of-turn deputies may select a track that is held until
+   * Ordered modes only: out-of-turn deputies may select a track that is held until
    * their turn, then auto-enqueued.
    */
   deferOutOfTurnQueues: z.boolean(),
@@ -52,6 +55,11 @@ export interface RoundRobinState {
   adminForcedUserId: string | null
   round: number
   orderLocked: boolean
+  /**
+   * Locked-order walk direction. `1` = ascending indices, `-1` = descending.
+   * Used by `forwardAndBack`; sequential stays at `1`. Missing on old JSON → treat as `1`.
+   */
+  direction?: RoundRobinDirection
   lastTurn?: RoundRobinLastTurn
 }
 

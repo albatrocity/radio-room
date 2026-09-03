@@ -19,7 +19,7 @@ export function getConfigSchema(): PluginConfigSchema {
       {
         type: "text-block",
         content:
-          "Restrict deputy DJ queueing to rounds. Sequential mode discovers then locks turn order; non-sequential is first-come within each round. The Robin persona marks who may queue.",
+          "Restrict deputy DJ queueing to rounds. Sequential and forward-and-back discover then lock turn order; non-sequential is first-come within each round. The Robin persona marks who may queue.",
         variant: "info",
       },
       "enabled",
@@ -38,10 +38,11 @@ export function getConfigSchema(): PluginConfigSchema {
         type: "enum",
         label: "Mode",
         description:
-          "Sequential: turn order from first-round queue order, then enforce turns. Non-sequential: first-come first-serve within each round.",
+          "Sequential: turn order from first-round queue order, then repeat from the start. Forward and back: same discovery, then reverse at each end so the last deputy goes first next round. Non-sequential: first-come first-serve within each round.",
         showWhen: { field: "enabled", value: true },
         enumLabels: {
           sequential: "Sequential",
+          forwardAndBack: "Forward and back",
           nonSequential: "Non-sequential (FCFS)",
         },
       },
@@ -56,10 +57,10 @@ export function getConfigSchema(): PluginConfigSchema {
         type: "boolean",
         label: "Allow early song selection",
         description:
-          "Deputies may pick a song before their turn (held until their turn). During the first open round, a second pick is held for next round. Sequential mode only.",
+          "Deputies may pick a song before their turn (held until their turn). During the first open round, a second pick is held for next round. Ordered modes only.",
         showWhen: [
           { field: "enabled", value: true },
-          { field: "mode", value: "sequential" },
+          { field: "mode", value: ["sequential", "forwardAndBack"] },
         ],
       },
     },
