@@ -3,6 +3,7 @@ import { PluginAPIImpl } from "./PluginAPI"
 
 vi.mock("../../operations/data", () => ({
   getRoomUsers: vi.fn(async () => [{ userId: "u1", id: "socket-1", username: "Alice" }]),
+  getOnlineUserSocketId: vi.fn(async () => "socket-1"),
 }))
 
 describe("PluginAPIImpl.requestGameStateTabAttention", () => {

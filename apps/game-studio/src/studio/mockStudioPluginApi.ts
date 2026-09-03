@@ -42,6 +42,10 @@ export class MockStudioPluginApi implements PluginAPI {
     return [...this.room.users.values()]
   }
 
+  async getOnlineUserIds(_roomId: string): Promise<string[]> {
+    return [...this.room.users.keys()]
+  }
+
   async getUsersByIds(userIds: string[]): Promise<User[]> {
     return userIds.map((id) => {
       const u = this.room.users.get(id)
@@ -339,7 +343,11 @@ export class MockStudioPluginApi implements PluginAPI {
     return sources.map((s) => s.id)
   }
 
-  async emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void> {
+  async emit<T extends Record<string, unknown>>(
+    eventName: string,
+    data: T,
+    _options?: { invalidatesUserState?: boolean },
+  ): Promise<void> {
     const type = `PLUGIN:${this.pluginName}:${eventName}`
     this.room.logEvent(type, data)
     this.room.notify()

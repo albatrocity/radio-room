@@ -12,6 +12,7 @@ export { CountdownTemplateComponent } from "./CountdownComponent"
 export { ShopOfferTableTemplateComponent } from "./ShopOfferTableComponent"
 export { CurrentShopOffersTemplateComponent } from "./CurrentShopOffersComponent"
 export { QuizQuestionCardTemplateComponent } from "./QuizQuestionCard"
+export { QueueThemeBriefCardTemplateComponent } from "./QueueThemeBriefCard"
 export { SliderTemplateComponent } from "./SliderComponent"
 
 // Utilities

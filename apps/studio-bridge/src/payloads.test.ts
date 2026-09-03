@@ -65,6 +65,10 @@ describe("buildUserGameStatePayload", () => {
       userId: "u1",
       status: "playing",
     })
+    expect(payload.pluginUserState?.["queue-theme"]).toMatchObject({
+      theme: expect.any(String),
+      isDecoy: false,
+    })
     expect((payload as any).currentShopInstance).toBeUndefined()
     expect((payload as any).bingoCard).toBeUndefined()
   })
@@ -73,6 +77,7 @@ describe("buildUserGameStatePayload", () => {
     const payload = buildUserGameStatePayload(minimalSnap(), "nobody")
     expect(payload.pluginUserState?.["item-shops"]?.currentShopInstance).toBeNull()
     expect(payload.pluginUserState?.["playlist-bingo"]?.card).toBeNull()
+    expect(payload.pluginUserState?.["queue-theme"]?.theme).toEqual(expect.any(String))
   })
 
   it("includes pendingGifts and activeTrade for the viewer", () => {

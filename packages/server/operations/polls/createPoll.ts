@@ -18,6 +18,12 @@ export type CreatePollInput = {
   question: string
   options: { label: string }[]
   settings?: { hideRunningTotal?: boolean }
+  /**
+   * When set, skip the room-admin gate (ADR 0152). Socket/admin callers omit this.
+   */
+  source?: { pluginName: string }
+  /** When false, skip “New poll started” chat. Defaults to true. */
+  announce?: boolean
 }
 
 export type CreatePollResult =
@@ -32,17 +38,21 @@ export async function createPoll({
   question,
   options,
   settings,
+  source,
+  announce = true,
 }: CreatePollInput): Promise<CreatePollResult> {
   const room = await findRoom({ context, roomId })
   if (!room) {
     return { ok: false, error: { status: 404, error: "Not Found", message: "Room not found." } }
   }
 
-  const isAdmin = await isRoomAdmin({ context, roomId, userId, roomCreator: room.creator })
-  if (!isAdmin) {
-    return {
-      ok: false,
-      error: { status: 403, error: "Forbidden", message: "You are not a room admin." },
+  if (!source?.pluginName) {
+    const isAdmin = await isRoomAdmin({ context, roomId, userId, roomCreator: room.creator })
+    if (!isAdmin) {
+      return {
+        ok: false,
+        error: { status: 403, error: "Forbidden", message: "You are not a room admin." },
+      }
     }
   }
 
@@ -92,12 +102,14 @@ export async function createPoll({
     await context.systemEvents.emit(roomId, "POLL_PUBLISHED", { roomId, poll })
   }
 
-  await postSystemChatMessage({
-    context,
-    roomId,
-    content: `New poll started: ${poll.question}`,
-    meta: { status: "info", type: "alert" },
-  })
+  if (announce) {
+    await postSystemChatMessage({
+      context,
+      roomId,
+      content: `New poll started: ${poll.question}`,
+      meta: { status: "info", type: "alert" },
+    })
+  }
 
   return { ok: true, poll }
 }

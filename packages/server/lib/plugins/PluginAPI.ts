@@ -201,6 +201,11 @@ export class PluginAPIImpl implements PluginAPI {
     return (await getOnlineUserSocketId({ context: this.context, roomId, userId })) != null
   }
 
+  async getOnlineUserIds(roomId: string): Promise<string[]> {
+    const { getOnlineUserIds } = await import("../../operations/data")
+    return getOnlineUserIds({ context: this.context, roomId })
+  }
+
   async isRoomAdmin(roomId: string, userId: string): Promise<boolean> {
     const { findRoom, isRoomAdmin } = await import("../../operations/data")
     const room = await findRoom({ context: this.context, roomId })
@@ -312,11 +317,10 @@ export class PluginAPIImpl implements PluginAPI {
     meta?: ChatMessage["meta"],
   ): Promise<void> {
     const { default: systemMessage } = await import("../../lib/systemMessage")
-    const { getRoomUsers } = await import("../../operations/data")
+    const { getOnlineUserSocketId } = await import("../../operations/data")
 
-    const users = await getRoomUsers({ context: this.context, roomId })
-    const user = users.find((u) => u.userId === userId)
-    if (!user?.id) {
+    const socketId = await getOnlineUserSocketId({ context: this.context, roomId, userId })
+    if (!socketId) {
       console.warn(
         `[PluginAPI] sendUserSystemMessage: no connected socket for userId ${userId} in room ${roomId}`,
       )
@@ -324,7 +328,7 @@ export class PluginAPIImpl implements PluginAPI {
     }
 
     const msg = systemMessage(message, meta)
-    this.io.to(user.id).emit("event", {
+    this.io.to(socketId).emit("event", {
       type: "MESSAGE_RECEIVED",
       data: {
         roomId,
@@ -389,6 +393,108 @@ export class PluginAPIImpl implements PluginAPI {
   async getQueue(roomId: string): Promise<QueueItem[]> {
     const { getQueue } = await import("../../operations/data")
     return await getQueue({ context: this.context, roomId })
+  }
+
+  async createPoll(params: {
+    roomId: string
+    userId: string
+    question: string
+    options: { label: string }[]
+    settings?: { hideRunningTotal?: boolean }
+    announce?: boolean
+  }) {
+    if (!this.pluginName) {
+      return {
+        ok: false as const,
+        error: {
+          status: 403,
+          error: "Forbidden",
+          message: "Plugin identity is required.",
+        },
+      }
+    }
+    const { createPoll } = await import("../../operations/polls")
+    return createPoll({
+      context: this.context,
+      roomId: params.roomId,
+      userId: params.userId,
+      question: params.question,
+      options: params.options,
+      settings: params.settings,
+      announce: params.announce,
+      source: { pluginName: this.pluginName },
+    })
+  }
+
+  async closePoll(params: {
+    roomId: string
+    userId: string
+    pollId: string
+    announce?: boolean
+  }) {
+    if (!this.pluginName) {
+      return {
+        ok: false as const,
+        error: {
+          status: 403,
+          error: "Forbidden",
+          message: "Plugin identity is required.",
+        },
+      }
+    }
+    const { closePoll } = await import("../../operations/polls")
+    return closePoll({
+      context: this.context,
+      roomId: params.roomId,
+      userId: params.userId,
+      pollId: params.pollId,
+      announce: params.announce,
+      source: { pluginName: this.pluginName },
+    })
+  }
+
+  async getActivePoll(roomId: string) {
+    const { getActivePollId, getPoll } = await import("../../operations/data")
+    const pollId = await getActivePollId({ context: this.context, roomId })
+    if (!pollId) return null
+    return getPoll({ context: this.context, roomId, pollId })
+  }
+
+  async getPollVoterIds(roomId: string, pollId: string): Promise<string[]> {
+    const { getPollVoterIds } = await import("../../operations/data")
+    return getPollVoterIds({ context: this.context, roomId, pollId })
+  }
+
+  async getPollVotes(roomId: string, pollId: string): Promise<Record<string, string>> {
+    const { getPollVotes } = await import("../../operations/data")
+    return getPollVotes({ context: this.context, roomId, pollId })
+  }
+
+  async setQueueSplit(
+    roomId: string,
+    belowKey: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    if (!this.pluginName) {
+      return { success: false, message: "Plugin identity is required." }
+    }
+    const { DJService } = await import("../../services/DJService")
+    const djService = new DJService(this.context)
+    return djService.setQueueSplit(roomId, `plugin:${this.pluginName}`, belowKey, {
+      source: { pluginName: this.pluginName },
+    })
+  }
+
+  async removeQueueSplit(
+    roomId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    if (!this.pluginName) {
+      return { success: false, message: "Plugin identity is required." }
+    }
+    const { DJService } = await import("../../services/DJService")
+    const djService = new DJService(this.context)
+    return djService.removeQueueSplit(roomId, `plugin:${this.pluginName}`, {
+      source: { pluginName: this.pluginName },
+    })
   }
 
   async addToTrackQueue(
@@ -841,7 +947,11 @@ export class PluginAPIImpl implements PluginAPI {
    * 2. Room-specific only (don't need lobby or cross-server broadcasting)
    * 3. Already properly namespaced to avoid conflicts
    */
-  async emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void> {
+  async emit<T extends Record<string, unknown>>(
+    eventName: string,
+    data: T,
+    options?: { invalidatesUserState?: boolean },
+  ): Promise<void> {
     if (!this.pluginName || !this.roomId) {
       console.warn("[PluginAPI] Cannot emit event: plugin context not set")
       return
@@ -864,8 +974,10 @@ export class PluginAPIImpl implements PluginAPI {
       data: payload,
     })
 
-    // Contributors: one room-wide invalidation per event-loop turn (ADR 0097).
-    if (this.contributesUserGameState) {
+    // Contributors: one room-wide invalidation per event-loop turn (ADR 0097 / 0154).
+    // Default true so existing plugins keep refetching; pass false when the
+    // payload carries no per-user data.
+    if (this.contributesUserGameState && options?.invalidatesUserState !== false) {
       this.queueUserGameStateInvalidation()
     }
   }
@@ -900,17 +1012,20 @@ export class PluginAPIImpl implements PluginAPI {
       ? params.tabId
       : `${this.pluginName}:${params.tabId}`
 
-    const { getRoomUsers } = await import("../../operations/data")
-    const users = await getRoomUsers({ context: this.context, roomId: this.roomId })
-    const user = users.find((u) => u.userId === params.userId)
-    if (!user?.id) {
+    const { getOnlineUserSocketId } = await import("../../operations/data")
+    const socketId = await getOnlineUserSocketId({
+      context: this.context,
+      roomId: this.roomId,
+      userId: params.userId,
+    })
+    if (!socketId) {
       console.warn(
         `[PluginAPI] requestGameStateTabAttention: no connected socket for userId ${params.userId} in room ${this.roomId}`,
       )
       return
     }
 
-    this.io.to(user.id).emit("event", {
+    this.io.to(socketId).emit("event", {
       type: "PLUGIN_TAB_ATTENTION",
       data: {
         roomId: this.roomId,
@@ -945,16 +1060,19 @@ export class PluginAPIImpl implements PluginAPI {
 
     // User-targeted: private socket emit (same delivery model as sendUserSystemMessage).
     if (params.userId) {
-      const { getRoomUsers } = await import("../../operations/data")
-      const users = await getRoomUsers({ context: this.context, roomId: this.roomId })
-      const user = users.find((u) => u.userId === params.userId)
-      if (!user?.id) {
+      const { getOnlineUserSocketId } = await import("../../operations/data")
+      const socketId = await getOnlineUserSocketId({
+        context: this.context,
+        roomId: this.roomId,
+        userId: params.userId,
+      })
+      if (!socketId) {
         console.warn(
           `[PluginAPI] queueSoundEffect: no connected socket for userId ${params.userId} in room ${this.roomId}`,
         )
         return
       }
-      this.io.to(user.id).emit("event", {
+      this.io.to(socketId).emit("event", {
         type: "SOUND_EFFECT_QUEUED",
         data: payload,
       })
@@ -999,16 +1117,19 @@ export class PluginAPIImpl implements PluginAPI {
 
     // Recipient-targeted: private socket emit (same delivery model as queueSoundEffect).
     if (params.recipientUserId) {
-      const { getRoomUsers } = await import("../../operations/data")
-      const users = await getRoomUsers({ context: this.context, roomId: this.roomId })
-      const user = users.find((u) => u.userId === params.recipientUserId)
-      if (!user?.id) {
+      const { getOnlineUserSocketId } = await import("../../operations/data")
+      const socketId = await getOnlineUserSocketId({
+        context: this.context,
+        roomId: this.roomId,
+        userId: params.recipientUserId,
+      })
+      if (!socketId) {
         console.warn(
           `[PluginAPI] queueScreenEffect: no connected socket for recipientUserId ${params.recipientUserId} in room ${this.roomId}`,
         )
         return
       }
-      this.io.to(user.id).emit("event", {
+      this.io.to(socketId).emit("event", {
         type: "SCREEN_EFFECT_QUEUED",
         data: payload,
       })

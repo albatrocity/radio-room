@@ -306,6 +306,20 @@ export async function getPollVotes({
   return context.redis.pubClient.hGetAll(votesKey(roomId, pollId))
 }
 
+/** User ids that have cast a vote (ADR 0152). Does not expose option choices. */
+export async function getPollVoterIds({
+  context,
+  roomId,
+  pollId,
+}: {
+  context: AppContext
+  roomId: string
+  pollId: string
+}): Promise<string[]> {
+  const votes = await getPollVotes({ context, roomId, pollId })
+  return Object.keys(votes)
+}
+
 export async function getMyVote({
   context,
   roomId,

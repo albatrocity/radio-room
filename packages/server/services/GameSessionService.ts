@@ -372,30 +372,57 @@ export class GameSessionService {
     amount: number,
     reason?: string,
   ): Promise<number> {
+    const [value] = await this.addScores(roomId, userId, [{ attribute, amount }], reason)
+    return value ?? 0
+  }
+
+  /**
+   * Apply several attribute deltas in one read-modify-write: one session
+   * lookup, one user-state persist, one `GAME_STATE_CHANGED` with all changes.
+   * Each delta uses the same modifier/lock rules as {@link addScore}.
+   */
+  async addScores(
+    roomId: string,
+    userId: string,
+    changes: { attribute: GameAttributeName; amount: number }[],
+    reason?: string,
+  ): Promise<number[]> {
+    if (changes.length === 0) return []
+
     const session = await this.getActiveSession(roomId)
-    if (!session) return 0
+    if (!session) return changes.map(() => 0)
 
     const state = await this.getUserState(roomId, userId)
     const now = Date.now()
+    const results: number[] = []
+    const emitted: GameStateChange[] = []
+    const leaderboardUpdates: { attribute: GameAttributeName; value: number }[] = []
 
-    const delta = evaluateModifiers(amount, attribute, state.modifiers, now)
-    if (delta === null) {
-      return state.attributes[attribute] ?? 0
+    for (const { attribute, amount } of changes) {
+      const delta = evaluateModifiers(amount, attribute, state.modifiers, now)
+      if (delta === null) {
+        results.push(state.attributes[attribute] ?? 0)
+        continue
+      }
+
+      const previousValue = state.attributes[attribute] ?? 0
+      const nextValue = previousValue + delta
+      state.attributes[attribute] = nextValue
+      results.push(nextValue)
+      emitted.push({ attribute, previousValue, value: nextValue, reason })
+      leaderboardUpdates.push({ attribute, value: nextValue })
     }
 
-    const previousValue = state.attributes[attribute] ?? 0
-    const nextValue = previousValue + delta
-    state.attributes[attribute] = nextValue
+    if (emitted.length === 0) return results
 
     await this.persistUserState(roomId, session.id, state)
-    await this.updateLeaderboards(roomId, session, userId, attribute, nextValue)
+    for (const update of leaderboardUpdates) {
+      await this.updateLeaderboards(roomId, session, userId, update.attribute, update.value)
+    }
     await this.touchParticipant(roomId, session.id, userId)
+    await this.emitStateChange(roomId, session.id, userId, emitted)
 
-    await this.emitStateChange(roomId, session.id, userId, [
-      { attribute, previousValue, value: nextValue, reason },
-    ])
-
-    return nextValue
+    return results
   }
 
   async setScore(

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { BingoCard, BingoCardCell, BingoCriterion } from "@repo/types"
+import { shuffleInPlace, type ShuffleRng } from "@repo/plugin-base/helpers"
 import { labelForCriterion } from "./labels"
 import {
   BINGO_FILLABLE_CELLS,
@@ -10,19 +11,10 @@ import {
   type BingoRoundCategorySnapshot,
 } from "./types"
 
-export type DealRng = () => number
+export type DealRng = ShuffleRng
 
 function defaultRng(): number {
   return Math.random()
-}
-
-/** Fisher–Yates shuffle (mutates copy). */
-export function shuffleInPlace<T>(items: T[], rng: DealRng = defaultRng): T[] {
-  for (let i = items.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1))
-    ;[items[i], items[j]] = [items[j]!, items[i]!]
-  }
-  return items
 }
 
 function withId(criterion: BingoCriterion): BingoCriterion {

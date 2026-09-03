@@ -64,9 +64,9 @@ const Chat = () => {
     >
       <GridItem height="100%" width="100%" area={"chat"} overflowX="visible" minHeight={0}>
         <Box h="100%" w="100%" className="messages-container" display="flex" flexDirection="column">
+          <PluginArea area="aboveChat" direction="column" />
           <PollCard />
           <PresentedIdentityControl />
-          <PluginArea area="aboveChat" direction="column" />
           <Box flex={1} minH={0} overflow="hidden">
             {messages.length > 0 && <ChatWindow />}
           </Box>

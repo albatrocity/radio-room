@@ -31,6 +31,7 @@ import createPlaylistBingoPlugin from "@repo/plugin-playlist-bingo"
 import createRoundRobinDjPlugin from "@repo/plugin-round-robin-dj"
 import createMusicUploadPlugin from "@repo/plugin-music-upload"
 import createVolumeManagerPlugin from "@repo/plugin-volume-manager"
+import createQueueThemePlugin from "@repo/plugin-queue-theme"
 import { authHandler } from "@repo/auth/server"
 import { requireAdmin } from "@repo/auth/middleware"
 
@@ -98,6 +99,7 @@ async function main() {
       createRoundRobinDjPlugin,
       createMusicUploadPlugin,
       createVolumeManagerPlugin,
+      createQueueThemePlugin,
     ],
   })
 

@@ -19,6 +19,7 @@ import { CurrentShopOffersTemplateComponent } from "./CurrentShopOffersComponent
 import { QuizQuestionCardTemplateComponent } from "./QuizQuestionCard"
 import { BingoCardTemplateComponent } from "./BingoCardComponent"
 import { SliderTemplateComponent } from "./SliderComponent"
+import { QueueThemeBriefCardTemplateComponent } from "./QueueThemeBriefCard"
 
 /**
  * Strongly-typed map of built-in template component names to React components.
@@ -48,6 +49,7 @@ export const TEMPLATE_COMPONENT_MAP: {
   "current-shop-offers": CurrentShopOffersTemplateComponent,
   "quiz-question-card": QuizQuestionCardTemplateComponent,
   "bingo-card": BingoCardTemplateComponent,
+  "queue-theme-brief-card": QueueThemeBriefCardTemplateComponent,
   slider: SliderTemplateComponent,
 }
 

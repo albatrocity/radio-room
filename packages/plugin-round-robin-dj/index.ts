@@ -13,7 +13,7 @@ import type {
   User,
   UserPersonaAssignment,
 } from "@repo/types"
-import { allowQueueRequest, deferQueueRequest, rejectQueueRequest } from "@repo/types"
+import { allowQueueRequest, deferQueueRequest, isPluginAttributedUserId, rejectQueueRequest } from "@repo/types"
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
@@ -266,7 +266,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const config = await this.getConfig()
     if (!config?.enabled) return
     const ownerId = params.item.addedBy?.userId
-    if (!ownerId || ownerId.startsWith("plugin:")) return
+    if (!ownerId || isPluginAttributedUserId(ownerId)) return
 
     const state = await this.loadState()
     if (!state) return
@@ -403,7 +403,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     if (Date.now() - mostRecent.addedAt >= 5000) return
 
     const userId = mostRecent.addedBy.userId
-    if (userId.startsWith("plugin:")) return
+    if (isPluginAttributedUserId(userId)) return
 
     const state = await this.loadState()
     if (!state) return

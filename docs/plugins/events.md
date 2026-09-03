@@ -37,6 +37,8 @@ These fire when [game sessions & inventory](game-sessions.md#game-sessions--inve
 
 ### Example Event Handlers
 
+Handlers for the same plugin instance can overlap (e.g. `TRACK_CHANGED` and `POLL_VOTE_CAST` both closing a poll). Use `BasePlugin.serialize(fn)` to run that work in order — see [BasePlugin Reference](base-plugin.md#serializefn-promiset-protected).
+
 ```typescript
 async register(context: PluginContext): Promise<void> {
   await super.register(context)

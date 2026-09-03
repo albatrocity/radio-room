@@ -7,6 +7,19 @@ import { z } from "zod"
 /** Platform-level persona id for session VIPs (admins designate). */
 export const PLATFORM_VIP_PERSONA_ID = "vip"
 
+/**
+ * Prefix for plugin-namespaced ids: attributed queue `userId`s (`plugin:<pluginName>`)
+ * and plugin persona ids (`plugin:<pluginName>:<shortId>`). See ADR 0057.
+ */
+export const PLUGIN_ID_PREFIX = "plugin:" as const
+
+/** True when `userId` is a plugin-attributed sentinel (or a plugin persona id). */
+export function isPluginAttributedUserId(
+  userId: string | null | undefined,
+): boolean {
+  return typeof userId === "string" && userId.startsWith(PLUGIN_ID_PREFIX)
+}
+
 export const personaDefinitionSchema = z.object({
   id: z.string(),
   label: z.string(),

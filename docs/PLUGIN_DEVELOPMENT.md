@@ -53,9 +53,11 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 
 - [Item Shops Development](SHOP_ITEM_DEVELOPMENT.md) — authoring items and shops in `@repo/plugin-item-shops`
 - Playlist Bingo — `@repo/plugin-playlist-bingo` (private cards via `contributeToUserGameState`; [ADR 0096](adrs/0096-playlist-bingo-per-user-cards.md), [ADR 0097](adrs/0097-plugin-contribute-to-user-game-state.md))
+- Queue Theme — `@repo/plugin-queue-theme` (per-track theme polls + decoy themes; [ADR 0152](adrs/0152-plugin-authored-core-polls.md), [ADR 0153](adrs/0153-plugin-authored-queue-split.md))
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
 - [ADR 0097: Plugin contributeToUserGameState](adrs/0097-plugin-contribute-to-user-game-state.md)
+- [ADR 0154: Plugin emit may skip USER_GAME_STATE_INVALIDATED](adrs/0154-plugin-emit-invalidates-user-state-opt-out.md)
 - [ADR 0057: User personas](adrs/0057-user-personas-system.md)
 - [ADR 0088: Metadata source access grants](adrs/0088-metadata-source-access-grants.md)
 - [ADR 0091: Round Robin DJ plugin](adrs/0091-round-robin-dj-plugin.md) — turn eligibility, Robin persona, `DEPUTY_DJ_CHANGED`

@@ -1,7 +1,7 @@
 # 0097. Plugin contributeToUserGameState for private per-user payloads
 
 **Date:** 2026-08-06
-**Status:** Accepted
+**Status:** Partially superseded by [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) (per-emit invalidation opt-out)
 
 ## Context
 
@@ -37,4 +37,5 @@ The room-wide plugin component store is unsuitable for secrets — it fans out t
 
 - [ADR 0049](0049-item-shops-and-shopping-sessions.md) — item shops (superseded delivery path)
 - [ADR 0096](0096-playlist-bingo-per-user-cards.md) — playlist bingo (superseded delivery path)
+- [ADR 0154](0154-plugin-emit-invalidates-user-state-opt-out.md) — `emit(..., { invalidatesUserState: false })`
 - [Per-User State guide](../plugins/per-user-state.md)

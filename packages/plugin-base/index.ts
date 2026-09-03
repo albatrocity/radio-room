@@ -68,6 +68,9 @@ export {
   HOT_LEADERBOARD_TOP_N,
   fetchTopZsetEntries,
   type ZsetEntry,
+  shuffleInPlace,
+  sampleN,
+  type ShuffleRng,
 } from "./helpers"
 
 export {

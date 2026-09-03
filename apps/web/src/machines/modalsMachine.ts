@@ -55,6 +55,7 @@ export type Event =
   | { type: "EDIT_ROUND_ROBIN_DJ" }
   | { type: "EDIT_PLAYLIST_BINGO" }
   | { type: "EDIT_MUSIC_UPLOAD" }
+  | { type: "EDIT_QUEUE_THEME" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -88,6 +89,7 @@ const settingsSectionOn = {
   EDIT_ROUND_ROBIN_DJ: ".round_robin_dj",
   EDIT_PLAYLIST_BINGO: ".playlist_bingo",
   EDIT_MUSIC_UPLOAD: ".music_upload",
+  EDIT_QUEUE_THEME: ".queue_theme",
 } as const
 
 export const modalsMachine = setup({
@@ -166,6 +168,7 @@ export const modalsMachine = setup({
         EDIT_ROUND_ROBIN_DJ: openSettingsSection("round_robin_dj"),
         EDIT_PLAYLIST_BINGO: openSettingsSection("playlist_bingo"),
         EDIT_MUSIC_UPLOAD: openSettingsSection("music_upload"),
+        EDIT_QUEUE_THEME: openSettingsSection("queue_theme"),
         VIEW_BOOKMARKS: {
           target: ".bookmarks",
           guard: "isAdmin",
@@ -224,6 +227,7 @@ export const modalsMachine = setup({
             round_robin_dj: { on: { BACK: "overview" } },
             playlist_bingo: { on: { BACK: "overview" } },
             music_upload: { on: { BACK: "overview" } },
+            queue_theme: { on: { BACK: "overview" } },
           },
         },
         bookmarks: {},

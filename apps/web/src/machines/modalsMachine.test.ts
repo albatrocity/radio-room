@@ -69,6 +69,18 @@ describe("modalsMachine", () => {
     expect(actor.getSnapshot().matches("queue.open")).toBe(true)
   })
 
+  it("opens Queue Theme plugin settings from overview", () => {
+    const actor = createActor(modalsMachine).start()
+
+    actor.send({ type: "EDIT_SETTINGS" })
+    actor.send({ type: "EDIT_QUEUE_THEME" })
+
+    expect(actor.getSnapshot().matches("modal.settings.queue_theme")).toBe(true)
+
+    actor.send({ type: "BACK" })
+    expect(actor.getSnapshot().matches("modal.settings.overview")).toBe(true)
+  })
+
   it("keeps game state open when Feedback opens and closes", () => {
     const actor = createActor(modalsMachine).start()
 

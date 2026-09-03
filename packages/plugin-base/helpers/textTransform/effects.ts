@@ -1,5 +1,6 @@
 import type { TextEffect } from "@repo/types"
 import { tokenizeWords } from "../chatTransform"
+import { shuffleInPlace } from "../shuffle"
 
 /** Size-only branch of {@link TextEffect} (excludes `font`). */
 type TextSizeValue = Extract<TextEffect, { type: "size" }>["value"]
@@ -69,16 +70,6 @@ export function baseTextSizeFromNetShift(netShift: number): TextSizeValue | null
  */
 function isAlpha(ch: string): boolean {
   return ch.toLowerCase() !== ch.toUpperCase()
-}
-
-/** Fisher–Yates in-place shuffle using `Math.random`. */
-function shuffleInPlace<T>(arr: T[]): void {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    const tmp = arr[i]!
-    arr[i] = arr[j]!
-    arr[j] = tmp
-  }
 }
 
 /**

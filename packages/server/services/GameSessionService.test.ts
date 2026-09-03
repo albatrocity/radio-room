@@ -20,6 +20,7 @@ function makeSession(): GameSession {
       maxInventorySlots: 3,
       maxCollectionSlots: 12,
       allowTrading: false,
+      leaderboards: [],
     },
   } as unknown as GameSession
 }
@@ -161,5 +162,58 @@ describe("GameSessionService.getUserState", () => {
     await service.getUserState(roomId, userId)
 
     expect(sessionReads(get)).toHaveLength(2)
+  })
+})
+
+describe("GameSessionService.addScores", () => {
+  test("persists once and emits one GAME_STATE_CHANGED for coin and score", async () => {
+    const { redis, context, service } = makeCtx()
+    const emit = vi.fn()
+    ;(context as { systemEvents: { emit: typeof emit } }).systemEvents = { emit }
+    await seedSession(redis)
+
+    const values = await service.addScores(
+      roomId,
+      userId,
+      [
+        { attribute: "coin", amount: 3 },
+        { attribute: "score", amount: 3 },
+      ],
+      "queue-theme",
+    )
+
+    expect(values).toEqual([3, 3])
+    const stored = JSON.parse((await redis.get(userStateKey))!) as UserGameState
+    expect(stored.attributes.coin).toBe(3)
+    expect(stored.attributes.score).toBe(3)
+    expect(emit).toHaveBeenCalledTimes(1)
+    expect(emit).toHaveBeenCalledWith(
+      roomId,
+      "GAME_STATE_CHANGED",
+      expect.objectContaining({
+        userId,
+        changes: [
+          { attribute: "coin", previousValue: 0, value: 3, reason: "queue-theme" },
+          { attribute: "score", previousValue: 0, value: 3, reason: "queue-theme" },
+        ],
+      }),
+    )
+  })
+
+  test("addScore emits a single change via addScores", async () => {
+    const { redis, context, service } = makeCtx()
+    const emit = vi.fn()
+    ;(context as { systemEvents: { emit: typeof emit } }).systemEvents = { emit }
+    await seedSession(redis)
+
+    await expect(service.addScore(roomId, userId, "score", 2, "test")).resolves.toBe(2)
+    expect(emit).toHaveBeenCalledTimes(1)
+    expect(emit).toHaveBeenCalledWith(
+      roomId,
+      "GAME_STATE_CHANGED",
+      expect.objectContaining({
+        changes: [{ attribute: "score", previousValue: 0, value: 2, reason: "test" }],
+      }),
+    )
   })
 })

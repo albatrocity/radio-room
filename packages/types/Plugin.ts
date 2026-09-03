@@ -46,6 +46,7 @@ import type {
 } from "./PresentedIdentity"
 import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
 import type { MetadataSourceTrack, PhysicalMediaItem } from "./MetadataSource"
+import type { Poll, PollResults } from "./Poll"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -398,6 +399,11 @@ export interface PluginAPI {
    */
   isUserInRoom(roomId: string, userId: string): Promise<boolean>
   /**
+   * Online user ids in the room (`SMEMBERS` only). Prefer this over `getUsers`
+   * when you only need ids — no user-hash reads or persona hydration.
+   */
+  getOnlineUserIds(roomId: string): Promise<string[]>
+  /**
    * Whether the user is a room admin (creator or member of `room:{id}:admins`).
    * Plugins should use this for defense-in-depth on admin-only `executeAction` handlers.
    */
@@ -443,6 +449,65 @@ export interface PluginAPI {
   updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
   /** Get the current queue for a room */
   getQueue(roomId: string): Promise<QueueItem[]>
+
+  /**
+   * Create a core room poll authored by this plugin (ADR 0152).
+   * Requires a scoped plugin identity; skips the admin gate. Still enforces
+   * one-active-poll. Prefer `announce: false` for high-frequency game loops.
+   */
+  createPoll(params: {
+    roomId: string
+    userId: string
+    question: string
+    options: { label: string }[]
+    settings?: { hideRunningTotal?: boolean }
+    announce?: boolean
+  }): Promise<
+    | { ok: true; poll: Poll }
+    | { ok: false; error: { status: number; error: string; message: string } }
+  >
+
+  /**
+   * Close a core room poll authored by this plugin (ADR 0152).
+   */
+  closePoll(params: {
+    roomId: string
+    userId: string
+    pollId: string
+    announce?: boolean
+  }): Promise<
+    | { ok: true; poll: Poll; results: PollResults }
+    | { ok: false; error: { status: number; error: string; message: string } }
+  >
+
+  /** Active poll for the room, or null. */
+  getActivePoll(roomId: string): Promise<Poll | null>
+
+  /** User ids that have voted on a poll (no option choices). ADR 0152. */
+  getPollVoterIds(roomId: string, pollId: string): Promise<string[]>
+
+  /**
+   * Full votes hash (userId → optionId) for plugin tallying after close.
+   * Votes are retained after close; not broadcast to clients.
+   */
+  getPollVotes(roomId: string, pollId: string): Promise<Record<string, string>>
+
+  /**
+   * Set the queue split anchor (ADR 0067, plugin source ADR 0153). App-controlled rooms only.
+   * Requires a scoped plugin identity; skips the admin reorder gate (same trust model as `skipTrack`).
+   */
+  setQueueSplit(
+    roomId: string,
+    belowKey: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Clear the queue split (ADR 0067, plugin source ADR 0153). App-controlled rooms only.
+   * Requires a scoped plugin identity.
+   */
+  removeQueueSplit(
+    roomId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
 
   /**
    * Add a track to the room's queue.
@@ -687,8 +752,14 @@ export interface PluginAPI {
    * Events are automatically namespaced as `PLUGIN:{pluginName}:{eventName}`
    * and broadcast to all clients in the room via Socket.IO.
    *
+   * Plugins that implement `contributeToUserGameState` also queue room-wide
+   * `USER_GAME_STATE_INVALIDATED` (deduped per event-loop turn). Pass
+   * `{ invalidatesUserState: false }` when the payload has no per-user data
+   * (ADR 0154). Defaults to `true`.
+   *
    * @param eventName - The event name (will be namespaced with plugin name)
    * @param data - Event payload (roomId is added automatically)
+   * @param options - Optional emit flags
    *
    * @example
    * ```typescript
@@ -702,7 +773,11 @@ export interface PluginAPI {
    * // with data: { roomId, word, userId }
    * ```
    */
-  emit<T extends Record<string, unknown>>(eventName: string, data: T): Promise<void>
+  emit<T extends Record<string, unknown>>(
+    eventName: string,
+    data: T,
+    options?: { invalidatesUserState?: boolean },
+  ): Promise<void>
 
   /**
    * Queue a sound effect to be played on clients in the room.
@@ -847,6 +922,16 @@ export interface GameSessionPluginAPI {
   // ---------- State mutations --------------------------------------------
   /** Add to an attribute, applying active modifiers. Resolves to the new value. */
   addScore(userId: string, attribute: GameAttributeName, amount: number, reason?: string): Promise<number>
+  /**
+   * Add to several attributes in one read-modify-write (one persist, one
+   * `GAME_STATE_CHANGED`). Same modifier/lock rules as `addScore` per change.
+   * Resolves to the new values in input order.
+   */
+  addScores(
+    userId: string,
+    changes: { attribute: GameAttributeName; amount: number }[],
+    reason?: string,
+  ): Promise<number[]>
   /** Set an attribute, ignoring multipliers/additives. */
   setScore(userId: string, attribute: GameAttributeName, value: number, reason?: string): Promise<number>
 
@@ -1604,7 +1689,8 @@ export interface Plugin {
    * Return `null`/`undefined`/empty object to contribute nothing.
    *
    * Implementing this method opts the plugin into automatic
-   * `USER_GAME_STATE_INVALIDATED` emissions whenever it calls `api.emit()`.
+   * `USER_GAME_STATE_INVALIDATED` emissions whenever it calls `api.emit()`,
+   * unless the call passes `{ invalidatesUserState: false }` (ADR 0154).
    * Do **not** add a default on BasePlugin — `typeof === "function"` is the
    * contributor check.
    *

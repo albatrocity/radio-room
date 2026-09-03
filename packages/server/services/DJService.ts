@@ -603,9 +603,16 @@ export class DJService {
   }
 
   /**
-   * Set the queue split anchor (app-controlled, room admins only). Emits QUEUE_CHANGED via systemEvents.
+   * Set the queue split anchor (app-controlled). Room-admin callers are gated by
+   * `userCanReorderQueueInRoom`. Pass `source.pluginName` to skip that gate
+   * (ADR 0153 — same plugin-source pattern as polls in ADR 0152).
    */
-  async setQueueSplit(roomId: string, userId: string, belowKey: string) {
+  async setQueueSplit(
+    roomId: string,
+    userId: string,
+    belowKey: string,
+    options?: { source?: { pluginName: string } },
+  ) {
     const room = await findRoom({ context: this.context, roomId })
     if (!room) {
       return { success: false as const, message: "Room not found" }
@@ -617,9 +624,11 @@ export class DJService {
       }
     }
 
-    const allowed = await this.userCanReorderQueueInRoom(roomId, userId)
-    if (!allowed) {
-      return { success: false as const, message: "Not authorized to set the queue split" }
+    if (!options?.source?.pluginName) {
+      const allowed = await this.userCanReorderQueueInRoom(roomId, userId)
+      if (!allowed) {
+        return { success: false as const, message: "Not authorized to set the queue split" }
+      }
     }
 
     const queue = await getQueue({ context: this.context, roomId })
@@ -646,9 +655,14 @@ export class DJService {
   }
 
   /**
-   * Remove the queue split (app-controlled, room admins only). Emits QUEUE_CHANGED via systemEvents.
+   * Remove the queue split (app-controlled). Room-admin callers are gated by
+   * `userCanReorderQueueInRoom`. Pass `source.pluginName` to skip that gate (ADR 0153).
    */
-  async removeQueueSplit(roomId: string, userId: string) {
+  async removeQueueSplit(
+    roomId: string,
+    userId: string,
+    options?: { source?: { pluginName: string } },
+  ) {
     const room = await findRoom({ context: this.context, roomId })
     if (!room) {
       return { success: false as const, message: "Room not found" }
@@ -660,9 +674,11 @@ export class DJService {
       }
     }
 
-    const allowed = await this.userCanReorderQueueInRoom(roomId, userId)
-    if (!allowed) {
-      return { success: false as const, message: "Not authorized to remove the queue split" }
+    if (!options?.source?.pluginName) {
+      const allowed = await this.userCanReorderQueueInRoom(roomId, userId)
+      if (!allowed) {
+        return { success: false as const, message: "Not authorized to remove the queue split" }
+      }
     }
 
     await clearQueueSplit({ context: this.context, roomId })

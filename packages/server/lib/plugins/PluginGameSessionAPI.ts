@@ -81,6 +81,20 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
     )
   }
 
+  async addScores(
+    userId: string,
+    changes: { attribute: GameAttributeName; amount: number }[],
+    reason?: string,
+  ): Promise<number[]> {
+    if (!this.service) return changes.map(() => 0)
+    return this.service.addScores(
+      this.roomId,
+      userId,
+      changes,
+      reason ?? this.pluginName,
+    )
+  }
+
   async setScore(
     userId: string,
     attribute: GameAttributeName,

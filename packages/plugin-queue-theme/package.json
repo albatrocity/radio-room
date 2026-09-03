@@ -1,0 +1,31 @@
+{
+  "name": "@repo/plugin-queue-theme",
+  "version": "1.0.0",
+  "description": "Queue Theme — per-track theme polls with coin payouts and optional decoy themes",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=dot",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "zod": "^4.4.2"
+  },
+  "peerDependencies": {
+    "zod": "^4.4.2"
+  }
+}

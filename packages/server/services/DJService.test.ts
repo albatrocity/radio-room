@@ -1140,6 +1140,38 @@ describe("DJService", () => {
       expect(setQueueSplit).not.toHaveBeenCalled()
     })
 
+    test("setQueueSplit skips authorization when source.pluginName is set", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
+      vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+      const belowKey = canonicalQueueTrackKey(itemB)
+      const result = await djService.setQueueSplit("room123", "plugin:queue-theme", belowKey, {
+        source: { pluginName: "queue-theme" },
+      })
+
+      expect(result).toEqual({ success: true })
+      expect(isRoomAdmin).not.toHaveBeenCalled()
+      expect(setQueueSplit).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        belowKey,
+      })
+    })
+
+    test("removeQueueSplit skips authorization when source.pluginName is set", async () => {
+      vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+      vi.mocked(isRoomAdmin).mockResolvedValue(false)
+
+      const result = await djService.removeQueueSplit("room123", "plugin:queue-theme", {
+        source: { pluginName: "queue-theme" },
+      })
+
+      expect(result).toEqual({ success: true })
+      expect(isRoomAdmin).not.toHaveBeenCalled()
+      expect(clearQueueSplit).toHaveBeenCalledWith({ context: mockContext, roomId: "room123" })
+    })
+
     test("removeQueueSplit clears anchor and emits QUEUE_CHANGED", async () => {
       vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
       vi.mocked(isRoomAdmin).mockResolvedValue(true)

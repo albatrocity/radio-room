@@ -58,3 +58,9 @@ export type ItemShopsUserGameState = {
 export type PlaylistBingoUserGameState = {
   card: BingoCard | null
 }
+
+/** Well-known keys inside `pluginUserState["queue-theme"]`. */
+export type QueueThemeUserGameState = {
+  theme: string | null
+  isDecoy: boolean
+}

@@ -78,6 +78,23 @@ describe("poll operations", () => {
       })
     })
 
+    it("allows non-admins when source.pluginName is set (ADR 0152)", async () => {
+      m.isRoomAdmin.mockResolvedValue(false)
+      const result = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "plugin-host",
+        question: "Fit the theme?",
+        options: [{ label: "Yes" }, { label: "No" }],
+        source: { pluginName: "queue-theme" },
+        announce: false,
+      })
+      expect(result.ok).toBe(true)
+      expect(m.isRoomAdmin).not.toHaveBeenCalled()
+      expect(emit).toHaveBeenCalledWith("room-1", "POLL_PUBLISHED", expect.any(Object))
+      expect(emit.mock.calls.some((c) => c[1] === "MESSAGE_RECEIVED")).toBe(false)
+    })
+
     it("rejects when another poll is active", async () => {
       await client.set("room:room-1:polls:active_id", "existing")
 
@@ -210,6 +227,82 @@ describe("poll operations", () => {
       expect(messageCalls.length).toBe(2)
       expect(messageCalls[0]?.[2]?.message?.meta).toEqual({ status: "success", type: "alert" })
       expect(messageCalls[1]?.[2]?.message?.content).toContain("Poll: Winner?")
+    })
+
+    it("skips chat when announce is false and allows plugin source (ADR 0152)", async () => {
+      m.isRoomAdmin.mockResolvedValue(false)
+      const created = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "host-1",
+        question: "Fit?",
+        options: [{ label: "Yes" }, { label: "No" }],
+        source: { pluginName: "queue-theme" },
+        announce: false,
+      })
+      if (!created.ok) throw new Error("setup failed")
+
+      await castVote({
+        context,
+        roomId: "room-1",
+        pollId: created.poll.id,
+        userId: "u1",
+        optionId: created.poll.options[0]!.id,
+      })
+      emit.mockClear()
+
+      const result = await closePoll({
+        context,
+        roomId: "room-1",
+        userId: "host-1",
+        pollId: created.poll.id,
+        source: { pluginName: "queue-theme" },
+        announce: false,
+      })
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.results.totalVotes).toBe(1)
+      }
+      expect(emit).toHaveBeenCalledWith("room-1", "POLL_CLOSED", expect.any(Object))
+      expect(emit.mock.calls.some((c) => c[1] === "MESSAGE_RECEIVED")).toBe(false)
+      expect(m.isRoomAdmin).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("getPollVoterIds", () => {
+    it("returns voter user ids without option choices", async () => {
+      const { getPollVoterIds } = await import("../data/polls")
+      const created = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Q",
+        options: [{ label: "A" }, { label: "B" }],
+      })
+      if (!created.ok) throw new Error("setup failed")
+
+      await castVote({
+        context,
+        roomId: "room-1",
+        pollId: created.poll.id,
+        userId: "u1",
+        optionId: created.poll.options[0]!.id,
+      })
+      await castVote({
+        context,
+        roomId: "room-1",
+        pollId: created.poll.id,
+        userId: "u2",
+        optionId: created.poll.options[1]!.id,
+      })
+
+      const ids = await getPollVoterIds({
+        context,
+        roomId: "room-1",
+        pollId: created.poll.id,
+      })
+      expect(ids.sort()).toEqual(["u1", "u2"])
     })
   })
 

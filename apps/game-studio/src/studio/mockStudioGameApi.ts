@@ -70,28 +70,61 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
     amount: number,
     reason?: string,
   ): Promise<number> {
+    const [value] = await this.addScores(userId, [{ attribute, amount }], reason)
+    return value ?? 0
+  }
+
+  async addScores(
+    userId: string,
+    changes: { attribute: GameAttributeName; amount: number }[],
+    reason?: string,
+  ): Promise<number[]> {
     const session = this.room.activeSession
-    if (!session) return 0
+    if (!session) return changes.map(() => 0)
+    if (changes.length === 0) return []
     this.room.ensureParticipant(userId)
     let state = this.room.getUserState(userId)!
     state = pruneUserModifiers(state, Date.now())
     const now = Date.now()
-    const delta = evaluateModifiers(amount, attribute, state.modifiers, now)
-    if (delta === null) {
-      return state.attributes[attribute] ?? 0
+    const results: number[] = []
+    const emitted: {
+      attribute: GameAttributeName
+      previousValue: number
+      value: number
+      reason?: string
+    }[] = []
+
+    for (const { attribute, amount } of changes) {
+      const delta = evaluateModifiers(amount, attribute, state.modifiers, now)
+      if (delta === null) {
+        results.push(state.attributes[attribute] ?? 0)
+        continue
+      }
+      const previousValue = state.attributes[attribute] ?? 0
+      const nextValue = previousValue + delta
+      state.attributes[attribute] = nextValue
+      results.push(nextValue)
+      emitted.push({
+        attribute,
+        previousValue,
+        value: nextValue,
+        reason: reason ?? this.pluginName,
+      })
     }
-    const previousValue = state.attributes[attribute] ?? 0
-    const nextValue = previousValue + delta
-    state.attributes[attribute] = nextValue
+
+    if (emitted.length === 0) return results
+
     this.room.setUserState(state)
-    this.room.updateLeaderboardScoresForAttribute(session, userId, attribute, nextValue)
+    for (const change of emitted) {
+      this.room.updateLeaderboardScoresForAttribute(session, userId, change.attribute, change.value)
+    }
     await this.lifecycle.emit("GAME_STATE_CHANGED", {
       roomId: this.room.roomId,
       sessionId: session.id,
       userId,
-      changes: [{ attribute, previousValue, value: nextValue, reason: reason ?? this.pluginName }],
+      changes: emitted,
     })
-    return nextValue
+    return results
   }
 
   async setScore(

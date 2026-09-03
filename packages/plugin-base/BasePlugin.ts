@@ -166,6 +166,12 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   private readonly timers = new Map<string, InternalTimer<any>>()
 
   /**
+   * Tail of serialized async work started via {@link serialize}.
+   * Always settles so a rejection does not stall later work.
+   */
+  private serializeTail: Promise<void> = Promise.resolve()
+
+  /**
    * Create a new plugin instance with optional config overrides.
    * @param configOverrides - Partial config to merge with defaults
    */
@@ -193,6 +199,20 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
       }
     })
     console.log(`[${this.name}] Registered for room ${context.roomId}`)
+  }
+
+  /**
+   * Run `fn` after any previously serialized work on this instance, including
+   * when the previous run rejected. Use this when overlapping event handlers
+   * (e.g. `TRACK_CHANGED` plus `POLL_VOTE_CAST`) must not interleave.
+   */
+  protected serialize<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.serializeTail.then(fn, fn)
+    this.serializeTail = run.then(
+      () => undefined,
+      () => undefined,
+    )
+    return run
   }
 
   /**
@@ -292,16 +312,20 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    *
    * // Frontend receives: PLUGIN:my-plugin:WORD_DETECTED
    * ```
+   *
+   * Contributors may pass `{ invalidatesUserState: false }` to skip the
+   * room-wide `USER_GAME_STATE_INVALIDATED` refetch (ADR 0154).
    */
   protected async emit<T extends Record<string, unknown>>(
     eventName: string,
     data: T,
+    options?: { invalidatesUserState?: boolean },
   ): Promise<void> {
     if (!this.context) {
       console.warn(`[${this.name}] Cannot emit event: context not initialized`)
       return
     }
-    await this.context.api.emit(eventName, data)
+    await this.context.api.emit(eventName, data, options)
   }
 
   // ============================================================================

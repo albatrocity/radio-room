@@ -22,22 +22,32 @@ export async function closePoll({
   roomId,
   userId,
   pollId,
+  source,
+  announce = true,
 }: {
   context: AppContext
   roomId: string
   userId: string
   pollId: string
+  /**
+   * When set, skip the room-admin gate (ADR 0152). Socket/admin callers omit this.
+   */
+  source?: { pluginName: string }
+  /** When false, skip close/results chat. Defaults to true. */
+  announce?: boolean
 }): Promise<ClosePollResult> {
   const room = await findRoom({ context, roomId })
   if (!room) {
     return { ok: false, error: { status: 404, error: "Not Found", message: "Room not found." } }
   }
 
-  const isAdmin = await isRoomAdmin({ context, roomId, userId, roomCreator: room.creator })
-  if (!isAdmin) {
-    return {
-      ok: false,
-      error: { status: 403, error: "Forbidden", message: "You are not a room admin." },
+  if (!source?.pluginName) {
+    const isAdmin = await isRoomAdmin({ context, roomId, userId, roomCreator: room.creator })
+    if (!isAdmin) {
+      return {
+        ok: false,
+        error: { status: 403, error: "Forbidden", message: "You are not a room admin." },
+      }
     }
   }
 
@@ -88,20 +98,22 @@ export async function closePoll({
     })
   }
 
-  await postSystemChatMessage({
-    context,
-    roomId,
-    content: `Poll closed: '${poll.question}'`,
-    meta: { status: "success", type: "alert" },
-  })
+  if (announce) {
+    await postSystemChatMessage({
+      context,
+      roomId,
+      content: `Poll closed: '${poll.question}'`,
+      meta: { status: "success", type: "alert" },
+    })
 
-  const formatted = formatPollResultsForChat(closedPoll, results)
-  await postSystemChatMessage({
-    context,
-    roomId,
-    content: formatted.content,
-    contentSegments: formatted.contentSegments,
-  })
+    const formatted = formatPollResultsForChat(closedPoll, results)
+    await postSystemChatMessage({
+      context,
+      roomId,
+      content: formatted.content,
+      contentSegments: formatted.contentSegments,
+    })
+  }
 
   return { ok: true, poll: closedPoll, results }
 }

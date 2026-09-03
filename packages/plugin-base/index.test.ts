@@ -25,6 +25,20 @@ class TestPlugin extends BasePlugin<TestPluginConfig> {
   }
 }
 
+// Test plugin with exposed serialize for testing
+class SerializeTestPlugin extends BasePlugin {
+  name = "serialize-test-plugin"
+  version = "1.0.0"
+
+  async register(context: PluginContext): Promise<void> {
+    this.context = context
+  }
+
+  public testSerialize<T>(fn: () => Promise<T>): Promise<T> {
+    return this.serialize(fn)
+  }
+}
+
 // Test plugin with exposed timer methods for testing
 class TimerTestPlugin extends BasePlugin {
   name = "timer-test-plugin"
@@ -92,6 +106,7 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     getReactions: vi.fn().mockResolvedValue([]),
     getUsers: vi.fn().mockResolvedValue([]),
     getUsersByIds: vi.fn().mockResolvedValue([]),
+    getOnlineUserIds: vi.fn().mockResolvedValue([]),
     isRoomAdmin: vi.fn().mockResolvedValue(true),
     skipTrack: vi.fn().mockResolvedValue(undefined),
     sendSystemMessage: vi.fn().mockResolvedValue(undefined),
@@ -135,6 +150,32 @@ describe("BasePlugin", () => {
 
       expect(plugin.registerCalled).toBe(true)
       expect((plugin as any).context).toBe(mockContext)
+    })
+  })
+
+  describe("serialize", () => {
+    test("runs overlapping work in order and continues after rejection", async () => {
+      const serial = new SerializeTestPlugin()
+      const order: string[] = []
+      let releaseFirst!: () => void
+      const firstGate = new Promise<void>((resolve) => {
+        releaseFirst = resolve
+      })
+
+      const first = serial.testSerialize(async () => {
+        await firstGate
+        order.push("first")
+        throw new Error("boom")
+      })
+      const second = serial.testSerialize(async () => {
+        order.push("second")
+        return 2
+      })
+
+      releaseFirst()
+      await expect(first).rejects.toThrow("boom")
+      await expect(second).resolves.toBe(2)
+      expect(order).toEqual(["first", "second"])
     })
   })
 

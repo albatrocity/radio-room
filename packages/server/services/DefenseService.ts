@@ -6,6 +6,7 @@ import type {
   GameStateModifier,
   ItemDefinition,
 } from "@repo/types"
+import { isPluginAttributedUserId } from "@repo/types"
 import { modifierMatchesTargeting, queueTargetingMatches } from "@repo/game-logic"
 import { InventoryService } from "./InventoryService"
 import { GameSessionService } from "./GameSessionService"
@@ -90,7 +91,7 @@ export class DefenseService {
     intent: "positive" | "negative",
     actorUserId?: string,
   ): Promise<DefenseBlockInfo | null> {
-    if (queueItemOwnerUserId.startsWith("plugin:")) return null
+    if (isPluginAttributedUserId(queueItemOwnerUserId)) return null
 
     const blocked = await this.consumeMatchingDefense(roomId, queueItemOwnerUserId, (def, spec) => {
       if (!spec.scope.includes("queue")) return false

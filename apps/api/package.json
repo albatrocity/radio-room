@@ -32,6 +32,7 @@
     "@repo/plugin-round-robin-dj": "*",
     "@repo/plugin-music-upload": "*",
     "@repo/plugin-volume-manager": "*",
+    "@repo/plugin-queue-theme": "*",
     "@repo/server": "*",
     "@socket.io/redis-adapter": "^8.3.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",

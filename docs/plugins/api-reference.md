@@ -7,9 +7,17 @@
 | `getNowPlaying(roomId)`                                 | Get current track                                                                                                                 |
 | `getUsers(roomId)`                                      | Get users in room                                                                                                                 |
 | `getUsersByIds(userIds)`                                | Look up users by id (includes users who have left the room)                                                                       |
+| `getOnlineUserIds(roomId)`                              | Online user ids only (`SMEMBERS`) — prefer over `getUsers` when you do not need usernames or personas                             |
 | `isUserInRoom(roomId, userId)`                          | Whether the user is currently connected — O(1), prefer over scanning `getUsers`                                                   |
 | `isRoomAdmin(roomId, userId)`                           | Whether the user is a room admin (creator or `room:{id}:admins`); use for defense-in-depth on admin-only `executeAction` handlers |
 | `getQueue(roomId)`                                      | Get room queue                                                                                                                    |
+| `createPoll(params)`                                    | Create a core room poll authored by this plugin ([ADR 0152](../adrs/0152-plugin-authored-core-polls.md)); skips the admin gate when scoped; prefer `announce: false` for game loops |
+| `closePoll(params)`                                     | Close a core poll; returns tallies; requires scoped plugin identity ([ADR 0152](../adrs/0152-plugin-authored-core-polls.md)) |
+| `getActivePoll(roomId)`                                 | Active poll or `null`                                                                                                             |
+| `getPollVoterIds(roomId, pollId)`                       | User ids that have voted (no option choices)                                                                                      |
+| `getPollVotes(roomId, pollId)`                          | Full `userId → optionId` hash for plugin tallying (retained after close; not broadcast)                                           |
+| `setQueueSplit(roomId, belowKey)`                       | Set queue split anchor ([ADR 0067](../adrs/0067-queue-split-reserved-segment.md), [ADR 0153](../adrs/0153-plugin-authored-queue-split.md)); app-controlled only; skips admin reorder gate when scoped |
+| `removeQueueSplit(roomId)`                              | Clear queue split; app-controlled only; requires scoped plugin identity ([ADR 0153](../adrs/0153-plugin-authored-queue-split.md)) |
 | `addToTrackQueue(roomId, trackId, options?)`            | Enqueue a track (see below)                                                                                                       |
 | `getReactions(params)`                                  | Get reactions for track/message                                                                                                   |
 | `skipTrack(roomId, trackId)`                            | Skip current track                                                                                                                |
@@ -19,7 +27,7 @@
 | `getPluginConfig(roomId, pluginName)`                   | Get plugin config                                                                                                                 |
 | `setPluginConfig(roomId, pluginName, config)`           | Update plugin config                                                                                                              |
 | `updatePlaylistTrack(roomId, track)`                    | Update track with pluginData                                                                                                      |
-| `emit(eventName, data)`                                 | Emit plugin event to frontend                                                                                                     |
+| `emit(eventName, data, options?)`                       | Emit plugin event to frontend. Contributors also invalidate user game state unless `options.invalidatesUserState` is `false` ([ADR 0154](../adrs/0154-plugin-emit-invalidates-user-state-opt-out.md)) |
 | `queueSoundEffect(params)`                              | Play a sound effect in the room                                                                                                   |
 | `queueScreenEffect(params)`                             | Play a CSS animation in the room                                                                                                  |
 

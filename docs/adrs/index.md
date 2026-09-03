@@ -72,7 +72,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0064](0064-radio-app-controlled-playback-default.md) | App-controlled playback default for new radio rooms | Accepted |
 | [0065](0065-email-newsletter-via-resend.md) | Email newsletter via Resend (subscribers, broadcasts, webhooks) | Superseded by [0066](0066-email-newsletter-via-amazon-ses.md) |
 | [0066](0066-email-newsletter-via-amazon-ses.md) | Email newsletter via Amazon SES (own-list send, SNS suppression, Redis scheduling) | Accepted |
-| [0067](0067-queue-split-reserved-segment.md) | Queue split for reserved lower segment (app-controlled) | Accepted |
+| [0067](0067-queue-split-reserved-segment.md) | Queue split for reserved lower segment (app-controlled) | Partially superseded by [0153](0153-plugin-authored-queue-split.md) |
 | [0068](0068-private-scoped-plugin-config-fields.md) | Private-scoped plugin config fields and shared schema-driven authoring | Accepted |
 | [0069](0069-playback-controller-volume-and-before-play-hook.md) | Playback Controller volume and beforePlayQueuedTrack hook | Accepted |
 | [0070](0070-route-transitions-via-view-transitions-api.md) | Route transitions via View Transitions API | Accepted |
@@ -102,7 +102,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0094](0094-reaction-add-remove-delta-payloads.md) | Reaction add/remove emit delta only (`reaction` required; full store on INIT) | Accepted |
 | [0095](0095-room-plugin-config-name-index.md) | Room plugin config name index SET (`room:{id}:plugins:index`) | Accepted |
 | [0096](0096-playlist-bingo-per-user-cards.md) | Playlist Bingo per-user cards via GET_MY_GAME_STATE | Partially superseded by [0097](0097-plugin-contribute-to-user-game-state.md) |
-| [0097](0097-plugin-contribute-to-user-game-state.md) | Plugin `contributeToUserGameState` for private per-user payloads | Accepted |
+| [0097](0097-plugin-contribute-to-user-game-state.md) | Plugin `contributeToUserGameState` for private per-user payloads | Partially superseded by [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) |
 | [0098](0098-inventory-scoped-local-library-catalog-filters.md) | Inventory-scoped Local library catalog filters (playlist shelves) | Partially superseded by [0099](0099-physical-media-personal-libraries.md) |
 | [0099](0099-physical-media-personal-libraries.md) | Physical Media personal libraries (derived items, Record Store, myMedia) | Accepted |
 | [0100](0100-dual-inventory-slot-pools.md) | Dual inventory slot pools (`inventory` vs `collection`) | Accepted |
@@ -157,6 +157,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0149](0149-inventory-peek-flag-and-identity-pierce.md) | Timed `inventory_peek` flag + viewer identity pierce (X-Ray) | Accepted |
 | [0150](0150-presented-identity-grant.md) | Core presented-identity grant (optional engage toggle) | Accepted |
 | [0151](0151-round-robin-forward-and-back-mode.md) | Round Robin forward-and-back (snake) mode | Accepted |
+| [0152](0152-plugin-authored-core-polls.md) | Plugin-authored core polls (`source.pluginName`, `announce`, `getPollVotes`) | Accepted |
+| [0153](0153-plugin-authored-queue-split.md) | Plugin-authored queue split (`source.pluginName` on `DJService` / `PluginAPI`) | Accepted |
+| [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) | Plugin `emit` may skip `USER_GAME_STATE_INVALIDATED` | Accepted |
 
 ## Creating a New ADR
 

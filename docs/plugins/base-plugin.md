@@ -77,7 +77,19 @@ await this.emit("WORD_DETECTED", {
 // Frontend receives: PLUGIN:my-plugin:WORD_DETECTED
 ```
 
-If the plugin implements `contributeToUserGameState`, each `emit` also queues a room-wide `USER_GAME_STATE_INVALIDATED` (deduped per tick). See [Per-User State](per-user-state.md).
+If the plugin implements `contributeToUserGameState`, each `emit` also queues a room-wide `USER_GAME_STATE_INVALIDATED` (deduped per tick) unless you pass `{ invalidatesUserState: false }`. See [Per-User State](per-user-state.md) and [ADR 0154](../adrs/0154-plugin-emit-invalidates-user-state-opt-out.md).
+
+#### `serialize(fn): Promise<T>` (protected)
+
+Run `fn` after any previously serialized work on this instance, including when the previous run rejected. Use this when overlapping event handlers must not interleave (e.g. `TRACK_CHANGED` plus `POLL_VOTE_CAST` closing and opening a poll).
+
+```typescript
+this.on("TRACK_CHANGED", (data) =>
+  this.serialize(async () => {
+    await this.closeAndSettle(data.track)
+  }),
+)
+```
 
 #### `contributeToUserGameState?(userId, ctx)` (optional — **no BasePlugin default**)
 

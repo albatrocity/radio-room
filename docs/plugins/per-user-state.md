@@ -41,7 +41,7 @@ Core unions those ids with inventory/modifier refs before loading definitions fo
 
 ## Invalidation
 
-When a contributor calls `this.emit(...)` / `api.emit(...)`, the server also emits room-wide `USER_GAME_STATE_INVALIDATED` (deduped once per room per event-loop turn). The web `userGameStateMachine` refetches `GET_MY_GAME_STATE` (debounced).
+When a contributor calls `this.emit(...)` / `api.emit(...)`, the server also emits room-wide `USER_GAME_STATE_INVALIDATED` (deduped once per room per event-loop turn). The web `userGameStateMachine` refetches `GET_MY_GAME_STATE` (debounced). Pass `{ invalidatesUserState: false }` when the event does not change any user's contributed bag ([ADR 0154](../adrs/0154-plugin-emit-invalidates-user-state-opt-out.md)).
 
 User-targeted APIs (`sendUserSystemMessage`, `requestGameStateTabAttention`, sound/screen effects with a recipient) do **not** invalidate — use them for per-user signals that must not fan out.
 
@@ -71,6 +71,7 @@ Emits `PLUGIN_TAB_ATTENTION` to that user's socket only. Pass the schema tab `id
 ## Worked examples
 
 - **Item Shops** — `{ currentShopInstance }` from shopping-session storage; offer rarity hydrated from `ctx.itemDefinitions`.
-- **Playlist Bingo** — `{ card }` from the cards hash while a round is active; covers DM the user and call `requestGameStateTabAttention`.
+- **Playlist Bingo** — `{ card }` (`PlaylistBingoUserGameState`) from the cards hash while a round is active; covers DM the user and call `requestGameStateTabAttention`.
+- **Queue Theme** — `{ theme, isDecoy }` (`QueueThemeUserGameState`) from the briefs hash while a round is active; late joiners share one `ensureBriefFor` path (DM only on `USER_JOINED`).
 
 See also: [Game Sessions](game-sessions.md), [Plugin Components](components.md), [API Reference](api-reference.md).

@@ -9,6 +9,7 @@ import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
 import type { QueueItem } from "@repo/types/Queue"
 import type { RoomMeta } from "@repo/types/Room"
 import type { TradeInvite, TradeSession } from "@repo/types/Trade"
+import type { QueueThemeUserGameState } from "@repo/types"
 import { toAdminAssignablePersonas } from "@repo/types"
 import type { User } from "@repo/types/User"
 import { STUB_MY_MEDIA } from "./stubMetadataCatalog.js"
@@ -120,6 +121,10 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
   const pluginUserState: Record<string, Record<string, unknown>> = {
     "item-shops": { currentShopInstance },
     "playlist-bingo": { card: bingoCard },
+    "queue-theme": {
+      theme: "Songs about driving (studio stub)",
+      isDecoy: false,
+    } satisfies QueueThemeUserGameState,
   }
 
   const pendingAll = snap.pendingGifts ?? []

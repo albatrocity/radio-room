@@ -5,6 +5,7 @@ import {
   type UserPersona,
   type UserPersonaAssignment,
 } from "@repo/types"
+import { isPluginAttributedUserId } from "@repo/types"
 import { PersonaService, pluginPersonaId } from "../../services/PersonaService"
 
 /**
@@ -22,7 +23,7 @@ export class PluginPersonasAPI implements PersonasPluginAPI {
   }
 
   private resolveId(shortOrFullId: string): string {
-    if (shortOrFullId.startsWith("plugin:")) {
+    if (isPluginAttributedUserId(shortOrFullId)) {
       const owned = shortOrFullId.startsWith(`plugin:${this.pluginName}:`)
       if (!owned) {
         throw new Error(
@@ -99,7 +100,7 @@ export class PluginPersonasAPI implements PersonasPluginAPI {
 
   async getUsersWithPersona(personaId: string): Promise<string[]> {
     if (!this.service) return []
-    const fullId = personaId.startsWith("plugin:") ? personaId : this.resolveId(personaId)
+    const fullId = isPluginAttributedUserId(personaId) ? personaId : this.resolveId(personaId)
     return this.service.getUsersWithPersona(this.roomId, fullId)
   }
 }

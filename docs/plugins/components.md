@@ -384,7 +384,9 @@ Private per-user plugin data arrives in **`pluginUserState`** (keyed by plugin n
 
 For **Item Shops** sell previews, `getPluginState("item-shops")` yields `{ currentShopInstance }`. Persisted fields **`listedShortIds`**, optional **`listedPriceOverrides`**, and **`listedBuybackRate` / `unlistedBuybackRate`** match server sell-back math so the web client can quote refunds (e.g. `quoteItemShopsSellCoins`) without bundling the full shop catalog.
 
-For **Playlist Bingo**, `getPluginState("playlist-bingo")` yields `{ card }` when a bingo round is active. The `bingo-card` and `current-shop-offers` templates both use `getPluginState` with the component's `pluginName`.
+For **Playlist Bingo**, `getPluginState("playlist-bingo")` yields `{ card }` (`PlaylistBingoUserGameState`) when a bingo round is active. The `bingo-card` and `current-shop-offers` templates both use `getPluginState` with the component's `pluginName`.
+
+For **Queue Theme**, `getPluginState("queue-theme")` yields `{ theme, isDecoy }` (`QueueThemeUserGameState` in `@repo/types`) during an active round. The `queue-theme-brief-card` template renders above chat and in Add to Queue; public store only exposes `roundActive` / `decoyMode` / standings (never the real theme string).
 
 ### Inventory actions
 

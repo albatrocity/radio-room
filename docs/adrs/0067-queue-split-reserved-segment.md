@@ -1,7 +1,7 @@
 # 0067. Queue split for reserved lower segment (app-controlled)
 
 **Date:** 2026-07-03  
-**Status:** Accepted
+**Status:** Partially superseded by [0153](0153-plugin-authored-queue-split.md) (plugin-source authorization only)
 
 ## Context
 
@@ -21,7 +21,7 @@ An integer index for the divider would require maintenance on every reorder, shu
 
 5. **Split-aware enqueue:** In `DJService.queueSongAs`, after `addToQueue`, if app-controlled and a normalized split exists, splice the new item immediately **before** `belowKey` and `setQueue`. `belowKey` is unchanged; each add pushes the divider down visually.
 
-6. **Authorization:** Same gate as queue reorder ([ADR 0041](0041-queue-drag-reorder-authorization.md)): room admins only (`userCanReorderQueueInRoom` / `useCanReorderQueue`). **All viewers** see the divider; only admins add, drag, or remove it.
+6. **Authorization:** Same gate as queue reorder ([ADR 0041](0041-queue-drag-reorder-authorization.md)) for socket/admin callers: room admins only (`userCanReorderQueueInRoom` / `useCanReorderQueue`). Plugin-authored split via `PluginAPI` → `DJService` skips that gate when `source.pluginName` is set — see [ADR 0153](0153-plugin-authored-queue-split.md). **All viewers** see the divider; only admins (or trusted plugins) add, drag, or remove it.
 
 7. **Socket contract:** Clients emit `SET_QUEUE_SPLIT` `{ belowKey: string }` and `REMOVE_QUEUE_SPLIT` `{}`. Handlers ack `*_SUCCESS` / `*_FAILURE` on the requesting socket; applied state arrives via `QUEUE_CHANGED`. Setting split with `belowKey` at index 0 clears the split (same as remove).
 
@@ -39,4 +39,4 @@ An integer index for the divider would require maintenance on every reorder, shu
 - **Single split limit:** Multiple reserved bands would need a new model (list of anchors or segments).
 - **Bridge parity:** Split in preview is bridge-local state; Game Studio sandbox queue mutations do not model split-aware enqueue unless extended later.
 
-See also: [0040](0040-app-controlled-playback-and-ordered-queue.md), [0041](0041-queue-drag-reorder-authorization.md), [0014](0014-emit-domain-events-from-operations-only.md), [0013](0013-track-identity-media-and-metadata-sources.md), [0051](0051-game-studio-client-sandbox.md).
+See also: [0040](0040-app-controlled-playback-and-ordered-queue.md), [0041](0041-queue-drag-reorder-authorization.md), [0014](0014-emit-domain-events-from-operations-only.md), [0013](0013-track-identity-media-and-metadata-sources.md), [0051](0051-game-studio-client-sandbox.md), [0153](0153-plugin-authored-queue-split.md).

@@ -102,6 +102,60 @@ export const bridgePluginSchemasForApi = [
     },
   },
   {
+    name: "queue-theme",
+    version: "0.0.0-bridge",
+    description: "Queue Theme (bridge preview stub — use production API for admin schema).",
+    defaultConfig: {
+      enabled: true,
+      coinPerNetVote: 1,
+      accusationReward: 1,
+    },
+    componentSchema: {
+      components: [
+        {
+          id: "queue-theme-brief-card",
+          type: "queue-theme-brief-card",
+          area: "aboveChat",
+          showWhen: { field: "roundActive", value: true },
+        },
+        {
+          id: "queue-theme-brief-card-add-to-queue",
+          type: "queue-theme-brief-card",
+          area: "addToQueue",
+          showWhen: { field: "roundActive", value: true },
+        },
+        {
+          id: "queue-theme-tab",
+          type: "tab",
+          area: "gameStateTab",
+          label: "Queue Theme",
+          icon: "Palette",
+          showWhen: { field: "enabled", value: true },
+          children: [
+            {
+              id: "queue-theme-status",
+              type: "text-block",
+              area: "gameStateTab",
+              content: "{{statusMessage}}",
+              showWhen: { field: "roundActive", value: true },
+            },
+            {
+              id: "queue-theme-leaderboard",
+              type: "leaderboard",
+              area: "gameStateTab",
+              dataKey: "standings",
+              title: "Theme standings",
+              rowTemplate: "{{username}} — {{score}}",
+              maxItems: 25,
+              showRank: true,
+            },
+          ],
+        },
+      ],
+      storeKeys: ["roundActive", "decoyMode", "standings", "statusMessage"],
+    },
+  },
+  {
     name: "volume-manager",
     version: "0.0.0-bridge",
     description: "Volume Manager (bridge preview stub — use production API for admin schema).",

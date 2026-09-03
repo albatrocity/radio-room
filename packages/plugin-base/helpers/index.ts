@@ -64,3 +64,4 @@ export {
   fetchTopZsetEntries,
   type ZsetEntry,
 } from "./leaderboard"
+export { shuffleInPlace, sampleN, type ShuffleRng } from "./shuffle"
