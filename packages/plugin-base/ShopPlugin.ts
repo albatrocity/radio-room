@@ -208,10 +208,27 @@ export abstract class ShopPlugin<TConfig = any> extends BasePlugin<TConfig> {
     }
 
     const price = item.definition.coinValue ?? 0
-    const username = initiator?.username?.trim() || initiator?.userId || "Someone"
+    const userId = initiator?.userId ?? ""
+    let username = initiator?.username?.trim() || userId || "Someone"
+    let maskMeta: { maskedUserIds: string[]; maskedLabel: string } | undefined
+    if (userId && this.context.game) {
+      const grant = await this.context.game.getPresentedIdentity(userId)
+      if (grant) {
+        const { resolvePresentedIdentity } = await import("@repo/game-logic")
+        const resolved = resolvePresentedIdentity({
+          userId,
+          trueUsername: username,
+          grant,
+        })
+        username = resolved.label
+        if (resolved.masked) {
+          maskMeta = { maskedUserIds: [userId], maskedLabel: resolved.label }
+        }
+      }
+    }
 
     await this.emit<ShopPurchaseCompletePayload>("PURCHASE_COMPLETE", {
-      userId: initiator?.userId ?? "",
+      userId,
       username,
       item: shortId,
       price,
@@ -223,6 +240,7 @@ export abstract class ShopPlugin<TConfig = any> extends BasePlugin<TConfig> {
     await this.context.api.sendSystemMessage(
       this.context.roomId,
       `${username} bought ${item.definition.name} for ${price} coins.`,
+      maskMeta,
     )
 
     await this.onPurchaseComplete(initiator, item, result)

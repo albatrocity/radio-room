@@ -37,13 +37,13 @@ const rubberBandOnDefenseTriggered: DefenseTriggeredHandler = async (
     const reason = applied.reason === "no_active_session" ? "no active session" : applied.reason
     return {
       attackerMessage: `${defenseName} tried to snap the effect back at you, but it did not apply (${reason}).`,
-      roomMessage: `${roomDefenderName}'s ${defenseName} tried to bounce ${roomAttackerName}'s "${itemLabel}" back onto ${roomAttackerName}, but it did not stick.`,
+      roomMessage: `${roomDefenderName.label}'s ${defenseName} tried to bounce ${roomAttackerName.label}'s "${itemLabel}" back onto ${roomAttackerName.label}, but it did not stick.`,
     }
   }
 
   return {
-    attackerMessage: `${defenseName}: ${roomDefenderName} is rubber and you are glue. Effect bounced back onto you!`,
-    roomMessage: `${roomDefenderName}'s ${defenseName} bounced ${roomAttackerName}'s "${itemLabel}" back onto ${roomAttackerName}.`,
+    attackerMessage: `${defenseName}: ${roomDefenderName.label} is rubber and you are glue. Effect bounced back onto you!`,
+    roomMessage: `${roomDefenderName.label}'s ${defenseName} bounced ${roomAttackerName.label}'s "${itemLabel}" back onto ${roomAttackerName.label}.`,
   }
 }
 

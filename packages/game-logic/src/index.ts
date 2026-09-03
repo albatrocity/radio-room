@@ -7,6 +7,23 @@ export { evaluateModifiers, pruneExpiredModifiers } from "./modifierEvaluation"
 export { getActiveFlags } from "./getActiveFlags"
 export { countFlagStacks } from "./textEffectStacks"
 export { ANONYMOUS_ACTIONS_FLAG, hasAnonymousActions } from "./anonymousActionsFlag"
+export { INVENTORY_PEEK_FLAG, hasInventoryPeek } from "./inventoryPeekFlag"
+export {
+  evaluatePeekPolicy,
+  checkPeekIdentity,
+  hydratePeekItems,
+  type PeekPolicyInventoryItem,
+  type PeekPolicyItemDefinition,
+  type PeekHydrationStack,
+  type PeekHydrationDefinition,
+} from "./peekUserInventoryPolicy"
+export {
+  PRESENTED_IDENTITY_ANONYMOUS_LABEL,
+  isPresentedIdentityGrantActive,
+  isPresentedIdentityMasked,
+  presentedIdentityChromeLabel,
+  resolvePresentedIdentity,
+} from "./presentedIdentity"
 export {
   INTERFACE_BLUR_FLAG,
   INTERFACE_SATURATE_FLAG,

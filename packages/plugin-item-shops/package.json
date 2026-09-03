@@ -23,7 +23,7 @@
     "@repo/eslint-config": "*",
     "@repo/factories": "*",
     "@repo/typescript-config": "*",
-    "lucide-static": "^1.14.0",
+    "lucide-static": "^1.39.0",
     "tsx": "^4.20.6",
     "vitest": "^4.1.10"
   },

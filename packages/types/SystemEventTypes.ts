@@ -25,6 +25,7 @@ import type {
   GameStateChange,
   GameStateModifier,
 } from "./GameSession"
+import type { PresentedIdentityGrant } from "./PresentedIdentity"
 import type { InventoryAcquisitionSource, InventoryItem, ItemUseResult } from "./Inventory"
 import type { GiftOffer } from "./Gift"
 import type { TradeInvite, TradeSession } from "./Trade"
@@ -302,6 +303,16 @@ export type SystemEventHandlers = {
     userId: string
     modifierId: string
     reason: "manual" | "expired"
+  }) => Promise<void> | void
+
+  /**
+   * Subject's presented-identity grant changed (grant, engage toggle, or clear).
+   * ADR 0150 — bake-at-emit for others; subject uses USER_GAME_STATE / this event.
+   */
+  PRESENTED_IDENTITY_CHANGED: (data: {
+    roomId: string
+    userId: string
+    grant: PresentedIdentityGrant | null
   }) => Promise<void> | void
 
   /**

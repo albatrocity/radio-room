@@ -1,4 +1,4 @@
-import { Box, Center, Table, Text, VStack } from "@chakra-ui/react"
+import { Box, Table, Text, VStack } from "@chakra-ui/react"
 import { getItemRarityColorPalette, itemRarityIconColor } from "../../../lib/itemRarityPalette"
 import type {
   ShopOfferTableComponentProps,
@@ -12,6 +12,9 @@ import { AnimatedShopQty } from "./AnimatedShopQty"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
 import { LinkifiedText } from "../../LinkifiedText"
+
+/** Fixed leading column so names/descriptions align across rarity badge widths. */
+const ICON_RARITY_COL_W = "5.75rem"
 
 function ShopOfferTableRowView({
   row,
@@ -33,8 +36,13 @@ function ShopOfferTableRowView({
 
   return (
     <Table.Row opacity={outOfStock ? 0.6 : 1}>
-      <Table.Cell verticalAlign="middle" w="52px">
-        <Center width="full" height="full">
+      <Table.Cell
+        verticalAlign="middle"
+        w={ICON_RARITY_COL_W}
+        minW={ICON_RARITY_COL_W}
+        maxW={ICON_RARITY_COL_W}
+      >
+        <VStack gap={1} align="center" w="full">
           {IconComponent ? (
             <Box
               colorPalette={row.itemRarity ? getItemRarityColorPalette(row.itemRarity) : undefined}
@@ -47,8 +55,8 @@ function ShopOfferTableRowView({
               />
             </Box>
           ) : null}
-          {row.itemRarity && <ItemRarityTag rarity={row.itemRarity} />}
-        </Center>
+          {row.itemRarity && <ItemRarityTag rarity={row.itemRarity} size="xs" />}
+        </VStack>
       </Table.Cell>
       <Table.Cell verticalAlign="middle">
         <VStack align="start" gap={0}>
@@ -95,6 +103,7 @@ export function ShopOfferTableTemplateComponent({ rows }: ShopOfferTableComponen
         borderColor="primary.muted"
         colorPalette="primary"
         layerStyle="themeTransition"
+        tableLayout="fixed"
       >
         <Table.Header
           bg="primary.emphasized/40"
@@ -102,7 +111,12 @@ export function ShopOfferTableTemplateComponent({ rows }: ShopOfferTableComponen
           borderBottomColor="primary.muted"
         >
           <Table.Row>
-            <Table.ColumnHeader w="52px" aria-label="Icon" />
+            <Table.ColumnHeader
+              w={ICON_RARITY_COL_W}
+              minW={ICON_RARITY_COL_W}
+              maxW={ICON_RARITY_COL_W}
+              aria-label="Icon"
+            />
             <Table.ColumnHeader>Item</Table.ColumnHeader>
             <Table.ColumnHeader textAlign="end">Price</Table.ColumnHeader>
             <Table.ColumnHeader textAlign="center">Qty</Table.ColumnHeader>

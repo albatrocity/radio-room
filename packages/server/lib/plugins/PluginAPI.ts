@@ -196,6 +196,11 @@ export class PluginAPIImpl implements PluginAPI {
     return getUsersByIds({ context: this.context, userIds })
   }
 
+  async isUserInRoom(roomId: string, userId: string): Promise<boolean> {
+    const { getOnlineUserSocketId } = await import("../../operations/data")
+    return (await getOnlineUserSocketId({ context: this.context, roomId, userId })) != null
+  }
+
   async isRoomAdmin(roomId: string, userId: string): Promise<boolean> {
     const { findRoom, isRoomAdmin } = await import("../../operations/data")
     const room = await findRoom({ context: this.context, roomId })
@@ -324,6 +329,36 @@ export class PluginAPIImpl implements PluginAPI {
       data: {
         roomId,
         message: msg,
+      },
+    })
+  }
+
+  async sendUserToast(
+    roomId: string,
+    userId: string,
+    toast: {
+      title: string
+      description?: string
+      type?: "info" | "success" | "warning" | "error"
+      duration?: number
+      id?: string
+      source?: string
+    },
+  ): Promise<void> {
+    const { getOnlineUserSocketId } = await import("../../operations/data")
+    const socketId = await getOnlineUserSocketId({ context: this.context, roomId, userId })
+    if (!socketId) {
+      console.warn(
+        `[PluginAPI] sendUserToast: no connected socket for userId ${userId} in room ${roomId}`,
+      )
+      return
+    }
+
+    this.io.to(socketId).emit("event", {
+      type: "USER_TOAST",
+      data: {
+        roomId,
+        ...toast,
       },
     })
   }

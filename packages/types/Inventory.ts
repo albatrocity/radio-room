@@ -182,9 +182,18 @@ export interface ItemDefinition {
    * with `USE_INVENTORY_ITEM`; plugins read it from `onItemUsed` `callContext`.
    * When `"queueItem"`, the inventory UI opens a queue picker and sends `targetQueueItemId`
    * (metadata track id) with `USE_INVENTORY_ITEM`.
+   * When `"userInventoryItem"`, the UI picks a user, peeks their inventory
+   * (`PEEK_USER_INVENTORY`), then sends `targetUserId` + `targetInventoryItemId`
+   * (see ADR 0147).
    * When `"self"` or omitted, the effect applies to the inventory owner only.
    */
-  requiresTarget?: "self" | "user" | "queueItem" | "inventoryItem" | "coinAmount"
+  requiresTarget?:
+    | "self"
+    | "user"
+    | "queueItem"
+    | "inventoryItem"
+    | "userInventoryItem"
+    | "coinAmount"
   /**
    * When set, holding this item passively blocks matching modifiers / queue
    * moves; one block consumes one from stack `quantity`.
@@ -220,6 +229,32 @@ export interface UserInventory {
   maxSlots: number
   /** Effective collection slot cap (mirrors `GameSessionConfig.maxCollectionSlots`). */
   maxCollectionSlots: number
+}
+
+/**
+ * One stack in a `USER_INVENTORY_PEEK_RESULT` payload (ADR 0147).
+ * Public catalog fields only — no stack `metadata`.
+ */
+export interface UserInventoryPeekItem {
+  itemId: string
+  definitionId: string
+  quantity: number
+  name: string
+  shortId: string
+  icon?: string
+  imageUrl?: string
+  artworkFrame?: ArtworkFrame
+  rarity?: ItemRarity
+  tradeable: boolean
+  slotPool: "inventory" | "collection"
+}
+
+/** Same-socket reply for `PEEK_USER_INVENTORY`. */
+export interface UserInventoryPeekResult {
+  success: boolean
+  message?: string
+  targetUserId?: string
+  items?: UserInventoryPeekItem[]
 }
 
 // ============================================================================

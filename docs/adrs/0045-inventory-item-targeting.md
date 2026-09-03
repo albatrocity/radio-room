@@ -29,5 +29,6 @@
 
 - [ADR 0042 — Game Sessions and Inventory](0042-game-sessions-and-inventory.md)
 - [ADR 0043 — Game State Tabs and Shop Helper](0043-game-state-tabs-and-composable-shop-helper.md)
+- [ADR 0147 — User inventory peek](0147-user-inventory-peek.md) — `"userInventoryItem"` targeting + gated peek
 - `packages/server/controllers/roomsController.ts`
 - `packages/server/services/InventoryService.ts`

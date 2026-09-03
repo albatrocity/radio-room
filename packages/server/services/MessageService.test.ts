@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach } from "vitest"
 import { MessageService } from "../services/MessageService"
+import { MemoryRedisClient } from "../test-utils/MemoryRedisClient"
 
 vi.mock("../lib/parseMessage")
 vi.mock("../operations/data", () => ({
@@ -22,7 +23,8 @@ import {
 
 describe("MessageService", () => {
   let messageService: MessageService
-  const mockContext = { redis: { pubClient: {}, subClient: {} } }
+  let pubClient: MemoryRedisClient
+  let mockContext: { redis: { pubClient: MemoryRedisClient; subClient: object } }
   const mockUser = {
     userId: "1",
     username: "Homer",
@@ -35,6 +37,10 @@ describe("MessageService", () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    // A working client: `resolveActorPresentedIdentity` reads the presented-
+    // identity key (and, without a pre-fetched username, the user hash).
+    pubClient = new MemoryRedisClient()
+    mockContext = { redis: { pubClient, subClient: {} } }
     messageService = new MessageService(mockContext as any)
 
     // Set up default mock responses
@@ -86,6 +92,27 @@ describe("MessageService", () => {
         context: mockContext,
         roomId: "room1",
       })
+    })
+
+    test("reads the user once — presented identity reuses the fetched username", async () => {
+      const hGetAll = vi.spyOn(pubClient, "hGetAll")
+
+      await messageService.processNewMessage("room1", "1", "Homer", "Hello world")
+
+      // One user read per SEND_MESSAGE: the service's own `getUser` (mocked
+      // here), and no second `HGETALL user:{id}` from the identity resolver.
+      expect(getUser).toHaveBeenCalledTimes(1)
+      expect(hGetAll).not.toHaveBeenCalled()
+    })
+
+    test("falls back to the userId label when the user is not found", async () => {
+      vi.mocked(getUser).mockResolvedValue(null)
+      const hGetAll = vi.spyOn(pubClient, "hGetAll")
+
+      const result = await messageService.processNewMessage("room1", "1", "Homer", "Hello world")
+
+      expect(result.message.user).toEqual({ userId: "1", username: "1" })
+      expect(hGetAll).not.toHaveBeenCalled()
     })
 
     test("returns the expected result", async () => {

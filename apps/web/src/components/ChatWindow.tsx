@@ -1,7 +1,7 @@
 import { Box, Button, Icon, ScrollArea } from "@chakra-ui/react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useMachine, useSelector } from "@xstate/react"
-import React, { useCallback, useEffect, useLayoutEffect } from "react"
+import React, { useCallback, useEffect, useLayoutEffect, useMemo } from "react"
 import { LuArrowDown } from "react-icons/lu"
 import { useStickToBottom } from "use-stick-to-bottom"
 
@@ -14,8 +14,18 @@ import ChatMessage from "./ChatMessage"
 import SystemMessage from "./SystemMessage"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import VirtualizerContent, { virtualizerViewportCss } from "./VirtualizerContent"
+import { chatDisplayUser } from "../lib/chatDisplayUser"
 import { ensureEmojiMart } from "../lib/ensureEmojiMart"
 import { virtualizerOverscan } from "../lib/virtualizerOverscan"
+
+/** Match consecutive chat bubbles only when actor + presented identity match (ADR 0150). */
+function sameChatAttribution(
+  a: Message["user"] | undefined,
+  b: Message["user"] | undefined,
+): boolean {
+  if (!a || !b) return false
+  return a.userId === b.userId && (a.username ?? "") === (b.username ?? "")
+}
 
 /** Match `use-stick-to-bottom`'s STICK_TO_BOTTOM_OFFSET_PX. */
 const NEAR_BOTTOM_PX = 70
@@ -74,6 +84,11 @@ function ChatWindow() {
   const getItemKey = useCallback(
     (index: number) => messages[index]?.timestamp ?? index,
     [messages],
+  )
+
+  const listenersById = useMemo(
+    () => new Map(listeners.map((listener) => [listener.userId, listener])),
+    [listeners],
   )
 
   const virtualizer = useVirtualizer({
@@ -165,12 +180,21 @@ function ChatWindow() {
               {virtualItems.map((virtualRow) => {
                 const message = messages[virtualRow.index]
                 if (!message) return null
-                const sameUserAsLastMessage =
-                  message.user.userId === messages[virtualRow.index - 1]?.user.userId
-                const sameUserAsNextMessage =
-                  message.user.userId === messages[virtualRow.index + 1]?.user.userId
-                const displayUser =
-                  listeners.find((u) => u.userId === message.user.userId) ?? message.user
+                const sameUserAsLastMessage = sameChatAttribution(
+                  message.user,
+                  messages[virtualRow.index - 1]?.user,
+                )
+                const sameUserAsNextMessage = sameChatAttribution(
+                  message.user,
+                  messages[virtualRow.index + 1]?.user,
+                )
+                // Prefer live listener fields (status, personas) but keep the
+                // baked presented-identity username/icon from the message (ADR 0150).
+                // Cached so an unchanged row keeps its object identity and `memo` holds.
+                const displayUser = chatDisplayUser(
+                  message,
+                  listenersById.get(message.user.userId),
+                )
 
                 return (
                   <Box

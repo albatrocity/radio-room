@@ -7,6 +7,7 @@ import { Server } from "socket.io"
 import type { User } from "@repo/types/User"
 import { canonicalQueueTrackKey } from "@repo/types/Queue"
 import type { QueueItem } from "@repo/types/Queue"
+import { evaluatePeekPolicy, hydratePeekItems } from "@repo/game-logic"
 
 import type { BridgeSnapshot } from "./types.js"
 import {
@@ -30,11 +31,7 @@ import {
   setBridgeSnapshot,
 } from "./snapshotStore.js"
 import { setRoomActivation } from "./activationState.js"
-import {
-  BRIDGE_PRE_SYNC_ISO,
-  stubRoomForRoomData,
-  stubStudioBridgeRoom,
-} from "./stubRoom.js"
+import { BRIDGE_PRE_SYNC_ISO, stubRoomForRoomData, stubStudioBridgeRoom } from "./stubRoom.js"
 import { bridgePluginSchemasForApi } from "./stubPluginSchemas.js"
 import { buildStubActivePoll } from "./stubPoll.js"
 import {
@@ -61,10 +58,7 @@ import {
   stubListMediaItemTracks,
   stubSearchTracks,
 } from "./stubMetadataCatalog.js"
-import {
-  ROUND_ROBIN_PREVIEW_PLUGIN,
-  buildStubRoundRobinComponentState,
-} from "./stubRoundRobin.js"
+import { ROUND_ROBIN_PREVIEW_PLUGIN, buildStubRoundRobinComponentState } from "./stubRoundRobin.js"
 import {
   VOLUME_MANAGER_PLUGIN,
   buildStubVolumeComponentState,
@@ -97,10 +91,7 @@ function bridgeRoomTimestampIso(): string {
   return ms > 0 ? new Date(ms).toISOString() : BRIDGE_PRE_SYNC_ISO
 }
 
-function normalizeSplitKey(
-  queue: QueueItem[],
-  splitKey: string | null | undefined,
-): string | null {
+function normalizeSplitKey(queue: QueueItem[], splitKey: string | null | undefined): string | null {
   if (!splitKey) return null
   const playable = queue.filter((item) => !item.locked)
   const index = playable.findIndex((item) => canonicalQueueTrackKey(item) === splitKey)
@@ -185,7 +176,13 @@ type StudioCommandAck = {
   voteReason?: "POLL_CLOSED" | "POLL_NOT_FOUND" | "INVALID_OPTION" | "UNAUTHORIZED"
   poll?: BridgeSnapshot["activePoll"]
   closedPoll?: BridgeSnapshot["activePoll"]
-  results?: { pollId: string; totalVotes: number; optionTallies: Record<string, number>; winners: string[]; closedAt: number }
+  results?: {
+    pollId: string
+    totalVotes: number
+    optionTallies: Record<string, number>
+    winners: string[]
+    closedAt: number
+  }
   deletedPollId?: string
 }
 
@@ -274,30 +271,33 @@ function broadcastRefresh(io: IOServer, roomId: string): void {
     emitQueueChanged(io, roomId, snap)
   }
 
-  void io.in(roomPath).fetchSockets().then((sockets) => {
-    for (const s of sockets) {
-      const uid = s.data.userId as string | undefined
-      if (!uid) continue
-      s.emit("event", {
-        type: "USER_GAME_STATE",
-        data: buildUserGameStatePayload(snap, uid),
-      })
-      s.emit("event", {
-        type: "ROOM_GAME_STATE",
-        data: buildRoomGameStateSnapshot(snap),
-      })
-    }
+  void io
+    .in(roomPath)
+    .fetchSockets()
+    .then((sockets) => {
+      for (const s of sockets) {
+        const uid = s.data.userId as string | undefined
+        if (!uid) continue
+        s.emit("event", {
+          type: "USER_GAME_STATE",
+          data: buildUserGameStatePayload(snap, uid),
+        })
+        s.emit("event", {
+          type: "ROOM_GAME_STATE",
+          data: buildRoomGameStateSnapshot(snap),
+        })
+      }
 
-    io.to(roomSocketPath(roomId)).emit("event", {
-      type: "ROOM_DATA",
-      data: {
-        room: stubRoomForRoomData(roomId, snap, refreshedAt),
-        messages: snap.chat,
-        playlist: [],
-        scheduleSnapshot: null,
-      },
+      io.to(roomSocketPath(roomId)).emit("event", {
+        type: "ROOM_DATA",
+        data: {
+          room: stubRoomForRoomData(roomId, snap, refreshedAt),
+          messages: snap.chat,
+          playlist: [],
+          scheduleSnapshot: null,
+        },
+      })
     })
-  })
 }
 
 function wireSocketHandlers(io: IOServer): void {
@@ -361,72 +361,69 @@ function wireSocketHandlers(io: IOServer): void {
       },
     )
 
-    socket.on(
-      "TOGGLE_PERSONA",
-      (data: { userId: string; personaId: string } | undefined) => {
-        const roomId = socket.data.roomId as string | undefined
-        const callerId = socket.data.userId as string | undefined
-        const snap = getBridgeSnapshot()
-        const targetUserId = data?.userId
-        const personaId = data?.personaId
-        if (
-          !roomId ||
-          !callerId ||
-          !snap ||
-          snap.roomId !== roomId ||
-          typeof targetUserId !== "string" ||
-          typeof personaId !== "string"
-        ) {
-          return
-        }
-        if (personaId !== "vip") {
-          socket.emit("event", {
-            type: "ERROR_OCCURRED",
-            data: {
-              status: 400,
-              error: "Bad Request",
-              message: "Only the VIP persona is supported in studio-bridge.",
-            },
-          })
-          return
-        }
-        const caller = snap.users.find((u) => u.userId === callerId)
-        if (!caller?.isAdmin) {
-          socket.emit("event", {
-            type: "ERROR_OCCURRED",
-            data: {
-              status: 403,
-              error: "Forbidden",
-              message: "Only room admins can toggle personas.",
-            },
-          })
-          return
-        }
-        const { snap: nextSnap, user } = applyUserUpdateToSnapshot(
-          snap,
-          targetUserId,
-          toggleVipOnUser,
-        )
-        if (!user) return
-        setBridgeSnapshot(nextSnap)
-        const personaEvent = userHasVip(user) ? "PERSONA_ASSIGNED" : "PERSONA_REMOVED"
-        const roomPath = roomSocketPath(roomId)
-        io.to(roomPath).emit("event", {
-          type: personaEvent,
+    socket.on("TOGGLE_PERSONA", (data: { userId: string; personaId: string } | undefined) => {
+      const roomId = socket.data.roomId as string | undefined
+      const callerId = socket.data.userId as string | undefined
+      const snap = getBridgeSnapshot()
+      const targetUserId = data?.userId
+      const personaId = data?.personaId
+      if (
+        !roomId ||
+        !callerId ||
+        !snap ||
+        snap.roomId !== roomId ||
+        typeof targetUserId !== "string" ||
+        typeof personaId !== "string"
+      ) {
+        return
+      }
+      if (personaId !== "vip") {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
           data: {
-            roomId,
-            userId: targetUserId,
-            personaId: "vip",
-            user,
-            users: nextSnap.users,
+            status: 400,
+            error: "Bad Request",
+            message: "Only the VIP persona is supported in studio-bridge.",
           },
         })
-        io.to(roomPath).emit("event", {
-          type: "USER_JOINED",
-          data: { roomId, user, users: nextSnap.users },
+        return
+      }
+      const caller = snap.users.find((u) => u.userId === callerId)
+      if (!caller?.isAdmin) {
+        socket.emit("event", {
+          type: "ERROR_OCCURRED",
+          data: {
+            status: 403,
+            error: "Forbidden",
+            message: "Only room admins can toggle personas.",
+          },
         })
-      },
-    )
+        return
+      }
+      const { snap: nextSnap, user } = applyUserUpdateToSnapshot(
+        snap,
+        targetUserId,
+        toggleVipOnUser,
+      )
+      if (!user) return
+      setBridgeSnapshot(nextSnap)
+      const personaEvent = userHasVip(user) ? "PERSONA_ASSIGNED" : "PERSONA_REMOVED"
+      const roomPath = roomSocketPath(roomId)
+      io.to(roomPath).emit("event", {
+        type: personaEvent,
+        data: {
+          roomId,
+          userId: targetUserId,
+          personaId: "vip",
+          user,
+          users: nextSnap.users,
+        },
+      })
+      io.to(roomPath).emit("event", {
+        type: "USER_JOINED",
+        data: { roomId, user, users: nextSnap.users },
+      })
+    })
 
     socket.on("DESIGNATE_ADMIN", (targetUserId: string) => {
       const roomId = socket.data.roomId as string | undefined
@@ -577,11 +574,7 @@ function wireSocketHandlers(io: IOServer): void {
         })
 
         const stub = snap.segmentTracksStub
-        if (
-          stub &&
-          stub.count > 0 &&
-          (!showSegmentId || stub.showSegmentId === showSegmentId)
-        ) {
+        if (stub && stub.count > 0 && (!showSegmentId || stub.showSegmentId === showSegmentId)) {
           socket.emit("event", {
             type: "SEGMENT_TRACKS_AVAILABLE",
             data: {
@@ -723,6 +716,80 @@ function wireSocketHandlers(io: IOServer): void {
         })
       },
     )
+
+    socket.on("PEEK_USER_INVENTORY", async (data: { targetUserId?: string; itemId?: string }) => {
+      const roomId = socket.data.roomId as string | undefined
+      const userId = socket.data.userId as string | undefined
+      const targetUserId = data?.targetUserId?.trim()
+      if (!roomId || !userId || !targetUserId) {
+        socket.emit("event", {
+          type: "USER_INVENTORY_PEEK_RESULT",
+          data: { success: false, message: "Not in a room or missing targetUserId." },
+        })
+        return
+      }
+      if (userId === targetUserId) {
+        socket.emit("event", {
+          type: "USER_INVENTORY_PEEK_RESULT",
+          data: { success: false, message: "Cannot peek your own inventory" },
+        })
+        return
+      }
+
+      const snap = getBridgeSnapshot()
+      if (!snap || snap.roomId !== roomId) {
+        socket.emit("event", {
+          type: "USER_INVENTORY_PEEK_RESULT",
+          data: {
+            success: false,
+            message:
+              "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
+          },
+        })
+        return
+      }
+
+      if (!snap.users.some((u) => u.userId === targetUserId)) {
+        socket.emit("event", {
+          type: "USER_INVENTORY_PEEK_RESULT",
+          data: { success: false, message: "That user is not in this room" },
+        })
+        return
+      }
+
+      if (!snap.activeSession) {
+        socket.emit("event", {
+          type: "USER_INVENTORY_PEEK_RESULT",
+          data: { success: false, message: "No active game session" },
+        })
+        return
+      }
+
+      const policyResult = evaluatePeekPolicy({
+        actorUserId: userId,
+        targetUserId,
+        allowTrading: snap.activeSession.config.allowTrading === true,
+        actorModifiers: snap.userStates[userId]?.modifiers,
+        itemId: data?.itemId,
+        actorInventory: snap.inventories[userId] ?? [],
+        itemDefinitions: snap.itemDefinitions,
+      })
+      if (!policyResult.ok) {
+        socket.emit("event", {
+          type: "USER_INVENTORY_PEEK_RESULT",
+          data: { success: false, message: policyResult.message },
+        })
+        return
+      }
+
+      // Shared with the production server so the sandbox payload cannot drift.
+      const items = hydratePeekItems(snap.inventories[targetUserId] ?? [], snap.itemDefinitions)
+
+      socket.emit("event", {
+        type: "USER_INVENTORY_PEEK_RESULT",
+        data: { success: true, targetUserId, items },
+      })
+    })
 
     socket.on("SELL_INVENTORY_ITEM", async (data: { itemId?: string }) => {
       const roomId = socket.data.roomId as string | undefined
@@ -1302,11 +1369,7 @@ function wireSocketHandlers(io: IOServer): void {
 
     socket.on(
       "EXECUTE_PLUGIN_ACTION",
-      async (data: {
-        pluginName?: string
-        action?: string
-        params?: Record<string, unknown>
-      }) => {
+      async (data: { pluginName?: string; action?: string; params?: Record<string, unknown> }) => {
         const roomId = socket.data.roomId as string | undefined
         const userId = socket.data.userId as string | undefined
         if (!roomId || !userId || !data?.pluginName || !data?.action) {
@@ -1330,11 +1393,7 @@ function wireSocketHandlers(io: IOServer): void {
           return
         }
         if (data.pluginName === VOLUME_MANAGER_PLUGIN) {
-          const { success, message, events } = runStubVolumeAction(
-            roomId,
-            data.action,
-            data.params,
-          )
+          const { success, message, events } = runStubVolumeAction(roomId, data.action, data.params)
           for (const ev of events) {
             io.to(roomSocketPath(roomId)).emit("event", ev)
           }
@@ -1643,81 +1702,84 @@ function wireSocketHandlers(io: IOServer): void {
       }
     })
 
-    socket.on("CREATE_POLL", async (data: {
-      question?: string
-      options?: { label: string }[]
-      settings?: { hideRunningTotal?: boolean }
-    }) => {
-      const roomId = socket.data.roomId as string | undefined
-      const userId = socket.data.userId as string | undefined
-      const snap = getBridgeSnapshot()
+    socket.on(
+      "CREATE_POLL",
+      async (data: {
+        question?: string
+        options?: { label: string }[]
+        settings?: { hideRunningTotal?: boolean }
+      }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        const snap = getBridgeSnapshot()
 
-      if (!roomId || !userId || !snap || snap.roomId !== roomId) {
-        socket.emit("event", {
-          type: "ERROR_OCCURRED",
-          data: {
-            status: 401,
-            error: "Unauthorized",
-            message: "You must be logged in to a room to create a poll.",
-          },
+        if (!roomId || !userId || !snap || snap.roomId !== roomId) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 401,
+              error: "Unauthorized",
+              message: "You must be logged in to a room to create a poll.",
+            },
+          })
+          return
+        }
+
+        const roomUser = snap.users.find((u) => u.userId === userId)
+        if (!roomUser?.isAdmin) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 403,
+              error: "Forbidden",
+              message: "You are not a room admin.",
+            },
+          })
+          return
+        }
+
+        const question = typeof data?.question === "string" ? data.question : ""
+        const options = Array.isArray(data?.options) ? data.options : []
+
+        const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
+          kind: "CREATE_POLL",
+          roomId,
+          userId,
+          question,
+          options,
+          ...(data?.settings !== undefined ? { settings: data.settings } : {}),
         })
-        return
-      }
 
-      const roomUser = snap.users.find((u) => u.userId === userId)
-      if (!roomUser?.isAdmin) {
-        socket.emit("event", {
-          type: "ERROR_OCCURRED",
-          data: {
-            status: 403,
-            error: "Forbidden",
-            message: "You are not a room admin.",
-          },
+        if (!ack) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 503,
+              error: "Studio bridge",
+              message: studioNotConnectedMessage(),
+            },
+          })
+          return
+        }
+
+        if (!ack.success || !ack.poll) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: ack.message?.includes("already active") ? 409 : 400,
+              error: ack.message?.includes("already active") ? "Conflict" : "Bad Request",
+              message: ack.message ?? "Could not create poll.",
+            },
+          })
+          return
+        }
+
+        io.to(roomSocketPath(roomId)).emit("event", {
+          type: "POLL_PUBLISHED",
+          data: { roomId, poll: ack.poll },
         })
-        return
-      }
-
-      const question = typeof data?.question === "string" ? data.question : ""
-      const options = Array.isArray(data?.options) ? data.options : []
-
-      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
-        kind: "CREATE_POLL",
-        roomId,
-        userId,
-        question,
-        options,
-        ...(data?.settings !== undefined ? { settings: data.settings } : {}),
-      })
-
-      if (!ack) {
-        socket.emit("event", {
-          type: "ERROR_OCCURRED",
-          data: {
-            status: 503,
-            error: "Studio bridge",
-            message: studioNotConnectedMessage(),
-          },
-        })
-        return
-      }
-
-      if (!ack.success || !ack.poll) {
-        socket.emit("event", {
-          type: "ERROR_OCCURRED",
-          data: {
-            status: ack.message?.includes("already active") ? 409 : 400,
-            error: ack.message?.includes("already active") ? "Conflict" : "Bad Request",
-            message: ack.message ?? "Could not create poll.",
-          },
-        })
-        return
-      }
-
-      io.to(roomSocketPath(roomId)).emit("event", {
-        type: "POLL_PUBLISHED",
-        data: { roomId, poll: ack.poll },
-      })
-    })
+      },
+    )
 
     socket.on("CLOSE_POLL", async (data: { pollId?: string }) => {
       const roomId = socket.data.roomId as string | undefined
@@ -1959,67 +2021,70 @@ function wireSocketHandlers(io: IOServer): void {
       })
     })
 
-    socket.on("RETRIEVE_STORED_ARTIFACT", async (data: { artifactId?: string; password?: string }) => {
-      const roomId = socket.data.roomId as string | undefined
-      const userId = socket.data.userId as string | undefined
+    socket.on(
+      "RETRIEVE_STORED_ARTIFACT",
+      async (data: { artifactId?: string; password?: string }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
 
-      const fail = (message: string): void => {
-        socket.emit("event", {
-          type: "RETRIEVE_STORED_ARTIFACT_RESULT",
-          data: { success: false, message },
-        })
-      }
-
-      if (!roomId || !userId) {
-        fail("Not in a room.")
-        return
-      }
-
-      const artifactId = data?.artifactId?.trim()
-      const password = typeof data?.password === "string" ? data.password : ""
-      if (!artifactId || !password) {
-        fail("Artifact id and password are required.")
-        return
-      }
-
-      const studioSockets = await io.in(studioControlRoomPath(roomId)).fetchSockets()
-      if (studioSockets.length === 0) {
-        fail(
-          "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
-        )
-        return
-      }
-
-      type StudioEmitWithAck = {
-        emit: (ev: string, payload: unknown, ack?: (response: unknown) => void) => void
-      }
-      const toGameStudio = studioSockets[0]! as unknown as StudioEmitWithAck
-      toGameStudio.emit(
-        "event",
-        {
-          type: "STUDIO_BRIDGE_COMMAND",
-          data: {
-            kind: "RETRIEVE_STORED_ARTIFACT",
-            roomId,
-            userId,
-            artifactId,
-            password,
-          },
-        },
-        (response: unknown) => {
-          const r = response as { success?: boolean; message?: string } | undefined
+        const fail = (message: string): void => {
           socket.emit("event", {
             type: "RETRIEVE_STORED_ARTIFACT_RESULT",
-            data: {
-              success: r?.success === true,
-              message:
-                r?.message ??
-                (r?.success === true ? "Retrieved from storage." : "Could not retrieve."),
-            },
+            data: { success: false, message },
           })
-        },
-      )
-    })
+        }
+
+        if (!roomId || !userId) {
+          fail("Not in a room.")
+          return
+        }
+
+        const artifactId = data?.artifactId?.trim()
+        const password = typeof data?.password === "string" ? data.password : ""
+        if (!artifactId || !password) {
+          fail("Artifact id and password are required.")
+          return
+        }
+
+        const studioSockets = await io.in(studioControlRoomPath(roomId)).fetchSockets()
+        if (studioSockets.length === 0) {
+          fail(
+            "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
+          )
+          return
+        }
+
+        type StudioEmitWithAck = {
+          emit: (ev: string, payload: unknown, ack?: (response: unknown) => void) => void
+        }
+        const toGameStudio = studioSockets[0]! as unknown as StudioEmitWithAck
+        toGameStudio.emit(
+          "event",
+          {
+            type: "STUDIO_BRIDGE_COMMAND",
+            data: {
+              kind: "RETRIEVE_STORED_ARTIFACT",
+              roomId,
+              userId,
+              artifactId,
+              password,
+            },
+          },
+          (response: unknown) => {
+            const r = response as { success?: boolean; message?: string } | undefined
+            socket.emit("event", {
+              type: "RETRIEVE_STORED_ARTIFACT_RESULT",
+              data: {
+                success: r?.success === true,
+                message:
+                  r?.message ??
+                  (r?.success === true ? "Retrieved from storage." : "Could not retrieve."),
+              },
+            })
+          },
+        )
+      },
+    )
   })
 }
 
@@ -2246,11 +2311,7 @@ app.post("/preview/queue-remove-result", (req, res) => {
     return
   }
   const remote = req.socket.remoteAddress
-  if (
-    remote !== "127.0.0.1" &&
-    remote !== "::1" &&
-    remote !== "::ffff:127.0.0.1"
-  ) {
+  if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
     res.status(403).json({ error: "Forbidden" })
     return
   }

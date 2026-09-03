@@ -148,7 +148,7 @@ function buildItemFile(answers: ItemWizardAnswers): string {
   } else if (answers.behaviorKind === "customHandler") {
     imports.push(`import type { ItemDefinition, ItemUseResult } from "@repo/types"`)
     imports.push(
-      `import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"`,
+      `import { maskedAttributionMeta, resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"`,
     )
     imports.push(`import { type ItemShopsBehaviorDeps, createItem } from "../shared/types"`)
   }
@@ -219,10 +219,10 @@ function buildItemFile(answers: ItemWizardAnswers): string {
     lines.push(`  ): Promise<ItemUseResult> => {`)
     lines.push(`    const displayName = await resolveItemUseActorDisplayName(deps, userId)`)
     lines.push(
-      `    // Room \`sendSystemMessage\` lines must use \`displayName\`, not raw usernames.`,
+      `    // Room \`sendSystemMessage\` lines must use \`displayName.label\` + \`maskedAttributionMeta\`.`,
     )
     lines.push(
-      `    return { success: false, consumed: false, message: \`TODO: implement custom behavior (\${displayName} / \${definition.name}).\` }`,
+      `    return { success: false, consumed: false, message: \`TODO: implement custom behavior (\${displayName.label} / \${definition.name}).\` }`,
     )
     lines.push(`  },`)
   }

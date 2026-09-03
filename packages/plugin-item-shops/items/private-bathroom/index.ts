@@ -1,5 +1,8 @@
 import type { GameStateModifier, ItemDefinition, ItemUseResult } from "@repo/types"
-import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
+import {
+  sendAttributedSystemMessage,
+  resolveItemUseActorDisplayName,
+} from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
 function modifierHasDebuff(modifier: GameStateModifier): boolean {
@@ -54,10 +57,10 @@ export const privateBathroom = createItem({
     const targetName = await resolveItemUseActorDisplayName(deps, targetUserId)
     const isSelf = targetUserId === userId
     const message = isSelf
-      ? `${actorName} escaped to the oasis of a ${definition.name} to clear all negative effects.`
-      : `${actorName} directed ${targetName} to the ${definition.name} so they could clear all negative effects.`
+      ? `${actorName.label} escaped to the oasis of a ${definition.name} to clear all negative effects.`
+      : `${actorName.label} directed ${targetName.label} to the ${definition.name} so they could clear all negative effects.`
 
-    await context.api.sendSystemMessage(context.roomId, message)
+    await sendAttributedSystemMessage(deps, message, actorName, targetName)
 
     return {
       success: true,

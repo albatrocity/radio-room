@@ -1,5 +1,8 @@
 import type { GameStateEffectWithMeta, ItemDefinition, ItemUseResult } from "@repo/types"
-import { resolveItemUseActorDisplayName } from "./resolveItemUseActorDisplayName"
+import {
+  sendAttributedSystemMessage,
+  resolveItemUseActorDisplayName,
+} from "./resolveItemUseActorDisplayName"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
 export type TargetedTimedModifierSpec = {
@@ -64,14 +67,22 @@ export async function applyTargetedTimedModifier(
     }
   }
 
-  const actorName = await resolveItemUseActorDisplayName(deps, userId)
-  const targetName = await resolveItemUseActorDisplayName(deps, targetUserId)
+  const [actorName, targetName] = await Promise.all([
+    resolveItemUseActorDisplayName(deps, userId),
+    resolveItemUseActorDisplayName(deps, targetUserId),
+  ])
   const isSelf = targetUserId === userId
-  const who = spec.describe({ isSelf, actor: actorName, target: targetName })
+  const who = spec.describe({
+    isSelf,
+    actor: actorName.label,
+    target: targetName.label,
+  })
   const durationSummary = formatDurationSummary(groups.map((g) => g.durationMs))
-  await context.api.sendSystemMessage(
-    context.roomId,
+  await sendAttributedSystemMessage(
+    deps,
     `${who} (${definition.name} — ${durationSummary}).`,
+    actorName,
+    targetName,
   )
   return { success: true, consumed: true, message: spec.successMessage }
 }

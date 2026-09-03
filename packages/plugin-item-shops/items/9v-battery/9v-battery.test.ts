@@ -259,7 +259,8 @@ describe("9v-battery", () => {
     expect(result.success).toBe(true)
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      expect.stringMatching(/Someone used a 9v Battery and duplicated Boost Pedal/),
+      expect.stringMatching(/Somebody used a 9v Battery and duplicated Boost Pedal/),
+      { maskedUserIds: [actor.userId], maskedLabel: "Somebody" },
     )
     const [, message] = vi.mocked(deps.context.api.sendSystemMessage).mock.calls[0]!
     expect(message).not.toMatch(/jamie/i)

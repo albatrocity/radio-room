@@ -1,12 +1,16 @@
 import type { ItemDefinition, ItemUseResult } from "@repo/types"
-import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
+import {
+  sendAttributedSystemMessage,
+  resolveItemUseActorDisplayName,
+} from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
 export const scratchedCd = createItem({
   shortId: "scratched-cd",
   definition: {
     name: "Scratched CD",
-    description: "It's in pretty bad shape. You can't even read the name of the artist clearly. Skips whatever song is currently playing.",
+    description:
+      "It's in pretty bad shape. You can't even read the name of the artist clearly. Skips whatever song is currently playing.",
     stackable: true,
     maxStack: 3,
     tradeable: true,
@@ -37,9 +41,10 @@ export const scratchedCd = createItem({
       return { success: false, consumed: false, message: "Could not skip the track." }
     }
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
-    await context.api.sendSystemMessage(
-      context.roomId,
-      `${displayName} put in a ${definition.name} and skipped the current track!`,
+    await sendAttributedSystemMessage(
+      deps,
+      `${displayName.label} put in a ${definition.name} and skipped the current track!`,
+      displayName,
     )
     return { success: true, consumed: true, message: "Used Scratched CD. It was lost with use." }
   },

@@ -68,52 +68,52 @@ listening-room/
 
 ### Backend
 
-| Pattern | Location | Purpose |
-|---------|----------|---------|
-| **SystemEvents** | `packages/server/lib/SystemEvents.ts` | Unified event emission to Redis, plugins, and broadcasters |
-| **Broadcasters** | `packages/server/lib/broadcasters/` | Route system events to Socket.IO channels |
-| **Handlers** | `packages/server/handlers/` | Socket.IO event handlers (one per event type) |
-| **Operations** | `packages/server/operations/` | Business logic functions called by handlers |
-| **Services** | `packages/server/services/` | External integrations and data access |
+| Pattern               | Location                                 | Purpose                                                               |
+| --------------------- | ---------------------------------------- | --------------------------------------------------------------------- |
+| **SystemEvents**      | `packages/server/lib/SystemEvents.ts`    | Unified event emission to Redis, plugins, and broadcasters            |
+| **Broadcasters**      | `packages/server/lib/broadcasters/`      | Route system events to Socket.IO channels                             |
+| **Handlers**          | `packages/server/handlers/`              | Socket.IO event handlers (one per event type)                         |
+| **Operations**        | `packages/server/operations/`            | Business logic functions called by handlers                           |
+| **Services**          | `packages/server/services/`              | External integrations and data access                                 |
 | **Room Type Helpers** | `packages/server/lib/roomTypeHelpers.ts` | Reusable predicates for room type logic (e.g., `hasListenableStream`) |
 
 ### Frontend
 
-| Pattern | Location | Purpose |
-|---------|----------|---------|
-| **Singleton Actors** | `apps/web/src/actors/` | XState actors managing domain state |
-| **Machines** | `apps/web/src/machines/` | XState machine definitions (logic only) |
-| **socketActor** | `apps/web/src/actors/socketActor.ts` | Central Socket.IO hub, broadcasts to actors |
-| **`subscribeById` allowlists** | `socketActor.subscribeById(id, { send, eventTypes? })` | Optional `eventTypes` filters which `SERVER_EVENT` types reach a subscriber ([ADR 0093](docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md)); omit for unfiltered delivery. `SOCKET_ONLINE` / `SOCKET_OFFLINE` / `SOCKET_RECONNECTING` always fan out |
-| **Plugin component registry** | `apps/web/src/actors/pluginComponentRegistry.ts` + `PluginComponentsRoomProvider` | One `pluginComponentMachine` actor per `pluginName` per room; `teardownRoom` calls `teardownPluginComponentActors()` to clear the registry ([ADR 0093](docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md)) |
-| **ACTIVATE/DEACTIVATE** | Room-scoped actors | Lifecycle pattern for room entry/exit |
-| **Room Type Helpers** | `apps/web/src/lib/roomTypeHelpers.ts` | Client-side room type predicates (mirrors backend helpers) |
+| Pattern                        | Location                                                                          | Purpose                                                                                                                                                                                                                                                                                |
+| ------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Singleton Actors**           | `apps/web/src/actors/`                                                            | XState actors managing domain state                                                                                                                                                                                                                                                    |
+| **Machines**                   | `apps/web/src/machines/`                                                          | XState machine definitions (logic only)                                                                                                                                                                                                                                                |
+| **socketActor**                | `apps/web/src/actors/socketActor.ts`                                              | Central Socket.IO hub, broadcasts to actors                                                                                                                                                                                                                                            |
+| **`subscribeById` allowlists** | `socketActor.subscribeById(id, { send, eventTypes? })`                            | Optional `eventTypes` filters which `SERVER_EVENT` types reach a subscriber ([ADR 0093](docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md)); omit for unfiltered delivery. `SOCKET_ONLINE` / `SOCKET_OFFLINE` / `SOCKET_RECONNECTING` always fan out |
+| **Plugin component registry**  | `apps/web/src/actors/pluginComponentRegistry.ts` + `PluginComponentsRoomProvider` | One `pluginComponentMachine` actor per `pluginName` per room; `teardownRoom` calls `teardownPluginComponentActors()` to clear the registry ([ADR 0093](docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md))                                           |
+| **ACTIVATE/DEACTIVATE**        | Room-scoped actors                                                                | Lifecycle pattern for room entry/exit                                                                                                                                                                                                                                                  |
+| **Room Type Helpers**          | `apps/web/src/lib/roomTypeHelpers.ts`                                             | Client-side room type predicates (mirrors backend helpers)                                                                                                                                                                                                                             |
 
 ### Plugin System
 
-| Concept | Description |
-|---------|-------------|
-| **BasePlugin** | Extend this class for new plugins (`@repo/plugin-base`) |
-| **Event Handlers** | Use `this.on("EVENT_NAME", handler)` for type-safe events |
-| **Config Schema** | Define with Zod, generates admin UI automatically |
-| **Component Schema** | Declarative UI components (no React in plugins) |
-| **Storage** | Redis-backed, namespaced per plugin/room |
+| Concept              | Description                                               |
+| -------------------- | --------------------------------------------------------- |
+| **BasePlugin**       | Extend this class for new plugins (`@repo/plugin-base`)   |
+| **Event Handlers**   | Use `this.on("EVENT_NAME", handler)` for type-safe events |
+| **Config Schema**    | Define with Zod, generates admin UI automatically         |
+| **Component Schema** | Declarative UI components (no React in plugins)           |
+| **Storage**          | Redis-backed, namespaced per plugin/room                  |
 
 ### Room Types
 
-| Type | MediaSource | Description |
-|------|-------------|-------------|
-| **jukebox** | `spotify` | On-demand playback via Spotify Connect |
-| **radio** | `shoutcast` | Shoutcast/Icecast stream with embedded metadata |
-| **live** | `rtmp` | RTMP ingest via MediaMTX, WebRTC/LL-HLS output, metadata via `local-remote` daemon |
+| Type        | MediaSource | Description                                                                        |
+| ----------- | ----------- | ---------------------------------------------------------------------------------- |
+| **jukebox** | `spotify`   | On-demand playback via Spotify Connect                                             |
+| **radio**   | `shoutcast` | Shoutcast/Icecast stream with embedded metadata                                    |
+| **live**    | `rtmp`      | RTMP ingest via MediaMTX, WebRTC/LL-HLS output, metadata via `local-remote` daemon |
 
 When adding logic that depends on room type, prefer using helper functions from `roomTypeHelpers.ts` rather than direct `room.type` checks. For example, use `hasListenableStream(room)` instead of `room.type === "radio" || room.type === "live"`. This keeps room-type knowledge centralized and makes it easy to add new stream-backed types. See [ADR 0034](docs/adrs/0034-live-room-type-rtmp-adapter.md).
 
 ### Infrastructure
 
-| Service | Location | Purpose |
-|---------|----------|---------|
-| **MediaMTX** | `infra/mediamtx/` | RTMP ingest, WebRTC (WHEP) + LL-HLS output for live rooms |
+| Service          | Location                                       | Purpose                                                                                                                                                                                                                                                   |
+| ---------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MediaMTX**     | `infra/mediamtx/`                              | RTMP ingest, WebRTC (WHEP) + LL-HLS output for live rooms                                                                                                                                                                                                 |
 | **Media Bridge** | `apps/bridge-daemon/` + `@repo/adapter-bridge` | DJ Mac composite playback (`playbackControllerId: "bridge"`); Redis RPC + CAPABILITIES; pack via `npm run pack:dj-mac` ([ADR 0077](docs/adrs/0077-bridge-composite-playback-controller.md)–[0084](docs/adrs/0084-dj-mac-single-zip-supervised-bridge.md)) |
 
 MediaMTX runs locally via `docker compose --profile live up` and is deployed to a VPS via `.github/workflows/deploy-mediamtx.yml`.
@@ -167,6 +167,21 @@ Bridge is a **playback controller** (and YouTube/local metadata sources), not a 
 3. Export hooks from `apps/web/src/hooks/useActors.ts`
 4. If room-scoped, add ACTIVATE/DEACTIVATE handling
 5. When subscribing via `subscribeById`, pass `eventTypes` for the `SERVER_EVENT` types the machine handles (hot room machines should not use unfiltered subscriptions — see [ADR 0093](docs/adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md) and [apps/web/README.md](apps/web/README.md))
+
+### Agent Skills (`.claude/skills` and `.cursor/skills`)
+
+The repo carries the same skills for two tools. They are **deliberately not identical**
+and must not be flattened into copies of each other:
+
+- `.cursor/skills/*` use Cursor's conventions — `disable-model-invocation` frontmatter,
+  the `AskQuestion` tool, unprefixed skill names, and `plans/<name>.plan.md` output
+  with YAML frontmatter so Cursor renders its interactive plan UI.
+- `.claude/skills/*` use Claude Code's — the `AskUserQuestion` tool and
+  `dev-suite:`-prefixed skill references.
+
+When you change a skill, port the **substantive** guidance to the sibling copy and
+leave each file's tool-specific frontmatter, tool names, and path conventions alone.
+`.claude/skills/adrs` has no Cursor counterpart; add one only if Cursor needs it.
 
 ### Keeping Game Studio Updated
 

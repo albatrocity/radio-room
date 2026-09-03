@@ -22,6 +22,7 @@ import { SocketWithContext } from "../lib/socketWithContext"
 import { createRoomHandlers } from "../handlers/roomHandlersAdapter"
 import { createGiftTradeHandlers } from "../handlers/giftTradeHandlersAdapter"
 import { getUserGameState } from "../operations/inventory/getUserGameState"
+import { peekUserInventory } from "../operations/inventory/peekUserInventory"
 import { sellInventoryItem } from "../operations/inventory/sellInventoryItem"
 import { useInventoryItem } from "../operations/inventory/useInventoryItem"
 import {
@@ -466,6 +467,35 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
   })
 
   /**
+   * Toggle engage on the subject's presented-identity grant (ADR 0150).
+   * No-ops / errors when missing, expired, or not toggleable.
+   */
+  socket.on("SET_PRESENTED_IDENTITY_ENGAGED", async (payload: { engaged?: boolean }) => {
+    const { setPresentedIdentityEngaged } = await import("../operations/presentedIdentity")
+    const result = await setPresentedIdentityEngaged({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
+      engaged: Boolean(payload?.engaged),
+    })
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: {
+          status: 400,
+          error: "Bad Request",
+          message:
+            result.reason === "not_toggleable"
+              ? "This identity cannot be toggled."
+              : "No active presented identity to toggle.",
+        },
+      })
+      return
+    }
+    // Subject also gets PRESENTED_IDENTITY_CHANGED via SystemEvents fanout.
+  })
+
+  /**
    * Return the active session's modifier snapshot for every participant.
    * Responds with `ROOM_GAME_STATE` on this socket only. Used by the client
    * to hydrate per-user effect bars for the listener list.
@@ -627,6 +657,24 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
         context: socket.context,
       })
       socket.emit("event", { type: "INVENTORY_ACTION_RESULT", data: result })
+    },
+  )
+
+  /**
+   * Peek another user's inventory when policy allows (ADR 0147).
+   * Responds with `USER_INVENTORY_PEEK_RESULT` on this socket only.
+   */
+  socket.on(
+    "PEEK_USER_INVENTORY",
+    async (data: { targetUserId?: string; itemId?: string }) => {
+      const result = await peekUserInventory({
+        roomId: socket.data.roomId,
+        actorUserId: socket.data.userId,
+        targetUserId: data?.targetUserId,
+        itemId: data?.itemId,
+        context: socket.context,
+      })
+      socket.emit("event", { type: "USER_INVENTORY_PEEK_RESULT", data: result })
     },
   )
 

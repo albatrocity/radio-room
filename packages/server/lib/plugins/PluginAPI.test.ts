@@ -41,6 +41,8 @@ vi.mock("../../operations/data", () => ({
   buildQueueChangedData: vi.fn(),
   clearDispatchedTrack: vi.fn(),
   storeImage: vi.fn(),
+  getRoomUsers: vi.fn(),
+  getOnlineUserSocketId: vi.fn(),
 }))
 
 vi.mock("../../services/AdapterService", () => ({
@@ -60,6 +62,8 @@ import {
   buildQueueChangedData,
   clearDispatchedTrack,
   storeImage,
+  getRoomUsers,
+  getOnlineUserSocketId,
 } from "../../operations/data"
 
 describe("PluginAPIImpl.skipTrack", () => {
@@ -357,5 +361,71 @@ describe("PluginAPIImpl.getLocalPlaylistArtwork", () => {
         imageId: expect.stringMatching(/^pl-cover-nd-lp-[0-9a-f]{8}-lg$/),
       }),
     )
+  })
+})
+
+describe("PluginAPIImpl single-user room lookups", () => {
+  const roomId = "room-1"
+  const userId = "user-1"
+
+  function buildApi() {
+    const emit = vi.fn()
+    const to = vi.fn().mockReturnValue({ emit })
+    const api = new PluginAPIImpl(appContextFactory.build(), { to } as unknown as Server)
+    return { api, to, emit }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe("sendUserToast", () => {
+    test("resolves the socket with getOnlineUserSocketId, never getRoomUsers", async () => {
+      vi.mocked(getOnlineUserSocketId).mockResolvedValue("socket-abc")
+      const { api, to, emit } = buildApi()
+
+      await api.sendUserToast(roomId, userId, { title: "Robbed", type: "error" })
+
+      expect(getOnlineUserSocketId).toHaveBeenCalledTimes(1)
+      expect(getOnlineUserSocketId).toHaveBeenCalledWith(
+        expect.objectContaining({ roomId, userId }),
+      )
+      expect(getRoomUsers).not.toHaveBeenCalled()
+      expect(to).toHaveBeenCalledWith("socket-abc")
+      expect(emit).toHaveBeenCalledWith("event", {
+        type: "USER_TOAST",
+        data: { roomId, title: "Robbed", type: "error" },
+      })
+    })
+
+    test("warns and returns without emitting when there is no connected socket", async () => {
+      vi.mocked(getOnlineUserSocketId).mockResolvedValue(null)
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+      const { api, to } = buildApi()
+
+      await api.sendUserToast(roomId, userId, { title: "Robbed" })
+
+      expect(to).not.toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("no connected socket"))
+      warn.mockRestore()
+    })
+  })
+
+  describe("isUserInRoom", () => {
+    test("is true for a connected user and reads no room-wide user list", async () => {
+      vi.mocked(getOnlineUserSocketId).mockResolvedValue("socket-abc")
+      const { api } = buildApi()
+
+      await expect(api.isUserInRoom(roomId, userId)).resolves.toBe(true)
+      expect(getOnlineUserSocketId).toHaveBeenCalledTimes(1)
+      expect(getRoomUsers).not.toHaveBeenCalled()
+    })
+
+    test("is false when the user has no socket in the room", async () => {
+      vi.mocked(getOnlineUserSocketId).mockResolvedValue(null)
+      const { api } = buildApi()
+
+      await expect(api.isUserInRoom(roomId, userId)).resolves.toBe(false)
+    })
   })
 })

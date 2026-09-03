@@ -1,6 +1,6 @@
 import type { AppContext, GiftActionResult, GiftOffer, InventoryItem } from "@repo/types"
 import { postSystemChatMessage } from "../polls/postSystemChatMessage"
-import { displayName, emitInventoryTransferred } from "./transferEvents"
+import { displayNameWithMaskMeta, emitInventoryTransferred } from "./transferEvents"
 
 export type GiftOpResult = GiftActionResult & { item?: InventoryItem }
 
@@ -84,13 +84,23 @@ export async function acceptGift(params: {
       quantity: result.offer.quantity,
     })
 
-    const fromName = await displayName(params.context, result.offer.fromUserId)
-    const toName = await displayName(params.context, result.offer.toUserId)
+    const [fromAttr, toAttr] = await Promise.all([
+      displayNameWithMaskMeta(params.context, params.roomId, result.offer.fromUserId),
+      displayNameWithMaskMeta(params.context, params.roomId, result.offer.toUserId),
+    ])
     const label = result.offer.itemName ?? "an item"
+    const masked = [fromAttr, toAttr].filter((a) => a.masked)
     await postSystemChatMessage({
       context: params.context,
       roomId: params.roomId,
-      content: `${fromName} gifted ${label} to ${toName}.`,
+      content: `${fromAttr.label} gifted ${label} to ${toAttr.label}.`,
+      meta:
+        masked.length > 0
+          ? {
+              maskedUserIds: masked.map((a) => a.userId),
+              maskedLabel: masked[0]!.label,
+            }
+          : undefined,
     })
   }
 

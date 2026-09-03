@@ -20,6 +20,7 @@ import {
   useNowPlaying,
 } from "../hooks/useActors"
 import { setCurrentArtworkUrl } from "../hooks/useDynamicTheme"
+import { InventoryPeekProvider } from "../hooks/useHasInventoryPeek"
 import { HybridListeningTransportProvider } from "../hooks/useHybridListeningTransport"
 import { useMediaSession } from "../hooks/useMediaSession"
 import { scheduleEmojiMartIdleLoad } from "../lib/ensureEmojiMart"
@@ -69,17 +70,19 @@ const Room = ({ id }: { id: string }) => {
   return (
     <Box w="100%" h="100%" data-screen-effect-target="room">
       <HybridListeningTransportProvider>
-        <PluginComponentsRoomProvider>
-          <GameStateNewPluginTabsProvider>
-            {useDesktopSplitter ? (
-              <RoomDesktopSplitter {...layoutProps} />
-            ) : (
-              <RoomMobileGrid {...layoutProps} />
-            )}
+        <InventoryPeekProvider>
+          <PluginComponentsRoomProvider>
+            <GameStateNewPluginTabsProvider>
+              {useDesktopSplitter ? (
+                <RoomDesktopSplitter {...layoutProps} />
+              ) : (
+                <RoomMobileGrid {...layoutProps} />
+              )}
 
-            <Overlays />
-          </GameStateNewPluginTabsProvider>
-        </PluginComponentsRoomProvider>
+              <Overlays />
+            </GameStateNewPluginTabsProvider>
+          </PluginComponentsRoomProvider>
+        </InventoryPeekProvider>
       </HybridListeningTransportProvider>
     </Box>
   )

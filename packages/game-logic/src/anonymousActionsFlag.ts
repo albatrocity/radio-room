@@ -1,7 +1,7 @@
 import type { GameStateModifier } from "@repo/types"
 import { getActiveFlags } from "./getActiveFlags"
 
-/** Timed modifier flag: room-visible item actions attribute as "Someone". */
+/** Timed modifier flag: room-visible item actions attribute as "Somebody". */
 export const ANONYMOUS_ACTIONS_FLAG = "anonymous_actions"
 
 export function hasAnonymousActions(

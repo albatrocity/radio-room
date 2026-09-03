@@ -13,6 +13,8 @@ import { buildItemDetailFrame } from "./itemDetailFrame"
 import { useOpenItemDetail } from "./useOpenItemDetail"
 import InventoryGiftSellControls from "./InventoryGiftSellControls"
 import { InventoryUseButton } from "./InventoryUseButton"
+import { InventoryPeekBanner } from "./InventoryPeekBanner"
+import { useHasInventoryPeek } from "../../../hooks/useHasInventoryPeek"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -177,6 +179,7 @@ function InventoryTab({
   definitionMap,
   coinBalance,
 }: InventoryTabProps) {
+  const hasPeek = useHasInventoryPeek()
   const inventoryItems = items.filter(
     (item) => (definitionMap.get(item.definitionId)?.slotPool ?? "inventory") !== "collection",
   )
@@ -189,6 +192,7 @@ function InventoryTab({
 
   return (
     <Box>
+      {hasPeek && <InventoryPeekBanner />}
       <HStack justify="space-between" align="baseline" mb={2}>
         <Heading size="sm">Inventory</Heading>
         <HStack gap={2}>

@@ -55,3 +55,4 @@ We also considered a Game State tab for trading ([ADR 0043](0043-game-state-tabs
 - [`packages/server/services/TradeService.ts`](../../packages/server/services/TradeService.ts)
 - [`docs/plugins/game-sessions.md`](../plugins/game-sessions.md) — gift vs trade vs plugin `transferItem`
 - [0115. Trade invite inbox and Trades/Gifts tab](0115-trade-invite-inbox.md)
+- [0147. User inventory peek](0147-user-inventory-peek.md) — counterpart bag/collection read when `allowTrading` (trade UI may adopt later)

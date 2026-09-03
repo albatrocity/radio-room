@@ -49,6 +49,7 @@ export class DefenseService {
     sourcePlugin: string,
     incoming: Omit<GameStateModifier, "id" | "source">,
     actorUserId?: string,
+    options?: { omitBlockedModifier?: boolean },
   ): Promise<DefenseBlockInfo | null> {
     if (actorUserId != null && actorUserId === targetUserId) {
       return null
@@ -75,7 +76,7 @@ export class DefenseService {
       blocked,
       actorUserId,
       attackerItemDef ?? undefined,
-      incoming,
+      options?.omitBlockedModifier === true ? undefined : incoming,
     )
   }
 

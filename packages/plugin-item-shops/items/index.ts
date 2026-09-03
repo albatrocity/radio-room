@@ -23,6 +23,8 @@ import { honeypot } from "./honeypot"
 import { blueberries } from "./blueberries"
 import { rubberBand } from "./rubber-band"
 import { disguise } from "./disguise"
+import { blackBag } from "./black-bag"
+import { xRay } from "./x-ray"
 import { scratchedCd } from "./scratched-cd"
 import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
@@ -72,6 +74,8 @@ export const items = {
   marsEgg,
   disguise,
   honeypot,
+  blackBag,
+  xRay,
   nineVoltBattery,
   rubberBand,
   carrots,

@@ -39,6 +39,14 @@ export {
   getChatSendDelayMs,
 } from "./chatBuffer"
 export { ANONYMOUS_ACTIONS_FLAG, hasAnonymousActions } from "@repo/game-logic"
+export { INVENTORY_PEEK_FLAG, hasInventoryPeek } from "@repo/game-logic"
+export {
+  PRESENTED_IDENTITY_ANONYMOUS_LABEL,
+  isPresentedIdentityGrantActive,
+  isPresentedIdentityMasked,
+  presentedIdentityChromeLabel,
+  resolvePresentedIdentity,
+} from "@repo/game-logic"
 export {
   NORMAL_INDEX,
   MAX_SIZE_SHIFT,

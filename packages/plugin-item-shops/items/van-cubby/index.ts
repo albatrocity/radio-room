@@ -1,6 +1,9 @@
 import type { ItemUseResult } from "@repo/types"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
-import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
+import {
+  sendAttributedSystemMessage,
+  resolveItemUseActorDisplayName,
+} from "../shared/resolveItemUseActorDisplayName"
 import { createItem } from "../shared/types"
 
 const STORAGE_SHORT_IDS = new Set(["van-cubby", "merch-cash-box"])
@@ -21,9 +24,7 @@ export const vanCubby = createItem({
     rarity: "rare",
   },
   use: async (deps, userId, definition, callContext): Promise<ItemUseResult> => {
-    const ctx = callContext as
-      | { targetInventoryItemId?: string; password?: string }
-      | undefined
+    const ctx = callContext as { targetInventoryItemId?: string; password?: string } | undefined
     const targetInventoryItemId = ctx?.targetInventoryItemId?.trim()
     const password = typeof ctx?.password === "string" ? ctx.password : ""
 
@@ -53,7 +54,11 @@ export const vanCubby = createItem({
     const qty = target.quantity
     const removed = await context.inventory.removeItem(userId, target.itemId, qty)
     if (!removed) {
-      return { success: false, consumed: false, message: "Could not remove the item from inventory." }
+      return {
+        success: false,
+        consumed: false,
+        message: "Could not remove the item from inventory.",
+      }
     }
 
     try {
@@ -79,9 +84,10 @@ export const vanCubby = createItem({
 
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
     const label = targetDef?.name ?? "an item"
-    await context.api.sendSystemMessage(
-      context.roomId,
-      `${displayName} stashed ${label} in the Van Cubby.`,
+    await sendAttributedSystemMessage(
+      deps,
+      `${displayName.label} stashed ${label} in the Van Cubby.`,
+      displayName,
     )
 
     return { success: true, consumed: true, message: "Item locked away in storage." }

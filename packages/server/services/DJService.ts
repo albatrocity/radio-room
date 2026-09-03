@@ -197,7 +197,18 @@ export class DJService {
       mediaSourceType?: string
     },
   ) {
-    const addedBy = attributionToAddedBy(attribution)
+    let addedBy = attributionToAddedBy(attribution)
+    if (attribution.type === "user") {
+      const { resolveActorPresentedIdentity } = await import(
+        "../operations/presentedIdentity"
+      )
+      const presented = await resolveActorPresentedIdentity({
+        context: this.context,
+        roomId,
+        userId: attribution.userId,
+      })
+      addedBy = { userId: attribution.userId, username: presented.label }
+    }
     const runValidation = options?.runPluginValidation ?? false
     const suppressQueueChanged = options?.suppressQueueChanged ?? false
     const sourceType = options?.mediaSourceType ?? "spotify"

@@ -10,6 +10,8 @@ export const SPY_WORLD_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.disguise.shortId, coinValue: 30 },
     { shortId: items.honeypot.shortId, coinValue: 30 },
     { shortId: items.rubberBand.shortId, coinValue: 30 },
+    { shortId: items.blackBag.shortId, coinValue: 100 },
+    { shortId: items.xRay.shortId, coinValue: 60 },
   ],
   listedBuybackRate: 0.35,
   unlistedBuybackRate: 0.12,

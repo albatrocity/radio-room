@@ -71,6 +71,10 @@ type UserGameStateEvent =
   | { type: "GAME_SESSION_STARTED"; data: unknown }
   | { type: "GAME_SESSION_CONFIG_UPDATED"; data: unknown }
   | { type: "GAME_SESSION_ENDED"; data: unknown }
+  | {
+      type: "PRESENTED_IDENTITY_CHANGED"
+      data?: { userId?: string; grant?: unknown }
+    }
   | { type: "ERROR_OCCURRED"; data: { message?: string } }
   | { type: "STORED_ARTIFACTS_RESULT"; data?: { artifacts?: StoredArtifactPublic[] } }
 
@@ -122,6 +126,7 @@ export const userGameStateMachine = setup({
           "GAME_STATE_CHANGED",
           "GAME_MODIFIER_APPLIED",
           "GAME_MODIFIER_REMOVED",
+          "PRESENTED_IDENTITY_CHANGED",
           "INVENTORY_ITEM_ACQUIRED",
           "INVENTORY_ITEM_REMOVED",
           "INVENTORY_ITEM_USED",
@@ -204,6 +209,7 @@ export const userGameStateMachine = setup({
           pendingGifts: d.pendingGifts,
           pendingTradeInvites: d.pendingTradeInvites,
           activeTrade: d.activeTrade ?? null,
+          presentedIdentity: d.presentedIdentity ?? null,
         },
         error: null,
       }
@@ -248,6 +254,7 @@ export const userGameStateMachine = setup({
         pendingGifts: undefined,
         pendingTradeInvites: undefined,
         activeTrade: null,
+        presentedIdentity: null,
       }),
       storedArtifacts: () => [],
       storedArtifactsSessionId: () => null,
@@ -289,6 +296,10 @@ export const userGameStateMachine = setup({
       actions: ["scheduleRequestGameState"],
     },
     GAME_MODIFIER_REMOVED: {
+      guard: "isMyGameEvent",
+      actions: ["scheduleRequestGameState"],
+    },
+    PRESENTED_IDENTITY_CHANGED: {
       guard: "isMyGameEvent",
       actions: ["scheduleRequestGameState"],
     },

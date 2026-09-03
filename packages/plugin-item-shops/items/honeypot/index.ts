@@ -32,12 +32,12 @@ const honeypotOnDefenseTriggered: DefenseTriggeredHandler = async (
   if (!copied) {
     return {
       attackerMessage: `${defenseName} intercepted your item — your ${attackerItemDefinition.name} was lost.`,
-      roomMessage: `${roomDefenderName}'s ${defenseName} intercepted ${roomAttackerName}'s ${attackerItemDefinition.name} (no copy taken — inventory was full).`,
+      roomMessage: `${roomDefenderName.label}'s ${defenseName} intercepted ${roomAttackerName.label}'s ${attackerItemDefinition.name} (no copy taken — inventory was full).`,
     }
   }
   return {
     attackerMessage: `${defenseName} intercepted your ${attackerItemDefinition.name} — it ended up in their inventory instead.`,
-    roomMessage: `${roomDefenderName}'s ${defenseName} intercepted ${roomAttackerName}'s ${attackerItemDefinition.name} — ${roomDefenderName} gained a copy.`,
+    roomMessage: `${roomDefenderName.label}'s ${defenseName} intercepted ${roomAttackerName.label}'s ${attackerItemDefinition.name} — ${roomDefenderName.label} gained a copy.`,
   }
 }
 

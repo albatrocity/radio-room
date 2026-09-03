@@ -9,6 +9,7 @@ import {
   removeTypingUser,
 } from "../operations/data"
 import { User } from "@repo/types/User"
+import { resolveActorPresentedIdentity } from "../operations/presentedIdentity"
 
 /**
  * A service that handles message-related operations without Socket.io dependencies
@@ -19,7 +20,13 @@ export class MessageService {
   /**
    * Processes a new message
    */
-  async processNewMessage(roomId: string, userId: string, username: string, message: string) {
+  async processNewMessage(
+    roomId: string,
+    userId: string,
+    username: string,
+    message: string,
+    options?: { presentedUsername?: string },
+  ) {
     const user = await getUser({ context: this.context, userId })
     const { content, mentions } = parseMessage({ context: this.context, roomId, message })
 
@@ -28,8 +35,28 @@ export class MessageService {
       userId,
     }
 
+    const baseUser = user ?? fallbackUser
+    const presentedLabel =
+      options?.presentedUsername ??
+      (
+        await resolveActorPresentedIdentity({
+          context: this.context,
+          roomId,
+          userId,
+          // Chat is the hottest server path: hand over the user we just read so
+          // the resolver skips a second `HGETALL user:{id}`. The fallback here
+          // mirrors what the resolver would compute on its own.
+          trueUsername: user?.username?.trim() || userId,
+        })
+      ).label
+
+    const payloadUser = {
+      ...baseUser,
+      username: presentedLabel,
+    }
+
     const payload = {
-      user: user ?? fallbackUser,
+      user: payloadUser,
       content,
       mentions,
       timestamp: new Date().toISOString(),

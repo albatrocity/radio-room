@@ -110,6 +110,20 @@ export type ApplyModifierResult =
     }
 
 /**
+ * Result of `GameSessionPluginAPI.checkModifierDefense` — defense only, no apply.
+ * See ADR 0148.
+ */
+export type CheckModifierDefenseResult =
+  | { ok: true }
+  | { ok: false; reason: "no_active_session" }
+  | {
+      ok: false
+      reason: "defense_blocked"
+      blockingItemName: string
+      attackerMessage?: string
+    }
+
+/**
  * Result of `DJService.moveTrackByPosition` / `PluginAPI.moveTrackByPosition`.
  */
 export type MoveTrackResult =

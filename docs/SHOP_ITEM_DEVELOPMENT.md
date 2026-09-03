@@ -51,7 +51,8 @@ npm run create-item -w @repo/plugin-item-shops
 - **Timed modifier:** use `timedModifierEffect` in `items/shared/behaviorHelpers.ts` (system messages for who was affected use `resolveItemUseActorDisplayName` for `actor` / `target` inside `applyTargetedTimedModifier`)
 - **Passive defense:** use `usePassiveDefenseItem` and `definition.defense` (`scope`: `modifier` and/or `queue`). Add optional **`onDefenseTriggered`** on the item (see `createItem` / `items/honeypot` for intercept + copy), `items/rubber-band` for redirecting **`payload.blockedModifier`** onto the attacker via **`game.reboundModifier(attackerUserId, blockedModifier)`**) — core calls it **after** consuming a matching stack; put side effects or message overrides there. See ADR 0053.
 - **Custom behavior:** generated async `use` handler stub with `ItemShopsBehaviorDeps`
-- **Room messages naming the actor:** when a `use` handler calls `sendSystemMessage` with the inventory owner’s name, use **`resolveItemUseActorDisplayName(deps, userId)`** from `items/shared/resolveItemUseActorDisplayName.ts` so the **`anonymous_actions`** timed modifier (Ski Mask) is respected. It reads `deps.game.getUserState(userId)`; in tests, **`applyTimedModifier` is mocked**, so mirror modifier state by mocking **`getUserState`** when asserting anonymous copy.
+- **Target another user's bag stack (`requiresTarget: "userInventoryItem"`):** client peeks with `PEEK_USER_INVENTORY` (ADR 0147) then sends `targetUserId` + `targetInventoryItemId`. See `items/black-bag`.
+- **Room messages naming the actor:** resolve the label with **`resolveItemUseActorDisplayName(deps, userId)`** and post it with **`sendAttributedSystemMessage(deps, content, ...attributions)`** — both from `items/shared/resolveItemUseActorDisplayName.ts`. The sender attaches `meta.maskedUserIds` / `meta.maskedLabel` for X-Ray pierce (ADR 0149) when any attribution was masked, so **do not branch on the meta at the call site** and do not repeat the message string. Attribution prefers the core presented-identity grant (ADR 0150) and falls back to the legacy **`anonymous_actions`** modifier (Disguise). It reads `deps.game.getPresentedIdentity(userId)` then `deps.game.getUserState(userId)`; in tests, **`applyTimedModifier` is mocked**, so mirror state by mocking **`getPresentedIdentity`** / **`getUserState`** when asserting masked copy.
 
 ### Room-type shop availability (`availableInRoomTypes`)
 
@@ -75,7 +76,8 @@ Some items need a **sellback** coin amount that depends on the **inventory stack
 
 `GameStateEffectWithMeta` supports multiple effect kinds on a single modifier, and the item CLI now supports generating multi-effect modifiers.
 
-- **`anonymous_actions`** (`ANONYMOUS_ACTIONS_FLAG` in `@repo/game-logic` / `@repo/plugin-base`) is used by Item Shops for **room-visible attribution**, not chat transforms: while active, item behaviors that call **`resolveItemUseActorDisplayName`** (`items/shared/resolveItemUseActorDisplayName.ts`) return **`"Someone"`** for `sendSystemMessage` copy instead of the actor’s username (e.g. Ski Mask before another item that announces who acted).
+- **`anonymous_actions`** (`ANONYMOUS_ACTIONS_FLAG` in `@repo/game-logic` / `@repo/plugin-base`) is the **legacy** path for **room-visible attribution**, not chat transforms: while active, item behaviors that call **`resolveItemUseActorDisplayName`** (`items/shared/resolveItemUseActorDisplayName.ts`) substitute **`PRESENTED_IDENTITY_ANONYMOUS_LABEL`** (`"Somebody"`) for the actor’s username in `sendSystemMessage` copy. New items should grant a **presented identity** instead (`deps.game.grantPresentedIdentity`, ADR 0150) — Disguise does both, keeping the modifier only for its effect-bar timer. Never hard-code the label; import the constant from `@repo/plugin-base` so the client's X-Ray pierce keeps matching it.
+- **`inventory_peek`** (`INVENTORY_PEEK_FLAG`, ADR 0149) is a timed **viewer** flag: while active the holder may peek other inventories and sees through presented-identity masks and `visibility: "self"` effect bars. Apply it with `visibility: "self"` and neutral intent (see `items/x-ray`).
 - Full-screen / overlay UI flags (e.g. stackable blur) use shared stack helpers such as `countInterfaceBlurStacks` plus web helpers in `apps/web/src/lib/screenEffects.ts` and `ModifierBlurLayer`
 
 - **flag** - Boolean flag in user game state
@@ -154,7 +156,6 @@ export const orangeLetterTextEffect: TextEffectKind = {
   },
 }
 
-
 export const RED_LETTER_FLAG = "red_letter"
 
 export const redLetterTextEffect: TextEffectKind = {
@@ -178,7 +179,6 @@ export const redLetterTextEffect: TextEffectKind = {
     return out.length ? out : null
   },
 }
-
 ```
 
 **Example 3 — content-scoped word picking (`WordContext`)**

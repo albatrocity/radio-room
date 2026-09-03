@@ -49,7 +49,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
   const openDetail = useOpenItemDetail(SHOP_TAB_ID)
   const bag =
     pluginName != null
-      ? (gameState?.getPluginState<ItemShopsUserGameState>(pluginName) ?? null)
+      ? gameState?.getPluginState<ItemShopsUserGameState>(pluginName) ?? null
       : null
   const instance: ShoppingSessionInstance | null = bag?.currentShopInstance ?? null
   const definitions = gameState?.itemDefinitions ?? []
@@ -110,7 +110,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
               key={offerId}
               opacity={outOfStock ? 0.55 : undefined}
               artwork={
-                <VStack align="center" gap={1}>
+                <VStack align="center" gap={1} w="5rem" minW="5rem" maxW="5rem">
                   <ItemArtwork
                     imageUrl={row.imageUrl}
                     imageUrlLarge={row.imageUrlLarge}

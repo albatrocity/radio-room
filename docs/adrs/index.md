@@ -152,6 +152,10 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0144](0144-client-notification-center.md) | Client notification center (attention records + toasts) | Accepted |
 | [0145](0145-feedback-topics-as-core-feature.md) | Feedback topics as a core feature (Redis + admin inbox + export) | Accepted |
 | [0146](0146-feedback-overlays-integrated-panel.md) | Feedback overlays the integrated panel (`modalsMachine` parallel `feedback` region) | Accepted |
+| [0147](0147-user-inventory-peek.md) | User inventory peek (private by default; item use / trading / `inventory_peek` flag) | Accepted |
+| [0148](0148-transactional-defense-and-user-toast.md) | Transactional defense check (`omitBlockedModifier`) + `USER_TOAST` | Accepted |
+| [0149](0149-inventory-peek-flag-and-identity-pierce.md) | Timed `inventory_peek` flag + viewer identity pierce (X-Ray) | Accepted |
+| [0150](0150-presented-identity-grant.md) | Core presented-identity grant (optional engage toggle) | Accepted |
 
 ## Creating a New ADR
 

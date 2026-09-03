@@ -1,6 +1,6 @@
 import type { AppContext, TradeActionResult, TradeInvite, TradeSession } from "@repo/types"
 import { postSystemChatMessage } from "../polls/postSystemChatMessage"
-import { displayName, emitInventoryTransferred } from "./transferEvents"
+import { displayNameWithMaskMeta, emitInventoryTransferred } from "./transferEvents"
 
 async function emitUpdated(context: AppContext, roomId: string, trade: TradeSession) {
   if (context.systemEvents) {
@@ -211,12 +211,22 @@ export async function tradeConfirm(params: {
         quantity: transfer.quantity,
       })
     }
-    const a = await displayName(params.context, result.trade.fromUserId)
-    const b = await displayName(params.context, result.trade.toUserId)
+    const [aAttr, bAttr] = await Promise.all([
+      displayNameWithMaskMeta(params.context, params.roomId, result.trade.fromUserId),
+      displayNameWithMaskMeta(params.context, params.roomId, result.trade.toUserId),
+    ])
+    const masked = [aAttr, bAttr].filter((x) => x.masked)
     await postSystemChatMessage({
       context: params.context,
       roomId: params.roomId,
-      content: `${a} and ${b} completed a trade.`,
+      content: `${aAttr.label} and ${bAttr.label} completed a trade.`,
+      meta:
+        masked.length > 0
+          ? {
+              maskedUserIds: masked.map((x) => x.userId),
+              maskedLabel: masked[0]!.label,
+            }
+          : undefined,
     })
     return result
   }

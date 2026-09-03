@@ -1,5 +1,8 @@
 import type { ItemDefinition, ItemUseResult } from "@repo/types"
-import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
+import {
+  sendAttributedSystemMessage,
+  resolveItemUseActorDisplayName,
+} from "../shared/resolveItemUseActorDisplayName"
 import { type ItemShopsBehaviorDeps, createItem } from "../shared/types"
 
 export const gravityBong = createItem({
@@ -31,9 +34,10 @@ export const gravityBong = createItem({
     }
 
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
-    await deps.context.api.sendSystemMessage(
-      deps.context.roomId,
-      `*cough cough* Woah... ${displayName} took a huge rip of the ${definition.name} and shuffled the queue!`,
+    await sendAttributedSystemMessage(
+      deps,
+      `*cough cough* Woah... ${displayName.label} took a huge rip of the ${definition.name} and shuffled the queue!`,
+      displayName,
     )
 
     return { success: true, consumed: true, message: "Queue shuffled!" }

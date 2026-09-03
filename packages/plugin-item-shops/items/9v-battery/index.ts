@@ -1,6 +1,9 @@
 import type { InventoryItem, ItemDefinition, ItemUseResult } from "@repo/types"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
-import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
+import {
+  sendAttributedSystemMessage,
+  resolveItemUseActorDisplayName,
+} from "../shared/resolveItemUseActorDisplayName"
 
 async function resolveItemDefinition(
   inventory: ItemShopsBehaviorDeps["context"]["inventory"],
@@ -60,9 +63,10 @@ async function useNineVoltBattery(
 
   const username = await resolveItemUseActorDisplayName(deps, userId)
   const label = pick.def.name ?? "an item"
-  await context.api.sendSystemMessage(
-    context.roomId,
-    `${username} used a 9v Battery and duplicated ${label}!`,
+  await sendAttributedSystemMessage(
+    deps,
+    `${username.label} used a 9v Battery and duplicated ${label}!`,
+    username,
   )
 
   return {

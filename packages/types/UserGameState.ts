@@ -2,6 +2,7 @@ import type { BingoCard } from "./PlaylistBingo"
 import type { GameSession, UserGameState } from "./GameSession"
 import type { GiftOffer } from "./Gift"
 import type { ItemDefinition, UserInventory } from "./Inventory"
+import type { PresentedIdentityGrant } from "./PresentedIdentity"
 import type { ShoppingSessionInstance } from "./ShoppingSession"
 import type { TradeInvite, TradeSession } from "./Trade"
 
@@ -38,6 +39,8 @@ export interface UserGameStatePayload {
   }
   /** Open trade negotiation for this user, if any (ADR 0114). */
   activeTrade?: TradeSession | null
+  /** Active presented-identity grant for this user (ADR 0150), if any. */
+  presentedIdentity?: PresentedIdentityGrant | null
 }
 
 /** Context passed to `Plugin.contributeToUserGameState`. */

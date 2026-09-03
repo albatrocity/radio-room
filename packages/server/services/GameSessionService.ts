@@ -1,6 +1,7 @@
 import {
   AppContext,
   ApplyModifierResult,
+  CheckModifierDefenseResult,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -286,6 +287,15 @@ export class GameSessionService {
       console.error("[GameSessionService] gift/trade session cleanup failed:", err)
     }
 
+    try {
+      const { clearAllPresentedIdentitiesForRoom } = await import(
+        "../operations/presentedIdentity"
+      )
+      await clearAllPresentedIdentitiesForRoom(this.context, roomId)
+    } catch (err) {
+      console.error("[GameSessionService] presented-identity session cleanup failed:", err)
+    }
+
     const endedAt = Date.now()
     const results = await this.computeResults(roomId, session, endedAt)
 
@@ -418,6 +428,83 @@ export class GameSessionService {
   // ==========================================================================
 
   /**
+   * Run passive modifier defense without applying the modifier (ADR 0148).
+   * Used by `applyModifier` and by transactional item effects that still need
+   * Warranty / Honeypot / Rubber Band to consume and block.
+   *
+   * `options.session` lets a caller that already resolved the active session
+   * for the same operation skip the two `GET`s `getActiveSession` costs. Only
+   * pass a session read within the same operation — never a cached one.
+   */
+  async checkModifierDefense(
+    roomId: string,
+    userId: string,
+    sourcePlugin: string,
+    incoming: Omit<GameStateModifier, "id" | "source">,
+    options?: {
+      actorUserId?: string
+      omitBlockedModifier?: boolean
+      session?: GameSession
+    },
+  ): Promise<CheckModifierDefenseResult> {
+    const session = options?.session ?? (await this.getActiveSession(roomId))
+    if (!session) return { ok: false, reason: "no_active_session" }
+
+    const actorUserId = options?.actorUserId
+    const defenseSvc = new DefenseService(this.context)
+    const blocked = await defenseSvc.checkModifierDefense(
+      roomId,
+      userId,
+      sourcePlugin,
+      incoming,
+      actorUserId,
+      { omitBlockedModifier: options?.omitBlockedModifier },
+    )
+    if (!blocked) return { ok: true }
+
+    const provisionalModifier: GameStateModifier = {
+      ...incoming,
+      id: "",
+      source: sourcePlugin,
+    }
+    await defenseSvc.emitEffectBlocked({
+      roomId,
+      sessionId: session.id,
+      targetUserId: userId,
+      actorUserId,
+      blockType: "modifier",
+      modifier: provisionalModifier,
+      blockedBy: blocked,
+    })
+    if (this.context.systemEvents) {
+      const { getUsersByIds } = await import("../operations/data")
+      const [targetUser] = await getUsersByIds({ context: this.context, userIds: [userId] })
+      const [actorUser] =
+        actorUserId != null
+          ? await getUsersByIds({ context: this.context, userIds: [actorUserId] })
+          : []
+      const attackerName = actorUser?.username?.trim() || sourcePlugin
+      const targetName = targetUser?.username?.trim() || userId
+      const defaultRoomLine = `${attackerName} attacked ${targetName}, but ${blocked.itemName} blocked it.`
+      const roomLine = blocked.onTriggered?.roomMessage ?? defaultRoomLine
+      await this.context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
+        roomId,
+        message: systemMessage(roomLine, {
+          type: "alert",
+          status: "warning",
+          title: "Blocked",
+        }),
+      })
+    }
+    return {
+      ok: false,
+      reason: "defense_blocked",
+      blockingItemName: blocked.itemName,
+      attackerMessage: blocked.onTriggered?.attackerMessage,
+    }
+  }
+
+  /**
    * Apply a modifier to a user. Stacking semantics:
    *
    * - `replace`: existing instances of the same name are removed first.
@@ -434,65 +521,21 @@ export class GameSessionService {
     incoming: Omit<GameStateModifier, "id" | "source">,
     options?: { actorUserId?: string; skipPassiveDefenseCheck?: boolean },
   ): Promise<ApplyModifierResult> {
+    // Resolve the session once for the whole apply: the defense check, the
+    // user-state read and the persists below all want the same session, and
+    // `getActiveSession` is two sequential Redis reads.
     const session = await this.getActiveSession(roomId)
     if (!session) return { ok: false, reason: "no_active_session" }
 
-    const actorUserId = options?.actorUserId
-    const defenseSvc = new DefenseService(this.context)
-    const blocked =
-      options?.skipPassiveDefenseCheck === true
-        ? null
-        : await defenseSvc.checkModifierDefense(
-            roomId,
-            userId,
-            sourcePlugin,
-            incoming,
-            actorUserId,
-          )
-    if (blocked) {
-      const provisionalModifier: GameStateModifier = {
-        ...incoming,
-        id: "",
-        source: sourcePlugin,
-      }
-      await defenseSvc.emitEffectBlocked({
-        roomId,
-        sessionId: session.id,
-        targetUserId: userId,
-        actorUserId,
-        blockType: "modifier",
-        modifier: provisionalModifier,
-        blockedBy: blocked,
+    if (options?.skipPassiveDefenseCheck !== true) {
+      const defense = await this.checkModifierDefense(roomId, userId, sourcePlugin, incoming, {
+        actorUserId: options?.actorUserId,
+        session,
       })
-      if (this.context.systemEvents) {
-        const { getUsersByIds } = await import("../operations/data")
-        const [targetUser] = await getUsersByIds({ context: this.context, userIds: [userId] })
-        const [actorUser] =
-          actorUserId != null
-            ? await getUsersByIds({ context: this.context, userIds: [actorUserId] })
-            : []
-        const attackerName = actorUser?.username?.trim() || sourcePlugin
-        const targetName = targetUser?.username?.trim() || userId
-        const defaultRoomLine = `${attackerName} attacked ${targetName}, but ${blocked.itemName} blocked it.`
-        const roomLine = blocked.onTriggered?.roomMessage ?? defaultRoomLine
-        await this.context.systemEvents.emit(roomId, "MESSAGE_RECEIVED", {
-          roomId,
-          message: systemMessage(roomLine, {
-            type: "alert",
-            status: "warning",
-            title: "Blocked",
-          }),
-        })
-      }
-      return {
-        ok: false,
-        reason: "defense_blocked",
-        blockingItemName: blocked.itemName,
-        attackerMessage: blocked.onTriggered?.attackerMessage,
-      }
+      if (!defense.ok) return defense
     }
 
-    const state = await this.getUserState(roomId, userId)
+    const state = await this.getUserState(roomId, userId, session)
     const id = generateId()
     const modifier: GameStateModifier = { ...incoming, id, source: sourcePlugin }
 
@@ -515,7 +558,7 @@ export class GameSessionService {
           existing.visibility = "self"
         }
         // Don't push the new modifier - we extended the existing one
-        await this.persistModifiers(roomId, session.id, userId, modifiers)
+        await this.persistModifiers(roomId, session.id, userId, modifiers, session)
         await this.touchParticipant(roomId, session.id, userId)
         if (this.context.systemEvents) {
           await this.context.systemEvents.emit(roomId, "GAME_MODIFIER_APPLIED", {
@@ -558,11 +601,37 @@ export class GameSessionService {
     return { ok: true, modifierId: id }
   }
 
+  /**
+   * Clear a presented-identity grant whose window is owned by a modifier that
+   * just went away (ADR 0150). Core stays ignorant of which plugin item created
+   * the grant — the binding is `PresentedIdentityGrant.modifierId`.
+   */
+  private async clearGrantBoundToModifier(
+    roomId: string,
+    userId: string,
+    modifierId: string,
+  ): Promise<void> {
+    try {
+      const { getPresentedIdentity, clearPresentedIdentity } = await import(
+        "../operations/presentedIdentity"
+      )
+      const grant = await getPresentedIdentity({ context: this.context, roomId, userId })
+      if (grant?.modifierId !== modifierId) return
+      await clearPresentedIdentity({ context: this.context, roomId, userId })
+    } catch (err) {
+      console.error(
+        "[GameSessionService] clear presented identity for removed modifier failed:",
+        err,
+      )
+    }
+  }
+
   async removeModifier(roomId: string, userId: string, modifierId: string): Promise<boolean> {
     const session = await this.getActiveSession(roomId)
     if (!session) return false
 
     const state = await this.getUserState(roomId, userId)
+    const removed = state.modifiers.find((m) => m.id === modifierId)
     const next = state.modifiers.filter((m) => m.id !== modifierId)
     if (next.length === state.modifiers.length) return false
 
@@ -579,6 +648,10 @@ export class GameSessionService {
       })
     }
 
+    if (removed) {
+      await this.clearGrantBoundToModifier(roomId, userId, removed.id)
+    }
+
     return true
   }
 
@@ -589,9 +662,17 @@ export class GameSessionService {
   /**
    * Get a user's full game state. Returns a freshly-initialised state with
    * the session's `initialValues` if no record exists yet.
+   *
+   * `activeSession` lets a caller that already resolved the active session for
+   * the same operation skip the two `GET`s `getActiveSession` costs. Only pass
+   * a session read within the same operation — never a cached one.
    */
-  async getUserState(roomId: string, userId: string): Promise<UserGameState> {
-    const session = await this.getActiveSession(roomId)
+  async getUserState(
+    roomId: string,
+    userId: string,
+    activeSession?: GameSession,
+  ): Promise<UserGameState> {
+    const session = activeSession ?? (await this.getActiveSession(roomId))
     if (!session) {
       return { userId, attributes: {} as Record<GameAttributeName, number>, modifiers: [], flags: {} }
     }
@@ -732,8 +813,10 @@ export class GameSessionService {
     sessionId: string,
     userId: string,
     modifiers: GameStateModifier[],
+    /** Active session the caller already resolved for this same operation. */
+    activeSession?: GameSession,
   ): Promise<void> {
-    const state = await this.getUserState(roomId, userId)
+    const state = await this.getUserState(roomId, userId, activeSession)
     state.modifiers = modifiers
     await this.persistUserState(roomId, sessionId, state)
   }
@@ -902,8 +985,8 @@ export class GameSessionService {
           state.modifiers = active
           await this.persistUserState(roomId, session.id, state)
 
-          if (this.context.systemEvents) {
-            for (const m of expired) {
+          for (const m of expired) {
+            if (this.context.systemEvents) {
               await this.context.systemEvents.emit(roomId, "GAME_MODIFIER_REMOVED", {
                 roomId,
                 sessionId: session.id,
@@ -912,6 +995,7 @@ export class GameSessionService {
                 reason: "expired",
               })
             }
+            await this.clearGrantBoundToModifier(roomId, userId, m.id)
           }
         }
       } catch (err) {

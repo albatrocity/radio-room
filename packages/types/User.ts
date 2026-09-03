@@ -11,6 +11,11 @@ export const userSchema = z.object({
   /** ISO timestamp from Redis user hash (set at login); optional on typed views */
   connectedAt: z.string().optional(),
   username: z.string().optional(),
+  /**
+   * Lucide icon paired with `username` when this is a presented-identity
+   * snapshot on a chat/queue attribution (ADR 0150). Not stored on Redis users.
+   */
+  usernameIcon: z.string().optional(),
   isAdmin: z.boolean().optional(),
   isDj: z.boolean().optional(),
   isDeputyDj: z.boolean().optional(),

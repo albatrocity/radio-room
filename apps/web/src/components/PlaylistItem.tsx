@@ -16,13 +16,14 @@ import {
 import { PlaylistItem as PlaylistItemType, getPreferredTrack } from "../types/PlaylistItem"
 import { LuPlay, LuSkipForward, LuTrash2, LuUser, LuX, LuChartColumn } from "react-icons/lu"
 import {
-  useUsername,
   usePreferredMetadataSource,
   useIsAdmin,
   useIsRoomCreator,
   useCurrentUser,
   useCurrentRoom,
 } from "../hooks/useActors"
+import { usePresentedAttribution } from "../hooks/usePresentedAttribution"
+import { getIcon } from "./PluginComponents/icons"
 import { PluginArea } from "./PluginComponents"
 import { emitToSocket } from "../actors/socketActor"
 import socket from "../lib/socket"
@@ -175,8 +176,16 @@ const PlaylistItem = memo(function PlaylistItem({
     disabled: artworkElementProps.obscured,
   })
 
-  const liveUsername = useUsername(item.addedBy?.userId)
-  const djUsername = liveUsername ?? item.addedBy?.username
+  // Prefer baked attribution (ADR 0150); X-Ray pierces to the live true name.
+  const {
+    displayName: djUsername,
+    pierced: showPierceIcon,
+    PierceIcon,
+  } = usePresentedAttribution({
+    userId: item.addedBy?.userId,
+    bakedUsername: item.addedBy?.username,
+    fallback: "Someone",
+  })
 
   const externalUrl = useMemo(() => getTrackExternalUrl(preferredTrack), [preferredTrack])
 
@@ -199,7 +208,7 @@ const PlaylistItem = memo(function PlaylistItem({
   const showTrackStats = !titleElementProps.obscured && Boolean(room?.id)
 
   const artistLine = artistElementProps.obscured
-    ? artistElementProps.placeholder ?? "???"
+    ? (artistElementProps.placeholder ?? "???")
     : preferredTrack?.artists?.map((a) => a.title).join(" · ")
 
   return (
@@ -247,7 +256,7 @@ const PlaylistItem = memo(function PlaylistItem({
                       title={titleElementProps.obscured ? undefined : preferredTrack.title}
                     >
                       {titleElementProps.obscured
-                        ? titleElementProps.placeholder ?? "???"
+                        ? (titleElementProps.placeholder ?? "???")
                         : preferredTrack.title}
                     </Text>
                   </LinkOverlay>
@@ -290,6 +299,9 @@ const PlaylistItem = memo(function PlaylistItem({
                 }}
               >
                 <Icon boxSize={3} color="colorPalette.fg/70" as={LuUser} flexShrink={0} />
+                {PierceIcon ? (
+                  <Icon boxSize={3} color="colorPalette.fg/70" as={PierceIcon} flexShrink={0} />
+                ) : null}
                 <Text as="i" fontSize="xs" color="colorPalette.fg/70" truncate title={djUsername}>
                   <Box as="span" css={styles.addedByLabel}>
                     Added by{" "}
@@ -314,8 +326,8 @@ const PlaylistItem = memo(function PlaylistItem({
                 item={item}
                 trackTitle={
                   titleElementProps.obscured
-                    ? titleElementProps.placeholder ?? "???"
-                    : preferredTrack?.title ?? "Track"
+                    ? (titleElementProps.placeholder ?? "???")
+                    : (preferredTrack?.title ?? "Track")
                 }
               >
                 <IconButton

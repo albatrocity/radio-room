@@ -4,9 +4,21 @@ import { useCurrentUser, useListeners } from "../../../hooks/useActors"
 
 type TargetOption = { label: string; value: string }
 
+/** Pressed look while the listener list (or a follow-up step) is open — Combobox has no arrow. */
+const triggerActiveCss = {
+  "&[data-state=open] button, &[data-picker-active] button": {
+    boxShadow: "inset 0 2px 6px rgba(0,0,0,0.35)",
+    filter: "brightness(0.9)",
+  },
+} as const
+
 /**
  * Choose another listener (or yourself) for targeted inventory use / gift / trade.
  * Parent handles socket emit after `onPick(targetUserId)`.
+ *
+ * Implemented as a Combobox (not Popover), so the trigger gets an active/pressed
+ * style while open — use `active` for a follow-up step that keeps the same button
+ * visually anchored (e.g. steal item list).
  */
 export function InventoryTargetUserPopover({
   children,
@@ -18,6 +30,7 @@ export function InventoryTargetUserPopover({
   anchorRef,
   fullWidth = false,
   size = "xs",
+  active = false,
 }: {
   children: React.ReactNode
   onPick: (targetUserId: string) => void
@@ -32,6 +45,11 @@ export function InventoryTargetUserPopover({
   fullWidth?: boolean
   /** Combobox size; applied to the trigger when `children` is the visible button. */
   size?: "xs" | "sm"
+  /**
+   * Force the trigger’s open/pressed look even when the combobox is closed
+   * (e.g. Black Bag’s second-step item picker).
+   */
+  active?: boolean
 }) {
   const currentUser = useCurrentUser()
   const listeners = useListeners()
@@ -114,6 +132,8 @@ export function InventoryTargetUserPopover({
       position={anchorRef ? "absolute" : undefined}
       maxW={anchorRef ? undefined : "100%"}
       overflow={anchorRef ? "visible" : undefined}
+      data-picker-active={active ? true : undefined}
+      css={triggerActiveCss}
       positioning={{
         ...(anchorRef
           ? {

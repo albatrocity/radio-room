@@ -1,7 +1,9 @@
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types"
-import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
-
+import {
+  sendAttributedSystemMessage,
+  resolveItemUseActorDisplayName,
+} from "../shared/resolveItemUseActorDisplayName"
 
 export const coldBeer = createItem({
   shortId: "cold-beer",
@@ -71,9 +73,8 @@ export const coldBeer = createItem({
 
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
 
-    const message = makeMessage(displayName, attackedUser, targetedItem, userId)
-
-    await context.api.sendSystemMessage(context.roomId, message)
+    const message = makeMessage(displayName.label, attackedUser, targetedItem, userId)
+    await sendAttributedSystemMessage(deps, message, displayName)
 
     return {
       success: true,
@@ -99,5 +100,3 @@ function makeMessage(
 
   return `Slurp! ${displayName} cracked a Cold Beer and promoted a track, "${targetedItem.track.title}"!`
 }
-
-

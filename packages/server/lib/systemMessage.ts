@@ -17,7 +17,7 @@ const systemMessage = (content: string, meta?: {}, mentions?: ChatMessage["menti
 
 /** Ephemeral line delivered only to the target socket; client hides after `expiresInMs`. */
 export function expirableChatMessage(
-  user: { userId: string; username: string; id?: string },
+  user: { userId: string; username: string; id?: string; usernameIcon?: string },
   content: string,
   expiresInMs: number,
   options?: {
@@ -34,6 +34,7 @@ export function expirableChatMessage(
       userId: user.userId,
       username: user.username,
       id: user.id ?? user.userId,
+      ...(user.usernameIcon ? { usernameIcon: user.usernameIcon } : {}),
     },
     content,
     expiresAt,

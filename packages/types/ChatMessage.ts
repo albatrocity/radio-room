@@ -10,6 +10,14 @@ export const chatMessageMetaSchema = z.object({
   status: z.enum(["error", "success", "warning", "info"]).optional(),
   type: z.enum(["alert"]).nullable().optional(),
   title: z.string().nullable().optional(),
+  /**
+   * User ids whose public label was masked in `content`, in left-to-right order
+   * of `maskedLabel` (default `PRESENTED_IDENTITY_ANONYMOUS_LABEL`, `"Somebody"`)
+   * occurrences. X-Ray viewers substitute real names (ADR 0149 / 0150).
+   */
+  maskedUserIds: z.array(z.string()).optional(),
+  /** Label token replaced when piercing `maskedUserIds` (default `"Somebody"`). */
+  maskedLabel: z.string().optional(),
 })
 
 // =============================================================================

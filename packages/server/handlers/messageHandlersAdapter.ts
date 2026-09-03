@@ -5,6 +5,7 @@ import sendMessage from "../lib/sendMessage"
 import { expirableChatMessage } from "../lib/systemMessage"
 import { AppContext, isChatMessageTransformDrop } from "@repo/types"
 import type { GameSessionService } from "../services/GameSessionService"
+import { resolveActorPresentedIdentity } from "../operations/presentedIdentity"
 
 /**
  * Message payload - supports both simple string and object format
@@ -55,9 +56,19 @@ export class MessageHandlers {
     const content = typeof message === "string" ? message : message.content
 
     const sendDelayMs = await resolveChatSendDelayMs(socket.context, roomId, userId)
+    let presentedUsername: string | undefined
     if (sendDelayMs > 0) {
+      const presented = await resolveActorPresentedIdentity({
+        context: socket.context,
+        roomId,
+        userId,
+      })
+      presentedUsername = presented.label
       const preview = expirableChatMessage(
-        { userId, username: username ?? userId },
+        {
+          userId,
+          username: presented.label,
+        },
         content,
         sendDelayMs,
         {
@@ -76,7 +87,13 @@ export class MessageHandlers {
       await new Promise((resolve) => setTimeout(resolve, sendDelayMs))
     }
 
-    const result = await this.messageService.processNewMessage(roomId, userId, username, content)
+    const result = await this.messageService.processNewMessage(
+      roomId,
+      userId,
+      username,
+      content,
+      presentedUsername != null ? { presentedUsername } : undefined,
+    )
 
     // Emit typing status update via SystemEvents
     if (socket.context.systemEvents) {

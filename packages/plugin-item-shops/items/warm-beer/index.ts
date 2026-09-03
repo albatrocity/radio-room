@@ -1,5 +1,8 @@
 import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types"
-import { resolveItemUseActorDisplayName } from "../shared/resolveItemUseActorDisplayName"
+import {
+  sendAttributedSystemMessage,
+  resolveItemUseActorDisplayName,
+} from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
 export const warmBeer = createItem({
@@ -70,9 +73,8 @@ export const warmBeer = createItem({
 
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
 
-    const message = makeMessage(displayName, attackedUser, targetedItem, userId)
-
-    await context.api.sendSystemMessage(context.roomId, message)
+    const message = makeMessage(displayName.label, attackedUser, targetedItem, userId)
+    await sendAttributedSystemMessage(deps, message, displayName)
 
     return {
       success: true,

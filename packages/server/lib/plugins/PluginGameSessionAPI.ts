@@ -1,6 +1,7 @@
 import {
   AppContext,
   ApplyModifierResult,
+  CheckModifierDefenseResult,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -8,6 +9,7 @@ import {
   GameSessionPluginAPI,
   GameSessionResults,
   GameStateModifier,
+  PresentedIdentityGrantInput,
   PluginAttributeDefinition,
   UserGameState,
 } from "@repo/types"
@@ -123,6 +125,19 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
     )
   }
 
+  async checkModifierDefense(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    actorUserId?: string,
+    options?: { omitBlockedModifier?: boolean },
+  ): Promise<CheckModifierDefenseResult> {
+    if (!this.service) return { ok: false, reason: "no_active_session" }
+    return this.service.checkModifierDefense(this.roomId, userId, this.pluginName, modifier, {
+      actorUserId,
+      omitBlockedModifier: options?.omitBlockedModifier,
+    })
+  }
+
   async reboundModifier(
     userId: string,
     modifier: Omit<GameStateModifier, "id" | "source">,
@@ -178,5 +193,34 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
   async getLeaderboard(leaderboardId: string): Promise<GameLeaderboardEntry[]> {
     if (!this.service) return []
     return this.service.getLeaderboard(this.roomId, leaderboardId)
+  }
+
+  async grantPresentedIdentity(
+    input: Omit<PresentedIdentityGrantInput, "source"> & { source?: string },
+  ) {
+    const { grantPresentedIdentity } = await import("../../operations/presentedIdentity")
+    return grantPresentedIdentity({
+      context: this.context,
+      roomId: this.roomId,
+      input: { ...input, source: input.source ?? this.pluginName },
+    })
+  }
+
+  async getPresentedIdentity(userId: string) {
+    const { getPresentedIdentity } = await import("../../operations/presentedIdentity")
+    return getPresentedIdentity({
+      context: this.context,
+      roomId: this.roomId,
+      userId,
+    })
+  }
+
+  async clearPresentedIdentity(userId: string) {
+    const { clearPresentedIdentity } = await import("../../operations/presentedIdentity")
+    return clearPresentedIdentity({
+      context: this.context,
+      roomId: this.roomId,
+      userId,
+    })
   }
 }

@@ -72,6 +72,7 @@ import { MetadataSourceType, QueueItem } from "../types/Queue"
 
 import { sortByTimestamp } from "../lib/sortByTimestamp"
 import { ChatMessage } from "../types/ChatMessage"
+import type { User } from "../types/User"
 import { ReactionSubject } from "../types/ReactionSubject"
 import { Reaction } from "../types/Reaction"
 import type { LobbyRoom } from "../machines/lobbyMachine"
@@ -287,13 +288,28 @@ export const useUsers = () => {
 }
 
 /**
+ * `userId -> username` for one `users` array, built once per snapshot and keyed
+ * on array identity so every attributed row reads the map instead of scanning it.
+ */
+const usernamesByUserId = new WeakMap<User[], Map<string, string | undefined>>()
+
+const usernameMapFor = (users: User[]): Map<string, string | undefined> => {
+  let map = usernamesByUserId.get(users)
+  if (!map) {
+    map = new Map(users.map((u) => [u.userId, u.username]))
+    usernamesByUserId.set(users, map)
+  }
+  return map
+}
+
+/**
  * Username for one userId. Returns a stable string/undefined so playlist/queue
  * rows do not re-render when unrelated users join, leave, or rename.
  */
 export const useUsername = (userId: string | undefined | null): string | undefined => {
   return useSelector(usersActor, (s) => {
     if (!userId) return undefined
-    return s.context.users.find((u) => u.userId === userId)?.username
+    return usernameMapFor(s.context.users).get(userId)
   })
 }
 

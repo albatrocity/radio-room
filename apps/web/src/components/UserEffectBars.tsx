@@ -7,6 +7,7 @@ import {
   useUserModifiers,
   useUserState,
 } from "../hooks/useActors"
+import { useHasInventoryPeek } from "../hooks/useHasInventoryPeek"
 import { ExpiryBar, type ExpiryBarOrientation } from "./ExpiryBar"
 import { Tooltip } from "./ui/tooltip"
 import { UserModifiersList } from "./UserModifiersList"
@@ -75,14 +76,16 @@ export function UserEffectBars({
     ? otherModifiers
     : selfState?.modifiers ?? undefined
 
-  /** Hide `visibility: "self"` modifiers when rendering another user's row (not your own). */
+  /** Hide `visibility: "self"` modifiers when rendering another user's row (not your own),
+   * unless the viewer has `inventory_peek` (X-Ray — ADR 0149). */
   const isViewingOtherUser =
     userId != null && userId !== currentUser?.userId
+  const viewerPierces = useHasInventoryPeek()
   const modifiersForUi = useMemo(() => {
     if (!modifiers || modifiers.length === 0) return modifiers
-    if (!isViewingOtherUser) return modifiers
+    if (!isViewingOtherUser || viewerPierces) return modifiers
     return modifiers.filter((m) => m.visibility !== "self")
-  }, [modifiers, isViewingOtherUser])
+  }, [modifiers, isViewingOtherUser, viewerPierces])
 
   const definitionMap = useMemo(() => {
     const map = new Map<string, ItemDefinition>()

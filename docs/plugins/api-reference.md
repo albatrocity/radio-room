@@ -1,23 +1,27 @@
 # Plugin API Reference
 
-
 ### PluginAPI Methods
 
-| Method                                         | Description                      |
-| ---------------------------------------------- | -------------------------------- |
-| `getNowPlaying(roomId)`                        | Get current track                |
-| `getUsers(roomId)`                             | Get users in room                |
-| `getQueue(roomId)`                             | Get room queue                   |
-| `addToTrackQueue(roomId, trackId, options?)`   | Enqueue a track (see below)      |
-| `getReactions(params)`                         | Get reactions for track/message  |
-| `skipTrack(roomId, trackId)`                   | Skip current track               |
-| `sendSystemMessage(roomId, message, options?)` | Send system chat message         |
-| `getPluginConfig(roomId, pluginName)`          | Get plugin config                |
-| `setPluginConfig(roomId, pluginName, config)`  | Update plugin config             |
-| `updatePlaylistTrack(roomId, track)`           | Update track with pluginData     |
-| `emit(eventName, data)`                        | Emit plugin event to frontend    |
-| `queueSoundEffect(params)`                     | Play a sound effect in the room  |
-| `queueScreenEffect(params)`                    | Play a CSS animation in the room |
+| Method                                                  | Description                                                                                                                       |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `getNowPlaying(roomId)`                                 | Get current track                                                                                                                 |
+| `getUsers(roomId)`                                      | Get users in room                                                                                                                 |
+| `getUsersByIds(userIds)`                                | Look up users by id (includes users who have left the room)                                                                       |
+| `isUserInRoom(roomId, userId)`                          | Whether the user is currently connected — O(1), prefer over scanning `getUsers`                                                   |
+| `isRoomAdmin(roomId, userId)`                           | Whether the user is a room admin (creator or `room:{id}:admins`); use for defense-in-depth on admin-only `executeAction` handlers |
+| `getQueue(roomId)`                                      | Get room queue                                                                                                                    |
+| `addToTrackQueue(roomId, trackId, options?)`            | Enqueue a track (see below)                                                                                                       |
+| `getReactions(params)`                                  | Get reactions for track/message                                                                                                   |
+| `skipTrack(roomId, trackId)`                            | Skip current track                                                                                                                |
+| `sendSystemMessage(roomId, message, meta?, mentions?)`  | Send system chat message                                                                                                          |
+| `sendUserSystemMessage(roomId, userId, message, meta?)` | System chat line to one connected client (not persisted, no fan-out)                                                              |
+| `sendUserToast(roomId, userId, toast)`                  | Ephemeral toast to one connected client (see below)                                                                               |
+| `getPluginConfig(roomId, pluginName)`                   | Get plugin config                                                                                                                 |
+| `setPluginConfig(roomId, pluginName, config)`           | Update plugin config                                                                                                              |
+| `updatePlaylistTrack(roomId, track)`                    | Update track with pluginData                                                                                                      |
+| `emit(eventName, data)`                                 | Emit plugin event to frontend                                                                                                     |
+| `queueSoundEffect(params)`                              | Play a sound effect in the room                                                                                                   |
+| `queueScreenEffect(params)`                             | Play a CSS animation in the room                                                                                                  |
 
 ### `addToTrackQueue`
 
@@ -30,12 +34,12 @@ await this.context.api.addToTrackQueue(roomId, metadataTrackId, {
 })
 ```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `addedBy` | calling plugin | User or plugin attribution on the queue item |
-| `runPluginValidation` | `false` | When `true`, run `validateQueueRequest` hooks (may allow / reject / defer) |
-| `mediaSourceType` | inferred / `"spotify"` | Catalog source for the track id |
-| `suppressQueueChanged` | `false` | When `true`, do not emit `QUEUE_CHANGED` after the add — use for cascading adds during an existing `QUEUE_CHANGED` handler; core may rebroadcast a fresh snapshot afterward ([queue-validation cascading adds](queue-validation.md#cascading-queue-adds-during-queue_changed)) |
+| Option                 | Default                | Description                                                                                                                                                                                                                                                                    |
+| ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `addedBy`              | calling plugin         | User or plugin attribution on the queue item                                                                                                                                                                                                                                   |
+| `runPluginValidation`  | `false`                | When `true`, run `validateQueueRequest` hooks (may allow / reject / defer)                                                                                                                                                                                                     |
+| `mediaSourceType`      | inferred / `"spotify"` | Catalog source for the track id                                                                                                                                                                                                                                                |
+| `suppressQueueChanged` | `false`                | When `true`, do not emit `QUEUE_CHANGED` after the add — use for cascading adds during an existing `QUEUE_CHANGED` handler; core may rebroadcast a fresh snapshot afterward ([queue-validation cascading adds](queue-validation.md#cascading-queue-adds-during-queue_changed)) |
 
 ### Game & inventory APIs (`PluginContext`)
 
@@ -45,12 +49,12 @@ Available as **`context.game`** and **`context.inventory`** (and **`this.game`**
 
 Helper functions exported from `@repo/types` for use in `validateQueueRequest`. Full guide: [Queue Validation](queue-validation.md).
 
-| Function                               | Returns                         | Description                                      |
-| -------------------------------------- | ------------------------------- | ------------------------------------------------ |
-| `allowQueueRequest()`                  | `{ allowed: true }`             | Allow the queue request to proceed               |
-| `rejectQueueRequest(reason: string)`   | `{ allowed: false, reason }`    | Block with user-facing message                   |
-| `deferQueueRequest(message: string)`   | `{ deferred: true, message }`   | Accept selection without enqueueing (info toast) |
-| `isDeferredQueueRequest(result)`       | type guard                      | True when result is a deferred outcome           |
+| Function                             | Returns                       | Description                                      |
+| ------------------------------------ | ----------------------------- | ------------------------------------------------ |
+| `allowQueueRequest()`                | `{ allowed: true }`           | Allow the queue request to proceed               |
+| `rejectQueueRequest(reason: string)` | `{ allowed: false, reason }`  | Block with user-facing message                   |
+| `deferQueueRequest(message: string)` | `{ deferred: true, message }` | Accept selection without enqueueing (info toast) |
+| `isDeferredQueueRequest(result)`     | type guard                    | True when result is a deferred outcome           |
 
 Reference for defer/hold + cascading `suppressQueueChanged`: `@repo/plugin-round-robin-dj` and [Queue Validation — cascading adds](queue-validation.md#cascading-queue-adds-during-queue_changed).
 
@@ -62,6 +66,21 @@ await this.context.api.sendSystemMessage(roomId, "Message text", {
   status: "info", // "info" | "success" | "warning" | "error"
 })
 ```
+
+### User Toasts
+
+Deliver a short-lived, private alert to one connected client ([ADR 0148](../adrs/0148-transactional-defense-and-user-toast.md)). Unlike `sendUserSystemMessage` it never enters the chat list, and unlike the notification center it leaves no indicator record — use it for hostile or time-sensitive notices (e.g. "your item was stolen").
+
+```typescript
+await this.context.api.sendUserToast(roomId, victimUserId, {
+  title: "Item stolen",
+  description: `${actor} stole your ${itemName} with a Black Bag.`,
+  type: "error", // "info" | "success" | "warning" | "error", default "info"
+  duration: 6000, // ms, default 6000
+})
+```
+
+Emitted as a private `USER_TOAST` socket event — not a SystemEvent, so it does not fan out to Redis or plugins. Silently no-ops when the user has no connected socket in the room.
 
 ### Sound Effects
 
@@ -83,11 +102,11 @@ await this.context.api.queueSoundEffect({
 
 **Parameters:**
 
-| Parameter | Type     | Required | Description                                                                 |
-| --------- | -------- | -------- | --------------------------------------------------------------------------- |
-| `url`     | `string` | Yes      | URL to the audio file (mp3, wav, ogg, etc)                                  |
-| `volume`  | `number` | No       | Volume level from 0.0 to 1.0 (default: 1.0)                                 |
-| `userId`  | `string` | No       | When set, play only on that user's client; omit for room-wide (ADR 0072)   |
+| Parameter | Type     | Required | Description                                                              |
+| --------- | -------- | -------- | ------------------------------------------------------------------------ |
+| `url`     | `string` | Yes      | URL to the audio file (mp3, wav, ogg, etc)                               |
+| `volume`  | `number` | No       | Volume level from 0.0 to 1.0 (default: 1.0)                              |
+| `userId`  | `string` | No       | When set, play only on that user's client; omit for room-wide (ADR 0072) |
 
 **Example: Play sound on special event**
 
@@ -129,13 +148,13 @@ await this.context.api.queueScreenEffect({
 
 **Parameters:**
 
-| Parameter          | Type                 | Required | Description                                                                                          |
-| ------------------ | -------------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| `target`           | `ScreenEffectTarget` | Yes      | What to animate: `room`, `nowPlaying`, `message`, `plugin`, or `user`                               |
-| `targetId`         | `string`             | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID. For `user`: userId              |
-| `effect`           | `ScreenEffectName`   | Yes      | Animation name (see available effects below)                                                         |
-| `duration`         | `number`             | No       | Custom duration in milliseconds (default varies by effect)                                           |
-| `recipientUserId`  | `string`             | No       | When set, deliver only to that user's client; omit for room-wide (ADR 0073)                         |
+| Parameter         | Type                 | Required | Description                                                                            |
+| ----------------- | -------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `target`          | `ScreenEffectTarget` | Yes      | What to animate: `room`, `nowPlaying`, `message`, `plugin`, or `user`                  |
+| `targetId`        | `string`             | No       | For `message`: timestamp or `"latest"`. For `plugin`: component ID. For `user`: userId |
+| `effect`          | `ScreenEffectName`   | Yes      | Animation name (see available effects below)                                           |
+| `duration`        | `number`             | No       | Custom duration in milliseconds (default varies by effect)                             |
+| `recipientUserId` | `string`             | No       | When set, deliver only to that user's client; omit for room-wide (ADR 0073)            |
 
 **`recipientUserId` vs `target: "user"`:** `recipientUserId` controls **which client receives** the event. `target: "user"` selects **which DOM node** to animate (the user list row). They are independent — you can animate a plugin card for one recipient, or animate a user row for everyone.
 

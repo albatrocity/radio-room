@@ -1,4 +1,4 @@
-import React, { memo } from "react"
+import React, { memo, useState } from "react"
 import { get, isEqual } from "lodash/fp"
 
 import {
@@ -23,6 +23,7 @@ import {
   LuMessageCircle,
   LuMic,
   LuMusic,
+  LuScanSearch,
 } from "react-icons/lu"
 import type { AdminAssignablePersona } from "@repo/types"
 import { User } from "../types/User"
@@ -33,6 +34,9 @@ import { UserEffectBars } from "./UserEffectBars"
 import { getUserListPersonaBadges, userHasPersona } from "../lib/userPersonas"
 import { PersonaBadge } from "./PersonaBadge"
 import { getIcon } from "./PluginComponents/icons"
+import { PIERCE_INDICATOR_ICON } from "../lib/pierceIndicator"
+import { useHasInventoryPeek } from "../hooks/useHasInventoryPeek"
+import { UserInventoryItemPicker } from "./Modals/GameState/UserInventoryItemPicker"
 
 const statusIcon = (user: User) => {
   if (user.isDj) {
@@ -91,10 +95,38 @@ const ListItemUser = ({
   const styles = recipe({ isDj: user.isDj, isTyping: userTyping })
   const listPersonaBadges = getUserListPersonaBadges(user)
   const isSelf = user.userId === get("userId", currentUser)
+  const hasInventoryPeek = useHasInventoryPeek()
+  const PierceIndicatorIcon = getIcon(PIERCE_INDICATOR_ICON)
+  const canPeek = !isSelf && hasInventoryPeek
+  // The peek picker owns an XState interpreter and a Popover machine, and the
+  // listener list is not virtualized — so idle rows stay a plain button and the
+  // picker is mounted only once this row has actually been used (perf review P2).
+  const [peekArmed, setPeekArmed] = useState(false)
+  if (peekArmed && !canPeek) {
+    // X-Ray lapsed (or this became our own row): drop the arming so a later
+    // window does not remount the picker into an unrequested peek.
+    setPeekArmed(false)
+  }
+  // The listener list always shows the true username — never a presented
+  // identity, even for the subject themselves (ADR 0150 §3).
+  const displayName = user.username || "anonymous"
   const showAdminMenu =
     !isSelf &&
     currentUser?.isAdmin &&
     (onKickUser || onDesignateAdmin || onTogglePersona || assignablePersonas.length > 0)
+
+  const peekButton = (
+    <Tooltip content="Peek inventory" positioning={{ placement: "top" }}>
+      <IconButton
+        size="xs"
+        variant="ghost"
+        aria-label="Peek inventory"
+        onClick={peekArmed ? undefined : () => setPeekArmed(true)}
+      >
+        <Icon as={PierceIndicatorIcon ?? LuScanSearch} />
+      </IconButton>
+    </Tooltip>
+  )
 
   return (
     <List.Item key={user.userId} css={styles.root} gap={1}>
@@ -146,13 +178,27 @@ const ListItemUser = ({
                 direction="row"
                 spacing={1}
               />
-              <Text css={styles.username} title={user.username || "anonymous"} truncate>
-                {user.username || "anonymous"}
+              <Text css={styles.username} title={displayName} truncate>
+                {displayName}
               </Text>
             </Box>
           </HStack>
 
           <HStack css={styles.actions}>
+            {canPeek &&
+              (peekArmed ? (
+                <UserInventoryItemPicker
+                  mode="view"
+                  fixedTargetUserId={user.userId}
+                  targetLabel={displayName}
+                  startOnMount
+                  fullWidth={false}
+                >
+                  {peekButton}
+                </UserInventoryItemPicker>
+              ) : (
+                peekButton
+              ))}
             {isSelf && <ButtonEditUsername onClick={() => onEditUser(user)} />}
             {currentUser?.isAdmin && !isSelf && (
               <Tooltip

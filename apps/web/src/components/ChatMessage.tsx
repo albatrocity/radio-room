@@ -24,9 +24,11 @@ import { chatMessageRecipe } from "../theme/chatMessageRecipe"
 
 import type { TextSegment } from "@repo/types"
 import { useIsAdmin, useIsBookmarked, useBookmarksSend, useChatSend } from "../hooks/useActors"
+import { usePresentedAttribution } from "../hooks/usePresentedAttribution"
 import { getChatPersonaBadges } from "../lib/userPersonas"
 import { PersonaBadge } from "./PersonaBadge"
 import { ExpiryBar } from "./ExpiryBar"
+import { getIcon } from "./PluginComponents/icons"
 
 export interface ChatMessageProps {
   content: string
@@ -65,6 +67,14 @@ const ChatMessage = ({
   const chatSend = useChatSend()
   const bookmarkSend = useBookmarksSend()
   const isBookmarked = useIsBookmarked(timestamp)
+  const {
+    displayName: authorName,
+    pierced: showPierceIcon,
+    PierceIcon,
+  } = usePresentedAttribution({ userId: user.userId, bakedUsername: user.username })
+  const showAuthorIcon =
+    !showPierceIcon && Boolean(user.usernameIcon) && authorName === user.username
+  const AuthorIcon = showAuthorIcon && user.usernameIcon ? getIcon(user.usernameIcon) : undefined
 
   const [hovered, setHovered] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -129,7 +139,9 @@ const ChatMessage = ({
                 color={persona.personaId === "vip" ? "yellow.400" : undefined}
               />
             ))}
-            <Text css={styles.username}>{user.username}</Text>
+            {PierceIcon ? <Icon as={PierceIcon} boxSize={3.5} flexShrink={0} /> : null}
+            {AuthorIcon ? <Icon as={AuthorIcon} boxSize={3.5} flexShrink={0} /> : null}
+            <Text css={styles.username}>{authorName}</Text>
           </HStack>
           <Spacer />
           <HStack css={styles.headerActions}>

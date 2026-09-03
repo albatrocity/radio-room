@@ -11,6 +11,7 @@ import type { SystemEventHandlers, ScreenEffectTarget, ScreenEffectName } from "
 import type { PluginComponentSchema, PluginComponentState } from "./PluginComponent"
 import type {
   ApplyModifierResult,
+  CheckModifierDefenseResult,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -39,6 +40,10 @@ import type {
   StoredArtifactPublic,
 } from "./Artifacts"
 import type { PersonaDefinition, UserPersona, UserPersonaAssignment } from "./Persona"
+import type {
+  PresentedIdentityGrant,
+  PresentedIdentityGrantInput,
+} from "./PresentedIdentity"
 import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
 import type { MetadataSourceTrack, PhysicalMediaItem } from "./MetadataSource"
 
@@ -388,6 +393,11 @@ export interface PluginAPI {
   /** Look up users by their IDs (includes users who have left the room) */
   getUsersByIds(userIds: string[]): Promise<User[]>
   /**
+   * Whether the user is currently connected to the room. O(1) — prefer this over
+   * scanning `getUsers(roomId)`, which reads every online user's record.
+   */
+  isUserInRoom(roomId: string, userId: string): Promise<boolean>
+  /**
    * Whether the user is a room admin (creator or member of `room:{id}:admins`).
    * Plugins should use this for defense-in-depth on admin-only `executeAction` handlers.
    */
@@ -408,6 +418,24 @@ export interface PluginAPI {
     userId: string,
     message: string,
     meta?: ChatMessage["meta"],
+  ): Promise<void>
+  /**
+   * Ephemeral toast to one connected client (ADR 0148). Does not add chat lines,
+   * notification-center indicators, or persistence. Private socket emit only.
+   */
+  sendUserToast(
+    roomId: string,
+    userId: string,
+    toast: {
+      title: string
+      description?: string
+      type?: "info" | "success" | "warning" | "error"
+      duration?: number
+      /** Stable toast id; defaults to a generated id on the client. */
+      id?: string
+      /** Notification `source` for ADR 0144 toast-only raises. */
+      source?: string
+    },
   ): Promise<void>
   getPluginConfig(roomId: string, pluginName: string): Promise<any | null>
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
@@ -850,6 +878,20 @@ export interface GameSessionPluginAPI {
     actorUserId?: string,
   ): Promise<ApplyModifierResult>
   /**
+   * Run passive modifier defense without applying the modifier (ADR 0148).
+   * Use for transactional item effects (e.g. steal/grant) that still need
+   * Warranty / Honeypot / Rubber Band to consume and block.
+   *
+   * Pass `omitBlockedModifier: true` so rebound defenses block without
+   * calling `reboundModifier` on a probe.
+   */
+  checkModifierDefense(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    actorUserId?: string,
+    options?: { omitBlockedModifier?: boolean },
+  ): Promise<CheckModifierDefenseResult>
+  /**
    * Re-apply a modifier (typically `DefenseTriggeredPayload.blockedModifier`)
    * to another user, **bypassing passive modifier defense**. Intended for
    * defense items that redirect an incoming effect (e.g. Rubber Band).
@@ -871,6 +913,18 @@ export interface GameSessionPluginAPI {
   getUserState(userId: string): Promise<UserGameState | null>
   /** Render a leaderboard. Returns an empty array if the leaderboard is unknown. */
   getLeaderboard(leaderboardId: string): Promise<GameLeaderboardEntry[]>
+
+  // ---------- Presented identity (ADR 0150) -------------------------------
+  /**
+   * Grant or replace a presented-identity for `userId` for `durationMs`.
+   * Returns null when there is no active session.
+   */
+  grantPresentedIdentity(
+    /** `source` defaults to this plugin's name when omitted. */
+    input: Omit<PresentedIdentityGrantInput, "source"> & { source?: string },
+  ): Promise<PresentedIdentityGrant | null>
+  getPresentedIdentity(userId: string): Promise<PresentedIdentityGrant | null>
+  clearPresentedIdentity(userId: string): Promise<boolean>
 }
 
 export type { ArtifactRetrieveAttempt, ArtifactsPluginAPI, StoredArtifact, StoredArtifactPublic }

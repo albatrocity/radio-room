@@ -23,6 +23,7 @@ import * as studioActions from "../../studio/studioActions"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { StudioCoinAmountStoragePopover } from "./StudioCoinAmountStoragePopover"
 import { StudioInventoryItemStoragePopover } from "./StudioInventoryItemStoragePopover"
+import { StudioUserInventoryItemPopover } from "./StudioUserInventoryItemPopover"
 import { toaster } from "../ui/toaster"
 import { LinkifiedText } from "./LinkifiedText"
 
@@ -359,6 +360,8 @@ export function UserCard({
                   : []
               const storageBlocked = rt === "inventoryItem" && selectableOther.length === 0
               const coinBlocked = rt === "coinAmount" && coin < 1
+              const otherUsers = [...room.users.keys()].filter((id) => id !== userId)
+              const burgleBlocked = rt === "userInventoryItem" && otherUsers.length === 0
 
               const useButton =
                 rt === "inventoryItem" ? (
@@ -379,6 +382,24 @@ export function UserCard({
                       Use
                     </Button>
                   </StudioInventoryItemStoragePopover>
+                ) : rt === "userInventoryItem" ? (
+                  <StudioUserInventoryItemPopover
+                    room={room}
+                    actorUserId={userId}
+                    defaultTargetUserId={effectiveTargetUser}
+                    onConfirm={(targetUserId, targetInventoryItemId) =>
+                      void run(`Use ${label}`, async () =>
+                        studioActions.useInventoryItem(userId, row.itemId, {
+                          targetUserId,
+                          targetInventoryItemId,
+                        }),
+                      )
+                    }
+                  >
+                    <Button size="xs" variant="surface" disabled={burgleBlocked}>
+                      Use
+                    </Button>
+                  </StudioUserInventoryItemPopover>
                 ) : rt === "coinAmount" ? (
                   <StudioCoinAmountStoragePopover
                     maxCoins={coin}

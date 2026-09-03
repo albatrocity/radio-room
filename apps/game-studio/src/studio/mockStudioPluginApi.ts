@@ -50,6 +50,10 @@ export class MockStudioPluginApi implements PluginAPI {
     })
   }
 
+  async isUserInRoom(_roomId: string, userId: string): Promise<boolean> {
+    return this.room.users.has(userId)
+  }
+
   async isRoomAdmin(_roomId: string, userId: string): Promise<boolean> {
     const user = this.room.users.get(userId)
     return Boolean(user?.isAdmin)
@@ -95,6 +99,28 @@ export class MockStudioPluginApi implements PluginAPI {
     const m = studioSystemMessage(message, meta, mentionName ? [mentionName] : undefined)
     this.room.appendChat(m)
     this.room.logEvent("USER_SYSTEM_MESSAGE", { userId, message })
+  }
+
+  async sendUserToast(
+    _roomId: string,
+    userId: string,
+    toast: {
+      title: string
+      description?: string
+      type?: "info" | "success" | "warning" | "error"
+      duration?: number
+      id?: string
+      source?: string
+    },
+  ): Promise<void> {
+    this.room.logEvent("USER_TOAST", { userId, ...toast })
+  }
+
+  async requestGameStateTabAttention(params: {
+    userId: string
+    tabId: string
+  }): Promise<void> {
+    this.room.logEvent("PLUGIN_TAB_ATTENTION", params)
   }
 
   async getPluginConfig(roomId: string, pluginName: string): Promise<unknown | null> {

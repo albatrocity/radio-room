@@ -17,9 +17,11 @@ export function createMockPluginAPI(): PluginAPI {
     getReactions: vi.fn().mockResolvedValue([]),
     getUsers: vi.fn().mockResolvedValue([]),
     getUsersByIds: vi.fn().mockResolvedValue([]),
+    isUserInRoom: vi.fn().mockResolvedValue(false),
     skipTrack: vi.fn().mockResolvedValue(undefined),
     sendSystemMessage: vi.fn().mockResolvedValue(undefined),
     sendUserSystemMessage: vi.fn().mockResolvedValue(undefined),
+    sendUserToast: vi.fn().mockResolvedValue(undefined),
     getPluginConfig: vi.fn().mockResolvedValue(null),
     setPluginConfig: vi.fn().mockResolvedValue(undefined),
     updatePlaylistTrack: vi.fn().mockResolvedValue(undefined),
@@ -55,13 +57,27 @@ export function createMockGame(): GameSessionPluginAPI {
     setScore: vi.fn(),
     applyModifier: vi.fn(),
     applyTimedModifier: vi.fn().mockResolvedValue({ ok: true, modifierId: "mod-1" }),
+    checkModifierDefense: vi.fn().mockResolvedValue({ ok: true }),
+    reboundModifier: vi.fn().mockResolvedValue({ ok: true, modifierId: "mod-1" }),
     removeModifier: vi.fn(),
     getUserState: vi.fn().mockResolvedValue(null),
     getLeaderboard: vi.fn().mockResolvedValue([]),
+    grantPresentedIdentity: vi.fn().mockResolvedValue(null),
+    getPresentedIdentity: vi.fn().mockResolvedValue(null),
+    clearPresentedIdentity: vi.fn().mockResolvedValue(false),
   } as unknown as GameSessionPluginAPI
 }
 
 export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): ItemShopsBehaviorDeps {
+  const getItemDefinition = vi.fn().mockResolvedValue(null)
+  const getItemDefinitions = vi.fn(async (ids: readonly string[]) => {
+    const out: ItemDefinition[] = []
+    for (const id of ids) {
+      const def = await getItemDefinition(id)
+      if (def) out.push(def)
+    }
+    return out
+  })
   return {
     pluginName: "item-shops",
     context: {
@@ -69,8 +85,11 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
       api: createMockPluginAPI(),
       artifacts: createMockArtifacts(),
       inventory: {
-        getInventory: vi.fn().mockResolvedValue({ userId: "", items: [], maxSlots: 20, maxCollectionSlots: 20 }),
-        getItemDefinition: vi.fn().mockResolvedValue(null),
+        getInventory: vi
+          .fn()
+          .mockResolvedValue({ userId: "", items: [], maxSlots: 20, maxCollectionSlots: 20 }),
+        getItemDefinition,
+        getItemDefinitions,
         removeItem: vi.fn().mockResolvedValue(true),
         giveItem: vi.fn().mockResolvedValue(null),
       },
@@ -104,6 +123,9 @@ export function stubRoomUsers(deps: ItemShopsBehaviorDeps, users: User[]): void 
   vi.mocked(deps.context.api.getUsers).mockResolvedValue(users)
   vi.mocked(deps.context.api.getUsersByIds).mockImplementation(async (ids: string[]) =>
     users.filter((u) => ids.includes(u.userId)),
+  )
+  vi.mocked(deps.context.api.isUserInRoom).mockImplementation(async (_roomId, userId) =>
+    users.some((u) => u.userId === userId),
   )
 }
 

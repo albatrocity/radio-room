@@ -1,5 +1,6 @@
 import type {
   ApplyModifierResult,
+  CheckModifierDefenseResult,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -8,6 +9,8 @@ import type {
   GameSessionResults,
   GameStateModifier,
   PluginAttributeDefinition,
+  PresentedIdentityGrant,
+  PresentedIdentityGrantInput,
   UserGameState,
 } from "@repo/types"
 import { evaluateModifiers } from "@repo/game-logic"
@@ -198,7 +201,10 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
       if (modifier.maxStacks && sameName.length >= modifier.maxStacks) {
         const toRemove = sameName.length - modifier.maxStacks + 1
         const toRemoveIds = new Set(
-          [...sameName].sort((a, b) => a.startAt - b.startAt).slice(0, toRemove).map((m) => m.id),
+          [...sameName]
+            .sort((a, b) => a.startAt - b.startAt)
+            .slice(0, toRemove)
+            .map((m) => m.id),
         )
         modifiers = modifiers.filter((m) => !toRemoveIds.has(m.id))
       }
@@ -231,6 +237,46 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
       { actorUserId },
       false,
     )
+  }
+
+  async checkModifierDefense(
+    userId: string,
+    modifier: Omit<GameStateModifier, "id" | "source">,
+    _actorUserId?: string,
+    _options?: { omitBlockedModifier?: boolean },
+  ): Promise<CheckModifierDefenseResult> {
+    const session = this.room.activeSession
+    if (!session) return { ok: false, reason: "no_active_session" }
+    const blocked = checkModifierDefenseStudio(this.room, userId, this.pluginName, modifier)
+    if (!blocked) return { ok: true }
+
+    const provisionalModifier: GameStateModifier = {
+      ...modifier,
+      id: "",
+      source: this.pluginName,
+    }
+    await this.lifecycle.emit("GAME_EFFECT_BLOCKED", {
+      roomId: this.room.roomId,
+      sessionId: session.id,
+      targetUserId: userId,
+      actorUserId: _actorUserId,
+      blockType: "modifier",
+      modifier: provisionalModifier,
+      blockedBy: {
+        itemDefinitionId: blocked.itemDefinitionId,
+        itemId: blocked.itemId,
+        defenderUserId: blocked.defenderUserId,
+        itemName: blocked.itemName,
+      },
+    })
+    const actorName =
+      (_actorUserId && this.room.users.get(_actorUserId)?.username?.trim()) || this.pluginName
+    const targetName = this.room.users.get(userId)?.username?.trim() || userId
+    const msg = `${actorName} attacked ${targetName}, but ${blocked.itemName} blocked it.`
+    this.room.appendChat(
+      studioSystemMessage(msg, { type: "alert", status: "warning", title: "Blocked" }),
+    )
+    return { ok: false, reason: "defense_blocked", blockingItemName: blocked.itemName }
   }
 
   async reboundModifier(
@@ -281,6 +327,10 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
       modifierId,
       reason: "manual",
     })
+    // Mirror core: a grant bound to this modifier goes away with it (ADR 0150).
+    if (this.presentedIdentityByUser.get(userId)?.modifierId === modifierId) {
+      this.presentedIdentityByUser.delete(userId)
+    }
     return true
   }
 
@@ -311,6 +361,45 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
       ...r,
       rank: i + 1,
     }))
+  }
+
+  private presentedIdentityByUser = new Map<string, PresentedIdentityGrant>()
+
+  async grantPresentedIdentity(
+    input: Omit<PresentedIdentityGrantInput, "source"> & { source?: string },
+  ): Promise<PresentedIdentityGrant | null> {
+    const session = this.room.activeSession
+    if (!session) return null
+    const now = Date.now()
+    const toggleable = Boolean(input.toggleable)
+    const grant: PresentedIdentityGrant = {
+      userId: input.userId,
+      label: input.label.trim(),
+      ...(input.chromeLabel?.trim() ? { chromeLabel: input.chromeLabel.trim() } : {}),
+      ...(input.icon ? { icon: input.icon } : {}),
+      engaged: toggleable ? (input.engaged ?? true) : true,
+      toggleable,
+      expiresAt: now + Math.max(0, input.durationMs),
+      source: input.source ?? this.pluginName,
+      ...(input.modifierId ? { modifierId: input.modifierId } : {}),
+      sessionId: session.id,
+    }
+    this.presentedIdentityByUser.set(input.userId, grant)
+    return grant
+  }
+
+  async getPresentedIdentity(userId: string): Promise<PresentedIdentityGrant | null> {
+    const grant = this.presentedIdentityByUser.get(userId) ?? null
+    if (!grant) return null
+    if (grant.expiresAt <= Date.now()) {
+      this.presentedIdentityByUser.delete(userId)
+      return null
+    }
+    return grant
+  }
+
+  async clearPresentedIdentity(userId: string): Promise<boolean> {
+    return this.presentedIdentityByUser.delete(userId)
   }
 }
 

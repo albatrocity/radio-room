@@ -2,7 +2,13 @@ import { checkbox, confirm, input, search, select } from "@inquirer/prompts"
 import type { LucideIconName } from "@repo/types"
 
 export type Rarity = "common" | "uncommon" | "rare" | "legendary"
-export type RequiresTarget = "self" | "user" | "queueItem" | "inventoryItem" | "coinAmount"
+export type RequiresTarget =
+  | "self"
+  | "user"
+  | "queueItem"
+  | "inventoryItem"
+  | "userInventoryItem"
+  | "coinAmount"
 export type BehaviorKind = "timedModifier" | "passiveDefense" | "customHandler" | "none"
 
 export type EffectType = "flag" | "multiplier" | "additive"
@@ -144,6 +150,7 @@ export async function promptForItemConfig(context: PromptContext): Promise<ItemW
       { value: "user", name: "user" },
       { value: "queueItem", name: "queueItem" },
       { value: "inventoryItem", name: "inventoryItem" },
+      { value: "userInventoryItem", name: "userInventoryItem" },
       { value: "coinAmount", name: "coinAmount" },
     ],
   })

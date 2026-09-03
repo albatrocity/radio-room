@@ -32,6 +32,7 @@ const EMPTY_PAYLOAD: UserGameStatePayload = {
   inventory: null,
   itemDefinitions: [],
   pluginUserState: {},
+  presentedIdentity: null,
 }
 
 export async function getUserGameState(params: {
@@ -109,6 +110,9 @@ export async function getUserGameState(params: {
     ? await registry.invokeContributeToUserGameState(roomId, userId, { itemDefinitions })
     : {}
 
+  const { getPresentedIdentity } = await import("../presentedIdentity")
+  const presentedIdentity = await getPresentedIdentity({ context, roomId, userId })
+
   let pendingGifts: { incoming: GiftOffer[]; outgoing: GiftOffer[] } | undefined
   let pendingTradeInvites: { incoming: TradeInvite[]; outgoing: TradeInvite[] } | undefined
   let activeTrade: TradeSession | null | undefined
@@ -131,5 +135,6 @@ export async function getUserGameState(params: {
     pendingGifts,
     pendingTradeInvites,
     activeTrade: activeTrade ?? null,
+    presentedIdentity,
   }
 }
