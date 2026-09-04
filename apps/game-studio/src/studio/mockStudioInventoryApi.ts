@@ -6,8 +6,10 @@ import type {
   ItemUseResult,
   UserInventory,
 } from "@repo/types"
+import { capForPool, resolveSlotPool } from "@repo/types"
 import type { StudioRoom } from "./studioRoom"
 import type { StudioPluginRegistry } from "./studioPluginRegistry"
+import { DEFAULT_PLAYBACK_SLOTS } from "./buildSessionConfig"
 import { newId } from "./id"
 
 export class MockStudioInventoryApi implements InventoryPluginAPI {
@@ -43,6 +45,7 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
 
     const maxSlots = session.config.maxInventorySlots
     const maxCollectionSlots = session.config.maxCollectionSlots
+    const maxPlaybackSlots = session.config.maxPlaybackSlots ?? DEFAULT_PLAYBACK_SLOTS
     let inv = [...this.room.getInventory(userId)]
 
     if (def.stackable) {
@@ -62,13 +65,15 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
       }
     }
 
-    const pool = def.slotPool === "collection" ? "collection" : "inventory"
+    const pool = resolveSlotPool(def)
     const used = inv.filter((i) => {
       const d = this.room.getDefinition(i.definitionId)
-      const p = d?.slotPool === "collection" ? "collection" : "inventory"
-      return p === pool
+      return resolveSlotPool(d) === pool
     }).length
-    const cap = pool === "collection" ? maxCollectionSlots : maxSlots
+    const cap = capForPool(
+      { maxSlots, maxCollectionSlots, maxPlaybackSlots },
+      pool,
+    )
     if (used >= cap) return null
 
     const item: InventoryItem = {
@@ -192,7 +197,16 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     const session = this.room.activeSession
     const maxSlots = session?.config.maxInventorySlots ?? 0
     const maxCollectionSlots = session?.config.maxCollectionSlots ?? 0
-    return { userId, items: [...this.room.getInventory(userId)], maxSlots, maxCollectionSlots }
+    const maxPlaybackSlots = session
+      ? (session.config.maxPlaybackSlots ?? DEFAULT_PLAYBACK_SLOTS)
+      : 0
+    return {
+      userId,
+      items: [...this.room.getInventory(userId)],
+      maxSlots,
+      maxCollectionSlots,
+      maxPlaybackSlots,
+    }
   }
 
   async hasItem(userId: string, definitionId: string, minQuantity = 1): Promise<boolean> {

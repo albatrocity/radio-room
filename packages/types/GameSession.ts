@@ -283,6 +283,12 @@ export interface GameSessionConfig {
   maxInventorySlots: number
   /** Durable collection cap (Physical Media). Defaults with inventory slots. */
   maxCollectionSlots: number
+  /**
+   * Playback-device cap (CD Player, Turntable, …). Defaults to 2 — fewer than
+   * the four devices, so the Boombox's two-format coverage is a space-saving
+   * choice rather than a strict upgrade (ADR 0160).
+   */
+  maxPlaybackSlots: number
   allowTrading: boolean
   allowSelling: boolean
   /**

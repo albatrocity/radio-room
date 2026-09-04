@@ -11,6 +11,10 @@ export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] 
   { shortId: items.cdCleaner.shortId, coinValue: 40 },
   { shortId: items.dustCloth.shortId, coinValue: 40 },
   { shortId: items.pencil.shortId, coinValue: 25 },
+  { shortId: items.cdPlayer.shortId, coinValue: 80 },
+  { shortId: items.cassetteDeck.shortId, coinValue: 80 },
+  { shortId: items.turntable.shortId, coinValue: 80 },
+  { shortId: items.boombox.shortId, coinValue: 150 },
 ]
 
 /**

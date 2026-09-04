@@ -14,7 +14,12 @@ import {
   failIfSelfTransfer,
   failIfTradingDisabled,
 } from "@repo/game-logic"
-import { PLAYER_TRANSFER_TTL_MS, TRADE_MESSAGE_MAX_LENGTH, draftFromEscrowedOffer } from "@repo/types"
+import {
+  PLAYER_TRANSFER_TTL_MS,
+  TRADE_MESSAGE_MAX_LENGTH,
+  draftFromEscrowedOffer,
+  resolveSlotPool,
+} from "@repo/types"
 import generateId from "../lib/generateId"
 import { InventoryService } from "./InventoryService"
 import { canAccommodateOfferList, deliverOffer, refundEscrow } from "./trade/tradeEscrow"
@@ -24,7 +29,6 @@ import {
   emptyParticipant,
   isInviteExpired,
   openTradesKey,
-  slotPoolOf,
   tradeKey,
 } from "./trade/tradeKeys"
 
@@ -244,7 +248,7 @@ export class TradeService {
         quantity: qty,
         definitionId: item.definitionId,
         itemName: def.name,
-        slotPool: slotPoolOf(def),
+        slotPool: resolveSlotPool(def),
       })
     }
 
@@ -350,7 +354,7 @@ export class TradeService {
             quantity: qty,
             metadata: item.metadata,
             itemName: def.name,
-            slotPool: slotPoolOf(def),
+            slotPool: resolveSlotPool(def),
           })
         }
 

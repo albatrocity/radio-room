@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Badge, Box, Center, HStack, Heading, Stack, Text, VStack } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition, MediaCondition } from "@repo/types"
-import { isMediaCondition, PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
+import { isMediaCondition, PHYSICAL_MEDIA_CONDITION_KEY, resolveSlotPool } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket } from "../../../actors/socketActor"
 import { subscribeInventoryActionResult } from "../../../lib/inventoryActionResult"
@@ -23,6 +23,7 @@ interface InventoryTabProps {
   items: InventoryItem[]
   maxSlots: number
   maxCollectionSlots: number
+  maxPlaybackSlots: number
   definitionMap: Map<string, ItemDefinition>
   coinBalance: number
 }
@@ -192,18 +193,23 @@ function InventoryTab({
   items,
   maxSlots,
   maxCollectionSlots,
+  maxPlaybackSlots,
   definitionMap,
   coinBalance,
 }: InventoryTabProps) {
   const hasPeek = useHasInventoryPeek()
-  const inventoryItems = items.filter(
-    (item) => (definitionMap.get(item.definitionId)?.slotPool ?? "inventory") !== "collection",
-  )
-  const collectionItems = items.filter(
-    (item) => definitionMap.get(item.definitionId)?.slotPool === "collection",
-  )
+  const inventoryItems: InventoryItem[] = []
+  const collectionItems: InventoryItem[] = []
+  const playbackItems: InventoryItem[] = []
+  for (const item of items) {
+    const pool = resolveSlotPool(definitionMap.get(item.definitionId))
+    if (pool === "collection") collectionItems.push(item)
+    else if (pool === "playback") playbackItems.push(item)
+    else inventoryItems.push(item)
+  }
   const emptyInventory = maxSlots > 0 ? Math.max(0, maxSlots - inventoryItems.length) : 0
   const showInventoryGrid = maxSlots > 0
+  const showPlayback = playbackItems.length > 0
   const showCollection = collectionItems.length > 0
 
   return (
@@ -243,6 +249,31 @@ function InventoryTab({
               <EmptyInventorySlot key={`empty-inv-${i}`} />
             ))}
         </Stack>
+      )}
+
+      {showPlayback && (
+        <Box mt={6}>
+          <HStack justify="space-between" align="baseline" mb={2}>
+            <Heading size="sm">Playback Devices</Heading>
+            {maxPlaybackSlots > 0 && (
+              <Text fontSize="xs" color="fg.muted">
+                {playbackItems.length} / {maxPlaybackSlots} slots
+              </Text>
+            )}
+          </HStack>
+          <Stack gap={2}>
+            {playbackItems.map((item) => (
+              <InventoryRow
+                key={item.itemId}
+                item={item}
+                definition={definitionMap.get(item.definitionId)}
+                allItems={items}
+                definitionMap={definitionMap}
+                coinBalance={coinBalance}
+              />
+            ))}
+          </Stack>
+        </Box>
       )}
 
       {showCollection && (

@@ -1,4 +1,4 @@
-import type { InventoryItem, ItemDefinition, LucideIconName } from "@repo/types"
+import type { InventoryItem, ItemDefinition, LucideIconName, PhysicalMediaFormat } from "@repo/types"
 import type { ItemCatalogEntry, LocalLibraryGrant } from "@repo/plugin-base/helpers"
 import type { LocalLibraryGrantConfig } from "./config"
 
@@ -19,6 +19,7 @@ export type HeldLocalLibraryGrant = {
   name: string
   itemId: string
   grant: LocalLibraryGrant
+  mediaFormat?: PhysicalMediaFormat
 }
 
 export function definitionIdForShortId(pluginName: string, shortId: string): string {
@@ -122,6 +123,9 @@ export function listHeldLocalLibraryGrants(params: {
       name: entry!.definition.name,
       itemId: item.itemId,
       grant,
+      ...(entry!.definition.mediaFormat
+        ? { mediaFormat: entry!.definition.mediaFormat }
+        : {}),
     })
   }
   out.sort((a, b) => a.definitionId.localeCompare(b.definitionId))
@@ -196,6 +200,25 @@ export function pickGrantToConsume(params: {
 
   const library = consumable.find((h) => h.grant.scope === "library")
   return library ?? null
+}
+
+/** Durable grants that currently cover this track (library cards plus matching records). */
+export function matchingDurableRecords(
+  held: HeldLocalLibraryGrant[],
+  trackInPlaylistKey: Record<string, boolean>,
+  trackInAlbumKey: Record<string, boolean>,
+): HeldLocalLibraryGrant[] {
+  return held.filter((h) => {
+    if (h.grant.redemption !== "durable") return false
+    if (h.grant.scope === "library") return true
+    if (h.grant.scope === "playlist") {
+      return trackInPlaylistKey[h.grant.playlistKey] === true
+    }
+    if (h.grant.scope === "album") {
+      return trackInAlbumKey[h.grant.albumKey] === true
+    }
+    return false
+  })
 }
 
 /** Passive Use message for grant items (they redeem on queue, not Use). */

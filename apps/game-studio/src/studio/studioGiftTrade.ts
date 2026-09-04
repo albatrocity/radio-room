@@ -2,7 +2,6 @@ import type {
   GiftActionResult,
   GiftOffer,
   InventoryItem,
-  ItemDefinition,
   TradeActionResult,
   TradeDraftItem,
   TradeInvite,
@@ -20,16 +19,12 @@ import {
   failIfTradingDisabled,
 } from "@repo/game-logic"
 import { PLAYER_TRANSFER_TTL_MS } from "@repo/types/PlayerTransfer"
-import { TRADE_MESSAGE_MAX_LENGTH, draftFromEscrowedOffer } from "@repo/types"
+import { TRADE_MESSAGE_MAX_LENGTH, draftFromEscrowedOffer, resolveSlotPool } from "@repo/types"
 import type { StudioRoom } from "./studioRoom"
 import { getStudio } from "./studioEnvironment"
 
 function newId(): string {
   return crypto.randomUUID()
-}
-
-function slotPoolOf(def: ItemDefinition | null | undefined): "inventory" | "collection" {
-  return def?.slotPool === "collection" ? "collection" : "inventory"
 }
 
 function emptyParticipant(userId: string): TradeParticipantState {
@@ -348,7 +343,7 @@ export function studioTradeSetOffer(params: {
       quantity: qty,
       definitionId: item.definitionId,
       itemName: def.name,
-      slotPool: slotPoolOf(def),
+      slotPool: resolveSlotPool(def),
     })
   }
 
@@ -446,7 +441,7 @@ export async function studioTradeLock(params: {
       quantity: qty,
       metadata: item.metadata,
       itemName: def.name,
-      slotPool: slotPoolOf(def),
+      slotPool: resolveSlotPool(def),
     })
   }
 

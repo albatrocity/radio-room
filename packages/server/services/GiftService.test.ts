@@ -14,6 +14,7 @@ function makeSession(overrides?: Partial<GameSession["config"]>): GameSession {
     config: {
       maxInventorySlots: 3,
       maxCollectionSlots: 5,
+      maxPlaybackSlots: 2,
       allowTrading: true,
       ...overrides,
     },

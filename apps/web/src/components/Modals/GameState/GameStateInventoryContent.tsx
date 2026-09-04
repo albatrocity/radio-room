@@ -39,6 +39,7 @@ function GameStateInventoryContent() {
     rawInventoryItems && rawInventoryItems.length > 0 ? rawInventoryItems : EMPTY_INVENTORY_ITEMS
   const maxSlots = gameState?.inventory?.maxSlots ?? 0
   const maxCollectionSlots = gameState?.inventory?.maxCollectionSlots ?? 0
+  const maxPlaybackSlots = gameState?.inventory?.maxPlaybackSlots ?? 0
   const definitionMap = gameState?.definitionMap ?? EMPTY_DEFINITION_MAP
 
   const enabledAttributesForGrid = enabledAttributes.filter((a) => a !== "score" && a !== "coin")
@@ -77,6 +78,7 @@ function GameStateInventoryContent() {
           items={inventoryItems}
           maxSlots={maxSlots}
           maxCollectionSlots={maxCollectionSlots}
+          maxPlaybackSlots={maxPlaybackSlots}
           definitionMap={definitionMap}
           coinBalance={attributes.coin ?? 0}
         />

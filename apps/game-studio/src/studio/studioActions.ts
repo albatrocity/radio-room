@@ -97,6 +97,7 @@ export async function startStudioGameSession(): Promise<void> {
     initialValues: { coin: 25, score: 0 },
     maxInventorySlots: 12,
     maxCollectionSlots: 12,
+    maxPlaybackSlots: 2,
     allowSelling: true,
     allowTrading: true,
   })

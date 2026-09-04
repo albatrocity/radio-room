@@ -23,6 +23,7 @@ function minimalSnap(overrides: Partial<BridgeSnapshot> = {}): BridgeSnapshot {
         inventoryEnabled: true,
         maxInventorySlots: 10,
         maxCollectionSlots: 12,
+        maxPlaybackSlots: 2,
         allowTrading: false,
         allowSelling: true,
         physicalMediaWearForAdmins: true,
@@ -116,6 +117,38 @@ describe("buildUserGameStatePayload", () => {
       outgoing: [],
     })
     expect(payload.activeTrade).toEqual(trade)
+  })
+
+  it("attaches 50% sellbackValue on playback devices", () => {
+    const def = {
+      id: "item-shops:cd-player",
+      shortId: "cd-player",
+      sourcePlugin: "item-shops",
+      name: "CD Player",
+      description: "",
+      stackable: false,
+      maxStack: 1,
+      tradeable: true,
+      consumable: false,
+      slotPool: "playback" as const,
+      coinValue: 80,
+      icon: "Disc2",
+    }
+    const item = {
+      itemId: "dev-1",
+      definitionId: def.id,
+      sourcePlugin: "item-shops",
+      quantity: 1,
+      acquiredAt: 1,
+    }
+    const payload = buildUserGameStatePayload(
+      minimalSnap({
+        itemDefinitions: [def],
+        inventories: { u1: [item] },
+      }),
+      "u1",
+    )
+    expect(payload.inventory?.items).toEqual([{ ...item, sellbackValue: 40 }])
   })
 
   it("includes pendingTradeInvites for the viewer", () => {

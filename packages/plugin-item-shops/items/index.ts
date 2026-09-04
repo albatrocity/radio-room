@@ -31,6 +31,10 @@ import { tangledTape } from "./tangled-tape"
 import { cdCleaner } from "./cd-cleaner"
 import { dustCloth } from "./dust-cloth"
 import { pencil } from "./pencil"
+import { cdPlayer } from "./cd-player"
+import { cassetteDeck } from "./cassette-deck"
+import { turntable } from "./turntable"
+import { boombox } from "./boombox"
 import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
 import { vanCubby } from "./van-cubby"
@@ -62,6 +66,10 @@ export const items = {
   cdCleaner,
   dustCloth,
   pencil,
+  cdPlayer,
+  cassetteDeck,
+  turntable,
+  boombox,
   analogDelayPedal,
   fuzzPedal,
   tubeOverdrive,

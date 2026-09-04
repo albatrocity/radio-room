@@ -32,6 +32,7 @@ export default function GameSessions() {
   const [initialCoinsInput, setInitialCoinsInput] = useState("")
   const [inventorySlotsInput, setInventorySlotsInput] = useState("3")
   const [collectionSlotsInput, setCollectionSlotsInput] = useState("12")
+  const [playbackSlotsInput, setPlaybackSlotsInput] = useState("2")
   const [allowTrading, setAllowTrading] = useState(false)
   const [physicalMediaWearForAdmins, setPhysicalMediaWearForAdmins] = useState(true)
   const [activeSession, setActiveSession] = useState<GameSession | null>(null)
@@ -224,6 +225,8 @@ export default function GameSessions() {
     if (Number.isNaN(maxInventorySlots)) return
     const maxCollectionSlots = parseSlots(collectionSlotsInput, "collection slots")
     if (Number.isNaN(maxCollectionSlots)) return
+    const maxPlaybackSlots = parseSlots(playbackSlotsInput, "playback slots")
+    if (Number.isNaN(maxPlaybackSlots)) return
 
     actionPendingRef.current = true
     setActionLoading(true)
@@ -232,6 +235,7 @@ export default function GameSessions() {
       ...(initialCoins != null ? { initialCoins } : {}),
       ...(maxInventorySlots != null ? { maxInventorySlots } : {}),
       ...(maxCollectionSlots != null ? { maxCollectionSlots } : {}),
+      ...(maxPlaybackSlots != null ? { maxPlaybackSlots } : {}),
       allowTrading,
       physicalMediaWearForAdmins,
     })
@@ -442,6 +446,22 @@ export default function GameSessions() {
             />
             <Field.HelperText>
               Durable Physical Media holdings. Default is 12.
+            </Field.HelperText>
+          </Field.Root>
+
+          <Field.Root>
+            <Field.Label>Playback slots</Field.Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={playbackSlotsInput}
+              onChange={(e) => setPlaybackSlotsInput(e.target.value)}
+              disabled={actionLoading || statusLoading}
+            />
+            <Field.HelperText>
+              Playback devices (CD player, turntable, …). Default is 2.
             </Field.HelperText>
           </Field.Root>
 

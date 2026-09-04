@@ -74,6 +74,36 @@ export function isPhysicalMediaFormat(value: unknown): value is PhysicalMediaFor
   return typeof value === "string" && (PHYSICAL_MEDIA_FORMATS as readonly string[]).includes(value)
 }
 
+/** Session slot pools. Default (omitted / unknown) is the consumable bag. */
+export type ItemSlotPool = "inventory" | "collection" | "playback"
+export const ITEM_SLOT_POOLS = ["inventory", "collection", "playback"] as const
+
+/** Default pool is the bag. Written once so the three-way widening cannot drift. */
+export function resolveSlotPool(
+  def?: { slotPool?: string | null } | null,
+): ItemSlotPool {
+  return def?.slotPool === "collection" || def?.slotPool === "playback"
+    ? def.slotPool
+    : "inventory"
+}
+
+/** UI headings and system-message labels, keyed by pool. */
+export const SLOT_POOL_LABELS: Record<ItemSlotPool, string> = {
+  inventory: "Inventory",
+  collection: "Collection",
+  playback: "Playback Devices",
+}
+
+/** Effective cap for a pool on a `UserInventory` / session config pair. */
+export function capForPool(
+  caps: Pick<UserInventory, "maxSlots" | "maxCollectionSlots" | "maxPlaybackSlots">,
+  pool: ItemSlotPool,
+): number {
+  if (pool === "collection") return caps.maxCollectionSlots
+  if (pool === "playback") return caps.maxPlaybackSlots
+  return caps.maxSlots
+}
+
 /** Wear ladder for Physical Media copies (ADR 0155). Absent metadata reads as mint. */
 export type MediaCondition = "mint" | "good" | "poor"
 
@@ -198,6 +228,12 @@ export interface ItemDefinition {
    */
   mediaFormat?: PhysicalMediaFormat
   /**
+   * Formats this item can play. Holding one is required to queue a track from a
+   * record whose `mediaFormat` is listed here (ADR 0160). Distinct from
+   * `mediaFormat`, which says what format the item *is*.
+   */
+  playbackFormats?: PhysicalMediaFormat[]
+  /**
    * When set, Inventory / shop UIs show a Details action that opens the Game
    * State item detail subroute (ADR 0104).
    */
@@ -219,9 +255,10 @@ export interface ItemDefinition {
   rarity?: ItemRarity
   /**
    * Which session slot pool this item occupies. `"inventory"` (default) is the
-   * consumable/tool bag; `"collection"` is durable holdings (Physical Media).
+   * consumable/tool bag; `"collection"` is durable holdings (Physical Media);
+   * `"playback"` is playback devices (ADR 0160).
    */
-  slotPool?: "inventory" | "collection"
+  slotPool?: ItemSlotPool
   /**
    * When `"user"`, the inventory UI opens a target picker and sends `targetUserId`
    * with `USE_INVENTORY_ITEM`; plugins read it from `onItemUsed` `callContext`.
@@ -277,6 +314,8 @@ export interface UserInventory {
   maxSlots: number
   /** Effective collection slot cap (mirrors `GameSessionConfig.maxCollectionSlots`). */
   maxCollectionSlots: number
+  /** Effective playback-device slot cap (mirrors `GameSessionConfig.maxPlaybackSlots`). */
+  maxPlaybackSlots: number
 }
 
 /**
@@ -294,7 +333,7 @@ export interface UserInventoryPeekItem {
   artworkFrame?: ArtworkFrame
   rarity?: ItemRarity
   tradeable: boolean
-  slotPool: "inventory" | "collection"
+  slotPool: ItemSlotPool
 }
 
 /** Same-socket reply for `PEEK_USER_INVENTORY`. */

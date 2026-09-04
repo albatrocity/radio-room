@@ -2,6 +2,8 @@ import {
   allowQueueRequest,
   parseArtworkFrame,
   rejectQueueRequest,
+  type InventoryItem,
+  type ItemDefinition,
   type MetadataSourceAccessGrantParams,
   type MetadataSourceAccessGrantResult,
   type PhysicalMediaItem,
@@ -40,6 +42,7 @@ import {
   definitionIdForShortId,
   isLocalLibraryGrantShortId,
   listHeldLocalLibraryGrants,
+  matchingDurableRecords,
   pickGrantToConsume,
   playlistMapFromGrantConfig,
   resolveLocalCatalogScope,
@@ -47,6 +50,11 @@ import {
   type HeldLocalLibraryGrant,
   type LocalCatalogScope,
 } from "./grants"
+import {
+  PLAYBACK_DEVICE_MISSING_REASON,
+  playableFormats,
+  requiresPlaybackDevice,
+} from "./playbackDevices"
 
 function physicalMediaArtworkFields(definition?: ItemCatalogEntry["definition"]): {
   icon?: ItemCatalogEntry["definition"]["icon"]
@@ -590,7 +598,13 @@ export class LocalLibraryModule {
     if (isAdmin && !wearForAdmins) return allowQueueRequest()
 
     const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
-    const held = await this.getHeldGrants(params.userId)
+    const inv = await context.inventory.getInventory(params.userId)
+    const items = inv.items
+    const held = listHeldLocalLibraryGrants({
+      pluginName: this.pluginName,
+      items,
+      grantCatalog: this.grantCatalog,
+    })
     if (held.length === 0) {
       return rejectQueueRequest(LOCAL_LIBRARY_QUEUE_REJECT_REASON)
     }
@@ -642,19 +656,21 @@ export class LocalLibraryModule {
       }
     }
 
-    const coveredByDurable = held.some((h) => {
-      if (h.grant.redemption !== "durable") return false
-      if (h.grant.scope === "library") return true
-      if (h.grant.scope === "playlist") {
-        return trackInPlaylistKey[h.grant.playlistKey] === true
+    const durableMatches = matchingDurableRecords(held, trackInPlaylistKey, trackInAlbumKey)
+    if (durableMatches.length > 0) {
+      const needsDevice = durableMatches.filter(requiresPlaybackDevice)
+      // A library card or operator grant covers the track outright.
+      if (needsDevice.length < durableMatches.length) {
+        await this.wearRecordForQueue(params, durableMatches, items)
+        return allowQueueRequest()
       }
-      if (h.grant.scope === "album") {
-        return trackInAlbumKey[h.grant.albumKey] === true
+      const definitionById = this.definitionMapForItems()
+      const devices = playableFormats({ items, definitionById })
+      const playable = needsDevice.filter((h) => h.mediaFormat && devices.has(h.mediaFormat))
+      if (playable.length === 0) {
+        return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
       }
-      return false
-    })
-    if (coveredByDurable) {
-      await this.wearRecordForQueue(params, held, trackInPlaylistKey, trackInAlbumKey)
+      await this.wearRecordForQueue(params, playable, items)
       return allowQueueRequest()
     }
 
@@ -677,32 +693,21 @@ export class LocalLibraryModule {
 
   /**
    * Degrade (or convert) the worst matching playlist/album record. Never rejects.
+   * `matching` is already membership- and (when required) format-filtered.
    */
   private async wearRecordForQueue(
     params: QueueValidationParams,
-    held: HeldLocalLibraryGrant[],
-    trackInPlaylistKey: Record<string, boolean>,
-    trackInAlbumKey: Record<string, boolean>,
+    matching: HeldLocalLibraryGrant[],
+    items: InventoryItem[],
   ): Promise<void> {
     const context = this.getContext()
     if (!context) return
 
-    const matching = held.filter((h) => {
-      if (h.grant.redemption !== "durable") return false
-      if (h.grant.scope === "library") return false
-      if (h.grant.scope === "playlist") {
-        return trackInPlaylistKey[h.grant.playlistKey] === true
-      }
-      if (h.grant.scope === "album") {
-        return trackInAlbumKey[h.grant.albumKey] === true
-      }
-      return false
-    })
-    if (matching.length === 0) return
+    const wearable = matching.filter((h) => h.grant.scope !== "library")
+    if (wearable.length === 0) return
 
-    const inv = await context.inventory.getInventory(params.userId)
-    const byItemId = new Map(inv.items.map((item) => [item.itemId, item]))
-    const ranked = matching
+    const byItemId = new Map(items.map((item) => [item.itemId, item]))
+    const ranked = wearable
       .map((h) => {
         const item = byItemId.get(h.itemId)
         if (!item) return null
@@ -732,10 +737,8 @@ export class LocalLibraryModule {
       return
     }
 
-    const definition = await context.inventory.getItemDefinition(chosen.held.definitionId)
     const broken = brokenMediaForRecord({
-      mediaFormat: definition?.mediaFormat,
-      artworkFrame: definition?.artworkFrame,
+      mediaFormat: chosen.held.mediaFormat,
     })
     await context.inventory.removeItem(params.userId, chosen.held.itemId, 1)
 
@@ -755,9 +758,14 @@ export class LocalLibraryModule {
       }
     }
     const transition = broken?.transitionMessage(recordName) ?? `${recordName} wore out.`
+    const queuedLine = "The track was added to the queue."
+    const description =
+      broken && !given
+        ? `${queuedLine} You had no room to keep the worn-out copy.`
+        : queuedLine
     await context.api.sendUserToast(params.roomId, params.userId, {
       title: transition,
-      ...(broken && !given ? { description: "…but you had no room to keep it." } : {}),
+      description,
       type: "warning",
       source: "item-shops",
     })
@@ -791,6 +799,21 @@ export class LocalLibraryModule {
       items,
       grantCatalog: this.grantCatalog,
     })
+  }
+
+  /** In-memory catalog map so the queue hot path does not re-fetch definitions. */
+  private definitionMapForItems(): Map<string, ItemDefinition> {
+    const m = new Map<string, ItemDefinition>()
+    for (const e of [...ITEM_CATALOG, ...this.grantCatalog]) {
+      const id = definitionIdForShortId(this.pluginName, e.definition.shortId)
+      if (m.has(id)) continue
+      m.set(id, {
+        id,
+        sourcePlugin: this.pluginName,
+        ...e.definition,
+      })
+    }
+    return m
   }
 
   /**

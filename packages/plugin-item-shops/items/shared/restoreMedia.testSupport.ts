@@ -86,6 +86,7 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
       items: [target],
       maxSlots: 20,
       maxCollectionSlots: 20,
+      maxPlaybackSlots: 20,
     })
     vi.mocked(deps.context.inventory.getItemDefinition).mockImplementation(async (id) => {
       return defsById.get(id) ?? extra?.allDefs?.find((d) => d.id === id) ?? null

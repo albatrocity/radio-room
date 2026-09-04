@@ -111,6 +111,7 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
       initialCoins?: number
       maxInventorySlots?: number
       maxCollectionSlots?: number
+      maxPlaybackSlots?: number
       allowTrading?: boolean
       physicalMediaWearForAdmins?: boolean
     }) => {

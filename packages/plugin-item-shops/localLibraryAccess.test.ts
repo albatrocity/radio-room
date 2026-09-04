@@ -9,6 +9,7 @@ import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
 import { RECORD_STORE_SHOP_ID } from "./localLibrary/catalog"
 import { physicalMediaAlbumShortId } from "./localLibrary/physicalMedia"
 import { LOCAL_LIBRARY_QUEUE_REJECT_REASON } from "./localLibrary/grants"
+import { PLAYBACK_DEVICE_MISSING_REASON } from "./localLibrary/playbackDevices"
 import { queueItemFactory } from "@repo/factories"
 
 const ROOM = "room-1"
@@ -18,6 +19,10 @@ const BURNED_CD_SHORT_ID = "burned-cd-bargain-bin"
 const BURNED_CD_DEF_ID = `item-shops:${BURNED_CD_SHORT_ID}`
 const PM_SHORT_ID = "pm-loveless"
 const PM_DEF_ID = `item-shops:${PM_SHORT_ID}`
+const CD_SHORT_ID = "pm-kid-a"
+const CD_DEF_ID = `item-shops:${CD_SHORT_ID}`
+const TURNTABLE_DEF_ID = "item-shops:turntable"
+const CD_PLAYER_DEF_ID = "item-shops:cd-player"
 
 function createStorage() {
   return {
@@ -117,6 +122,62 @@ const DERIVED_PM: ItemCatalogEntry = {
   },
 }
 
+const DERIVED_CD: ItemCatalogEntry = {
+  definition: {
+    shortId: CD_SHORT_ID,
+    name: "CD: Kid A",
+    description: "",
+    icon: "Disc2",
+    artworkFrame: "jewel-case",
+    mediaFormat: "CD",
+    stackable: false,
+    maxStack: 1,
+    tradeable: true,
+    consumable: false,
+    coinValue: 20,
+    rarity: "uncommon",
+    slotPool: "collection",
+  },
+  localLibraryGrant: {
+    scope: "playlist",
+    playlistKey: CD_SHORT_ID,
+    redemption: "durable",
+  },
+}
+
+function cdStack(overrides?: Partial<InventoryItem>): InventoryItem {
+  return {
+    itemId: "cd-stack-1",
+    definitionId: CD_DEF_ID,
+    sourcePlugin: "item-shops",
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
+function turntableStack(overrides?: Partial<InventoryItem>): InventoryItem {
+  return {
+    itemId: "turntable-stack-1",
+    definitionId: TURNTABLE_DEF_ID,
+    sourcePlugin: "item-shops",
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
+function cdPlayerStack(overrides?: Partial<InventoryItem>): InventoryItem {
+  return {
+    itemId: "cd-player-stack-1",
+    definitionId: CD_PLAYER_DEF_ID,
+    sourcePlugin: "item-shops",
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
 function setup(options?: {
   enabled?: boolean
   playbackControllerId?: string
@@ -127,6 +188,11 @@ function setup(options?: {
   hasPhysicalMedia?: boolean
   physicalMediaMetadata?: Record<string, unknown>
   extraPhysicalMedia?: InventoryItem[]
+  extraItems?: InventoryItem[]
+  extraDerivedPhysicalMedia?: ItemCatalogEntry[]
+  extraPlaylistMap?: Record<string, string>
+  /** Default true when `hasPhysicalMedia` so existing LP queue tests keep a Turntable. */
+  hasPlaybackDevice?: boolean
   giveItemResult?: InventoryItem | null
   physicalMediaWearForAdmins?: boolean
   physicalMediaImageUrl?: string
@@ -148,6 +214,9 @@ function setup(options?: {
   if (hasBurnedCd) stacks.push(burnedCdStack())
   if (hasPhysicalMedia) stacks.push(physicalMediaStack({ metadata: options?.physicalMediaMetadata }))
   if (options?.extraPhysicalMedia) stacks.push(...options.extraPhysicalMedia)
+  if (options?.extraItems) stacks.push(...options.extraItems)
+  const hasPlaybackDevice = options?.hasPlaybackDevice ?? hasPhysicalMedia
+  if (hasPlaybackDevice) stacks.push(turntableStack())
 
   const grants = [
     ...(hasLibraryGrant ? [LIBRARY_GRANT] : []),
@@ -170,6 +239,7 @@ function setup(options?: {
       items: stacks,
       maxSlots: 20,
       maxCollectionSlots: 20,
+      maxPlaybackSlots: 20,
     })),
     removeItem: vi.fn(async (_userId: string, itemId: string) => {
       if (options?.removeItemSucceeds === false) return false
@@ -194,6 +264,13 @@ function setup(options?: {
           id: PM_DEF_ID,
           sourcePlugin: "item-shops",
           ...DERIVED_PM.definition,
+        }
+      }
+      if (id === CD_DEF_ID) {
+        return {
+          id: CD_DEF_ID,
+          sourcePlugin: "item-shops",
+          ...DERIVED_CD.definition,
         }
       }
       return null
@@ -272,6 +349,18 @@ function setup(options?: {
     ]
     localLibrary.derivedPlaylistMap = { [PM_SHORT_ID]: "nd-lp" }
   }
+  if (options?.extraDerivedPhysicalMedia) {
+    localLibrary.derivedPhysicalMedia = [
+      ...localLibrary.derivedPhysicalMedia,
+      ...options.extraDerivedPhysicalMedia,
+    ]
+  }
+  if (options?.extraPlaylistMap) {
+    localLibrary.derivedPlaylistMap = {
+      ...localLibrary.derivedPlaylistMap,
+      ...options.extraPlaylistMap,
+    }
+  }
   if (options?.derivedAlbum) {
     const albumShort = options.derivedAlbum.shortId
     const albumEntry: ItemCatalogEntry = {
@@ -326,6 +415,10 @@ describe("getEligibleShops", () => {
     expect(recordStore.availableItems.some((i) => i.shortId === "scratched-cd")).toBe(true)
     expect(recordStore.availableItems.some((i) => i.shortId === "dusty-record")).toBe(true)
     expect(recordStore.availableItems.some((i) => i.shortId === "tangled-tape")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "cd-player")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "cassette-deck")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "turntable")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "boombox")).toBe(true)
   })
 
   it("omits Record Store when no records derive", () => {
@@ -795,6 +888,7 @@ describe("ItemShopsPlugin local library grants", () => {
         "u1",
         expect.objectContaining({
           title: expect.stringContaining("dusty"),
+          description: expect.stringMatching(/added to the queue/i),
           type: "warning",
         }),
       )
@@ -817,7 +911,7 @@ describe("ItemShopsPlugin local library grants", () => {
         "u1",
         expect.objectContaining({
           title: expect.stringContaining("dusty"),
-          description: expect.stringMatching(/no room to keep it/i),
+          description: expect.stringMatching(/added to the queue.*no room/i),
           type: "warning",
         }),
       )
@@ -930,6 +1024,93 @@ describe("ItemShopsPlugin local library grants", () => {
       })
       const result = await plugin.validateQueueRequest(localParams)
       expect(result).toEqual({ allowed: true })
+    })
+
+    it("rejects a CD with no playback device", async () => {
+      const { plugin } = setup({
+        extraItems: [cdStack()],
+        extraDerivedPhysicalMedia: [DERIVED_CD],
+        extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
+        membershipPlaylistIds: ["nd-cd"],
+        hasPlaybackDevice: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({
+        allowed: false,
+        reason: PLAYBACK_DEVICE_MISSING_REASON,
+      })
+    })
+
+    it("allows a CD when the user holds a CD Player, and the CD degrades", async () => {
+      const { plugin, inventory } = setup({
+        extraItems: [cdStack(), cdPlayerStack()],
+        extraDerivedPhysicalMedia: [DERIVED_CD],
+        extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
+        membershipPlaylistIds: ["nd-cd"],
+        hasPlaybackDevice: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "cd-stack-1", {
+        condition: "good",
+      })
+    })
+
+    it("rejects a CD when the user only holds a Turntable", async () => {
+      const { plugin } = setup({
+        extraItems: [cdStack(), turntableStack()],
+        extraDerivedPhysicalMedia: [DERIVED_CD],
+        extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
+        membershipPlaylistIds: ["nd-cd"],
+        hasPlaybackDevice: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({
+        allowed: false,
+        reason: PLAYBACK_DEVICE_MISSING_REASON,
+      })
+    })
+
+    it("wears the LP, not the CD, when both copies are held with only a Turntable", async () => {
+      const { plugin, inventory } = setup({
+        hasPhysicalMedia: true,
+        extraPhysicalMedia: [cdStack()],
+        extraDerivedPhysicalMedia: [DERIVED_CD],
+        extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
+        membershipPlaylistIds: ["nd-lp", "nd-cd"],
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "pm-stack-1", {
+        condition: "good",
+      })
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalledWith(
+        "u1",
+        "cd-stack-1",
+        expect.anything(),
+      )
+    })
+
+    it("allows a library-scope grant with no playback device", async () => {
+      const { plugin, inventory } = setup({
+        hasLibraryGrant: true,
+        hasPlaybackDevice: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "library-grant-stack-1", 1)
+    })
+
+    it("allows an admin with wear off and no device", async () => {
+      const { plugin, inventory } = setup({
+        hasPhysicalMedia: true,
+        isAdmin: true,
+        physicalMediaWearForAdmins: false,
+        hasPlaybackDevice: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
     })
   })
 

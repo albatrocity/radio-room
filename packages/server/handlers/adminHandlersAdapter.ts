@@ -606,6 +606,7 @@ export class AdminHandlers {
       initialCoins?: number
       maxInventorySlots?: number
       maxCollectionSlots?: number
+      maxPlaybackSlots?: number
       allowTrading?: boolean
       physicalMediaWearForAdmins?: boolean
     },
@@ -663,12 +664,15 @@ export class AdminHandlers {
     if (!inventorySlots.ok) return
     const collectionSlots = parseSlot(data.maxCollectionSlots, "Collection slots")
     if (!collectionSlots.ok) return
+    const playbackSlots = parseSlot(data.maxPlaybackSlots, "Playback slots")
+    if (!playbackSlots.ok) return
 
     const result = await this.adminService.startGameSession(socket.data.roomId, socket.data.userId, {
       name: data.name.trim(),
       ...(initialCoins != null ? { initialValues: { coin: initialCoins } } : {}),
       ...(inventorySlots.value != null ? { maxInventorySlots: inventorySlots.value } : {}),
       ...(collectionSlots.value != null ? { maxCollectionSlots: collectionSlots.value } : {}),
+      ...(playbackSlots.value != null ? { maxPlaybackSlots: playbackSlots.value } : {}),
       ...(typeof data.allowTrading === "boolean" ? { allowTrading: data.allowTrading } : {}),
       ...(typeof data.physicalMediaWearForAdmins === "boolean"
         ? { physicalMediaWearForAdmins: data.physicalMediaWearForAdmins }
