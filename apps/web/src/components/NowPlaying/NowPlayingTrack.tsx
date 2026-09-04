@@ -16,7 +16,7 @@ import {
 import { format } from "date-fns"
 
 import AlbumArtwork from "../AlbumArtwork"
-import { featureImageUrl } from "../../lib/metadataImages"
+import { largestImageUrl } from "../../lib/metadataImages"
 import safeDate from "../../lib/safeDate"
 import nullifyEmptyString from "../../lib/nullifyEmptyString"
 import { Room, RoomMeta } from "../../types/Room"
@@ -64,8 +64,8 @@ function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
   }
 
   if (release?.album?.images?.length) {
-    const mid = featureImageUrl(release.album.images)
-    if (mid) return mid
+    const large = largestImageUrl(release.album.images)
+    if (large) return large
     const firstImage = release.album.images[0]
     if (typeof firstImage === "object" && firstImage.url) {
       return firstImage.url
