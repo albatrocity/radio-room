@@ -10,6 +10,12 @@ import type { BridgeRpcClient } from "./rpcClient"
  */
 const GET_PLAYBACK_TIMEOUT_MS = 2500
 
+/**
+ * Lease renewal recreates the SDK player and waits for `ready` + Connect listing,
+ * which can outlast the default RPC timeout. Only paid when the lease is stale.
+ */
+const PREPARE_SPOTIFY_TIMEOUT_MS = 15_000
+
 export function createBridgePlaybackApi(deps: {
   roomId: string
   rpc: BridgeRpcClient
@@ -19,6 +25,27 @@ export function createBridgePlaybackApi(deps: {
   getPlayMeta?: () => Promise<{ title?: string; artist?: string; album?: string } | null>
 }): PlaybackControllerApi {
   const { rpc, getSpotifyDelegate, activeSource, getPlayMeta } = deps
+
+  /**
+   * Ask the daemon to renew a stale Spotify SDK lease before we command playback
+   * (ADR 0161). Best effort: a daemon without an SDK device host, or one that
+   * times out, must not block the play — the Web API path still has its own
+   * device fallbacks.
+   */
+  async function prepareSpotifyDevice(): Promise<void> {
+    try {
+      const result = (await rpc.call(
+        "prepareSpotify",
+        {},
+        { timeoutMs: PREPARE_SPOTIFY_TIMEOUT_MS },
+      )) as { deviceId?: string | null; recreated?: boolean } | null
+      if (result?.recreated) {
+        console.log(`[bridge] renewed Spotify SDK lease before play (device ${result.deviceId})`)
+      }
+    } catch (e) {
+      console.warn("[bridge] prepareSpotify failed (continuing):", e)
+    }
+  }
 
   async function pauseSource(source: string): Promise<void> {
     try {
@@ -53,6 +80,9 @@ export function createBridgePlaybackApi(deps: {
       if (source === "spotify") {
         const delegate = await getSpotifyDelegate()
         if (!delegate) throw new Error("Spotify delegate unavailable")
+        // Renew before resolving the device: the daemon writes the new device id
+        // to Redis on ready, which is what the delegate reads as preferred.
+        await prepareSpotifyDevice()
         await delegate.playTrack(trackId)
         if (lastVolume != null && delegate.setVolume) {
           await delegate.setVolume(lastVolume)
@@ -150,7 +180,10 @@ export function createBridgePlaybackApi(deps: {
       if (!source) return
       if (source === "spotify") {
         const delegate = await getSpotifyDelegate()
-        await delegate?.play()
+        if (!delegate) return
+        // Resuming after a long pause is the same stale-lease case as playTrack.
+        await prepareSpotifyDevice()
+        await delegate.play()
         return
       }
       await rpc.call("play", { source })

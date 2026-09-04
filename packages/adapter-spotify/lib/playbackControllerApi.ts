@@ -43,6 +43,27 @@ async function isTrackPlaying(
 /** Must match Spotify.Player name in apps/bridge-daemon/static/spotify.html */
 const BRIDGE_SPOTIFY_DEVICE_NAME = "Listening Room Bridge"
 
+/** Spotify applies a transfer asynchronously; let it settle before commanding play. */
+const TRANSFER_SETTLE_MS = 400
+
+/**
+ * Choose among Connect devices carrying the bridge name. Renewing the SDK lease
+ * leaves the previous player listed for a while, so a blind first-match can target
+ * a dead device: prefer the advertised id, then whichever is active.
+ */
+function pickBridgeDevice<T extends { id: string | null; name: string; is_active?: boolean }>(
+  devices: T[],
+  preferredId: string,
+): T | undefined {
+  const named = devices.filter((d) => d.name === BRIDGE_SPOTIFY_DEVICE_NAME && d.id)
+  if (named.length > 1) {
+    console.warn(
+      `[spotify] ${named.length} devices named "${BRIDGE_SPOTIFY_DEVICE_NAME}" listed; preferring ${preferredId}/active`,
+    )
+  }
+  return named.find((d) => d.id === preferredId) ?? named.find((d) => d.is_active) ?? named[0]
+}
+
 const SPOTIFY_TRACK_URI_PREFIX = "spotify:track:"
 
 function isDeviceNotFoundError(error: unknown): boolean {
@@ -108,7 +129,7 @@ export async function makeApi({
 
       const { devices } = await api.player.getAvailableDevices()
       const byId = devices.find((d) => d.id === preferredId)
-      const byName = devices.find((d) => d.name === BRIDGE_SPOTIFY_DEVICE_NAME)
+      const byName = pickBridgeDevice(devices, preferredId)
       const target = byId ?? byName
 
       if (target?.id) {
@@ -128,6 +149,8 @@ export async function makeApi({
               )
             }
           }
+          // Racing play against an unapplied transfer is a common silent no-op.
+          await new Promise((resolve) => setTimeout(resolve, TRANSFER_SETTLE_MS))
         }
         return { id: target.id }
       }
@@ -156,6 +179,42 @@ export async function makeApi({
     return getNowPlayingDevice(api)
   }
 
+  /**
+   * Guards the confirm-and-retry below: a DJ skip supersedes an in-flight check,
+   * and replaying the abandoned URI would yank the room back a track.
+   */
+  let lastCommandedMediaId: string | null = null
+
+  /**
+   * A stale SDK lease accepts `startResumePlayback` (204) and then plays nothing,
+   * so the HTTP result alone cannot tell us the track started. Confirm out of band
+   * and retry once against a freshly resolved device.
+   *
+   * Deliberately not awaited by `playTrack`: the healthy path must not delay the
+   * now-playing broadcast by a poll interval when audio is already running.
+   * Bridge rooms only — without a preferred device this adds Web API polling to
+   * every track for no benefit ([0078](docs/adrs/0078-spotify-web-playback-sdk-device.md)).
+   */
+  async function confirmPlaybackStarted(mediaId: string): Promise<void> {
+    try {
+      const probeApi = await getSpotifyApi()
+      if (await isTrackPlaying(probeApi, mediaId, { attempts: 2, delayMs: 900 })) return
+      if (lastCommandedMediaId !== mediaId) return
+
+      console.warn(`[spotify] ${mediaId} did not start after play; retrying on a fresh device`)
+      const retryApi = await getSpotifyApi()
+      const device = await resolveTargetDevice(retryApi)
+      if (lastCommandedMediaId !== mediaId) return
+      try {
+        await retryApi.player.startResumePlayback(device.id, undefined, [mediaId], undefined, 0)
+      } catch (error: unknown) {
+        if (!isSpotifyEmptyBodySuccess(error)) throw error
+      }
+    } catch (e) {
+      console.warn(`[spotify] playback retry for ${mediaId} failed:`, e)
+    }
+  }
+
   const api: PlaybackControllerApi = {
     async play() {
       const api = await getSpotifyApi()
@@ -173,6 +232,7 @@ export async function makeApi({
       await config.onPlaybackStateChange?.("playing")
     },
     async playTrack(mediaId) {
+      lastCommandedMediaId = mediaId
       const api = await getSpotifyApi()
       const device = await resolveTargetDevice(api)
 
@@ -195,6 +255,10 @@ export async function makeApi({
 
       await config.onPlay?.()
       await config.onPlaybackStateChange?.("playing")
+
+      if (config.getPreferredDeviceId) {
+        void confirmPlaybackStarted(mediaId)
+      }
     },
     async pause() {
       const api = await getSpotifyApi()

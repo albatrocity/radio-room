@@ -34,3 +34,7 @@ Because that branch serves two unrelated purposes, the watchdog distinguishes th
 Losing sight of the player now stalls one track instead of silently burning the queue, and the progress bar survives a detached SDK because the Web API fallback is reachable again. Recovery is the daemon's job and is bounded by the watchdog interval.
 
 The trade-off is that a track which is genuinely unplayable *and* unobservable will hold rather than skip until the daemon reconnects. That is deliberate: stalling is visible and recoverable by hand, whereas skipping on a blind transport cannot help and destroys queue state. Adapters that cannot distinguish the two cases (the Spotify Web API returns an empty body both when nothing is playing and when there is no active device) must report `observed: false`, which means a genuine end-of-queue silence on those adapters is also treated as unobservable.
+
+## See also
+
+- [0161](0161-spotify-device-readiness-on-demand.md) -- the blind-SDK reload applies only while Spotify is the expected source

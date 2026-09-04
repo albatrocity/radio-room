@@ -20,12 +20,13 @@ Playback **commands** stay on the server-side Web API ([0078](0078-spotify-web-p
 ## Consequences
 
 - A long-paused SDK device recovers on the next failed play without a human refreshing Chrome.
-- An unplayable track still errors after two reconnects and then sits until the advance job / a human skips it.
+- An unplayable track still errors after two reconnects and then sits until the advance job / a human skips it. The attempt counter decays after two idle minutes so one bad episode does not disable renewal for the rest of the show ([0161](0161-spotify-device-readiness-on-demand.md)).
 - Transfer-with-play can resume whatever context Spotify still has (including a just-ended URI). That is preferable to staying silent; the DJ can skip.
 
 ## See also
 
 - [0078](0078-spotify-web-playback-sdk-device.md)
 - [0112](0112-observed-transport-state.md)
+- [0161](0161-spotify-device-readiness-on-demand.md) — renews the lease *before* the play instead of only after it fails
 - `apps/bridge-daemon/static/spotify.html`
 - `apps/bridge-daemon/src/spotifyDevice.ts`

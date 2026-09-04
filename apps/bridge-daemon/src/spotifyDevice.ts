@@ -27,6 +27,19 @@ const TOKEN_POLL_ATTEMPTS = 40
 const SDK_STATE_MISSING_RELOAD_MS = 15_000
 /** Stop retrying an unplayable URI; reset once we observe playing again. */
 const PLAYBACK_ERROR_MAX_ATTEMPTS = 2
+/**
+ * Attempts decay: two failed reconnects must not disable lease renewal for the
+ * rest of the show. A later error is a new episode, not a continuing loop.
+ */
+const PLAYBACK_ERROR_WINDOW_MS = 120_000
+/**
+ * Spotify drops the Web Playback / Widevine lease bound to an idle Player.
+ * `prepare()` renews a lease older than this before the API commands play, so a
+ * Spotify track queued after a long local/YouTube stretch starts on first try.
+ */
+const LEASE_MAX_AGE_MS = 5 * 60_000
+/** Recreate + `ready` + Connect-list reconciliation, worst case. */
+const PREPARE_READY_TIMEOUT_MS = 12_000
 
 /**
  * Transport could not be read. Distinct from a genuine stop so the API's advance
@@ -38,6 +51,55 @@ const UNOBSERVED: DriverState = {
   durationMs: null,
   trackId: null,
   observed: false,
+}
+
+/**
+ * Whether a blind SDK (`getCurrentState()` null) is a fault worth reloading for.
+ *
+ * Blind is the *normal* state while another driver owns playback — Spotify only
+ * answers for its own active device. Reloading then deletes the advertised device
+ * id and recreates the Player on every watchdog tick, so a Spotify track queued
+ * during a long local/YouTube stretch lands mid-churn and fails to start.
+ */
+export function shouldReloadForBlindSdk(params: {
+  spotifyExpectedActive: boolean
+  blindSince: number
+  now: number
+}): boolean {
+  const { spotifyExpectedActive, blindSince, now } = params
+  if (!spotifyExpectedActive || !blindSince) return false
+  return now - blindSince > SDK_STATE_MISSING_RELOAD_MS
+}
+
+/**
+ * Whether the Web Playback / Widevine lease is old enough that the next play is
+ * likely to fail silently. A never-established lease (0) is always stale.
+ */
+export function isLeaseStale(leaseFreshAt: number, now: number): boolean {
+  if (!leaseFreshAt) return true
+  return now - leaseFreshAt >= LEASE_MAX_AGE_MS
+}
+
+/**
+ * Choose among Connect devices named "Listening Room Bridge". A recreated Player
+ * leaves the previous one listed for a while, so a blind first-match can advertise
+ * a dead device: prefer the id this player just reported ready, then the active one.
+ */
+export function pickBridgeDevice<T extends { id: string | null; name: string; is_active?: boolean }>(
+  devices: T[] | undefined,
+  readyId?: string | null,
+): T | undefined {
+  const named = (devices ?? []).filter((d) => d.name === BRIDGE_SPOTIFY_DEVICE_NAME && d.id)
+  if (named.length > 1) {
+    console.warn(
+      `[spotify-device] ${named.length} devices named "${BRIDGE_SPOTIFY_DEVICE_NAME}" listed; stale players not yet reaped`,
+    )
+  }
+  return (
+    (readyId ? named.find((d) => d.id === readyId) : undefined) ??
+    named.find((d) => d.is_active) ??
+    named[0]
+  )
 }
 
 /**
@@ -68,6 +130,18 @@ export class SpotifyDeviceHost {
   /** Watchdog must not treat a brief disconnect during lease renewal as "player missing". */
   private sdkReconnecting = false
   private sdkReconnectTimeout: NodeJS.Timeout | null = null
+  private lastPlaybackErrorAt = 0
+  /** Coalesce overlapping prepare() calls onto one renewal. */
+  private prepareInFlight: Promise<{ deviceId: string | null; recreated: boolean }> | null = null
+  /**
+   * Whether Spotify is the source the room expects to hear. While another driver
+   * owns playback, `getCurrentState()` is null by design and must not be treated
+   * as a fault — reloading then churns the Connect device id for no reason.
+   */
+  private spotifyExpectedActive = false
+  /** Lease age basis: last `ready` or last observed playing snapshot. */
+  private leaseFreshAt = 0
+  private readyWaiters: Array<(deviceId: string) => void> = []
 
   constructor(
     private readonly chrome: ChromeManager,
@@ -115,6 +189,7 @@ export class SpotifyDeviceHost {
 
   async stop(): Promise<void> {
     this.stopped = true
+    this.readyWaiters = []
     if (this.watchdog) clearInterval(this.watchdog)
     this.watchdog = null
     if (this.statePulse) clearInterval(this.statePulse)
@@ -251,7 +326,10 @@ export class SpotifyDeviceHost {
 
   private async onReady(deviceId: string) {
     if (this.stopped) return
-    this.clearSdkReconnecting()
+    // Stay "reconnecting" until the device id is resolved and waiters are flushed:
+    // clearing early opens a window where a second prepare() sees a stale lease and
+    // recreates the player that just came up. armSdkReconnectTimeout() is the backstop.
+
     // Synthetic gesture so activateElement / autoplay policy accepts the player.
     if (this.page && !this.page.isClosed()) {
       await this.page
@@ -268,13 +346,132 @@ export class SpotifyDeviceHost {
     // SDK ready id often ≠ Connect list id for the same player — prefer listed.
     const resolvedId = await this.resolveListedDeviceId(deviceId)
     this.deviceId = resolvedId
+    this.leaseFreshAt = Date.now()
     await this.redis.set(spotifyDeviceKey(this.roomId), resolvedId)
     console.log(`[spotify-device] ready device_id=${resolvedId} room=${this.roomId}`)
+
+    this.clearSdkReconnecting()
+    // Redis is written before waiters resolve so `prepare()` callers can target
+    // the new device immediately.
+    this.flushReadyWaiters(resolvedId)
 
     if (this.reattachPlaybackAfterReady) {
       this.reattachPlaybackAfterReady = false
       await this.reattachPlaybackToDevice(resolvedId)
     }
+  }
+
+  private flushReadyWaiters(deviceId: string) {
+    const waiters = this.readyWaiters
+    this.readyWaiters = []
+    for (const resolve of waiters) resolve(deviceId)
+  }
+
+  /**
+   * Renew the SDK lease if it is stale, then report the device to target.
+   *
+   * Called by the API immediately before it commands Spotify playback. A lease
+   * younger than {@link LEASE_MAX_AGE_MS} is returned as-is, so back-to-back
+   * Spotify tracks pay nothing; only a device that has sat idle through a long
+   * local/YouTube stretch is recreated (~1-3s) before the play command lands.
+   */
+  async prepare(): Promise<{ deviceId: string | null; recreated: boolean }> {
+    // Spotify is about to own playback again: blindness from here is a fault.
+    this.spotifyExpectedActive = true
+    this.sdkStateMissingSince = 0
+
+    if (this.stopped || !this.page || this.page.isClosed()) {
+      return { deviceId: this.deviceId, recreated: false }
+    }
+
+    // A playback_error recovery is already swapping the Player; recreating again
+    // would drop the one we are waiting on. Wait for its ready instead.
+    if (this.sdkReconnecting) {
+      const deviceId = await this.waitForReady(PREPARE_READY_TIMEOUT_MS)
+      return { deviceId: deviceId ?? this.deviceId, recreated: true }
+    }
+
+    if (this.prepareInFlight) return this.prepareInFlight
+
+    const now = Date.now()
+    if (this.deviceId && !isLeaseStale(this.leaseFreshAt, now)) {
+      return { deviceId: this.deviceId, recreated: false }
+    }
+    const leaseAge = this.leaseFreshAt ? now - this.leaseFreshAt : Infinity
+
+    console.log(
+      `[spotify-device] lease ${Number.isFinite(leaseAge) ? `${Math.round(leaseAge / 1000)}s old` : "unknown"} — renewing before play`,
+    )
+    this.prepareInFlight = this.renewLease()
+      .then((deviceId) => ({ deviceId, recreated: true }))
+      .finally(() => {
+        this.prepareInFlight = null
+      })
+    return this.prepareInFlight
+  }
+
+  /** Drop the current Player and connect a new one, resolving on the new `ready`. */
+  private async renewLease(): Promise<string | null> {
+    const ready = this.waitForReady(PREPARE_READY_TIMEOUT_MS)
+    this.sdkReconnecting = true
+    this.lastGoodPlayback = null
+    this.lastSnapshot = null
+    this.armSdkReconnectTimeout()
+
+    const recreated = await this.page
+      ?.evaluate(async () => {
+        // @ts-expect-error page context
+        if (typeof window.__spotifyRecreatePlayer === "function") {
+          // @ts-expect-error page context
+          return window.__spotifyRecreatePlayer()
+        }
+        return false
+      })
+      .catch(() => false)
+
+    if (!recreated) {
+      console.warn("[spotify-device] __spotifyRecreatePlayer missing — reloading host page")
+      const baseUrl = await this.host.start()
+      await this.page
+        ?.goto(`${baseUrl}/spotify.html`, { waitUntil: "domcontentloaded" })
+        .catch(() => {})
+    }
+
+    const deviceId = await ready
+    if (!deviceId) {
+      console.warn("[spotify-device] lease renewal timed out waiting for ready")
+      this.clearSdkReconnecting()
+      return this.deviceId
+    }
+    return deviceId
+  }
+
+  private waitForReady(timeoutMs: number): Promise<string | null> {
+    return new Promise((resolve) => {
+      let settled = false
+      const timer = setTimeout(() => {
+        if (settled) return
+        settled = true
+        this.readyWaiters = this.readyWaiters.filter((w) => w !== onReady)
+        resolve(null)
+      }, timeoutMs)
+      const onReady = (deviceId: string) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(deviceId)
+      }
+      this.readyWaiters.push(onReady)
+    })
+  }
+
+  /**
+   * Another driver took over playback. Spotify's `getCurrentState()` goes null
+   * for the whole stretch, which is expected rather than broken.
+   */
+  markOtherSourceActive(): void {
+    this.spotifyExpectedActive = false
+    this.sdkStateMissingSince = 0
   }
 
   /**
@@ -295,11 +492,9 @@ export class SpotifyDeviceHost {
         })
         if (!res.ok) continue
         const data = (await res.json()) as {
-          devices?: Array<{ id: string | null; name: string }>
+          devices?: Array<{ id: string | null; name: string; is_active?: boolean }>
         }
-        const listed = data.devices?.find(
-          (d) => d.name === BRIDGE_SPOTIFY_DEVICE_NAME && d.id,
-        )
+        const listed = pickBridgeDevice(data.devices, readyId)
         if (listed?.id) {
           if (listed.id !== readyId) {
             console.log(
@@ -515,9 +710,15 @@ export class SpotifyDeviceHost {
       }
 
       const blindFor = this.sdkStateMissingSince ? Date.now() - this.sdkStateMissingSince : 0
-      if (blindFor > SDK_STATE_MISSING_RELOAD_MS) {
+      if (
+        shouldReloadForBlindSdk({
+          spotifyExpectedActive: this.spotifyExpectedActive,
+          blindSince: this.sdkStateMissingSince,
+          now: Date.now(),
+        })
+      ) {
         console.warn(
-          `[spotify-device] getCurrentState() null for ${blindFor}ms (player present but not the active device) — reconnecting`,
+          `[spotify-device] getCurrentState() null for ${blindFor}ms while Spotify should be audible — reconnecting`,
         )
         this.sdkStateMissingSince = 0
         this.lastGoodPlayback = null
@@ -546,6 +747,12 @@ export class SpotifyDeviceHost {
     if (this.stopped || this.playbackErrorRecoveryInFlight || this.sdkReconnecting || !this.page || this.page.isClosed()) {
       return
     }
+    const now = Date.now()
+    if (this.lastPlaybackErrorAt && now - this.lastPlaybackErrorAt > PLAYBACK_ERROR_WINDOW_MS) {
+      // Far enough from the last error to be a new episode rather than a loop.
+      this.playbackErrorAttempts = 0
+    }
+    this.lastPlaybackErrorAt = now
     if (this.playbackErrorAttempts >= PLAYBACK_ERROR_MAX_ATTEMPTS) {
       console.warn(
         "[spotify-device] playback_error — already reconnected twice without playing; not looping",
@@ -749,6 +956,9 @@ export class SpotifyDeviceHost {
 
     if (current.state === "playing") {
       this.playbackErrorAttempts = 0
+      this.lastPlaybackErrorAt = 0
+      this.leaseFreshAt = Date.now()
+      this.spotifyExpectedActive = true
     }
 
     if (current.state === "playing" && current.trackId) {

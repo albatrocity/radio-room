@@ -66,6 +66,10 @@ export class Router {
       await this.active.pause().catch(() => {})
     }
 
+    // Spotify is not a Driver, so a driver taking over is the only signal the SDK
+    // host gets that its blind `getCurrentState()` is expected rather than broken.
+    this.spotifyDevice?.markOtherSourceActive()
+
     let title = params.title
     let artist = params.artist
     let album = params.album
@@ -95,6 +99,12 @@ export class Router {
       album,
       mediaSource: { type: params.source, trackId: params.trackId },
     })
+  }
+
+  /** Renew the Spotify SDK lease before the API commands playback (ADR 0161). */
+  async prepareSpotify(): Promise<{ deviceId: string | null; recreated: boolean }> {
+    if (!this.spotifyDevice) return { deviceId: null, recreated: false }
+    return this.spotifyDevice.prepare()
   }
 
   async pause(source?: string): Promise<void> {

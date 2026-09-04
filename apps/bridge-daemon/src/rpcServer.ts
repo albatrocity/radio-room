@@ -107,6 +107,8 @@ export class RpcServer {
         return null
       case "getPlayback":
         return this.router.getPlayback(p.source != null ? String(p.source) : undefined)
+      case "prepareSpotify":
+        return this.router.prepareSpotify()
       case "search": {
         if (String(p.source) !== "local" || !this.localDriver) return []
         return this.localDriver.search(

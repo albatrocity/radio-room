@@ -166,6 +166,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0158](0158-shopping-session-condition-bounds.md) | Shopping session condition bounds (Record Store min/max) | Accepted |
 | [0159](0159-physical-media-restoration-items.md) | Physical Media restoration items (CD Cleaner, Dust Cloth, Pencil) | Accepted |
 | [0160](0160-playback-device-gating.md) | Playback-device gating (third slot pool, `playbackFormats`) | Accepted |
+| [0161](0161-spotify-device-readiness-on-demand.md) | Spotify SDK device readiness is prepared on demand, not by reload-looping | Accepted |
 
 ## Creating a New ADR
 

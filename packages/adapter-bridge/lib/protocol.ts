@@ -12,6 +12,7 @@ export const bridgeRequestSchema = z.object({
     "playTrack",
     "seekTo",
     "getPlayback",
+    "prepareSpotify",
     "setVolume",
     "search",
     "getTrack",
