@@ -29,7 +29,14 @@ import {
   type ShoppingSessionInstance,
   type SystemEventPayload,
 } from "@repo/types"
-import { ITEM_SHOPS_PLUGIN_NAME, ITEM_SHOPS_TAB_ID } from "@repo/types"
+import {
+  isMediaCondition,
+  MEDIA_CONDITION_LABELS,
+  ITEM_SHOPS_PLUGIN_NAME,
+  ITEM_SHOPS_TAB_ID,
+  resolveSlotPool,
+  SLOT_POOL_LABELS,
+} from "@repo/types"
 import packageJson from "./package.json"
 import {
   ITEM_CATALOG,
@@ -49,6 +56,14 @@ import {
 } from "./catalogFromConfig"
 import { isLocalLibraryGrantShortId } from "./localLibraryGrants"
 import { LocalLibraryModule } from "./localLibrary"
+import { physicalMediaShopEconomyHooks } from "./localLibrary/shopEconomy"
+import {
+  conditionsWithinBounds,
+  DEFAULT_OFFER_CONDITION_BOUNDS,
+  OFFER_CONDITION_SELECT_OPTIONS,
+  readOfferConditionBounds,
+  type OfferConditionBounds,
+} from "./localLibrary/condition"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
@@ -103,6 +118,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private shopping!: ShoppingSessionHelper
 
+  /** Synced from plugin config; `decorateOffer` reads this at instance-build time (ADR 0158). */
+  private offerConditionBounds: OfferConditionBounds = { ...DEFAULT_OFFER_CONDITION_BOUNDS }
+
   private readonly localLibrary = new LocalLibraryModule(PLUGIN_NAME, () => this.context ?? undefined)
   /** Bumped on each local-library refresh so in-flight artwork hydrates abort. */
   private albumArtworkHydrateGeneration = 0
@@ -118,13 +136,20 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   async register(context: import("@repo/types").PluginContext): Promise<void> {
     await super.register(context)
     const config = await this.getConfig()
+    this.syncOfferConditionBounds(config)
     await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [], {
       derivePrefixedPlaylists: config?.derivePrefixedPlaylistsAsPhysicalMedia ?? true,
       deriveAlbums: config?.deriveAlbumsAsPhysicalMedia ?? false,
     })
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
-    this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog)
+    this.shopping = new ShoppingSessionHelper(
+      this.name,
+      context,
+      itemCatalog,
+      shopCatalog,
+      { hooks: physicalMediaShopEconomyHooks(() => this.offerConditionBounds) },
+    )
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.scheduleAlbumArtworkHydrate()
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
@@ -149,12 +174,17 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   private async applyLocalLibraryGrantConfig(): Promise<void> {
     if (!this.context || !this.shopping) return
     const config = await this.getConfig()
+    this.syncOfferConditionBounds(config)
     await this.localLibrary.refreshDerivedPhysicalMedia(config?.physicalMediaOverrides ?? [], {
       derivePrefixedPlaylists: config?.derivePrefixedPlaylistsAsPhysicalMedia ?? true,
       deriveAlbums: config?.deriveAlbumsAsPhysicalMedia ?? false,
     })
     await this.resyncDerivedCatalogs()
     this.scheduleAlbumArtworkHydrate()
+  }
+
+  private syncOfferConditionBounds(config: ItemShopsConfig | null | undefined): void {
+    this.offerConditionBounds = readOfferConditionBounds(config ?? {})
   }
 
   /** Re-apply grant + derived catalogs into shopping + inventory definitions. */
@@ -526,6 +556,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     // Keep in-memory cache aligned with what we just wrote (PluginAPI.setPluginConfig
     // does not emit CONFIG_CHANGED, so getConfig() would otherwise stay stale).
     ;(this as { configCache?: ItemShopsConfig | null }).configCache = next
+    this.syncOfferConditionBounds(next)
     await this.syncAutoShopTimer()
     const keys = Object.keys(patch) as (keyof ItemShopsConfig)[]
     const configPatch = Object.fromEntries(keys.map((k) => [k, next[k]])) as Partial<ItemShopsConfig>
@@ -677,6 +708,38 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         "showPhysicalMediaFrameInNowPlaying",
         "derivePrefixedPlaylistsAsPhysicalMedia",
         "deriveAlbumsAsPhysicalMedia",
+        {
+          type: "text-block",
+          content:
+            "Condition range applies only to derived Record Store copies (CDs, LPs, tapes, 45s). Existing offers keep the condition they rolled until you start a new shopping session.",
+          variant: "info",
+          showWhen: { field: "enabled", value: true },
+        },
+        {
+          type: "action",
+          action: "setOfferConditionRange",
+          label: "Set Record Store condition range",
+          variant: "outline",
+          showWhen: { field: "enabled", value: true },
+          formFields: [
+            {
+              name: "offerConditionMin",
+              label: "Worst condition",
+              type: "select",
+              required: true,
+              seedFromField: "offerConditionMin",
+              options: [...OFFER_CONDITION_SELECT_OPTIONS],
+            },
+            {
+              name: "offerConditionMax",
+              label: "Best condition",
+              type: "select",
+              required: true,
+              seedFromField: "offerConditionMax",
+              options: [...OFFER_CONDITION_SELECT_OPTIONS],
+            },
+          ],
+        },
         "physicalMediaOverrides",
         {
           type: "heading",
@@ -757,6 +820,30 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           description:
             "Create a Physical Media item for each Navidrome album (format inferred from year and track count). Rarity comes from your Navidrome star rating (unrated = common); price still follows track count. Albums that exactly match a derived prefixed playlist are omitted — the playlist item inherits those stars unless you tagged or overrode rarity. Requires a current DJ Mac Media Bridge pack.",
           showWhen: { field: "enabled", value: true },
+        },
+        offerConditionMin: {
+          type: "enum",
+          label: "Worst condition",
+          description:
+            "Most worn Record Store copies that can appear in a shopping round. With Best at Mint this is the full Poor–Mint range. Applies to the next round, not offers already on the table.",
+          showWhen: { field: "enabled", value: true },
+          enumLabels: {
+            poor: "Poor",
+            good: "Good",
+            mint: "Mint",
+          },
+        },
+        offerConditionMax: {
+          type: "enum",
+          label: "Best condition",
+          description:
+            "Most pristine Record Store copies that can appear in a shopping round. Default Mint.",
+          showWhen: { field: "enabled", value: true },
+          enumLabels: {
+            mint: "Mint",
+            good: "Good",
+            poor: "Poor",
+          },
         },
         localLibraryGrants: {
           type: "object-array",
@@ -850,6 +937,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         "enableAutoShop",
         "disableAutoShop",
         "setAutoShopInterval",
+        "setOfferConditionRange",
         "startShoppingSession",
         "endShoppingSessions",
         "refreshLocalLibrary",
@@ -915,9 +1003,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         }
       }
       const defId = this.shopping.getDefinitionId(itemShortId)
-      const itemName =
-        this.effectiveCatalogForGive().find((e) => e.definition.shortId === itemShortId)?.definition
-          .name ?? itemShortId
+      const catalogEntry = this.effectiveCatalogForGive().find(
+        (e) => e.definition.shortId === itemShortId,
+      )
+      const itemName = catalogEntry?.definition.name ?? itemShortId
+      const poolLabel = SLOT_POOL_LABELS[resolveSlotPool(catalogEntry?.definition)]
 
       if (userIdParam === "__all__") {
         const users = await this.context.api.getUsers(this.context.roomId)
@@ -935,9 +1025,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           success: failed === 0 && ok > 0,
           message:
             ok === 0
-              ? "Could not grant items (inventory may be full)."
+              ? `Could not grant items (${poolLabel} may be full).`
               : failed > 0
-                ? `Granted ${itemName} to ${ok} user(s); ${failed} could not receive it (inventory full?).`
+                ? `Granted ${itemName} to ${ok} user(s); ${failed} could not receive it (${poolLabel} full?).`
                 : `Granted ${itemName} to ${ok} user(s).`,
         }
       }
@@ -950,7 +1040,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!row) {
         return {
           success: false,
-          message: "Could not grant item (inventory may be full).",
+          message: `Could not grant item (${poolLabel} may be full).`,
         }
       }
       return {
@@ -987,6 +1077,26 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         initiator,
         { autoShopIntervalMs },
         `Auto-shop interval set to ${Math.round(autoShopIntervalMs / 60_000)} minutes.`,
+      )
+    }
+    if (action === "setOfferConditionRange") {
+      if (!config?.enabled) {
+        return { success: false, message: "Item Shops are disabled." }
+      }
+      const min = params?.offerConditionMin
+      const max = params?.offerConditionMax
+      if (!isMediaCondition(min) || !isMediaCondition(max)) {
+        return { success: false, message: "Choose a worst and best condition." }
+      }
+      const allowed = conditionsWithinBounds(min, max)
+      const range =
+        allowed.length === 1
+          ? `only ${MEDIA_CONDITION_LABELS[allowed[0]!]}`
+          : allowed.map((c) => MEDIA_CONDITION_LABELS[c]).join(", ")
+      return this.persistConfigPatch(
+        initiator,
+        { offerConditionMin: min, offerConditionMax: max },
+        `Record Store offers will be ${range}.`,
       )
     }
     if (action === "startShoppingSession") {
@@ -1135,6 +1245,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         context: this.context,
         game: this.game,
         activeInventoryItem: _item,
+        pickRandomRestoreCandidate: (eligible) =>
+          this.localLibrary.pickRandomRestoreCandidate(eligible),
       },
       userId,
       definition,
@@ -1380,6 +1492,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           imageUrl: offer.imageUrl ?? def?.imageUrl,
           imageUrlLarge: offer.imageUrlLarge ?? def?.imageUrlLarge,
           artworkFrame: offer.artworkFrame ?? def?.artworkFrame,
+          mediaFormat: offer.mediaFormat ?? def?.mediaFormat,
+          condition: offer.condition,
         }
       }),
     }

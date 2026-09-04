@@ -28,6 +28,29 @@ export function isReducedMotionEnabled(): boolean {
   return reducedMotionActor.getSnapshot().context.reducedMotion
 }
 
+/** OS `prefers-reduced-motion` query. Shared by the actor and the React hook. */
+export function prefersSystemReducedMotion(): boolean {
+  if (typeof window === "undefined") return false
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+}
+
+/** AND of system preference and in-app toggle. */
+export function animationsAllowed(
+  systemPrefersReduced: boolean,
+  appReducedMotion: boolean,
+): boolean {
+  return !systemPrefersReduced && !appReducedMotion
+}
+
+/**
+ * True when both the OS `prefers-reduced-motion` query and the in-app toggle
+ * allow animations. Use from non-React callers; components should prefer
+ * `useAnimationsEnabled`.
+ */
+export function areAnimationsEnabled(): boolean {
+  return animationsAllowed(prefersSystemReducedMotion(), isReducedMotionEnabled())
+}
+
 /**
  * Toggle the reduced motion preference.
  */

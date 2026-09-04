@@ -8,7 +8,7 @@ import type {
   ShopOffer,
   User,
 } from "@repo/types"
-import { ITEM_SHOPS_SESSION_STORAGE_KEYS } from "@repo/types"
+import { ITEM_SHOPS_SESSION_STORAGE_KEYS, resolveSlotPool, slotPoolFullMessage } from "@repo/types"
 import type { ShopTransactionResult } from "./ShopHelper"
 import {
   DEFAULT_RARITY_WEIGHTS,
@@ -24,6 +24,7 @@ import {
   isShopListedItem,
   type WeightedCandidate,
 } from "./shoppingSessionCatalog"
+import type { ShopEconomyHooks } from "./shoppingSessionCatalog"
 
 const KEYS = ITEM_SHOPS_SESSION_STORAGE_KEYS
 
@@ -35,17 +36,24 @@ export class ShoppingSessionHelper {
   private catalogMap: Map<string, ItemCatalogEntry>
   private itemCatalog: readonly ItemCatalogEntry[]
   private shopCatalog: readonly ShopCatalogEntry[]
+  private readonly rarityWeights: Record<ItemRarity, number>
+  private readonly hooks?: ShopEconomyHooks
 
   constructor(
     private readonly pluginName: string,
     private readonly context: PluginContext,
     itemCatalog: readonly ItemCatalogEntry[],
     shopCatalog: readonly ShopCatalogEntry[],
-    private readonly rarityWeights: Record<ItemRarity, number> = DEFAULT_RARITY_WEIGHTS,
+    options?: {
+      rarityWeights?: Record<ItemRarity, number>
+      hooks?: ShopEconomyHooks
+    },
   ) {
     this.itemCatalog = itemCatalog
     this.shopCatalog = shopCatalog
     this.catalogMap = buildItemCatalogMap(itemCatalog)
+    this.rarityWeights = options?.rarityWeights ?? DEFAULT_RARITY_WEIGHTS
+    this.hooks = options?.hooks
   }
 
   /**
@@ -138,7 +146,7 @@ export class ShoppingSessionHelper {
     }
     const shop = pool[Math.floor(Math.random() * pool.length)]!
     const shortIds = this.sampleOfferShortIds(shop, 3)
-    const instance = buildShoppingInstance(shop, shortIds, this.catalogMap, openedAt)
+    const instance = buildShoppingInstance(shop, shortIds, this.catalogMap, openedAt, this.hooks)
     const displayMessage = (
       shop.openingMessage ?? "{{shopName}} is now open for business!"
     ).replace(/\{\{shopName\}\}/g, shop.name)
@@ -235,12 +243,16 @@ export class ShoppingSessionHelper {
       userId,
       this.getDefinitionId(shortId),
       1,
-      undefined,
+      offer.condition ? { condition: offer.condition } : undefined,
       "purchase",
     )
     if (!awarded) {
       await this.context.game.addScore(userId, "coin", price, `${this.pluginName}:refund`)
-      return { success: false, message: `Inventory full — could not add ${offer.name}.` }
+      const pool = resolveSlotPool(this.catalogMap.get(shortId)?.definition)
+      return {
+        success: false,
+        message: slotPoolFullMessage(pool, `could not add ${offer.name}.`),
+      }
     }
     offer.available = false
     await this.persistInstance(userId, inst)
@@ -275,9 +287,12 @@ export class ShoppingSessionHelper {
     }
     const listed = isShopListedItem(shop, definition.shortId)
     const rate = listed ? shop.listedBuybackRate : shop.unlistedBuybackRate
-    const base = listed
+    let base = listed
       ? resolveShopItemPrice(shop, definition.shortId, this.catalogMap)
       : resolveUnlistedSellBasePrice(this.catalogMap, definition.shortId)
+    if (this.hooks?.adjustSellBase) {
+      base = this.hooks.adjustSellBase(item, definition, base)
+    }
     const refund = Math.max(0, Math.floor(base * rate))
     const removed = await this.context.inventory.removeItem(userId, item.itemId, 1)
     if (!removed) {

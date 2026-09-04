@@ -16,8 +16,9 @@ export function firstImageUrl(images?: MetadataSourceUrl[]): string | undefined 
 const FEATURE_TARGET_AREA = 320 * 320
 
 /**
- * Cover sized for now-playing / lock-screen: closest to ~320px, not always the
+ * Mid-size cover (~320px) for theme extraction and compact displays. Not the
  * first (often tiny) or largest (often 640+). Falls back to first if ids lack WxH.
+ * Now Playing uses {@link largestImageUrl} so Spotify 640px covers stay sharp.
  */
 export function featureImageUrl(images?: MetadataSourceUrl[]): string | undefined {
   const candidates = images?.filter((img) => img.type === "image" && img.url) ?? []

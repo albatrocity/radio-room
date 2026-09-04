@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ITEM_SLOT_POOLS, PHYSICAL_MEDIA_FORMATS } from "./Inventory"
 
 /**
  * Authorable slice of an inventory item definition (no `id` / `sourcePlugin`).
@@ -19,7 +20,8 @@ export const itemDefinitionAuthoringSchema = z.object({
   consumable: z.boolean().default(false),
   coinValue: z.number().int().nonnegative().optional(),
   rarity: itemRaritySchema.optional(),
-  slotPool: z.enum(["inventory", "collection"]).optional(),
+  slotPool: z.enum(ITEM_SLOT_POOLS).optional(),
+  playbackFormats: z.array(z.enum(PHYSICAL_MEDIA_FORMATS)).optional(),
   detailView: z
     .object({
       actionLabel: z.string().optional(),

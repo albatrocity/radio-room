@@ -383,6 +383,13 @@ export type SystemEventHandlers = {
     quantity: number
   }) => Promise<void> | void
 
+  INVENTORY_ITEM_UPDATED: (data: {
+    roomId: string
+    sessionId: string
+    userId: string
+    item: InventoryItem
+  }) => Promise<void> | void
+
   INVENTORY_ITEM_TRANSFERRED: (data: {
     roomId: string
     sessionId: string

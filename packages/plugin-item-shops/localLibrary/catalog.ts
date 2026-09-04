@@ -3,7 +3,7 @@ import { ITEM_CATALOG } from "../items/index"
 import { SHOP_CATALOG } from "../shops"
 import { buildGrantCatalogEntries } from "./grants"
 import type { LocalLibraryGrantConfig } from "./config"
-import { RECORD_STORE_SHOP, RECORD_STORE_SHOP_ID } from "./shops/record-store"
+import { RECORD_STORE_SHOP, RECORD_STORE_SHOP_ID, RECORD_STORE_FIXED_ITEMS } from "./shops/record-store"
 
 export { RECORD_STORE_SHOP_ID } from "./shops/record-store"
 
@@ -33,6 +33,7 @@ export function buildEffectiveShopCatalog(
     shops.push({
       ...RECORD_STORE_SHOP,
       availableItems: [
+        ...RECORD_STORE_FIXED_ITEMS,
         ...derivedPhysicalMedia.map((e) => ({
           shortId: e.definition.shortId,
           coinValue: e.definition.coinValue ?? 0,

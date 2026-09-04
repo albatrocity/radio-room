@@ -22,6 +22,7 @@ function makeSession(): GameSession {
     config: {
       maxInventorySlots: 3,
       maxCollectionSlots: 5,
+      maxPlaybackSlots: 2,
       allowTrading: true,
     },
   } as GameSession

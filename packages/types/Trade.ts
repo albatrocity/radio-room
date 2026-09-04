@@ -1,4 +1,4 @@
-import type { InventoryItem, ItemDefinition } from "./Inventory"
+import type { InventoryItem, ItemDefinition, ItemSlotPool } from "./Inventory"
 
 export type TradeStatus = "open" | "completed" | "cancelled"
 
@@ -20,7 +20,7 @@ export type TradeOfferItem = {
   quantity: number
   metadata?: Record<string, unknown>
   itemName?: string
-  slotPool: "inventory" | "collection"
+  slotPool: ItemSlotPool
 }
 
 export type TradeDraftItem = {
@@ -28,7 +28,7 @@ export type TradeDraftItem = {
   quantity: number
   definitionId: string
   itemName?: string
-  slotPool: "inventory" | "collection"
+  slotPool: ItemSlotPool
 }
 
 /** Rebuild a draft after escrow refund so unlock keeps the same offered rows. */

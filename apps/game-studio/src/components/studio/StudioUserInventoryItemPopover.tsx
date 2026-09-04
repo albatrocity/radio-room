@@ -2,6 +2,7 @@
 
 import { Button, NativeSelect, Popover, Text, VStack } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
+import { resolveSlotPool } from "@repo/types"
 import { useMemo, useState } from "react"
 import type { StudioRoom } from "../../studio/studioRoom"
 
@@ -95,7 +96,7 @@ export function StudioUserInventoryItemPopover({
                     {stealable.map((invItem: InventoryItem) => {
                       const def: ItemDefinition | null = room.getDefinition(invItem.definitionId)
                       const label = def?.name ?? invItem.definitionId
-                      const pool = def?.slotPool === "collection" ? "collection" : "inventory"
+                      const pool = resolveSlotPool(def)
                       return (
                         <Button
                           key={invItem.itemId}
@@ -106,7 +107,7 @@ export function StudioUserInventoryItemPopover({
                         >
                           {label}
                           {invItem.quantity > 1 ? ` ×${invItem.quantity}` : ""}
-                          {pool === "collection" ? " · collection" : ""}
+                          {pool !== "inventory" ? ` · ${pool}` : ""}
                         </Button>
                       )
                     })}

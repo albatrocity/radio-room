@@ -54,6 +54,9 @@ export {
 // Game State Nav Actor
 export { gameStateNavActor } from "./gameStateNavActor"
 
+// Queue Actor (add-to-queue toast survives item-detail unmount)
+export { queueActor } from "./queueActor"
+
 // Theme Actor
 export { themeActor, getCurrentTheme, setTheme } from "./themeActor"
 

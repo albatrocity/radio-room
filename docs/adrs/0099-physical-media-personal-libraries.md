@@ -1,7 +1,7 @@
 # 0099. Physical Media personal libraries
 
 **Date:** 2026-08-17
-**Status:** Accepted
+**Status:** Partially superseded by [0155](0155-physical-media-condition-wear-and-conversion.md) (§3 durable-but-wearing; §11 frames resolved from format + condition)
 
 ## Context
 
@@ -39,6 +39,7 @@ Grant-on-item (`library` vs `playlist` scope), restricted-Local access via `gran
 - Playlist cover art costs two Redis writes per record per derivation (384px row + 1200px feature), but keeps `USER_GAME_STATE` and shop payloads small. Track/album art in browse results still rides the wire as adapter-supplied urls. Changed artwork orphans the previous content-hashed keys until the room is deleted (`deleteRoomImages` is unimplemented); doubling variants doubles that drift.
 - Art is fetched only for playlists that parse as Physical Media, and only when the bridge is linked; an unlinked bridge yields icon-only records rather than a failed refresh.
 - Playlist membership cache is daemon-global (contents are user-independent). A future per-user playlist view would break that assumption.
+- Durable redemption is now durable-but-wearing in restricted rooms ([ADR 0155](0155-physical-media-condition-wear-and-conversion.md)); `artworkFrame` on the definition is the mint frame, and clients resolve display frames from `mediaFormat` + condition.
 
 ## See also
 
@@ -51,4 +52,5 @@ Grant-on-item (`library` vs `playlist` scope), restricted-Local access via `gran
 - [0108. Local CatalogBrowse result cache](0108-local-catalog-browse-result-cache.md)
 - [0110. Catalog-mode Physical Media](0110-catalog-mode-physical-media.md)
 - [0111. Physical Media rarity from ratings and title tags](0111-physical-media-rarity-signals.md)
+- [0155. Physical Media condition, wear, and conversion](0155-physical-media-condition-wear-and-conversion.md)
 - [`packages/plugin-item-shops/localLibrary/`](../../packages/plugin-item-shops/localLibrary/)

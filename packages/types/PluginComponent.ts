@@ -13,6 +13,7 @@
 import type { GameAttributeName } from "./GameSession"
 import type { LucideIconName } from "./LucideIconKey"
 import type { ItemRarity } from "./ShoppingSession"
+import type { ArtworkFrame, MediaCondition, PhysicalMediaFormat } from "./Inventory"
 
 // ============================================================================
 // Placement Areas
@@ -355,6 +356,12 @@ export interface ShopOfferTableRow {
   balanceAttribute?: GameAttributeName
   /** Item rarity for display styling (e.g. color-coded tag). */
   itemRarity?: ItemRarity
+  /** Physical Media wear tier when this row is a record offer (ADR 0155). */
+  condition?: MediaCondition
+  /** Format token for condition-specific artwork frames (ADR 0155). */
+  mediaFormat?: PhysicalMediaFormat
+  /** Physical Media presentation overlay when cover art is present. */
+  artworkFrame?: ArtworkFrame
 }
 
 /**

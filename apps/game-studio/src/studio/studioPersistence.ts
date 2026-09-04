@@ -8,6 +8,7 @@ import type {
   User,
   UserGameState,
 } from "@repo/types"
+import { DEFAULT_PLAYBACK_SLOTS } from "./buildSessionConfig"
 import type { PluginKvStore, StudioEventEntry, StudioRoom } from "./studioRoom"
 
 /** Bump when persisted shape changes (migrate in load). v2 drops definitions (always from plugin code). */
@@ -102,6 +103,15 @@ export function applySnapshotToRoom(room: StudioRoom, snap: PersistedSnapshotV2)
   room.pluginConfigs = new Map(snap.pluginConfigs)
   room.pluginStores = revivePluginStores(snap.pluginStores)
   room.activeSession = snap.activeSession
+    ? {
+        ...snap.activeSession,
+        config: {
+          ...snap.activeSession.config,
+          maxPlaybackSlots:
+            snap.activeSession.config.maxPlaybackSlots ?? DEFAULT_PLAYBACK_SLOTS,
+        },
+      }
+    : null
   room.participants = new Set(snap.participants)
   room.userStates = new Map(snap.userStates)
   room.inventories = new Map(snap.inventories)

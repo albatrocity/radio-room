@@ -1,4 +1,5 @@
 import type { GameStateModifier, UserInventoryPeekItem } from "@repo/types"
+import { resolveSlotPool } from "@repo/types"
 import { hasInventoryPeek } from "./inventoryPeekFlag"
 
 export type PeekPolicyInventoryItem = {
@@ -123,7 +124,7 @@ export function hydratePeekItems(
       ...(def.artworkFrame != null ? { artworkFrame: def.artworkFrame } : {}),
       rarity: def.rarity,
       tradeable: def.tradeable,
-      slotPool: def.slotPool === "collection" ? "collection" : "inventory",
+      slotPool: resolveSlotPool(def),
     })
   }
   return items

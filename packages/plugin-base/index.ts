@@ -28,6 +28,7 @@ export {
   ShoppingSessionHelper,
   type ItemShopsShopCatalogEntry,
   type ShopAvailableItem,
+  type ShopEconomyHooks,
   type ItemCatalogEntry,
   resolveItemRarity,
   resolveShopItemPrice,

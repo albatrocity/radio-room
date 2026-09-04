@@ -1,6 +1,12 @@
-import type { InventoryItem, ItemDefinition, TradeOfferItem, TradeInventoryTransfer } from "@repo/types"
+import type {
+  InventoryItem,
+  ItemDefinition,
+  ItemSlotPool,
+  TradeOfferItem,
+  TradeInventoryTransfer,
+} from "@repo/types"
+import { capForPool, resolveSlotPool } from "@repo/types"
 import type { InventoryService } from "../InventoryService"
-import { slotPoolOf } from "./tradeKeys"
 
 export async function deliverOffer(params: {
   inventory: InventoryService
@@ -76,11 +82,9 @@ export async function canAccommodateOfferList(params: {
   const defs = await inv.getItemDefinitions(roomId, [...bagIds, ...incomingIds])
   const byId = new Map(defs.map((d) => [d.id, d]))
 
-  let invUsed = 0
-  let colUsed = 0
+  const used: Record<ItemSlotPool, number> = { inventory: 0, collection: 0, playback: 0 }
   for (const item of bag.items) {
-    if (slotPoolOf(byId.get(item.definitionId)) === "collection") colUsed += 1
-    else invUsed += 1
+    used[resolveSlotPool(byId.get(item.definitionId))] += 1
   }
 
   const stacks: InventoryItem[] = bag.items.map((i) => ({ ...i }))
@@ -101,14 +105,9 @@ export async function canAccommodateOfferList(params: {
       }
     }
     while (remaining > 0) {
-      const pool = slotPoolOf(def)
-      if (pool === "collection") {
-        if (colUsed >= bag.maxCollectionSlots) return false
-        colUsed += 1
-      } else {
-        if (invUsed >= bag.maxSlots) return false
-        invUsed += 1
-      }
+      const pool = resolveSlotPool(def)
+      if (used[pool] >= capForPool(bag, pool)) return false
+      used[pool] += 1
       const take = def.stackable ? Math.min(remaining, def.maxStack) : 1
       stacks.push({
         itemId: `sim-${stacks.length}`,

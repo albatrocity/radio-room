@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { createActor, type Actor } from "xstate"
 import { userGameStateMachine } from "./userGameStateMachine"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
+import { notifyGameStateNavInventory } from "../lib/gameStateNavInventory"
 
 vi.mock("../actors/socketActor", () => ({
   subscribeById: vi.fn(),
@@ -10,6 +11,9 @@ vi.mock("../actors/socketActor", () => ({
 }))
 vi.mock("../actors/authActor", () => ({
   getCurrentUser: () => ({ userId: "me" }),
+}))
+vi.mock("../lib/gameStateNavInventory", () => ({
+  notifyGameStateNavInventory: vi.fn(),
 }))
 
 const emptyPayload = {
@@ -404,5 +408,51 @@ describe("userGameStateMachine refetch characterization", () => {
       await vi.runOnlyPendingTimersAsync()
       vi.useRealTimers()
     }
+  })
+
+  it("drops the inventory detail when this user's stack is removed", () => {
+    activateReady()
+    actor.send({
+      type: "INVENTORY_ITEM_REMOVED",
+      data: { userId: "me", itemId: "pm-stack-1" },
+    })
+    expect(notifyGameStateNavInventory).toHaveBeenCalledWith({
+      type: "drop",
+      itemId: "pm-stack-1",
+    })
+  })
+
+  it("does not drop inventory detail for another user's remove", () => {
+    activateReady()
+    vi.mocked(notifyGameStateNavInventory).mockClear()
+    actor.send({
+      type: "INVENTORY_ITEM_REMOVED",
+      data: { userId: "other", itemId: "pm-stack-1" },
+    })
+    expect(notifyGameStateNavInventory).not.toHaveBeenCalled()
+  })
+
+  it("reconciles held inventory ids on USER_GAME_STATE", () => {
+    activateReady()
+    expect(notifyGameStateNavInventory).toHaveBeenCalledWith({
+      type: "held",
+      itemIds: [],
+    })
+    actor.send({
+      type: "USER_GAME_STATE",
+      data: {
+        ...emptyPayload,
+        inventory: {
+          userId: "me",
+          items: [{ itemId: "pm-1" }, { itemId: "pm-2" }],
+          maxSlots: 3,
+          maxCollectionSlots: 12,
+        } as any,
+      },
+    })
+    expect(notifyGameStateNavInventory).toHaveBeenCalledWith({
+      type: "held",
+      itemIds: ["pm-1", "pm-2"],
+    })
   })
 })

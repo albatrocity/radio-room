@@ -58,8 +58,105 @@ export interface DefenseSpec {
 // ============================================================================
 
 /**
+ * Physical Media format token, independent of `artworkFrame` (ADR 0155).
+ * Stored on `ItemDefinition.mediaFormat` so per-condition artwork can diverge later.
+ */
+export type PhysicalMediaFormat = "CD" | "LP" | "TAPE" | "45"
+
+export const PHYSICAL_MEDIA_FORMATS: readonly PhysicalMediaFormat[] = [
+  "CD",
+  "LP",
+  "TAPE",
+  "45",
+] as const
+
+export function isPhysicalMediaFormat(value: unknown): value is PhysicalMediaFormat {
+  return typeof value === "string" && (PHYSICAL_MEDIA_FORMATS as readonly string[]).includes(value)
+}
+
+/** Session slot pools. Default (omitted / unknown) is the consumable bag. */
+export type ItemSlotPool = "inventory" | "collection" | "playback"
+export const ITEM_SLOT_POOLS = ["inventory", "collection", "playback"] as const
+
+/** Default pool is the bag. Written once so the three-way widening cannot drift. */
+export function resolveSlotPool(
+  def?: { slotPool?: string | null } | null,
+): ItemSlotPool {
+  return def?.slotPool === "collection" || def?.slotPool === "playback"
+    ? def.slotPool
+    : "inventory"
+}
+
+/** UI headings and system-message labels, keyed by pool. */
+export const SLOT_POOL_LABELS: Record<ItemSlotPool, string> = {
+  inventory: "Inventory",
+  collection: "Collection",
+  playback: "Playback Devices",
+}
+
+/** Grammatical subject + verb for a full pool ("Inventory is full", "Playback Devices are full"). */
+export function slotPoolFullClause(pool: ItemSlotPool): string {
+  return `${SLOT_POOL_LABELS[pool]} ${pool === "playback" ? "are" : "is"} full`
+}
+
+/** User-facing copy when a slot pool cannot take another item. */
+export function slotPoolFullMessage(pool: ItemSlotPool, detail: string): string {
+  return `${slotPoolFullClause(pool)} — ${detail}`
+}
+
+/** Session defaults for the three slot pools (ADR 0160). */
+export const DEFAULT_SLOT_CAPS = {
+  inventory: 3,
+  collection: 12,
+  playback: 2,
+} as const satisfies Record<ItemSlotPool, number>
+
+/** Effective cap for a pool on a `UserInventory` / session config pair. */
+export function capForPool(
+  caps: Pick<UserInventory, "maxSlots" | "maxCollectionSlots" | "maxPlaybackSlots">,
+  pool: ItemSlotPool,
+): number {
+  if (pool === "collection") return caps.maxCollectionSlots
+  if (pool === "playback") return caps.maxPlaybackSlots
+  return caps.maxSlots
+}
+
+/** Wear ladder for Physical Media copies (ADR 0155). Absent metadata reads as mint. */
+export type MediaCondition = "mint" | "good" | "poor"
+
+export const MEDIA_CONDITIONS: readonly MediaCondition[] = ["mint", "good", "poor"]
+
+export const MEDIA_CONDITION_LABELS: Record<MediaCondition, string> = {
+  mint: "Mint",
+  good: "Good",
+  poor: "Poor",
+}
+
+/** Chakra `colorPalette` tokens for condition tags (web + Game Studio). */
+export const MEDIA_CONDITION_PALETTE: Record<MediaCondition, string> = {
+  mint: "green",
+  good: "yellow",
+  poor: "red",
+}
+
+/** `InventoryItem.metadata` key for `MediaCondition`. */
+export const PHYSICAL_MEDIA_CONDITION_KEY = "condition" as const
+
+/** `InventoryItem.metadata` key: definitionId of the record a broken-media copy came from (ADR 0159). */
+export const PHYSICAL_MEDIA_ORIGIN_KEY = "mediaOrigin" as const
+
+/** `SONG_QUEUE_FAILURE` copy when Physical Media is queued without a matching device (ADR 0160). */
+export const PLAYBACK_DEVICE_MISSING_REASON = "You don't have anything to play this with."
+
+export function isMediaCondition(value: unknown): value is MediaCondition {
+  return value === "mint" || value === "good" || value === "poor"
+}
+
+/**
  * CSS/SVG overlay token for Physical Media cover art (ADR 0099). Derived from
  * the Navidrome playlist prefix only — never inferred from display name/icon.
+ * `ItemDefinition.artworkFrame` is the mint frame; clients resolve display frames
+ * from `mediaFormat` + condition (ADR 0155).
  */
 export type ArtworkFrame = "jewel-case" | "record-jacket" | "die-cut-jacket" | "cassette-case"
 
@@ -80,6 +177,55 @@ export function parseArtworkFrame(value: string): ArtworkFrame | undefined {
   if (trimmed === "j-card") return "cassette-case"
   if ((ARTWORK_FRAMES as readonly string[]).includes(trimmed)) return trimmed as ArtworkFrame
   return undefined
+}
+
+/**
+ * One frame per format. Condition is a passthrough: the frame names the object,
+ * and the client draws wear beside it (ADR 0157).
+ */
+export const ARTWORK_FRAME_BY_FORMAT: Record<PhysicalMediaFormat, ArtworkFrame> = {
+  CD: "jewel-case",
+  LP: "record-jacket",
+  TAPE: "cassette-case",
+  "45": "die-cut-jacket",
+}
+
+const FORMAT_BY_ARTWORK_FRAME: Record<ArtworkFrame, PhysicalMediaFormat> = {
+  "jewel-case": "CD",
+  "record-jacket": "LP",
+  "die-cut-jacket": "45",
+  "cassette-case": "TAPE",
+}
+
+/** Format's one frame. `condition` is kept in the signature (ADR 0157) and ignored. */
+export function artworkFrameForFormat(
+  format: PhysicalMediaFormat,
+  _condition?: MediaCondition,
+): ArtworkFrame {
+  return ARTWORK_FRAME_BY_FORMAT[format]
+}
+
+/** Inverse of `ARTWORK_FRAME_BY_FORMAT` for records registered before `mediaFormat`. */
+export function formatFromArtworkFrame(
+  frame: ArtworkFrame | string | undefined,
+): PhysicalMediaFormat | undefined {
+  if (frame == null) return undefined
+  const parsed = typeof frame === "string" ? parseArtworkFrame(frame) : frame
+  if (!parsed) return undefined
+  return FORMAT_BY_ARTWORK_FRAME[parsed]
+}
+
+/** True when this definition is derived Physical Media (not a library card or device). */
+export function isPhysicalMediaDefinition(
+  definition?: Pick<ItemDefinition, "mediaFormat" | "artworkFrame"> | null,
+): boolean {
+  return definition?.mediaFormat != null || definition?.artworkFrame != null
+}
+
+/** Wear ladder read. Absent / invalid metadata is mint (ADR 0155). */
+export function readItemCondition(item: InventoryItem): MediaCondition {
+  const raw = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
+  return isMediaCondition(raw) ? raw : "mint"
 }
 
 /** pluginData payload Item Shops attaches on Local tracks that live on a derived record. */
@@ -153,6 +299,17 @@ export interface ItemDefinition {
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
   /**
+   * Condition-independent format token for derived Physical Media (ADR 0155).
+   * Use this — not `artworkFrame` — to key format-specific behavior.
+   */
+  mediaFormat?: PhysicalMediaFormat
+  /**
+   * Formats this item can play. Holding one is required to queue a track from a
+   * record whose `mediaFormat` is listed here (ADR 0160). Distinct from
+   * `mediaFormat`, which says what format the item *is*.
+   */
+  playbackFormats?: PhysicalMediaFormat[]
+  /**
    * When set, Inventory / shop UIs show a Details action that opens the Game
    * State item detail subroute (ADR 0104).
    */
@@ -174,9 +331,10 @@ export interface ItemDefinition {
   rarity?: ItemRarity
   /**
    * Which session slot pool this item occupies. `"inventory"` (default) is the
-   * consumable/tool bag; `"collection"` is durable holdings (Physical Media).
+   * consumable/tool bag; `"collection"` is durable holdings (Physical Media);
+   * `"playback"` is playback devices (ADR 0160).
    */
-  slotPool?: "inventory" | "collection"
+  slotPool?: ItemSlotPool
   /**
    * When `"user"`, the inventory UI opens a target picker and sends `targetUserId`
    * with `USE_INVENTORY_ITEM`; plugins read it from `onItemUsed` `callContext`.
@@ -185,6 +343,8 @@ export interface ItemDefinition {
    * When `"userInventoryItem"`, the UI picks a user, peeks their inventory
    * (`PEEK_USER_INVENTORY`), then sends `targetUserId` + `targetInventoryItemId`
    * (see ADR 0147).
+   * When `"mediaItem"`, the UI opens a picker over all of the user's own stacks
+   * and sends `targetInventoryItemId`; the handler decides whether the target was valid.
    * When `"self"` or omitted, the effect applies to the inventory owner only.
    */
   requiresTarget?:
@@ -193,6 +353,7 @@ export interface ItemDefinition {
     | "queueItem"
     | "inventoryItem"
     | "userInventoryItem"
+    | "mediaItem"
     | "coinAmount"
   /**
    * When set, holding this item passively blocks matching modifiers / queue
@@ -229,6 +390,8 @@ export interface UserInventory {
   maxSlots: number
   /** Effective collection slot cap (mirrors `GameSessionConfig.maxCollectionSlots`). */
   maxCollectionSlots: number
+  /** Effective playback-device slot cap (mirrors `GameSessionConfig.maxPlaybackSlots`). */
+  maxPlaybackSlots: number
 }
 
 /**
@@ -246,7 +409,7 @@ export interface UserInventoryPeekItem {
   artworkFrame?: ArtworkFrame
   rarity?: ItemRarity
   tradeable: boolean
-  slotPool: "inventory" | "collection"
+  slotPool: ItemSlotPool
 }
 
 /** Same-socket reply for `PEEK_USER_INVENTORY`. */
@@ -273,6 +436,8 @@ export interface ItemUseResult {
   title?: string
   /** Optional user-facing feedback (toast / chat alert body). */
   message?: string
+  /** Optional toast display time in milliseconds. Omit for the client default. */
+  duration?: number
 }
 
 /**

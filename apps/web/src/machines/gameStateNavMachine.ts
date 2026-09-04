@@ -45,6 +45,10 @@ export type GameStateNavEvent =
   /** Deep-link: select `tabId` and show `frame` as its only detail frame. */
   | { type: "OPEN_DETAIL_ON_TAB"; tabId: string; frame: GameStateDetailFrame }
   | { type: "POP_TO_INDEX" }
+  /** Held inventory stack gone (converted, sold, gifted, traded away). */
+  | { type: "DROP_INVENTORY_DETAIL"; itemId: string }
+  /** Drop inventory item frames whose `inventoryItemId` is no longer held. */
+  | { type: "RECONCILE_INVENTORY_DETAILS"; heldItemIds: string[] }
   /** Finished trade: drop the session frame; `goToInventory` when the viewer is on it (ADR 0131). */
   | { type: "TRADE_SESSION_COMPLETED"; goToInventory: boolean }
   | { type: "SET_AVAILABLE_TABS"; tabIds: string[] }
@@ -65,6 +69,20 @@ export function activeStack(context: GameStateNavContext): TabStack {
 export function currentDetailFrame(context: GameStateNavContext): GameStateDetailFrame | null {
   const stack = activeStack(context)
   return stack.length > 0 ? (stack[stack.length - 1] ?? null) : null
+}
+
+function dropInventoryItemFrames(
+  stacks: Record<string, TabStack>,
+  shouldDrop: (frame: GameStateDetailFrame) => boolean,
+): Record<string, TabStack> {
+  const next: Record<string, TabStack> = { ...stacks }
+  for (const [tabId, stack] of Object.entries(next)) {
+    const filtered = stack.filter((frame) => !shouldDrop(frame))
+    if (filtered.length !== stack.length) {
+      next[tabId] = filtered
+    }
+  }
+  return next
 }
 
 function tabMissingFrom(tabId: string, tabIds: string[] | null): boolean {
@@ -130,6 +148,28 @@ export const gameStateNavMachine = setup({
     popToIndex: assign(({ context }) => ({
       stacks: { ...context.stacks, [context.activeTabId]: [] },
     })),
+    dropInventoryDetail: assign(({ context, event }) => {
+      if (event.type !== "DROP_INVENTORY_DETAIL") return {}
+      return {
+        stacks: dropInventoryItemFrames(
+          context.stacks,
+          (frame) => frame.kind === "item" && frame.inventoryItemId === event.itemId,
+        ),
+      }
+    }),
+    reconcileInventoryDetails: assign(({ context, event }) => {
+      if (event.type !== "RECONCILE_INVENTORY_DETAILS") return {}
+      const held = new Set(event.heldItemIds)
+      return {
+        stacks: dropInventoryItemFrames(
+          context.stacks,
+          (frame) =>
+            frame.kind === "item" &&
+            frame.inventoryItemId != null &&
+            !held.has(frame.inventoryItemId),
+        ),
+      }
+    }),
     finishTradeSession: assign(({ context, event }) => {
       if (event.type !== "TRADE_SESSION_COMPLETED") return {}
       const stacks = { ...context.stacks, [TRADES_GIFTS_TAB]: [] }
@@ -242,6 +282,12 @@ export const gameStateNavMachine = setup({
     },
     OPEN_DETAIL_ON_TAB: {
       actions: ["stopPreview", "openDetailOnTab", "syncChildrenAfterOpenDetail"],
+    },
+    DROP_INVENTORY_DETAIL: {
+      actions: ["dropInventoryDetail", "syncChildrenIfActive"],
+    },
+    RECONCILE_INVENTORY_DETAILS: {
+      actions: ["reconcileInventoryDetails", "syncChildrenIfActive"],
     },
     SET_AVAILABLE_TABS: [
       {

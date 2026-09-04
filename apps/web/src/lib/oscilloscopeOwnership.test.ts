@@ -6,7 +6,7 @@ import {
 } from "./oscilloscopeOwnership"
 
 function inv(items: UserInventory["items"]): UserInventory {
-  return { userId: "u1", items, maxSlots: 20, maxCollectionSlots: 20 }
+  return { userId: "u1", items, maxSlots: 20, maxCollectionSlots: 20, maxPlaybackSlots: 20 }
 }
 
 describe("inventoryOwnsOscilloscope", () => {

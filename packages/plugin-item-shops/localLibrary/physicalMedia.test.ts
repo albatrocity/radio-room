@@ -6,6 +6,7 @@ import {
   derivePhysicalMediaItemsFromAlbums,
   inferPhysicalMediaFormat,
   parsePhysicalMediaName,
+  physicalMediaTypeLabel,
   rarityFromUserRating,
   splitPhysicalMediaArtistTitle,
   physicalMediaAlbumShortId,
@@ -16,18 +17,22 @@ import {
 describe("physicalMedia derivation", () => {
   it("parses format prefixes and ignores unprefixed playlists", () => {
     expect(parsePhysicalMediaName("[LP] Loveless")).toEqual({
+      token: "LP",
       format: "LP",
       title: "Loveless",
       icon: "Disc3",
       artworkFrame: "record-jacket",
     })
     expect(parsePhysicalMediaName("[cd] Kid A")).toEqual({
+      token: "CD",
       format: "CD",
       title: "Kid A",
       icon: "Disc",
       artworkFrame: "jewel-case",
     })
     expect(parsePhysicalMediaName("Just a mixtape")).toBeNull()
+    expect(physicalMediaTypeLabel("TAPE")).toBe("Cassette")
+    expect(physicalMediaTypeLabel("LP")).toBe("LP")
   })
 
   it("parses optional rarity tags in any order with format", () => {
@@ -103,6 +108,9 @@ describe("physicalMedia derivation", () => {
       playlistKey: physicalMediaShortId("nd-1"),
       redemption: "durable",
     })
+    expect(items[0]?.definition.stackable).toBe(false)
+    expect(items[0]?.definition.maxStack).toBe(1)
+    expect(items[0]?.definition.mediaFormat).toBe("LP")
     expect(items[1]?.definition.name).toBe("45: Single")
     expect(items[1]?.definition.artist).toBeUndefined()
     expect(items[1]?.definition.coinValue).toBe(priceFromSongCount(2))
@@ -196,6 +204,10 @@ describe("physicalMedia derivation", () => {
       "cassette-case",
       "die-cut-jacket",
     ])
+    expect(items.map((e) => e.definition.mediaFormat)).toEqual(["CD", "LP", "TAPE", "45"])
+    expect(items.every((e) => e.definition.stackable === false && e.definition.maxStack === 1)).toBe(
+      true,
+    )
   })
 
   it("sets artworkFrame even when cover art is missing", () => {
@@ -352,6 +364,9 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
     const lovelessFormat = inferPhysicalMediaFormat(1991, 11, "al-1")
     expect(items[0]?.definition.name).toBe(`${lovelessFormat.format}: Loveless`)
     expect(items[0]?.definition.artworkFrame).toBe(lovelessFormat.artworkFrame)
+    expect(items[0]?.definition.mediaFormat).toBe(lovelessFormat.token)
+    expect(items[0]?.definition.stackable).toBe(false)
+    expect(items[0]?.definition.maxStack).toBe(1)
     expect(items[0]?.definition.artist).toBe("My Bloody Valentine")
     expect(items[0]?.definition.rarity).toBe("common")
     expect(items[0]?.definition.coinValue).toBe(priceFromSongCount(11))

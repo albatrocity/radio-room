@@ -1,15 +1,18 @@
+import type { MediaCondition } from "@repo/types"
 import OverlaySvg from "./OverlaySvg"
 import RecordJacketOverlay from "./RecordJacketOverlay"
 
 type Props = {
   idPrefix?: string
+  /** Passed straight through — a 45 sleeve is cardboard, so it wears like an LP (ADR 0157). */
+  condition?: MediaCondition
 }
 
 /** 45 picture sleeve: jacket wear plus paper-edge ring at the die-cut hole. Hole itself is the wrapper mask. */
-export default function DieCutJacketOverlay({ idPrefix = "dc" }: Props) {
+export default function DieCutJacketOverlay({ idPrefix = "dc", condition = "mint" }: Props) {
   return (
     <>
-      <RecordJacketOverlay idPrefix={`${idPrefix}-rj`} />
+      <RecordJacketOverlay idPrefix={`${idPrefix}-rj`} condition={condition} />
       <OverlaySvg>
         <circle
           cx="50"

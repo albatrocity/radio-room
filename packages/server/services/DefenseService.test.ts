@@ -99,6 +99,7 @@ describe("DefenseService.checkModifierDefense", () => {
       ],
       maxSlots: 20,
       maxCollectionSlots: 20,
+      maxPlaybackSlots: 2,
     })
     const context = {
       inventory: { getInventory, getItemDefinition, removeItem },

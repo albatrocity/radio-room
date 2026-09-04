@@ -41,6 +41,7 @@ describe("canAccommodateOfferList", () => {
         items: [bagItem()],
         maxSlots: 5,
         maxCollectionSlots: 5,
+        maxPlaybackSlots: 5,
       })),
       getItemDefinitions,
       getAllItemDefinitions,
