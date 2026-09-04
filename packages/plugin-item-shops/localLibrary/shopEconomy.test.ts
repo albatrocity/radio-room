@@ -53,6 +53,12 @@ describe("physicalMediaShopEconomyHooks", () => {
     expect(hooks.decorateOffer?.(SCRATCHED, 75)).toEqual({})
   })
 
+  it("respects live offer condition bounds", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99)
+    const hooks = physicalMediaShopEconomyHooks(() => ({ min: "mint", max: "mint" }))
+    expect(hooks.decorateOffer?.(PM, 20)).toEqual({ condition: "mint", price: 20 })
+  })
+
   it("scales sellback for Physical Media and leaves other SKUs alone", () => {
     const hooks = physicalMediaShopEconomyHooks()
     const item: InventoryItem = {

@@ -7,6 +7,7 @@ import type {
 } from "@repo/types"
 import {
   isMediaCondition,
+  MEDIA_CONDITION_LABELS,
   MEDIA_CONDITIONS,
   PHYSICAL_MEDIA_CONDITION_KEY,
 } from "@repo/types"
@@ -17,6 +18,20 @@ export {
   PHYSICAL_MEDIA_CONDITION_KEY,
   type MediaCondition,
 } from "@repo/types"
+
+/** Worst/best Record Store offer condition (ADR 0158). Defaults span the full ladder. */
+export type OfferConditionBounds = {
+  min: MediaCondition
+  max: MediaCondition
+}
+
+export const DEFAULT_OFFER_CONDITION_BOUNDS: OfferConditionBounds = {
+  min: "poor",
+  max: "mint",
+}
+
+export const OFFER_CONDITION_SELECT_OPTIONS: { value: MediaCondition; label: string }[] =
+  MEDIA_CONDITIONS.map((value) => ({ value, label: MEDIA_CONDITION_LABELS[value] }))
 
 /** Independent of item rarity so P(legendary ∧ mint) = P(legendary) × P(mint). */
 export const CONDITION_OFFER_WEIGHTS: Record<MediaCondition, number> = {
@@ -66,14 +81,48 @@ export function degradeCondition(condition: MediaCondition): MediaCondition | nu
   return null
 }
 
-export function rollOfferCondition(random: () => number = Math.random): MediaCondition {
-  const total = MEDIA_CONDITIONS.reduce((sum, c) => sum + CONDITION_OFFER_WEIGHTS[c], 0)
+/** Closed wear-rank interval between `min` and `max` (order-insensitive). */
+export function conditionsWithinBounds(
+  min: MediaCondition = DEFAULT_OFFER_CONDITION_BOUNDS.min,
+  max: MediaCondition = DEFAULT_OFFER_CONDITION_BOUNDS.max,
+): MediaCondition[] {
+  const lo = Math.min(CONDITION_WEAR_RANK[min], CONDITION_WEAR_RANK[max])
+  const hi = Math.max(CONDITION_WEAR_RANK[min], CONDITION_WEAR_RANK[max])
+  return MEDIA_CONDITIONS.filter((c) => {
+    const rank = CONDITION_WEAR_RANK[c]
+    return rank >= lo && rank <= hi
+  })
+}
+
+export function readOfferConditionBounds(input: {
+  offerConditionMin?: unknown
+  offerConditionMax?: unknown
+}): OfferConditionBounds {
+  return {
+    min: isMediaCondition(input.offerConditionMin)
+      ? input.offerConditionMin
+      : DEFAULT_OFFER_CONDITION_BOUNDS.min,
+    max: isMediaCondition(input.offerConditionMax)
+      ? input.offerConditionMax
+      : DEFAULT_OFFER_CONDITION_BOUNDS.max,
+  }
+}
+
+export function rollOfferCondition(
+  random: () => number = Math.random,
+  bounds?: OfferConditionBounds,
+): MediaCondition {
+  const allowed = conditionsWithinBounds(
+    bounds?.min ?? DEFAULT_OFFER_CONDITION_BOUNDS.min,
+    bounds?.max ?? DEFAULT_OFFER_CONDITION_BOUNDS.max,
+  )
+  const total = allowed.reduce((sum, c) => sum + CONDITION_OFFER_WEIGHTS[c], 0)
   let r = random() * total
-  for (const condition of MEDIA_CONDITIONS) {
+  for (const condition of allowed) {
     r -= CONDITION_OFFER_WEIGHTS[condition]
     if (r <= 0) return condition
   }
-  return "poor"
+  return allowed[allowed.length - 1] ?? "poor"
 }
 
 export function priceForCondition(base: number, condition: MediaCondition): number {

@@ -42,6 +42,16 @@ export const itemShopsConfigSchema = z.object({
    */
   autoShopIntervalMs: z.number().int().min(60_000).default(10 * 60_000),
   /**
+   * Worst Record Store Physical Media condition that can be rolled into an offer
+   * (ADR 0158). Default Poor — full degraded-to-pristine range with {@link offerConditionMax}.
+   */
+  offerConditionMin: z.enum(["mint", "good", "poor"]).default("poor"),
+  /**
+   * Best Record Store Physical Media condition that can be rolled into an offer
+   * (ADR 0158). Default Mint.
+   */
+  offerConditionMax: z.enum(["mint", "good", "poor"]).default("mint"),
+  /**
    * When a Local track from a derived Physical Media playlist is now playing,
    * queued, or in playlist history, show the sleeve/case overlay. Missing
    * playlist cover falls back to track art.
@@ -77,4 +87,6 @@ export const defaultItemShopsConfig: ItemShopsConfig = {
   deriveAlbumsAsPhysicalMedia: false,
   autoShop: false,
   autoShopIntervalMs: 10 * 60_000,
+  offerConditionMin: "poor",
+  offerConditionMax: "mint",
 }

@@ -163,6 +163,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0155](0155-physical-media-condition-wear-and-conversion.md) | Physical Media condition, wear, and conversion | Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam) |
 | [0156](0156-mutable-inventory-stack-metadata.md) | Mutable inventory stack metadata (`updateItemMetadata`) | Accepted |
 | [0157](0157-physical-media-condition-artwork.md) | Physical Media condition artwork as an overlay modifier | Accepted |
+| [0158](0158-shopping-session-condition-bounds.md) | Shopping session condition bounds (Record Store min/max) | Accepted |
 
 ## Creating a New ADR
 

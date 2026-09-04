@@ -4,9 +4,11 @@ import {
   artworkFrameForFormat,
   CONDITION_OFFER_WEIGHTS,
   CONDITION_PRICE_MULTIPLIER,
+  conditionsWithinBounds,
   degradeCondition,
   priceForCondition,
   readItemCondition,
+  readOfferConditionBounds,
   rollOfferCondition,
 } from "./condition"
 import {
@@ -65,6 +67,45 @@ describe("rollOfferCondition / priceForCondition", () => {
     expect(priceForCondition(20, "poor")).toBe(9)
     expect(priceForCondition(1, "poor")).toBe(1)
     expect(CONDITION_PRICE_MULTIPLIER.poor).toBeLessThan(CONDITION_PRICE_MULTIPLIER.good)
+  })
+})
+
+describe("conditionsWithinBounds / readOfferConditionBounds", () => {
+  it("defaults to the full Poor–Mint ladder", () => {
+    expect(conditionsWithinBounds()).toEqual(["mint", "good", "poor"])
+    expect(readOfferConditionBounds({})).toEqual({ min: "poor", max: "mint" })
+  })
+
+  it("keeps a single-condition range", () => {
+    expect(conditionsWithinBounds("good", "good")).toEqual(["good"])
+    expect(conditionsWithinBounds("mint", "mint")).toEqual(["mint"])
+  })
+
+  it("treats an inverted pair as the same closed interval", () => {
+    expect(conditionsWithinBounds("mint", "poor")).toEqual(["mint", "good", "poor"])
+    expect(conditionsWithinBounds("good", "mint")).toEqual(["mint", "good"])
+  })
+
+  it("falls back to defaults for unknown stored values", () => {
+    expect(readOfferConditionBounds({ offerConditionMin: "nope", offerConditionMax: 3 })).toEqual({
+      min: "poor",
+      max: "mint",
+    })
+  })
+})
+
+describe("rollOfferCondition bounds", () => {
+  it("always returns the only allowed condition", () => {
+    const random = () => 0.99
+    expect(rollOfferCondition(random, { min: "mint", max: "mint" })).toBe("mint")
+    expect(rollOfferCondition(random, { min: "poor", max: "poor" })).toBe("poor")
+  })
+
+  it("does not roll Poor when the range is Mint–Good", () => {
+    for (const r of [0, 0.5, 0.99]) {
+      const rolled = rollOfferCondition(() => r, { min: "good", max: "mint" })
+      expect(rolled === "mint" || rolled === "good").toBe(true)
+    }
   })
 })
 

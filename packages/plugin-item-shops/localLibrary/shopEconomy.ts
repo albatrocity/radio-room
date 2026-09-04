@@ -4,14 +4,17 @@ import {
   priceForCondition,
   readItemCondition,
   rollOfferCondition,
+  type OfferConditionBounds,
 } from "./condition"
 
 /** Item Shops economy hooks: condition rolls and sellback for Physical Media only. */
-export function physicalMediaShopEconomyHooks(): ShopEconomyHooks {
+export function physicalMediaShopEconomyHooks(
+  getBounds?: () => OfferConditionBounds,
+): ShopEconomyHooks {
   return {
     decorateOffer(entry, basePrice) {
       if (!isPhysicalMediaDefinition(entry.definition)) return {}
-      const condition = rollOfferCondition()
+      const condition = rollOfferCondition(Math.random, getBounds?.())
       return { condition, price: priceForCondition(basePrice, condition) }
     },
     adjustSellBase(item, definition, base) {
