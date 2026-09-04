@@ -108,6 +108,10 @@ interface Broadcaster {
 
 Emits **all** events to the room's socket channel. Clients in a room receive events about that room.
 
+Private per-user lines use `sendUserSystemMessage` instead. Inventory metadata patches
+(`INVENTORY_ITEM_UPDATED`) stay on this room fanout today; clients discard other users' stacks.
+Per-user delivery for that event would be a new ADR.
+
 ```typescript
 // Emits to: room:{roomId}
 // Event format: { type: "TRACK_CHANGED", data: {...} }

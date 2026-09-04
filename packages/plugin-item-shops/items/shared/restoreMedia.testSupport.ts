@@ -3,7 +3,7 @@ import { userFactory } from "@repo/factories"
 import type { InventoryItem, ItemDefinition, PhysicalMediaFormat } from "@repo/types"
 import { MEDIA_CONDITION_LABELS, PHYSICAL_MEDIA_CONDITION_KEY, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
 import { physicalMediaTypeLabel } from "../../localLibrary/physicalMedia"
-import { albumTitleFromItemName, RESTORE_TOAST_DURATION_MS } from "./restoreMedia"
+import { albumTitleFromItemName, pickRandomRestoreCandidateFromCatalog, RESTORE_TOAST_DURATION_MS } from "./restoreMedia"
 import type { Item } from "./types"
 import { createMockDefinition, createMockDeps, invokeUse } from "./testHelpers"
 
@@ -81,8 +81,15 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
     [...matching, wrong, pedal, broken].map((d) => [d.id, d]),
   )
 
-  function setup(target: InventoryItem, extra?: { allDefs?: ItemDefinition[] }) {
-    const deps = createMockDeps()
+  function setup(target: InventoryItem, extra?: { restoreCandidates?: ItemDefinition[] }) {
+    const deps = createMockDeps(
+      extra?.restoreCandidates
+        ? {
+            pickRandomRestoreCandidate: (eligible) =>
+              pickRandomRestoreCandidateFromCatalog(extra.restoreCandidates ?? [], eligible),
+          }
+        : undefined,
+    )
     const actor = userFactory.build({ userId: actorId })
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: actorId,
@@ -92,11 +99,8 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
       maxPlaybackSlots: 20,
     })
     vi.mocked(deps.context.inventory.getItemDefinition).mockImplementation(async (id) => {
-      return defsById.get(id) ?? extra?.allDefs?.find((d) => d.id === id) ?? null
+      return defsById.get(id) ?? extra?.restoreCandidates?.find((d) => d.id === id) ?? null
     })
-    if (extra?.allDefs) {
-      vi.mocked(deps.context.inventory.getAllItemDefinitions).mockResolvedValue(extra.allDefs)
-    }
     vi.mocked(deps.context.inventory.updateItemMetadata).mockResolvedValue(target)
     vi.mocked(deps.context.inventory.removeItem).mockResolvedValue(true)
     vi.mocked(deps.context.inventory.giveItem).mockResolvedValue(
@@ -232,7 +236,7 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
         format: primary.mediaFormat ?? "CD",
       })
       const target = stack(broken, { itemId: "broken-shop" })
-      const { deps, actor } = setup(target, { allDefs: [wrong, other, primary] })
+      const { deps, actor } = setup(target, { restoreCandidates: [wrong, other, primary] })
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0)
 
       const result = await invokeUse(opts.item, deps, actor.userId, cleanerDef, {
@@ -240,10 +244,26 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
       })
 
       expect(result).toEqual(expectedToast(other.mediaFormat ?? "CD", "poor", other.name))
+      expect(deps.context.inventory.getAllItemDefinitions).not.toHaveBeenCalled()
       expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(actor.userId, other.id, 1, {
         [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
       })
       randomSpy.mockRestore()
+    })
+
+    test("broken SKU without origin and no catalog ⇒ nothing to restore", async () => {
+      const target = stack(broken, { itemId: "broken-empty" })
+      const { deps, actor } = setup(target)
+      const result = await invokeUse(opts.item, deps, actor.userId, cleanerDef, {
+        targetInventoryItemId: target.itemId,
+      })
+      expect(result).toEqual({
+        success: false,
+        consumed: false,
+        message: "There's nothing to restore it to.",
+      })
+      expect(deps.context.inventory.getAllItemDefinitions).not.toHaveBeenCalled()
+      expect(deps.context.inventory.giveItem).not.toHaveBeenCalled()
     })
 
     test("giveItem returning null ⇒ consumed false and removeItem never called", async () => {

@@ -196,6 +196,7 @@ export class InventoryService {
     quantity = 1,
     metadata?: Record<string, unknown>,
     source: InventoryAcquisitionSource = "plugin",
+    knownInventory?: UserInventory,
   ): Promise<InventoryItem | null> {
     if (quantity <= 0) return null
 
@@ -205,7 +206,7 @@ export class InventoryService {
       return null
     }
 
-    const inv = await this.getInventory(roomId, userId)
+    const inv = knownInventory ?? (await this.getInventory(roomId, userId))
 
     // Prefer merging into an existing stack when stackable.
     if (definition.stackable) {
@@ -385,6 +386,8 @@ export class InventoryService {
     await this.persistItem(roomId, userId, item)
 
     if (this.context.systemEvents) {
+      // Room-wide fanout (ADR 0008). Clients filter with `isMyGameEvent`. Wear
+      // emits this on every queue-add; per-user delivery would be a new ADR.
       await this.context.systemEvents.emit(roomId, "INVENTORY_ITEM_UPDATED", {
         roomId,
         sessionId: await this.activeSessionId(roomId),

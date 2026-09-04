@@ -2,9 +2,10 @@ import {
   allowQueueRequest,
   parseArtworkFrame,
   rejectQueueRequest,
-  type InventoryItem,
   type ItemDefinition,
+  type PhysicalMediaFormat,
   type MetadataSourceAccessGrantParams,
+  type UserInventory,
   type MetadataSourceAccessGrantResult,
   type PhysicalMediaItem,
   type PhysicalMediaNowPlayingFrame,
@@ -37,6 +38,7 @@ import {
   readItemCondition,
 } from "./condition"
 import { brokenMediaForRecord } from "../items/shared/brokenMedia"
+import { pickRandomRestoreCandidateFromCatalog } from "../items/shared/restoreMedia"
 import {
   buildGrantCatalogEntries,
   catalogByShortId,
@@ -81,8 +83,6 @@ export class LocalLibraryModule {
   derivedPhysicalMedia: ItemCatalogEntry[] = []
   private derivedPlaylistMap: Record<string, string> = {}
   private derivedAlbumMap: Record<string, string> = {}
-  /** Rebuilt in `applyConfig` so the queue hot path does not reconstruct the map. */
-  private itemDefinitionMap: Map<string, ItemDefinition> | null = null
   /** Album ids already fetched for sleeves this refresh (avoids hydrate spin on missing art). */
   private albumArtworkAttempted = new Set<string>()
   /** Local track id → last playlist/album membership (cleared on catalog refresh). */
@@ -102,7 +102,6 @@ export class LocalLibraryModule {
     const staticGrants = ITEM_CATALOG.filter((e) => e.localLibraryGrant)
     const grantCatalog = [...staticGrants, ...configGrants, ...this.derivedPhysicalMedia]
     this.grantCatalog = grantCatalog
-    this.itemDefinitionMap = null
     return {
       itemCatalog: buildEffectiveItemCatalog(grants, this.derivedPhysicalMedia),
       shopCatalog: buildEffectiveShopCatalog(grants, this.derivedPhysicalMedia),
@@ -597,9 +596,11 @@ export class LocalLibraryModule {
     if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
 
     const isAdmin = await context.api.isRoomAdmin(params.roomId, params.userId)
-    const session = await context.game.getActiveSession()
-    const wearForAdmins = session?.config.physicalMediaWearForAdmins !== false
-    if (isAdmin && !wearForAdmins) return allowQueueRequest()
+    if (isAdmin) {
+      const session = await context.game.getActiveSession()
+      const wearForAdmins = session?.config.physicalMediaWearForAdmins !== false
+      if (!wearForAdmins) return allowQueueRequest()
+    }
 
     const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const inv = await context.inventory.getInventory(params.userId)
@@ -665,16 +666,15 @@ export class LocalLibraryModule {
       const needsDevice = durableMatches.filter(requiresPlaybackDevice)
       // A library card or operator grant covers the track outright.
       if (needsDevice.length < durableMatches.length) {
-        await this.wearRecordForQueue(params, durableMatches, items)
+        await this.wearRecordForQueue(params, durableMatches, inv)
         return allowQueueRequest()
       }
-      const definitionById = this.definitionMapForItems()
-      const devices = playableFormats({ items, definitionById })
+      const devices = playableFormats(items)
       const playable = needsDevice.filter((h) => h.mediaFormat && devices.has(h.mediaFormat))
       if (playable.length === 0) {
         return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
       }
-      await this.wearRecordForQueue(params, playable, items)
+      await this.wearRecordForQueue(params, playable, inv)
       return allowQueueRequest()
     }
 
@@ -702,7 +702,7 @@ export class LocalLibraryModule {
   private async wearRecordForQueue(
     params: QueueValidationParams,
     matching: HeldLocalLibraryGrant[],
-    items: InventoryItem[],
+    inv: UserInventory,
   ): Promise<void> {
     const context = this.getContext()
     if (!context) return
@@ -710,6 +710,7 @@ export class LocalLibraryModule {
     const wearable = matching.filter((h) => h.grant.scope !== "library")
     if (wearable.length === 0) return
 
+    const items = inv.items
     const byItemId = new Map(items.map((item) => [item.itemId, item]))
     const ranked = wearable
       .map((h) => {
@@ -748,12 +749,17 @@ export class LocalLibraryModule {
 
     let given = null
     if (broken) {
+      const remaining: UserInventory = {
+        ...inv,
+        items: inv.items.filter((item) => item.itemId !== chosen.held.itemId),
+      }
       given = await context.inventory.giveItem(
         params.userId,
         definitionIdForShortId(this.pluginName, broken.shortId),
         1,
         { [PHYSICAL_MEDIA_ORIGIN_KEY]: chosen.held.definitionId },
         "plugin",
+        remaining,
       )
       if (!given) {
         console.debug(
@@ -805,21 +811,17 @@ export class LocalLibraryModule {
     })
   }
 
-  /** Catalog map rebuilt when `applyConfig` updates grant/derived catalogs. */
-  private definitionMapForItems(): Map<string, ItemDefinition> {
-    if (this.itemDefinitionMap) return this.itemDefinitionMap
-    const m = new Map<string, ItemDefinition>()
-    for (const e of [...ITEM_CATALOG, ...this.grantCatalog]) {
-      const id = definitionIdForShortId(this.pluginName, e.definition.shortId)
-      if (m.has(id)) continue
-      m.set(id, {
-        id,
-        sourcePlugin: this.pluginName,
-        ...e.definition,
-      })
-    }
-    this.itemDefinitionMap = m
-    return m
+  /**
+   * In-memory collection-pool Physical Media for random restore. Built from
+   * `derivedPhysicalMedia` so a cleaner use never HGETALLs the definitions hash.
+   */
+  pickRandomRestoreCandidate(eligible: readonly PhysicalMediaFormat[]): ItemDefinition | null {
+    const catalog = this.derivedPhysicalMedia.map((entry) => ({
+      id: definitionIdForShortId(this.pluginName, entry.definition.shortId),
+      sourcePlugin: this.pluginName,
+      ...entry.definition,
+    }))
+    return pickRandomRestoreCandidateFromCatalog(catalog, eligible)
   }
 
   /**

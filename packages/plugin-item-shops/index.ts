@@ -1245,6 +1245,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         context: this.context,
         game: this.game,
         activeInventoryItem: _item,
+        pickRandomRestoreCandidate: (eligible) =>
+          this.localLibrary.pickRandomRestoreCandidate(eligible),
       },
       userId,
       definition,

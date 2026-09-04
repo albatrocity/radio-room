@@ -3,11 +3,12 @@ import { queueActor } from "../actors/queueActor"
 import { MetadataSourceTrack } from "@repo/types"
 
 export default function useAddToQueue() {
-  const state = useSelector(queueActor, (snapshot) => snapshot)
+  const isLoading = useSelector(queueActor, (snapshot) => snapshot.matches("loading"))
+  const queuedTrack = useSelector(queueActor, (snapshot) => snapshot.context.queuedTrack)
 
   function addToQueue(track: MetadataSourceTrack) {
     queueActor.send({ type: "SEND_TO_QUEUE", track })
   }
 
-  return { state, send: queueActor.send, addToQueue }
+  return { isLoading, queuedTrack, addToQueue }
 }

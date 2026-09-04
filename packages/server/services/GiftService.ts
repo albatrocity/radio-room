@@ -167,9 +167,9 @@ export class GiftService {
           current.definitionId,
           current.quantity,
         )
-        const giftDef = await inv.getItemDefinition(roomId, current.definitionId)
-        const pool = resolveSlotPool(giftDef)
         if (!canFit) {
+          const giftDef = await inv.getItemDefinition(roomId, current.definitionId)
+          const pool = resolveSlotPool(giftDef)
           return {
             success: false,
             message: slotPoolFullMessage(pool, "free a slot to accept this gift."),
@@ -186,6 +186,8 @@ export class GiftService {
           "gift",
         )
         if (!given) {
+          const giftDef = await inv.getItemDefinition(roomId, current.definitionId)
+          const pool = resolveSlotPool(giftDef)
           return {
             success: false,
             message: slotPoolFullMessage(pool, "could not add the gift."),

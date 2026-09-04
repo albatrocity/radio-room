@@ -318,7 +318,7 @@ Emitters use `SystemEvents` (same pipeline as other domain events). Useful paylo
 | `INVENTORY_ITEM_ACQUIRED`    | Item given (source: `plugin` \| `trade` \| `purchase` \| `admin` \| `gift`)                                                          |
 | `INVENTORY_ITEM_USED`        | After `useItem` completes                                                                                                            |
 | `INVENTORY_ITEM_REMOVED`     | Partial/full stack removal                                                                                                           |
-| `INVENTORY_ITEM_UPDATED`     | Stack `metadata` patched via `updateItemMetadata` (`{ roomId, sessionId, userId, item }`)                                            |
+| `INVENTORY_ITEM_UPDATED`     | Stack `metadata` patched via `updateItemMetadata` (`{ roomId, sessionId, userId, item }`). Room-wide via `RoomBroadcaster` (ADR 0008); clients filter with `isMyGameEvent`. Wear now emits this on every queue-add; per-user delivery would be a new ADR. |
 | `INVENTORY_ITEM_TRANSFERRED` | Player-to-player transfer                                                                                                            |
 | `GIFT_*` / `TRADE_*`         | Player gift/trade protocol (ADR 0114); prefer over raw `transferItem` for consent. `TRADE_TYPING` is **not** in this set (ADR 0120). |
 

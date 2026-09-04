@@ -1044,6 +1044,8 @@ export interface InventoryPluginAPI {
     quantity?: number,
     metadata?: Record<string, unknown>,
     source?: InventoryAcquisitionSource,
+    /** Skip the inventory HGETALL when the caller already loaded this user's bags. */
+    knownInventory?: UserInventory,
   ): Promise<InventoryItem | null>
 
   removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean>

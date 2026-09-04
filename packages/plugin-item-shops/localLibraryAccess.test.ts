@@ -882,6 +882,10 @@ describe("ItemShopsPlugin local library grants", () => {
         1,
         { [PHYSICAL_MEDIA_ORIGIN_KEY]: PM_DEF_ID },
         "plugin",
+        expect.objectContaining({
+          userId: "u1",
+          items: [expect.objectContaining({ itemId: "turntable-stack-1" })],
+        }),
       )
       expect(api.sendUserToast).toHaveBeenCalledWith(
         ROOM,

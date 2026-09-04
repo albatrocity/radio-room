@@ -1,10 +1,22 @@
 import { PLAYBACK_DEVICE_MISSING_REASON } from "@repo/types"
 
-/** Last Add button clicked while a queue request is in flight. */
-let armedButton: HTMLElement | null = null
+type ArmedButtonRef = { deref: () => HTMLElement | undefined }
+
+/** Last Add button clicked while a queue request is in flight. WeakRef so a
+ *  hung request cannot pin a detached subtree after the component unmounts. */
+let armedButton: ArmedButtonRef | null = null
+
+function toWeakHtmlRef(element: HTMLElement): ArmedButtonRef {
+  const WeakRefCtor = (
+    globalThis as unknown as {
+      WeakRef: new (target: HTMLElement) => ArmedButtonRef
+    }
+  ).WeakRef
+  return new WeakRefCtor(element)
+}
 
 export function armQueueAddButtonShake(element: HTMLElement | null): void {
-  armedButton = element
+  armedButton = element ? toWeakHtmlRef(element) : null
 }
 
 export function disarmQueueAddButtonShake(): void {
@@ -19,7 +31,7 @@ export function disarmQueueAddButtonShake(): void {
 export function shakeArmedQueueAddButtonIfPlaybackMissing(
   failureMessage?: string,
 ): Promise<void> {
-  const element = armedButton
+  const element = armedButton?.deref() ?? null
   armedButton = null
   if (!element) return Promise.resolve()
   if (failureMessage !== PLAYBACK_DEVICE_MISSING_REASON) return Promise.resolve()

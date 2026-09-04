@@ -52,4 +52,12 @@ describe("queueAddButtonShake", () => {
     await shakeArmedQueueAddButtonIfPlaybackMissing(PLAYBACK_DEVICE_MISSING_REASON)
     expect(applyAnimation).not.toHaveBeenCalled()
   })
+
+  it("clears the armed button so a later shake is a no-op", async () => {
+    const button = fakeButton()
+    armQueueAddButtonShake(button)
+    disarmQueueAddButtonShake()
+    await shakeArmedQueueAddButtonIfPlaybackMissing(PLAYBACK_DEVICE_MISSING_REASON)
+    expect(applyAnimation).not.toHaveBeenCalled()
+  })
 })

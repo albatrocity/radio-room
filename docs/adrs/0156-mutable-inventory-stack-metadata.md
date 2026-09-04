@@ -22,6 +22,7 @@ Storing condition in plugin `context.storage` keyed by `itemId` would duplicate 
 - Plugins can evolve held items (wear, charges, inscriptions) without a second store.
 - Shallow merge cannot delete keys; callers must overwrite with an explicit sentinel if they need to clear a field.
 - `INVENTORY_ITEM_UPDATED` is user-scoped; subscribers must keep the existing `isMyGameEvent` guard.
+- The wire is still a room-wide `RoomBroadcaster` emit (ADR 0008). Physical Media wear fires this on every queue-add; switching inventory events to per-user delivery (`sendUserSystemMessage`'s private channel) is a future ADR.
 
 ## See also
 

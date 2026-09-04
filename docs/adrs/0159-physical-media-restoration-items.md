@@ -38,12 +38,12 @@ player holds, inventory and collection alike, without teaching the player which 
    working; missing origin takes the random-restore path. No migration.
 
 4. **Restore of a matching broken SKU** consumes it and grants a `poor` copy of a record. Prefer
-   `mediaOrigin` when that definition is still registered. Otherwise pick at random from
-   `getAllItemDefinitions()` filtered to collection-pool Physical Media whose `mediaFormat` is in
-   the intersection of the cleaner's formats and the broken SKU's formats (Dusty Record serves both
-   `LP` and `45`). Shop-bought broken media therefore restore to _some_ matching record from the
-   room's derived library. `giveItem` runs before `removeItem`; a full collection aborts without
-   consuming the cleaner or the broken copy.
+   `mediaOrigin` when that definition is still registered. Otherwise pick at random from the
+   plugin's in-memory derived Physical Media catalog (collection-pool, format-matched) and resolve
+   only the chosen definition via `getItemDefinition`. Dusty Record serves both `LP` and `45`.
+   Shop-bought broken media therefore restore to _some_ matching record from the room's derived
+   library. `giveItem` runs before `removeItem`; a full collection aborts without consuming the
+   cleaner or the broken copy.
 
 5. **The unfiltered picker is a discovery mechanic.** Item descriptions stay in character and do not
    name the pairing. Players find out what each cleaner does by guessing.

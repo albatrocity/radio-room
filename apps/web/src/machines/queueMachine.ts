@@ -20,6 +20,7 @@ type QueueEvent =
   | { type: "SONG_QUEUED"; data?: QueueItem }
   | { type: "SONG_QUEUE_HELD"; data?: { message: string } }
   | { type: "SONG_QUEUE_FAILURE"; data?: { message: string } }
+  | { type: "SOCKET_OFFLINE"; data?: { reason?: string } }
 
 // NOTE: This machine requires socket events. Use with useSocketMachine hook.
 export const queueMachine = setup({
@@ -95,6 +96,9 @@ export const queueMachine = setup({
         })
       }
     },
+    disarmAddButton: () => {
+      disarmQueueAddButtonShake()
+    },
   },
 }).createMachine({
   id: "queue",
@@ -110,6 +114,7 @@ export const queueMachine = setup({
           actions: ["setQueuedTrack", "sendToQueue"],
           guard: "canQueue",
         },
+        SOCKET_OFFLINE: { actions: ["disarmAddButton"] },
       },
     },
     loading: {
@@ -120,6 +125,7 @@ export const queueMachine = setup({
           target: "idle",
           actions: ["notifyQueueFailure"],
         },
+        SOCKET_OFFLINE: { target: "idle", actions: ["disarmAddButton"] },
       },
     },
   },

@@ -47,9 +47,18 @@ export class PluginInventoryAPI implements InventoryPluginAPI {
     quantity?: number,
     metadata?: Record<string, unknown>,
     source: InventoryAcquisitionSource = "plugin",
+    knownInventory?: UserInventory,
   ): Promise<InventoryItem | null> {
     if (!this.service) return null
-    return this.service.giveItem(this.roomId, userId, definitionId, quantity, metadata, source)
+    return this.service.giveItem(
+      this.roomId,
+      userId,
+      definitionId,
+      quantity,
+      metadata,
+      source,
+      knownInventory,
+    )
   }
 
   async removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean> {

@@ -35,6 +35,24 @@ export function albumTitleFromItemName(name: string): string {
   return stripped || name
 }
 
+/**
+ * Collection-pool Physical Media whose format is in `eligible`. Used for
+ * random restore of shop-bought broken SKUs (no `mediaOrigin`).
+ */
+export function pickRandomRestoreCandidateFromCatalog(
+  catalog: readonly ItemDefinition[],
+  eligible: readonly PhysicalMediaFormat[],
+): ItemDefinition | null {
+  const eligibleSet = new Set(eligible)
+  const candidates = catalog.filter((d) => {
+    if (!isPhysicalMediaDefinition(d) || resolveSlotPool(d) !== "collection") return false
+    const format = d.mediaFormat ?? formatFromArtworkFrame(d.artworkFrame)
+    return format != null && eligibleSet.has(format)
+  })
+  if (candidates.length === 0) return null
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? null
+}
+
 export function restoreSuccessToast(opts: {
   format: PhysicalMediaFormat
   condition: MediaCondition
@@ -114,21 +132,10 @@ export function restoreMediaUse(opts: {
       const originDef = originId ? await context.inventory.getItemDefinition(originId) : null
       let restored = originDef
       if (!restored) {
-        const catalog = await context.inventory.getAllItemDefinitions()
-        const eligibleSet = new Set(eligible)
-        const candidates = catalog.filter((d) => {
-          if (!isPhysicalMediaDefinition(d) || resolveSlotPool(d) !== "collection") return false
-          const format = d.mediaFormat ?? formatFromArtworkFrame(d.artworkFrame)
-          return format != null && eligibleSet.has(format)
-        })
-        if (candidates.length === 0) {
-          return {
-            success: false,
-            consumed: false,
-            message: "There's nothing to restore it to.",
-          }
-        }
-        restored = candidates[Math.floor(Math.random() * candidates.length)] ?? null
+        const picked = deps.pickRandomRestoreCandidate?.(eligible) ?? null
+        restored = picked
+          ? ((await context.inventory.getItemDefinition(picked.id)) ?? picked)
+          : null
       }
       if (!restored) {
         return {
