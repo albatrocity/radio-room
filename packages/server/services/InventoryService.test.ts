@@ -13,6 +13,7 @@ function makeSession(overrides?: Partial<GameSession["config"]>): GameSession {
     config: {
       maxInventorySlots: 5,
       maxCollectionSlots: 20,
+      maxPlaybackSlots: 2,
       allowTrading: true,
       ...overrides,
     },
@@ -89,6 +90,18 @@ const uniqueDef: Omit<ItemDefinition, "id" | "sourcePlugin"> = {
   consumable: true,
 }
 
+const playerDef: Omit<ItemDefinition, "id" | "sourcePlugin"> = {
+  shortId: "cd-player",
+  name: "CD Player",
+  description: "Plays CDs",
+  stackable: false,
+  maxStack: 1,
+  tradeable: true,
+  consumable: false,
+  slotPool: "playback",
+  playbackFormats: ["CD"],
+}
+
 describe("InventoryService.getInventory", () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -102,6 +115,7 @@ describe("InventoryService.getInventory", () => {
       items: [],
       maxSlots: 5,
       maxCollectionSlots: 20,
+      maxPlaybackSlots: 2,
     })
     expect(getActiveSession).toHaveBeenCalledTimes(1)
   })
@@ -112,6 +126,7 @@ describe("InventoryService.getInventory", () => {
     const inv = await service.getInventory(roomId, userId)
     expect(inv.maxSlots).toBe(3)
     expect(inv.maxCollectionSlots).toBe(12)
+    expect(inv.maxPlaybackSlots).toBe(2)
     expect(getActiveSession).toHaveBeenCalledTimes(1)
   })
 
@@ -123,6 +138,7 @@ describe("InventoryService.getInventory", () => {
     const inv = await service.getInventory(roomId, userId)
     expect(inv.maxSlots).toBe(5)
     expect(inv.maxCollectionSlots).toBe(12)
+    expect(inv.maxPlaybackSlots).toBe(2)
   })
 
   test("skips the session read entirely without a game session service", async () => {
@@ -131,6 +147,7 @@ describe("InventoryService.getInventory", () => {
     const inv = await service.getInventory(roomId, userId)
     expect(inv.maxSlots).toBe(3)
     expect(inv.maxCollectionSlots).toBe(12)
+    expect(inv.maxPlaybackSlots).toBe(2)
   })
 
   test("parses stored items and skips malformed entries", async () => {
@@ -235,10 +252,75 @@ describe("InventoryService.canAccommodateItem + transferItem", () => {
     expect(catalogReads).toHaveLength(0)
   })
 
+  test("giveItem caps playback independently of bag and collection", async () => {
+    const { service } = makeMemoryService({
+      session: makeSession({
+        maxInventorySlots: 5,
+        maxCollectionSlots: 5,
+        maxPlaybackSlots: 2,
+      }),
+    })
+    await service.registerItemDefinitions(roomId, "item-shops", [playerDef, uniqueDef])
+
+    await expect(service.giveItem(roomId, userId, "item-shops:cd-player", 1)).resolves.not.toBeNull()
+    await expect(service.giveItem(roomId, userId, "item-shops:cd-player", 1)).resolves.not.toBeNull()
+    await expect(service.giveItem(roomId, userId, "item-shops:cd-player", 1)).resolves.toBeNull()
+
+    const bagItem = await service.giveItem(roomId, userId, "item-shops:unique-tool", 1)
+    expect(bagItem).not.toBeNull()
+
+    const inv = await service.getInventory(roomId, userId)
+    expect(inv.maxPlaybackSlots).toBe(2)
+    expect(inv.items.filter((i) => i.definitionId === "item-shops:cd-player")).toHaveLength(2)
+  })
+
   test("transferItem rejects when allowTrading is false", async () => {
     const { service } = makeMemoryService({ allowTrading: false })
     await service.registerItemDefinitions(roomId, "item-shops", [potionDef])
     const item = await service.giveItem(roomId, "a", "item-shops:potion", 1)
     await expect(service.transferItem(roomId, "a", "b", item!.itemId, 1)).resolves.toBe(false)
+  })
+})
+
+describe("InventoryService.updateItemMetadata", () => {
+  test("merges rather than replaces metadata", async () => {
+    const { service, emit } = makeMemoryService()
+    await service.registerItemDefinitions(roomId, "item-shops", [potionDef])
+    const given = await service.giveItem(
+      roomId,
+      userId,
+      "item-shops:potion",
+      1,
+      { keep: true },
+    )
+    expect(given).not.toBeNull()
+
+    const updated = await service.updateItemMetadata(roomId, userId, given!.itemId, {
+      condition: "good",
+    })
+    expect(updated?.metadata).toEqual({ keep: true, condition: "good" })
+    expect(emit).toHaveBeenCalledWith(
+      roomId,
+      "INVENTORY_ITEM_UPDATED",
+      expect.objectContaining({
+        userId,
+        item: expect.objectContaining({
+          itemId: given!.itemId,
+          metadata: { keep: true, condition: "good" },
+        }),
+      }),
+    )
+  })
+
+  test("no-ops on a missing itemId", async () => {
+    const { service, emit } = makeMemoryService()
+    await expect(
+      service.updateItemMetadata(roomId, userId, "missing", { condition: "poor" }),
+    ).resolves.toBeNull()
+    expect(emit).not.toHaveBeenCalledWith(
+      roomId,
+      "INVENTORY_ITEM_UPDATED",
+      expect.anything(),
+    )
   })
 })

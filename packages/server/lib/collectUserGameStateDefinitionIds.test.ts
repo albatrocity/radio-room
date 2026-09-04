@@ -21,6 +21,7 @@ describe("collectInventoryAndModifierDefinitionIds", () => {
       ],
       maxSlots: 10,
       maxCollectionSlots: 10,
+      maxPlaybackSlots: 2,
     } as UserInventory
     const state = {
       userId: "u1",

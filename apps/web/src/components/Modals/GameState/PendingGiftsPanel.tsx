@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { Box, Button, HStack, Stack, Text } from "@chakra-ui/react"
 import type { GiftOffer, ItemDefinition } from "@repo/types"
+import { resolveSlotPool } from "@repo/types"
 import { useCurrentUser } from "../../../hooks/useActors"
 import { counterpartyLabel } from "../../../lib/listenerDisplayName"
 import { useUserGameState } from "../UserGameStateContext"
@@ -48,7 +49,7 @@ function GiftOfferRow({
         icon={definition?.icon}
         rarity={definition?.rarity}
         artworkFrame={definition?.artworkFrame}
-        boxSize={definition?.slotPool === "collection" ? FRAMED_ARTWORK_BOX_SIZE : 7}
+        boxSize={resolveSlotPool(definition) === "collection" ? FRAMED_ARTWORK_BOX_SIZE : 7}
         alt={name}
       />
     </HStack>

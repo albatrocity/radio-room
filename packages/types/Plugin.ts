@@ -1044,9 +1044,21 @@ export interface InventoryPluginAPI {
     quantity?: number,
     metadata?: Record<string, unknown>,
     source?: InventoryAcquisitionSource,
+    /** Skip the inventory HGETALL when the caller already loaded this user's bags. */
+    knownInventory?: UserInventory,
   ): Promise<InventoryItem | null>
 
   removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean>
+
+  /**
+   * Shallow-merge `patch` into an existing stack's `metadata`. Returns the
+   * updated item, or `null` if `itemId` is missing.
+   */
+  updateItemMetadata(
+    userId: string,
+    itemId: string,
+    patch: Record<string, unknown>,
+  ): Promise<InventoryItem | null>
 
   transferItem(
     fromUserId: string,

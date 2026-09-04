@@ -1,7 +1,7 @@
 # 0100. Dual inventory slot pools
 
 **Date:** 2026-08-17
-**Status:** Accepted
+**Status:** Accepted (amended by [0160](0160-playback-device-gating.md) — third `"playback"` pool)
 
 ## Context
 
@@ -21,9 +21,12 @@ Keeping records as `InventoryItem`s still matters: grant resolution, shop purcha
 - Collection capacity can grow without loosening the consumable bag.
 - Call sites that construct `UserInventory` or `GameSessionConfig` must include `maxCollectionSlots`.
 - Session-end still strips both pools for Item Shops items; “collection” is not persistent across games.
+- [ADR 0160](0160-playback-device-gating.md) widens `slotPool` with `"playback"` and adds
+  `maxPlaybackSlots` (default 2). `resolveSlotPool` is the shared normalizer for the three-way union.
 
 ## See also
 
 - [0042. Game sessions and inventory](0042-game-sessions-and-inventory.md)
 - [0099. Physical Media personal libraries](0099-physical-media-personal-libraries.md)
+- [0160. Playback-device gating](0160-playback-device-gating.md)
 - [`packages/server/services/InventoryService.ts`](../../packages/server/services/InventoryService.ts)

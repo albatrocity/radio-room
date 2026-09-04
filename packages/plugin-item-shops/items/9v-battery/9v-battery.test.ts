@@ -18,7 +18,7 @@ describe("9v-battery", () => {
     const deps = createMockDeps()
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: "u1",
-      maxSlots: 20, maxCollectionSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20, maxPlaybackSlots: 20,
       items: [
         {
           itemId: "item-batt",
@@ -67,7 +67,7 @@ describe("9v-battery", () => {
 
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: "u1",
-      maxSlots: 20, maxCollectionSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20, maxPlaybackSlots: 20,
       items: [
         {
           itemId: "item-batt",
@@ -162,7 +162,7 @@ describe("9v-battery", () => {
 
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: "u1",
-      maxSlots: 20, maxCollectionSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20, maxPlaybackSlots: 20,
       items: [
         {
           itemId: "item-batt",
@@ -272,7 +272,7 @@ describe("9v-battery", () => {
 
     vi.mocked(deps.context.inventory.getInventory).mockResolvedValue({
       userId: "u1",
-      maxSlots: 20, maxCollectionSlots: 20,
+      maxSlots: 20, maxCollectionSlots: 20, maxPlaybackSlots: 20,
       items: [
         {
           itemId: "item-batt",
@@ -317,6 +317,6 @@ describe("9v-battery", () => {
 
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
-    expect(result.message).toMatch(/full/i)
+    expect(result.message).toBe("Inventory is full — no room for a duplicate.")
   })
 })

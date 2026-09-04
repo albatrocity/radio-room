@@ -1,5 +1,5 @@
 import { Box, Image } from "@chakra-ui/react"
-import type { ArtworkFrame, MetadataSourceUrl } from "@repo/types"
+import type { ArtworkFrame, MediaCondition, MetadataSourceUrl } from "@repo/types"
 import { firstImageUrl } from "../lib/metadataImages"
 import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
@@ -12,6 +12,8 @@ type Props = {
   shape: "circle" | "square"
   alt?: string
   artworkFrame?: ArtworkFrame
+  /** Wear on this copy; drives crack/scuff/dent on the frame (ADR 0157). */
+  condition?: MediaCondition
   /** Grouping rows use `"track"` (100px); compact rows use `"row"` (40px). */
   size?: "row" | "track"
 }
@@ -22,12 +24,13 @@ export default function EntityThumb({
   shape,
   alt = "",
   artworkFrame,
+  condition,
   size = "row",
 }: Props) {
   const url = firstImageUrl(images)
   const radius = artworkFrame ? 0 : shape === "circle" ? "full" : 0
   const unframedPx = size === "track" ? FRAMED_ARTWORK_TRACK_PX : ENTITY_THUMB_ROW_PX
-  const art = toPhysicalMediaArt({ imageUrl: url, artworkFrame, name: alt })
+  const art = toPhysicalMediaArt({ imageUrl: url, artworkFrame, condition, name: alt })
 
   if (art) {
     return <FramedArtwork art={art} size={size} squareSlot alt={alt} />

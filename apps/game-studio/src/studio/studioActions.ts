@@ -6,7 +6,12 @@ import type {
   ReactionSubject,
   User,
 } from "@repo/types"
-import { ITEM_SHOPS_PLUGIN_NAME, POLL_OPTION_LIMITS } from "@repo/types"
+import {
+  ITEM_SHOPS_PLUGIN_NAME,
+  POLL_OPTION_LIMITS,
+  resolveSlotPool,
+  slotPoolFullMessage,
+} from "@repo/types"
 import { getChatSendDelayMs } from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
@@ -97,6 +102,7 @@ export async function startStudioGameSession(): Promise<void> {
     initialValues: { coin: 25, score: 0 },
     maxInventorySlots: 12,
     maxCollectionSlots: 12,
+    maxPlaybackSlots: 2,
     allowSelling: true,
     allowTrading: true,
   })
@@ -202,7 +208,10 @@ export async function giveItemDirect(
   if (!row) {
     return {
       success: false,
-      message: "Could not grant item (inventory may be full — end session or free a slot).",
+      message: slotPoolFullMessage(
+        resolveSlotPool(room.getDefinition(defId)),
+        "end the session or free a slot.",
+      ),
     }
   }
   return { success: true }
@@ -400,7 +409,13 @@ export async function retrieveArtifact(
     "plugin",
   )
   if (!given) {
-    return { success: false, message: "Inventory full — make space and try again." }
+    return {
+      success: false,
+      message: slotPoolFullMessage(
+        resolveSlotPool(room.getDefinition(defId)),
+        "make space and try again.",
+      ),
+    }
   }
 
   await itemShopsContext.artifacts.remove(artifactId)

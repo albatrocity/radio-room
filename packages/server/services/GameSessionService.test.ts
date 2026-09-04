@@ -19,6 +19,7 @@ function makeSession(): GameSession {
       initialValues: { score: 0 },
       maxInventorySlots: 3,
       maxCollectionSlots: 12,
+      maxPlaybackSlots: 2,
       allowTrading: false,
       leaderboards: [],
     },

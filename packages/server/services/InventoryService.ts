@@ -3,8 +3,12 @@ import {
   InventoryAcquisitionSource,
   InventoryItem,
   ItemDefinition,
+  ItemSlotPool,
   ItemUseResult,
   UserInventory,
+  capForPool,
+  DEFAULT_SLOT_CAPS,
+  resolveSlotPool,
 } from "@repo/types"
 import generateId from "../lib/generateId"
 import { GameSessionService } from "./GameSessionService"
@@ -13,16 +17,10 @@ import { GameSessionService } from "./GameSessionService"
 // Constants
 // ============================================================================
 
-const DEFAULT_MAX_SLOTS = 3
-const DEFAULT_MAX_COLLECTION_SLOTS = 12
 /** Per-user inventory mutation lock TTL (seconds). */
 const INVENTORY_LOCK_TTL_SEC = 5
 const INVENTORY_LOCK_RETRY_MS = 25
 const INVENTORY_LOCK_MAX_ATTEMPTS = 40
-
-function slotPoolOf(def: ItemDefinition | null | undefined): "inventory" | "collection" {
-  return def?.slotPool === "collection" ? "collection" : "inventory"
-}
 
 function inventoryLockKey(roomId: string, userId: string): string {
   return `room:${roomId}:inventory:lock:${userId}`
@@ -158,8 +156,8 @@ export class InventoryService {
       }
     }
 
-    const { maxSlots, maxCollectionSlots } = await this.resolveSlotCaps(roomId)
-    return { userId, items, maxSlots, maxCollectionSlots }
+    const { maxSlots, maxCollectionSlots, maxPlaybackSlots } = await this.resolveSlotCaps(roomId)
+    return { userId, items, maxSlots, maxCollectionSlots, maxPlaybackSlots }
   }
 
   async hasItem(
@@ -198,6 +196,7 @@ export class InventoryService {
     quantity = 1,
     metadata?: Record<string, unknown>,
     source: InventoryAcquisitionSource = "plugin",
+    knownInventory?: UserInventory,
   ): Promise<InventoryItem | null> {
     if (quantity <= 0) return null
 
@@ -207,7 +206,7 @@ export class InventoryService {
       return null
     }
 
-    const inv = await this.getInventory(roomId, userId)
+    const inv = knownInventory ?? (await this.getInventory(roomId, userId))
 
     // Prefer merging into an existing stack when stackable.
     if (definition.stackable) {
@@ -242,9 +241,9 @@ export class InventoryService {
     }
 
     // Need to allocate a new slot in the item's pool.
-    const pool = slotPoolOf(definition)
+    const pool = resolveSlotPool(definition)
     const used = await this.countPoolSlots(roomId, inv.items, pool)
-    const cap = pool === "collection" ? inv.maxCollectionSlots : inv.maxSlots
+    const cap = capForPool(inv, pool)
     if (used >= cap) {
       console.warn(
         `[InventoryService] giveItem: ${userId} ${pool} full (${used}/${cap} slots)`,
@@ -303,8 +302,8 @@ export class InventoryService {
     const inv = await this.getInventory(roomId, userId)
 
     let remaining = quantity
-    let used = await this.countPoolSlots(roomId, inv.items, slotPoolOf(definition))
-    const cap = slotPoolOf(definition) === "collection" ? inv.maxCollectionSlots : inv.maxSlots
+    let used = await this.countPoolSlots(roomId, inv.items, resolveSlotPool(definition))
+    const cap = capForPool(inv, resolveSlotPool(definition))
 
     if (definition.stackable) {
       const mergeRoom = inv.items
@@ -361,6 +360,43 @@ export class InventoryService {
     }
 
     return true
+  }
+
+  /**
+   * Shallow-merge `patch` into an existing stack's `metadata`. Returns the
+   * updated item, or `null` if `itemId` is missing.
+   */
+  async updateItemMetadata(
+    roomId: string,
+    userId: string,
+    itemId: string,
+    patch: Record<string, unknown>,
+  ): Promise<InventoryItem | null> {
+    const raw = await this.context.redis.pubClient.hGet(userItemsKey(roomId, userId), itemId)
+    if (!raw) return null
+
+    let item: InventoryItem
+    try {
+      item = JSON.parse(raw) as InventoryItem
+    } catch {
+      return null
+    }
+
+    item.metadata = { ...item.metadata, ...patch }
+    await this.persistItem(roomId, userId, item)
+
+    if (this.context.systemEvents) {
+      // Room-wide fanout (ADR 0008). Clients filter with `isMyGameEvent`. Wear
+      // emits this on every queue-add; per-user delivery would be a new ADR.
+      await this.context.systemEvents.emit(roomId, "INVENTORY_ITEM_UPDATED", {
+        roomId,
+        sessionId: await this.activeSessionId(roomId),
+        userId,
+        item,
+      })
+    }
+
+    return item
   }
 
   /**
@@ -584,10 +620,11 @@ export class InventoryService {
    */
   private async resolveSlotCaps(
     roomId: string,
-  ): Promise<{ maxSlots: number; maxCollectionSlots: number }> {
+  ): Promise<{ maxSlots: number; maxCollectionSlots: number; maxPlaybackSlots: number }> {
     const defaults = {
-      maxSlots: DEFAULT_MAX_SLOTS,
-      maxCollectionSlots: DEFAULT_MAX_COLLECTION_SLOTS,
+      maxSlots: DEFAULT_SLOT_CAPS.inventory,
+      maxCollectionSlots: DEFAULT_SLOT_CAPS.collection,
+      maxPlaybackSlots: DEFAULT_SLOT_CAPS.playback,
     }
     if (!this.context.gameSessions) return defaults
 
@@ -595,15 +632,16 @@ export class InventoryService {
     if (!session) return defaults
 
     return {
-      maxSlots: session.config.maxInventorySlots ?? DEFAULT_MAX_SLOTS,
-      maxCollectionSlots: session.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS,
+      maxSlots: session.config.maxInventorySlots ?? DEFAULT_SLOT_CAPS.inventory,
+      maxCollectionSlots: session.config.maxCollectionSlots ?? DEFAULT_SLOT_CAPS.collection,
+      maxPlaybackSlots: session.config.maxPlaybackSlots ?? DEFAULT_SLOT_CAPS.playback,
     }
   }
 
   private async countPoolSlots(
     roomId: string,
     items: InventoryItem[],
-    pool: "inventory" | "collection",
+    pool: ItemSlotPool,
   ): Promise<number> {
     if (items.length === 0) return 0
 
@@ -614,7 +652,7 @@ export class InventoryService {
     const byId = new Map(defs.map((d) => [d.id, d]))
     let n = 0
     for (const item of items) {
-      if (slotPoolOf(byId.get(item.definitionId)) === pool) n++
+      if (resolveSlotPool(byId.get(item.definitionId)) === pool) n++
     }
     return n
   }

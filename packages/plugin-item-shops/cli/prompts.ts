@@ -8,6 +8,7 @@ export type RequiresTarget =
   | "queueItem"
   | "inventoryItem"
   | "userInventoryItem"
+  | "mediaItem"
   | "coinAmount"
 export type BehaviorKind = "timedModifier" | "passiveDefense" | "customHandler" | "none"
 
@@ -75,11 +76,7 @@ export type ItemWizardAnswers = {
  * wizard are inlined into the generated item file as a local const (see
  * `buildItemFile` in generators.ts), not appended here.
  */
-const FLAG_OPTIONS = [
-  "GROW_FLAG",
-  "SHRINK_FLAG",
-  "ECHO_FLAG",
-] as const
+const FLAG_OPTIONS = ["GROW_FLAG", "SHRINK_FLAG", "ECHO_FLAG"] as const
 
 type PromptContext = {
   existingShortIds: Set<string>
@@ -151,6 +148,7 @@ export async function promptForItemConfig(context: PromptContext): Promise<ItemW
       { value: "queueItem", name: "queueItem" },
       { value: "inventoryItem", name: "inventoryItem" },
       { value: "userInventoryItem", name: "userInventoryItem" },
+      { value: "mediaItem", name: "mediaItem" },
       { value: "coinAmount", name: "coinAmount" },
     ],
   })

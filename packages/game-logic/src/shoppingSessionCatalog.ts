@@ -5,6 +5,7 @@ import type {
   ItemDefinition,
   ItemRarity,
   LucideIconName,
+  MediaCondition,
   ShoppingSessionInstance,
   UserInventory,
 } from "@repo/types"
@@ -290,11 +291,20 @@ export function pickWeightedShortIds(
   return picked
 }
 
+export type ShopEconomyHooks = {
+  decorateOffer?(
+    entry: ItemCatalogEntry,
+    basePrice: number,
+  ): { price?: number; condition?: MediaCondition }
+  adjustSellBase?(item: InventoryItem, definition: ItemDefinition, base: number): number
+}
+
 export function buildShoppingInstance(
   shop: ShopCatalogEntry,
   shortIds: string[],
   catalogByShortId: Map<string, ItemCatalogEntry>,
   openedAt: number,
+  hooks?: ShopEconomyHooks,
 ): ShoppingSessionInstance {
   const offers = shortIds.map((sid, index) => {
     const entry = catalogByShortId.get(sid)
@@ -309,8 +319,11 @@ export function buildShoppingInstance(
       imageUrl,
       imageUrlLarge,
       artworkFrame,
+      mediaFormat,
       rarity,
     } = entry.definition
+    const basePrice = resolveShopItemPrice(shop, sid, catalogByShortId)
+    const extra = hooks?.decorateOffer?.(entry, basePrice)
     return {
       offerId: index,
       shortId: sid,
@@ -321,7 +334,9 @@ export function buildShoppingInstance(
       ...(imageUrl ? { imageUrl } : {}),
       ...(imageUrlLarge ? { imageUrlLarge } : {}),
       ...(artworkFrame ? { artworkFrame } : {}),
-      price: resolveShopItemPrice(shop, sid, catalogByShortId),
+      ...(mediaFormat ? { mediaFormat } : {}),
+      price: extra?.price ?? basePrice,
+      ...(extra?.condition ? { condition: extra.condition } : {}),
       available: true,
       rarity: rarity ?? "common",
     }

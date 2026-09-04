@@ -606,7 +606,9 @@ export class AdminHandlers {
       initialCoins?: number
       maxInventorySlots?: number
       maxCollectionSlots?: number
+      maxPlaybackSlots?: number
       allowTrading?: boolean
+      physicalMediaWearForAdmins?: boolean
     },
   ) => {
     if (!data?.name?.trim()) {
@@ -662,13 +664,19 @@ export class AdminHandlers {
     if (!inventorySlots.ok) return
     const collectionSlots = parseSlot(data.maxCollectionSlots, "Collection slots")
     if (!collectionSlots.ok) return
+    const playbackSlots = parseSlot(data.maxPlaybackSlots, "Playback slots")
+    if (!playbackSlots.ok) return
 
     const result = await this.adminService.startGameSession(socket.data.roomId, socket.data.userId, {
       name: data.name.trim(),
       ...(initialCoins != null ? { initialValues: { coin: initialCoins } } : {}),
       ...(inventorySlots.value != null ? { maxInventorySlots: inventorySlots.value } : {}),
       ...(collectionSlots.value != null ? { maxCollectionSlots: collectionSlots.value } : {}),
+      ...(playbackSlots.value != null ? { maxPlaybackSlots: playbackSlots.value } : {}),
       ...(typeof data.allowTrading === "boolean" ? { allowTrading: data.allowTrading } : {}),
+      ...(typeof data.physicalMediaWearForAdmins === "boolean"
+        ? { physicalMediaWearForAdmins: data.physicalMediaWearForAdmins }
+        : {}),
     })
 
     if (result.error) {
@@ -710,24 +718,12 @@ export class AdminHandlers {
    */
   updateGameSessionConfig = async (
     { socket }: HandlerConnections,
-    data: { allowTrading?: boolean },
+    data: unknown,
   ) => {
-    if (typeof data?.allowTrading !== "boolean") {
-      socket.emit("event", {
-        type: "ERROR_OCCURRED",
-        data: {
-          status: 400,
-          error: "Bad Request",
-          message: "allowTrading must be a boolean.",
-        },
-      })
-      return
-    }
-
     const result = await this.adminService.updateGameSessionConfig(
       socket.data.roomId,
       socket.data.userId,
-      { allowTrading: data.allowTrading },
+      data,
     )
 
     if (result.error) {

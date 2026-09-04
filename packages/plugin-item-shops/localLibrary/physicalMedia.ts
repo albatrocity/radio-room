@@ -1,15 +1,36 @@
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
-import type { ArtworkFrame, ItemRarity, LucideIconName } from "@repo/types"
+import type {
+  ArtworkFrame,
+  ItemRarity,
+  LucideIconName,
+  PhysicalMediaFormat,
+} from "@repo/types"
+import { ARTWORK_FRAME_BY_FORMAT } from "@repo/types"
 import type { PhysicalMediaOverride } from "./config"
 
 const FORMAT_BY_TOKEN: Record<
-  string,
-  { format: string; icon: LucideIconName; artworkFrame: ArtworkFrame }
+  PhysicalMediaFormat,
+  {
+    token: PhysicalMediaFormat
+    format: string
+    icon: LucideIconName
+    artworkFrame: ArtworkFrame
+  }
 > = {
-  CD: { format: "CD", icon: "Disc", artworkFrame: "jewel-case" },
-  LP: { format: "LP", icon: "Disc3", artworkFrame: "record-jacket" },
-  TAPE: { format: "Cassette", icon: "CassetteTape", artworkFrame: "cassette-case" },
-  "45": { format: "45", icon: "DiscAlbum", artworkFrame: "die-cut-jacket" },
+  CD: { token: "CD", format: "CD", icon: "Disc", artworkFrame: ARTWORK_FRAME_BY_FORMAT.CD },
+  LP: { token: "LP", format: "LP", icon: "Disc3", artworkFrame: ARTWORK_FRAME_BY_FORMAT.LP },
+  TAPE: {
+    token: "TAPE",
+    format: "Cassette",
+    icon: "CassetteTape",
+    artworkFrame: ARTWORK_FRAME_BY_FORMAT.TAPE,
+  },
+  "45": { token: "45", format: "45", icon: "DiscAlbum", artworkFrame: ARTWORK_FRAME_BY_FORMAT["45"] },
+}
+
+/** Shop/item label for a format token (`TAPE` → `"Cassette"`). */
+export function physicalMediaTypeLabel(format: PhysicalMediaFormat): string {
+  return FORMAT_BY_TOKEN[format].format
 }
 
 const RARITY_BY_TOKEN: Record<string, ItemRarity> = {
@@ -38,7 +59,8 @@ export function physicalMediaAlbumShortId(albumId: string): string {
   return `pm-al-${safe}`
 }
 
-export type PhysicalMediaFormat = {
+type PhysicalMediaFormatInfo = {
+  token: PhysicalMediaFormat
   format: string
   icon: LucideIconName
   artworkFrame: ArtworkFrame
@@ -75,7 +97,7 @@ export function inferPhysicalMediaFormat(
   year: number | undefined,
   songCount: number,
   seed?: string,
-): PhysicalMediaFormat {
+): PhysicalMediaFormatInfo {
   if (songCount > 0 && songCount <= 3) {
     return FORMAT_BY_TOKEN["45"]
   }
@@ -168,10 +190,11 @@ export function derivePhysicalMediaItemsFromAlbums(
         description: `A ${inferred.format} from the Record Store. Queue any track on it for the rest of the session.`,
         icon: inferred.icon,
         artworkFrame: inferred.artworkFrame,
+        mediaFormat: inferred.token,
         ...(imageUrl ? { imageUrl } : {}),
         ...(imageUrlLarge ? { imageUrlLarge } : {}),
-        stackable: true,
-        maxStack: 5,
+        stackable: false,
+        maxStack: 1,
         tradeable: true,
         consumable: false,
         coinValue: priceFromSongCount(songCount),
@@ -215,6 +238,7 @@ export function splitPhysicalMediaArtistTitle(raw: string): {
 }
 
 export type ParsedPhysicalMediaName = {
+  token: PhysicalMediaFormat
   format: string
   title: string
   icon: LucideIconName
@@ -233,7 +257,7 @@ export function parsePhysicalMediaName(name: string): ParsedPhysicalMediaName | 
   if (!trimmed) return null
 
   let i = 0
-  let formatInfo: (typeof FORMAT_BY_TOKEN)[string] | undefined
+  let formatInfo: (typeof FORMAT_BY_TOKEN)[PhysicalMediaFormat] | undefined
   let rarity: ItemRarity | undefined
 
   while (i < trimmed.length) {
@@ -242,7 +266,8 @@ export function parsePhysicalMediaName(name: string): ParsedPhysicalMediaName | 
     const close = trimmed.indexOf("]", i + 1)
     if (close < 0) break
     const token = trimmed.slice(i + 1, close).trim().toUpperCase()
-    const asFormat = FORMAT_BY_TOKEN[token]
+    const asFormat =
+      token in FORMAT_BY_TOKEN ? FORMAT_BY_TOKEN[token as PhysicalMediaFormat] : undefined
     const asRarity = RARITY_BY_TOKEN[token]
     if (asFormat) {
       formatInfo = asFormat
@@ -263,6 +288,7 @@ export function parsePhysicalMediaName(name: string): ParsedPhysicalMediaName | 
   while (i < trimmed.length && /\s/.test(trimmed[i]!)) i++
   const title = trimmed.slice(i).trim() || trimmed
   return {
+    token: formatInfo.token,
     format: formatInfo.format,
     icon: formatInfo.icon,
     artworkFrame: formatInfo.artworkFrame,
@@ -342,10 +368,11 @@ export function derivePhysicalMediaItems(
           `A ${parsed.format} from the Record Store. Queue any track on it for the rest of the session.`,
         icon: (override?.icon as LucideIconName | undefined) ?? parsed.icon,
         artworkFrame: parsed.artworkFrame,
+        mediaFormat: parsed.token,
         ...(imageUrl ? { imageUrl } : {}),
         ...(imageUrlLarge ? { imageUrlLarge } : {}),
-        stackable: true,
-        maxStack: 5,
+        stackable: false,
+        maxStack: 1,
         tradeable: true,
         consumable: false,
         coinValue: override?.coinValue ?? priceFromSongCount(songCount),

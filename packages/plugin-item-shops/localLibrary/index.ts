@@ -2,7 +2,10 @@ import {
   allowQueueRequest,
   parseArtworkFrame,
   rejectQueueRequest,
+  type ItemDefinition,
+  type PhysicalMediaFormat,
   type MetadataSourceAccessGrantParams,
+  type UserInventory,
   type MetadataSourceAccessGrantResult,
   type PhysicalMediaItem,
   type PhysicalMediaNowPlayingFrame,
@@ -10,6 +13,8 @@ import {
   type QueueValidationParams,
   type QueueValidationResult,
   type ResolvedPhysicalMediaItem,
+  PHYSICAL_MEDIA_ORIGIN_KEY,
+  PHYSICAL_MEDIA_CONDITION_KEY,
 } from "@repo/types"
 import type { ItemCatalogEntry, ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
 import { ITEM_CATALOG } from "../items/index"
@@ -27,16 +32,32 @@ import {
   parsePhysicalMediaName,
 } from "./physicalMedia"
 import {
+  MEDIA_CONDITION_LABELS,
+  CONDITION_WEAR_RANK,
+  degradeCondition,
+  readItemCondition,
+} from "./condition"
+import { brokenMediaForRecord } from "../items/shared/brokenMedia"
+import { pickRandomRestoreCandidateFromCatalog } from "../items/shared/restoreMedia"
+import {
   buildGrantCatalogEntries,
   catalogByShortId,
+  definitionIdForShortId,
   isLocalLibraryGrantShortId,
   listHeldLocalLibraryGrants,
+  matchingDurableRecords,
   pickGrantToConsume,
   playlistMapFromGrantConfig,
   resolveLocalCatalogScope,
+  LOCAL_LIBRARY_QUEUE_REJECT_REASON,
   type HeldLocalLibraryGrant,
   type LocalCatalogScope,
 } from "./grants"
+import {
+  PLAYBACK_DEVICE_MISSING_REASON,
+  playableFormats,
+  requiresPlaybackDevice,
+} from "./playbackDevices"
 
 function physicalMediaArtworkFields(definition?: ItemCatalogEntry["definition"]): {
   icon?: ItemCatalogEntry["definition"]["icon"]
@@ -571,15 +592,27 @@ export class LocalLibraryModule {
     if (!context || !config.enabled) return allowQueueRequest()
     if (params.mediaSourceType !== "local") return allowQueueRequest()
 
-    const isAdmin = await context.api.isRoomAdmin(params.roomId, params.userId)
-    if (isAdmin) return allowQueueRequest()
-
     const room = await context.getRoom()
     if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
 
+    const isAdmin = await context.api.isRoomAdmin(params.roomId, params.userId)
+    if (isAdmin) {
+      const session = await context.game.getActiveSession()
+      const wearForAdmins = session?.config.physicalMediaWearForAdmins !== false
+      if (!wearForAdmins) return allowQueueRequest()
+    }
+
     const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
-    const held = await this.getHeldGrants(params.userId)
-    if (held.length === 0) return allowQueueRequest()
+    const inv = await context.inventory.getInventory(params.userId)
+    const items = inv.items
+    const held = listHeldLocalLibraryGrants({
+      pluginName: this.pluginName,
+      items,
+      grantCatalog: this.grantCatalog,
+    })
+    if (held.length === 0) {
+      return rejectQueueRequest(LOCAL_LIBRARY_QUEUE_REJECT_REASON)
+    }
 
     const playlistMap = this.playlistMap(grants)
     const albumMap = this.albumMap()
@@ -628,26 +661,26 @@ export class LocalLibraryModule {
       }
     }
 
-    const coveredByDurable = held.some((h) => {
-      if (h.grant.redemption !== "durable") return false
-      if (h.grant.scope === "library") return true
-      if (h.grant.scope === "playlist") {
-        return trackInPlaylistKey[h.grant.playlistKey] === true
+    const durableMatches = matchingDurableRecords(held, trackInPlaylistKey, trackInAlbumKey)
+    if (durableMatches.length > 0) {
+      const needsDevice = durableMatches.filter(requiresPlaybackDevice)
+      // A library card or operator grant covers the track outright.
+      if (needsDevice.length < durableMatches.length) {
+        await this.wearRecordForQueue(params, durableMatches, inv)
+        return allowQueueRequest()
       }
-      if (h.grant.scope === "album") {
-        return trackInAlbumKey[h.grant.albumKey] === true
+      const devices = playableFormats(items)
+      const playable = needsDevice.filter((h) => h.mediaFormat && devices.has(h.mediaFormat))
+      if (playable.length === 0) {
+        return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
       }
-      return false
-    })
-    if (coveredByDurable) return allowQueueRequest()
+      await this.wearRecordForQueue(params, playable, inv)
+      return allowQueueRequest()
+    }
 
     const pick = pickGrantToConsume({ held, trackInPlaylistKey })
     if (!pick) {
-      const hasLibrary = held.some((h) => h.grant.scope === "library")
-      if (!hasLibrary) {
-        return rejectQueueRequest("That track isn't available on your Library shelf.")
-      }
-      return allowQueueRequest()
+      return rejectQueueRequest(LOCAL_LIBRARY_QUEUE_REJECT_REASON)
     }
 
     const removed = await context.inventory.removeItem(params.userId, pick.itemId, 1)
@@ -660,6 +693,92 @@ export class LocalLibraryModule {
       )
     }
     return allowQueueRequest()
+  }
+
+  /**
+   * Degrade (or convert) the worst matching playlist/album record. Never rejects.
+   * `matching` is already membership- and (when required) format-filtered.
+   */
+  private async wearRecordForQueue(
+    params: QueueValidationParams,
+    matching: HeldLocalLibraryGrant[],
+    inv: UserInventory,
+  ): Promise<void> {
+    const context = this.getContext()
+    if (!context) return
+
+    const wearable = matching.filter((h) => h.grant.scope !== "library")
+    if (wearable.length === 0) return
+
+    const items = inv.items
+    const byItemId = new Map(items.map((item) => [item.itemId, item]))
+    const ranked = wearable
+      .map((h) => {
+        const item = byItemId.get(h.itemId)
+        if (!item) return null
+        return { held: h, item, condition: readItemCondition(item) }
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null)
+    ranked.sort((a, b) => {
+      const wear = CONDITION_WEAR_RANK[b.condition] - CONDITION_WEAR_RANK[a.condition]
+      if (wear !== 0) return wear
+      return a.held.itemId.localeCompare(b.held.itemId)
+    })
+    const chosen = ranked[0]
+    if (!chosen) return
+
+    const next = degradeCondition(chosen.condition)
+    const recordName = chosen.held.name
+    if (next) {
+      await context.inventory.updateItemMetadata(params.userId, chosen.held.itemId, {
+        [PHYSICAL_MEDIA_CONDITION_KEY]: next,
+      })
+      await context.api.sendUserSystemMessage(
+        params.roomId,
+        params.userId,
+        `${recordName} is now in ${MEDIA_CONDITION_LABELS[next]} condition.`,
+        { type: "alert", status: "info" },
+      )
+      return
+    }
+
+    const broken = brokenMediaForRecord({
+      mediaFormat: chosen.held.mediaFormat,
+    })
+    await context.inventory.removeItem(params.userId, chosen.held.itemId, 1)
+
+    let given = null
+    if (broken) {
+      const remaining: UserInventory = {
+        ...inv,
+        items: inv.items.filter((item) => item.itemId !== chosen.held.itemId),
+      }
+      given = await context.inventory.giveItem(
+        params.userId,
+        definitionIdForShortId(this.pluginName, broken.shortId),
+        1,
+        { [PHYSICAL_MEDIA_ORIGIN_KEY]: chosen.held.definitionId },
+        "plugin",
+        remaining,
+      )
+      if (!given) {
+        console.debug(
+          `[${this.pluginName}] no inventory slot for broken media ${broken.shortId} after converting ${recordName}`,
+        )
+      }
+    }
+    const transition = broken?.transitionMessage(recordName) ?? `${recordName} wore out.`
+    const woreOutLine = "You can no longer queue songs from it."
+    const description =
+      broken && !given
+        ? `${woreOutLine} You had no room to keep the worn-out copy.`
+        : woreOutLine
+    await context.api.sendUserToast(params.roomId, params.userId, {
+      title: transition,
+      description,
+      type: "warning",
+      source: "item-shops",
+    })
   }
 
   private async resolveUserLocalCatalogScope(
@@ -690,6 +809,19 @@ export class LocalLibraryModule {
       items,
       grantCatalog: this.grantCatalog,
     })
+  }
+
+  /**
+   * In-memory collection-pool Physical Media for random restore. Built from
+   * `derivedPhysicalMedia` so a cleaner use never HGETALLs the definitions hash.
+   */
+  pickRandomRestoreCandidate(eligible: readonly PhysicalMediaFormat[]): ItemDefinition | null {
+    const catalog = this.derivedPhysicalMedia.map((entry) => ({
+      id: definitionIdForShortId(this.pluginName, entry.definition.shortId),
+      sourcePlugin: this.pluginName,
+      ...entry.definition,
+    }))
+    return pickRandomRestoreCandidateFromCatalog(catalog, eligible)
   }
 
   /**

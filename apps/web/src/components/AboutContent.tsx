@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Accordion, HStack, Span, Text, VStack } from "@chakra-ui/react"
-import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { ITEM_SHOPS_PLUGIN_NAME, resolveSlotPool } from "@repo/types"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import ButtonEditUsername from "./ButtonEditUsername"
 import ButtonFeedback from "./ButtonFeedback"
@@ -48,7 +48,7 @@ function AboutContent() {
   const itemShopsEnabled = pluginConfigs?.[ITEM_SHOPS_PLUGIN_NAME]?.enabled === true
   const physicalMediaEnabled =
     (inventory?.maxCollectionSlots ?? session?.config.maxCollectionSlots ?? 0) > 0 ||
-    itemDefinitions.some((d) => d.slotPool === "collection")
+    itemDefinitions.some((d) => resolveSlotPool(d) !== "inventory")
 
   const sections: AboutSection[] = []
 
@@ -142,7 +142,7 @@ function AboutContent() {
     sections.push({
       id: "physical-media",
       title: "Physical Media",
-      body: "Physical Media items grant access to special recordings from the Listening Room library. They live in your collection (in Game State area: click the game controller icon) and allow queueing songs held on them.",
+      body: "Physical Media items grant access to special recordings from the Listening Room library. They live in your collection (in Game State area: click the game controller icon). Queueing a track from a record also needs a matching playback device in your Playback Devices slots.",
       action: <ButtonGameState />,
     })
   }

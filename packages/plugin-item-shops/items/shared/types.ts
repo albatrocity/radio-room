@@ -6,6 +6,7 @@ import type {
   InventoryItem,
   ItemDefinition,
   ItemUseResult,
+  PhysicalMediaFormat,
   PluginContext,
   GameSessionPluginAPI,
 } from "@repo/types"
@@ -22,6 +23,13 @@ export type ItemShopsBehaviorDeps = {
    * that call handlers directly unless provided.
    */
   activeInventoryItem?: InventoryItem
+  /**
+   * In-memory collection-pool Physical Media for random restore (shop-bought
+   * broken SKUs with no `mediaOrigin`). Avoids `getAllItemDefinitions`.
+   */
+  pickRandomRestoreCandidate?: (
+    eligible: readonly PhysicalMediaFormat[],
+  ) => ItemDefinition | null
 }
 
 export type ItemUseHandler = (

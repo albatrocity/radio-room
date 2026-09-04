@@ -1,5 +1,5 @@
 import type { SystemStyleObject } from "@chakra-ui/react"
-import type { ArtworkFrame } from "@repo/types"
+import type { ArtworkFrame, MediaCondition } from "@repo/types"
 
 /** Punches a large-spindle hole through the artwork wrapper (45 picture sleeve). */
 export const dieCutMaskStyles: SystemStyleObject = {
@@ -130,4 +130,53 @@ export function frameArtworkInset(frame: ArtworkFrame): FrameInset {
   if (frame === "jewel-case") return insetFromMm(JEWEL_CASE_MM, JEWEL_CASE_INSERT_MM)
   if (frame === "cassette-case") return insetFromMm(CASSETTE_CASE_MM, CASSETTE_INSERT_MM)
   return NO_INSET
+}
+
+/**
+ * Corner knock on a worn cardboard sleeve (LP / 45, Poor only). The corner is
+ * pushed in and squared off rather than chamfered at a clean 45°, so it reads as
+ * a dent instead of a design. `clip-path` rather than a mask layer: 45s already
+ * spend `mask-image` on the die-cut spindle hole, and the two compose only if
+ * they stay on separate properties. `framedMediaShadow` sits on an ancestor, so
+ * the drop-shadow follows the clipped silhouette.
+ */
+export const cornerDentClipStyles: SystemStyleObject = {
+  clipPath: "polygon(0% 0%, 85.5% 0%, 90% 4.6%, 100% 9.8%, 100% 100%, 0% 100%)",
+}
+
+/** Overlay-space (0–100) copy of the `cornerDentClipStyles` cut edge, for its crease shading. */
+export const CORNER_DENT_EDGE = [
+  { x: 85.5, y: 0 },
+  { x: 90, y: 4.6 },
+  { x: 100, y: 9.8 },
+] as const
+
+/** Sleeves carry their wear in the overlay; cases wear through the paper behind the plastic. */
+function frameHoldsPaperInsert(frame: ArtworkFrame): boolean {
+  return frame === "jewel-case" || frame === "cassette-case"
+}
+
+/**
+ * Yellowing and fade on the printed insert of a jewel or cassette case. Applied
+ * to the cover `<img>` because the insert *is* that image — the overlay above it
+ * is the plastic. Composited once per image, so it costs nothing to animate past.
+ */
+export function insertConditionFilter(
+  frame: ArtworkFrame,
+  condition: MediaCondition,
+): string | undefined {
+  if (condition === "mint" || !frameHoldsPaperInsert(frame)) return undefined
+  return condition === "good"
+    ? "saturate(0.84) sepia(0.05) brightness(0.985)"
+    : "saturate(0.6) sepia(0.1) brightness(0.955) contrast(0.96)"
+}
+
+/** Poor sleeves lose a corner; every other frame/condition keeps its silhouette. */
+export function frameConditionClipStyles(
+  frame: ArtworkFrame,
+  condition: MediaCondition,
+): SystemStyleObject | undefined {
+  if (condition !== "poor") return undefined
+  if (frame !== "record-jacket" && frame !== "die-cut-jacket") return undefined
+  return cornerDentClipStyles
 }

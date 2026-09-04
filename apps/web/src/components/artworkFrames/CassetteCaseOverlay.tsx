@@ -1,10 +1,14 @@
+import type { MediaCondition } from "@repo/types"
 import { useArtworkOverlayIsCompact } from "./ArtworkOverlaySizeContext"
+import JewelCaseCrack from "./JewelCaseCrack"
 import OverlaySvg from "./OverlaySvg"
 import { CASSETTE_CASE_MM, CASSETTE_INSERT_MM } from "./frameStyles"
 
 type Props = {
   /** Unique id prefix for SVG defs (gradients). */
   idPrefix?: string
+  /** Mint is the pristine case; Good and Poor crack the shell (ADR 0157). */
+  condition?: MediaCondition
 }
 
 const CASE = CASSETTE_CASE_MM
@@ -18,12 +22,22 @@ const SHELL_PATH = [
   `M${INSERT.x},${INSERT.y} H${INSERT_RIGHT} V${INSERT_BOTTOM} H${INSERT.x} Z`,
 ].join(" ")
 
+/** The whole shell cracks — unlike a CD case there is no opaque hinge panel to stop at. */
+const CRACK_RECT = { x: 0, y: 0, width: CASE.width, height: CASE.height } as const
+
 /**
  * Cassette jewel case: a clear plastic shell holding a smaller printed insert,
  * with a hinge spine and shrink wrap sheen. Drawn in case millimetres;
  * `frameArtworkInset` keeps the cover art inside the same window.
+ *
+ * Condition shows in the plastic exactly as it does on a CD case: Good takes a
+ * corner crack, Poor runs it to the far corner. The J-card fades via
+ * `insertConditionFilter` on the cover image.
  */
-export default function CassetteCaseOverlay({ idPrefix = "cc" }: Props) {
+export default function CassetteCaseOverlay({
+  idPrefix = "cc",
+  condition = "mint",
+}: Props) {
   const compact = useArtworkOverlayIsCompact()
   const plasticId = `${idPrefix}-plastic`
   const sheenId = `${idPrefix}-sheen`
@@ -135,6 +149,10 @@ export default function CassetteCaseOverlay({ idPrefix = "cc" }: Props) {
       )}
 
       <rect x="0" y="0" width={CASE.width} height={CASE.height} fill={`url(#${edgeId})`} />
+
+      {condition !== "mint" && (
+        <JewelCaseCrack rect={CRACK_RECT} severity={condition} compact={compact} idPrefix={idPrefix} />
+      )}
     </OverlaySvg>
   )
 }

@@ -26,6 +26,15 @@ import { disguise } from "./disguise"
 import { blackBag } from "./black-bag"
 import { xRay } from "./x-ray"
 import { scratchedCd } from "./scratched-cd"
+import { dustyRecord } from "./dusty-record"
+import { tangledTape } from "./tangled-tape"
+import { cdCleaner } from "./cd-cleaner"
+import { dustCloth } from "./dust-cloth"
+import { pencil } from "./pencil"
+import { cdPlayer } from "./cd-player"
+import { cassetteDeck } from "./cassette-deck"
+import { turntable } from "./turntable"
+import { boombox } from "./boombox"
 import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
 import { vanCubby } from "./van-cubby"
@@ -52,6 +61,15 @@ import { oscilloscope } from "./oscilloscope"
  */
 export const items = {
   scratchedCd,
+  dustyRecord,
+  tangledTape,
+  cdCleaner,
+  dustCloth,
+  pencil,
+  cdPlayer,
+  cassetteDeck,
+  turntable,
+  boombox,
   analogDelayPedal,
   fuzzPedal,
   tubeOverdrive,

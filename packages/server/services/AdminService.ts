@@ -1,4 +1,4 @@
-import { AppContext, GameSession, GameSessionConfig, GameSessionResults } from "@repo/types"
+import { AppContext, GameSession, GameSessionConfig, GameSessionResults, pickSessionConfigBooleans } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import type { GameSessionService } from "./GameSessionService"
@@ -728,7 +728,7 @@ export class AdminService {
   async updateGameSessionConfig(
     roomId: string,
     userId: string,
-    patch: { allowTrading?: boolean },
+    patch: unknown,
   ): Promise<{
     session: GameSession | null
     error: { status: number; error: string; message: string } | null
@@ -748,19 +748,20 @@ export class AdminService {
         },
       }
     }
-    if (typeof patch.allowTrading !== "boolean") {
+    const known = pickSessionConfigBooleans(
+      patch && typeof patch === "object" ? (patch as Record<string, unknown>) : undefined,
+    )
+    if (Object.keys(known).length === 0) {
       return {
         session: null,
         error: {
           status: 400,
           error: "Bad Request",
-          message: "allowTrading must be a boolean.",
+          message: "At least one known boolean config key must be present.",
         },
       }
     }
-    const session = await svc.patchActiveSessionConfig(roomId, {
-      allowTrading: patch.allowTrading,
-    })
+    const session = await svc.patchActiveSessionConfig(roomId, known)
     if (!session) {
       return {
         session: null,

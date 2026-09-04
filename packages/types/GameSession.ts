@@ -283,8 +283,41 @@ export interface GameSessionConfig {
   maxInventorySlots: number
   /** Durable collection cap (Physical Media). Defaults with inventory slots. */
   maxCollectionSlots: number
+  /**
+   * Playback-device cap (CD Player, Turntable, …). Defaults to 2 — fewer than
+   * the four devices, so the Boombox's two-format coverage is a space-saving
+   * choice rather than a strict upgrade (ADR 0160).
+   */
+  maxPlaybackSlots: number
   allowTrading: boolean
   allowSelling: boolean
+  /**
+   * When true (default), room admins wear Physical Media on queue like everyone
+   * else. Toggleable mid-session. Only applies in restricted-Local rooms.
+   */
+  physicalMediaWearForAdmins: boolean
+}
+
+/** Mid-session boolean patches. Adding a key here is the single registry. */
+export const SESSION_CONFIG_BOOLEAN_KEYS = [
+  "allowTrading",
+  "physicalMediaWearForAdmins",
+] as const
+
+export type SessionConfigBooleanKey = (typeof SESSION_CONFIG_BOOLEAN_KEYS)[number]
+
+/** Known boolean keys present as booleans on `input`. Empty when none match. */
+export function pickSessionConfigBooleans(
+  input: Record<string, unknown> | null | undefined,
+): Partial<Pick<GameSessionConfig, SessionConfigBooleanKey>> {
+  const out: Partial<Pick<GameSessionConfig, SessionConfigBooleanKey>> = {}
+  if (!input) return out
+  for (const key of SESSION_CONFIG_BOOLEAN_KEYS) {
+    if (typeof input[key] === "boolean") {
+      out[key] = input[key]
+    }
+  }
+  return out
 }
 
 export interface GameSession {

@@ -1,7 +1,9 @@
+import { useRef } from "react"
 import { Button, HStack, IconButton, Spinner } from "@chakra-ui/react"
+import { armQueueAddButtonShake } from "../lib/queueAddButtonShake"
 import { getIcon } from "./PluginComponents/icons"
-import { SvgIcon } from "./ui/svg-icon"
 import type { TrackPreviewStatus } from "./TrackActionRow"
+import { SvgIcon } from "./ui/svg-icon"
 
 const PlayIcon = getIcon("Play")
 const StopIcon = getIcon("Square")
@@ -29,6 +31,8 @@ export function TrackRowActions({
   onPreview,
   onAddToQueue,
 }: Props) {
+  const addButtonRef = useRef<HTMLButtonElement>(null)
+
   return (
     <HStack gap={1} flexShrink={0} align="center">
       {canPreview && (
@@ -54,12 +58,17 @@ export function TrackRowActions({
       )}
       {onAddToQueue && (
         <Button
+          ref={addButtonRef}
           size="sm"
           variant="outline"
           colorPalette="action"
           disabled={disabled || addDisabled}
           title={addDisabled ? "Already in queue" : undefined}
-          onClick={onAddToQueue}
+          overflow="visible"
+          onClick={() => {
+            armQueueAddButtonShake(addButtonRef.current)
+            onAddToQueue()
+          }}
         >
           {AddIcon && <SvgIcon icon={AddIcon} boxSize={{ base: "1rem", md: "0.85rem" }} />}
           Add

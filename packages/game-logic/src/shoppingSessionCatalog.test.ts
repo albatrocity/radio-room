@@ -16,8 +16,9 @@ const PM_ENTRY: ItemCatalogEntry = {
     imageUrl: "/api/rooms/r1/images/pl-cover",
     imageUrlLarge: "/api/rooms/r1/images/pl-cover-lg",
     artworkFrame: "record-jacket",
-    stackable: true,
-    maxStack: 5,
+    mediaFormat: "LP" as const,
+    stackable: false,
+    maxStack: 1,
     tradeable: true,
     consumable: false,
     coinValue: 20,
@@ -128,5 +129,52 @@ describe("buildShoppingInstance", () => {
     const instance = buildShoppingInstance(shop, ["pm-loveless"], catalogMap, Date.now())
     expect(instance.offers[0]?.artist).toBe("My Bloody Valentine")
     expect(instance.offers[0]?.name).toBe("LP: Loveless")
+  })
+
+  it("applies decorateOffer price and condition on PM offers only", () => {
+    const pedal: ItemCatalogEntry = {
+      definition: {
+        shortId: "fuzz-pedal",
+        name: "Fuzz Pedal",
+        description: "Blur",
+        stackable: true,
+        maxStack: 3,
+        tradeable: true,
+        consumable: true,
+        coinValue: 25,
+      },
+    }
+    const pm: ItemCatalogEntry = {
+      ...PM_ENTRY,
+      localLibraryGrant: { scope: "playlist", playlistKey: "pm-loveless", redemption: "durable" },
+    }
+    const catalogMap = buildItemCatalogMap([pm, pedal])
+    const shop: ShopCatalogEntry = {
+      shopId: "record-store",
+      name: "Record Store",
+      availableItems: [
+        { shortId: "pm-loveless", coinValue: 20 },
+        { shortId: "fuzz-pedal", coinValue: 25 },
+      ],
+      listedBuybackRate: 0.5,
+      unlistedBuybackRate: 0.25,
+    }
+    const instance = buildShoppingInstance(
+      shop,
+      ["pm-loveless", "fuzz-pedal"],
+      catalogMap,
+      Date.now(),
+      {
+        decorateOffer(entry, basePrice) {
+          if (!entry.localLibraryGrant) return {}
+          return { condition: "poor", price: Math.round(basePrice * 0.45) }
+        },
+      },
+    )
+    expect(instance.offers[0]?.condition).toBe("poor")
+    expect(instance.offers[0]?.price).toBe(9)
+    expect(instance.offers[0]?.mediaFormat).toBe("LP")
+    expect(instance.offers[1]?.condition).toBeUndefined()
+    expect(instance.offers[1]?.price).toBe(25)
   })
 })

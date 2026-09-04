@@ -73,6 +73,7 @@ const session = {
     inventoryEnabled: true,
     maxInventorySlots: 10,
     maxCollectionSlots: 12,
+    maxPlaybackSlots: 2,
     allowTrading: false,
     allowSelling: true,
   },
@@ -97,6 +98,7 @@ const inventory: UserInventory = {
   ],
   maxSlots: 10,
   maxCollectionSlots: 12,
+  maxPlaybackSlots: 2,
 }
 
 const beerDef = {

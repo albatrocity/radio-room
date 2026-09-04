@@ -24,6 +24,7 @@ export {
   isShopListedItem,
   buildItemCatalogMap,
   DEFAULT_RARITY_WEIGHTS,
+  type ShopEconomyHooks,
 } from "./shoppingSessionCatalog"
 export { tokenizeWords, buildSegments, type TokenizedWord } from "./chatTransform"
 export {

@@ -24,6 +24,7 @@ import type { StudioRoom } from "../../studio/studioRoom"
 import { StudioCoinAmountStoragePopover } from "./StudioCoinAmountStoragePopover"
 import { StudioInventoryItemStoragePopover } from "./StudioInventoryItemStoragePopover"
 import { StudioUserInventoryItemPopover } from "./StudioUserInventoryItemPopover"
+import { StudioUseTargetPopover } from "./StudioUseTargetPopover"
 import { toaster } from "../ui/toaster"
 import { LinkifiedText } from "./LinkifiedText"
 
@@ -122,8 +123,7 @@ export function UserCard({
               title="Switch Listening Room preview (web) to this user"
               onClick={() =>
                 void run("Room preview", async () => {
-                  const baseUrl =
-                    import.meta.env.VITE_STUDIO_BRIDGE_URL ?? "http://127.0.0.1:3099"
+                  const baseUrl = import.meta.env.VITE_STUDIO_BRIDGE_URL ?? "http://127.0.0.1:3099"
                   await requestStudioBridgeViewAs(baseUrl, room.roomId, userId)
                   onPreviewViewAsApplied(userId)
                   return "Listening Room preview updated"
@@ -157,8 +157,7 @@ export function UserCard({
             ) : (
               modifiers.map((m) => {
                 const ttlSec = Math.max(0, Math.ceil((m.endAt - now) / 1000))
-                const ttlLabel =
-                  m.endAt > now + longModifierThresholdMs ? "∞" : `${ttlSec}s`
+                const ttlLabel = m.endAt > now + longModifierThresholdMs ? "∞" : `${ttlSec}s`
                 return (
                   <Badge key={m.id} variant="subtle" colorPalette="purple">
                     {m.name}
@@ -359,6 +358,9 @@ export function UserCard({
                     })
                   : []
               const storageBlocked = rt === "inventoryItem" && selectableOther.length === 0
+              const mediaItemBlocked =
+                rt === "mediaItem" &&
+                inventoryRows.filter((invItem) => invItem.itemId !== row.itemId).length === 0
               const coinBlocked = rt === "coinAmount" && coin < 1
               const otherUsers = [...room.users.keys()].filter((id) => id !== userId)
               const burgleBlocked = rt === "userInventoryItem" && otherUsers.length === 0
@@ -382,6 +384,23 @@ export function UserCard({
                       Use
                     </Button>
                   </StudioInventoryItemStoragePopover>
+                ) : rt === "mediaItem" ? (
+                  <StudioUseTargetPopover
+                    room={room}
+                    userId={userId}
+                    excludingItemId={row.itemId}
+                    onPick={(targetInventoryItemId) =>
+                      void run(`Use ${label}`, async () =>
+                        studioActions.useInventoryItem(userId, row.itemId, {
+                          targetInventoryItemId,
+                        }),
+                      )
+                    }
+                  >
+                    <Button size="xs" variant="surface" disabled={mediaItemBlocked}>
+                      Use
+                    </Button>
+                  </StudioUseTargetPopover>
                 ) : rt === "userInventoryItem" ? (
                   <StudioUserInventoryItemPopover
                     room={room}

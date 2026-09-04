@@ -8,9 +8,11 @@ import JewelCaseUnderlay from "./JewelCaseUnderlay"
 import {
   dieCutMaskStyles,
   frameArtworkInset,
+  frameConditionClipStyles,
   frameContentRatio,
   framedArtworkLayout,
   framedMediaShadow,
+  insertConditionFilter,
   FRAMED_ARTWORK_BOX_SIZE,
   FRAMED_ARTWORK_TRACK_PX,
   type ArtworkSizePreset,
@@ -65,6 +67,12 @@ export default function FramedArtwork({
   const isDieCut = frame === "die-cut-jacket"
   const isJewelCase = frame === "jewel-case"
   const hasCover = Boolean(art.imageUrl?.trim())
+  // Absent condition reads as mint, matching `readItemCondition` server-side.
+  const condition = art.condition ?? "mint"
+  // A faded booklet/J-card is the cover image itself dimmed; a knocked-in sleeve
+  // corner has to come off the silhouette, so it clips the wrapper instead.
+  const insertFilter = insertConditionFilter(frame, condition)
+  const conditionClip = frameConditionClipStyles(frame, condition)
   const ratio = frameContentRatio(frame)
   const inset = frameArtworkInset(frame)
   const layout = framedArtworkLayout(size)
@@ -136,6 +144,7 @@ export default function FramedArtwork({
             borderRadius={0}
             overflow={isJewelCase ? "visible" : "hidden"}
             {...(isDieCut ? dieCutMaskStyles : {})}
+            {...(conditionClip ?? {})}
           >
             {isJewelCase && (
               <Box position="absolute" inset={0} zIndex={0} pointerEvents="none">
@@ -157,6 +166,7 @@ export default function FramedArtwork({
                 objectPosition="center"
                 loading="lazy"
                 maxW="none"
+                filter={insertFilter}
                 onError={() => {
                   const fallback = fallbackImageUrl?.trim()
                   if (fallback && src !== fallback) setSrc(fallback)
@@ -164,7 +174,12 @@ export default function FramedArtwork({
               />
             )}
             <Box position="absolute" inset={0} zIndex={2} pointerEvents="none">
-              <ArtworkFrameOverlay frame={frame} idPrefix={prefix} coverless={!hasCover} />
+              <ArtworkFrameOverlay
+                frame={frame}
+                idPrefix={prefix}
+                coverless={!hasCover}
+                condition={condition}
+              />
             </Box>
           </Box>
         </Box>

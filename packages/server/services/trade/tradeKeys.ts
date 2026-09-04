@@ -1,4 +1,4 @@
-import type { ItemDefinition, TradeInvite, TradeParticipantState, TradeSession } from "@repo/types"
+import type { TradeInvite, TradeParticipantState, TradeSession } from "@repo/types"
 
 export function tradeKey(roomId: string, tradeId: string): string {
   return `room:${roomId}:trade:${tradeId}`
@@ -20,10 +20,6 @@ export function allInvitesKey(roomId: string): string {
 }
 export function openTradesKey(roomId: string): string {
   return `room:${roomId}:trades:open`
-}
-
-export function slotPoolOf(def: ItemDefinition | null | undefined): "inventory" | "collection" {
-  return def?.slotPool === "collection" ? "collection" : "inventory"
 }
 
 export function emptyParticipant(userId: string): TradeParticipantState {

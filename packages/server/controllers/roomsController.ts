@@ -31,7 +31,9 @@ import {
 } from "@repo/utils"
 import {
   AppContext,
+  resolveSlotPool,
   RoomScheduleSnapshotDTO,
+  slotPoolFullMessage,
 } from "@repo/types"
 import { readRoomScheduleSnapshot, refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
 
@@ -794,7 +796,8 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
 
       const given = await inventory.giveItem(roomId, userId, defId, qty, undefined, "plugin")
       if (!given) {
-        fail("Inventory full — make space and try again.")
+        const def = await inventory.getItemDefinition(roomId, defId)
+        fail(slotPoolFullMessage(resolveSlotPool(def), "make space and try again."))
         return
       }
 

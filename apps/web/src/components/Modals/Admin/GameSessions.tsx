@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import type { GameSession } from "@repo/types"
+import { DEFAULT_SLOT_CAPS } from "@repo/types"
 import {
   Badge,
   Box,
@@ -30,9 +31,11 @@ export default function GameSessions() {
 
   const [sessionName, setSessionName] = useState("")
   const [initialCoinsInput, setInitialCoinsInput] = useState("")
-  const [inventorySlotsInput, setInventorySlotsInput] = useState("3")
-  const [collectionSlotsInput, setCollectionSlotsInput] = useState("12")
+  const [inventorySlotsInput, setInventorySlotsInput] = useState(String(DEFAULT_SLOT_CAPS.inventory))
+  const [collectionSlotsInput, setCollectionSlotsInput] = useState(String(DEFAULT_SLOT_CAPS.collection))
+  const [playbackSlotsInput, setPlaybackSlotsInput] = useState(String(DEFAULT_SLOT_CAPS.playback))
   const [allowTrading, setAllowTrading] = useState(false)
+  const [physicalMediaWearForAdmins, setPhysicalMediaWearForAdmins] = useState(true)
   const [activeSession, setActiveSession] = useState<GameSession | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [statusLoading, setStatusLoading] = useState(true)
@@ -70,9 +73,6 @@ export default function GameSessions() {
           setLoadError(null)
           const d = event.data as { session: GameSession | null }
           setActiveSession(d.session ?? null)
-          if (d.session) {
-            setAllowTrading(d.session.config.allowTrading === true)
-          }
           return
         }
 
@@ -95,7 +95,6 @@ export default function GameSessions() {
           setActionLoading(false)
           const d = event.data as { results: unknown | null }
           setActiveSession(null)
-          setAllowTrading(false)
           if (d.results == null) {
             toaster.create({
               title: "No active session",
@@ -119,13 +118,9 @@ export default function GameSessions() {
           const d = event.data as { session: GameSession | null }
           if (d.session) {
             setActiveSession(d.session)
-            setAllowTrading(d.session.config.allowTrading === true)
           }
           toaster.create({
             title: "Session updated",
-            description: d.session?.config.allowTrading
-              ? "Gifting and trading enabled."
-              : "Gifting and trading disabled.",
             type: "success",
             duration: 3000,
           })
@@ -223,6 +218,8 @@ export default function GameSessions() {
     if (Number.isNaN(maxInventorySlots)) return
     const maxCollectionSlots = parseSlots(collectionSlotsInput, "collection slots")
     if (Number.isNaN(maxCollectionSlots)) return
+    const maxPlaybackSlots = parseSlots(playbackSlotsInput, "playback slots")
+    if (Number.isNaN(maxPlaybackSlots)) return
 
     actionPendingRef.current = true
     setActionLoading(true)
@@ -231,7 +228,9 @@ export default function GameSessions() {
       ...(initialCoins != null ? { initialCoins } : {}),
       ...(maxInventorySlots != null ? { maxInventorySlots } : {}),
       ...(maxCollectionSlots != null ? { maxCollectionSlots } : {}),
+      ...(maxPlaybackSlots != null ? { maxPlaybackSlots } : {}),
       allowTrading,
+      physicalMediaWearForAdmins,
     })
   }
 
@@ -245,6 +244,12 @@ export default function GameSessions() {
     actionPendingRef.current = true
     setActionLoading(true)
     emitToSocket("UPDATE_GAME_SESSION_CONFIG", { allowTrading: checked })
+  }
+
+  const toggleActiveWearForAdmins = (checked: boolean) => {
+    actionPendingRef.current = true
+    setActionLoading(true)
+    emitToSocket("UPDATE_GAME_SESSION_CONFIG", { physicalMediaWearForAdmins: checked })
   }
 
   const startedLabel =
@@ -348,6 +353,20 @@ export default function GameSessions() {
                 <Text fontSize="xs" color="fg.muted" mt={-2}>
                   Disabling cancels pending gifts, trade invites, and active trades.
                 </Text>
+                <Checkbox.Root
+                  checked={activeSession.config.physicalMediaWearForAdmins !== false}
+                  onCheckedChange={(d) => toggleActiveWearForAdmins(!!d.checked)}
+                  disabled={actionLoading || statusLoading}
+                >
+                  <Checkbox.HiddenInput />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>Admins wear Physical Media when queuing</Checkbox.Label>
+                </Checkbox.Root>
+                <Text fontSize="xs" color="fg.muted" mt={-2}>
+                  When off, room admins can queue from their records without degrading them.
+                </Text>
               </VStack>
             </Box>
           )}
@@ -403,7 +422,7 @@ export default function GameSessions() {
               disabled={actionLoading || statusLoading}
             />
             <Field.HelperText>
-              Consumable / tool bag size. Default is 3.
+              Consumable / tool bag size. Default is {DEFAULT_SLOT_CAPS.inventory}.
             </Field.HelperText>
           </Field.Root>
 
@@ -419,7 +438,23 @@ export default function GameSessions() {
               disabled={actionLoading || statusLoading}
             />
             <Field.HelperText>
-              Durable Physical Media holdings. Default is 12.
+              Durable Physical Media holdings. Default is {DEFAULT_SLOT_CAPS.collection}.
+            </Field.HelperText>
+          </Field.Root>
+
+          <Field.Root>
+            <Field.Label>Playback slots</Field.Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={playbackSlotsInput}
+              onChange={(e) => setPlaybackSlotsInput(e.target.value)}
+              disabled={actionLoading || statusLoading}
+            />
+            <Field.HelperText>
+              Playback devices (CD player, turntable, …). Default is {DEFAULT_SLOT_CAPS.playback}.
             </Field.HelperText>
           </Field.Root>
 
@@ -436,6 +471,21 @@ export default function GameSessions() {
           </Checkbox.Root>
           <Text fontSize="xs" color="fg.muted" mt={-2}>
             Listeners can gift items and open two-party trades while the session is active.
+          </Text>
+
+          <Checkbox.Root
+            checked={physicalMediaWearForAdmins}
+            onCheckedChange={(d) => setPhysicalMediaWearForAdmins(!!d.checked)}
+            disabled={actionLoading || statusLoading}
+          >
+            <Checkbox.HiddenInput />
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Checkbox.Label>Admins wear Physical Media when queuing</Checkbox.Label>
+          </Checkbox.Root>
+          <Text fontSize="xs" color="fg.muted" mt={-2}>
+            When off, room admins can queue from their records without degrading them.
           </Text>
 
           <Button

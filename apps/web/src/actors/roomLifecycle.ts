@@ -36,6 +36,7 @@ import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
 import { clearMediaSession } from "../lib/mediaSession"
 import { bindUserToastSocket } from "../lib/userToastNotifications"
+import "./queueActor"
 import {
   getPersistedRoomState,
   applyPersistedRoomState,

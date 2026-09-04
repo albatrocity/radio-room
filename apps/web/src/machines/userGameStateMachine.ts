@@ -29,6 +29,7 @@ import {
   notifyGameStateNavSession,
   sessionSnapshotFromPayload,
 } from "../lib/gameStateNavSession"
+import { notifyGameStateNavInventory } from "../lib/gameStateNavInventory"
 import { createTrailingDebounce } from "../lib/trailingDebounce"
 
 export type { UserGameStatePayload }
@@ -53,9 +54,10 @@ type UserGameStateEvent =
   | { type: "GAME_MODIFIER_APPLIED"; data: UserScopedEventData }
   | { type: "GAME_MODIFIER_REMOVED"; data: UserScopedEventData }
   | { type: "INVENTORY_ITEM_ACQUIRED"; data: UserScopedEventData }
-  | { type: "INVENTORY_ITEM_REMOVED"; data: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_REMOVED"; data: UserScopedEventData & { itemId?: string } }
+  | { type: "INVENTORY_ITEM_UPDATED"; data: UserScopedEventData }
   | { type: "INVENTORY_ITEM_USED"; data: UserScopedEventData }
-  | { type: "INVENTORY_ITEM_TRANSFERRED"; data: UserScopedEventData }
+  | { type: "INVENTORY_ITEM_TRANSFERRED"; data: UserScopedEventData & { item?: { itemId?: string } } }
   | { type: "GIFT_OFFERED"; data?: GiftTradeEventData }
   | { type: "GIFT_DECLINED"; data?: GiftTradeEventData }
   | { type: "GIFT_CANCELLED"; data?: GiftTradeEventData }
@@ -129,6 +131,7 @@ export const userGameStateMachine = setup({
           "PRESENTED_IDENTITY_CHANGED",
           "INVENTORY_ITEM_ACQUIRED",
           "INVENTORY_ITEM_REMOVED",
+          "INVENTORY_ITEM_UPDATED",
           "INVENTORY_ITEM_USED",
           "INVENTORY_ITEM_TRANSFERRED",
           "GIFT_OFFERED",
@@ -217,12 +220,29 @@ export const userGameStateMachine = setup({
     notifyNavSession: ({ event, context }) => {
       if (event.type === "USER_GAME_STATE") {
         notifyGameStateNavSession(sessionSnapshotFromPayload(event.data))
+        notifyGameStateNavInventory({
+          type: "held",
+          itemIds: (event.data.inventory?.items ?? []).map((item) => item.itemId),
+        })
         return
       }
       notifyGameStateNavSession(sessionSnapshotFromPayload(context.payload))
     },
     notifyNavSessionCleared: () => {
       notifyGameStateNavSession(sessionSnapshotFromPayload(null))
+      notifyGameStateNavInventory({ type: "held", itemIds: [] })
+    },
+    notifyNavDropRemovedItem: ({ event }) => {
+      if (event.type !== "INVENTORY_ITEM_REMOVED") return
+      const itemId = event.data.itemId?.trim()
+      if (itemId) notifyGameStateNavInventory({ type: "drop", itemId })
+    },
+    notifyNavDropTransferredItem: ({ event }) => {
+      if (event.type !== "INVENTORY_ITEM_TRANSFERRED") return
+      const me = getCurrentUser()?.userId
+      if (!me || event.data.fromUserId !== me) return
+      const itemId = event.data.item?.itemId?.trim()
+      if (itemId) notifyGameStateNavInventory({ type: "drop", itemId })
     },
     requestStoredArtifacts: enqueueActions(({ event, context, enqueue }) => {
       if (event.type !== "USER_GAME_STATE") return
@@ -309,6 +329,10 @@ export const userGameStateMachine = setup({
     },
     INVENTORY_ITEM_REMOVED: {
       guard: "isMyGameEvent",
+      actions: ["notifyNavDropRemovedItem", "scheduleRequestGameState"],
+    },
+    INVENTORY_ITEM_UPDATED: {
+      guard: "isMyGameEvent",
       actions: ["scheduleRequestGameState"],
     },
     INVENTORY_ITEM_USED: {
@@ -317,7 +341,7 @@ export const userGameStateMachine = setup({
     },
     INVENTORY_ITEM_TRANSFERRED: {
       guard: "isMyGameEvent",
-      actions: ["scheduleRequestGameState"],
+      actions: ["notifyNavDropTransferredItem", "scheduleRequestGameState"],
     },
     GIFT_OFFERED: refetchMyGiftTrade,
     GIFT_DECLINED: refetchMyGiftTrade,

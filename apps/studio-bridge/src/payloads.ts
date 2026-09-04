@@ -1,11 +1,11 @@
-import { marsEggSellbackValue } from "@repo/plugin-item-shops/mars-egg-sellback"
+import { ITEM_SELLBACK_VALUE_BEHAVIORS } from "@repo/plugin-item-shops/sellback"
 import type {
   GameAttributeName,
   GameSession,
   GameStateModifier,
   UserGameState,
 } from "@repo/types/GameSession"
-import type { InventoryItem, ItemDefinition } from "@repo/types/Inventory"
+import { DEFAULT_SLOT_CAPS, type InventoryItem, type ItemDefinition } from "@repo/types/Inventory"
 import type { QueueItem } from "@repo/types/Queue"
 import type { RoomMeta } from "@repo/types/Room"
 import type { TradeInvite, TradeSession } from "@repo/types/Trade"
@@ -20,9 +20,15 @@ import {
 } from "./stubFeedback.js"
 import type { BridgeSnapshot } from "./types.js"
 
-/** Align with `apps/game-studio/src/studio/buildSessionConfig.ts` (`maxInventorySlots` default). */
-const DEFAULT_MAX_INVENTORY_SLOTS = 3
-const DEFAULT_MAX_COLLECTION_SLOTS = 12
+function attachItemShopsSellback(
+  item: InventoryItem,
+  def: ItemDefinition | undefined,
+): InventoryItem {
+  if (def?.sourcePlugin !== "item-shops") return item
+  const handler = ITEM_SELLBACK_VALUE_BEHAVIORS[def.shortId]
+  if (!handler) return item
+  return { ...item, sellbackValue: handler(item, def) }
+}
 
 /** Mirrors `packages/server/lib/getRoomPath`. */
 export function roomSocketPath(roomId: string): string {
@@ -99,7 +105,7 @@ export function buildRoomMeta(snap: BridgeSnapshot): Partial<RoomMeta> {
 }
 
 export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) {
-  const maxSlots = snap.activeSession?.config.maxInventorySlots ?? DEFAULT_MAX_INVENTORY_SLOTS
+  const maxSlots = snap.activeSession?.config.maxInventorySlots ?? DEFAULT_SLOT_CAPS.inventory
   const session = snap.activeSession
   const state = snap.userStates[userId] ?? null
   const rawItems = snap.inventories[userId] ?? []
@@ -109,13 +115,7 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
   const defById = new Map<string, ItemDefinition>(snap.itemDefinitions.map((d) => [d.id, d]))
   const items: InventoryItem[] =
     session && rawItems.length > 0
-      ? rawItems.map((item) => {
-          const def = defById.get(item.definitionId)
-          if (def?.sourcePlugin === "item-shops" && def.shortId === "mars-egg") {
-            return { ...item, sellbackValue: marsEggSellbackValue(item, def) }
-          }
-          return item
-        })
+      ? rawItems.map((item) => attachItemShopsSellback(item, defById.get(item.definitionId)))
       : rawItems
 
   const pluginUserState: Record<string, Record<string, unknown>> = {
@@ -157,7 +157,9 @@ export function buildUserGameStatePayload(snap: BridgeSnapshot, userId: string) 
           items,
           maxSlots,
           maxCollectionSlots:
-            snap.activeSession?.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS,
+            snap.activeSession?.config.maxCollectionSlots ?? DEFAULT_SLOT_CAPS.collection,
+          maxPlaybackSlots:
+            snap.activeSession?.config.maxPlaybackSlots ?? DEFAULT_SLOT_CAPS.playback,
         }
       : null,
     itemDefinitions: snap.itemDefinitions,
@@ -173,7 +175,7 @@ const EMPTY_ATTRS = {} as Record<GameAttributeName, number>
 /** Admin tab: all users in the bridge snapshot with session-scoped state/inventory. */
 export function buildAllListenerGameStatesPayload(snap: BridgeSnapshot) {
   const session = snap.activeSession
-  const maxSlots = session?.config.maxInventorySlots ?? DEFAULT_MAX_INVENTORY_SLOTS
+  const maxSlots = session?.config.maxInventorySlots ?? DEFAULT_SLOT_CAPS.inventory
   if (!session) {
     return {
       session: null as GameSession | null,
@@ -181,7 +183,13 @@ export function buildAllListenerGameStatesPayload(snap: BridgeSnapshot) {
         userId: string
         username: string
         state: UserGameState
-        inventory: { userId: string; items: InventoryItem[]; maxSlots: number; maxCollectionSlots: number }
+        inventory: {
+          userId: string
+          items: InventoryItem[]
+          maxSlots: number
+          maxCollectionSlots: number
+          maxPlaybackSlots: number
+        }
       }>,
       itemDefinitions: snap.itemDefinitions,
     }
@@ -197,13 +205,7 @@ export function buildAllListenerGameStatesPayload(snap: BridgeSnapshot) {
     const rawItems = snap.inventories[userId] ?? []
     const items: InventoryItem[] =
       rawItems.length > 0
-        ? rawItems.map((item) => {
-            const def = defById.get(item.definitionId)
-            if (def?.sourcePlugin === "item-shops" && def.shortId === "mars-egg") {
-              return { ...item, sellbackValue: marsEggSellbackValue(item, def) }
-            }
-            return item
-          })
+        ? rawItems.map((item) => attachItemShopsSellback(item, defById.get(item.definitionId)))
         : rawItems
 
     return {
@@ -214,7 +216,8 @@ export function buildAllListenerGameStatesPayload(snap: BridgeSnapshot) {
         userId,
         items,
         maxSlots,
-        maxCollectionSlots: session.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS,
+        maxCollectionSlots: session.config.maxCollectionSlots ?? DEFAULT_SLOT_CAPS.collection,
+        maxPlaybackSlots: session.config.maxPlaybackSlots ?? DEFAULT_SLOT_CAPS.playback,
       },
     }
   })

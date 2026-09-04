@@ -56,6 +56,7 @@ describe("blackBag", () => {
       items: uid === victim.userId ? victimStacks : [],
       maxSlots: 5,
       maxCollectionSlots: 5,
+      maxPlaybackSlots: 5,
     }))
     vi.mocked(deps.context.inventory.getItemDefinition).mockImplementation(async (id) => {
       if (id === potion.id) return potion
@@ -129,6 +130,7 @@ describe("blackBag", () => {
       items: [stack(album, { itemId: "album-1" })],
       maxSlots: 5,
       maxCollectionSlots: 5,
+      maxPlaybackSlots: 5,
     })
     vi.mocked(deps.context.inventory.getItemDefinition).mockResolvedValue(album)
     vi.mocked(deps.context.inventory.removeItem).mockResolvedValue(true)
@@ -163,6 +165,7 @@ describe("blackBag", () => {
       items: [],
       maxSlots: 5,
       maxCollectionSlots: 5,
+      maxPlaybackSlots: 5,
     })
 
     const result = await invokeUse(blackBag, deps, actor.userId, bagDef(), {
@@ -187,6 +190,7 @@ describe("blackBag", () => {
       items: [stack(potion, { itemId: "potion-1" })],
       maxSlots: 5,
       maxCollectionSlots: 5,
+      maxPlaybackSlots: 5,
     })
     vi.mocked(deps.context.inventory.getItemDefinition).mockResolvedValue(potion)
     vi.mocked(deps.game.checkModifierDefense).mockResolvedValue({
@@ -246,6 +250,7 @@ describe("blackBag", () => {
       items: [stack(potion, { itemId: "potion-1", metadata: { keep: 1 } })],
       maxSlots: 5,
       maxCollectionSlots: 5,
+      maxPlaybackSlots: 5,
     })
     vi.mocked(deps.context.inventory.getItemDefinition).mockResolvedValue(potion)
     vi.mocked(deps.context.inventory.removeItem).mockResolvedValue(true)
@@ -258,7 +263,7 @@ describe("blackBag", () => {
 
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
-    expect(result.message).toContain("full")
+    expect(result.message).toBe("Inventory is full — nothing was stolen.")
     expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(
       victim.userId,
       potion.id,
@@ -280,6 +285,7 @@ describe("blackBag", () => {
       items: [stack(potion, { itemId: "potion-1" })],
       maxSlots: 5,
       maxCollectionSlots: 5,
+      maxPlaybackSlots: 5,
     })
     vi.mocked(deps.context.inventory.getItemDefinition).mockResolvedValue(potion)
 

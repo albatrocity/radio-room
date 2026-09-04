@@ -1,13 +1,14 @@
-import { useSocketMachine } from "../hooks/useSocketMachine"
-import { QUEUE_EVENT_TYPES, queueMachine } from "../machines/queueMachine"
+import { useSelector } from "@xstate/react"
+import { queueActor } from "../actors/queueActor"
 import { MetadataSourceTrack } from "@repo/types"
 
 export default function useAddToQueue() {
-  const [state, send] = useSocketMachine(queueMachine, undefined, QUEUE_EVENT_TYPES)
+  const isLoading = useSelector(queueActor, (snapshot) => snapshot.matches("loading"))
+  const queuedTrack = useSelector(queueActor, (snapshot) => snapshot.context.queuedTrack)
 
   function addToQueue(track: MetadataSourceTrack) {
-    send({ type: "SEND_TO_QUEUE", track })
+    queueActor.send({ type: "SEND_TO_QUEUE", track })
   }
 
-  return { state, send, addToQueue }
+  return { isLoading, queuedTrack, addToQueue }
 }

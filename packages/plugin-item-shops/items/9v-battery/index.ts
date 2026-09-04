@@ -1,4 +1,5 @@
 import type { InventoryItem, ItemDefinition, ItemUseResult } from "@repo/types"
+import { resolveSlotPool, slotPoolFullMessage } from "@repo/types"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 import {
   sendAttributedSystemMessage,
@@ -57,7 +58,7 @@ async function useNineVoltBattery(
     return {
       success: false,
       consumed: false,
-      message: "Your inventory is full — no room for a duplicate.",
+      message: slotPoolFullMessage(resolveSlotPool(pick.def), "no room for a duplicate."),
     }
   }
 

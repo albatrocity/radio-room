@@ -34,7 +34,7 @@ function afterNextPaint(callback: () => void): () => void {
 function ModalAddToQueue() {
   const modalSend = useModalsSend()
   const [searchActive, setSearchActive] = useState(false)
-  const { addToQueue, state } = useAddToQueue()
+  const { addToQueue, isLoading, queuedTrack } = useAddToQueue()
   const isAddingToQueue = useIsModalOpen("queue")
   const isMetadataSourceAuthenticated = useIsMetadataSourceAuthenticated()
   const metadataAuthSend = useMetadataSourceAuthSend()
@@ -79,8 +79,7 @@ function ModalAddToQueue() {
 
   const canViewSavedTracks = isAdmin && isMetadataSourceAuthenticated
 
-  const isLoading = state.matches("loading")
-  const loadingItem = isLoading ? state.context.queuedTrack : undefined
+  const loadingItem = isLoading ? queuedTrack : undefined
   const isSheet = useIsBelowLg()
 
   const heading = (

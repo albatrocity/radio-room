@@ -7,7 +7,7 @@
   "types": "index.ts",
   "exports": {
     ".": "./index.ts",
-    "./mars-egg-sellback": "./items/mars-egg/sellbackValue.ts"
+    "./sellback": "./items/sellback.ts"
   },
   "scripts": {
     "test": "vitest run --passWithNoTests",

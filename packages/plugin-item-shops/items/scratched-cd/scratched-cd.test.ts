@@ -11,6 +11,11 @@ import {
 } from "../shared/testHelpers"
 
 describe("scratchedCd", () => {
+  test("is a non-stackable skip tool", () => {
+    expect(scratchedCd.catalogEntry.definition.stackable).toBe(false)
+    expect(scratchedCd.catalogEntry.definition.maxStack).toBe(1)
+  })
+
   test("skips current track when playing", async () => {
     const deps = createMockDeps()
     const user = userFactory.build()
@@ -25,7 +30,7 @@ describe("scratchedCd", () => {
       scratchedCd,
       deps,
       user.userId,
-      createMockDefinition("scratched-cd"),
+      createMockDefinition("scratched-cd", { name: "Scratched CD" }),
     )
 
     expect(result.success).toBe(true)

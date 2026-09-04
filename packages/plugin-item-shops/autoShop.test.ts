@@ -258,5 +258,53 @@ describe("ItemShopsPlugin auto-shop", () => {
     expect(schema.quickAccessStatus).toEqual(["autoShop", "autoShopIntervalMs"])
     expect(schema.quickAccess).toContain("enableAutoShop")
     expect(schema.quickAccess).toContain("setAutoShopInterval")
+    expect(schema.quickAccess).toContain("setOfferConditionRange")
+    expect(schema.fieldMeta.offerConditionMin?.type).toBe("enum")
+    expect(schema.fieldMeta.offerConditionMax?.type).toBe("enum")
+  })
+
+  it("setOfferConditionRange persists bounds via setPluginConfig", async () => {
+    vi.spyOn(plugin as any, "syncAutoShopTimer").mockResolvedValue(undefined)
+    const { context, setPluginConfig } = createMockContext()
+    ;(plugin as any).context = context
+    ;(plugin as any).shopping = { startSession: vi.fn(), clearSessionRound: vi.fn() }
+    vi.spyOn(plugin as any, "getConfig").mockResolvedValue({
+      ...defaultItemShopsConfig,
+      enabled: true,
+    })
+
+    const result = await plugin.executeAction("setOfferConditionRange", ADMIN, {
+      offerConditionMin: "good",
+      offerConditionMax: "mint",
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.message).toBe("Record Store offers will be Mint, Good.")
+    expect(result.configPatch).toEqual({
+      offerConditionMin: "good",
+      offerConditionMax: "mint",
+    })
+    expect(setPluginConfig).toHaveBeenCalledWith(
+      "room-1",
+      "item-shops",
+      expect.objectContaining({ offerConditionMin: "good", offerConditionMax: "mint" }),
+    )
+    expect((plugin as any).offerConditionBounds).toEqual({ min: "good", max: "mint" })
+  })
+
+  it("setOfferConditionRange rejects invalid conditions", async () => {
+    const { context } = createMockContext()
+    ;(plugin as any).context = context
+    vi.spyOn(plugin as any, "getConfig").mockResolvedValue({
+      ...defaultItemShopsConfig,
+      enabled: true,
+    })
+
+    const result = await plugin.executeAction("setOfferConditionRange", ADMIN, {
+      offerConditionMin: "pristine",
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.message).toBe("Choose a worst and best condition.")
   })
 })
