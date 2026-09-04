@@ -13,6 +13,8 @@ describe("cdCleaner", () => {
 describeRestoreMediaItem({
   item: cdCleaner,
   itemLabel: "CD Cleaner",
+  successBody: (albumTitle) =>
+    `Huh, I guess this stuff really works. You cleaned ${albumTitle} to a point where it's playable again.`,
   matchingRecords: [{ format: "CD", name: "Kid A", shortId: "pm-kid-a" }],
   brokenShortId: "scratched-cd",
   brokenName: "Scratched CD",

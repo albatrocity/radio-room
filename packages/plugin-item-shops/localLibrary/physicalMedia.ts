@@ -22,6 +22,11 @@ const FORMAT_BY_TOKEN: Record<
   "45": { token: "45", format: "45", icon: "DiscAlbum", artworkFrame: "die-cut-jacket" },
 }
 
+/** Shop/item label for a format token (`TAPE` → `"Cassette"`). */
+export function physicalMediaTypeLabel(format: PhysicalMediaFormat): string {
+  return FORMAT_BY_TOKEN[format].format
+}
+
 const RARITY_BY_TOKEN: Record<string, ItemRarity> = {
   COMMON: "common",
   UNCOMMON: "uncommon",

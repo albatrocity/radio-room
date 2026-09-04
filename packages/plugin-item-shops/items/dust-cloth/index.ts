@@ -15,5 +15,10 @@ export const dustCloth = createItem({
     icon: "Wind",
     rarity: "uncommon",
   },
-  use: restoreMediaUse({ formats: ["LP", "45"], itemLabel: "Dust Cloth" }),
+  use: restoreMediaUse({
+    formats: ["LP", "45"],
+    itemLabel: "Dust Cloth",
+    successBody: (albumTitle) =>
+      `You cleaned off ${albumTitle} with the Dust Cloth and got some more life out of it.`,
+  }),
 })

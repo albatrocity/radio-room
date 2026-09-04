@@ -15,5 +15,10 @@ export const pencil = createItem({
     icon: "Pencil",
     rarity: "uncommon",
   },
-  use: restoreMediaUse({ formats: ["TAPE"], itemLabel: "Pencil" }),
+  use: restoreMediaUse({
+    formats: ["TAPE"],
+    itemLabel: "Pencil",
+    successBody: (albumTitle) =>
+      `You used the pencil to respool the tape and brought ${albumTitle} back to life.`,
+  }),
 })

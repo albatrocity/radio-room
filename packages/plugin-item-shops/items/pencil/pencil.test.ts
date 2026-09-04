@@ -14,6 +14,8 @@ describe("pencil", () => {
 describeRestoreMediaItem({
   item: pencil,
   itemLabel: "Pencil",
+  successBody: (albumTitle) =>
+    `You used the pencil to respool the tape and brought ${albumTitle} back to life.`,
   matchingRecords: [{ format: "TAPE", name: "Mix Tape", shortId: "pm-mix" }],
   brokenShortId: "tangled-tape",
   brokenName: "Tangled Tape",

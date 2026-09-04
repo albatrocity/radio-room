@@ -1,13 +1,16 @@
 import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
 import type { InventoryItem, ItemDefinition, PhysicalMediaFormat } from "@repo/types"
-import { PHYSICAL_MEDIA_CONDITION_KEY, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
+import { MEDIA_CONDITION_LABELS, PHYSICAL_MEDIA_CONDITION_KEY, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
+import { physicalMediaTypeLabel } from "../../localLibrary/physicalMedia"
+import { albumTitleFromItemName } from "./restoreMedia"
 import type { Item } from "./types"
 import { createMockDefinition, createMockDeps, invokeUse } from "./testHelpers"
 
 type RestoreCaseOpts = {
   item: Item
   itemLabel: string
+  successBody: (albumTitle: string) => string
   matchingRecords: Array<{ format: PhysicalMediaFormat; name: string; shortId: string }>
   brokenShortId: string
   brokenName: string
@@ -110,6 +113,16 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
     requiresTarget: "mediaItem",
   })
 
+  function expectedToast(format: PhysicalMediaFormat, condition: "good" | "poor", name: string) {
+    const albumTitle = albumTitleFromItemName(name)
+    return {
+      success: true,
+      consumed: true,
+      title: `${physicalMediaTypeLabel(format)} restored to ${MEDIA_CONDITION_LABELS[condition]} condition!`,
+      message: opts.successBody(albumTitle),
+    }
+  }
+
   describe(opts.item.shortId, () => {
     test(`restores Poor → Good on a ${primary.mediaFormat} copy`, async () => {
       const target = stack(primary, {
@@ -122,19 +135,13 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
         targetInventoryItemId: target.itemId,
       })
 
-      expect(result.success).toBe(true)
-      expect(result.consumed).toBe(true)
+      expect(result).toEqual(expectedToast(primary.mediaFormat ?? "CD", "good", primary.name))
       expect(deps.context.inventory.updateItemMetadata).toHaveBeenCalledWith(
         actor.userId,
         target.itemId,
         { [PHYSICAL_MEDIA_CONDITION_KEY]: "good" },
       )
-      expect(deps.context.api.sendUserSystemMessage).toHaveBeenCalledWith(
-        "room-1",
-        actor.userId,
-        `${primary.name} is now in Good condition.`,
-        expect.objectContaining({ type: "alert", status: "info" }),
-      )
+      expect(deps.context.api.sendUserSystemMessage).not.toHaveBeenCalled()
     })
 
     for (const extra of matching.slice(1)) {
@@ -147,7 +154,7 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
         const result = await invokeUse(opts.item, deps, actor.userId, cleanerDef, {
           targetInventoryItemId: target.itemId,
         })
-        expect(result.success).toBe(true)
+        expect(result).toEqual(expectedToast(extra.mediaFormat ?? "CD", "good", extra.name))
         expect(deps.context.inventory.updateItemMetadata).toHaveBeenCalledWith(
           actor.userId,
           target.itemId,
@@ -210,11 +217,7 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
       const result = await invokeUse(opts.item, deps, actor.userId, cleanerDef, {
         targetInventoryItemId: target.itemId,
       })
-      expect(result.success).toBe(true)
-      expect(result.consumed).toBe(true)
-      expect(result.message).toBe(
-        `${opts.brokenName} has been restored to ${primary.name} in Poor condition.`,
-      )
+      expect(result).toEqual(expectedToast(primary.mediaFormat ?? "CD", "poor", primary.name))
       expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(actor.userId, primary.id, 1, {
         [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
       })
@@ -235,7 +238,7 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
         targetInventoryItemId: target.itemId,
       })
 
-      expect(result.success).toBe(true)
+      expect(result).toEqual(expectedToast(other.mediaFormat ?? "CD", "poor", other.name))
       expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(actor.userId, other.id, 1, {
         [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
       })

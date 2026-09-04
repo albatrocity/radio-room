@@ -15,5 +15,10 @@ export const cdCleaner = createItem({
     icon: "SprayCan",
     rarity: "uncommon",
   },
-  use: restoreMediaUse({ formats: ["CD"], itemLabel: "CD Cleaner" }),
+  use: restoreMediaUse({
+    formats: ["CD"],
+    itemLabel: "CD Cleaner",
+    successBody: (albumTitle) =>
+      `Huh, I guess this stuff really works. You cleaned ${albumTitle} to a point where it's playable again.`,
+  }),
 })

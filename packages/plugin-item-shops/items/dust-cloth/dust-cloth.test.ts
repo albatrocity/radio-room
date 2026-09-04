@@ -13,6 +13,8 @@ describe("dustCloth", () => {
 describeRestoreMediaItem({
   item: dustCloth,
   itemLabel: "Dust Cloth",
+  successBody: (albumTitle) =>
+    `You cleaned off ${albumTitle} with the Dust Cloth and got some more life out of it.`,
   matchingRecords: [
     { format: "LP", name: "Loveless", shortId: "pm-loveless" },
     { format: "45", name: "Come as You Are", shortId: "pm-come-as" },

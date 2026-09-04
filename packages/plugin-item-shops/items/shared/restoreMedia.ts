@@ -1,10 +1,16 @@
-import type { ItemDefinition, ItemUseResult, PhysicalMediaFormat } from "@repo/types"
+import type {
+  ItemDefinition,
+  ItemUseResult,
+  MediaCondition,
+  PhysicalMediaFormat,
+} from "@repo/types"
 import { MEDIA_CONDITION_LABELS, PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
 import {
   isPhysicalMediaDefinition,
   readItemCondition,
   restoreCondition,
 } from "../../localLibrary/condition"
+import { physicalMediaTypeLabel } from "../../localLibrary/physicalMedia"
 import {
   formatFromArtworkFrame,
   FORMATS_BY_BROKEN_SHORT_ID,
@@ -13,9 +19,30 @@ import {
 } from "./brokenMedia"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
+const FORMAT_NAME_PREFIX = /^(CD|LP|Cassette|45):\s+/i
+
+/** Strip the `LP: ` shop prefix so toast copy can use the album title. */
+export function albumTitleFromItemName(name: string): string {
+  const stripped = name.replace(FORMAT_NAME_PREFIX, "").trim()
+  return stripped || name
+}
+
+export function restoreSuccessToast(opts: {
+  format: PhysicalMediaFormat
+  condition: MediaCondition
+  albumTitle: string
+  successBody: (albumTitle: string) => string
+}): Pick<ItemUseResult, "title" | "message"> {
+  return {
+    title: `${physicalMediaTypeLabel(opts.format)} restored to ${MEDIA_CONDITION_LABELS[opts.condition]} condition!`,
+    message: opts.successBody(opts.albumTitle),
+  }
+}
+
 export function restoreMediaUse(opts: {
   formats: readonly PhysicalMediaFormat[]
   itemLabel: string
+  successBody: (albumTitle: string) => string
 }): ItemUseHandler {
   const formatSet = new Set(opts.formats)
 
@@ -57,12 +84,16 @@ export function restoreMediaUse(opts: {
       await context.inventory.updateItemMetadata(userId, target.itemId, {
         [PHYSICAL_MEDIA_CONDITION_KEY]: next,
       })
-      const message = `${def.name} is now in ${MEDIA_CONDITION_LABELS[next]} condition.`
-      await context.api.sendUserSystemMessage(context.roomId, userId, message, {
-        type: "alert",
-        status: "info",
-      })
-      return { success: true, consumed: true, message }
+      return {
+        success: true,
+        consumed: true,
+        ...restoreSuccessToast({
+          format,
+          condition: next,
+          albumTitle: albumTitleFromItemName(def.name),
+          successBody: opts.successBody,
+        }),
+      }
     }
 
     if (def && isBrokenMediaShortId(def.shortId)) {
@@ -106,12 +137,18 @@ export function restoreMediaUse(opts: {
       }
 
       await context.inventory.removeItem(userId, target.itemId, 1)
-      const message = `${def.name} has been restored to ${restored.name} in ${MEDIA_CONDITION_LABELS.poor} condition.`
-      await context.api.sendUserSystemMessage(context.roomId, userId, message, {
-        type: "alert",
-        status: "info",
-      })
-      return { success: true, consumed: true, message }
+      const format =
+        restored.mediaFormat ?? formatFromArtworkFrame(restored.artworkFrame) ?? eligible[0]!
+      return {
+        success: true,
+        consumed: true,
+        ...restoreSuccessToast({
+          format,
+          condition: "poor",
+          albumTitle: albumTitleFromItemName(restored.name),
+          successBody: opts.successBody,
+        }),
+      }
     }
 
     return didNothing()

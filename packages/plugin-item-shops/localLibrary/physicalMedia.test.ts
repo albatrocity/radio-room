@@ -6,6 +6,7 @@ import {
   derivePhysicalMediaItemsFromAlbums,
   inferPhysicalMediaFormat,
   parsePhysicalMediaName,
+  physicalMediaTypeLabel,
   rarityFromUserRating,
   splitPhysicalMediaArtistTitle,
   physicalMediaAlbumShortId,
@@ -30,6 +31,8 @@ describe("physicalMedia derivation", () => {
       artworkFrame: "jewel-case",
     })
     expect(parsePhysicalMediaName("Just a mixtape")).toBeNull()
+    expect(physicalMediaTypeLabel("TAPE")).toBe("Cassette")
+    expect(physicalMediaTypeLabel("LP")).toBe("LP")
   })
 
   it("parses optional rarity tags in any order with format", () => {
