@@ -27,13 +27,22 @@ import {
   parsePhysicalMediaName,
 } from "./physicalMedia"
 import {
+  MEDIA_CONDITION_LABELS,
+  CONDITION_WEAR_RANK,
+  degradeCondition,
+  readItemCondition,
+} from "./condition"
+import { brokenMediaForRecord } from "../items/shared/brokenMedia"
+import {
   buildGrantCatalogEntries,
   catalogByShortId,
+  definitionIdForShortId,
   isLocalLibraryGrantShortId,
   listHeldLocalLibraryGrants,
   pickGrantToConsume,
   playlistMapFromGrantConfig,
   resolveLocalCatalogScope,
+  LOCAL_LIBRARY_QUEUE_REJECT_REASON,
   type HeldLocalLibraryGrant,
   type LocalCatalogScope,
 } from "./grants"
@@ -571,15 +580,19 @@ export class LocalLibraryModule {
     if (!context || !config.enabled) return allowQueueRequest()
     if (params.mediaSourceType !== "local") return allowQueueRequest()
 
-    const isAdmin = await context.api.isRoomAdmin(params.roomId, params.userId)
-    if (isAdmin) return allowQueueRequest()
-
     const room = await context.getRoom()
     if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
 
+    const isAdmin = await context.api.isRoomAdmin(params.roomId, params.userId)
+    const session = await context.game.getActiveSession()
+    const wearForAdmins = session?.config.physicalMediaWearForAdmins !== false
+    if (isAdmin && !wearForAdmins) return allowQueueRequest()
+
     const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const held = await this.getHeldGrants(params.userId)
-    if (held.length === 0) return allowQueueRequest()
+    if (held.length === 0) {
+      return rejectQueueRequest(LOCAL_LIBRARY_QUEUE_REJECT_REASON)
+    }
 
     const playlistMap = this.playlistMap(grants)
     const albumMap = this.albumMap()
@@ -639,15 +652,14 @@ export class LocalLibraryModule {
       }
       return false
     })
-    if (coveredByDurable) return allowQueueRequest()
+    if (coveredByDurable) {
+      await this.wearRecordForQueue(params, held, trackInPlaylistKey, trackInAlbumKey)
+      return allowQueueRequest()
+    }
 
     const pick = pickGrantToConsume({ held, trackInPlaylistKey })
     if (!pick) {
-      const hasLibrary = held.some((h) => h.grant.scope === "library")
-      if (!hasLibrary) {
-        return rejectQueueRequest("That track isn't available on your Library shelf.")
-      }
-      return allowQueueRequest()
+      return rejectQueueRequest(LOCAL_LIBRARY_QUEUE_REJECT_REASON)
     }
 
     const removed = await context.inventory.removeItem(params.userId, pick.itemId, 1)
@@ -660,6 +672,93 @@ export class LocalLibraryModule {
       )
     }
     return allowQueueRequest()
+  }
+
+  /**
+   * Degrade (or convert) the worst matching playlist/album record. Never rejects.
+   */
+  private async wearRecordForQueue(
+    params: QueueValidationParams,
+    held: HeldLocalLibraryGrant[],
+    trackInPlaylistKey: Record<string, boolean>,
+    trackInAlbumKey: Record<string, boolean>,
+  ): Promise<void> {
+    const context = this.getContext()
+    if (!context) return
+
+    const matching = held.filter((h) => {
+      if (h.grant.redemption !== "durable") return false
+      if (h.grant.scope === "library") return false
+      if (h.grant.scope === "playlist") {
+        return trackInPlaylistKey[h.grant.playlistKey] === true
+      }
+      if (h.grant.scope === "album") {
+        return trackInAlbumKey[h.grant.albumKey] === true
+      }
+      return false
+    })
+    if (matching.length === 0) return
+
+    const inv = await context.inventory.getInventory(params.userId)
+    const byItemId = new Map(inv.items.map((item) => [item.itemId, item]))
+    const ranked = matching
+      .map((h) => {
+        const item = byItemId.get(h.itemId)
+        if (!item) return null
+        return { held: h, item, condition: readItemCondition(item) }
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null)
+    ranked.sort((a, b) => {
+      const wear = CONDITION_WEAR_RANK[b.condition] - CONDITION_WEAR_RANK[a.condition]
+      if (wear !== 0) return wear
+      return a.held.itemId.localeCompare(b.held.itemId)
+    })
+    const chosen = ranked[0]
+    if (!chosen) return
+
+    const next = degradeCondition(chosen.condition)
+    const recordName = chosen.held.name
+    if (next) {
+      await context.inventory.updateItemMetadata(params.userId, chosen.held.itemId, {
+        condition: next,
+      })
+      await context.api.sendUserSystemMessage(
+        params.roomId,
+        params.userId,
+        `${recordName} is now in ${MEDIA_CONDITION_LABELS[next]} condition.`,
+        { type: "alert", status: "info" },
+      )
+      return
+    }
+
+    const definition = await context.inventory.getItemDefinition(chosen.held.definitionId)
+    const broken = brokenMediaForRecord({
+      mediaFormat: definition?.mediaFormat,
+      artworkFrame: definition?.artworkFrame,
+    })
+    await context.inventory.removeItem(params.userId, chosen.held.itemId, 1)
+
+    let given = null
+    if (broken) {
+      given = await context.inventory.giveItem(
+        params.userId,
+        definitionIdForShortId(this.pluginName, broken.shortId),
+        1,
+        undefined,
+        "plugin",
+      )
+      if (!given) {
+        console.debug(
+          `[${this.pluginName}] no inventory slot for broken media ${broken.shortId} after converting ${recordName}`,
+        )
+      }
+    }
+    const transition = broken?.transitionMessage(recordName) ?? `${recordName} wore out.`
+    const suffix = broken && !given ? " …but you had no room to keep it." : ""
+    await context.api.sendUserSystemMessage(params.roomId, params.userId, `${transition}${suffix}`, {
+      type: "alert",
+      status: "warning",
+    })
   }
 
   private async resolveUserLocalCatalogScope(

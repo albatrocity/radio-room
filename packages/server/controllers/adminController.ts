@@ -112,6 +112,7 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
       maxInventorySlots?: number
       maxCollectionSlots?: number
       allowTrading?: boolean
+      physicalMediaWearForAdmins?: boolean
     }) => {
     await handlers.startGameSession(connections, data)
   },
@@ -121,9 +122,12 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
     await handlers.endGameSession(connections)
   })
 
-  socket.on("UPDATE_GAME_SESSION_CONFIG", async (data: { allowTrading?: boolean }) => {
+  socket.on(
+    "UPDATE_GAME_SESSION_CONFIG",
+    async (data: { allowTrading?: boolean; physicalMediaWearForAdmins?: boolean }) => {
     await handlers.updateGameSessionConfig(connections, data)
-  })
+  },
+  )
 
   /**
    * Execute a plugin action

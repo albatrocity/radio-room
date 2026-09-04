@@ -1048,6 +1048,16 @@ export interface InventoryPluginAPI {
 
   removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean>
 
+  /**
+   * Shallow-merge `patch` into an existing stack's `metadata`. Returns the
+   * updated item, or `null` if `itemId` is missing.
+   */
+  updateItemMetadata(
+    userId: string,
+    itemId: string,
+    patch: Record<string, unknown>,
+  ): Promise<InventoryItem | null>
+
   transferItem(
     fromUserId: string,
     toUserId: string,

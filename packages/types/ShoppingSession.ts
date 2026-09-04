@@ -1,5 +1,5 @@
 import type { LucideIconName } from "./LucideIconKey"
-import type { ArtworkFrame } from "./Inventory"
+import type { ArtworkFrame, MediaCondition, PhysicalMediaFormat } from "./Inventory"
 
 /**
  * Shopping session instances (per-user, ephemeral to a "shopping round").
@@ -26,6 +26,10 @@ export interface ShopOffer {
   imageUrlLarge?: string
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
+  /** Wear tier rolled for this Physical Media offer (ADR 0155). */
+  condition?: MediaCondition
+  /** Format token so the offer row can resolve a condition-specific frame (ADR 0155). */
+  mediaFormat?: PhysicalMediaFormat
   price: number
   /** false after the user purchased the single available unit. */
   available: boolean

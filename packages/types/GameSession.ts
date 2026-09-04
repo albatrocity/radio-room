@@ -285,6 +285,11 @@ export interface GameSessionConfig {
   maxCollectionSlots: number
   allowTrading: boolean
   allowSelling: boolean
+  /**
+   * When true (default), room admins wear Physical Media on queue like everyone
+   * else. Toggleable mid-session. Only applies in restricted-Local rooms.
+   */
+  physicalMediaWearForAdmins: boolean
 }
 
 export interface GameSession {

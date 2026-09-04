@@ -14,6 +14,7 @@ import {
 import type {
   ArtworkFrame,
   ItemRarity,
+  MediaCondition,
   MetadataSourceTrackWithSource,
   MetadataSourceUrl,
 } from "@repo/types"
@@ -23,6 +24,7 @@ import type { TrackRoomPresence } from "../lib/trackRoomPresence"
 import ItemArtwork from "./ItemArtwork"
 import { LinkifiedText } from "./LinkifiedText"
 import { ItemRarityTag } from "./PluginComponents/ItemRarityTag"
+import { MediaConditionTag } from "./PluginComponents/MediaConditionTag"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import TrackActionRow from "./TrackActionRow"
 import { useTrackPreviewStatus } from "../hooks/useActors"
@@ -42,6 +44,7 @@ export type AlbumViewHeader = {
   images?: MetadataSourceUrl[]
   icon?: string
   rarity?: ItemRarity
+  condition?: MediaCondition
   description?: string
 }
 
@@ -143,6 +146,9 @@ function AlbumHeader({ header }: { header: AlbumViewHeader }) {
             </Badge>
           ) : null}
           {header.rarity != null ? <ItemRarityTag size="sm" rarity={header.rarity} /> : null}
+          {header.condition != null ? (
+            <MediaConditionTag size="sm" condition={header.condition} />
+          ) : null}
         </HStack>
         {header.description ? (
           <LinkifiedText fontSize="sm" color="fg.muted" lineClamp={2}>

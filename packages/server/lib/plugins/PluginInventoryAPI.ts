@@ -57,6 +57,15 @@ export class PluginInventoryAPI implements InventoryPluginAPI {
     return this.service.removeItem(this.roomId, userId, itemId, quantity)
   }
 
+  async updateItemMetadata(
+    userId: string,
+    itemId: string,
+    patch: Record<string, unknown>,
+  ): Promise<InventoryItem | null> {
+    if (!this.service) return null
+    return this.service.updateItemMetadata(this.roomId, userId, itemId, patch)
+  }
+
   async transferItem(
     fromUserId: string,
     toUserId: string,

@@ -7,6 +7,7 @@ import { SHOP_CATALOG } from "./shops"
 import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
 import { RECORD_STORE_SHOP_ID } from "./localLibrary/catalog"
 import { physicalMediaAlbumShortId } from "./localLibrary/physicalMedia"
+import { LOCAL_LIBRARY_QUEUE_REJECT_REASON } from "./localLibrary/grants"
 import { queueItemFactory } from "@repo/factories"
 
 const ROOM = "room-1"
@@ -99,8 +100,9 @@ const DERIVED_PM: ItemCatalogEntry = {
     description: "",
     icon: "Disc3",
     artworkFrame: "record-jacket",
-    stackable: true,
-    maxStack: 5,
+    mediaFormat: "LP",
+    stackable: false,
+    maxStack: 1,
     tradeable: true,
     consumable: false,
     coinValue: 20,
@@ -122,6 +124,10 @@ function setup(options?: {
   hasLibraryGrant?: boolean
   hasBurnedCd?: boolean
   hasPhysicalMedia?: boolean
+  physicalMediaMetadata?: Record<string, unknown>
+  extraPhysicalMedia?: InventoryItem[]
+  giveItemResult?: InventoryItem | null
+  physicalMediaWearForAdmins?: boolean
   physicalMediaImageUrl?: string
   physicalMediaImageUrlLarge?: string
   libraryGrantQuantity?: number
@@ -139,7 +145,8 @@ function setup(options?: {
   const stacks: InventoryItem[] = []
   if (hasLibraryGrant) stacks.push(libraryGrantStack({ quantity: libraryGrantQuantity }))
   if (hasBurnedCd) stacks.push(burnedCdStack())
-  if (hasPhysicalMedia) stacks.push(physicalMediaStack())
+  if (hasPhysicalMedia) stacks.push(physicalMediaStack({ metadata: options?.physicalMediaMetadata }))
+  if (options?.extraPhysicalMedia) stacks.push(...options.extraPhysicalMedia)
 
   const grants = [
     ...(hasLibraryGrant ? [LIBRARY_GRANT] : []),
@@ -163,10 +170,33 @@ function setup(options?: {
       maxSlots: 20,
       maxCollectionSlots: 20,
     })),
-    removeItem: vi.fn(async () => options?.removeItemSucceeds ?? true),
-    giveItem: vi.fn(async () => libraryGrantStack()),
+    removeItem: vi.fn(async (_userId: string, itemId: string) => {
+      if (options?.removeItemSucceeds === false) return false
+      const idx = stacks.findIndex((s) => s.itemId === itemId)
+      if (idx < 0) return false
+      stacks.splice(idx, 1)
+      return true
+    }),
+    giveItem: vi.fn(async () =>
+      options?.giveItemResult === undefined ? libraryGrantStack() : options.giveItemResult,
+    ),
+    updateItemMetadata: vi.fn(async (_userId: string, itemId: string, patch: Record<string, unknown>) => {
+      const stack = stacks.find((s) => s.itemId === itemId)
+      if (!stack) return null
+      stack.metadata = { ...stack.metadata, ...patch }
+      return stack
+    }),
     registerItemDefinitions: vi.fn(),
-    getItemDefinition: vi.fn(),
+    getItemDefinition: vi.fn(async (id: string) => {
+      if (id === PM_DEF_ID) {
+        return {
+          id: PM_DEF_ID,
+          sourcePlugin: "item-shops",
+          ...DERIVED_PM.definition,
+        }
+      }
+      return null
+    }),
   }
 
   const api = {
@@ -197,7 +227,10 @@ function setup(options?: {
     storage: createStorage(),
     api,
     game: {
-      getActiveSession: vi.fn(async () => ({ id: "session-1" })),
+      getActiveSession: vi.fn(async () => ({
+        id: "session-1",
+        config: { physicalMediaWearForAdmins: options?.physicalMediaWearForAdmins ?? true },
+      })),
     },
     inventory,
     getRoom: vi.fn(async () => room),
@@ -246,8 +279,9 @@ function setup(options?: {
         description: "",
         icon: "Disc3",
         artworkFrame: "jewel-case",
-        stackable: true,
-        maxStack: 5,
+        mediaFormat: "CD",
+        stackable: false,
+        maxStack: 1,
         tradeable: true,
         consumable: false,
         coinValue: 20,
@@ -287,7 +321,9 @@ describe("getEligibleShops", () => {
     expect(shops.some((s) => s.shopId === RECORD_STORE_SHOP_ID)).toBe(true)
     const recordStore = shops.find((s) => s.shopId === RECORD_STORE_SHOP_ID)!
     expect(recordStore.availableItems.some((i) => i.shortId === PM_SHORT_ID)).toBe(true)
-    expect(recordStore.availableItems.some((i) => i.shortId === "scratched-cd")).toBe(false)
+    expect(recordStore.availableItems.some((i) => i.shortId === "scratched-cd")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "dusty-record")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "tangled-tape")).toBe(true)
   })
 
   it("omits Record Store when no records derive", () => {
@@ -675,6 +711,9 @@ describe("ItemShopsPlugin local library grants", () => {
       const result = await plugin.validateQueueRequest(localParams)
       expect(result).toEqual({ allowed: true })
       expect(inventory.removeItem).not.toHaveBeenCalled()
+      expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "pm-stack-1", {
+        condition: "good",
+      })
     })
 
     it("does not consume for non-local tracks", async () => {
@@ -686,8 +725,12 @@ describe("ItemShopsPlugin local library grants", () => {
       expect(inventory.removeItem).not.toHaveBeenCalled()
     })
 
-    it("does not consume for room admins", async () => {
-      const { plugin, inventory } = setup({ hasLibraryGrant: true, isAdmin: true })
+    it("does not consume for room admins when wear-for-admins is off", async () => {
+      const { plugin, inventory } = setup({
+        hasLibraryGrant: true,
+        isAdmin: true,
+        physicalMediaWearForAdmins: false,
+      })
       await plugin.validateQueueRequest(localParams)
       expect(inventory.removeItem).not.toHaveBeenCalled()
     })
@@ -701,10 +744,183 @@ describe("ItemShopsPlugin local library grants", () => {
       expect(inventory.removeItem).not.toHaveBeenCalled()
     })
 
-    it("does not consume when the user has no grant", async () => {
+    it("rejects when the user has no grant", async () => {
       const { plugin, inventory } = setup({ hasLibraryGrant: false })
-      await plugin.validateQueueRequest(localParams)
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({
+        allowed: false,
+        reason: LOCAL_LIBRARY_QUEUE_REJECT_REASON,
+      })
       expect(inventory.removeItem).not.toHaveBeenCalled()
+    })
+
+    it("degrades mint Physical Media to good and allows the queue", async () => {
+      const { plugin, inventory, api } = setup({
+        hasPhysicalMedia: true,
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "pm-stack-1", {
+        condition: "good",
+      })
+      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+        ROOM,
+        "u1",
+        expect.stringContaining("Good"),
+        expect.objectContaining({ type: "alert", status: "info" }),
+      )
+    })
+
+    it("converts a poor record into broken media", async () => {
+      const { plugin, inventory, api } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaMetadata: { condition: "poor" },
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1)
+      expect(inventory.giveItem).toHaveBeenCalledWith(
+        "u1",
+        "item-shops:dusty-record",
+        1,
+        undefined,
+        "plugin",
+      )
+      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+        ROOM,
+        "u1",
+        expect.stringContaining("dusty"),
+        expect.objectContaining({ type: "alert", status: "warning" }),
+      )
+    })
+
+    it("still queues and destroys a poor record when inventory is full", async () => {
+      const { plugin, inventory, api } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaMetadata: { condition: "poor" },
+        giveItemResult: null,
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1)
+      expect(inventory.giveItem).toHaveBeenCalled()
+      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+        ROOM,
+        "u1",
+        expect.stringMatching(/no room to keep it/i),
+        expect.objectContaining({ status: "warning" }),
+      )
+    })
+
+    it("wears the worst copy first when several are held", async () => {
+      const { plugin, inventory } = setup({
+        hasPhysicalMedia: true,
+        extraPhysicalMedia: [
+          physicalMediaStack({
+            itemId: "pm-mint",
+            metadata: { condition: "mint" },
+          }),
+          physicalMediaStack({
+            itemId: "pm-poor",
+            metadata: { condition: "poor" },
+          }),
+        ],
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await plugin.validateQueueRequest(localParams)
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-poor", 1)
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+    })
+
+    it("wears admin records by default", async () => {
+      const { plugin, inventory } = setup({
+        hasPhysicalMedia: true,
+        isAdmin: true,
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await plugin.validateQueueRequest(localParams)
+      expect(inventory.updateItemMetadata).toHaveBeenCalled()
+    })
+
+    it("does not wear admin records when physicalMediaWearForAdmins is false", async () => {
+      const { plugin, inventory } = setup({
+        hasPhysicalMedia: true,
+        isAdmin: true,
+        physicalMediaWearForAdmins: false,
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await plugin.validateQueueRequest(localParams)
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+      expect(inventory.removeItem).not.toHaveBeenCalled()
+    })
+
+    it("never wears in unrestricted rooms", async () => {
+      const { plugin, inventory } = setup({
+        hasPhysicalMedia: true,
+        localAccess: "open",
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await plugin.validateQueueRequest(localParams)
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+    })
+
+    it("never wears scope: library grants", async () => {
+      const { plugin, inventory } = setup({
+        hasLibraryGrant: true,
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      await plugin.validateQueueRequest(localParams)
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "library-grant-stack-1", 1)
+    })
+
+    it("rejects a second queue after the last copy converts", async () => {
+      const { plugin } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaMetadata: { condition: "poor" },
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      const first = await plugin.validateQueueRequest(localParams)
+      expect(first).toEqual({ allowed: true })
+      const second = await plugin.validateQueueRequest(localParams)
+      expect(second).toEqual({
+        allowed: false,
+        reason: LOCAL_LIBRARY_QUEUE_REJECT_REASON,
+      })
+    })
+
+    it("rejects an admin with wear on when they hold no covering copy", async () => {
+      const { plugin } = setup({
+        isAdmin: true,
+        hasPhysicalMedia: true,
+        membershipPlaylistIds: [],
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({
+        allowed: false,
+        reason: LOCAL_LIBRARY_QUEUE_REJECT_REASON,
+      })
+    })
+
+    it("rejects an admin with wear on and an empty shelf", async () => {
+      const { plugin } = setup({ isAdmin: true })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({
+        allowed: false,
+        reason: LOCAL_LIBRARY_QUEUE_REJECT_REASON,
+      })
+    })
+
+    it("allows an admin with wear off even with an empty shelf", async () => {
+      const { plugin } = setup({
+        isAdmin: true,
+        physicalMediaWearForAdmins: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
     })
   })
 

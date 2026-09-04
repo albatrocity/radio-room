@@ -33,6 +33,7 @@ export default function GameSessions() {
   const [inventorySlotsInput, setInventorySlotsInput] = useState("3")
   const [collectionSlotsInput, setCollectionSlotsInput] = useState("12")
   const [allowTrading, setAllowTrading] = useState(false)
+  const [physicalMediaWearForAdmins, setPhysicalMediaWearForAdmins] = useState(true)
   const [activeSession, setActiveSession] = useState<GameSession | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [statusLoading, setStatusLoading] = useState(true)
@@ -72,6 +73,7 @@ export default function GameSessions() {
           setActiveSession(d.session ?? null)
           if (d.session) {
             setAllowTrading(d.session.config.allowTrading === true)
+            setPhysicalMediaWearForAdmins(d.session.config.physicalMediaWearForAdmins !== false)
           }
           return
         }
@@ -96,6 +98,7 @@ export default function GameSessions() {
           const d = event.data as { results: unknown | null }
           setActiveSession(null)
           setAllowTrading(false)
+          setPhysicalMediaWearForAdmins(true)
           if (d.results == null) {
             toaster.create({
               title: "No active session",
@@ -120,12 +123,10 @@ export default function GameSessions() {
           if (d.session) {
             setActiveSession(d.session)
             setAllowTrading(d.session.config.allowTrading === true)
+            setPhysicalMediaWearForAdmins(d.session.config.physicalMediaWearForAdmins !== false)
           }
           toaster.create({
             title: "Session updated",
-            description: d.session?.config.allowTrading
-              ? "Gifting and trading enabled."
-              : "Gifting and trading disabled.",
             type: "success",
             duration: 3000,
           })
@@ -232,6 +233,7 @@ export default function GameSessions() {
       ...(maxInventorySlots != null ? { maxInventorySlots } : {}),
       ...(maxCollectionSlots != null ? { maxCollectionSlots } : {}),
       allowTrading,
+      physicalMediaWearForAdmins,
     })
   }
 
@@ -245,6 +247,12 @@ export default function GameSessions() {
     actionPendingRef.current = true
     setActionLoading(true)
     emitToSocket("UPDATE_GAME_SESSION_CONFIG", { allowTrading: checked })
+  }
+
+  const toggleActiveWearForAdmins = (checked: boolean) => {
+    actionPendingRef.current = true
+    setActionLoading(true)
+    emitToSocket("UPDATE_GAME_SESSION_CONFIG", { physicalMediaWearForAdmins: checked })
   }
 
   const startedLabel =
@@ -348,6 +356,20 @@ export default function GameSessions() {
                 <Text fontSize="xs" color="fg.muted" mt={-2}>
                   Disabling cancels pending gifts, trade invites, and active trades.
                 </Text>
+                <Checkbox.Root
+                  checked={activeSession.config.physicalMediaWearForAdmins !== false}
+                  onCheckedChange={(d) => toggleActiveWearForAdmins(!!d.checked)}
+                  disabled={actionLoading || statusLoading}
+                >
+                  <Checkbox.HiddenInput />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>Admins wear Physical Media when queuing</Checkbox.Label>
+                </Checkbox.Root>
+                <Text fontSize="xs" color="fg.muted" mt={-2}>
+                  When off, room admins can queue from their records without degrading them.
+                </Text>
               </VStack>
             </Box>
           )}
@@ -436,6 +458,21 @@ export default function GameSessions() {
           </Checkbox.Root>
           <Text fontSize="xs" color="fg.muted" mt={-2}>
             Listeners can gift items and open two-party trades while the session is active.
+          </Text>
+
+          <Checkbox.Root
+            checked={physicalMediaWearForAdmins}
+            onCheckedChange={(d) => setPhysicalMediaWearForAdmins(!!d.checked)}
+            disabled={actionLoading || statusLoading}
+          >
+            <Checkbox.HiddenInput />
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Checkbox.Label>Admins wear Physical Media when queuing</Checkbox.Label>
+          </Checkbox.Root>
+          <Text fontSize="xs" color="fg.muted" mt={-2}>
+            When off, room admins can queue from their records without degrading them.
           </Text>
 
           <Button

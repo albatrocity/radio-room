@@ -228,6 +228,61 @@ describe("gameStateNavMachine", () => {
     expect(actor.getSnapshot().context.stacks[TRADES_GIFTS_TAB]).toEqual([])
   })
 
+  it("returns to the inventory index when the open item stack is removed", () => {
+    const actor = startActive()
+    actor.send({
+      type: "PUSH_DETAIL",
+      frame: frame({ inventoryItemId: "pm-stack-1" }),
+    })
+    expect(actor.getSnapshot().matches({ active: "detail" })).toBe(true)
+
+    actor.send({ type: "DROP_INVENTORY_DETAIL", itemId: "pm-stack-1" })
+
+    expect(actor.getSnapshot().matches({ active: "index" })).toBe(true)
+    expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
+    expect(currentDetailFrame(actor.getSnapshot().context)).toBeNull()
+  })
+
+  it("leaves other detail frames in place when a different stack is removed", () => {
+    const actor = startActive()
+    actor.send({
+      type: "PUSH_DETAIL",
+      frame: frame({ inventoryItemId: "pm-keep" }),
+    })
+
+    actor.send({ type: "DROP_INVENTORY_DETAIL", itemId: "pm-other" })
+
+    expect(actor.getSnapshot().matches({ active: "detail" })).toBe(true)
+    expect(currentDetailFrame(actor.getSnapshot().context)?.inventoryItemId).toBe("pm-keep")
+  })
+
+  it("drops a missing inventory item frame when held ids are reconciled", () => {
+    const actor = startActive()
+    actor.send({
+      type: "PUSH_DETAIL",
+      frame: frame({ inventoryItemId: "pm-stack-1" }),
+    })
+
+    actor.send({ type: "RECONCILE_INVENTORY_DETAILS", heldItemIds: ["other-item"] })
+
+    expect(actor.getSnapshot().matches({ active: "index" })).toBe(true)
+    expect(currentDetailFrame(actor.getSnapshot().context)).toBeNull()
+  })
+
+  it("keeps shop detail frames when reconciling held inventory ids", () => {
+    const actor = startActive()
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: SHOP_TAB })
+    actor.send({
+      type: "PUSH_DETAIL",
+      frame: frame({ source: "shop", shopOfferId: 0 }),
+    })
+
+    actor.send({ type: "RECONCILE_INVENTORY_DETAILS", heldItemIds: [] })
+
+    expect(actor.getSnapshot().matches({ active: "detail" })).toBe(true)
+    expect(currentDetailFrame(actor.getSnapshot().context)?.source).toBe("shop")
+  })
+
   it("snaps on activate when the stored list already omits the current tab", () => {
     const actor = createActor(gameStateNavMachine).start()
     actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })

@@ -104,7 +104,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0096](0096-playlist-bingo-per-user-cards.md) | Playlist Bingo per-user cards via GET_MY_GAME_STATE | Partially superseded by [0097](0097-plugin-contribute-to-user-game-state.md) |
 | [0097](0097-plugin-contribute-to-user-game-state.md) | Plugin `contributeToUserGameState` for private per-user payloads | Partially superseded by [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) |
 | [0098](0098-inventory-scoped-local-library-catalog-filters.md) | Inventory-scoped Local library catalog filters (playlist shelves) | Partially superseded by [0099](0099-physical-media-personal-libraries.md) |
-| [0099](0099-physical-media-personal-libraries.md) | Physical Media personal libraries (derived items, Record Store, myMedia) | Accepted |
+| [0099](0099-physical-media-personal-libraries.md) | Physical Media personal libraries (derived items, Record Store, myMedia) | Partially superseded by [0155](0155-physical-media-condition-wear-and-conversion.md) (§3 wear, §11 resolved frames) |
 | [0100](0100-dual-inventory-slot-pools.md) | Dual inventory slot pools (`inventory` vs `collection`) | Accepted |
 | [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) | Queue-add undo: cancel held picks and restore Round Robin turns | Accepted |
 | [0102](0102-handwritten-disc-label-for-coverless-jewel-cases.md) | Handwritten disc label for coverless jewel cases | Accepted |
@@ -160,6 +160,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0152](0152-plugin-authored-core-polls.md) | Plugin-authored core polls (`source.pluginName`, `announce`, `getPollVotes`) | Accepted |
 | [0153](0153-plugin-authored-queue-split.md) | Plugin-authored queue split (`source.pluginName` on `DJService` / `PluginAPI`) | Accepted |
 | [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) | Plugin `emit` may skip `USER_GAME_STATE_INVALIDATED` | Accepted |
+| [0155](0155-physical-media-condition-wear-and-conversion.md) | Physical Media condition, wear, and conversion | Accepted |
+| [0156](0156-mutable-inventory-stack-metadata.md) | Mutable inventory stack metadata (`updateItemMetadata`) | Accepted |
 
 ## Creating a New ADR
 

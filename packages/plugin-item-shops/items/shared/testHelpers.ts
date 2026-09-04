@@ -92,6 +92,7 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
         getItemDefinitions,
         removeItem: vi.fn().mockResolvedValue(true),
         giveItem: vi.fn().mockResolvedValue(null),
+        updateItemMetadata: vi.fn().mockResolvedValue(null),
       },
     } as unknown as PluginContext,
     game: createMockGame(),

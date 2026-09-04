@@ -728,7 +728,7 @@ export class AdminService {
   async updateGameSessionConfig(
     roomId: string,
     userId: string,
-    patch: { allowTrading?: boolean },
+    patch: { allowTrading?: boolean; physicalMediaWearForAdmins?: boolean },
   ): Promise<{
     session: GameSession | null
     error: { status: number; error: string; message: string } | null
@@ -748,18 +748,21 @@ export class AdminService {
         },
       }
     }
-    if (typeof patch.allowTrading !== "boolean") {
+    const hasAllowTrading = typeof patch.allowTrading === "boolean"
+    const hasWearForAdmins = typeof patch.physicalMediaWearForAdmins === "boolean"
+    if (!hasAllowTrading && !hasWearForAdmins) {
       return {
         session: null,
         error: {
           status: 400,
           error: "Bad Request",
-          message: "allowTrading must be a boolean.",
+          message: "At least one known boolean config key must be present.",
         },
       }
     }
     const session = await svc.patchActiveSessionConfig(roomId, {
-      allowTrading: patch.allowTrading,
+      ...(hasAllowTrading ? { allowTrading: patch.allowTrading } : {}),
+      ...(hasWearForAdmins ? { physicalMediaWearForAdmins: patch.physicalMediaWearForAdmins } : {}),
     })
     if (!session) {
       return {

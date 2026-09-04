@@ -5,7 +5,7 @@ import type {
   ShopSessionContext,
 } from "@repo/plugin-base/helpers"
 import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugin-base"
-import { countFlagStacks, resolveItemRarity, buildItemCatalogMap, filterShopCatalogByRoomType } from "@repo/game-logic"
+import { countFlagStacks, resolveItemRarity, buildItemCatalogMap, filterShopCatalogByRoomType, DEFAULT_RARITY_WEIGHTS } from "@repo/game-logic"
 import {
   type ChatMessage,
   type ContributeToUserGameStateContext,
@@ -49,6 +49,7 @@ import {
 } from "./catalogFromConfig"
 import { isLocalLibraryGrantShortId } from "./localLibraryGrants"
 import { LocalLibraryModule } from "./localLibrary"
+import { physicalMediaShopEconomyHooks } from "./localLibrary/shopEconomy"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
@@ -124,7 +125,14 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     })
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
-    this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog)
+    this.shopping = new ShoppingSessionHelper(
+      this.name,
+      context,
+      itemCatalog,
+      shopCatalog,
+      DEFAULT_RARITY_WEIGHTS,
+      physicalMediaShopEconomyHooks(),
+    )
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.scheduleAlbumArtworkHydrate()
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
@@ -1380,6 +1388,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           imageUrl: offer.imageUrl ?? def?.imageUrl,
           imageUrlLarge: offer.imageUrlLarge ?? def?.imageUrlLarge,
           artworkFrame: offer.artworkFrame ?? def?.artworkFrame,
+          mediaFormat: offer.mediaFormat ?? def?.mediaFormat,
+          condition: offer.condition,
         }
       }),
     }

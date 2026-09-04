@@ -1,12 +1,15 @@
 import { useEffect, useMemo } from "react"
-import { Box, Stack, Text, VStack } from "@chakra-ui/react"
-import type { ItemDefinition, MetadataSourceTrack } from "@repo/types"
+import { Box, HStack, Stack, Text, VStack } from "@chakra-ui/react"
+import type { ItemDefinition, ItemShopsUserGameState, MediaCondition, MetadataSourceTrack } from "@repo/types"
+import { isMediaCondition, ITEM_SHOPS_PLUGIN_NAME, PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import AlbumTrackListView, { type AlbumViewHeader } from "../../AlbumTrackListView"
 import ItemArtwork from "../../ItemArtwork"
 import { LinkifiedText } from "../../LinkifiedText"
 import PathBreadcrumb from "../../PathBreadcrumb"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
+import { MediaConditionTag } from "../../PluginComponents/MediaConditionTag"
+import { resolveDisplayArtworkFrame } from "../../../lib/resolveDisplayArtworkFrame"
 import { stopTrackPreview, toggleTrackPreview } from "../../../actors/trackPreviewActor"
 import { useCanAddToQueue, useIsAdmin } from "../../../hooks/useActors"
 import { useSocketMachine } from "../../../hooks/useSocketMachine"
@@ -79,10 +82,35 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
   const isAdmin = useIsAdmin()
   const canAddToQueue = useCanAddToQueue()
   const { addToQueue } = useAddToQueue()
+  const gameState = useUserGameState()
   const layout = definition?.detailView?.layout ?? "default"
   const showTrackList = layout === "trackList"
   const mediaKey = frame.mediaKey?.trim() || undefined
-  const canAdd = frame.source === "inventory" && (isAdmin || canAddToQueue) && Boolean(mediaKey)
+
+  const inventoryItem =
+    frame.source === "inventory" && frame.inventoryItemId
+      ? gameState?.inventory?.items.find((entry) => entry.itemId === frame.inventoryItemId)
+      : undefined
+  const canAdd =
+    frame.source === "inventory" &&
+    Boolean(inventoryItem) &&
+    (isAdmin || canAddToQueue) &&
+    Boolean(mediaKey)
+  const shopOffer =
+    frame.source === "shop" && frame.shopOfferId != null
+      ? gameState
+          ?.getPluginState<ItemShopsUserGameState>(ITEM_SHOPS_PLUGIN_NAME)
+          ?.currentShopInstance?.offers.find((row) => row.offerId === frame.shopOfferId)
+      : undefined
+  const rawCondition = inventoryItem?.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
+  const condition: MediaCondition | undefined = isMediaCondition(rawCondition)
+    ? rawCondition
+    : shopOffer?.condition
+  const artworkFrame = resolveDisplayArtworkFrame({
+    mediaFormat: shopOffer?.mediaFormat ?? definition?.mediaFormat,
+    condition,
+    artworkFrame: shopOffer?.artworkFrame ?? definition?.artworkFrame,
+  })
 
   const [tracksState, sendTracks] = useSocketMachine(
     mediaItemTracksMachine,
@@ -120,12 +148,13 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
       sourceId: "local",
       imageUrl: definition?.imageUrl,
       imageUrlLarge: definition?.imageUrlLarge,
-      artworkFrame: definition?.artworkFrame,
+      artworkFrame,
       icon: definition?.icon,
       rarity: definition != null ? resolveItemRarity(definition) : undefined,
+      condition,
       description,
     }
-  }, [name, description, definition, firstTrack])
+  }, [name, description, definition, firstTrack, artworkFrame, condition])
 
   const primaryActions = <ItemDetailPrimaryActions frame={frame} definition={definition} />
 
@@ -178,7 +207,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
           imageUrlLarge={definition?.imageUrlLarge}
           icon={definition?.icon}
           rarity={definition?.rarity}
-          artworkFrame={definition?.artworkFrame}
+          artworkFrame={artworkFrame}
           size="feature"
           alt={name}
         />
@@ -187,7 +216,10 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
         <Text fontWeight="semibold" fontSize="lg" textAlign="center">
           {name}
         </Text>
-        {definition != null && <ItemRarityTag size="sm" rarity={resolveItemRarity(definition)} />}
+        <HStack gap={2} flexWrap="wrap" justify="center">
+          {definition != null && <ItemRarityTag size="sm" rarity={resolveItemRarity(definition)} />}
+          {condition != null && <MediaConditionTag size="sm" condition={condition} />}
+        </HStack>
         {description ? (
           <LinkifiedText fontSize="sm" color="fg.muted" textAlign="center">
             {description}

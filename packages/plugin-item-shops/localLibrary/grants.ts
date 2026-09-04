@@ -201,3 +201,7 @@ export function pickGrantToConsume(params: {
 /** Passive Use message for grant items (they redeem on queue, not Use). */
 export const LOCAL_LIBRARY_GRANT_USE_MESSAGE =
   "Keep this in your inventory. Open Add to Queue and pick a Library track — it's spent when the song is added."
+
+/** Restricted Local queue when the track is not on a held, non-broken copy (ADR 0155). */
+export const LOCAL_LIBRARY_QUEUE_REJECT_REASON =
+  "That track isn't available on your Library shelf."

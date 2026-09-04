@@ -607,6 +607,7 @@ export class AdminHandlers {
       maxInventorySlots?: number
       maxCollectionSlots?: number
       allowTrading?: boolean
+      physicalMediaWearForAdmins?: boolean
     },
   ) => {
     if (!data?.name?.trim()) {
@@ -669,6 +670,9 @@ export class AdminHandlers {
       ...(inventorySlots.value != null ? { maxInventorySlots: inventorySlots.value } : {}),
       ...(collectionSlots.value != null ? { maxCollectionSlots: collectionSlots.value } : {}),
       ...(typeof data.allowTrading === "boolean" ? { allowTrading: data.allowTrading } : {}),
+      ...(typeof data.physicalMediaWearForAdmins === "boolean"
+        ? { physicalMediaWearForAdmins: data.physicalMediaWearForAdmins }
+        : {}),
     })
 
     if (result.error) {
@@ -710,15 +714,17 @@ export class AdminHandlers {
    */
   updateGameSessionConfig = async (
     { socket }: HandlerConnections,
-    data: { allowTrading?: boolean },
+    data: { allowTrading?: boolean; physicalMediaWearForAdmins?: boolean },
   ) => {
-    if (typeof data?.allowTrading !== "boolean") {
+    const hasAllowTrading = typeof data?.allowTrading === "boolean"
+    const hasWearForAdmins = typeof data?.physicalMediaWearForAdmins === "boolean"
+    if (!hasAllowTrading && !hasWearForAdmins) {
       socket.emit("event", {
         type: "ERROR_OCCURRED",
         data: {
           status: 400,
           error: "Bad Request",
-          message: "allowTrading must be a boolean.",
+          message: "At least one known boolean config key must be present.",
         },
       })
       return
@@ -727,7 +733,10 @@ export class AdminHandlers {
     const result = await this.adminService.updateGameSessionConfig(
       socket.data.roomId,
       socket.data.userId,
-      { allowTrading: data.allowTrading },
+      {
+        ...(hasAllowTrading ? { allowTrading: data.allowTrading } : {}),
+        ...(hasWearForAdmins ? { physicalMediaWearForAdmins: data.physicalMediaWearForAdmins } : {}),
+      },
     )
 
     if (result.error) {

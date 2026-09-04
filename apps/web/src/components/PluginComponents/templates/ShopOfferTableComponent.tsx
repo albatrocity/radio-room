@@ -11,6 +11,7 @@ import { SvgIcon } from "../../ui/svg-icon"
 import { AnimatedShopQty } from "./AnimatedShopQty"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
+import { MediaConditionTag } from "../MediaConditionTag"
 import { LinkifiedText } from "../../LinkifiedText"
 
 /** Fixed leading column so names/descriptions align across rarity badge widths. */
@@ -56,6 +57,7 @@ function ShopOfferTableRowView({
             </Box>
           ) : null}
           {row.itemRarity && <ItemRarityTag rarity={row.itemRarity} size="xs" />}
+          {row.condition && <MediaConditionTag condition={row.condition} size="xs" />}
         </VStack>
       </Table.Cell>
       <Table.Cell verticalAlign="middle">

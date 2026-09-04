@@ -242,3 +242,46 @@ describe("InventoryService.canAccommodateItem + transferItem", () => {
     await expect(service.transferItem(roomId, "a", "b", item!.itemId, 1)).resolves.toBe(false)
   })
 })
+
+describe("InventoryService.updateItemMetadata", () => {
+  test("merges rather than replaces metadata", async () => {
+    const { service, emit } = makeMemoryService()
+    await service.registerItemDefinitions(roomId, "item-shops", [potionDef])
+    const given = await service.giveItem(
+      roomId,
+      userId,
+      "item-shops:potion",
+      1,
+      { keep: true },
+    )
+    expect(given).not.toBeNull()
+
+    const updated = await service.updateItemMetadata(roomId, userId, given!.itemId, {
+      condition: "good",
+    })
+    expect(updated?.metadata).toEqual({ keep: true, condition: "good" })
+    expect(emit).toHaveBeenCalledWith(
+      roomId,
+      "INVENTORY_ITEM_UPDATED",
+      expect.objectContaining({
+        userId,
+        item: expect.objectContaining({
+          itemId: given!.itemId,
+          metadata: { keep: true, condition: "good" },
+        }),
+      }),
+    )
+  })
+
+  test("no-ops on a missing itemId", async () => {
+    const { service, emit } = makeMemoryService()
+    await expect(
+      service.updateItemMetadata(roomId, userId, "missing", { condition: "poor" }),
+    ).resolves.toBeNull()
+    expect(emit).not.toHaveBeenCalledWith(
+      roomId,
+      "INVENTORY_ITEM_UPDATED",
+      expect.anything(),
+    )
+  })
+})

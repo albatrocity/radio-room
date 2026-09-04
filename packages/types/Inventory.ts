@@ -58,8 +58,48 @@ export interface DefenseSpec {
 // ============================================================================
 
 /**
+ * Physical Media format token, independent of `artworkFrame` (ADR 0155).
+ * Stored on `ItemDefinition.mediaFormat` so per-condition artwork can diverge later.
+ */
+export type PhysicalMediaFormat = "CD" | "LP" | "TAPE" | "45"
+
+export const PHYSICAL_MEDIA_FORMATS: readonly PhysicalMediaFormat[] = [
+  "CD",
+  "LP",
+  "TAPE",
+  "45",
+] as const
+
+export function isPhysicalMediaFormat(value: unknown): value is PhysicalMediaFormat {
+  return (
+    typeof value === "string" &&
+    (PHYSICAL_MEDIA_FORMATS as readonly string[]).includes(value)
+  )
+}
+
+/** Wear ladder for Physical Media copies (ADR 0155). Absent metadata reads as mint. */
+export type MediaCondition = "mint" | "good" | "poor"
+
+export const MEDIA_CONDITIONS: readonly MediaCondition[] = ["mint", "good", "poor"]
+
+export const MEDIA_CONDITION_LABELS: Record<MediaCondition, string> = {
+  mint: "Mint",
+  good: "Good",
+  poor: "Poor",
+}
+
+/** `InventoryItem.metadata` key for `MediaCondition`. */
+export const PHYSICAL_MEDIA_CONDITION_KEY = "condition" as const
+
+export function isMediaCondition(value: unknown): value is MediaCondition {
+  return value === "mint" || value === "good" || value === "poor"
+}
+
+/**
  * CSS/SVG overlay token for Physical Media cover art (ADR 0099). Derived from
  * the Navidrome playlist prefix only — never inferred from display name/icon.
+ * `ItemDefinition.artworkFrame` is the mint frame; clients resolve display frames
+ * from `mediaFormat` + condition (ADR 0155).
  */
 export type ArtworkFrame = "jewel-case" | "record-jacket" | "die-cut-jacket" | "cassette-case"
 
@@ -152,6 +192,11 @@ export interface ItemDefinition {
   imageUrlLarge?: string
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
+  /**
+   * Condition-independent format token for derived Physical Media (ADR 0155).
+   * Use this — not `artworkFrame` — to key format-specific behavior.
+   */
+  mediaFormat?: PhysicalMediaFormat
   /**
    * When set, Inventory / shop UIs show a Details action that opens the Game
    * State item detail subroute (ADR 0104).

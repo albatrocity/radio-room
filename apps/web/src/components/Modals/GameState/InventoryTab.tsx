@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Badge, Box, Center, HStack, Heading, Stack, Text, VStack } from "@chakra-ui/react"
-import type { InventoryItem, ItemDefinition } from "@repo/types"
+import type { InventoryItem, ItemDefinition, MediaCondition } from "@repo/types"
+import { isMediaCondition, PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket } from "../../../actors/socketActor"
 import { subscribeInventoryActionResult } from "../../../lib/inventoryActionResult"
@@ -8,6 +9,8 @@ import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import ItemArtwork from "../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
+import { MediaConditionTag } from "../../PluginComponents/MediaConditionTag"
+import { resolveDisplayArtworkFrame } from "../../../lib/resolveDisplayArtworkFrame"
 import ItemDetailListItem, { itemDetailListItemFrameProps } from "./ItemDetailListItem"
 import { buildItemDetailFrame } from "./itemDetailFrame"
 import { useOpenItemDetail } from "./useOpenItemDetail"
@@ -61,6 +64,15 @@ function InventoryRow({
   const detailView = definition?.detailView
   const isCollection = definition?.slotPool === "collection"
   const opensDetail = Boolean(detailView && definition?.shortId)
+  const rawCondition = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
+  const condition: MediaCondition | undefined = isMediaCondition(rawCondition)
+    ? rawCondition
+    : undefined
+  const artworkFrame = resolveDisplayArtworkFrame({
+    mediaFormat: definition?.mediaFormat,
+    condition,
+    artworkFrame: definition?.artworkFrame,
+  })
 
   const [pendingUse, setPendingUse] = useState<PendingUse>(null)
   const { track } = useSocketResultHandle()
@@ -144,7 +156,7 @@ function InventoryRow({
             imageUrlLarge={definition?.imageUrlLarge}
             icon={definition?.icon}
             rarity={definition?.rarity}
-            artworkFrame={definition?.artworkFrame}
+            artworkFrame={artworkFrame}
             boxSize={isCollection ? FRAMED_ARTWORK_BOX_SIZE : 7}
             alt={name}
             interactive={!opensDetail}
@@ -156,11 +168,14 @@ function InventoryRow({
       }
       name={name}
       titleAddon={
-        item.quantity > 1 ? (
-          <Badge size="sm" variant="subtle">
-            ×{item.quantity}
-          </Badge>
-        ) : undefined
+        <>
+          {isCollection && condition ? <MediaConditionTag size="sm" condition={condition} /> : null}
+          {item.quantity > 1 ? (
+            <Badge size="sm" variant="subtle">
+              ×{item.quantity}
+            </Badge>
+          ) : null}
+        </>
       }
       subtitle={definition?.artist?.trim() || undefined}
       description={description}

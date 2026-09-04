@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
 import { ANONYMOUS_ACTIONS_FLAG } from "@repo/plugin-base"
 import type { QueueItem, UserGameState } from "@repo/types"
-import { scratchedCd } from "./index"
+import { tangledTape } from "./index"
 import {
   createMockDefinition,
   createMockDeps,
@@ -10,7 +10,7 @@ import {
   stubRoomUsers,
 } from "../shared/testHelpers"
 
-describe("scratchedCd", () => {
+describe("tangledTape", () => {
   test("skips current track when playing", async () => {
     const deps = createMockDeps()
     const user = userFactory.build()
@@ -22,10 +22,10 @@ describe("scratchedCd", () => {
     } as unknown as QueueItem)
 
     const result = await invokeUse(
-      scratchedCd,
+      tangledTape,
       deps,
       user.userId,
-      createMockDefinition("scratched-cd", { name: "Scratched CD" }),
+      createMockDefinition("tangled-tape", { name: "Tangled Tape" }),
     )
 
     expect(result.success).toBe(true)
@@ -48,10 +48,7 @@ describe("scratchedCd", () => {
     const now = Date.now()
     const anonymousState: UserGameState = {
       userId: user.userId,
-      attributes: {
-        score: 0,
-        coin: 0,
-      },
+      attributes: { score: 0, coin: 0 },
       modifiers: [
         {
           id: "m1",
@@ -67,16 +64,16 @@ describe("scratchedCd", () => {
     vi.mocked(deps.game.getUserState).mockResolvedValue(anonymousState)
 
     const result = await invokeUse(
-      scratchedCd,
+      tangledTape,
       deps,
       user.userId,
-      createMockDefinition("scratched-cd", { name: "Scratched CD" }),
+      createMockDefinition("tangled-tape", { name: "Tangled Tape" }),
     )
 
     expect(result.success).toBe(true)
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
-      "Somebody put in a Scratched CD and skipped the current track!",
+      "Somebody put in a Tangled Tape and skipped the current track!",
       { maskedUserIds: [user.userId], maskedLabel: "Somebody" },
     )
   })
@@ -84,9 +81,7 @@ describe("scratchedCd", () => {
   test("fails when nothing is playing", async () => {
     const deps = createMockDeps()
     vi.mocked(deps.context.api.getNowPlaying).mockResolvedValue(null)
-
-    const result = await invokeUse(scratchedCd, deps, "u1", createMockDefinition("scratched-cd"))
-
+    const result = await invokeUse(tangledTape, deps, "u1", createMockDefinition("tangled-tape"))
     expect(result.success).toBe(false)
     expect(result.message).toMatch(/Nothing is playing/i)
   })
@@ -104,12 +99,11 @@ describe("scratchedCd", () => {
     vi.spyOn(console, "error").mockImplementation(() => {})
 
     const result = await invokeUse(
-      scratchedCd,
+      tangledTape,
       deps,
       user.userId,
-      createMockDefinition("scratched-cd"),
+      createMockDefinition("tangled-tape"),
     )
-
     expect(result.success).toBe(false)
     expect(result.message).toMatch(/Could not skip/i)
   })

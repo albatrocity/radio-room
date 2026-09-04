@@ -18,6 +18,8 @@ import ItemArtwork from "../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
 import { ButtonTemplateComponent } from "./ButtonComponent"
 import { ItemRarityTag } from "../ItemRarityTag"
+import { MediaConditionTag } from "../MediaConditionTag"
+import { resolveDisplayArtworkFrame } from "../../../lib/resolveDisplayArtworkFrame"
 
 type Props = CurrentShopOffersComponentProps
 
@@ -116,7 +118,11 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                     imageUrlLarge={row.imageUrlLarge}
                     icon={row.icon}
                     rarity={row.rarity}
-                    artworkFrame={row.artworkFrame}
+                    artworkFrame={resolveDisplayArtworkFrame({
+                      mediaFormat: row.mediaFormat,
+                      condition: row.condition,
+                      artworkFrame: row.artworkFrame,
+                    })}
                     boxSize={row.artworkFrame ? FRAMED_ARTWORK_BOX_SIZE : 5}
                     alt={row.name}
                     interactive={!openOfferDetail}
@@ -125,6 +131,9 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                 </VStack>
               }
               name={row.name}
+              titleAddon={
+                row.condition ? <MediaConditionTag size="sm" condition={row.condition} /> : undefined
+              }
               subtitle={row.artist?.trim() || undefined}
               description={row.description}
               onOpen={openOfferDetail}

@@ -1,6 +1,14 @@
 import type { ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
+import { items } from "../../items"
 
 export const RECORD_STORE_SHOP_ID = "record-store"
+
+/** Broken-media SKUs sold alongside derived records (ADR 0155). */
+export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] = [
+  { shortId: items.scratchedCd.shortId, coinValue: 75 },
+  { shortId: items.dustyRecord.shortId, coinValue: 75 },
+  { shortId: items.tangledTape.shortId, coinValue: 75 },
+]
 
 /**
  * Bridge-only shop. Physical Media SKUs are injected at runtime from

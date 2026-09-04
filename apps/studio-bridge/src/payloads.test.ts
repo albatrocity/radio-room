@@ -25,6 +25,7 @@ function minimalSnap(overrides: Partial<BridgeSnapshot> = {}): BridgeSnapshot {
         maxCollectionSlots: 12,
         allowTrading: false,
         allowSelling: true,
+        physicalMediaWearForAdmins: true,
       },
     } as any,
     userStates: {},

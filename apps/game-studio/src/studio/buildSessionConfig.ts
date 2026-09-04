@@ -42,5 +42,6 @@ export function buildSessionConfig(
     maxCollectionSlots: partial.maxCollectionSlots ?? DEFAULT_COLLECTION_SLOTS,
     allowTrading: partial.allowTrading ?? false,
     allowSelling: partial.allowSelling ?? true,
+    physicalMediaWearForAdmins: partial.physicalMediaWearForAdmins ?? true,
   }
 }

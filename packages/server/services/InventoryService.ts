@@ -364,6 +364,41 @@ export class InventoryService {
   }
 
   /**
+   * Shallow-merge `patch` into an existing stack's `metadata`. Returns the
+   * updated item, or `null` if `itemId` is missing.
+   */
+  async updateItemMetadata(
+    roomId: string,
+    userId: string,
+    itemId: string,
+    patch: Record<string, unknown>,
+  ): Promise<InventoryItem | null> {
+    const raw = await this.context.redis.pubClient.hGet(userItemsKey(roomId, userId), itemId)
+    if (!raw) return null
+
+    let item: InventoryItem
+    try {
+      item = JSON.parse(raw) as InventoryItem
+    } catch {
+      return null
+    }
+
+    item.metadata = { ...item.metadata, ...patch }
+    await this.persistItem(roomId, userId, item)
+
+    if (this.context.systemEvents) {
+      await this.context.systemEvents.emit(roomId, "INVENTORY_ITEM_UPDATED", {
+        roomId,
+        sessionId: await this.activeSessionId(roomId),
+        userId,
+        item,
+      })
+    }
+
+    return item
+  }
+
+  /**
    * Run `fn` while holding per-user Redis locks for `userIds` (sorted, NX EX).
    * Used by transfer / gift / trade to prevent double-spend races.
    */

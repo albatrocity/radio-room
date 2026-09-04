@@ -108,6 +108,24 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     return true
   }
 
+  async updateItemMetadata(
+    userId: string,
+    itemId: string,
+    patch: Record<string, unknown>,
+  ): Promise<InventoryItem | null> {
+    const inv = [...this.room.getInventory(userId)]
+    const idx = inv.findIndex((i) => i.itemId === itemId)
+    if (idx === -1) return null
+    const row = inv[idx]!
+    const updated: InventoryItem = {
+      ...row,
+      metadata: { ...row.metadata, ...patch },
+    }
+    inv[idx] = updated
+    this.room.setInventory(userId, inv)
+    return updated
+  }
+
   async transferItem(
     fromUserId: string,
     toUserId: string,

@@ -65,6 +65,7 @@ export function buildSessionConfig(
     maxCollectionSlots: partial.maxCollectionSlots ?? DEFAULT_COLLECTION_SLOTS,
     allowTrading: partial.allowTrading ?? false,
     allowSelling: partial.allowSelling ?? false,
+    physicalMediaWearForAdmins: partial.physicalMediaWearForAdmins ?? true,
   }
 }
 
@@ -224,16 +225,22 @@ export class GameSessionService {
    */
   async patchActiveSessionConfig(
     roomId: string,
-    patch: { allowTrading?: boolean },
+    patch: { allowTrading?: boolean; physicalMediaWearForAdmins?: boolean },
   ): Promise<GameSession | null> {
     const session = await this.getActiveSession(roomId)
     if (!session || session.status !== "active") return null
 
     const prevAllowTrading = session.config.allowTrading
     const nextAllowTrading = patch.allowTrading ?? prevAllowTrading
+    const nextWearForAdmins =
+      patch.physicalMediaWearForAdmins ?? session.config.physicalMediaWearForAdmins ?? true
     const updated: GameSession = {
       ...session,
-      config: { ...session.config, allowTrading: nextAllowTrading },
+      config: {
+        ...session.config,
+        allowTrading: nextAllowTrading,
+        physicalMediaWearForAdmins: nextWearForAdmins,
+      },
     }
 
     if (prevAllowTrading && !nextAllowTrading) {
