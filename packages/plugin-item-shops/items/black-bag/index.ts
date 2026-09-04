@@ -1,5 +1,5 @@
 import type { InventoryItem, ItemDefinition, ItemUseResult } from "@repo/types"
-import { resolveSlotPool, SLOT_POOL_LABELS } from "@repo/types"
+import { resolveSlotPool, slotPoolFullMessage } from "@repo/types"
 import {
   sendAttributedSystemMessage,
   resolveItemUseActorDisplayName,
@@ -169,7 +169,7 @@ async function useBlackBag(
       pick.stack.metadata,
       "plugin",
     )
-    const poolFull = `Your ${SLOT_POOL_LABELS[resolveSlotPool(pick.def)].toLowerCase()} is full — nothing was stolen.`
+    const poolFull = slotPoolFullMessage(resolveSlotPool(pick.def), "nothing was stolen.")
     return {
       success: false,
       consumed: false,

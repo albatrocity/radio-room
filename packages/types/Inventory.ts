@@ -94,6 +94,16 @@ export const SLOT_POOL_LABELS: Record<ItemSlotPool, string> = {
   playback: "Playback Devices",
 }
 
+/** Grammatical subject + verb for a full pool ("Inventory is full", "Playback Devices are full"). */
+export function slotPoolFullClause(pool: ItemSlotPool): string {
+  return `${SLOT_POOL_LABELS[pool]} ${pool === "playback" ? "are" : "is"} full`
+}
+
+/** User-facing copy when a slot pool cannot take another item. */
+export function slotPoolFullMessage(pool: ItemSlotPool, detail: string): string {
+  return `${slotPoolFullClause(pool)} — ${detail}`
+}
+
 /** Effective cap for a pool on a `UserInventory` / session config pair. */
 export function capForPool(
   caps: Pick<UserInventory, "maxSlots" | "maxCollectionSlots" | "maxPlaybackSlots">,
@@ -363,6 +373,8 @@ export interface ItemUseResult {
   title?: string
   /** Optional user-facing feedback (toast / chat alert body). */
   message?: string
+  /** Optional toast display time in milliseconds. Omit for the client default. */
+  duration?: number
 }
 
 /**

@@ -19,6 +19,7 @@ import {
   TRADE_MESSAGE_MAX_LENGTH,
   draftFromEscrowedOffer,
   resolveSlotPool,
+  SLOT_POOL_LABELS,
 } from "@repo/types"
 import generateId from "../lib/generateId"
 import { InventoryService } from "./InventoryService"
@@ -469,7 +470,7 @@ export class TradeService {
           await this.persistTrade(trade)
           return {
             success: false,
-            message: "Not enough inventory/collection space for this trade",
+            message: `Not enough space in ${SLOT_POOL_LABELS.inventory}, ${SLOT_POOL_LABELS.collection}, or ${SLOT_POOL_LABELS.playback} for this trade`,
             trade,
           }
         }

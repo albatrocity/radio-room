@@ -1,4 +1,5 @@
 import type { AppContext, GiftActionResult, GiftOffer, InventoryItem } from "@repo/types"
+import { resolveSlotPool, slotPoolFullMessage } from "@repo/types"
 import {
   failIfDuplicateGiftPair,
   failIfOutgoingGift,
@@ -166,10 +167,12 @@ export class GiftService {
           current.definitionId,
           current.quantity,
         )
+        const giftDef = await inv.getItemDefinition(roomId, current.definitionId)
+        const pool = resolveSlotPool(giftDef)
         if (!canFit) {
           return {
             success: false,
-            message: "Free a slot in your inventory or collection to accept this gift",
+            message: slotPoolFullMessage(pool, "free a slot to accept this gift."),
             offer: current,
           }
         }
@@ -185,7 +188,7 @@ export class GiftService {
         if (!given) {
           return {
             success: false,
-            message: "Could not add the gift to your inventory",
+            message: slotPoolFullMessage(pool, "could not add the gift."),
             offer: current,
           }
         }

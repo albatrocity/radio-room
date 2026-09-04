@@ -4,6 +4,7 @@ import type {
   PluginComponentDefinition,
   PluginContext,
 } from "@repo/types"
+import { resolveSlotPool, slotPoolFullMessage } from "@repo/types"
 
 /**
  * A catalog entry for an item sold in a shop. Combines the item definition
@@ -320,7 +321,10 @@ export class ShopHelper {
       await this.context.game.addScore(userId, "coin", price, `${this.pluginName}:refund`)
       return {
         success: false,
-        message: `Inventory full — could not award ${item.definition.name}.`,
+        message: slotPoolFullMessage(
+          resolveSlotPool(item.definition),
+          `could not award ${item.definition.name}.`,
+        ),
       }
     }
 

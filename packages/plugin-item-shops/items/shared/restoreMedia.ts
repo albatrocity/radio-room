@@ -4,7 +4,11 @@ import type {
   MediaCondition,
   PhysicalMediaFormat,
 } from "@repo/types"
-import { MEDIA_CONDITION_LABELS, PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
+import {
+  MEDIA_CONDITION_LABELS,
+  PHYSICAL_MEDIA_CONDITION_KEY,
+  slotPoolFullClause,
+} from "@repo/types"
 import {
   isPhysicalMediaDefinition,
   readItemCondition,
@@ -21,6 +25,9 @@ import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
 const FORMAT_NAME_PREFIX = /^(CD|LP|Cassette|45):\s+/i
 
+/** Long enough to read the flavor line; default inventory toasts are ~5s. */
+export const RESTORE_TOAST_DURATION_MS = 10_000
+
 /** Strip the `LP: ` shop prefix so toast copy can use the album title. */
 export function albumTitleFromItemName(name: string): string {
   const stripped = name.replace(FORMAT_NAME_PREFIX, "").trim()
@@ -32,10 +39,11 @@ export function restoreSuccessToast(opts: {
   condition: MediaCondition
   albumTitle: string
   successBody: (albumTitle: string) => string
-}): Pick<ItemUseResult, "title" | "message"> {
+}): Pick<ItemUseResult, "title" | "message" | "duration"> {
   return {
     title: `${physicalMediaTypeLabel(opts.format)} restored to ${MEDIA_CONDITION_LABELS[opts.condition]} condition!`,
     message: opts.successBody(opts.albumTitle),
+    duration: RESTORE_TOAST_DURATION_MS,
   }
 }
 
@@ -133,7 +141,11 @@ export function restoreMediaUse(opts: {
         [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
       })
       if (!given) {
-        return { success: false, consumed: false, message: "Your collection is full." }
+        return {
+          success: false,
+          consumed: false,
+          message: `${slotPoolFullClause("collection")}.`,
+        }
       }
 
       await context.inventory.removeItem(userId, target.itemId, 1)

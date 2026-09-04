@@ -34,6 +34,8 @@ import {
   MEDIA_CONDITION_LABELS,
   ITEM_SHOPS_PLUGIN_NAME,
   ITEM_SHOPS_TAB_ID,
+  resolveSlotPool,
+  SLOT_POOL_LABELS,
 } from "@repo/types"
 import packageJson from "./package.json"
 import {
@@ -1004,9 +1006,11 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         }
       }
       const defId = this.shopping.getDefinitionId(itemShortId)
-      const itemName =
-        this.effectiveCatalogForGive().find((e) => e.definition.shortId === itemShortId)?.definition
-          .name ?? itemShortId
+      const catalogEntry = this.effectiveCatalogForGive().find(
+        (e) => e.definition.shortId === itemShortId,
+      )
+      const itemName = catalogEntry?.definition.name ?? itemShortId
+      const poolLabel = SLOT_POOL_LABELS[resolveSlotPool(catalogEntry?.definition)]
 
       if (userIdParam === "__all__") {
         const users = await this.context.api.getUsers(this.context.roomId)
@@ -1024,9 +1028,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           success: failed === 0 && ok > 0,
           message:
             ok === 0
-              ? "Could not grant items (inventory may be full)."
+              ? `Could not grant items (${poolLabel} may be full).`
               : failed > 0
-                ? `Granted ${itemName} to ${ok} user(s); ${failed} could not receive it (inventory full?).`
+                ? `Granted ${itemName} to ${ok} user(s); ${failed} could not receive it (${poolLabel} full?).`
                 : `Granted ${itemName} to ${ok} user(s).`,
         }
       }
@@ -1039,7 +1043,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       if (!row) {
         return {
           success: false,
-          message: "Could not grant item (inventory may be full).",
+          message: `Could not grant item (${poolLabel} may be full).`,
         }
       }
       return {

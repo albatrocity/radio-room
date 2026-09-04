@@ -154,4 +154,68 @@ describe("ShoppingSessionHelper purchase / sell hooks", () => {
     // listed price 20 * 0.45 condition * 0.5 buyback = 4
     expect(result.refund).toBe(4)
   })
+
+  it("names the full slot pool when giveItem fails", async () => {
+    const deck: ItemCatalogEntry = {
+      definition: {
+        shortId: "cassette-deck",
+        name: "Cassette Deck",
+        description: "A deck",
+        icon: "Disc3",
+        stackable: false,
+        maxStack: 1,
+        tradeable: true,
+        consumable: false,
+        coinValue: 80,
+        rarity: "uncommon",
+        slotPool: "playback",
+      },
+    }
+
+    async function buy(entry: ItemCatalogEntry) {
+      const { context } = makeContext({
+        giveItem: vi.fn(async () => null),
+        instance: {
+          shopId: "record-store",
+          offers: [
+            {
+              offerId: 0,
+              shortId: entry.definition.shortId,
+              name: entry.definition.name,
+              description: entry.definition.description,
+              icon: entry.definition.icon ?? "Disc3",
+              price: 10,
+              available: true,
+              rarity: entry.definition.rarity ?? "common",
+            },
+          ],
+        },
+      })
+      const helper = new ShoppingSessionHelper(
+        "item-shops",
+        context,
+        [entry],
+        [
+          {
+            ...SHOP,
+            availableItems: [{ shortId: entry.definition.shortId, coinValue: 10 }],
+          },
+        ],
+      )
+      return helper.purchase({ userId: "u1", username: "U" }, 0)
+    }
+
+    await expect(buy(PEDAL)).resolves.toMatchObject({
+      success: false,
+      message: "Inventory is full — could not add Fuzz Pedal.",
+    })
+    await expect(buy(PM)).resolves.toMatchObject({
+      success: false,
+      message: "Collection is full — could not add LP: Loveless.",
+    })
+    await expect(buy(deck)).resolves.toMatchObject({
+      success: false,
+      message: "Playback Devices are full — could not add Cassette Deck.",
+    })
+  })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { albumTitleFromItemName, restoreSuccessToast } from "./restoreMedia"
+import { albumTitleFromItemName, RESTORE_TOAST_DURATION_MS, restoreSuccessToast } from "./restoreMedia"
 
 describe("albumTitleFromItemName", () => {
   it("strips the shop format prefix", () => {
@@ -26,6 +26,7 @@ describe("restoreSuccessToast", () => {
     ).toEqual({
       title: "Cassette restored to Good condition!",
       message: "You used the pencil to respool the tape and brought Mix Tape back to life.",
+      duration: RESTORE_TOAST_DURATION_MS,
     })
   })
 })

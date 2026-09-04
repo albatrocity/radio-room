@@ -133,7 +133,7 @@ describe("GiftService", () => {
       offerId: offered.offer!.offerId,
     })
     expect(accepted.success).toBe(false)
-    expect(accepted.message).toMatch(/slot/i)
+    expect(accepted.message).toBe("Inventory is full — free a slot to accept this gift.")
     // Still pending
     expect(await gifts.getOffer(roomId, offered.offer!.offerId)).not.toBeNull()
   })

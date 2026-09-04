@@ -263,7 +263,7 @@ describe("blackBag", () => {
 
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
-    expect(result.message).toContain("full")
+    expect(result.message).toBe("Inventory is full — nothing was stolen.")
     expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(
       victim.userId,
       potion.id,

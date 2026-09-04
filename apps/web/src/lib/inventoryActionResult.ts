@@ -8,6 +8,7 @@ export type InventoryActionResult = {
   success: boolean
   title?: string
   message?: string
+  duration?: number
 }
 
 /** Subscribe to `INVENTORY_ACTION_RESULT` and toast success / blocked / error. */
@@ -30,6 +31,7 @@ export function subscribeInventoryActionResult(
         title: data.title ?? (data.success ? "Success" : blocked ? "Blocked" : "Error"),
         description: data.message || (data.success ? "Action completed" : "Action failed"),
         type: data.success ? "success" : blocked ? "warning" : "error",
+        ...(data.duration != null ? { duration: data.duration } : {}),
       })
     },
     onTimeout: () => options.onTimeout?.(),

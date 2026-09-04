@@ -3,7 +3,7 @@ import { userFactory } from "@repo/factories"
 import type { InventoryItem, ItemDefinition, PhysicalMediaFormat } from "@repo/types"
 import { MEDIA_CONDITION_LABELS, PHYSICAL_MEDIA_CONDITION_KEY, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
 import { physicalMediaTypeLabel } from "../../localLibrary/physicalMedia"
-import { albumTitleFromItemName } from "./restoreMedia"
+import { albumTitleFromItemName, RESTORE_TOAST_DURATION_MS } from "./restoreMedia"
 import type { Item } from "./types"
 import { createMockDefinition, createMockDeps, invokeUse } from "./testHelpers"
 
@@ -120,6 +120,7 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
       consumed: true,
       title: `${physicalMediaTypeLabel(format)} restored to ${MEDIA_CONDITION_LABELS[condition]} condition!`,
       message: opts.successBody(albumTitle),
+      duration: RESTORE_TOAST_DURATION_MS,
     }
   }
 
@@ -260,7 +261,7 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
       expect(result).toEqual({
         success: false,
         consumed: false,
-        message: "Your collection is full.",
+        message: "Collection is full.",
       })
       expect(deps.context.inventory.removeItem).not.toHaveBeenCalled()
     })

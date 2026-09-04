@@ -8,7 +8,7 @@ import type {
   ShopOffer,
   User,
 } from "@repo/types"
-import { ITEM_SHOPS_SESSION_STORAGE_KEYS } from "@repo/types"
+import { ITEM_SHOPS_SESSION_STORAGE_KEYS, resolveSlotPool, slotPoolFullMessage } from "@repo/types"
 import type { ShopTransactionResult } from "./ShopHelper"
 import {
   DEFAULT_RARITY_WEIGHTS,
@@ -242,7 +242,11 @@ export class ShoppingSessionHelper {
     )
     if (!awarded) {
       await this.context.game.addScore(userId, "coin", price, `${this.pluginName}:refund`)
-      return { success: false, message: `Inventory full — could not add ${offer.name}.` }
+      const pool = resolveSlotPool(this.catalogMap.get(shortId)?.definition)
+      return {
+        success: false,
+        message: slotPoolFullMessage(pool, `could not add ${offer.name}.`),
+      }
     }
     offer.available = false
     await this.persistInstance(userId, inst)

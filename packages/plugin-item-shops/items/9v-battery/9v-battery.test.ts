@@ -317,6 +317,6 @@ describe("9v-battery", () => {
 
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
-    expect(result.message).toMatch(/full/i)
+    expect(result.message).toBe("Inventory is full — no room for a duplicate.")
   })
 })
