@@ -933,12 +933,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           ],
         },
       },
-      quickAccessStatus: [
-        "autoShop",
-        "autoShopIntervalMs",
-        "offerConditionMin",
-        "offerConditionMax",
-      ],
+      quickAccessStatus: ["autoShop", "autoShopIntervalMs"],
       quickAccess: [
         "enableAutoShop",
         "disableAutoShop",

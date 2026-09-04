@@ -255,12 +255,7 @@ describe("ItemShopsPlugin auto-shop", () => {
     expect(headingContents).toEqual(
       expect.arrayContaining(["Auto-shop", "Physical Media", "Local Library"]),
     )
-    expect(schema.quickAccessStatus).toEqual([
-      "autoShop",
-      "autoShopIntervalMs",
-      "offerConditionMin",
-      "offerConditionMax",
-    ])
+    expect(schema.quickAccessStatus).toEqual(["autoShop", "autoShopIntervalMs"])
     expect(schema.quickAccess).toContain("enableAutoShop")
     expect(schema.quickAccess).toContain("setAutoShopInterval")
     expect(schema.quickAccess).toContain("setOfferConditionRange")

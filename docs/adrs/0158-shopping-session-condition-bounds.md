@@ -17,7 +17,7 @@ Shopping rounds are owned by Item Shops ([ADR 0049](0049-item-shops-and-shopping
 
 3. **Apply at offer build time.** `decorateOffer` reads current bounds when `ShoppingSessionHelper` builds instances. Changing config does not rewrite open offers; the next Start / auto-shop / join assignment uses the new range.
 
-4. **Quick Access is actions-only for writes** ([ADR 0074](0074-quick-access-admin-panels.md), [ADR 0135](0135-quick-access-read-only-status.md)). The two fields appear as read-only status. `setOfferConditionRange` persists them via `executeAction` + `setPluginConfig`. Settings still edits them as enum fields.
+4. **Quick Access is actions-only for writes** ([ADR 0074](0074-quick-access-admin-panels.md), [ADR 0135](0135-quick-access-read-only-status.md)). The two fields are **not** Quick Access status — they stay in Settings. `setOfferConditionRange` persists them via `executeAction` + `setPluginConfig`.
 
 ## Consequences
 
