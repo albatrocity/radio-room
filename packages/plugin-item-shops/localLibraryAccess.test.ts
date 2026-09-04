@@ -579,6 +579,28 @@ describe("ItemShopsPlugin local library grants", () => {
       )
       expect(items[0]?.artworkFrame).toBe("record-jacket")
     })
+
+    it("carries the held copy's condition", async () => {
+      const { plugin } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaMetadata: { condition: "poor" },
+      })
+      const items = await plugin.listPhysicalMediaItems({ roomId: ROOM, userId: "u1" })
+      expect(items[0]?.condition).toBe("poor")
+    })
+
+    it("reports the worst copy when several of the same record are held", async () => {
+      const { plugin } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaMetadata: { condition: "mint" },
+        extraPhysicalMedia: [
+          physicalMediaStack({ itemId: "pm-poor", metadata: { condition: "poor" } }),
+        ],
+      })
+      const items = await plugin.listPhysicalMediaItems({ roomId: ROOM, userId: "u1" })
+      expect(items).toHaveLength(1)
+      expect(items[0]?.condition).toBe("poor")
+    })
   })
 
   describe("augmentNowPlaying", () => {
@@ -859,12 +881,15 @@ describe("ItemShopsPlugin local library grants", () => {
       expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "pm-stack-1", {
         condition: "good",
       })
-      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+      expect(api.sendUserToast).toHaveBeenCalledWith(
         ROOM,
         "u1",
-        expect.stringContaining("Good"),
-        expect.objectContaining({ type: "alert", status: "info" }),
+        expect.objectContaining({
+          title: expect.stringContaining("Good"),
+          type: "info",
+        }),
       )
+      expect(api.sendUserSystemMessage).not.toHaveBeenCalled()
     })
 
     it("converts a poor record into broken media", async () => {
@@ -894,6 +919,7 @@ describe("ItemShopsPlugin local library grants", () => {
           title: expect.stringContaining("dusty"),
           description: "You can no longer queue songs from it.",
           type: "warning",
+          duration: 10_000,
         }),
       )
       expect(api.sendUserSystemMessage).not.toHaveBeenCalled()
@@ -918,6 +944,7 @@ describe("ItemShopsPlugin local library grants", () => {
           description:
             "You can no longer queue songs from it. You had no room to keep the worn-out copy.",
           type: "warning",
+          duration: 10_000,
         }),
       )
       expect(api.sendUserSystemMessage).not.toHaveBeenCalled()

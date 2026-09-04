@@ -481,6 +481,7 @@ function CatalogBrowse({
         imageUrl: selectedMedia.imageUrl,
         imageUrlLarge: selectedMedia.imageUrlLarge,
         artworkFrame: selectedMedia.artworkFrame,
+        condition: selectedMedia.condition,
       }
     }
     if (browseAlbum) {
@@ -670,6 +671,7 @@ function CatalogBrowse({
                                   shape="square"
                                   alt={item.name}
                                   artworkFrame={item.artworkFrame}
+                                  condition={item.condition}
                                   size="track"
                                 />
                                 <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">

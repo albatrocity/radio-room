@@ -27,6 +27,7 @@ import {
   parseArtworkFrame,
   isChatMessageTransformDrop,
   isDeferredQueueRequest,
+  isMediaCondition,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { pluginImplementsChatTransform } from "@repo/plugin-base"
@@ -55,6 +56,7 @@ function normalizeResolvedPhysicalMedia(
     typeof result.item?.artworkFrame === "string"
       ? parseArtworkFrame(result.item.artworkFrame)
       : undefined
+  const condition = isMediaCondition(result.item?.condition) ? result.item.condition : undefined
   const item: PhysicalMediaItem = {
     mediaKey: itemKey,
     name,
@@ -68,6 +70,7 @@ function normalizeResolvedPhysicalMedia(
       ? { imageUrlLarge: result.item.imageUrlLarge.trim() }
       : {}),
     ...(artworkFrame ? { artworkFrame } : {}),
+    ...(condition ? { condition } : {}),
   }
 
   const kind = "kind" in result ? result.kind : undefined
@@ -538,6 +541,7 @@ export class PluginRegistry {
             typeof item.name === "string" && item.name.trim() ? item.name.trim() : mediaKey
           const artworkFrame =
             typeof item.artworkFrame === "string" ? parseArtworkFrame(item.artworkFrame) : undefined
+          const condition = isMediaCondition(item.condition) ? item.condition : undefined
           byKey.set(mediaKey, {
             mediaKey,
             name,
@@ -551,6 +555,7 @@ export class PluginRegistry {
               ? { imageUrlLarge: item.imageUrlLarge.trim() }
               : {}),
             ...(artworkFrame ? { artworkFrame } : {}),
+            ...(condition ? { condition } : {}),
           })
         }
       } catch (error) {

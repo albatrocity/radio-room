@@ -38,6 +38,7 @@ describe("subscribeInventoryActionResult", () => {
         title: "Cassette restored to Good condition!",
         duration: 10_000,
         type: "success",
+        closable: true,
       }),
     )
   })
@@ -45,7 +46,11 @@ describe("subscribeInventoryActionResult", () => {
   it("omits duration when the result does not set one", () => {
     subscribeInventoryActionResult({ id: "inv-2" })
     capturedSend()({ type: "INVENTORY_ACTION_RESULT", data: { success: true, message: "Sold." } })
-    const payload = vi.mocked(toaster.create).mock.calls[0]![0] as { duration?: number }
+    const payload = vi.mocked(toaster.create).mock.calls[0]![0] as {
+      duration?: number
+      closable?: boolean
+    }
     expect(payload.duration).toBeUndefined()
+    expect(payload.closable).toBe(true)
   })
 })

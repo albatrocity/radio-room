@@ -367,21 +367,27 @@ export class LocalLibraryModule {
     const derivedByShort = new Map(
       this.derivedPhysicalMedia.map((e) => [e.definition.shortId, e] as const),
     )
-    const seen = new Set<string>()
-    const items: PhysicalMediaItem[] = []
+    const byMediaKey = new Map<string, PhysicalMediaItem>()
     for (const h of held) {
       if (h.grant.scope !== "playlist" && h.grant.scope !== "album") continue
-      if (seen.has(h.shortId)) continue
-      seen.add(h.shortId)
       const definition =
         derivedByShort.get(h.shortId)?.definition ?? byShort.get(h.shortId)?.definition
-      items.push({
+      const next: PhysicalMediaItem = {
         mediaKey: h.shortId,
         name: h.name,
         ...physicalMediaArtworkFields(definition),
-      })
+        ...(h.condition ? { condition: h.condition } : {}),
+      }
+      const existing = byMediaKey.get(h.shortId)
+      if (!existing) {
+        byMediaKey.set(h.shortId, next)
+        continue
+      }
+      const existingRank = CONDITION_WEAR_RANK[existing.condition ?? "mint"]
+      const nextRank = CONDITION_WEAR_RANK[next.condition ?? "mint"]
+      if (nextRank > existingRank) existing.condition = next.condition
     }
-    return items
+    return [...byMediaKey.values()]
   }
 
   /** Short ids for held album-scope Physical Media (for lazy sleeve ensure). */
@@ -408,6 +414,7 @@ export class LocalLibraryModule {
       mediaKey: match.shortId,
       name: match.name,
       ...physicalMediaArtworkFields(definition),
+      ...(match.condition ? { condition: match.condition } : {}),
     }
     if (match.grant.scope === "playlist") {
       const playlistId = this.playlistMap(grants)[match.grant.playlistKey]?.trim()
@@ -733,12 +740,11 @@ export class LocalLibraryModule {
       await context.inventory.updateItemMetadata(params.userId, chosen.held.itemId, {
         [PHYSICAL_MEDIA_CONDITION_KEY]: next,
       })
-      await context.api.sendUserSystemMessage(
-        params.roomId,
-        params.userId,
-        `${recordName} is now in ${MEDIA_CONDITION_LABELS[next]} condition.`,
-        { type: "alert", status: "info" },
-      )
+      await context.api.sendUserToast(params.roomId, params.userId, {
+        title: `${recordName} is now in ${MEDIA_CONDITION_LABELS[next]} condition.`,
+        type: "info",
+        source: "item-shops",
+      })
       return
     }
 
@@ -777,6 +783,7 @@ export class LocalLibraryModule {
       title: transition,
       description,
       type: "warning",
+      duration: 10_000,
       source: "item-shops",
     })
   }

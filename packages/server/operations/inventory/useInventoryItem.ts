@@ -28,5 +28,10 @@ export async function useInventoryItem(params: {
     params.callContext,
   )
 
-  return { success: result.success, message: result.message }
+  return {
+    success: result.success,
+    message: result.message,
+    ...(result.title != null ? { title: result.title } : {}),
+    ...(result.duration != null ? { duration: result.duration } : {}),
+  }
 }

@@ -4,6 +4,8 @@ export type InventoryActionResultPayload = {
   success: boolean
   message?: string
   refund?: number
+  title?: string
+  duration?: number
 }
 
 function pluginRegistry(context: AppContext): {

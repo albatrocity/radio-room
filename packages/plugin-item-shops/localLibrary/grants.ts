@@ -1,4 +1,11 @@
-import type { InventoryItem, ItemDefinition, LucideIconName, PhysicalMediaFormat } from "@repo/types"
+import {
+  readItemCondition,
+  type InventoryItem,
+  type ItemDefinition,
+  type LucideIconName,
+  type MediaCondition,
+  type PhysicalMediaFormat,
+} from "@repo/types"
 import type { ItemCatalogEntry, LocalLibraryGrant } from "@repo/plugin-base/helpers"
 import type { LocalLibraryGrantConfig } from "./config"
 
@@ -20,6 +27,8 @@ export type HeldLocalLibraryGrant = {
   itemId: string
   grant: LocalLibraryGrant
   mediaFormat?: PhysicalMediaFormat
+  /** Copy wear; mint when metadata is absent (ADR 0155). */
+  condition?: MediaCondition
 }
 
 export function definitionIdForShortId(pluginName: string, shortId: string): string {
@@ -123,6 +132,7 @@ export function listHeldLocalLibraryGrants(params: {
       name: entry!.definition.name,
       itemId: item.itemId,
       grant,
+      condition: readItemCondition(item),
       ...(entry!.definition.mediaFormat
         ? { mediaFormat: entry!.definition.mediaFormat }
         : {}),

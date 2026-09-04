@@ -30,6 +30,7 @@ export const STUB_MY_MEDIA: PhysicalMediaItem[] = [
     icon: "Disc3",
     imageUrl: STUB_MEDIA_ARTWORK,
     artworkFrame: "record-jacket",
+    condition: "good",
   },
   {
     mediaKey: "pm-studio-cd",
@@ -37,6 +38,7 @@ export const STUB_MY_MEDIA: PhysicalMediaItem[] = [
     icon: "Disc",
     imageUrl: STUB_MEDIA_ARTWORK,
     artworkFrame: "jewel-case",
+    condition: "poor",
   },
   {
     mediaKey: "pm-studio-45",

@@ -176,7 +176,7 @@ export type MetadataBrowseCapabilities = {
   albumSearch: boolean
 }
 
-import type { ArtworkFrame } from "./Inventory"
+import type { ArtworkFrame, MediaCondition } from "./Inventory"
 
 /**
  * A held Physical Media item in Add to Queue. `mediaKey` is the inventory
@@ -192,6 +192,8 @@ export type PhysicalMediaItem = {
   imageUrlLarge?: string
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
+  /** Wear on this held copy (ADR 0155 / 0157). Absent means mint. */
+  condition?: MediaCondition
 }
 
 /**

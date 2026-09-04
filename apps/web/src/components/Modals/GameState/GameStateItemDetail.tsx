@@ -13,6 +13,7 @@ import { resolveDisplayArtworkFrame } from "../../../lib/resolveDisplayArtworkFr
 import { stopTrackPreview, toggleTrackPreview } from "../../../actors/trackPreviewActor"
 import { useCanAddToQueue, useIsAdmin } from "../../../hooks/useActors"
 import { useSocketMachine } from "../../../hooks/useSocketMachine"
+import { useTrackRoomPresence } from "../../../hooks/useTrackRoomPresence"
 import { artistsLabel, releaseYear } from "../../../lib/albumHeaderFields"
 import {
   MEDIA_ITEM_TRACKS_EVENT_TYPES,
@@ -86,6 +87,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
   const layout = definition?.detailView?.layout ?? "default"
   const showTrackList = layout === "trackList"
   const mediaKey = frame.mediaKey?.trim() || undefined
+  const { getPresence: getTrackPresence } = useTrackRoomPresence(showTrackList)
 
   const inventoryItem =
     frame.source === "inventory" && frame.inventoryItemId
@@ -188,6 +190,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
         }
         onAddToQueue={(track) => addToQueue({ ...track, source: "local" } as MetadataSourceTrack)}
         showAddToQueue={canAdd}
+        getTrackPresence={getTrackPresence}
         beforeTracks={<ItemDetailPrimaryActions frame={frame} definition={definition} padded />}
       />
     )

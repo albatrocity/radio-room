@@ -31,6 +31,8 @@ export function subscribeInventoryActionResult(
         title: data.title ?? (data.success ? "Success" : blocked ? "Blocked" : "Error"),
         description: data.message || (data.success ? "Action completed" : "Action failed"),
         type: data.success ? "success" : blocked ? "warning" : "error",
+        closable: true,
+        meta: { closable: true },
         ...(data.duration != null ? { duration: data.duration } : {}),
       })
     },
