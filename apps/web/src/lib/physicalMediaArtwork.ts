@@ -3,6 +3,7 @@ import {
   PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY,
   parseArtworkFrame,
   type ArtworkFrame,
+  type MediaCondition,
   type PhysicalMediaNowPlayingFrame,
 } from "@repo/types"
 
@@ -20,6 +21,12 @@ export type PhysicalMediaArt = {
   fallbackImageUrl?: string
   /** Hand-lettered title on a coverless jewel-case disc. */
   discLabel?: string
+  /**
+   * Wear on this copy (ADR 0157). Absent means mint — Now Playing resolves its
+   * frame from playlist membership, not from the copy that was spent, so it has
+   * no condition to report.
+   */
+  condition?: MediaCondition
 }
 
 /** Strip the derived `CD: ` prefix from default item names; operator overrides pass through. */
@@ -110,6 +117,7 @@ export function toPhysicalMediaArt(source: {
   imageUrlLarge?: string
   artworkFrame?: ArtworkFrame | string
   name?: string
+  condition?: MediaCondition
 }): PhysicalMediaArt | undefined {
   const artworkFrame =
     typeof source.artworkFrame === "string" ? parseArtworkFrame(source.artworkFrame) : undefined
@@ -118,17 +126,20 @@ export function toPhysicalMediaArt(source: {
   const imageUrl = source.imageUrl?.trim()
   const imageUrlLarge = source.imageUrlLarge?.trim()
 
+  const condition = source.condition ? { condition: source.condition } : {}
+
   if (imageUrl) {
     return {
       artworkFrame,
       imageUrl,
       ...(imageUrlLarge ? { imageUrlLarge } : {}),
+      ...condition,
     }
   }
 
   if (artworkFrame === "jewel-case") {
     const discLabel = deriveDiscLabel(source.name)
-    if (discLabel) return { artworkFrame, discLabel }
+    if (discLabel) return { artworkFrame, discLabel, ...condition }
   }
 
   return undefined

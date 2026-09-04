@@ -1,4 +1,6 @@
+import type { MediaCondition } from "@repo/types"
 import { useArtworkOverlayIsCompact } from "./ArtworkOverlaySizeContext"
+import JewelCaseCrack from "./JewelCaseCrack"
 import OverlaySvg from "./OverlaySvg"
 import {
   JEWEL_CASE_BEVEL_MM,
@@ -12,6 +14,8 @@ type Props = {
   idPrefix?: string
   /** No booklet cover: omit insert window chrome. */
   coverless?: boolean
+  /** Mint is the pristine case; Good and Poor crack the lid (ADR 0157). */
+  condition?: MediaCondition
 }
 
 const CASE = JEWEL_CASE_MM
@@ -38,6 +42,17 @@ const BEVEL_RECT = {
   height: CASE.height - JEWEL_CASE_BEVEL_MM.offset * 2,
 } as const
 
+/**
+ * Clear lid the crack travels across. It stops at the spine seam because the
+ * hinge is opaque moulded plastic, not the window that breaks.
+ */
+const CRACK_RECT = {
+  x: SPINE_WIDTH,
+  y: 0,
+  width: CASE.width - SPINE_WIDTH,
+  height: CASE.height,
+} as const
+
 const spineRidges = Array.from(
   { length: Math.ceil(SPINE_WIDTH / SPINE_RIDGE_SPACING) },
   (_, i) => i * SPINE_RIDGE_SPACING + 0.4,
@@ -47,8 +62,16 @@ const spineRidges = Array.from(
  * CD jewel case: opaque ridged spine, bevel, diagonal sheen. Tray, disc, and tabs
  * render on `JewelCaseUnderlay` beneath the cover art. Drawn in case
  * millimetres; `frameArtworkInset` puts the cover art in the same window.
+ *
+ * Condition shows in the plastic: Good takes a corner crack, Poor runs that same
+ * crack to the far corner. Fading on the booklet is applied to the cover image
+ * itself (`insertConditionFilter`), since the booklet is the image.
  */
-export default function JewelCaseOverlay({ idPrefix = "jc", coverless = false }: Props) {
+export default function JewelCaseOverlay({
+  idPrefix = "jc",
+  coverless = false,
+  condition = "mint",
+}: Props) {
   const compact = useArtworkOverlayIsCompact()
   const sheenId = `${idPrefix}-sheen`
   const edgeId = `${idPrefix}-edge`
@@ -128,6 +151,10 @@ export default function JewelCaseOverlay({ idPrefix = "jc", coverless = false }:
         fill={`url(#${edgeId})`}
         opacity="0.2"
       />
+
+      {condition !== "mint" && (
+        <JewelCaseCrack rect={CRACK_RECT} severity={condition} compact={compact} idPrefix={idPrefix} />
+      )}
     </OverlaySvg>
   )
 }

@@ -1,7 +1,7 @@
 # 0155. Physical Media condition, wear, and conversion
 
 **Date:** 2026-09-04
-**Status:** Accepted
+**Status:** Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam)
 
 ## Context
 
@@ -23,7 +23,7 @@ This amends [ADR 0099](0099-physical-media-personal-libraries.md) §3 (durable r
 
 5. **Admin wear flag.** `GameSessionConfig.physicalMediaWearForAdmins` defaults to `true` and is toggleable mid-session like `allowTrading`. Unrestricted rooms never wear.
 
-6. **`mediaFormat` is the format key.** `ItemDefinition.mediaFormat` (`"CD" | "LP" | "TAPE" | "45"`) is condition-independent. `artworkFrameForFormat(format, condition)` is the seam reserved for per-condition artwork; today all three conditions share the mint frame. Render sites resolve through that helper (client: `resolveDisplayArtworkFrame`) rather than reading `definition.artworkFrame` directly. Legacy stacks without `mediaFormat` fall back to `formatFromArtworkFrame`.
+6. **`mediaFormat` is the format key.** `ItemDefinition.mediaFormat` (`"CD" | "LP" | "TAPE" | "45"`) is condition-independent. `artworkFrameForFormat(format, condition)` is the seam reserved for per-condition artwork; today all three conditions share the mint frame. *(Superseded by [ADR 0157](0157-physical-media-condition-artwork.md): condition renders as a second prop on that one frame rather than by diverging this table, which keeps the signature but leaves it a passthrough.)* Render sites resolve through that helper (client: `resolveDisplayArtworkFrame`) rather than reading `definition.artworkFrame` directly. Legacy stacks without `mediaFormat` fall back to `formatFromArtworkFrame`.
 
 ## Consequences
 
@@ -37,4 +37,5 @@ This amends [ADR 0099](0099-physical-media-personal-libraries.md) §3 (durable r
 - [0099. Physical Media personal libraries](0099-physical-media-personal-libraries.md)
 - [0100. Dual inventory slot pools](0100-dual-inventory-slot-pools.md)
 - [0156. Mutable inventory stack metadata](0156-mutable-inventory-stack-metadata.md)
+- [0157. Physical Media condition artwork as an overlay modifier](0157-physical-media-condition-artwork.md)
 - [`packages/plugin-item-shops/localLibrary/condition.ts`](../../packages/plugin-item-shops/localLibrary/condition.ts)

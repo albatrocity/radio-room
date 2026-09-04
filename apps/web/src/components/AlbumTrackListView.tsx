@@ -120,6 +120,7 @@ function AlbumHeader({ header }: { header: AlbumViewHeader }) {
           icon={header.icon}
           rarity={header.rarity}
           artworkFrame={header.artworkFrame}
+          condition={header.condition}
           size="feature"
           alt={header.title}
           previewable

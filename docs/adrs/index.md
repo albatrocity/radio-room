@@ -160,8 +160,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0152](0152-plugin-authored-core-polls.md) | Plugin-authored core polls (`source.pluginName`, `announce`, `getPollVotes`) | Accepted |
 | [0153](0153-plugin-authored-queue-split.md) | Plugin-authored queue split (`source.pluginName` on `DJService` / `PluginAPI`) | Accepted |
 | [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) | Plugin `emit` may skip `USER_GAME_STATE_INVALIDATED` | Accepted |
-| [0155](0155-physical-media-condition-wear-and-conversion.md) | Physical Media condition, wear, and conversion | Accepted |
+| [0155](0155-physical-media-condition-wear-and-conversion.md) | Physical Media condition, wear, and conversion | Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam) |
 | [0156](0156-mutable-inventory-stack-metadata.md) | Mutable inventory stack metadata (`updateItemMetadata`) | Accepted |
+| [0157](0157-physical-media-condition-artwork.md) | Physical Media condition artwork as an overlay modifier | Accepted |
 
 ## Creating a New ADR
 

@@ -39,8 +39,10 @@ export const CONDITION_WEAR_RANK: Record<MediaCondition, number> = {
 }
 
 /**
- * Mint frame per format today; all three conditions are identical so a later
- * per-condition artwork pass is a table edit (ADR 0155).
+ * One frame per format, repeated across conditions: the frame says which object
+ * this is, and the client draws wear by passing the condition alongside it
+ * (ADR 0157). The condition axis stays in the signature so the server keeps
+ * deciding what a copy looks like.
  */
 export const ARTWORK_FRAME_BY_FORMAT_AND_CONDITION: Record<
   PhysicalMediaFormat,

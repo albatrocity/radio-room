@@ -123,6 +123,7 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                       condition: row.condition,
                       artworkFrame: row.artworkFrame,
                     })}
+                    condition={row.condition}
                     boxSize={row.artworkFrame ? FRAMED_ARTWORK_BOX_SIZE : 5}
                     alt={row.name}
                     interactive={!openOfferDetail}

@@ -208,6 +208,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
           icon={definition?.icon}
           rarity={definition?.rarity}
           artworkFrame={artworkFrame}
+          condition={condition}
           size="feature"
           alt={name}
         />

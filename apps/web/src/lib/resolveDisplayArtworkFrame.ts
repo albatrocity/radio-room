@@ -1,8 +1,10 @@
 import type { ArtworkFrame, MediaCondition, PhysicalMediaFormat } from "@repo/types"
 
 /**
- * Client seam for per-condition Physical Media frames (ADR 0155).
- * Today every condition shares the mint frame; a later pass can diverge this table.
+ * A frame names the physical object, not its state: every condition of a format
+ * resolves to the same token, and wear is drawn by passing `MediaCondition`
+ * alongside it (ADR 0157). Kept as a table because the mapping is still the
+ * `ItemDefinition.mediaFormat` → frame lookup ADR 0155 §6 defined.
  */
 const ARTWORK_FRAME_BY_FORMAT_AND_CONDITION: Record<
   PhysicalMediaFormat,

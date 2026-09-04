@@ -157,6 +157,7 @@ function InventoryRow({
             icon={definition?.icon}
             rarity={definition?.rarity}
             artworkFrame={artworkFrame}
+            condition={condition}
             boxSize={isCollection ? FRAMED_ARTWORK_BOX_SIZE : 7}
             alt={name}
             interactive={!opensDetail}

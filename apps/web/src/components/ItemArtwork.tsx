@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react"
 import { Box, Image } from "@chakra-ui/react"
-import type { ArtworkFrame, ItemRarity } from "@repo/types"
+import type { ArtworkFrame, ItemRarity, MediaCondition } from "@repo/types"
 import { getItemRarityColorPalette, itemRarityIconColor } from "../lib/itemRarityPalette"
 import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import { ArtworkPreviewDialog } from "./ArtworkPreviewDialog"
@@ -25,6 +25,8 @@ type Props = {
   alt?: string
   /** Physical Media presentation overlay when cover art is present. */
   artworkFrame?: ArtworkFrame
+  /** Wear on this copy; drives crack/scuff/dent on the frame (ADR 0157). */
+  condition?: MediaCondition
   /**
    * Open the full-size preview when an unframed cover is clicked. Framed
    * artwork is always previewable; plain covers opt in (album heroes, not rows).
@@ -104,13 +106,14 @@ export default function ItemArtwork({
   size = "row",
   alt = "",
   artworkFrame,
+  condition,
   previewable = false,
   onClick,
   interactive = true,
 }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const fill = size === "feature"
-  const art = toPhysicalMediaArt({ imageUrl, imageUrlLarge, artworkFrame, name: alt })
+  const art = toPhysicalMediaArt({ imageUrl, imageUrlLarge, artworkFrame, condition, name: alt })
   if (art) {
     const framed = <FramedArtwork art={art} size={size} squareSlot={fill} alt="" />
     if (!interactive) return framed
