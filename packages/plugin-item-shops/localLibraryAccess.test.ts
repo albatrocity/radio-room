@@ -888,7 +888,7 @@ describe("ItemShopsPlugin local library grants", () => {
         "u1",
         expect.objectContaining({
           title: expect.stringContaining("dusty"),
-          description: expect.stringMatching(/added to the queue/i),
+          description: "You can no longer queue songs from it.",
           type: "warning",
         }),
       )
@@ -911,7 +911,8 @@ describe("ItemShopsPlugin local library grants", () => {
         "u1",
         expect.objectContaining({
           title: expect.stringContaining("dusty"),
-          description: expect.stringMatching(/added to the queue.*no room/i),
+          description:
+            "You can no longer queue songs from it. You had no room to keep the worn-out copy.",
           type: "warning",
         }),
       )

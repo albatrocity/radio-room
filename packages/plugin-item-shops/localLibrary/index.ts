@@ -758,11 +758,11 @@ export class LocalLibraryModule {
       }
     }
     const transition = broken?.transitionMessage(recordName) ?? `${recordName} wore out.`
-    const queuedLine = "The track was added to the queue."
+    const woreOutLine = "You can no longer queue songs from it."
     const description =
       broken && !given
-        ? `${queuedLine} You had no room to keep the worn-out copy.`
-        : queuedLine
+        ? `${woreOutLine} You had no room to keep the worn-out copy.`
+        : woreOutLine
     await context.api.sendUserToast(params.roomId, params.userId, {
       title: transition,
       description,
