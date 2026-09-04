@@ -74,11 +74,27 @@ export function readItemCondition(item: InventoryItem): MediaCondition {
   return isMediaCondition(raw) ? raw : "mint"
 }
 
+/**
+ * The wear ladder as one declarative table (ADR 0155 / 0159), so degradation and
+ * restoration can never disagree about the ordering.
+ */
+const CONDITION_LADDER: Record<
+  MediaCondition,
+  { worse: MediaCondition | null; better: MediaCondition | null }
+> = {
+  mint: { worse: "good", better: null },
+  good: { worse: "poor", better: "mint" },
+  poor: { worse: null, better: "good" },
+}
+
 /** `mint → good → poor → null`. `null` means the copy converts. */
 export function degradeCondition(condition: MediaCondition): MediaCondition | null {
-  if (condition === "mint") return "good"
-  if (condition === "good") return "poor"
-  return null
+  return CONDITION_LADDER[condition].worse
+}
+
+/** `poor → good → mint → null`. `null` means the copy is already Mint. */
+export function restoreCondition(condition: MediaCondition): MediaCondition | null {
+  return CONDITION_LADDER[condition].better
 }
 
 /** Closed wear-rank interval between `min` and `max` (order-insensitive). */

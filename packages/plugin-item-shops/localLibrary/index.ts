@@ -10,6 +10,7 @@ import {
   type QueueValidationParams,
   type QueueValidationResult,
   type ResolvedPhysicalMediaItem,
+  PHYSICAL_MEDIA_ORIGIN_KEY,
 } from "@repo/types"
 import type { ItemCatalogEntry, ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
 import { ITEM_CATALOG } from "../items/index"
@@ -744,7 +745,7 @@ export class LocalLibraryModule {
         params.userId,
         definitionIdForShortId(this.pluginName, broken.shortId),
         1,
-        undefined,
+        { [PHYSICAL_MEDIA_ORIGIN_KEY]: chosen.held.definitionId },
         "plugin",
       )
       if (!given) {
@@ -754,10 +755,11 @@ export class LocalLibraryModule {
       }
     }
     const transition = broken?.transitionMessage(recordName) ?? `${recordName} wore out.`
-    const suffix = broken && !given ? " …but you had no room to keep it." : ""
-    await context.api.sendUserSystemMessage(params.roomId, params.userId, `${transition}${suffix}`, {
-      type: "alert",
-      status: "warning",
+    await context.api.sendUserToast(params.roomId, params.userId, {
+      title: transition,
+      ...(broken && !given ? { description: "…but you had no room to keep it." } : {}),
+      type: "warning",
+      source: "item-shops",
     })
   }
 

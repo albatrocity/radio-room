@@ -1,7 +1,7 @@
 # 0155. Physical Media condition, wear, and conversion
 
 **Date:** 2026-09-04
-**Status:** Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam)
+**Status:** Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam). Amended by [0159](0159-physical-media-restoration-items.md)
 
 ## Context
 
@@ -39,4 +39,5 @@ This amends [ADR 0099](0099-physical-media-personal-libraries.md) §3 (durable r
 - [0156. Mutable inventory stack metadata](0156-mutable-inventory-stack-metadata.md)
 - [0157. Physical Media condition artwork as an overlay modifier](0157-physical-media-condition-artwork.md)
 - [0158. Shopping session condition bounds](0158-shopping-session-condition-bounds.md)
+- [0159. Physical Media restoration items](0159-physical-media-restoration-items.md)
 - [`packages/plugin-item-shops/localLibrary/condition.ts`](../../packages/plugin-item-shops/localLibrary/condition.ts)

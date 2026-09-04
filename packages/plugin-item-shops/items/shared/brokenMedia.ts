@@ -1,5 +1,5 @@
-import type { ArtworkFrame, PhysicalMediaFormat } from "@repo/types"
-import { parseArtworkFrame } from "@repo/types"
+import type { ArtworkFrame, InventoryItem, PhysicalMediaFormat } from "@repo/types"
+import { parseArtworkFrame, PHYSICAL_MEDIA_FORMATS, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
 import { scratchedCd, scratchedCdTransitionMessage } from "../scratched-cd"
 import { dustyRecord, dustyRecordTransitionMessage } from "../dusty-record"
 import { tangledTape, tangledTapeTransitionMessage } from "../tangled-tape"
@@ -26,6 +26,29 @@ export const BROKEN_MEDIA_BY_FORMAT: Record<PhysicalMediaFormat, BrokenMediaSpec
     shortId: tangledTape.shortId,
     transitionMessage: tangledTapeTransitionMessage,
   },
+}
+
+/** Reverse of BROKEN_MEDIA_BY_FORMAT: which formats a broken SKU can restore to. */
+export const FORMATS_BY_BROKEN_SHORT_ID: Record<string, PhysicalMediaFormat[]> = (() => {
+  const out: Record<string, PhysicalMediaFormat[]> = {}
+  for (const format of PHYSICAL_MEDIA_FORMATS) {
+    const shortId = BROKEN_MEDIA_BY_FORMAT[format].shortId
+    const list = out[shortId] ?? []
+    if (!list.includes(format)) list.push(format)
+    out[shortId] = list
+  }
+  return out
+})()
+
+export function isBrokenMediaShortId(shortId: string | undefined): boolean {
+  return (
+    shortId != null && Object.prototype.hasOwnProperty.call(FORMATS_BY_BROKEN_SHORT_ID, shortId)
+  )
+}
+
+export function readMediaOrigin(item: InventoryItem): string | undefined {
+  const raw = item.metadata?.[PHYSICAL_MEDIA_ORIGIN_KEY]
+  return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : undefined
 }
 
 /** 1:1 frame → format for records registered before `mediaFormat` existed. */

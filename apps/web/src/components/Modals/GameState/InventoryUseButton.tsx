@@ -5,6 +5,7 @@ import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
 import { InventoryItemStoragePopover } from "./InventoryItemPicker"
 import { CoinAmountStoragePopover } from "./CoinAmountPicker"
 import { UserInventoryItemPicker } from "./UserInventoryItemPicker"
+import { UseTargetPopover } from "./UseTargetPicker"
 
 type UseExtra = {
   targetUserId?: string
@@ -100,6 +101,18 @@ export function InventoryUseButton({
         >
           {useTriggerButton(useLoading, undefined, fullWidth)}
         </InventoryItemStoragePopover>,
+      )
+    case "mediaItem":
+      return wrapFullWidth(
+        fullWidth,
+        <UseTargetPopover
+          excludingItemId={itemId}
+          items={allItems}
+          definitionMap={definitionMap}
+          onPick={(targetInventoryItemId) => onUse({ targetInventoryItemId })}
+        >
+          {useTriggerButton(useLoading, undefined, fullWidth)}
+        </UseTargetPopover>,
       )
     case "coinAmount":
       return wrapFullWidth(

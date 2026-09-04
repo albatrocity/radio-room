@@ -11,8 +11,8 @@ export const dustyRecord = createItem({
     name: "Dusty Record",
     description:
       "When was the last time this thing was cleaned? Unplayable. Skips whatever song is currently playing",
-    stackable: true,
-    maxStack: 3,
+    stackable: false,
+    maxStack: 1,
     tradeable: true,
     consumable: true,
     coinValue: 75,

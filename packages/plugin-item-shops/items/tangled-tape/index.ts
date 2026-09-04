@@ -10,8 +10,8 @@ export const tangledTape = createItem({
   definition: {
     name: "Tangled Tape",
     description: "This thing is a real mess. Skips the currently playing song",
-    stackable: true,
-    maxStack: 3,
+    stackable: false,
+    maxStack: 1,
     tradeable: true,
     consumable: true,
     coinValue: 75,

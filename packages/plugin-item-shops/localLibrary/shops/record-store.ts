@@ -8,6 +8,9 @@ export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] 
   { shortId: items.scratchedCd.shortId, coinValue: 75 },
   { shortId: items.dustyRecord.shortId, coinValue: 75 },
   { shortId: items.tangledTape.shortId, coinValue: 75 },
+  { shortId: items.cdCleaner.shortId, coinValue: 40 },
+  { shortId: items.dustCloth.shortId, coinValue: 40 },
+  { shortId: items.pencil.shortId, coinValue: 25 },
 ]
 
 /**

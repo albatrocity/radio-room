@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { ShoppingSessionHelper } from "@repo/plugin-base"
 import type { InventoryItem, PluginContext, Room } from "@repo/types"
+import { PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { ItemShopsPlugin, getEligibleShops, defaultItemShopsConfig } from "./index"
 import { SHOP_CATALOG } from "./shops"
@@ -207,6 +208,7 @@ function setup(options?: {
     })),
     isRoomAdmin: vi.fn(async () => options?.isAdmin ?? false),
     sendUserSystemMessage: vi.fn(async () => {}),
+    sendUserToast: vi.fn(async () => {}),
     sendSystemMessage: vi.fn(async () => {}),
     getUsers: vi.fn(async () => [{ userId: "u1", username: "U1" }]),
     getUsersByIds: vi.fn(async (ids: string[]) => ids.map((id) => ({ userId: id, username: id }))),
@@ -785,15 +787,18 @@ describe("ItemShopsPlugin local library grants", () => {
         "u1",
         "item-shops:dusty-record",
         1,
-        undefined,
+        { [PHYSICAL_MEDIA_ORIGIN_KEY]: PM_DEF_ID },
         "plugin",
       )
-      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+      expect(api.sendUserToast).toHaveBeenCalledWith(
         ROOM,
         "u1",
-        expect.stringContaining("dusty"),
-        expect.objectContaining({ type: "alert", status: "warning" }),
+        expect.objectContaining({
+          title: expect.stringContaining("dusty"),
+          type: "warning",
+        }),
       )
+      expect(api.sendUserSystemMessage).not.toHaveBeenCalled()
     })
 
     it("still queues and destroys a poor record when inventory is full", async () => {
@@ -807,12 +812,16 @@ describe("ItemShopsPlugin local library grants", () => {
       expect(result).toEqual({ allowed: true })
       expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1)
       expect(inventory.giveItem).toHaveBeenCalled()
-      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+      expect(api.sendUserToast).toHaveBeenCalledWith(
         ROOM,
         "u1",
-        expect.stringMatching(/no room to keep it/i),
-        expect.objectContaining({ status: "warning" }),
+        expect.objectContaining({
+          title: expect.stringContaining("dusty"),
+          description: expect.stringMatching(/no room to keep it/i),
+          type: "warning",
+        }),
       )
+      expect(api.sendUserSystemMessage).not.toHaveBeenCalled()
     })
 
     it("wears the worst copy first when several are held", async () => {

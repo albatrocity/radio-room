@@ -9,12 +9,16 @@ import {
   priceForCondition,
   readItemCondition,
   readOfferConditionBounds,
+  restoreCondition,
   rollOfferCondition,
 } from "./condition"
 import {
   BROKEN_MEDIA_BY_FORMAT,
+  FORMATS_BY_BROKEN_SHORT_ID,
   formatFromArtworkFrame,
+  isBrokenMediaShortId,
 } from "../items/shared/brokenMedia"
+import { MEDIA_CONDITIONS } from "@repo/types"
 
 function itemWithCondition(condition?: unknown): InventoryItem {
   return {
@@ -42,6 +46,21 @@ describe("readItemCondition / degradeCondition", () => {
     expect(degradeCondition("mint")).toBe("good")
     expect(degradeCondition("good")).toBe("poor")
     expect(degradeCondition("poor")).toBeNull()
+  })
+
+  it("walks poor → good → mint → null", () => {
+    expect(restoreCondition("poor")).toBe("good")
+    expect(restoreCondition("good")).toBe("mint")
+    expect(restoreCondition("mint")).toBeNull()
+  })
+
+  it("treats degrade and restore as inverses across MEDIA_CONDITIONS", () => {
+    for (const condition of MEDIA_CONDITIONS) {
+      const worse = degradeCondition(condition)
+      if (worse) expect(restoreCondition(worse)).toBe(condition)
+      const better = restoreCondition(condition)
+      if (better) expect(degradeCondition(better)).toBe(condition)
+    }
   })
 })
 
@@ -132,6 +151,11 @@ describe("BROKEN_MEDIA_BY_FORMAT / formatFromArtworkFrame", () => {
     expect(BROKEN_MEDIA_BY_FORMAT.CD.transitionMessage("Kid A")).toBe("Kid A became scratched!")
     expect(BROKEN_MEDIA_BY_FORMAT.LP.transitionMessage("Loveless")).toBe("Loveless got all dusty!")
     expect(BROKEN_MEDIA_BY_FORMAT.TAPE.transitionMessage("Mix")).toBe("Mix became all tangled up!")
+    expect(FORMATS_BY_BROKEN_SHORT_ID["scratched-cd"]).toEqual(["CD"])
+    expect(FORMATS_BY_BROKEN_SHORT_ID["dusty-record"]).toEqual(["LP", "45"])
+    expect(FORMATS_BY_BROKEN_SHORT_ID["tangled-tape"]).toEqual(["TAPE"])
+    expect(isBrokenMediaShortId("scratched-cd")).toBe(true)
+    expect(isBrokenMediaShortId("boost-pedal")).toBe(false)
   })
 
   it("maps legacy artwork frames back to a format", () => {

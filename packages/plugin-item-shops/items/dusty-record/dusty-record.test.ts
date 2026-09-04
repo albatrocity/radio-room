@@ -11,6 +11,11 @@ import {
 } from "../shared/testHelpers"
 
 describe("dustyRecord", () => {
+  test("is a non-stackable skip tool", () => {
+    expect(dustyRecord.catalogEntry.definition.stackable).toBe(false)
+    expect(dustyRecord.catalogEntry.definition.maxStack).toBe(1)
+  })
+
   test("skips current track when playing", async () => {
     const deps = createMockDeps()
     const user = userFactory.build()

@@ -90,6 +90,7 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
           .mockResolvedValue({ userId: "", items: [], maxSlots: 20, maxCollectionSlots: 20 }),
         getItemDefinition,
         getItemDefinitions,
+        getAllItemDefinitions: vi.fn().mockResolvedValue([]),
         removeItem: vi.fn().mockResolvedValue(true),
         giveItem: vi.fn().mockResolvedValue(null),
         updateItemMetadata: vi.fn().mockResolvedValue(null),

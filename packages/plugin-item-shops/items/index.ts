@@ -28,6 +28,9 @@ import { xRay } from "./x-ray"
 import { scratchedCd } from "./scratched-cd"
 import { dustyRecord } from "./dusty-record"
 import { tangledTape } from "./tangled-tape"
+import { cdCleaner } from "./cd-cleaner"
+import { dustCloth } from "./dust-cloth"
+import { pencil } from "./pencil"
 import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
 import { vanCubby } from "./van-cubby"
@@ -56,6 +59,9 @@ export const items = {
   scratchedCd,
   dustyRecord,
   tangledTape,
+  cdCleaner,
+  dustCloth,
+  pencil,
   analogDelayPedal,
   fuzzPedal,
   tubeOverdrive,

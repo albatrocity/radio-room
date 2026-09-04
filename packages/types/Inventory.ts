@@ -71,10 +71,7 @@ export const PHYSICAL_MEDIA_FORMATS: readonly PhysicalMediaFormat[] = [
 ] as const
 
 export function isPhysicalMediaFormat(value: unknown): value is PhysicalMediaFormat {
-  return (
-    typeof value === "string" &&
-    (PHYSICAL_MEDIA_FORMATS as readonly string[]).includes(value)
-  )
+  return typeof value === "string" && (PHYSICAL_MEDIA_FORMATS as readonly string[]).includes(value)
 }
 
 /** Wear ladder for Physical Media copies (ADR 0155). Absent metadata reads as mint. */
@@ -90,6 +87,9 @@ export const MEDIA_CONDITION_LABELS: Record<MediaCondition, string> = {
 
 /** `InventoryItem.metadata` key for `MediaCondition`. */
 export const PHYSICAL_MEDIA_CONDITION_KEY = "condition" as const
+
+/** `InventoryItem.metadata` key: definitionId of the record a broken-media copy came from (ADR 0159). */
+export const PHYSICAL_MEDIA_ORIGIN_KEY = "mediaOrigin" as const
 
 export function isMediaCondition(value: unknown): value is MediaCondition {
   return value === "mint" || value === "good" || value === "poor"
@@ -230,6 +230,8 @@ export interface ItemDefinition {
    * When `"userInventoryItem"`, the UI picks a user, peeks their inventory
    * (`PEEK_USER_INVENTORY`), then sends `targetUserId` + `targetInventoryItemId`
    * (see ADR 0147).
+   * When `"mediaItem"`, the UI opens a picker over all of the user's own stacks
+   * and sends `targetInventoryItemId`; the handler decides whether the target was valid.
    * When `"self"` or omitted, the effect applies to the inventory owner only.
    */
   requiresTarget?:
@@ -238,6 +240,7 @@ export interface ItemDefinition {
     | "queueItem"
     | "inventoryItem"
     | "userInventoryItem"
+    | "mediaItem"
     | "coinAmount"
   /**
    * When set, holding this item passively blocks matching modifiers / queue
