@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest"
 import type { InventoryItem, ItemDefinition, PluginContext, ShopOffer } from "@repo/types"
 import { ShoppingSessionHelper } from "./ShoppingSessionHelper"
 import {
-  DEFAULT_RARITY_WEIGHTS,
   type ItemCatalogEntry,
   type ShopCatalogEntry,
   type ShopEconomyHooks,
@@ -107,14 +106,7 @@ describe("ShoppingSessionHelper purchase / sell hooks", () => {
 
   it("forwards offer.condition as giveItem metadata", async () => {
     const { context, giveItem } = makeContext()
-    const helper = new ShoppingSessionHelper(
-      "item-shops",
-      context,
-      [PM, PEDAL],
-      [SHOP],
-      DEFAULT_RARITY_WEIGHTS,
-      hooks,
-    )
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP], { hooks })
     const result = await helper.purchase({ userId: "u1", username: "U" }, 0)
     expect(result.success).toBe(true)
     expect(giveItem).toHaveBeenCalledWith(
@@ -141,14 +133,7 @@ describe("ShoppingSessionHelper purchase / sell hooks", () => {
       ...PM.definition,
     }
     const { context } = makeContext()
-    const helper = new ShoppingSessionHelper(
-      "item-shops",
-      context,
-      [PM, PEDAL],
-      [SHOP],
-      DEFAULT_RARITY_WEIGHTS,
-      hooks,
-    )
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP], { hooks })
     const result = await helper.sell("u1", item, definition)
     expect(result.success).toBe(true)
     // listed price 20 * 0.45 condition * 0.5 buyback = 4

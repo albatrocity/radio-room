@@ -2,6 +2,7 @@ import {
   AppContext,
   ApplyModifierResult,
   CheckModifierDefenseResult,
+  DEFAULT_SLOT_CAPS,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -12,7 +13,9 @@ import {
   GameStateChange,
   GameStateModifier,
   PluginAttributeDefinition,
+  SESSION_CONFIG_BOOLEAN_KEYS,
   UserGameState,
+  type SessionConfigBooleanKey,
 } from "@repo/types"
 import { evaluateModifiers, pruneExpiredModifiers } from "@repo/game-logic"
 import generateId from "../lib/generateId"
@@ -22,10 +25,6 @@ import { DefenseService } from "./DefenseService"
 // ============================================================================
 // Default config helpers
 // ============================================================================
-
-const DEFAULT_INVENTORY_SLOTS = 3
-const DEFAULT_COLLECTION_SLOTS = 12
-const DEFAULT_PLAYBACK_SLOTS = 2
 
 /**
  * Fill in defaults for an incoming session config. The plan keeps the
@@ -62,9 +61,9 @@ export function buildSessionConfig(
     teams: partial.teams,
     segmentId: partial.segmentId,
     inventoryEnabled: partial.inventoryEnabled ?? true,
-    maxInventorySlots: partial.maxInventorySlots ?? DEFAULT_INVENTORY_SLOTS,
-    maxCollectionSlots: partial.maxCollectionSlots ?? DEFAULT_COLLECTION_SLOTS,
-    maxPlaybackSlots: partial.maxPlaybackSlots ?? DEFAULT_PLAYBACK_SLOTS,
+    maxInventorySlots: partial.maxInventorySlots ?? DEFAULT_SLOT_CAPS.inventory,
+    maxCollectionSlots: partial.maxCollectionSlots ?? DEFAULT_SLOT_CAPS.collection,
+    maxPlaybackSlots: partial.maxPlaybackSlots ?? DEFAULT_SLOT_CAPS.playback,
     allowTrading: partial.allowTrading ?? false,
     allowSelling: partial.allowSelling ?? false,
     physicalMediaWearForAdmins: partial.physicalMediaWearForAdmins ?? true,
@@ -227,25 +226,24 @@ export class GameSessionService {
    */
   async patchActiveSessionConfig(
     roomId: string,
-    patch: { allowTrading?: boolean; physicalMediaWearForAdmins?: boolean },
+    patch: Partial<Pick<GameSession["config"], SessionConfigBooleanKey>>,
   ): Promise<GameSession | null> {
     const session = await this.getActiveSession(roomId)
     if (!session || session.status !== "active") return null
 
     const prevAllowTrading = session.config.allowTrading
-    const nextAllowTrading = patch.allowTrading ?? prevAllowTrading
-    const nextWearForAdmins =
-      patch.physicalMediaWearForAdmins ?? session.config.physicalMediaWearForAdmins ?? true
+    const nextConfig = { ...session.config }
+    for (const key of SESSION_CONFIG_BOOLEAN_KEYS) {
+      if (typeof patch[key] === "boolean") {
+        nextConfig[key] = patch[key]
+      }
+    }
     const updated: GameSession = {
       ...session,
-      config: {
-        ...session.config,
-        allowTrading: nextAllowTrading,
-        physicalMediaWearForAdmins: nextWearForAdmins,
-      },
+      config: nextConfig,
     }
 
-    if (prevAllowTrading && !nextAllowTrading) {
+    if (prevAllowTrading && !updated.config.allowTrading) {
       try {
         const { cancelGiftsForSessionEnd } = await import("../operations/inventory/giftOps")
         const { cancelTradesForSessionEnd } = await import("../operations/inventory/tradeOps")

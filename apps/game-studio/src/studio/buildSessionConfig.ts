@@ -1,9 +1,8 @@
 import type { GameAttributeName, GameSessionConfig } from "@repo/types"
+import { DEFAULT_SLOT_CAPS } from "@repo/types"
 import { newId } from "./id"
 
-const DEFAULT_INVENTORY_SLOTS = 3
-const DEFAULT_COLLECTION_SLOTS = 12
-export const DEFAULT_PLAYBACK_SLOTS = 2
+export const DEFAULT_PLAYBACK_SLOTS = DEFAULT_SLOT_CAPS.playback
 
 /**
  * Mirrors `packages/server/services/GameSessionService.ts` defaults for sandbox sessions.
@@ -39,9 +38,9 @@ export function buildSessionConfig(
     teams: partial.teams,
     segmentId: partial.segmentId,
     inventoryEnabled: partial.inventoryEnabled ?? true,
-    maxInventorySlots: partial.maxInventorySlots ?? DEFAULT_INVENTORY_SLOTS,
-    maxCollectionSlots: partial.maxCollectionSlots ?? DEFAULT_COLLECTION_SLOTS,
-    maxPlaybackSlots: partial.maxPlaybackSlots ?? DEFAULT_PLAYBACK_SLOTS,
+    maxInventorySlots: partial.maxInventorySlots ?? DEFAULT_SLOT_CAPS.inventory,
+    maxCollectionSlots: partial.maxCollectionSlots ?? DEFAULT_SLOT_CAPS.collection,
+    maxPlaybackSlots: partial.maxPlaybackSlots ?? DEFAULT_SLOT_CAPS.playback,
     allowTrading: partial.allowTrading ?? false,
     allowSelling: partial.allowSelling ?? true,
     physicalMediaWearForAdmins: partial.physicalMediaWearForAdmins ?? true,

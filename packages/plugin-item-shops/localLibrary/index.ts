@@ -13,6 +13,7 @@ import {
   type QueueValidationResult,
   type ResolvedPhysicalMediaItem,
   PHYSICAL_MEDIA_ORIGIN_KEY,
+  PHYSICAL_MEDIA_CONDITION_KEY,
 } from "@repo/types"
 import type { ItemCatalogEntry, ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
 import { ITEM_CATALOG } from "../items/index"
@@ -80,6 +81,8 @@ export class LocalLibraryModule {
   derivedPhysicalMedia: ItemCatalogEntry[] = []
   private derivedPlaylistMap: Record<string, string> = {}
   private derivedAlbumMap: Record<string, string> = {}
+  /** Rebuilt in `applyConfig` so the queue hot path does not reconstruct the map. */
+  private itemDefinitionMap: Map<string, ItemDefinition> | null = null
   /** Album ids already fetched for sleeves this refresh (avoids hydrate spin on missing art). */
   private albumArtworkAttempted = new Set<string>()
   /** Local track id → last playlist/album membership (cleared on catalog refresh). */
@@ -99,6 +102,7 @@ export class LocalLibraryModule {
     const staticGrants = ITEM_CATALOG.filter((e) => e.localLibraryGrant)
     const grantCatalog = [...staticGrants, ...configGrants, ...this.derivedPhysicalMedia]
     this.grantCatalog = grantCatalog
+    this.itemDefinitionMap = null
     return {
       itemCatalog: buildEffectiveItemCatalog(grants, this.derivedPhysicalMedia),
       shopCatalog: buildEffectiveShopCatalog(grants, this.derivedPhysicalMedia),
@@ -726,7 +730,7 @@ export class LocalLibraryModule {
     const recordName = chosen.held.name
     if (next) {
       await context.inventory.updateItemMetadata(params.userId, chosen.held.itemId, {
-        condition: next,
+        [PHYSICAL_MEDIA_CONDITION_KEY]: next,
       })
       await context.api.sendUserSystemMessage(
         params.roomId,
@@ -801,8 +805,9 @@ export class LocalLibraryModule {
     })
   }
 
-  /** In-memory catalog map so the queue hot path does not re-fetch definitions. */
+  /** Catalog map rebuilt when `applyConfig` updates grant/derived catalogs. */
   private definitionMapForItems(): Map<string, ItemDefinition> {
+    if (this.itemDefinitionMap) return this.itemDefinitionMap
     const m = new Map<string, ItemDefinition>()
     for (const e of [...ITEM_CATALOG, ...this.grantCatalog]) {
       const id = definitionIdForShortId(this.pluginName, e.definition.shortId)
@@ -813,6 +818,7 @@ export class LocalLibraryModule {
         ...e.definition,
       })
     }
+    this.itemDefinitionMap = m
     return m
   }
 

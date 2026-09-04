@@ -718,29 +718,12 @@ export class AdminHandlers {
    */
   updateGameSessionConfig = async (
     { socket }: HandlerConnections,
-    data: { allowTrading?: boolean; physicalMediaWearForAdmins?: boolean },
+    data: unknown,
   ) => {
-    const hasAllowTrading = typeof data?.allowTrading === "boolean"
-    const hasWearForAdmins = typeof data?.physicalMediaWearForAdmins === "boolean"
-    if (!hasAllowTrading && !hasWearForAdmins) {
-      socket.emit("event", {
-        type: "ERROR_OCCURRED",
-        data: {
-          status: 400,
-          error: "Bad Request",
-          message: "At least one known boolean config key must be present.",
-        },
-      })
-      return
-    }
-
     const result = await this.adminService.updateGameSessionConfig(
       socket.data.roomId,
       socket.data.userId,
-      {
-        ...(hasAllowTrading ? { allowTrading: data.allowTrading } : {}),
-        ...(hasWearForAdmins ? { physicalMediaWearForAdmins: data.physicalMediaWearForAdmins } : {}),
-      },
+      data,
     )
 
     if (result.error) {

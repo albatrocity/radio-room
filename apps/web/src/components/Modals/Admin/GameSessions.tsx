@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import type { GameSession } from "@repo/types"
+import { DEFAULT_SLOT_CAPS } from "@repo/types"
 import {
   Badge,
   Box,
@@ -30,9 +31,9 @@ export default function GameSessions() {
 
   const [sessionName, setSessionName] = useState("")
   const [initialCoinsInput, setInitialCoinsInput] = useState("")
-  const [inventorySlotsInput, setInventorySlotsInput] = useState("3")
-  const [collectionSlotsInput, setCollectionSlotsInput] = useState("12")
-  const [playbackSlotsInput, setPlaybackSlotsInput] = useState("2")
+  const [inventorySlotsInput, setInventorySlotsInput] = useState(String(DEFAULT_SLOT_CAPS.inventory))
+  const [collectionSlotsInput, setCollectionSlotsInput] = useState(String(DEFAULT_SLOT_CAPS.collection))
+  const [playbackSlotsInput, setPlaybackSlotsInput] = useState(String(DEFAULT_SLOT_CAPS.playback))
   const [allowTrading, setAllowTrading] = useState(false)
   const [physicalMediaWearForAdmins, setPhysicalMediaWearForAdmins] = useState(true)
   const [activeSession, setActiveSession] = useState<GameSession | null>(null)
@@ -72,10 +73,6 @@ export default function GameSessions() {
           setLoadError(null)
           const d = event.data as { session: GameSession | null }
           setActiveSession(d.session ?? null)
-          if (d.session) {
-            setAllowTrading(d.session.config.allowTrading === true)
-            setPhysicalMediaWearForAdmins(d.session.config.physicalMediaWearForAdmins !== false)
-          }
           return
         }
 
@@ -98,8 +95,6 @@ export default function GameSessions() {
           setActionLoading(false)
           const d = event.data as { results: unknown | null }
           setActiveSession(null)
-          setAllowTrading(false)
-          setPhysicalMediaWearForAdmins(true)
           if (d.results == null) {
             toaster.create({
               title: "No active session",
@@ -123,8 +118,6 @@ export default function GameSessions() {
           const d = event.data as { session: GameSession | null }
           if (d.session) {
             setActiveSession(d.session)
-            setAllowTrading(d.session.config.allowTrading === true)
-            setPhysicalMediaWearForAdmins(d.session.config.physicalMediaWearForAdmins !== false)
           }
           toaster.create({
             title: "Session updated",
@@ -429,7 +422,7 @@ export default function GameSessions() {
               disabled={actionLoading || statusLoading}
             />
             <Field.HelperText>
-              Consumable / tool bag size. Default is 3.
+              Consumable / tool bag size. Default is {DEFAULT_SLOT_CAPS.inventory}.
             </Field.HelperText>
           </Field.Root>
 
@@ -445,7 +438,7 @@ export default function GameSessions() {
               disabled={actionLoading || statusLoading}
             />
             <Field.HelperText>
-              Durable Physical Media holdings. Default is 12.
+              Durable Physical Media holdings. Default is {DEFAULT_SLOT_CAPS.collection}.
             </Field.HelperText>
           </Field.Root>
 
@@ -461,7 +454,7 @@ export default function GameSessions() {
               disabled={actionLoading || statusLoading}
             />
             <Field.HelperText>
-              Playback devices (CD player, turntable, …). Default is 2.
+              Playback devices (CD player, turntable, …). Default is {DEFAULT_SLOT_CAPS.playback}.
             </Field.HelperText>
           </Field.Root>
 

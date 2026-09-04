@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react"
 import { Box, HStack, Stack, Text, VStack } from "@chakra-ui/react"
 import type { ItemDefinition, ItemShopsUserGameState, MediaCondition, MetadataSourceTrack } from "@repo/types"
-import { isMediaCondition, ITEM_SHOPS_PLUGIN_NAME, PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
+import { isPhysicalMediaDefinition, ITEM_SHOPS_PLUGIN_NAME, readItemCondition, resolveSlotPool } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import AlbumTrackListView, { type AlbumViewHeader } from "../../AlbumTrackListView"
 import ItemArtwork from "../../ItemArtwork"
@@ -47,7 +47,7 @@ function CollectionGiftSell({
 }) {
   const gameState = useUserGameState()
   if (frame.source !== "inventory") return null
-  if (definition?.slotPool !== "collection") return null
+  if (resolveSlotPool(definition) !== "collection") return null
   const item = gameState?.inventory?.items.find((entry) => entry.itemId === frame.inventoryItemId)
   if (!item) return null
   const controls = <InventoryGiftSellControls item={item} definition={definition} layout="split" />
@@ -102,9 +102,10 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
           ?.getPluginState<ItemShopsUserGameState>(ITEM_SHOPS_PLUGIN_NAME)
           ?.currentShopInstance?.offers.find((row) => row.offerId === frame.shopOfferId)
       : undefined
-  const rawCondition = inventoryItem?.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
-  const condition: MediaCondition | undefined = isMediaCondition(rawCondition)
-    ? rawCondition
+  const condition: MediaCondition | undefined = inventoryItem
+    ? isPhysicalMediaDefinition(definition)
+      ? readItemCondition(inventoryItem)
+      : undefined
     : shopOffer?.condition
   const artworkFrame = resolveDisplayArtworkFrame({
     mediaFormat: shopOffer?.mediaFormat ?? definition?.mediaFormat,

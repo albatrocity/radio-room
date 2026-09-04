@@ -36,18 +36,24 @@ export class ShoppingSessionHelper {
   private catalogMap: Map<string, ItemCatalogEntry>
   private itemCatalog: readonly ItemCatalogEntry[]
   private shopCatalog: readonly ShopCatalogEntry[]
+  private readonly rarityWeights: Record<ItemRarity, number>
+  private readonly hooks?: ShopEconomyHooks
 
   constructor(
     private readonly pluginName: string,
     private readonly context: PluginContext,
     itemCatalog: readonly ItemCatalogEntry[],
     shopCatalog: readonly ShopCatalogEntry[],
-    private readonly rarityWeights: Record<ItemRarity, number> = DEFAULT_RARITY_WEIGHTS,
-    private readonly hooks?: ShopEconomyHooks,
+    options?: {
+      rarityWeights?: Record<ItemRarity, number>
+      hooks?: ShopEconomyHooks
+    },
   ) {
     this.itemCatalog = itemCatalog
     this.shopCatalog = shopCatalog
     this.catalogMap = buildItemCatalogMap(itemCatalog)
+    this.rarityWeights = options?.rarityWeights ?? DEFAULT_RARITY_WEIGHTS
+    this.hooks = options?.hooks
   }
 
   /**

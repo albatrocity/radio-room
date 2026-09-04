@@ -5,7 +5,7 @@ import type {
   ShopSessionContext,
 } from "@repo/plugin-base/helpers"
 import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugin-base"
-import { countFlagStacks, resolveItemRarity, buildItemCatalogMap, filterShopCatalogByRoomType, DEFAULT_RARITY_WEIGHTS } from "@repo/game-logic"
+import { countFlagStacks, resolveItemRarity, buildItemCatalogMap, filterShopCatalogByRoomType } from "@repo/game-logic"
 import {
   type ChatMessage,
   type ContributeToUserGameStateContext,
@@ -148,8 +148,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       context,
       itemCatalog,
       shopCatalog,
-      DEFAULT_RARITY_WEIGHTS,
-      physicalMediaShopEconomyHooks(() => this.offerConditionBounds),
+      { hooks: physicalMediaShopEconomyHooks(() => this.offerConditionBounds) },
     )
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.scheduleAlbumArtworkHydrate()
@@ -716,8 +715,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           variant: "info",
           showWhen: { field: "enabled", value: true },
         },
-        "offerConditionMin",
-        "offerConditionMax",
         {
           type: "action",
           action: "setOfferConditionRange",

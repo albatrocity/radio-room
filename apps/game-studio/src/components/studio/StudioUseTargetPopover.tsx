@@ -1,16 +1,15 @@
 "use client"
 
 import { Badge, Button, HStack, Popover, Text, VStack } from "@chakra-ui/react"
-import type { InventoryItem, ItemDefinition, MediaCondition } from "@repo/types"
-import { isMediaCondition, PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
+import type { InventoryItem } from "@repo/types"
+import {
+  isPhysicalMediaDefinition,
+  MEDIA_CONDITION_LABELS,
+  MEDIA_CONDITION_PALETTE,
+  readItemCondition,
+} from "@repo/types"
 import { useState } from "react"
 import type { StudioRoom } from "../../studio/studioRoom"
-
-const CONDITION_PALETTE: Record<MediaCondition, string> = {
-  mint: "green",
-  good: "yellow",
-  poor: "red",
-}
 
 type Props = {
   room: StudioRoom
@@ -18,15 +17,6 @@ type Props = {
   excludingItemId: string
   onPick: (targetInventoryItemId: string) => void
   children: React.ReactNode
-}
-
-function isPhysicalMedia(definition: ItemDefinition | null): boolean {
-  return definition?.mediaFormat != null || definition?.artworkFrame != null
-}
-
-function readCondition(item: InventoryItem): MediaCondition | undefined {
-  const raw = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
-  return isMediaCondition(raw) ? raw : undefined
 }
 
 /**
@@ -59,8 +49,8 @@ export function StudioUseTargetPopover({ room, userId, excludingItemId, onPick, 
               {selectable.map((invItem: InventoryItem) => {
                 const def = room.getDefinition(invItem.definitionId)
                 const label = def?.name ?? invItem.definitionId
-                const condition = isPhysicalMedia(def) ? readCondition(invItem) : undefined
-                const format = isPhysicalMedia(def) ? def?.mediaFormat : undefined
+                const condition = isPhysicalMediaDefinition(def) ? readItemCondition(invItem) : undefined
+                const format = isPhysicalMediaDefinition(def) ? def?.mediaFormat : undefined
                 return (
                   <Button
                     key={invItem.itemId}
@@ -74,7 +64,7 @@ export function StudioUseTargetPopover({ room, userId, excludingItemId, onPick, 
                         {label}
                         {invItem.quantity > 1 ? ` ×${invItem.quantity}` : ""}
                       </Text>
-                      {isPhysicalMedia(def) ? (
+                      {isPhysicalMediaDefinition(def) ? (
                         <HStack gap={1} flexShrink={0}>
                           {format ? (
                             <Text fontSize="2xs" color="fg.muted">
@@ -84,10 +74,10 @@ export function StudioUseTargetPopover({ room, userId, excludingItemId, onPick, 
                           {condition ? (
                             <Badge
                               size="sm"
-                              colorPalette={CONDITION_PALETTE[condition]}
+                              colorPalette={MEDIA_CONDITION_PALETTE[condition]}
                               variant="subtle"
                             >
-                              {condition}
+                              {MEDIA_CONDITION_LABELS[condition]}
                             </Badge>
                           ) : null}
                         </HStack>

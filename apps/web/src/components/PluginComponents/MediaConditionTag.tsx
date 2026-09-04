@@ -1,14 +1,8 @@
 import { Tag, TagRootProps, type ConditionalValue } from "@chakra-ui/react"
-import { MEDIA_CONDITION_LABELS, type MediaCondition } from "@repo/types"
+import { MEDIA_CONDITION_LABELS, MEDIA_CONDITION_PALETTE, type MediaCondition } from "@repo/types"
 
 /** Theme-extended tag size (`tagRecipe` adds `xs`). */
 type MediaConditionTagSize = "xs" | "sm" | "md" | "lg" | "xl"
-
-const CONDITION_PALETTE: Record<MediaCondition, string> = {
-  mint: "green",
-  good: "yellow",
-  poor: "red",
-}
 
 type MediaConditionTagProps = {
   condition: MediaCondition
@@ -22,7 +16,7 @@ export function MediaConditionTag({
 }: MediaConditionTagProps) {
   return (
     <Tag.Root
-      colorPalette={CONDITION_PALETTE[condition]}
+      colorPalette={MEDIA_CONDITION_PALETTE[condition]}
       variant="subtle"
       size={size as TagRootProps["size"]}
       {...props}

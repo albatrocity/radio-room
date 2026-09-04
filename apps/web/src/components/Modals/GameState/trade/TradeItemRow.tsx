@@ -1,4 +1,5 @@
 import { Box, Circle, Float, HStack, Text } from "@chakra-ui/react"
+import { resolveSlotPool } from "@repo/types"
 import ItemArtwork from "../../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../../artworkFrames/frameStyles"
 import { OFFER_ARTWORK_SIZE, PICKER_ARTWORK_SIZE } from "./tradeDetailConstants"
@@ -21,7 +22,7 @@ export function TradeItemRow({
 }) {
   const boxSize = compact
     ? PICKER_ARTWORK_SIZE
-    : def?.slotPool === "collection"
+    : resolveSlotPool(def) === "collection"
       ? FRAMED_ARTWORK_BOX_SIZE
       : OFFER_ARTWORK_SIZE
 

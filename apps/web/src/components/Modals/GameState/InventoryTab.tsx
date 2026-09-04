@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Badge, Box, Center, HStack, Heading, Stack, Text, VStack } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition, MediaCondition } from "@repo/types"
-import { isMediaCondition, PHYSICAL_MEDIA_CONDITION_KEY, resolveSlotPool } from "@repo/types"
+import { isPhysicalMediaDefinition, readItemCondition, resolveSlotPool } from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import { emitToSocket } from "../../../actors/socketActor"
 import { subscribeInventoryActionResult } from "../../../lib/inventoryActionResult"
@@ -63,11 +63,10 @@ function InventoryRow({
   const description = definition?.description
   const consumable = definition?.consumable ?? false
   const detailView = definition?.detailView
-  const isCollection = definition?.slotPool === "collection"
+  const isCollection = resolveSlotPool(definition) === "collection"
   const opensDetail = Boolean(detailView && definition?.shortId)
-  const rawCondition = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
-  const condition: MediaCondition | undefined = isMediaCondition(rawCondition)
-    ? rawCondition
+  const condition: MediaCondition | undefined = isPhysicalMediaDefinition(definition)
+    ? readItemCondition(item)
     : undefined
   const artworkFrame = resolveDisplayArtworkFrame({
     mediaFormat: definition?.mediaFormat,

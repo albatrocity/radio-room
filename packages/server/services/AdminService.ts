@@ -1,4 +1,4 @@
-import { AppContext, GameSession, GameSessionConfig, GameSessionResults } from "@repo/types"
+import { AppContext, GameSession, GameSessionConfig, GameSessionResults, pickSessionConfigBooleans } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import type { GameSessionService } from "./GameSessionService"
@@ -728,7 +728,7 @@ export class AdminService {
   async updateGameSessionConfig(
     roomId: string,
     userId: string,
-    patch: { allowTrading?: boolean; physicalMediaWearForAdmins?: boolean },
+    patch: unknown,
   ): Promise<{
     session: GameSession | null
     error: { status: number; error: string; message: string } | null
@@ -748,9 +748,10 @@ export class AdminService {
         },
       }
     }
-    const hasAllowTrading = typeof patch.allowTrading === "boolean"
-    const hasWearForAdmins = typeof patch.physicalMediaWearForAdmins === "boolean"
-    if (!hasAllowTrading && !hasWearForAdmins) {
+    const known = pickSessionConfigBooleans(
+      patch && typeof patch === "object" ? (patch as Record<string, unknown>) : undefined,
+    )
+    if (Object.keys(known).length === 0) {
       return {
         session: null,
         error: {
@@ -760,10 +761,7 @@ export class AdminService {
         },
       }
     }
-    const session = await svc.patchActiveSessionConfig(roomId, {
-      ...(hasAllowTrading ? { allowTrading: patch.allowTrading } : {}),
-      ...(hasWearForAdmins ? { physicalMediaWearForAdmins: patch.physicalMediaWearForAdmins } : {}),
-    })
+    const session = await svc.patchActiveSessionConfig(roomId, known)
     if (!session) {
       return {
         session: null,

@@ -7,6 +7,7 @@ import {
   ItemUseResult,
   UserInventory,
   capForPool,
+  DEFAULT_SLOT_CAPS,
   resolveSlotPool,
 } from "@repo/types"
 import generateId from "../lib/generateId"
@@ -16,9 +17,6 @@ import { GameSessionService } from "./GameSessionService"
 // Constants
 // ============================================================================
 
-const DEFAULT_MAX_SLOTS = 3
-const DEFAULT_MAX_COLLECTION_SLOTS = 12
-const DEFAULT_MAX_PLAYBACK_SLOTS = 2
 /** Per-user inventory mutation lock TTL (seconds). */
 const INVENTORY_LOCK_TTL_SEC = 5
 const INVENTORY_LOCK_RETRY_MS = 25
@@ -621,9 +619,9 @@ export class InventoryService {
     roomId: string,
   ): Promise<{ maxSlots: number; maxCollectionSlots: number; maxPlaybackSlots: number }> {
     const defaults = {
-      maxSlots: DEFAULT_MAX_SLOTS,
-      maxCollectionSlots: DEFAULT_MAX_COLLECTION_SLOTS,
-      maxPlaybackSlots: DEFAULT_MAX_PLAYBACK_SLOTS,
+      maxSlots: DEFAULT_SLOT_CAPS.inventory,
+      maxCollectionSlots: DEFAULT_SLOT_CAPS.collection,
+      maxPlaybackSlots: DEFAULT_SLOT_CAPS.playback,
     }
     if (!this.context.gameSessions) return defaults
 
@@ -631,9 +629,9 @@ export class InventoryService {
     if (!session) return defaults
 
     return {
-      maxSlots: session.config.maxInventorySlots ?? DEFAULT_MAX_SLOTS,
-      maxCollectionSlots: session.config.maxCollectionSlots ?? DEFAULT_MAX_COLLECTION_SLOTS,
-      maxPlaybackSlots: session.config.maxPlaybackSlots ?? DEFAULT_MAX_PLAYBACK_SLOTS,
+      maxSlots: session.config.maxInventorySlots ?? DEFAULT_SLOT_CAPS.inventory,
+      maxCollectionSlots: session.config.maxCollectionSlots ?? DEFAULT_SLOT_CAPS.collection,
+      maxPlaybackSlots: session.config.maxPlaybackSlots ?? DEFAULT_SLOT_CAPS.playback,
     }
   }
 

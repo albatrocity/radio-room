@@ -7,7 +7,11 @@
  */
 
 import { useSyncExternalStore, useCallback } from "react"
-import { reducedMotionActor } from "../actors/reducedMotionActor"
+import {
+  animationsAllowed,
+  prefersSystemReducedMotion,
+  reducedMotionActor,
+} from "../actors/reducedMotionActor"
 
 // ============================================================================
 // System Preference Detection
@@ -18,8 +22,7 @@ import { reducedMotionActor } from "../actors/reducedMotionActor"
  * Uses the prefers-reduced-motion media query.
  */
 function getSystemPrefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return false
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  return prefersSystemReducedMotion()
 }
 
 /**
@@ -103,6 +106,5 @@ export function useAnimationsEnabled(): boolean {
   const systemPrefersReduced = useSystemReducedMotion()
   const { animationsEnabled: appAnimationsEnabled } = useAnimationPreference()
 
-  // Animations are enabled only if both system and app allow them
-  return !systemPrefersReduced && appAnimationsEnabled
+  return animationsAllowed(systemPrefersReduced, !appAnimationsEnabled)
 }

@@ -1,5 +1,7 @@
 import type { ArtworkFrame, InventoryItem, PhysicalMediaFormat } from "@repo/types"
-import { parseArtworkFrame, PHYSICAL_MEDIA_FORMATS, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
+import { formatFromArtworkFrame, PHYSICAL_MEDIA_FORMATS, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
+
+export { formatFromArtworkFrame } from "@repo/types"
 import { scratchedCd, scratchedCdTransitionMessage } from "../scratched-cd"
 import { dustyRecord, dustyRecordTransitionMessage } from "../dusty-record"
 import { tangledTape, tangledTapeTransitionMessage } from "../tangled-tape"
@@ -49,23 +51,6 @@ export function isBrokenMediaShortId(shortId: string | undefined): boolean {
 export function readMediaOrigin(item: InventoryItem): string | undefined {
   const raw = item.metadata?.[PHYSICAL_MEDIA_ORIGIN_KEY]
   return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : undefined
-}
-
-/** 1:1 frame → format for records registered before `mediaFormat` existed. */
-const FORMAT_BY_FRAME: Record<ArtworkFrame, PhysicalMediaFormat> = {
-  "jewel-case": "CD",
-  "record-jacket": "LP",
-  "die-cut-jacket": "45",
-  "cassette-case": "TAPE",
-}
-
-export function formatFromArtworkFrame(
-  frame: ArtworkFrame | string | undefined,
-): PhysicalMediaFormat | undefined {
-  if (frame == null) return undefined
-  const parsed = typeof frame === "string" ? parseArtworkFrame(frame) : frame
-  if (!parsed) return undefined
-  return FORMAT_BY_FRAME[parsed]
 }
 
 export function brokenMediaForRecord(params: {

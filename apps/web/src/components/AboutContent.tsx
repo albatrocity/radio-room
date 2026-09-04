@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Accordion, HStack, Span, Text, VStack } from "@chakra-ui/react"
-import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { ITEM_SHOPS_PLUGIN_NAME, resolveSlotPool } from "@repo/types"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import ButtonEditUsername from "./ButtonEditUsername"
 import ButtonFeedback from "./ButtonFeedback"
@@ -48,7 +48,7 @@ function AboutContent() {
   const itemShopsEnabled = pluginConfigs?.[ITEM_SHOPS_PLUGIN_NAME]?.enabled === true
   const physicalMediaEnabled =
     (inventory?.maxCollectionSlots ?? session?.config.maxCollectionSlots ?? 0) > 0 ||
-    itemDefinitions.some((d) => d.slotPool === "collection" || d.slotPool === "playback")
+    itemDefinitions.some((d) => resolveSlotPool(d) !== "inventory")
 
   const sections: AboutSection[] = []
 

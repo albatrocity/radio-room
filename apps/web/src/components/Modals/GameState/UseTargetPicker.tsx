@@ -1,17 +1,8 @@
 import { useState } from "react"
 import { Button, HStack, Popover, Text, VStack } from "@chakra-ui/react"
-import type { InventoryItem, ItemDefinition, MediaCondition } from "@repo/types"
-import { isMediaCondition, PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
+import type { InventoryItem, ItemDefinition } from "@repo/types"
+import { isPhysicalMediaDefinition, readItemCondition } from "@repo/types"
 import { MediaConditionTag } from "../../PluginComponents/MediaConditionTag"
-
-function isPhysicalMedia(definition: ItemDefinition | undefined): boolean {
-  return definition?.mediaFormat != null || definition?.artworkFrame != null
-}
-
-function readCondition(item: InventoryItem): MediaCondition | undefined {
-  const raw = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
-  return isMediaCondition(raw) ? raw : undefined
-}
 
 /**
  * Pick any of the user's own stacks (inventory or collection) to use an item on.
@@ -67,8 +58,8 @@ export function UseTargetPopover({
               {selectable.map((invItem) => {
                 const def = definitionMap.get(invItem.definitionId)
                 const label = def?.name ?? invItem.definitionId
-                const condition = isPhysicalMedia(def) ? readCondition(invItem) : undefined
-                const format = isPhysicalMedia(def) ? def?.mediaFormat : undefined
+                const condition = isPhysicalMediaDefinition(def) ? readItemCondition(invItem) : undefined
+                const format = isPhysicalMediaDefinition(def) ? def?.mediaFormat : undefined
                 return (
                   <Button
                     key={invItem.itemId}
@@ -82,7 +73,7 @@ export function UseTargetPopover({
                         {label}
                         {invItem.quantity > 1 ? ` ×${invItem.quantity}` : ""}
                       </Text>
-                      {isPhysicalMedia(def) ? (
+                      {isPhysicalMediaDefinition(def) ? (
                         <HStack gap={1} flexShrink={0}>
                           {format ? (
                             <Text fontSize="2xs" color="fg.muted">

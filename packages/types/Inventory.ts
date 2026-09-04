@@ -104,6 +104,13 @@ export function slotPoolFullMessage(pool: ItemSlotPool, detail: string): string 
   return `${slotPoolFullClause(pool)} — ${detail}`
 }
 
+/** Session defaults for the three slot pools (ADR 0160). */
+export const DEFAULT_SLOT_CAPS = {
+  inventory: 3,
+  collection: 12,
+  playback: 2,
+} as const satisfies Record<ItemSlotPool, number>
+
 /** Effective cap for a pool on a `UserInventory` / session config pair. */
 export function capForPool(
   caps: Pick<UserInventory, "maxSlots" | "maxCollectionSlots" | "maxPlaybackSlots">,
@@ -123,6 +130,13 @@ export const MEDIA_CONDITION_LABELS: Record<MediaCondition, string> = {
   mint: "Mint",
   good: "Good",
   poor: "Poor",
+}
+
+/** Chakra `colorPalette` tokens for condition tags (web + Game Studio). */
+export const MEDIA_CONDITION_PALETTE: Record<MediaCondition, string> = {
+  mint: "green",
+  good: "yellow",
+  poor: "red",
 }
 
 /** `InventoryItem.metadata` key for `MediaCondition`. */
@@ -163,6 +177,55 @@ export function parseArtworkFrame(value: string): ArtworkFrame | undefined {
   if (trimmed === "j-card") return "cassette-case"
   if ((ARTWORK_FRAMES as readonly string[]).includes(trimmed)) return trimmed as ArtworkFrame
   return undefined
+}
+
+/**
+ * One frame per format. Condition is a passthrough: the frame names the object,
+ * and the client draws wear beside it (ADR 0157).
+ */
+export const ARTWORK_FRAME_BY_FORMAT: Record<PhysicalMediaFormat, ArtworkFrame> = {
+  CD: "jewel-case",
+  LP: "record-jacket",
+  TAPE: "cassette-case",
+  "45": "die-cut-jacket",
+}
+
+const FORMAT_BY_ARTWORK_FRAME: Record<ArtworkFrame, PhysicalMediaFormat> = {
+  "jewel-case": "CD",
+  "record-jacket": "LP",
+  "die-cut-jacket": "45",
+  "cassette-case": "TAPE",
+}
+
+/** Format's one frame. `condition` is kept in the signature (ADR 0157) and ignored. */
+export function artworkFrameForFormat(
+  format: PhysicalMediaFormat,
+  _condition?: MediaCondition,
+): ArtworkFrame {
+  return ARTWORK_FRAME_BY_FORMAT[format]
+}
+
+/** Inverse of `ARTWORK_FRAME_BY_FORMAT` for records registered before `mediaFormat`. */
+export function formatFromArtworkFrame(
+  frame: ArtworkFrame | string | undefined,
+): PhysicalMediaFormat | undefined {
+  if (frame == null) return undefined
+  const parsed = typeof frame === "string" ? parseArtworkFrame(frame) : frame
+  if (!parsed) return undefined
+  return FORMAT_BY_ARTWORK_FRAME[parsed]
+}
+
+/** True when this definition is derived Physical Media (not a library card or device). */
+export function isPhysicalMediaDefinition(
+  definition?: Pick<ItemDefinition, "mediaFormat" | "artworkFrame"> | null,
+): boolean {
+  return definition?.mediaFormat != null || definition?.artworkFrame != null
+}
+
+/** Wear ladder read. Absent / invalid metadata is mint (ADR 0155). */
+export function readItemCondition(item: InventoryItem): MediaCondition {
+  const raw = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
+  return isMediaCondition(raw) ? raw : "mint"
 }
 
 /** pluginData payload Item Shops attaches on Local tracks that live on a derived record. */

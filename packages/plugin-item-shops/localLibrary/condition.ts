@@ -1,21 +1,16 @@
-import type {
-  ArtworkFrame,
-  InventoryItem,
-  ItemDefinition,
-  MediaCondition,
-  PhysicalMediaFormat,
-} from "@repo/types"
-import {
-  isMediaCondition,
-  MEDIA_CONDITION_LABELS,
-  MEDIA_CONDITIONS,
-  PHYSICAL_MEDIA_CONDITION_KEY,
-} from "@repo/types"
+import type { MediaCondition } from "@repo/types"
+import { isMediaCondition, MEDIA_CONDITION_LABELS, MEDIA_CONDITIONS } from "@repo/types"
 
 export {
+  ARTWORK_FRAME_BY_FORMAT,
+  artworkFrameForFormat,
+  formatFromArtworkFrame,
+  isPhysicalMediaDefinition,
+  MEDIA_CONDITION_PALETTE,
   MEDIA_CONDITIONS,
   MEDIA_CONDITION_LABELS,
   PHYSICAL_MEDIA_CONDITION_KEY,
+  readItemCondition,
   type MediaCondition,
 } from "@repo/types"
 
@@ -51,27 +46,6 @@ export const CONDITION_WEAR_RANK: Record<MediaCondition, number> = {
   mint: 0,
   good: 1,
   poor: 2,
-}
-
-/**
- * One frame per format, repeated across conditions: the frame says which object
- * this is, and the client draws wear by passing the condition alongside it
- * (ADR 0157). The condition axis stays in the signature so the server keeps
- * deciding what a copy looks like.
- */
-export const ARTWORK_FRAME_BY_FORMAT_AND_CONDITION: Record<
-  PhysicalMediaFormat,
-  Record<MediaCondition, ArtworkFrame>
-> = {
-  CD: { mint: "jewel-case", good: "jewel-case", poor: "jewel-case" },
-  LP: { mint: "record-jacket", good: "record-jacket", poor: "record-jacket" },
-  TAPE: { mint: "cassette-case", good: "cassette-case", poor: "cassette-case" },
-  "45": { mint: "die-cut-jacket", good: "die-cut-jacket", poor: "die-cut-jacket" },
-}
-
-export function readItemCondition(item: InventoryItem): MediaCondition {
-  const raw = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
-  return isMediaCondition(raw) ? raw : "mint"
 }
 
 /**
@@ -143,18 +117,4 @@ export function rollOfferCondition(
 
 export function priceForCondition(base: number, condition: MediaCondition): number {
   return Math.max(1, Math.round(base * CONDITION_PRICE_MULTIPLIER[condition]))
-}
-
-export function artworkFrameForFormat(
-  format: PhysicalMediaFormat,
-  condition: MediaCondition,
-): ArtworkFrame {
-  return ARTWORK_FRAME_BY_FORMAT_AND_CONDITION[format][condition]
-}
-
-/** True when this definition is derived Physical Media (not a library card). */
-export function isPhysicalMediaDefinition(
-  definition: Pick<ItemDefinition, "mediaFormat" | "artworkFrame">,
-): boolean {
-  return definition.mediaFormat != null || definition.artworkFrame != null
 }

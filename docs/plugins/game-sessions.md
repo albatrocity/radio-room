@@ -128,10 +128,11 @@ this.inventory.registerItemDefinitions([
 | `removeItem(userId, itemId, quantity?)`                         | Removes quantity from a stack.                                                                                                              |
 | `transferItem(fromUserId, toUserId, itemId, quantity?)`         | Immediate transfer. Only if `ItemDefinition.tradeable` and the active session allows trading. Prefer player gift/trade sockets for consent. |
 | `useItem(userId, itemId, context?)`                             | Validates ownership, calls the **defining** plugin’s `onItemUsed`, may decrement if result `consumed`.                                      |
-| `getInventory(userId)`                                          | `UserInventory` (items + `maxSlots` + `maxCollectionSlots`).                                                                                |
+| `getInventory(userId)`                                          | `UserInventory` (items + `maxSlots` + `maxCollectionSlots` + `maxPlaybackSlots`). |
 | `hasItem(userId, definitionId, minQuantity?)`                   | Convenience check.                                                                                                                          |
 | `getItemDefinition(definitionId)`                               | Async lookup.                                                                                                                               |
 | `getAllItemDefinitions()`                                       | All definitions registered for the room.                                                                                                    |
+| `updateItemMetadata(userId, itemId, patch)`                     | Shallow-merge `patch` into an existing stack's `metadata`. Returns `null` if `itemId` is missing. Emits `INVENTORY_ITEM_UPDATED`.           |
 
 ### Player gifting and trading (ADR 0114 / 0115)
 
@@ -317,6 +318,7 @@ Emitters use `SystemEvents` (same pipeline as other domain events). Useful paylo
 | `INVENTORY_ITEM_ACQUIRED`    | Item given (source: `plugin` \| `trade` \| `purchase` \| `admin` \| `gift`)                                                          |
 | `INVENTORY_ITEM_USED`        | After `useItem` completes                                                                                                            |
 | `INVENTORY_ITEM_REMOVED`     | Partial/full stack removal                                                                                                           |
+| `INVENTORY_ITEM_UPDATED`     | Stack `metadata` patched via `updateItemMetadata` (`{ roomId, sessionId, userId, item }`)                                            |
 | `INVENTORY_ITEM_TRANSFERRED` | Player-to-player transfer                                                                                                            |
 | `GIFT_*` / `TRADE_*`         | Player gift/trade protocol (ADR 0114); prefer over raw `transferItem` for consent. `TRADE_TYPING` is **not** in this set (ADR 0120). |
 
@@ -343,7 +345,7 @@ Frontends must implement these template names alongside existing ones (`leaderbo
 
 ### Session configuration snapshot
 
-`GameSessionConfig` includes `enabledAttributes`, `initialValues`, `leaderboards`, timing (`startsAt` / `endsAt` / `duration`), `mode` (`individual` \| `team`), optional `teams`, `segmentId`, and inventory flags: `inventoryEnabled`, `maxInventorySlots`, `maxCollectionSlots`, `allowTrading`, `allowSelling`.
+`GameSessionConfig` includes `enabledAttributes`, `initialValues`, `leaderboards`, timing (`startsAt` / `endsAt` / `duration`), `mode` (`individual` \| `team`), optional `teams`, `segmentId`, and inventory flags: `inventoryEnabled`, `maxInventorySlots`, `maxCollectionSlots`, `maxPlaybackSlots` (default 2), `allowTrading`, `allowSelling`, `physicalMediaWearForAdmins` (default `true`; when false, room admins skip Physical Media wear and device gating on queue).
 
 ### Private per-user plugin data
 

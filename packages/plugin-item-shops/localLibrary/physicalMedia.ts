@@ -5,6 +5,7 @@ import type {
   LucideIconName,
   PhysicalMediaFormat,
 } from "@repo/types"
+import { ARTWORK_FRAME_BY_FORMAT } from "@repo/types"
 import type { PhysicalMediaOverride } from "./config"
 
 const FORMAT_BY_TOKEN: Record<
@@ -16,10 +17,15 @@ const FORMAT_BY_TOKEN: Record<
     artworkFrame: ArtworkFrame
   }
 > = {
-  CD: { token: "CD", format: "CD", icon: "Disc", artworkFrame: "jewel-case" },
-  LP: { token: "LP", format: "LP", icon: "Disc3", artworkFrame: "record-jacket" },
-  TAPE: { token: "TAPE", format: "Cassette", icon: "CassetteTape", artworkFrame: "cassette-case" },
-  "45": { token: "45", format: "45", icon: "DiscAlbum", artworkFrame: "die-cut-jacket" },
+  CD: { token: "CD", format: "CD", icon: "Disc", artworkFrame: ARTWORK_FRAME_BY_FORMAT.CD },
+  LP: { token: "LP", format: "LP", icon: "Disc3", artworkFrame: ARTWORK_FRAME_BY_FORMAT.LP },
+  TAPE: {
+    token: "TAPE",
+    format: "Cassette",
+    icon: "CassetteTape",
+    artworkFrame: ARTWORK_FRAME_BY_FORMAT.TAPE,
+  },
+  "45": { token: "45", format: "45", icon: "DiscAlbum", artworkFrame: ARTWORK_FRAME_BY_FORMAT["45"] },
 }
 
 /** Shop/item label for a format token (`TAPE` → `"Cassette"`). */

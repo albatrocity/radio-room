@@ -298,6 +298,28 @@ export interface GameSessionConfig {
   physicalMediaWearForAdmins: boolean
 }
 
+/** Mid-session boolean patches. Adding a key here is the single registry. */
+export const SESSION_CONFIG_BOOLEAN_KEYS = [
+  "allowTrading",
+  "physicalMediaWearForAdmins",
+] as const
+
+export type SessionConfigBooleanKey = (typeof SESSION_CONFIG_BOOLEAN_KEYS)[number]
+
+/** Known boolean keys present as booleans on `input`. Empty when none match. */
+export function pickSessionConfigBooleans(
+  input: Record<string, unknown> | null | undefined,
+): Partial<Pick<GameSessionConfig, SessionConfigBooleanKey>> {
+  const out: Partial<Pick<GameSessionConfig, SessionConfigBooleanKey>> = {}
+  if (!input) return out
+  for (const key of SESSION_CONFIG_BOOLEAN_KEYS) {
+    if (typeof input[key] === "boolean") {
+      out[key] = input[key]
+    }
+  }
+  return out
+}
+
 export interface GameSession {
   id: string
   roomId: string

@@ -7,6 +7,7 @@ import type {
 import {
   MEDIA_CONDITION_LABELS,
   PHYSICAL_MEDIA_CONDITION_KEY,
+  resolveSlotPool,
   slotPoolFullClause,
 } from "@repo/types"
 import {
@@ -116,7 +117,7 @@ export function restoreMediaUse(opts: {
         const catalog = await context.inventory.getAllItemDefinitions()
         const eligibleSet = new Set(eligible)
         const candidates = catalog.filter((d) => {
-          if (!isPhysicalMediaDefinition(d) || d.slotPool !== "collection") return false
+          if (!isPhysicalMediaDefinition(d) || resolveSlotPool(d) !== "collection") return false
           const format = d.mediaFormat ?? formatFromArtworkFrame(d.artworkFrame)
           return format != null && eligibleSet.has(format)
         })
