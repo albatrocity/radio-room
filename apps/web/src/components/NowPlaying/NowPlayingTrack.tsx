@@ -19,13 +19,13 @@ import AlbumArtwork from "../AlbumArtwork"
 import { featureImageUrl } from "../../lib/metadataImages"
 import safeDate from "../../lib/safeDate"
 import nullifyEmptyString from "../../lib/nullifyEmptyString"
-import { User } from "../../types/User"
 import { Room, RoomMeta } from "../../types/Room"
 import { PluginArea } from "../PluginComponents"
 import { usePluginStyles } from "../../hooks/usePluginStyles"
 import { usePluginElementProps } from "../../hooks/usePluginElementProps"
 import { usePreferredMetadataSource } from "../../hooks/useActors"
 import { usePhysicalMediaArt } from "../../hooks/usePhysicalMediaArt"
+import { usePresentedAttribution } from "../../hooks/usePresentedAttribution"
 import FramedArtwork from "../artworkFrames/FramedArtwork"
 import { MetadataSourceType } from "../../types/Queue"
 import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginItemContext"
@@ -38,7 +38,6 @@ type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 interface NowPlayingTrackProps {
   meta: RoomMeta
   room: Partial<Room> | null
-  users: User[]
 }
 
 /** Neutral “hidden artwork” placeholder (SVG data URI — no network). */
@@ -102,7 +101,7 @@ function getPreferredTrackData(
   }
 }
 
-export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
+export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
   const { album, artist, track, nowPlaying, title, dj } = meta
   const preferredSource = usePreferredMetadataSource()
 
@@ -141,13 +140,14 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
   )
 
   const djUser = dj ?? nowPlaying?.addedBy ?? null
-  const djUsername = useMemo(
-    () =>
-      djUser
-        ? users.find(({ userId }) => userId === djUser.userId)?.username ?? djUser?.username ?? null
-        : null,
-    [users, djUser],
-  )
+  // Prefer baked attribution (ADR 0150); X-Ray pierces to the live true name.
+  const {
+    displayName: djUsername,
+    PierceIcon,
+  } = usePresentedAttribution({
+    userId: djUser?.userId,
+    bakedUsername: djUser?.username,
+  })
 
   const titleDisplay =
     nullifyEmptyString(track) ??
@@ -232,7 +232,12 @@ export function NowPlayingTrack({ meta, room, users }: NowPlayingTrackProps) {
                     </Text>
                   )}
 
-                  <AddedByInfo dj={djUser} djUsername={djUsername} addedAt={addedAt} />
+                  <AddedByInfo
+                    dj={djUser}
+                    djUsername={djUsername}
+                    PierceIcon={PierceIcon}
+                    addedAt={addedAt}
+                  />
 
                   <Box
                     colorPalette="primary"
@@ -423,16 +428,20 @@ function ObscuredTextBlock({
 
 interface AddedByInfoProps {
   dj?: { userId: string; username?: string } | null
-  djUsername: string | null
+  djUsername: string
+  PierceIcon?: React.ComponentType
   addedAt: string
 }
 
-function AddedByInfo({ dj, djUsername, addedAt }: AddedByInfoProps) {
+function AddedByInfo({ dj, djUsername, PierceIcon, addedAt }: AddedByInfoProps) {
   if (!dj) return null
 
   return (
     <HStack mt={4} gap={2}>
       <Icon color="primary.contrast" boxSize={3} as={LuUser} />
+      {PierceIcon ? (
+        <Icon color="primary.contrast" boxSize={3} as={PierceIcon} />
+      ) : null}
       <Text as="i" color="primary.contrast" fontSize="xs">
         Added by {djUsername} at {format(new Date(addedAt), "p")}
       </Text>

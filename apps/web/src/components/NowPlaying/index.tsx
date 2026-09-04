@@ -2,7 +2,6 @@ import { memo, lazy, Suspense } from "react"
 import { Box, Heading, HStack, VStack } from "@chakra-ui/react"
 
 import {
-  useUsers,
   useCurrentRoom,
   useRoomState,
   useIsAdmin,
@@ -58,7 +57,6 @@ function useDisplayState(meta?: RoomMeta): DisplayState {
 }
 
 function NowPlaying({ meta }: NowPlayingProps) {
-  const users = useUsers()
   const room = useCurrentRoom()
   const isAdmin = useIsAdmin()
   const inventory = useUserInventory()
@@ -112,7 +110,7 @@ function NowPlaying({ meta }: NowPlayingProps) {
         )}
 
         {displayState === "playing" && meta && (
-          <NowPlayingTrack meta={meta} room={room} users={users} />
+          <NowPlayingTrack meta={meta} room={room} />
         )}
 
         <Box flexShrink={0} w="100%">
