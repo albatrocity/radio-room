@@ -14,6 +14,7 @@ import {
   DEFAULT_RARITY_WEIGHTS,
   type ItemCatalogEntry,
   type ShopCatalogEntry,
+  applyLiveCostScale,
   buildItemCatalogMap,
   buildShoppingInstance,
   pickWeightedShortIds,
@@ -25,6 +26,7 @@ import {
   type WeightedCandidate,
 } from "./shoppingSessionCatalog"
 import type { ShopEconomyHooks } from "./shoppingSessionCatalog"
+import { resolveEconomy, scalePrice } from "@repo/game-logic"
 
 const KEYS = ITEM_SHOPS_SESSION_STORAGE_KEYS
 
@@ -92,11 +94,14 @@ export class ShoppingSessionHelper {
   async getInstance(userId: string): Promise<ShoppingSessionInstance | null> {
     const raw = await this.context.storage.hget(KEYS.INSTANCES, userId)
     if (!raw) return null
+    let parsed: ShoppingSessionInstance
     try {
-      return JSON.parse(raw) as ShoppingSessionInstance
+      parsed = JSON.parse(raw) as ShoppingSessionInstance
     } catch {
       return null
     }
+    const session = await this.context.game.getActiveSession()
+    return applyLiveCostScale(parsed, session?.config?.economy)
   }
 
   async persistInstance(userId: string, instance: ShoppingSessionInstance): Promise<void> {
@@ -146,7 +151,15 @@ export class ShoppingSessionHelper {
     }
     const shop = pool[Math.floor(Math.random() * pool.length)]!
     const shortIds = this.sampleOfferShortIds(shop, 3)
-    const instance = buildShoppingInstance(shop, shortIds, this.catalogMap, openedAt, this.hooks)
+    const session = await this.context.game.getActiveSession()
+    const instance = buildShoppingInstance(
+      shop,
+      shortIds,
+      this.catalogMap,
+      openedAt,
+      this.hooks,
+      session?.config?.economy,
+    )
     const displayMessage = (
       shop.openingMessage ?? "{{shopName}} is now open for business!"
     ).replace(/\{\{shopName\}\}/g, shop.name)
@@ -238,7 +251,9 @@ export class ShoppingSessionHelper {
         message: `You need ${price} coins (you have ${currentCoins}).`,
       }
     }
-    await this.context.game.addScore(userId, "coin", -price, `${this.pluginName}:purchase`)
+    await this.context.game.addScore(userId, "coin", -price, `${this.pluginName}:purchase`, {
+      intent: "exact",
+    })
     const awarded = await this.context.inventory.giveItem(
       userId,
       this.getDefinitionId(shortId),
@@ -247,7 +262,9 @@ export class ShoppingSessionHelper {
       "purchase",
     )
     if (!awarded) {
-      await this.context.game.addScore(userId, "coin", price, `${this.pluginName}:refund`)
+      await this.context.game.addScore(userId, "coin", price, `${this.pluginName}:refund`, {
+        intent: "exact",
+      })
       const pool = resolveSlotPool(this.catalogMap.get(shortId)?.definition)
       return {
         success: false,
@@ -293,13 +310,17 @@ export class ShoppingSessionHelper {
     if (this.hooks?.adjustSellBase) {
       base = this.hooks.adjustSellBase(item, definition, base)
     }
-    const refund = Math.max(0, Math.floor(base * rate))
+    const economy = resolveEconomy(session.config?.economy)
+    const scaledBase = scalePrice(base, economy.costScale, economy.priceRounding)
+    const refund = Math.max(0, Math.floor(scaledBase * rate))
     const removed = await this.context.inventory.removeItem(userId, item.itemId, 1)
     if (!removed) {
       return { success: false, message: `Could not remove ${definition.name} from inventory.` }
     }
     if (refund > 0) {
-      await this.context.game.addScore(userId, "coin", refund, `${this.pluginName}:sale`)
+      await this.context.game.addScore(userId, "coin", refund, `${this.pluginName}:sale`, {
+        intent: "exact",
+      })
     }
     return {
       success: true,

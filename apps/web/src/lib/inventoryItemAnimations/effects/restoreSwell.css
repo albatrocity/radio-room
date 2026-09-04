@@ -1,0 +1,62 @@
+/* Physical Media restore: slow swell + shimmer, then settle to 100%. */
+
+@keyframes inventory-item-restore-swell-scale {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.06);
+  }
+  70% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes inventory-item-restore-swell-shimmer {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.55;
+  }
+  55% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateX(140%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+.inventory-item-restore-swell {
+  position: relative;
+  overflow: hidden;
+  transform-origin: center top;
+  z-index: 1;
+  animation: inventory-item-restore-swell-scale 1300ms ease-out both;
+}
+
+.inventory-item-restore-swell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 65%
+  );
+  animation: inventory-item-restore-swell-shimmer 1100ms ease-in-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inventory-item-restore-swell,
+  .inventory-item-restore-swell::after {
+    animation: none;
+  }
+}

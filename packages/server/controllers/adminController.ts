@@ -130,6 +130,13 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   },
   )
 
+  socket.on(
+    "SET_ECONOMY_SCALE",
+    async (data: { costScale?: number; earnScale?: number }) => {
+      await handlers.setEconomyScale(connections, data)
+    },
+  )
+
   /**
    * Execute a plugin action
    */

@@ -56,10 +56,19 @@ export type Event =
   | { type: "EDIT_PLAYLIST_BINGO" }
   | { type: "EDIT_MUSIC_UPLOAD" }
   | { type: "EDIT_QUEUE_THEME" }
+  | { type: "EDIT_THE_FED" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
-/** Jump to a settings section from any modal-region state (admin only). */
+/**
+ * Jump to a settings section from any modal-region state (admin only).
+ *
+ * Plugin settings: every plugin with `getConfigSchema()` needs an `EDIT_*` event
+ * and a matching `settings.*` child state here, or Overview / Quick Access links
+ * no-op. Convention: plugin `the-fed` → `EDIT_THE_FED` → `settings.the_fed`.
+ * See `toPluginSettingsEventType` and docs/plugins/getting-started.md
+ * ("Register the admin settings view").
+ */
 const openSettingsSection = (target: string) => ({
   target: `.settings.${target}`,
   guard: "isAdmin" as const,
@@ -90,6 +99,7 @@ const settingsSectionOn = {
   EDIT_PLAYLIST_BINGO: ".playlist_bingo",
   EDIT_MUSIC_UPLOAD: ".music_upload",
   EDIT_QUEUE_THEME: ".queue_theme",
+  EDIT_THE_FED: ".the_fed",
 } as const
 
 export const modalsMachine = setup({
@@ -169,6 +179,7 @@ export const modalsMachine = setup({
         EDIT_PLAYLIST_BINGO: openSettingsSection("playlist_bingo"),
         EDIT_MUSIC_UPLOAD: openSettingsSection("music_upload"),
         EDIT_QUEUE_THEME: openSettingsSection("queue_theme"),
+        EDIT_THE_FED: openSettingsSection("the_fed"),
         VIEW_BOOKMARKS: {
           target: ".bookmarks",
           guard: "isAdmin",
@@ -228,6 +239,7 @@ export const modalsMachine = setup({
             playlist_bingo: { on: { BACK: "overview" } },
             music_upload: { on: { BACK: "overview" } },
             queue_theme: { on: { BACK: "overview" } },
+            the_fed: { on: { BACK: "overview" } },
           },
         },
         bookmarks: {},

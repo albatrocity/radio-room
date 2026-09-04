@@ -201,3 +201,20 @@ await registerAdapters(context, {
   ],
 })
 ```
+
+Also add the package to `apps/api/package.json` and run `npm install`.
+
+### 6. Register the admin settings view
+
+**Do this every time you add a plugin.** `AdminSettingsSurface` / Overview list plugins from `getConfigSchema()`, and clicks send `toPluginSettingsEventType(pluginName)` (e.g. `my-feature` → `EDIT_MY_FEATURE`). That event is a no-op until `modalsMachine` knows it.
+
+In `apps/web/src/machines/modalsMachine.ts`, for plugin name `my-feature` (hyphens become underscores / scream case):
+
+1. Add `{ type: "EDIT_MY_FEATURE" }` to the `Event` union.
+2. Add `EDIT_MY_FEATURE: ".my_feature"` to `settingsSectionOn`.
+3. Add `EDIT_MY_FEATURE: openSettingsSection("my_feature")` on the `modal` region's `on`.
+4. Add `my_feature: { on: { BACK: "overview" } }` under `settings.states`.
+
+Copy an existing plugin row (e.g. `queue_theme` or `the_fed`) and add a `modalsMachine.test.ts` case that opens the section and `BACK`s to overview.
+
+Without this step, the Plugins list in Admin Settings shows the name but the button does not open the form.

@@ -90,7 +90,7 @@ export const disguise = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "self",
-    coinValue: 20,
+    coinValue: 25,
     icon: "HatGlasses",
     rarity: "uncommon",
   },

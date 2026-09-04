@@ -11,6 +11,8 @@ export {
   MEDIA_CONDITION_LABELS,
   PHYSICAL_MEDIA_CONDITION_KEY,
   readItemCondition,
+  isMediaConditionDegraded,
+  isMediaConditionImproved,
   type MediaCondition,
 } from "@repo/types"
 

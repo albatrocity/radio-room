@@ -65,4 +65,5 @@ player holds, inventory and collection alike, without teaching the player which 
 - [0100. Dual inventory slot pools](0100-dual-inventory-slot-pools.md)
 - [0155. Physical Media condition, wear, and conversion](0155-physical-media-condition-wear-and-conversion.md)
 - [0156. Mutable inventory stack metadata](0156-mutable-inventory-stack-metadata.md)
+- [0164. Inventory item DOM animations](0164-inventory-item-dom-animations.md)
 - [`packages/plugin-item-shops/items/shared/restoreMedia.ts`](../../packages/plugin-item-shops/items/shared/restoreMedia.ts)

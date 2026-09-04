@@ -57,7 +57,7 @@ export const rubberBand = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: false,
-    coinValue: 28,
+    coinValue: 25,
     icon: "RotateCcw",
     rarity: "uncommon",
     defense: {

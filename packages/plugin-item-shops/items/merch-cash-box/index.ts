@@ -16,7 +16,7 @@ export const merchCashBox = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "coinAmount",
-    coinValue: 25,
+    coinValue: 50,
     icon: "PiggyBank",
     rarity: "rare",
   },
@@ -41,7 +41,9 @@ export const merchCashBox = createItem({
       return { success: false, consumed: false, message: "You don't have enough coins." }
     }
 
-    await game.addScore(userId, "coin", -coinAmount, `${definition.shortId}:store`)
+    await game.addScore(userId, "coin", -coinAmount, `${definition.shortId}:store`, {
+      intent: "exact",
+    })
 
     try {
       await context.artifacts.store({
@@ -57,7 +59,9 @@ export const merchCashBox = createItem({
         password,
       })
     } catch (e) {
-      await game.addScore(userId, "coin", coinAmount, `${definition.shortId}:store-refund`)
+      await game.addScore(userId, "coin", coinAmount, `${definition.shortId}:store-refund`, {
+        intent: "exact",
+      })
       console.error("[merch-cash-box] store failed, refunded coins", e)
       return { success: false, consumed: false, message: "Could not store coins." }
     }

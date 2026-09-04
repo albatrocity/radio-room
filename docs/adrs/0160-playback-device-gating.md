@@ -67,6 +67,7 @@ Four Record Store SKUs: CD Player / Cassette Deck / Turntable (80, uncommon) and
 - [0100. Dual inventory slot pools](0100-dual-inventory-slot-pools.md)
 - [0155. Physical Media condition, wear, and conversion](0155-physical-media-condition-wear-and-conversion.md)
 - [0159. Physical Media restoration items](0159-physical-media-restoration-items.md)
+- [0164. Inventory item DOM animations](0164-inventory-item-dom-animations.md)
 - [`packages/plugin-item-shops/localLibrary/playbackDevices.ts`](../../packages/plugin-item-shops/localLibrary/playbackDevices.ts)
 - [`packages/plugin-item-shops/items/shared/playbackDeviceSellback.ts`](../../packages/plugin-item-shops/items/shared/playbackDeviceSellback.ts)
 - [`packages/types/Inventory.ts`](../../packages/types/Inventory.ts)

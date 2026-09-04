@@ -11,7 +11,7 @@ export const cdCleaner = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "mediaItem",
-    coinValue: 40,
+    coinValue: 25,
     icon: "SprayCan",
     rarity: "uncommon",
   },

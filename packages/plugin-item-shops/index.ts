@@ -5,7 +5,14 @@ import type {
   ShopSessionContext,
 } from "@repo/plugin-base/helpers"
 import { BasePlugin, applyTextEffects, ShoppingSessionHelper } from "@repo/plugin-base"
-import { countFlagStacks, resolveItemRarity, buildItemCatalogMap, filterShopCatalogByRoomType } from "@repo/game-logic"
+import {
+  countFlagStacks,
+  resolveItemRarity,
+  buildItemCatalogMap,
+  filterShopCatalogByRoomType,
+  resolveEconomy,
+  scalePrice,
+} from "@repo/game-logic"
 import {
   type ChatMessage,
   type ContributeToUserGameStateContext,
@@ -96,10 +103,7 @@ export function getEligibleShops(
     return true
   })
   if (!roomType) return eligible
-  const catalogMap = buildItemCatalogMap([
-    ...ITEM_CATALOG,
-    ...derivedPhysicalMedia,
-  ])
+  const catalogMap = buildItemCatalogMap([...ITEM_CATALOG, ...derivedPhysicalMedia])
   return filterShopCatalogByRoomType(eligible, catalogMap, roomType)
 }
 
@@ -121,7 +125,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   /** Synced from plugin config; `decorateOffer` reads this at instance-build time (ADR 0158). */
   private offerConditionBounds: OfferConditionBounds = { ...DEFAULT_OFFER_CONDITION_BOUNDS }
 
-  private readonly localLibrary = new LocalLibraryModule(PLUGIN_NAME, () => this.context ?? undefined)
+  private readonly localLibrary = new LocalLibraryModule(
+    PLUGIN_NAME,
+    () => this.context ?? undefined,
+  )
   /** Bumped on each local-library refresh so in-flight artwork hydrates abort. */
   private albumArtworkHydrateGeneration = 0
 
@@ -143,17 +150,14 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     })
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
-    this.shopping = new ShoppingSessionHelper(
-      this.name,
-      context,
-      itemCatalog,
-      shopCatalog,
-      { hooks: physicalMediaShopEconomyHooks(() => this.offerConditionBounds) },
-    )
+    this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog, {
+      hooks: physicalMediaShopEconomyHooks(() => this.offerConditionBounds),
+    })
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.scheduleAlbumArtworkHydrate()
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
     this.on("GAME_SESSION_STARTED", this.handleGameSessionStarted.bind(this))
+    this.on("GAME_ECONOMY_SCALE_CHANGED", this.handleEconomyScaleChanged.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
     this.on("MEDIA_BRIDGE_STATUS_CHANGED", this.handleMediaBridgeStatusChanged.bind(this))
     this.onConfigChange(async () => {
@@ -165,6 +169,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private async handleGameSessionStarted(): Promise<void> {
     await this.syncAutoShopTimer()
+  }
+
+  private async handleEconomyScaleChanged(): Promise<void> {
+    if (!this.context || !this.shopping) return
+    if (!(await this.shopping.isActive())) return
+    await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
   }
 
   private async handleMediaBridgeStatusChanged(): Promise<void> {
@@ -215,9 +225,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   private giveItemPickerEntries(): ItemCatalogEntry[] {
-    return this.effectiveCatalogForGive().filter(
-      (e) => e.localLibraryGrant?.scope !== "album",
-    )
+    return this.effectiveCatalogForGive().filter((e) => e.localLibraryGrant?.scope !== "album")
   }
 
   /**
@@ -559,7 +567,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     this.syncOfferConditionBounds(next)
     await this.syncAutoShopTimer()
     const keys = Object.keys(patch) as (keyof ItemShopsConfig)[]
-    const configPatch = Object.fromEntries(keys.map((k) => [k, next[k]])) as Partial<ItemShopsConfig>
+    const configPatch = Object.fromEntries(
+      keys.map((k) => [k, next[k]]),
+    ) as Partial<ItemShopsConfig>
     if ("autoShopIntervalMs" in patch) {
       configPatch.autoShop = next.autoShop
     }
@@ -881,7 +891,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
               meta: {
                 type: "remote-select",
                 label: "Navidrome playlist",
-                description: "Required for playlist shelves. Loaded from the Media Bridge when connected.",
+                description:
+                  "Required for playlist shelves. Loaded from the Media Bridge when connected.",
                 remoteSource: "bridgeLocalPlaylists",
                 showWhen: { field: "scope", value: "playlist" },
               },
@@ -1130,7 +1141,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       const ok = await this.context.api.invalidateLocalLibraryCache(this.context.roomId)
       await this.applyLocalLibraryGrantConfig()
       return ok
-        ? { success: true, message: "Local library cache cleared and Record Store restocked from Navidrome." }
+        ? {
+            success: true,
+            message: "Local library cache cleared and Record Store restocked from Navidrome.",
+          }
         : { success: false, message: "Could not reach the Media Bridge to refresh the library." }
     }
     /** Game Studio / sandbox: assign shops to users who joined before the shopping round (same rules as USER_JOINED). */
@@ -1281,7 +1295,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     })
   }
 
-  async listPhysicalMediaItems(params: { roomId: string; userId: string }): Promise<PhysicalMediaItem[]> {
+  async listPhysicalMediaItems(params: {
+    roomId: string
+    userId: string
+  }): Promise<PhysicalMediaItem[]> {
     const items = await this.localLibrary.listPhysicalMediaItems(params.userId)
     const albumShortIds = items
       .filter((item) => this.localLibrary.albumMap()[item.mediaKey])
@@ -1340,9 +1357,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     return this.localLibrary.validateQueueRequest(params, config)
   }
 
-  private async augmentPhysicalMediaFrames(
-    items: QueueItem[],
-  ): Promise<PluginAugmentationData[]> {
+  private async augmentPhysicalMediaFrames(items: QueueItem[]): Promise<PluginAugmentationData[]> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
     if (!config.enabled || items.length === 0) return items.map(() => ({}))
 
@@ -1380,13 +1395,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     if (!config?.enabled) {
       return {}
     }
+    const session = await this.context.game.getActiveSession()
+    const economy = resolveEconomy(session?.config.economy)
     const out: Record<string, number> = {}
     for (const item of items) {
       const def = definitionById.get(item.definitionId)
       if (!def || def.sourcePlugin !== this.name) continue
       const handler = ITEM_SELLBACK_VALUE_BEHAVIORS[def.shortId]
       if (!handler) continue
-      out[item.itemId] = handler(item, def)
+      out[item.itemId] = scalePrice(handler(item, def), economy.costScale, economy.priceRounding)
     }
     return out
   }
@@ -1564,13 +1581,21 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         return { success: false, message: "No active game session." }
       }
 
-      const refund = Math.max(0, Math.floor(customSellback(item, definition)))
+      const economy = resolveEconomy(session.config.economy)
+      const refund = Math.max(
+        0,
+        scalePrice(
+          Math.floor(customSellback(item, definition)),
+          economy.costScale,
+          economy.priceRounding,
+        ),
+      )
       const removed = await this.context.inventory.removeItem(userId, item.itemId, 1)
       if (!removed) {
         return { success: false, message: `Could not remove ${definition.name} from inventory.` }
       }
       if (refund > 0) {
-        await this.game.addScore(userId, "coin", refund, `${this.name}:sale`)
+        await this.game.addScore(userId, "coin", refund, `${this.name}:sale`, { intent: "exact" })
       }
 
       await this.context.api.sendSystemMessage(

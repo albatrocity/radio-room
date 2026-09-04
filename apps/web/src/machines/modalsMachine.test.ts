@@ -81,6 +81,18 @@ describe("modalsMachine", () => {
     expect(actor.getSnapshot().matches("modal.settings.overview")).toBe(true)
   })
 
+  it("opens The Fed plugin settings from overview", () => {
+    const actor = createActor(modalsMachine).start()
+
+    actor.send({ type: "EDIT_SETTINGS" })
+    actor.send({ type: "EDIT_THE_FED" })
+
+    expect(actor.getSnapshot().matches("modal.settings.the_fed")).toBe(true)
+
+    actor.send({ type: "BACK" })
+    expect(actor.getSnapshot().matches("modal.settings.overview")).toBe(true)
+  })
+
   it("keeps game state open when Feedback opens and closes", () => {
     const actor = createActor(modalsMachine).start()
 

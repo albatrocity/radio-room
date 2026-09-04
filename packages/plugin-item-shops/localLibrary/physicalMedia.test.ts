@@ -399,7 +399,7 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
       },
     ])
     expect(items[0]?.definition.rarity).toBe("legendary")
-    expect(items[0]?.definition.coinValue).toBe(20)
+    expect(items[0]?.definition.coinValue).toBe(priceFromSongCount(11))
   })
 
   it("omits albums in omitAlbumIds", () => {

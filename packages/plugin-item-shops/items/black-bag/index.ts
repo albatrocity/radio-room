@@ -213,7 +213,7 @@ export const blackBag = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "userInventoryItem",
-    coinValue: 80,
+    coinValue: 100,
     icon: "PaperBag",
     rarity: "legendary",
   },

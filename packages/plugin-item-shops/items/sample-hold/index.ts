@@ -22,7 +22,7 @@ export const sampleHold = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 50,
+    coinValue: 100,
     icon: "Dices",
     rarity: "legendary",
   },

@@ -1,5 +1,7 @@
 # Admin Configuration
 
+A `getConfigSchema()` is enough to **render** the form (`DynamicPluginSettings`). Opening it from Admin Settings / Quick Access also requires an `EDIT_*` state in `apps/web/src/machines/modalsMachine.ts` — do this for every new plugin. See [Getting Started §6](getting-started.md#6-register-the-admin-settings-view).
+
 ## Configuration Schema
 
 Define a schema to generate dynamic admin settings forms.

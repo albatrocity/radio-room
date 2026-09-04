@@ -10,8 +10,11 @@ import type { ChatMessage } from "./ChatMessage"
 import type { SystemEventHandlers, ScreenEffectTarget, ScreenEffectName } from "./SystemEventTypes"
 import type { PluginComponentSchema, PluginComponentState } from "./PluginComponent"
 import type {
+  AddScoreOptions,
   ApplyModifierResult,
   CheckModifierDefenseResult,
+  EconomyScaleState,
+  EconomySnapshot,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -40,10 +43,7 @@ import type {
   StoredArtifactPublic,
 } from "./Artifacts"
 import type { PersonaDefinition, UserPersona, UserPersonaAssignment } from "./Persona"
-import type {
-  PresentedIdentityGrant,
-  PresentedIdentityGrantInput,
-} from "./PresentedIdentity"
+import type { PresentedIdentityGrant, PresentedIdentityGrantInput } from "./PresentedIdentity"
 import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
 import type { MetadataSourceTrack, PhysicalMediaItem } from "./MetadataSource"
 import type { Poll, PollResults } from "./Poll"
@@ -505,9 +505,7 @@ export interface PluginAPI {
    * Clear the queue split (ADR 0067, plugin source ADR 0153). App-controlled rooms only.
    * Requires a scoped plugin identity.
    */
-  removeQueueSplit(
-    roomId: string,
-  ): Promise<{ success: true } | { success: false; message: string }>
+  removeQueueSplit(roomId: string): Promise<{ success: true } | { success: false; message: string }>
 
   /**
    * Add a track to the room's queue.
@@ -538,10 +536,7 @@ export interface PluginAPI {
        */
       suppressQueueChanged?: boolean
     },
-  ): Promise<
-    | { success: true; queuedItem: QueueItem }
-    | { success: false; message: string }
-  >
+  ): Promise<{ success: true; queuedItem: QueueItem } | { success: false; message: string }>
 
   /**
    * Remove a track from the room's queue.
@@ -695,9 +690,7 @@ export interface PluginAPI {
    * List Navidrome albums for album-catalog Physical Media derivation (ADR 0109).
    * Returns [] when offline / unknown RPC (old DJ Mac pack).
    */
-  listLibraryAlbums(
-    roomId: string,
-  ): Promise<
+  listLibraryAlbums(roomId: string): Promise<
     Array<{
       id: string
       name: string
@@ -732,10 +725,7 @@ export interface PluginAPI {
   /**
    * Full track list for a Navidrome playlist (Physical Media item browse).
    */
-  listLocalPlaylistTracks(
-    roomId: string,
-    playlistId: string,
-  ): Promise<MetadataSourceTrack[]>
+  listLocalPlaylistTracks(roomId: string, playlistId: string): Promise<MetadataSourceTrack[]>
 
   /**
    * Ordered playlist track ids (+ albumId) without full track mapping.
@@ -920,20 +910,48 @@ export interface GameSessionPluginAPI {
   registerAttributes(definitions: PluginAttributeDefinition[]): void
 
   // ---------- State mutations --------------------------------------------
-  /** Add to an attribute, applying active modifiers. Resolves to the new value. */
-  addScore(userId: string, attribute: GameAttributeName, amount: number, reason?: string): Promise<number>
+  /**
+   * Add to an attribute, applying `earnScale` then active modifiers.
+   * Pass `{ intent: "exact" }` to skip earn scaling (refunds, escrow, stored coin).
+   */
+  addScore(
+    userId: string,
+    attribute: GameAttributeName,
+    amount: number,
+    reason?: string,
+    options?: AddScoreOptions,
+  ): Promise<number>
   /**
    * Add to several attributes in one read-modify-write (one persist, one
-   * `GAME_STATE_CHANGED`). Same modifier/lock rules as `addScore` per change.
-   * Resolves to the new values in input order.
+   * `GAME_STATE_CHANGED`). Same modifier/lock/`earnScale` rules as `addScore`
+   * per change. Resolves to the new values in input order.
    */
   addScores(
     userId: string,
     changes: { attribute: GameAttributeName; amount: number }[],
     reason?: string,
+    options?: AddScoreOptions,
   ): Promise<number[]>
   /** Set an attribute, ignoring multipliers/additives. */
-  setScore(userId: string, attribute: GameAttributeName, value: number, reason?: string): Promise<number>
+  setScore(
+    userId: string,
+    attribute: GameAttributeName,
+    value: number,
+    reason?: string,
+  ): Promise<number>
+
+  /** Current session economy scales (identity 1.0 when absent / no session). */
+  getEconomyScale(): Promise<EconomyScaleState>
+  /**
+   * Patch session `costScale` / `earnScale` (clamped). No-op when no session.
+   * Emits `GAME_ECONOMY_SCALE_CHANGED`. `updatedBy` is `"plugin"`.
+   */
+  setEconomyScale(
+    patch: { costScale?: number; earnScale?: number },
+    reason?: string,
+  ): Promise<EconomyScaleState | null>
+  /** Participant coin balances for the active session, or `null`. */
+  getEconomySnapshot(): Promise<EconomySnapshot | null>
 
   // ---------- Modifiers --------------------------------------------------
   /**
@@ -1033,9 +1051,7 @@ export interface InventoryPluginAPI {
    * Register one or more item definitions. The `id` and `sourcePlugin` are
    * derived from the calling plugin; pass only `shortId` and metadata.
    */
-  registerItemDefinitions(
-    definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>,
-  ): void
+  registerItemDefinitions(definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>): void
 
   // ---------- Mutations -------------------------------------------------
   giveItem(
@@ -1046,9 +1062,19 @@ export interface InventoryPluginAPI {
     source?: InventoryAcquisitionSource,
     /** Skip the inventory HGETALL when the caller already loaded this user's bags. */
     knownInventory?: UserInventory,
+    /**
+     * Physical Media conversion restore granted this stack; client may animate
+     * the new collection row (ADR 0164).
+     */
+    options?: { restored?: boolean },
   ): Promise<InventoryItem | null>
 
-  removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean>
+  removeItem(
+    userId: string,
+    itemId: string,
+    quantity?: number,
+    options?: { degraded?: boolean },
+  ): Promise<boolean>
 
   /**
    * Shallow-merge `patch` into an existing stack's `metadata`. Returns the
@@ -1516,10 +1542,7 @@ export interface Plugin {
    * @param roomId - Room id
    * @param message - The fully parsed message (after mentions / Mustache)
    */
-  transformChatMessage?(
-    roomId: string,
-    message: ChatMessage,
-  ): Promise<ChatMessageTransformResult>
+  transformChatMessage?(roomId: string, message: ChatMessage): Promise<ChatMessageTransformResult>
 
   /**
    * Optional method to augment playlist items with plugin-specific metadata.

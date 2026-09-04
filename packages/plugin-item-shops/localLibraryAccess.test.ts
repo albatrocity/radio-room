@@ -212,7 +212,8 @@ function setup(options?: {
   const stacks: InventoryItem[] = []
   if (hasLibraryGrant) stacks.push(libraryGrantStack({ quantity: libraryGrantQuantity }))
   if (hasBurnedCd) stacks.push(burnedCdStack())
-  if (hasPhysicalMedia) stacks.push(physicalMediaStack({ metadata: options?.physicalMediaMetadata }))
+  if (hasPhysicalMedia)
+    stacks.push(physicalMediaStack({ metadata: options?.physicalMediaMetadata }))
   if (options?.extraPhysicalMedia) stacks.push(...options.extraPhysicalMedia)
   if (options?.extraItems) stacks.push(...options.extraItems)
   const hasPlaybackDevice = options?.hasPlaybackDevice ?? hasPhysicalMedia
@@ -251,12 +252,14 @@ function setup(options?: {
     giveItem: vi.fn(async () =>
       options?.giveItemResult === undefined ? libraryGrantStack() : options.giveItemResult,
     ),
-    updateItemMetadata: vi.fn(async (_userId: string, itemId: string, patch: Record<string, unknown>) => {
-      const stack = stacks.find((s) => s.itemId === itemId)
-      if (!stack) return null
-      stack.metadata = { ...stack.metadata, ...patch }
-      return stack
-    }),
+    updateItemMetadata: vi.fn(
+      async (_userId: string, itemId: string, patch: Record<string, unknown>) => {
+        const stack = stacks.find((s) => s.itemId === itemId)
+        if (!stack) return null
+        stack.metadata = { ...stack.metadata, ...patch }
+        return stack
+      },
+    ),
     registerItemDefinitions: vi.fn(),
     getItemDefinition: vi.fn(async (id: string) => {
       if (id === PM_DEF_ID) {
@@ -574,9 +577,7 @@ describe("ItemShopsPlugin local library grants", () => {
       })
       const items = await plugin.listPhysicalMediaItems({ roomId: ROOM, userId: "u1" })
       expect(items[0]?.imageUrl).toBe("/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234")
-      expect(items[0]?.imageUrlLarge).toBe(
-        "/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg",
-      )
+      expect(items[0]?.imageUrlLarge).toBe("/api/rooms/room-1/images/pl-cover-nd-lp-abcd1234-lg")
       expect(items[0]?.artworkFrame).toBe("record-jacket")
     })
 
@@ -900,7 +901,9 @@ describe("ItemShopsPlugin local library grants", () => {
       })
       const result = await plugin.validateQueueRequest(localParams)
       expect(result).toEqual({ allowed: true })
-      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1)
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1, {
+        degraded: true,
+      })
       expect(inventory.giveItem).toHaveBeenCalledWith(
         "u1",
         "item-shops:dusty-record",
@@ -934,7 +937,9 @@ describe("ItemShopsPlugin local library grants", () => {
       })
       const result = await plugin.validateQueueRequest(localParams)
       expect(result).toEqual({ allowed: true })
-      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1)
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1, {
+        degraded: true,
+      })
       expect(inventory.giveItem).toHaveBeenCalled()
       expect(api.sendUserToast).toHaveBeenCalledWith(
         ROOM,
@@ -966,7 +971,9 @@ describe("ItemShopsPlugin local library grants", () => {
         membershipPlaylistIds: ["nd-lp"],
       })
       await plugin.validateQueueRequest(localParams)
-      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-poor", 1)
+      expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-poor", 1, {
+        degraded: true,
+      })
       expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
     })
 

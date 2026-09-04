@@ -133,7 +133,10 @@ export async function promptForItemConfig(context: PromptContext): Promise<ItemW
     ],
   })
 
-  const coinValue = await promptPositiveInt("Default coin value:", 50)
+  const coinValue = await promptPositiveInt(
+    "Default coin value (ladder: common 10, uncommon 25, rare 50, legendary 100):",
+    rarity === "common" ? 10 : rarity === "uncommon" ? 25 : rarity === "rare" ? 50 : 100,
+  )
   const stackable = await confirm({ message: "Stackable?", default: true })
   const maxStack = stackable ? await promptPositiveInt("Max stack:", 3) : 1
   const tradeable = await confirm({ message: "Tradeable?", default: true })

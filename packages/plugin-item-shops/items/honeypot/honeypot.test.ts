@@ -53,6 +53,7 @@ describe("honeypot", () => {
       },
       game: {
         getUserState: vi.fn().mockResolvedValue(null),
+        getPresentedIdentity: vi.fn().mockResolvedValue(null),
       } as unknown as ItemShopsBehaviorDeps["game"],
     } as unknown as ItemShopsBehaviorDeps
 

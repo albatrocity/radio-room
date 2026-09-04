@@ -15,7 +15,7 @@ export const warmBeer = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 25,
+    coinValue: 10,
     icon: "Beer",
     rarity: "common",
   },

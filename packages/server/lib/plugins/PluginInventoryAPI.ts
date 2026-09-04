@@ -27,18 +27,14 @@ export class PluginInventoryAPI implements InventoryPluginAPI {
     return (this.context.inventory as InventoryService | undefined) ?? null
   }
 
-  registerItemDefinitions(
-    definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>,
-  ): void {
+  registerItemDefinitions(definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>): void {
     if (!this.service) return
-    this.service
-      .registerItemDefinitions(this.roomId, this.pluginName, definitions)
-      .catch((err) => {
-        console.error(
-          `[PluginInventoryAPI] registerItemDefinitions failed for ${this.pluginName}:`,
-          err,
-        )
-      })
+    this.service.registerItemDefinitions(this.roomId, this.pluginName, definitions).catch((err) => {
+      console.error(
+        `[PluginInventoryAPI] registerItemDefinitions failed for ${this.pluginName}:`,
+        err,
+      )
+    })
   }
 
   async giveItem(
@@ -48,6 +44,7 @@ export class PluginInventoryAPI implements InventoryPluginAPI {
     metadata?: Record<string, unknown>,
     source: InventoryAcquisitionSource = "plugin",
     knownInventory?: UserInventory,
+    options?: { restored?: boolean },
   ): Promise<InventoryItem | null> {
     if (!this.service) return null
     return this.service.giveItem(
@@ -58,12 +55,18 @@ export class PluginInventoryAPI implements InventoryPluginAPI {
       metadata,
       source,
       knownInventory,
+      options,
     )
   }
 
-  async removeItem(userId: string, itemId: string, quantity?: number): Promise<boolean> {
+  async removeItem(
+    userId: string,
+    itemId: string,
+    quantity?: number,
+    options?: { degraded?: boolean },
+  ): Promise<boolean> {
     if (!this.service) return false
-    return this.service.removeItem(this.roomId, userId, itemId, quantity)
+    return this.service.removeItem(this.roomId, userId, itemId, quantity, options)
   }
 
   async updateItemMetadata(

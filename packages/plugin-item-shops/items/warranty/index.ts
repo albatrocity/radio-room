@@ -11,7 +11,7 @@ export const warranty = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: false,
-    coinValue: 20,
+    coinValue: 25,
     icon: "BadgeCheck",
     rarity: "uncommon",
     defense: {

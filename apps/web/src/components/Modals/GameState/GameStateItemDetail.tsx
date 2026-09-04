@@ -1,7 +1,17 @@
 import { useEffect, useMemo } from "react"
 import { Box, HStack, Stack, Text, VStack } from "@chakra-ui/react"
-import type { ItemDefinition, ItemShopsUserGameState, MediaCondition, MetadataSourceTrack } from "@repo/types"
-import { isPhysicalMediaDefinition, ITEM_SHOPS_PLUGIN_NAME, readItemCondition, resolveSlotPool } from "@repo/types"
+import type {
+  ItemDefinition,
+  ItemShopsUserGameState,
+  MediaCondition,
+  MetadataSourceTrack,
+} from "@repo/types"
+import {
+  isPhysicalMediaDefinition,
+  ITEM_SHOPS_PLUGIN_NAME,
+  readItemCondition,
+  resolveSlotPool,
+} from "@repo/types"
 import { resolveItemRarity } from "@repo/game-logic"
 import AlbumTrackListView, { type AlbumViewHeader } from "../../AlbumTrackListView"
 import ItemArtwork from "../../ItemArtwork"
@@ -160,6 +170,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
   }, [name, description, definition, firstTrack, artworkFrame, condition])
 
   const primaryActions = <ItemDetailPrimaryActions frame={frame} definition={definition} />
+  const itemDomId = frame.source === "inventory" ? frame.inventoryItemId : undefined
 
   if (showTrackList) {
     if (!mediaKey) {
@@ -194,9 +205,19 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
         beforeTracks={<ItemDetailPrimaryActions frame={frame} definition={definition} padded />}
       />
     )
-    if (!fillHeight) return list
+    if (!fillHeight) {
+      return itemDomId ? <Box data-inventory-item-id={itemDomId}>{list}</Box> : list
+    }
     return (
-      <Box flex="1" minH={0} w="full" display="flex" flexDirection="column" overflow="hidden">
+      <Box
+        flex="1"
+        minH={0}
+        w="full"
+        display="flex"
+        flexDirection="column"
+        overflow="hidden"
+        data-inventory-item-id={itemDomId}
+      >
         {list}
       </Box>
     )
@@ -204,7 +225,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
 
   // Lore-only (`layout: "default"`): compact artwork + description.
   return (
-    <Stack gap={4} pt={2} direction="column" align="center">
+    <Stack gap={4} pt={2} direction="column" align="center" data-inventory-item-id={itemDomId}>
       <Box w="28">
         <ItemArtwork
           imageUrl={definition?.imageUrl}

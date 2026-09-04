@@ -1,4 +1,4 @@
-import { AppContext, GameSession, GameSessionConfig, GameSessionResults, pickSessionConfigBooleans } from "@repo/types"
+import { AppContext, EconomySnapshot, GameSession, GameSessionConfig, GameSessionResults, pickSessionConfigBooleans } from "@repo/types"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import type { GameSessionService } from "./GameSessionService"
@@ -642,16 +642,22 @@ export class AdminService {
     userId: string,
   ): Promise<{
     session: GameSession | null
+    economySnapshot: EconomySnapshot | null
     error: { status: number; error: string; message: string } | null
   }> {
     const { room, error } = await this.getAuthedRoom(roomId, userId)
     if (!room) {
-      return { session: null, error: error ?? { status: 403, error: "Forbidden", message: "Not authorized" } }
+      return {
+        session: null,
+        economySnapshot: null,
+        error: error ?? { status: 403, error: "Forbidden", message: "Not authorized" },
+      }
     }
     const svc = this.context.gameSessions as GameSessionService | undefined
     if (!svc) {
       return {
         session: null,
+        economySnapshot: null,
         error: {
           status: 503,
           error: "Service Unavailable",
@@ -660,7 +666,8 @@ export class AdminService {
       }
     }
     const session = await svc.getActiveSession(roomId)
-    return { session, error: null }
+    const economySnapshot = session ? await svc.getEconomySnapshot(roomId) : null
+    return { session, economySnapshot, error: null }
   }
 
   /**
@@ -773,5 +780,73 @@ export class AdminService {
       }
     }
     return { session, error: null }
+  }
+
+  /**
+   * Patch session economy scales (admin only). Emits GAME_ECONOMY_SCALE_CHANGED.
+   */
+  async setEconomyScale(
+    roomId: string,
+    userId: string,
+    patch: { costScale?: number; earnScale?: number },
+  ): Promise<{
+    session: GameSession | null
+    economySnapshot: EconomySnapshot | null
+    error: { status: number; error: string; message: string } | null
+  }> {
+    const { room, error } = await this.getAuthedRoom(roomId, userId)
+    if (!room) {
+      return {
+        session: null,
+        economySnapshot: null,
+        error: error ?? { status: 403, error: "Forbidden", message: "Not authorized" },
+      }
+    }
+    const svc = this.context.gameSessions as GameSessionService | undefined
+    if (!svc) {
+      return {
+        session: null,
+        economySnapshot: null,
+        error: {
+          status: 503,
+          error: "Service Unavailable",
+          message: "Game sessions are not available on this server.",
+        },
+      }
+    }
+    const hasCost = typeof patch.costScale === "number" && Number.isFinite(patch.costScale)
+    const hasEarn = typeof patch.earnScale === "number" && Number.isFinite(patch.earnScale)
+    if (!hasCost && !hasEarn) {
+      return {
+        session: null,
+        economySnapshot: null,
+        error: {
+          status: 400,
+          error: "Bad Request",
+          message: "Provide costScale and/or earnScale.",
+        },
+      }
+    }
+    const session = await svc.setEconomyScale(
+      roomId,
+      {
+        ...(hasCost ? { costScale: patch.costScale } : {}),
+        ...(hasEarn ? { earnScale: patch.earnScale } : {}),
+      },
+      { updatedBy: "admin" },
+    )
+    if (!session) {
+      return {
+        session: null,
+        economySnapshot: null,
+        error: {
+          status: 404,
+          error: "Not Found",
+          message: "No active game session.",
+        },
+      }
+    }
+    const economySnapshot = await svc.getEconomySnapshot(roomId)
+    return { session, economySnapshot, error: null }
   }
 }

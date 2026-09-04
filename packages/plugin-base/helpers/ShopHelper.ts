@@ -5,6 +5,7 @@ import type {
   PluginContext,
 } from "@repo/types"
 import { resolveSlotPool, slotPoolFullMessage } from "@repo/types"
+import { resolveEconomy, scalePrice } from "@repo/game-logic"
 
 /**
  * A catalog entry for an item sold in a shop. Combines the item definition
@@ -291,20 +292,25 @@ export class ShopHelper {
       return { success: false, message: `Sold out — no ${item.definition.name} remaining.` }
     }
 
+    const economy = resolveEconomy(session.config?.economy)
+    const charged = scalePrice(price, economy.costScale, economy.priceRounding)
+
     // Coin balance check.
     const userState = await this.context.game.getUserState(userId)
     const currentCoins = userState?.attributes?.coin ?? 0
-    if (currentCoins < price) {
+    if (currentCoins < charged) {
       // Refund stock since the buy will not succeed.
       await this.incrementStock(shortId)
       return {
         success: false,
-        message: `You need ${price} coins (you have ${currentCoins}).`,
+        message: `You need ${charged} coins (you have ${currentCoins}).`,
       }
     }
 
     // Deduct coins.
-    await this.context.game.addScore(userId, "coin", -price, `${this.pluginName}:purchase`)
+    await this.context.game.addScore(userId, "coin", -charged, `${this.pluginName}:purchase`, {
+      intent: "exact",
+    })
 
     // Award the item.
     const awarded = await this.context.inventory.giveItem(
@@ -318,7 +324,9 @@ export class ShopHelper {
     if (!awarded) {
       // Refund: restore stock and coins.
       await this.incrementStock(shortId)
-      await this.context.game.addScore(userId, "coin", price, `${this.pluginName}:refund`)
+      await this.context.game.addScore(userId, "coin", charged, `${this.pluginName}:refund`, {
+        intent: "exact",
+      })
       return {
         success: false,
         message: slotPoolFullMessage(
@@ -330,7 +338,7 @@ export class ShopHelper {
 
     return {
       success: true,
-      message: `Bought a ${item.definition.name} for ${price} coins.`,
+      message: `Bought a ${item.definition.name} for ${charged} coins.`,
       newStock: remaining,
     }
   }
@@ -371,7 +379,13 @@ export class ShopHelper {
       return { success: false, message: "This shop doesn't buy that item." }
     }
 
-    const refund = this.getSellPrice(definition.shortId, options?.basePrice)
+    const economy = resolveEconomy(session.config?.economy)
+    const scaledBase = scalePrice(
+      options?.basePrice ?? item.definition.coinValue ?? 0,
+      economy.costScale,
+      economy.priceRounding,
+    )
+    const refund = this.getSellPrice(definition.shortId, scaledBase)
 
     const removed = await this.context.inventory.removeItem(userId, itemId, 1)
     if (!removed) {
@@ -379,7 +393,9 @@ export class ShopHelper {
     }
 
     if (refund > 0) {
-      await this.context.game.addScore(userId, "coin", refund, `${this.pluginName}:sale`)
+      await this.context.game.addScore(userId, "coin", refund, `${this.pluginName}:sale`, {
+        intent: "exact",
+      })
     }
 
     const newStock = await this.incrementStock(definition.shortId)

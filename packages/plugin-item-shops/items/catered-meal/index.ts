@@ -10,7 +10,7 @@ export const cateredMeal = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: false,
-    coinValue: 25,
+    coinValue: 10,
     icon: "HandPlatter",
     rarity: "common",
     defense: {

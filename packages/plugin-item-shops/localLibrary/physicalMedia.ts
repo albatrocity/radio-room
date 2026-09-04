@@ -298,10 +298,10 @@ export function parsePhysicalMediaName(name: string): ParsedPhysicalMediaName | 
 }
 
 export function priceFromSongCount(songCount: number): number {
-  if (songCount <= 4) return 8
-  if (songCount <= 12) return 20
-  if (songCount <= 20) return 35
-  return 50
+  if (songCount <= 4) return 10
+  if (songCount <= 12) return 25
+  if (songCount <= 20) return 50
+  return 100
 }
 
 /** Coerce Subsonic JSON numbers that may arrive as strings. */

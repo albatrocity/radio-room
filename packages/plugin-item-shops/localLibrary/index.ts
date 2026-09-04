@@ -196,11 +196,15 @@ export class LocalLibraryModule {
       }
 
       const albumIdList = Array.from(candidateAlbumIds)
-      const albumRows = await mapWithConcurrency(albumIdList, DEDUP_RPC_CONCURRENCY, async (albumId) => {
-        const trackIds = await context.api.listLocalAlbumTrackIds(context.roomId, albumId)
-        if (trackIds.length === 0) return null
-        return { id: albumId, trackIds }
-      })
+      const albumRows = await mapWithConcurrency(
+        albumIdList,
+        DEDUP_RPC_CONCURRENCY,
+        async (albumId) => {
+          const trackIds = await context.api.listLocalAlbumTrackIds(context.roomId, albumId)
+          if (trackIds.length === 0) return null
+          return { id: albumId, trackIds }
+        },
+      )
       const albumTrackLists = albumRows.filter(
         (row): row is { id: string; trackIds: string[] } => row != null,
       )
@@ -328,11 +332,13 @@ export class LocalLibraryModule {
    * Background fill of missing album sleeves in batches. Call after refresh so
    * the catalog can register without waiting on the full library.
    */
-  async hydrateMissingAlbumArtwork(options: {
-    batchSize?: number
-    shouldContinue?: () => boolean
-    onBatch?: (changedShortIds: string[]) => void | Promise<void>
-  } = {}): Promise<void> {
+  async hydrateMissingAlbumArtwork(
+    options: {
+      batchSize?: number
+      shouldContinue?: () => boolean
+      onBatch?: (changedShortIds: string[]) => void | Promise<void>
+    } = {},
+  ): Promise<void> {
     const batchSize = Math.max(1, options.batchSize ?? 24)
     const context = this.getContext()
     if (!context) return
@@ -405,8 +411,7 @@ export class LocalLibraryModule {
     if (!key) return null
     const held = await this.getHeldGrants(userId)
     const match = held.find(
-      (h) =>
-        h.shortId === key && (h.grant.scope === "playlist" || h.grant.scope === "album"),
+      (h) => h.shortId === key && (h.grant.scope === "playlist" || h.grant.scope === "album"),
     )
     if (!match) return null
     const definition = catalogByShortId(this.grantCatalog).get(match.shortId)?.definition
@@ -513,7 +518,11 @@ export class LocalLibraryModule {
     if (playlistIds.length === 0 && byAlbumId.size === 0) return out
 
     const uniqueIds = [...new Set(trackIds.map((id) => id.trim()).filter(Boolean))]
-    const membershipByTrack = await this.membershipForTracks(uniqueIds, playlistIds, byAlbumId.size > 0)
+    const membershipByTrack = await this.membershipForTracks(
+      uniqueIds,
+      playlistIds,
+      byAlbumId.size > 0,
+    )
 
     const applyEntry = (
       id: string,
@@ -626,9 +635,7 @@ export class LocalLibraryModule {
     const playlistHeld = held.filter((h) => h.grant.scope === "playlist")
     const albumHeld = held.filter((h) => h.grant.scope === "album")
     const playlistIdsForMembership = playlistHeld
-      .map((h) =>
-        h.grant.scope === "playlist" ? playlistMap[h.grant.playlistKey]?.trim() : "",
-      )
+      .map((h) => (h.grant.scope === "playlist" ? playlistMap[h.grant.playlistKey]?.trim() : ""))
       .filter((id): id is string => Boolean(id))
     const albumIdsForMembership = albumHeld
       .map((h) => (h.grant.scope === "album" ? albumMap[h.grant.albumKey]?.trim() : ""))
@@ -751,7 +758,9 @@ export class LocalLibraryModule {
     const broken = brokenMediaForRecord({
       mediaFormat: chosen.held.mediaFormat,
     })
-    await context.inventory.removeItem(params.userId, chosen.held.itemId, 1)
+    await context.inventory.removeItem(params.userId, chosen.held.itemId, 1, {
+      degraded: true,
+    })
 
     let given = null
     if (broken) {
@@ -776,9 +785,7 @@ export class LocalLibraryModule {
     const transition = broken?.transitionMessage(recordName) ?? `${recordName} wore out.`
     const woreOutLine = "You can no longer queue songs from it."
     const description =
-      broken && !given
-        ? `${woreOutLine} You had no room to keep the worn-out copy.`
-        : woreOutLine
+      broken && !given ? `${woreOutLine} You had no room to keep the worn-out copy.` : woreOutLine
     await context.api.sendUserToast(params.roomId, params.userId, {
       title: transition,
       description,

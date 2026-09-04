@@ -1,5 +1,6 @@
 import type {
   ChatMessage,
+  EconomyScaleState,
   InventoryAcquisitionSource,
   InventoryItem,
   ItemDefinition,
@@ -7,8 +8,10 @@ import type {
   LucideIconName,
   MediaCondition,
   ShoppingSessionInstance,
+  ShopOffer,
   UserInventory,
 } from "@repo/types"
+import { resolveEconomy, scalePrice } from "./economyScale"
 
 /** Shop-specific listing (subset of the master item catalog). */
 export type ShopAvailableItem = {
@@ -299,12 +302,30 @@ export type ShopEconomyHooks = {
   adjustSellBase?(item: InventoryItem, definition: ItemDefinition, base: number): number
 }
 
+/** Re-price offers from `basePrice` against the live cost scale. */
+export function applyLiveCostScale(
+  instance: ShoppingSessionInstance,
+  economy?: EconomyScaleState | null,
+): ShoppingSessionInstance {
+  const resolved = resolveEconomy(economy)
+  const offers: ShopOffer[] = instance.offers.map((offer) => {
+    const base = offer.basePrice ?? offer.price
+    return {
+      ...offer,
+      basePrice: base,
+      price: scalePrice(base, resolved.costScale, resolved.priceRounding),
+    }
+  })
+  return { ...instance, offers }
+}
+
 export function buildShoppingInstance(
   shop: ShopCatalogEntry,
   shortIds: string[],
   catalogByShortId: Map<string, ItemCatalogEntry>,
   openedAt: number,
   hooks?: ShopEconomyHooks,
+  economy?: EconomyScaleState | null,
 ): ShoppingSessionInstance {
   const offers = shortIds.map((sid, index) => {
     const entry = catalogByShortId.get(sid)
@@ -322,8 +343,10 @@ export function buildShoppingInstance(
       mediaFormat,
       rarity,
     } = entry.definition
-    const basePrice = resolveShopItemPrice(shop, sid, catalogByShortId)
-    const extra = hooks?.decorateOffer?.(entry, basePrice)
+    const catalogBase = resolveShopItemPrice(shop, sid, catalogByShortId)
+    const extra = hooks?.decorateOffer?.(entry, catalogBase)
+    const basePrice = extra?.price ?? catalogBase
+    const resolved = resolveEconomy(economy)
     return {
       offerId: index,
       shortId: sid,
@@ -335,7 +358,8 @@ export function buildShoppingInstance(
       ...(imageUrlLarge ? { imageUrlLarge } : {}),
       ...(artworkFrame ? { artworkFrame } : {}),
       ...(mediaFormat ? { mediaFormat } : {}),
-      price: extra?.price ?? basePrice,
+      basePrice,
+      price: scalePrice(basePrice, resolved.costScale, resolved.priceRounding),
       ...(extra?.condition ? { condition: extra.condition } : {}),
       available: true,
       rarity: rarity ?? "common",
@@ -354,5 +378,6 @@ export function buildShoppingInstance(
     unlistedBuybackRate: shop.unlistedBuybackRate,
     listedShortIds: shop.availableItems.map((a) => a.shortId),
     ...(Object.keys(listedPriceOverrides).length > 0 ? { listedPriceOverrides } : {}),
+    costScaleAtIssue: resolveEconomy(economy).costScale,
   }
 }

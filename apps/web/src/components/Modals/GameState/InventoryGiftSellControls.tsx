@@ -11,6 +11,8 @@ import { getIcon } from "../../PluginComponents/icons"
 import { toaster } from "../../ui/toaster"
 import { useUserGameState } from "../UserGameStateContext"
 import { InventoryTargetUserPopover } from "./TargetUserPicker"
+import { useGameSessionEconomy } from "../../../hooks/useActors"
+import { resolveEconomy } from "@repo/game-logic"
 
 type Props = {
   item: InventoryItem
@@ -33,6 +35,7 @@ export default function InventoryGiftSellControls({
   layout = "menu",
 }: Props) {
   const gameState = useUserGameState()
+  const economy = resolveEconomy(useGameSessionEconomy() ?? gameState?.session?.config.economy)
   const tradeable = definition?.tradeable ?? false
   const coinValue = definition?.coinValue ?? 0
   const sellable = tradeable && coinValue > 0
@@ -50,7 +53,12 @@ export default function InventoryGiftSellControls({
     isItemShopsItem && shopVisitOpen && definition && shopInstance
       ? item.sellbackValue != null
         ? item.sellbackValue
-        : quoteItemShopsSellCoins(shopInstance, definition)
+        : quoteItemShopsSellCoins(
+            shopInstance,
+            definition,
+            economy.costScale,
+            economy.priceRounding,
+          )
       : null
   const sellButtonLabel =
     sellQuote != null ? (

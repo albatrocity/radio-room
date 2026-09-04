@@ -40,7 +40,7 @@ export const tomatoes = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
+    coinValue: 10,
     icon: "Circle",
     rarity: "common",
   },

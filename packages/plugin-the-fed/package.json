@@ -1,0 +1,25 @@
+{
+  "name": "@repo/plugin-the-fed",
+  "version": "1.0.0",
+  "description": "The Fed — session economy controller that drives costScale toward a target affordability",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "test": "vitest run --reporter=dot",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@repo/game-logic": "*",
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "zod": "^4.4.2"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.1.10"
+  }
+}

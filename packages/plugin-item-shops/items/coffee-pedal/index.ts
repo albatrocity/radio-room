@@ -20,7 +20,7 @@ export const coffeePedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
+    coinValue: 25,
     icon: "Coffee",
     rarity: "uncommon",
   },

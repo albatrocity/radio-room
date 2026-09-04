@@ -60,4 +60,11 @@ describe("quoteItemShopsSellCoins", () => {
     const inst = baseInstance()
     expect(quoteItemShopsSellCoins(inst, def({ shortId: "not-listed", coinValue: 0 }))).toBe(0)
   })
+
+  it("applies costScale to the base before the buyback rate", () => {
+    const inst = baseInstance()
+    expect(
+      quoteItemShopsSellCoins(inst, def({ shortId: "listed-id", coinValue: 80 }), 2),
+    ).toBe(Math.floor(160 * 0.5))
+  })
 })

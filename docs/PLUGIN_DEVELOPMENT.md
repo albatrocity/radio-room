@@ -10,7 +10,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 
 | Guide | Topics |
 | ----- | ------ |
-| [Getting Started](plugins/getting-started.md) | Architecture overview, quick start, package setup, registration |
+| [Getting Started](plugins/getting-started.md) | Architecture overview, quick start, package setup, registration, **admin settings `EDIT_*` in `modalsMachine`** (required every new plugin) |
 | [BasePlugin Reference](plugins/base-plugin.md) | Properties, methods, lifecycle hooks, optional overrides |
 | [Event System](plugins/events.md) | System events, game/inventory events, handler examples |
 | [Storage API](plugins/storage.md) | Redis namespacing, batch ops, sorted sets |
@@ -54,6 +54,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 - [Item Shops Development](SHOP_ITEM_DEVELOPMENT.md) — authoring items and shops in `@repo/plugin-item-shops`
 - Playlist Bingo — `@repo/plugin-playlist-bingo` (private cards via `contributeToUserGameState`; [ADR 0096](adrs/0096-playlist-bingo-per-user-cards.md), [ADR 0097](adrs/0097-plugin-contribute-to-user-game-state.md))
 - Queue Theme — `@repo/plugin-queue-theme` (per-track theme polls + decoy themes; [ADR 0152](adrs/0152-plugin-authored-core-polls.md), [ADR 0153](adrs/0153-plugin-authored-queue-split.md))
+- The Fed — `@repo/plugin-the-fed` (optional `costScale` controller; [ADR 0162](adrs/0162-economy-scale-for-game-sessions.md), [ADR 0163](adrs/0163-the-fed-economy-controller.md))
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
 - [ADR 0097: Plugin contributeToUserGameState](adrs/0097-plugin-contribute-to-user-game-state.md)

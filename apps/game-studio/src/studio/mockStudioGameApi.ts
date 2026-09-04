@@ -1,6 +1,9 @@
 import type {
+  AddScoreOptions,
   ApplyModifierResult,
   CheckModifierDefenseResult,
+  EconomyScaleState,
+  EconomySnapshot,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -13,7 +16,13 @@ import type {
   PresentedIdentityGrantInput,
   UserGameState,
 } from "@repo/types"
-import { evaluateModifiers } from "@repo/game-logic"
+import {
+  clampCostScale,
+  clampEarnScale,
+  evaluateModifiers,
+  resolveEconomy,
+  scaleReward,
+} from "@repo/game-logic"
 import { buildSessionConfig } from "./buildSessionConfig"
 import type { MockPluginLifecycle } from "./mockLifecycle"
 import type { StudioRoom } from "./studioRoom"
@@ -69,8 +78,9 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
     attribute: GameAttributeName,
     amount: number,
     reason?: string,
+    options?: AddScoreOptions,
   ): Promise<number> {
-    const [value] = await this.addScores(userId, [{ attribute, amount }], reason)
+    const [value] = await this.addScores(userId, [{ attribute, amount }], reason, options)
     return value ?? 0
   }
 
@@ -78,6 +88,7 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
     userId: string,
     changes: { attribute: GameAttributeName; amount: number }[],
     reason?: string,
+    options?: AddScoreOptions,
   ): Promise<number[]> {
     const session = this.room.activeSession
     if (!session) return changes.map(() => 0)
@@ -93,9 +104,12 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
       value: number
       reason?: string
     }[] = []
+    const economy = resolveEconomy(session.config.economy)
+    const intent = options?.intent ?? "earn"
 
     for (const { attribute, amount } of changes) {
-      const delta = evaluateModifiers(amount, attribute, state.modifiers, now)
+      const scaled = scaleReward(amount, attribute, economy, intent)
+      const delta = evaluateModifiers(scaled, attribute, state.modifiers, now)
       if (delta === null) {
         results.push(state.attributes[attribute] ?? 0)
         continue
@@ -433,6 +447,52 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
 
   async clearPresentedIdentity(userId: string): Promise<boolean> {
     return this.presentedIdentityByUser.delete(userId)
+  }
+
+  async getEconomyScale(): Promise<EconomyScaleState> {
+    return resolveEconomy(this.room.activeSession?.config.economy)
+  }
+
+  async setEconomyScale(
+    patch: { costScale?: number; earnScale?: number },
+    reason?: string,
+  ): Promise<EconomyScaleState | null> {
+    const session = this.room.activeSession
+    if (!session) return null
+    const current = resolveEconomy(session.config.economy)
+    const next: EconomyScaleState = {
+      ...current,
+      costScale:
+        patch.costScale != null ? clampCostScale(patch.costScale) : current.costScale,
+      earnScale:
+        patch.earnScale != null ? clampEarnScale(patch.earnScale) : current.earnScale,
+      updatedAt: Date.now(),
+      updatedBy: "plugin",
+      reason,
+    }
+    session.config = { ...session.config, economy: next }
+    this.room.notify()
+    await this.lifecycle.emit("GAME_ECONOMY_SCALE_CHANGED", {
+      roomId: this.room.roomId,
+      sessionId: session.id,
+      costScale: next.costScale,
+      earnScale: next.earnScale,
+      previous: { costScale: current.costScale, earnScale: current.earnScale },
+      updatedBy: "plugin" as const,
+      reason,
+    })
+    return next
+  }
+
+  async getEconomySnapshot(): Promise<EconomySnapshot | null> {
+    const session = this.room.activeSession
+    if (!session) return null
+    const balances: number[] = []
+    for (const userId of this.room.participants) {
+      const state = this.room.getUserState(userId)
+      balances.push(state?.attributes.coin ?? 0)
+    }
+    return { sessionId: session.id, balances }
   }
 }
 

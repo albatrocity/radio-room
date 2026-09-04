@@ -11,7 +11,7 @@ export const dustCloth = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "mediaItem",
-    coinValue: 40,
+    coinValue: 25,
     icon: "Wind",
     rarity: "uncommon",
   },

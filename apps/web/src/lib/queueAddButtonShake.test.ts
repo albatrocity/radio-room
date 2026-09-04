@@ -6,18 +6,12 @@ import {
   shakeArmedQueueAddButtonIfPlaybackMissing,
 } from "./queueAddButtonShake"
 
-const applyAnimation = vi.hoisted(() =>
-  vi.fn((_element: HTMLElement, _effect: string, _duration?: number) => Promise.resolve()),
+const playNamedAnimation = vi.hoisted(() =>
+  vi.fn((_element: HTMLElement, _name: string) => Promise.resolve()),
 )
-const areAnimationsEnabled = vi.hoisted(() => vi.fn(() => true))
 
-vi.mock("./screenEffects", () => ({
-  applyAnimation: (element: HTMLElement, effect: string, duration?: number) =>
-    applyAnimation(element, effect, duration),
-}))
-
-vi.mock("../actors/reducedMotionActor", () => ({
-  areAnimationsEnabled: () => areAnimationsEnabled(),
+vi.mock("./inventoryItemAnimations", () => ({
+  playNamedAnimation: (element: HTMLElement, name: string) => playNamedAnimation(element, name),
 }))
 
 function fakeButton(): HTMLElement {
@@ -27,30 +21,21 @@ function fakeButton(): HTMLElement {
 describe("queueAddButtonShake", () => {
   afterEach(() => {
     disarmQueueAddButtonShake()
-    applyAnimation.mockClear()
-    areAnimationsEnabled.mockReturnValue(true)
+    playNamedAnimation.mockClear()
   })
 
   it("shakes the armed button on the playback-device failure", async () => {
     const button = fakeButton()
     armQueueAddButtonShake(button)
     await shakeArmedQueueAddButtonIfPlaybackMissing(PLAYBACK_DEVICE_MISSING_REASON)
-    expect(applyAnimation).toHaveBeenCalledWith(button, "headShake", 600)
+    expect(playNamedAnimation).toHaveBeenCalledWith(button, "headShake")
   })
 
   it("does not shake for other queue failures", async () => {
     const button = fakeButton()
     armQueueAddButtonShake(button)
     await shakeArmedQueueAddButtonIfPlaybackMissing("That track is already in the queue")
-    expect(applyAnimation).not.toHaveBeenCalled()
-  })
-
-  it("skips the animation when motion is reduced", async () => {
-    areAnimationsEnabled.mockReturnValue(false)
-    const button = fakeButton()
-    armQueueAddButtonShake(button)
-    await shakeArmedQueueAddButtonIfPlaybackMissing(PLAYBACK_DEVICE_MISSING_REASON)
-    expect(applyAnimation).not.toHaveBeenCalled()
+    expect(playNamedAnimation).not.toHaveBeenCalled()
   })
 
   it("clears the armed button so a later shake is a no-op", async () => {
@@ -58,6 +43,6 @@ describe("queueAddButtonShake", () => {
     armQueueAddButtonShake(button)
     disarmQueueAddButtonShake()
     await shakeArmedQueueAddButtonIfPlaybackMissing(PLAYBACK_DEVICE_MISSING_REASON)
-    expect(applyAnimation).not.toHaveBeenCalled()
+    expect(playNamedAnimation).not.toHaveBeenCalled()
   })
 })

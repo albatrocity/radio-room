@@ -92,6 +92,8 @@ function AdminSettingsCollapsibleSections() {
         </Collapsible.Content>
       </Collapsible.Root>
 
+      {/* Plugin forms: schemas drive the UI. Opening a link still needs a matching
+          `EDIT_*` / `settings.{name}` state in modalsMachine (see getting-started.md). */}
       {schemas
         .filter((plugin) => plugin.configSchema)
         .map((plugin) => (

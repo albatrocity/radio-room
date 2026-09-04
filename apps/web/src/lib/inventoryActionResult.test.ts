@@ -43,6 +43,25 @@ describe("subscribeInventoryActionResult", () => {
     )
   })
 
+  it("uses an explicit warning toast type", () => {
+    subscribeInventoryActionResult({ id: "inv-warn" })
+    capturedSend()({
+      type: "INVENTORY_ACTION_RESULT",
+      data: {
+        success: true,
+        title: "Kid A dropped to Good condition!",
+        message: "What are you doing?! These are not for drawing on! You scratched the CD.",
+        toastType: "warning",
+      },
+    })
+    expect(toaster.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Kid A dropped to Good condition!",
+        type: "warning",
+      }),
+    )
+  })
+
   it("omits duration when the result does not set one", () => {
     subscribeInventoryActionResult({ id: "inv-2" })
     capturedSend()({ type: "INVENTORY_ACTION_RESULT", data: { success: true, message: "Sold." } })

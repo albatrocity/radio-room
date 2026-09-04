@@ -12,7 +12,7 @@ export const marsEgg = createItem({
     maxStack: 1,
     tradeable: true,
     consumable: false,
-    coinValue: 50,
+    coinValue: 100,
     icon: "Egg",
     rarity: "legendary",
   },

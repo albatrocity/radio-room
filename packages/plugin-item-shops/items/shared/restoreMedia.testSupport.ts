@@ -1,9 +1,17 @@
 import { describe, expect, test, vi } from "vitest"
 import { userFactory } from "@repo/factories"
 import type { InventoryItem, ItemDefinition, PhysicalMediaFormat } from "@repo/types"
-import { MEDIA_CONDITION_LABELS, PHYSICAL_MEDIA_CONDITION_KEY, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
+import {
+  MEDIA_CONDITION_LABELS,
+  PHYSICAL_MEDIA_CONDITION_KEY,
+  PHYSICAL_MEDIA_ORIGIN_KEY,
+} from "@repo/types"
 import { physicalMediaTypeLabel } from "../../localLibrary/physicalMedia"
-import { albumTitleFromItemName, pickRandomRestoreCandidateFromCatalog, RESTORE_TOAST_DURATION_MS } from "./restoreMedia"
+import {
+  albumTitleFromItemName,
+  pickRandomRestoreCandidateFromCatalog,
+  RESTORE_TOAST_DURATION_MS,
+} from "./restoreMedia"
 import type { Item } from "./types"
 import { createMockDefinition, createMockDeps, invokeUse } from "./testHelpers"
 
@@ -14,7 +22,8 @@ type RestoreCaseOpts = {
   matchingRecords: Array<{ format: PhysicalMediaFormat; name: string; shortId: string }>
   brokenShortId: string
   brokenName: string
-  wrongFormat: PhysicalMediaFormat
+  /** Omit when every Physical Media format is a valid target (e.g. Pencil). */
+  wrongFormat?: PhysicalMediaFormat
 }
 
 function pmDef(opts: {
@@ -62,11 +71,13 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
   const primary = matching[0]
   if (!primary) throw new Error("describeRestoreMediaItem requires at least one matching record")
 
-  const wrong = pmDef({
-    shortId: `pm-wrong-${opts.wrongFormat.toLowerCase()}`,
-    name: `Wrong ${opts.wrongFormat}`,
-    format: opts.wrongFormat,
-  })
+  const wrong = opts.wrongFormat
+    ? pmDef({
+        shortId: `pm-wrong-${opts.wrongFormat.toLowerCase()}`,
+        name: `Wrong ${opts.wrongFormat}`,
+        format: opts.wrongFormat,
+      })
+    : null
   const pedal = createMockDefinition("boost-pedal", {
     id: "item-shops:boost-pedal",
     name: "Boost Pedal",
@@ -78,7 +89,7 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
     maxStack: 1,
   })
   const defsById = new Map<string, ItemDefinition>(
-    [...matching, wrong, pedal, broken].map((d) => [d.id, d]),
+    [...matching, ...(wrong ? [wrong] : []), pedal, broken].map((d) => [d.id, d]),
   )
 
   function setup(target: InventoryItem, extra?: { restoreCandidates?: ItemDefinition[] }) {
@@ -185,20 +196,22 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
       expect(deps.context.inventory.updateItemMetadata).not.toHaveBeenCalled()
     })
 
-    test("wrong format ⇒ did-nothing and consumed", async () => {
-      const target = stack(wrong, {
-        itemId: "pm-wrong",
-        metadata: { [PHYSICAL_MEDIA_CONDITION_KEY]: "poor" },
+    if (wrong) {
+      test("wrong format ⇒ did-nothing and consumed", async () => {
+        const target = stack(wrong, {
+          itemId: "pm-wrong",
+          metadata: { [PHYSICAL_MEDIA_CONDITION_KEY]: "poor" },
+        })
+        const { deps, actor } = setup(target)
+        const result = await invokeUse(opts.item, deps, actor.userId, cleanerDef, {
+          targetInventoryItemId: target.itemId,
+        })
+        expect(result.success).toBe(false)
+        expect(result.consumed).toBe(true)
+        expect(result.message).toBe(`${opts.itemLabel} used on ${wrong.name}. It did nothing.`)
+        expect(deps.context.inventory.updateItemMetadata).not.toHaveBeenCalled()
       })
-      const { deps, actor } = setup(target)
-      const result = await invokeUse(opts.item, deps, actor.userId, cleanerDef, {
-        targetInventoryItemId: target.itemId,
-      })
-      expect(result.success).toBe(false)
-      expect(result.consumed).toBe(true)
-      expect(result.message).toBe(`${opts.itemLabel} used on ${wrong.name}. It did nothing.`)
-      expect(deps.context.inventory.updateItemMetadata).not.toHaveBeenCalled()
-    })
+    }
 
     test("non-media target (a pedal) ⇒ did-nothing and consumed", async () => {
       const target = stack(pedal, { itemId: "pedal-1" })
@@ -223,9 +236,17 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
         targetInventoryItemId: target.itemId,
       })
       expect(result).toEqual(expectedToast(primary.mediaFormat ?? "CD", "poor", primary.name))
-      expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(actor.userId, primary.id, 1, {
-        [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
-      })
+      expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(
+        actor.userId,
+        primary.id,
+        1,
+        {
+          [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
+        },
+        "plugin",
+        undefined,
+        { restored: true },
+      )
       expect(deps.context.inventory.removeItem).toHaveBeenCalledWith(actor.userId, target.itemId, 1)
     })
 
@@ -236,7 +257,9 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
         format: primary.mediaFormat ?? "CD",
       })
       const target = stack(broken, { itemId: "broken-shop" })
-      const { deps, actor } = setup(target, { restoreCandidates: [wrong, other, primary] })
+      const { deps, actor } = setup(target, {
+        restoreCandidates: [...(wrong ? [wrong] : []), other, primary],
+      })
       const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0)
 
       const result = await invokeUse(opts.item, deps, actor.userId, cleanerDef, {
@@ -245,9 +268,17 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
 
       expect(result).toEqual(expectedToast(other.mediaFormat ?? "CD", "poor", other.name))
       expect(deps.context.inventory.getAllItemDefinitions).not.toHaveBeenCalled()
-      expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(actor.userId, other.id, 1, {
-        [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
-      })
+      expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(
+        actor.userId,
+        other.id,
+        1,
+        {
+          [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
+        },
+        "plugin",
+        undefined,
+        { restored: true },
+      )
       randomSpy.mockRestore()
     })
 

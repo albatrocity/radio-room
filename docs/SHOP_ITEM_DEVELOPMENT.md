@@ -39,6 +39,19 @@ npm run create-item -w @repo/plugin-item-shops
   - none
 - Optional shop registration (per-shop `coinValue`)
 
+### Economy ladder (base `coinValue`)
+
+Authored `coinValue`s are **base prices**. Session `costScale` multiplies them at the shop quote ([ADR 0162](adrs/0162-economy-scale-for-game-sessions.md)); The Fed's basket `P₀` is the median catalog `coinValue` ([ADR 0163](adrs/0163-the-fed-economy-controller.md)). Keep new items on this rarity ladder unless the SKU is a deliberate outlier (cheap produce, expensive playback devices):
+
+| Rarity | Base `coinValue` |
+| --- | --- |
+| common | 10 |
+| uncommon | 25 |
+| rare | 50 |
+| legendary | 100 |
+
+Shop `availableItems[].coinValue` overrides should express a markup or discount against that base, not paper over an off-ladder catalog price. The effective price a player pays is `scalePrice(base, costScale, priceRounding)`.
+
 ### What the item CLI generates
 
 - `items/<shortId>/index.ts`

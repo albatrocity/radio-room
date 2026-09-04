@@ -41,7 +41,9 @@ describe("ItemShopsPlugin.contributeToUserGameState", () => {
       roomId: "room-1",
       storage,
       api: {},
-      game: {},
+      game: {
+        getActiveSession: vi.fn(async () => null),
+      },
       inventory: {},
     } as any
     ;(plugin as any).context = context
@@ -148,7 +150,9 @@ describe("ItemShopsPlugin.referencedItemDefinitionIdsForUser", () => {
       roomId: "room-1",
       storage,
       api: {},
-      game: {},
+      game: {
+        getActiveSession: vi.fn(async () => null),
+      },
       inventory: {},
     } as any
     ;(plugin as any).context = context

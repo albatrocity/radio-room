@@ -167,6 +167,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0159](0159-physical-media-restoration-items.md) | Physical Media restoration items (CD Cleaner, Dust Cloth, Pencil) | Accepted |
 | [0160](0160-playback-device-gating.md) | Playback-device gating (third slot pool, `playbackFormats`) | Accepted |
 | [0161](0161-spotify-device-readiness-on-demand.md) | Spotify SDK device readiness is prepared on demand, not by reload-looping | Accepted |
+| [0162](0162-economy-scale-for-game-sessions.md) | Economy scale for game sessions (`costScale` / `earnScale`, `intent: "exact"`) | Accepted |
+| [0163](0163-the-fed-economy-controller.md) | The Fed — optional plugin driving `costScale` toward target affordability | Accepted |
+| [0164](0164-inventory-item-dom-animations.md) | Inventory item DOM animations (named catalog + `degraded` / `restored`) | Accepted |
 
 ## Creating a New ADR
 

@@ -83,7 +83,7 @@ function makeContext(params?: {
       hset: vi.fn(async () => {}),
     },
     game: {
-      getActiveSession: vi.fn(async () => ({ id: "s1" })),
+      getActiveSession: vi.fn(async () => ({ id: "s1", config: {} })),
       getUserState: vi.fn(async () => ({ attributes: { coin: 100 } })),
       addScore,
     },
@@ -138,6 +138,68 @@ describe("ShoppingSessionHelper purchase / sell hooks", () => {
     expect(result.success).toBe(true)
     // listed price 20 * 0.45 condition * 0.5 buyback = 4
     expect(result.refund).toBe(4)
+  })
+
+  it("charges the live scaled price and refunds that exact debit", async () => {
+    const { context, addScore } = makeContext({
+      giveItem: vi.fn(async () => null),
+    })
+    context.game.getActiveSession = vi.fn(async () => ({
+      id: "s1",
+      config: {
+        economy: {
+          costScale: 2,
+          earnScale: 1,
+          scaledAttributes: ["coin"],
+          priceRounding: 1,
+          updatedAt: 1,
+        },
+      },
+    })) as PluginContext["game"]["getActiveSession"]
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    const result = await helper.purchase({ userId: "u1", username: "U" }, 0)
+    expect(result.success).toBe(false)
+    // persisted offer price 9, no basePrice → treat 9 as base → scalePrice(9, 2) = 18
+    expect(addScore).toHaveBeenNthCalledWith(1, "u1", "coin", -18, "item-shops:purchase", {
+      intent: "exact",
+    })
+    expect(addScore).toHaveBeenNthCalledWith(2, "u1", "coin", 18, "item-shops:refund", {
+      intent: "exact",
+    })
+  })
+
+  it("scales sell proceeds once from the catalog base", async () => {
+    const item: InventoryItem = {
+      itemId: "fuzz-1",
+      definitionId: "item-shops:fuzz-pedal",
+      sourcePlugin: "item-shops",
+      quantity: 1,
+      acquiredAt: 1,
+    }
+    const definition: ItemDefinition = {
+      id: "item-shops:fuzz-pedal",
+      sourcePlugin: "item-shops",
+      ...PEDAL.definition,
+    }
+    const { context, addScore } = makeContext()
+    context.game.getActiveSession = vi.fn(async () => ({
+      id: "s1",
+      config: {
+        economy: {
+          costScale: 2,
+          earnScale: 4,
+          scaledAttributes: ["coin"],
+          priceRounding: 1,
+          updatedAt: 1,
+        },
+      },
+    })) as PluginContext["game"]["getActiveSession"]
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    const result = await helper.sell("u1", item, definition)
+    expect(result.success).toBe(true)
+    // listed 25 * 2 costScale = 50, * 0.5 buyback = 25. Must not also apply earnScale.
+    expect(result.refund).toBe(25)
+    expect(addScore).toHaveBeenCalledWith("u1", "coin", 25, "item-shops:sale", { intent: "exact" })
   })
 
   it("names the full slot pool when giveItem fails", async () => {

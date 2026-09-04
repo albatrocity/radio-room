@@ -140,6 +140,7 @@ MediaMTX runs locally via `docker compose --profile live up` and is deployed to 
 2. Extend `BasePlugin<TConfig>` from `@repo/plugin-base`
 3. Define Zod schema for configuration
 4. Register in `apps/api/src/server.ts`
+5. **Admin settings view** — add an `EDIT_*` event and `settings.{plugin_name}` child state in `apps/web/src/machines/modalsMachine.ts` (kebab-case `the-fed` → `EDIT_THE_FED` / `the_fed`). Overview and Quick Access already send `toPluginSettingsEventType(pluginName)`; without the machine state the link does nothing. Details in [Getting Started](docs/plugins/getting-started.md#6-register-the-admin-settings-view).
 
 See [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md) for full details.
 

@@ -126,9 +126,7 @@ function InventoryRow({
       gap={1}
       w={isCollection ? "fit-content" : { base: "full", md: "fit-content" }}
       gridTemplateColumns={
-        isCollection
-          ? "1fr"
-          : { base: "repeat(auto-fit, minmax(0, 1fr))", md: "1fr" }
+        isCollection ? "1fr" : { base: "repeat(auto-fit, minmax(0, 1fr))", md: "1fr" }
       }
     >
       <InventoryGiftSellControls item={item} definition={definition} size="sm" />
@@ -149,6 +147,7 @@ function InventoryRow({
 
   return (
     <ItemDetailListItem
+      inventoryItemId={item.itemId}
       artwork={
         <VStack align="center" minW="4rem" gap={1}>
           <ItemArtwork

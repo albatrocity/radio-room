@@ -235,6 +235,39 @@ export interface GameLeaderboardEntry {
 // Sessions
 // ============================================================================
 
+/**
+ * How a ledger write should treat `earnScale`.
+ * - `"earn"` (default): positive deltas to scaled attributes are multiplied.
+ * - `"exact"`: write the amount as given (refunds, escrow, stored-coin, pre-scaled spends).
+ */
+export type EconomyIntent = "earn" | "exact"
+
+export interface AddScoreOptions {
+  intent?: EconomyIntent
+}
+
+/**
+ * Session-level multipliers applied to authored coin figures.
+ * Absent/`undefined` on persisted sessions is identity (scale 1.0).
+ */
+export interface EconomyScaleState {
+  costScale: number
+  earnScale: number
+  /** Attributes both scales apply to. Defaults to `["coin"]`. */
+  scaledAttributes: GameAttributeName[]
+  /** Round scaled prices to this multiple. `1` = nearest coin. */
+  priceRounding: number
+  updatedAt: number
+  updatedBy?: "admin" | "plugin"
+  reason?: string
+}
+
+/** Coin balances of session participants, for The Fed / admin metrics. */
+export interface EconomySnapshot {
+  sessionId: string
+  balances: number[]
+}
+
 export type GameSessionStatus = "pending" | "active" | "ended"
 
 export type GameSessionMode = "individual" | "team"
@@ -296,6 +329,12 @@ export interface GameSessionConfig {
    * else. Toggleable mid-session. Only applies in restricted-Local rooms.
    */
   physicalMediaWearForAdmins: boolean
+
+  /**
+   * Session-level economy scales. Optional so sessions persisted before this
+   * field deserialize as identity (scale 1.0). See ADR 0162.
+   */
+  economy?: EconomyScaleState
 }
 
 /** Mid-session boolean patches. Adding a key here is the single registry. */

@@ -580,6 +580,10 @@ export const useHasActiveGameSession = () => {
   return useSelector(gameSessionActor, (s) => s.context.activeSessionId != null)
 }
 
+export const useGameSessionEconomy = () => {
+  return useSelector(gameSessionActor, (s) => s.context.economy)
+}
+
 // ============================================================================
 // User Game State Hooks
 // ============================================================================

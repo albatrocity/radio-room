@@ -218,3 +218,132 @@ describe("GameSessionService.addScores", () => {
     )
   })
 })
+
+describe("GameSessionService economy scale", () => {
+  function makeEconomySession(earnScale = 1, costScale = 1): GameSession {
+    return {
+      id: sessionId,
+      roomId,
+      status: "active",
+      startedAt: 1,
+      config: {
+        id: sessionId,
+        name: "t",
+        enabledAttributes: ["score", "coin"],
+        initialValues: {},
+        maxInventorySlots: 3,
+        maxCollectionSlots: 12,
+        maxPlaybackSlots: 2,
+        allowTrading: false,
+        allowSelling: false,
+        physicalMediaWearForAdmins: true,
+        inventoryEnabled: true,
+        mode: "individual",
+        leaderboards: [],
+        economy: {
+          costScale,
+          earnScale,
+          scaledAttributes: ["coin"],
+          priceRounding: 1,
+          updatedAt: 1,
+        },
+      },
+    }
+  }
+
+  async function seedEconomy(redis: MemoryRedisClient, earnScale = 2) {
+    await redis.set(activeKey, sessionId)
+    await redis.set(sessionBlobKey, JSON.stringify(makeEconomySession(earnScale)))
+  }
+
+  test("applies earnScale to positive coin deltas", async () => {
+    const { redis, context, service } = makeCtx()
+    ;(context as { systemEvents: { emit: ReturnType<typeof vi.fn> } }).systemEvents = { emit: vi.fn() }
+    await seedEconomy(redis, 2)
+
+    const [value] = await service.addScores(roomId, userId, [{ attribute: "coin", amount: 10 }], "loyalty")
+    expect(value).toBe(20)
+  })
+
+  test("intent exact bypasses earnScale", async () => {
+    const { redis, context, service } = makeCtx()
+    ;(context as { systemEvents: { emit: ReturnType<typeof vi.fn> } }).systemEvents = { emit: vi.fn() }
+    await seedEconomy(redis, 2)
+
+    const [value] = await service.addScores(
+      roomId,
+      userId,
+      [{ attribute: "coin", amount: 10 }],
+      "refund",
+      { intent: "exact" },
+    )
+    expect(value).toBe(10)
+  })
+
+  test("score is unaffected by default scaledAttributes", async () => {
+    const { redis, context, service } = makeCtx()
+    ;(context as { systemEvents: { emit: ReturnType<typeof vi.fn> } }).systemEvents = { emit: vi.fn() }
+    await seedEconomy(redis, 2)
+
+    const [value] = await service.addScores(roomId, userId, [{ attribute: "score", amount: 10 }], "quiz")
+    expect(value).toBe(10)
+  })
+
+  test("applies earnScale before modifiers", async () => {
+    const { redis, context, service } = makeCtx()
+    ;(context as { systemEvents: { emit: ReturnType<typeof vi.fn> } }).systemEvents = { emit: vi.fn() }
+    await seedEconomy(redis, 2)
+    const now = Date.now()
+    await redis.set(
+      userStateKey,
+      JSON.stringify({
+        userId,
+        attributes: { coin: 0 },
+        modifiers: [
+          {
+            id: "m1",
+            name: "double",
+            source: "test",
+            stackBehavior: "replace",
+            startAt: now - 1000,
+            endAt: now + 60_000,
+            effects: [
+              { type: "multiplier", target: "coin", value: 2 },
+              { type: "additive", target: "coin", value: 5 },
+            ],
+          },
+        ],
+      } satisfies UserGameState),
+    )
+
+    // scale first: 10 * 2 = 20, then 20 * 2 + 5 = 45. Modifier-first would be (10*2+5)*2 = 50.
+    const [value] = await service.addScores(roomId, userId, [{ attribute: "coin", amount: 10 }], "buff")
+    expect(value).toBe(45)
+  })
+
+  test("setEconomyScale clamps and emits GAME_ECONOMY_SCALE_CHANGED", async () => {
+    const { redis, context, service } = makeCtx()
+    const emit = vi.fn()
+    ;(context as { systemEvents: { emit: typeof emit } }).systemEvents = { emit }
+    await seedEconomy(redis, 1)
+
+    const session = await service.setEconomyScale(
+      roomId,
+      { costScale: 99, earnScale: 0 },
+      { updatedBy: "admin", reason: "test" },
+    )
+    expect(session?.config.economy?.costScale).toBe(8)
+    expect(session?.config.economy?.earnScale).toBe(0.25)
+    expect(emit).toHaveBeenCalledWith(
+      roomId,
+      "GAME_ECONOMY_SCALE_CHANGED",
+      expect.objectContaining({
+        costScale: 8,
+        earnScale: 0.25,
+        previous: { costScale: 1, earnScale: 1 },
+        updatedBy: "admin",
+        reason: "test",
+      }),
+    )
+  })
+})

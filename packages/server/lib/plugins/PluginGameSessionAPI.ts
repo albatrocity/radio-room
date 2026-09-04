@@ -1,7 +1,10 @@
 import {
   AppContext,
+  AddScoreOptions,
   ApplyModifierResult,
   CheckModifierDefenseResult,
+  EconomyScaleState,
+  EconomySnapshot,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -13,6 +16,7 @@ import {
   PluginAttributeDefinition,
   UserGameState,
 } from "@repo/types"
+import { defaultEconomyScaleState } from "@repo/game-logic"
 import { GameSessionService } from "../../services/GameSessionService"
 
 /**
@@ -70,6 +74,7 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
     attribute: GameAttributeName,
     amount: number,
     reason?: string,
+    options?: AddScoreOptions,
   ): Promise<number> {
     if (!this.service) return 0
     return this.service.addScore(
@@ -78,6 +83,7 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
       attribute,
       amount,
       reason ?? this.pluginName,
+      options,
     )
   }
 
@@ -85,6 +91,7 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
     userId: string,
     changes: { attribute: GameAttributeName; amount: number }[],
     reason?: string,
+    options?: AddScoreOptions,
   ): Promise<number[]> {
     if (!this.service) return changes.map(() => 0)
     return this.service.addScores(
@@ -92,7 +99,30 @@ export class PluginGameSessionAPI implements GameSessionPluginAPI {
       userId,
       changes,
       reason ?? this.pluginName,
+      options,
     )
+  }
+
+  async getEconomyScale(): Promise<EconomyScaleState> {
+    if (!this.service) return defaultEconomyScaleState(0)
+    return this.service.getEconomyScale(this.roomId)
+  }
+
+  async setEconomyScale(
+    patch: { costScale?: number; earnScale?: number },
+    reason?: string,
+  ): Promise<EconomyScaleState | null> {
+    if (!this.service) return null
+    const session = await this.service.setEconomyScale(this.roomId, patch, {
+      updatedBy: "plugin",
+      reason: reason ?? this.pluginName,
+    })
+    return session ? session.config.economy ?? null : null
+  }
+
+  async getEconomySnapshot(): Promise<EconomySnapshot | null> {
+    if (!this.service) return null
+    return this.service.getEconomySnapshot(this.roomId)
   }
 
   async setScore(

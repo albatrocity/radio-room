@@ -87,8 +87,12 @@ describe("buyout", () => {
 
     expect(deps.context.inventory.removeItem).toHaveBeenCalledWith("u1", "stack-1", 1)
     expect(deps.context.inventory.removeItem).toHaveBeenCalledWith("u1", "stack-2", 2)
-    expect(deps.game.addScore).toHaveBeenCalledWith("u1", "coin", 100, "item-shops:buyout")
-    expect(deps.game.addScore).toHaveBeenCalledWith("u1", "coin", 200, "item-shops:buyout")
+    expect(deps.game.addScore).toHaveBeenCalledWith("u1", "coin", 100, "item-shops:buyout", {
+      intent: "exact",
+    })
+    expect(deps.game.addScore).toHaveBeenCalledWith("u1", "coin", 200, "item-shops:buyout", {
+      intent: "exact",
+    })
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
       expect.stringMatching(/pat used Buyout and liquidated 3 item\(s\) for 300 coins/),
@@ -133,6 +137,8 @@ describe("buyout", () => {
     expect(result.success).toBe(true)
     expect(result.message).toMatch(/Sold 2 item\(s\) for 40 coins/)
     expect(deps.context.inventory.removeItem).toHaveBeenCalledWith("u1", "stack-1", 2)
-    expect(deps.game.addScore).toHaveBeenCalledWith("u1", "coin", 40, "item-shops:buyout")
+    expect(deps.game.addScore).toHaveBeenCalledWith("u1", "coin", 40, "item-shops:buyout", {
+      intent: "exact",
+    })
   })
 })

@@ -1,4 +1,5 @@
 import { PLAYBACK_DEVICE_MISSING_REASON } from "@repo/types"
+import { playNamedAnimation } from "./inventoryItemAnimations"
 
 type ArmedButtonRef = { deref: () => HTMLElement | undefined }
 
@@ -28,19 +29,10 @@ export function disarmQueueAddButtonShake(): void {
  * for a missing playback device. Other failures leave the button still.
  * Screen-effect CSS and the reduced-motion actor load only if a shake runs.
  */
-export function shakeArmedQueueAddButtonIfPlaybackMissing(
-  failureMessage?: string,
-): Promise<void> {
+export function shakeArmedQueueAddButtonIfPlaybackMissing(failureMessage?: string): Promise<void> {
   const element = armedButton?.deref() ?? null
   armedButton = null
   if (!element) return Promise.resolve()
   if (failureMessage !== PLAYBACK_DEVICE_MISSING_REASON) return Promise.resolve()
-  return playHeadShake(element)
-}
-
-async function playHeadShake(element: HTMLElement): Promise<void> {
-  const { areAnimationsEnabled } = await import("../actors/reducedMotionActor")
-  if (!areAnimationsEnabled()) return
-  const { applyAnimation } = await import("./screenEffects")
-  await applyAnimation(element, "headShake", 600)
+  return playNamedAnimation(element, "headShake")
 }

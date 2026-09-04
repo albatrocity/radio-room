@@ -13,7 +13,7 @@ export const bufferPedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 30,
+    coinValue: 25,
     icon: "Timer",
     rarity: "uncommon",
   },

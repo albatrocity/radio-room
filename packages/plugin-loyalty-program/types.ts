@@ -3,7 +3,7 @@ import { z } from "zod"
 export const loyaltyProgramConfigSchema = z.object({
   enabled: z.boolean().default(false),
   intervalMinutes: z.number().int().min(1).max(24 * 60).default(5),
-  baseCoins: z.number().int().min(0).default(1),
+  baseCoins: z.number().int().min(0).default(5),
   /** Added to base for each prior payout in the current game session (0 = fixed reward). */
   scaleBonusPerInterval: z.number().int().min(0).default(0),
   /** Minimum minutes in room before eligibility lines up with first scheduled payout. */
@@ -20,7 +20,7 @@ export type LoyaltyProgramConfig = z.infer<typeof loyaltyProgramConfigSchema>
 export const defaultLoyaltyProgramConfig: LoyaltyProgramConfig = {
   enabled: false,
   intervalMinutes: 5,
-  baseCoins: 1,
+  baseCoins: 5,
   scaleBonusPerInterval: 0,
   minSessionMinutes: 0,
   messageTemplate:

@@ -1,5 +1,6 @@
 import type { GameAttributeName, GameSessionConfig } from "@repo/types"
 import { DEFAULT_SLOT_CAPS } from "@repo/types"
+import { defaultEconomyScaleState } from "@repo/game-logic"
 import { newId } from "./id"
 
 export const DEFAULT_PLAYBACK_SLOTS = DEFAULT_SLOT_CAPS.playback
@@ -44,5 +45,6 @@ export function buildSessionConfig(
     allowTrading: partial.allowTrading ?? false,
     allowSelling: partial.allowSelling ?? true,
     physicalMediaWearForAdmins: partial.physicalMediaWearForAdmins ?? true,
+    economy: partial.economy ?? defaultEconomyScaleState(),
   }
 }

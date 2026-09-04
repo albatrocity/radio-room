@@ -6,18 +6,21 @@ export type InventoryActionResultPayload = {
   refund?: number
   title?: string
   duration?: number
+  toastType?: "success" | "warning" | "error" | "info"
 }
 
-function pluginRegistry(context: AppContext): {
-  invokeOnItemSold?: (
-    roomId: string,
-    pluginName: string,
-    userId: string,
-    item: InventoryItem,
-    definition: ItemDefinition,
-    callContext: unknown,
-  ) => Promise<ItemSellResult | null>
-} | undefined {
+function pluginRegistry(context: AppContext):
+  | {
+      invokeOnItemSold?: (
+        roomId: string,
+        pluginName: string,
+        userId: string,
+        item: InventoryItem,
+        definition: ItemDefinition,
+        callContext: unknown,
+      ) => Promise<ItemSellResult | null>
+    }
+  | undefined {
   return context.pluginRegistry as
     | {
         invokeOnItemSold?: (

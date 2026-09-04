@@ -13,7 +13,7 @@ export const tubeOverdrive = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 20,
+    coinValue: 10,
     icon: "Gauge",
     rarity: "common",
   },

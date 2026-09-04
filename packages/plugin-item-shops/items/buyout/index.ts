@@ -1,4 +1,5 @@
 import type { InventoryItem, ItemDefinition, ItemUseResult } from "@repo/types"
+import { resolveEconomy, scalePrice } from "@repo/game-logic"
 import {
   sendAttributedSystemMessage,
   resolveItemUseActorDisplayName,
@@ -40,6 +41,9 @@ async function useBuyout(
     return { success: false, consumed: false, message: "You have no items to sell." }
   }
 
+  const session = await game.getActiveSession()
+  const economy = resolveEconomy(session?.config.economy)
+
   let totalRefund = 0
   let itemsSold = 0
 
@@ -47,14 +51,16 @@ async function useBuyout(
     const qty = Math.max(0, Math.floor(Number(stack.quantity)))
     if (qty <= 0) continue
 
-    const refundPerUnit = (def.coinValue ?? 0) * 2
+    const refundPerUnit = scalePrice((def.coinValue ?? 0) * 2, economy.costScale, economy.priceRounding)
     const stackRefund = refundPerUnit * qty
 
     const removed = await context.inventory.removeItem(userId, stack.itemId, qty)
     if (!removed) continue
 
     if (stackRefund > 0) {
-      await game.addScore(userId, "coin", stackRefund, `${pluginName}:buyout`)
+      await game.addScore(userId, "coin", stackRefund, `${pluginName}:buyout`, {
+        intent: "exact",
+      })
     }
     totalRefund += stackRefund
     itemsSold += qty
@@ -91,7 +97,7 @@ export const buyout = createItem({
     maxStack: 1,
     tradeable: false,
     consumable: true,
-    coinValue: 35,
+    coinValue: 50,
     icon: "HandCoins",
     rarity: "rare",
   },

@@ -12,7 +12,7 @@ export const boostPedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
+    coinValue: 10,
     icon: "ChevronsUp",
     rarity: "common",
   },

@@ -50,7 +50,7 @@ export const honeypot = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: false,
-    coinValue: 30,
+    coinValue: 50,
     icon: "Network",
     rarity: "rare",
     defense: {

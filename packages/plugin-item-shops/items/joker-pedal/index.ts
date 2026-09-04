@@ -22,7 +22,7 @@ export const jokerPedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 20,
+    coinValue: 25,
     icon: "Laugh",
     rarity: "uncommon",
   },

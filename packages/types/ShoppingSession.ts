@@ -31,6 +31,12 @@ export interface ShopOffer {
   /** Format token so the offer row can resolve a condition-specific frame (ADR 0155). */
   mediaFormat?: PhysicalMediaFormat
   price: number
+  /**
+   * Unscaled catalog/shop price this offer was issued from. `price` is the
+   * live cost-scaled value. Omitted on legacy persisted instances — readers
+   * fall back to `price` as the base.
+   */
+  basePrice?: number
   /** false after the user purchased the single available unit. */
   available: boolean
   /** Item rarity for display styling. */
@@ -66,6 +72,11 @@ export interface ShoppingSessionInstance {
    * Per-`shortId` shop price overrides when `availableItems` set `coinValue` (mirrors `resolveShopItemPrice`).
    */
   listedPriceOverrides?: Record<string, number>
+  /**
+   * `costScale` at the moment this instance was issued, for "prices have
+   * moved since you walked in" display. Omitted on legacy instances.
+   */
+  costScaleAtIssue?: number
 }
 
 /** Plugin name for storage + API wiring. */

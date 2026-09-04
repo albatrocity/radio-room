@@ -33,5 +33,6 @@ export async function useInventoryItem(params: {
     message: result.message,
     ...(result.title != null ? { title: result.title } : {}),
     ...(result.duration != null ? { duration: result.duration } : {}),
+    ...(result.toastType != null ? { toastType: result.toastType } : {}),
   }
 }

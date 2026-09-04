@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from "react"
-import type { GameSession } from "@repo/types"
+import type { EconomySnapshot, GameSession } from "@repo/types"
 import { DEFAULT_SLOT_CAPS } from "@repo/types"
+import {
+  clampCostScale,
+  clampEarnScale,
+  median,
+  resolveEconomy,
+} from "@repo/game-logic"
 import {
   Badge,
   Box,
@@ -30,13 +36,19 @@ export default function GameSessions() {
   const panelOpen = modalsState.matches("modal.settings.game_sessions")
 
   const [sessionName, setSessionName] = useState("")
-  const [initialCoinsInput, setInitialCoinsInput] = useState("")
+  const [initialCoinsInput, setInitialCoinsInput] = useState("30")
   const [inventorySlotsInput, setInventorySlotsInput] = useState(String(DEFAULT_SLOT_CAPS.inventory))
   const [collectionSlotsInput, setCollectionSlotsInput] = useState(String(DEFAULT_SLOT_CAPS.collection))
   const [playbackSlotsInput, setPlaybackSlotsInput] = useState(String(DEFAULT_SLOT_CAPS.playback))
   const [allowTrading, setAllowTrading] = useState(false)
   const [physicalMediaWearForAdmins, setPhysicalMediaWearForAdmins] = useState(true)
   const [activeSession, setActiveSession] = useState<GameSession | null>(null)
+  const [economySnapshot, setEconomySnapshot] = useState<EconomySnapshot | null>(null)
+  const [fedMetrics, setFedMetrics] = useState<{
+    affordability: number
+    wealth: number
+    flowRatio: number
+  } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [statusLoading, setStatusLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -66,13 +78,29 @@ export default function GameSessions() {
 
   useEffect(() => {
     subscribeById(SUBSCRIPTION_ID, {
+      eventTypes: [
+        "GAME_SESSION_STATUS",
+        "GAME_SESSION_ADMIN_STARTED",
+        "GAME_SESSION_ADMIN_ENDED",
+        "GAME_SESSION_ADMIN_CONFIG_UPDATED",
+        "GAME_SESSION_ADMIN_ECONOMY_UPDATED",
+        "GAME_SESSION_STARTED",
+        "GAME_SESSION_ENDED",
+        "GAME_ECONOMY_SCALE_CHANGED",
+        "ERROR_OCCURRED",
+        "PLUGIN:the-fed:TICK",
+      ],
       send: (event: { type: string; data?: unknown }) => {
         if (event.type === "GAME_SESSION_STATUS") {
           seenStatusRef.current = true
           setStatusLoading(false)
           setLoadError(null)
-          const d = event.data as { session: GameSession | null }
+          const d = event.data as {
+            session: GameSession | null
+            economySnapshot?: EconomySnapshot | null
+          }
           setActiveSession(d.session ?? null)
+          setEconomySnapshot(d.economySnapshot ?? null)
           return
         }
 
@@ -95,6 +123,8 @@ export default function GameSessions() {
           setActionLoading(false)
           const d = event.data as { results: unknown | null }
           setActiveSession(null)
+          setEconomySnapshot(null)
+          setFedMetrics(null)
           if (d.results == null) {
             toaster.create({
               title: "No active session",
@@ -127,6 +157,61 @@ export default function GameSessions() {
           return
         }
 
+        if (event.type === "GAME_SESSION_ADMIN_ECONOMY_UPDATED") {
+          actionPendingRef.current = false
+          setActionLoading(false)
+          const d = event.data as {
+            session: GameSession | null
+            economySnapshot?: EconomySnapshot | null
+          }
+          if (d.session) setActiveSession(d.session)
+          if (d.economySnapshot) setEconomySnapshot(d.economySnapshot)
+          toaster.create({
+            title: "Economy updated",
+            type: "success",
+            duration: 3000,
+          })
+          return
+        }
+
+        if (event.type === "GAME_ECONOMY_SCALE_CHANGED") {
+          const d = event.data as {
+            costScale: number
+            earnScale: number
+            updatedBy?: string
+          }
+          setActiveSession((prev) => {
+            if (!prev) return prev
+            const current = resolveEconomy(prev.config.economy)
+            return {
+              ...prev,
+              config: {
+                ...prev.config,
+                economy: {
+                  ...current,
+                  costScale: d.costScale,
+                  earnScale: d.earnScale,
+                },
+              },
+            }
+          })
+          return
+        }
+
+        if (event.type === "PLUGIN:the-fed:TICK") {
+          const d = event.data as {
+            affordability?: number
+            wealth?: number
+            flowRatio?: number
+          }
+          setFedMetrics({
+            affordability: d.affordability ?? 0,
+            wealth: d.wealth ?? 0,
+            flowRatio: d.flowRatio ?? 0,
+          })
+          return
+        }
+
         if (event.type === "GAME_SESSION_STARTED") {
           const d = event.data as { roomId: string }
           if (roomIdRef.current && d.roomId === roomIdRef.current) {
@@ -139,6 +224,8 @@ export default function GameSessions() {
           const d = event.data as { roomId: string }
           if (roomIdRef.current && d.roomId === roomIdRef.current) {
             setActiveSession(null)
+            setEconomySnapshot(null)
+            setFedMetrics(null)
           }
           return
         }
@@ -250,6 +337,12 @@ export default function GameSessions() {
     actionPendingRef.current = true
     setActionLoading(true)
     emitToSocket("UPDATE_GAME_SESSION_CONFIG", { physicalMediaWearForAdmins: checked })
+  }
+
+  const patchEconomy = (patch: { costScale?: number; earnScale?: number }) => {
+    actionPendingRef.current = true
+    setActionLoading(true)
+    emitToSocket("SET_ECONOMY_SCALE", patch)
   }
 
   const startedLabel =
@@ -367,6 +460,103 @@ export default function GameSessions() {
                 <Text fontSize="xs" color="fg.muted" mt={-2}>
                   When off, room admins can queue from their records without degrading them.
                 </Text>
+
+                {(() => {
+                  const economy = resolveEconomy(activeSession.config.economy)
+                  const wealth =
+                    fedMetrics?.wealth ??
+                    (economySnapshot ? median(economySnapshot.balances) : null)
+                  const affordability = fedMetrics?.affordability
+                  const flowRatio = fedMetrics?.flowRatio
+                  const fmt = (n: number, digits = 2) =>
+                    Number.isFinite(n) ? n.toFixed(digits) : "—"
+                  return (
+                    <Box pt={2}>
+                      <Text fontWeight="semibold" fontSize="sm" mb={2}>
+                        Economy
+                      </Text>
+                      <VStack align="stretch" gap={2}>
+                        {(["costScale", "earnScale"] as const).map((key) => {
+                          const value = economy[key]
+                          const nudge = (factor: number) => {
+                            const next =
+                              key === "costScale"
+                                ? clampCostScale(value * factor)
+                                : clampEarnScale(value * factor)
+                            patchEconomy({ [key]: next })
+                          }
+                          return (
+                            <HStack key={key} gap={2} flexWrap="wrap">
+                              <Text fontSize="sm" minW="6.5rem">
+                                {key === "costScale" ? "Cost scale" : "Earn scale"}
+                              </Text>
+                              <Input
+                                type="number"
+                                step={0.05}
+                                min={0.25}
+                                max={key === "costScale" ? 8 : 4}
+                                width="5.5rem"
+                                value={String(value)}
+                                disabled={actionLoading || statusLoading}
+                                onChange={(e) => {
+                                  const parsed = Number(e.target.value)
+                                  if (!Number.isFinite(parsed)) return
+                                  setActiveSession((prev) => {
+                                    if (!prev) return prev
+                                    const current = resolveEconomy(prev.config.economy)
+                                    return {
+                                      ...prev,
+                                      config: {
+                                        ...prev.config,
+                                        economy: { ...current, [key]: parsed },
+                                      },
+                                    }
+                                  })
+                                }}
+                                onBlur={(e) => {
+                                  const parsed = Number(e.target.value)
+                                  if (!Number.isFinite(parsed) || parsed === value) return
+                                  patchEconomy({ [key]: parsed })
+                                }}
+                              />
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                disabled={actionLoading || statusLoading}
+                                onClick={() => nudge(0.9)}
+                              >
+                                ×0.9
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                disabled={actionLoading || statusLoading}
+                                onClick={() => nudge(1.1)}
+                              >
+                                ×1.1
+                              </Button>
+                            </HStack>
+                          )
+                        })}
+                        <HStack gap={2}>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            disabled={actionLoading || statusLoading}
+                            onClick={() => patchEconomy({ costScale: 1, earnScale: 1 })}
+                          >
+                            Reset to 1.0
+                          </Button>
+                        </HStack>
+                        <Text fontSize="xs" color="fg.muted">
+                          Affordability {affordability != null ? fmt(affordability) : "—"} · Median
+                          wealth {wealth != null ? fmt(wealth, 0) : "—"} · Coins/player/min{" "}
+                          {flowRatio != null ? fmt(flowRatio) : "—"}
+                        </Text>
+                      </VStack>
+                    </Box>
+                  )
+                })()}
               </VStack>
             </Box>
           )}
@@ -402,11 +592,12 @@ export default function GameSessions() {
               step={1}
               value={initialCoinsInput}
               onChange={(e) => setInitialCoinsInput(e.target.value)}
-              placeholder="0"
+              placeholder="30"
               disabled={actionLoading || statusLoading}
             />
             <Field.HelperText>
-              Each user starts the session with this many coins. Leave blank for 0.
+              Each user starts the session with this many coins. Default 30 is three common items
+              at the economy ladder (affordability target 3). Leave blank for 0.
             </Field.HelperText>
           </Field.Root>
 

@@ -41,6 +41,8 @@ type Props = {
    */
   actionsBelowOnMobile?: boolean
   opacity?: number
+  /** Marks the row so catalog animations (wear headShake, restore swell) can target this card. */
+  inventoryItemId?: string
 }
 
 /**
@@ -57,6 +59,7 @@ export default function ItemDetailListItem({
   trailing,
   actionsBelowOnMobile = false,
   opacity,
+  inventoryItemId,
 }: Props) {
   const clickable = itemDetailClickableProps({
     detailView: onOpen ? { actionLabel: openLabel } : undefined,
@@ -92,14 +95,11 @@ export default function ItemDetailListItem({
       gap={0}
       columnGap={4}
       rowGap={3}
+      data-inventory-item-id={inventoryItemId}
       gridTemplateColumns={
-        stackOnMobile
-          ? { base: hasCaret ? "1fr auto" : "1fr", md: oneRowColumns }
-          : oneRowColumns
+        stackOnMobile ? { base: hasCaret ? "1fr auto" : "1fr", md: oneRowColumns } : oneRowColumns
       }
-      gridTemplateAreas={
-        stackOnMobile ? { base: twoRowAreas, md: oneRowAreas } : oneRowAreas
-      }
+      gridTemplateAreas={stackOnMobile ? { base: twoRowAreas, md: oneRowAreas } : oneRowAreas}
     >
       <HStack gridArea="main" minW={0} align="center" gap={4} {...clickable}>
         <Box flexShrink={0}>{artwork}</Box>

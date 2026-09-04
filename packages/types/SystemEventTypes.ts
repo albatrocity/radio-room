@@ -88,15 +88,9 @@ export type SystemEventHandlers = {
   }) => Promise<void> | void
 
   // Reaction events — add/remove are deltas only; full store arrives on INIT.
-  REACTION_ADDED: (data: {
-    roomId: string
-    reaction: ReactionPayload
-  }) => Promise<void> | void
+  REACTION_ADDED: (data: { roomId: string; reaction: ReactionPayload }) => Promise<void> | void
 
-  REACTION_REMOVED: (data: {
-    roomId: string
-    reaction: ReactionPayload
-  }) => Promise<void> | void
+  REACTION_REMOVED: (data: { roomId: string; reaction: ReactionPayload }) => Promise<void> | void
 
   // User events
   USER_JOINED: (data: { roomId: string; user: User; users?: User[] }) => Promise<void> | void
@@ -278,6 +272,20 @@ export type SystemEventHandlers = {
   }) => Promise<void> | void
 
   /**
+   * Fired when session economy scales change (admin dial or The Fed).
+   * Dedicated event so clients do not refetch full user game state (ADR 0162).
+   */
+  GAME_ECONOMY_SCALE_CHANGED: (data: {
+    roomId: string
+    sessionId: string
+    costScale: number
+    earnScale: number
+    previous: { costScale: number; earnScale: number }
+    updatedBy: "admin" | "plugin"
+    reason?: string
+  }) => Promise<void> | void
+
+  /**
    * Delta event for one or more attribute changes for a single user.
    * Plugins / UI layers may use changes to animate without re-fetching.
    */
@@ -365,6 +373,8 @@ export type SystemEventHandlers = {
     userId: string
     item: InventoryItem
     source: InventoryAcquisitionSource
+    /** Physical Media conversion restore; client may animate the new row. */
+    restored?: boolean
   }) => Promise<void> | void
 
   INVENTORY_ITEM_USED: (data: {
@@ -381,6 +391,8 @@ export type SystemEventHandlers = {
     userId: string
     itemId: string
     quantity: number
+    /** Physical Media conversion destroyed this stack; client may animate the row. */
+    degraded?: boolean
   }) => Promise<void> | void
 
   INVENTORY_ITEM_UPDATED: (data: {
@@ -403,15 +415,9 @@ export type SystemEventHandlers = {
   // Gift / trade (ADR 0114)
   // ==========================================================================
 
-  GIFT_OFFERED: (data: {
-    roomId: string
-    offer: GiftOffer
-  }) => Promise<void> | void
+  GIFT_OFFERED: (data: { roomId: string; offer: GiftOffer }) => Promise<void> | void
 
-  GIFT_DECLINED: (data: {
-    roomId: string
-    offer: GiftOffer
-  }) => Promise<void> | void
+  GIFT_DECLINED: (data: { roomId: string; offer: GiftOffer }) => Promise<void> | void
 
   GIFT_CANCELLED: (data: {
     roomId: string
@@ -425,15 +431,9 @@ export type SystemEventHandlers = {
     item: InventoryItem
   }) => Promise<void> | void
 
-  TRADE_INVITE_OFFERED: (data: {
-    roomId: string
-    invite: TradeInvite
-  }) => Promise<void> | void
+  TRADE_INVITE_OFFERED: (data: { roomId: string; invite: TradeInvite }) => Promise<void> | void
 
-  TRADE_INVITE_DECLINED: (data: {
-    roomId: string
-    invite: TradeInvite
-  }) => Promise<void> | void
+  TRADE_INVITE_DECLINED: (data: { roomId: string; invite: TradeInvite }) => Promise<void> | void
 
   TRADE_INVITE_CANCELLED: (data: {
     roomId: string
@@ -441,20 +441,11 @@ export type SystemEventHandlers = {
     reason: "sender" | "session_end" | "user_left" | "trading_disabled"
   }) => Promise<void> | void
 
-  TRADE_INVITE_EXPIRED: (data: {
-    roomId: string
-    invite: TradeInvite
-  }) => Promise<void> | void
+  TRADE_INVITE_EXPIRED: (data: { roomId: string; invite: TradeInvite }) => Promise<void> | void
 
-  TRADE_INVITE_ACCEPTED: (data: {
-    roomId: string
-    trade: TradeSession
-  }) => Promise<void> | void
+  TRADE_INVITE_ACCEPTED: (data: { roomId: string; trade: TradeSession }) => Promise<void> | void
 
-  TRADE_UPDATED: (data: {
-    roomId: string
-    trade: TradeSession
-  }) => Promise<void> | void
+  TRADE_UPDATED: (data: { roomId: string; trade: TradeSession }) => Promise<void> | void
 
   /**
    * Wire payload for counterpart-only typing (ADR 0120). Not emitted via
@@ -467,10 +458,7 @@ export type SystemEventHandlers = {
     typing: boolean
   }) => Promise<void> | void
 
-  TRADE_COMPLETED: (data: {
-    roomId: string
-    trade: TradeSession
-  }) => Promise<void> | void
+  TRADE_COMPLETED: (data: { roomId: string; trade: TradeSession }) => Promise<void> | void
 
   TRADE_CANCELLED: (data: {
     roomId: string
@@ -500,10 +488,7 @@ export type SystemEventHandlers = {
    * Sources: trackAdvanceJob polling `device.volume_percent`.
    * Deduplicated by the handlePlaybackVolumeChange operation.
    */
-  PLAYBACK_VOLUME_CHANGED: (data: {
-    roomId: string
-    volumePercent: number
-  }) => Promise<void> | void
+  PLAYBACK_VOLUME_CHANGED: (data: { roomId: string; volumePercent: number }) => Promise<void> | void
   // Poll events
   // ==========================================================================
 

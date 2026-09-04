@@ -98,7 +98,7 @@ export type BingoCategory = z.infer<typeof bingoCategorySchema>
 export const playlistBingoConfigSchema = z.object({
   enabled: z.boolean().default(false),
   mode: participationModeSchema,
-  coinReward: z.number().int().min(0).default(200),
+  coinReward: z.number().int().min(0).default(10),
   /** Coins awarded per newly covered space (0 = off). */
   spaceCoverCoinReward: z.number().int().min(0).default(0),
   category: bingoCategorySchema.default("releaseYear"),

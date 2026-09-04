@@ -79,12 +79,8 @@ export type ItemSlotPool = "inventory" | "collection" | "playback"
 export const ITEM_SLOT_POOLS = ["inventory", "collection", "playback"] as const
 
 /** Default pool is the bag. Written once so the three-way widening cannot drift. */
-export function resolveSlotPool(
-  def?: { slotPool?: string | null } | null,
-): ItemSlotPool {
-  return def?.slotPool === "collection" || def?.slotPool === "playback"
-    ? def.slotPool
-    : "inventory"
+export function resolveSlotPool(def?: { slotPool?: string | null } | null): ItemSlotPool {
+  return def?.slotPool === "collection" || def?.slotPool === "playback" ? def.slotPool : "inventory"
 }
 
 /** UI headings and system-message labels, keyed by pool. */
@@ -150,6 +146,25 @@ export const PLAYBACK_DEVICE_MISSING_REASON = "You don't have anything to play t
 
 export function isMediaCondition(value: unknown): value is MediaCondition {
   return value === "mint" || value === "good" || value === "poor"
+}
+
+/** Ladder index; higher is more worn. */
+export function mediaConditionRank(condition: MediaCondition): number {
+  return MEDIA_CONDITIONS.indexOf(condition)
+}
+
+/** True when wear moved down the ladder. `next === null` is conversion. */
+export function isMediaConditionDegraded(
+  prev: MediaCondition,
+  next: MediaCondition | null,
+): boolean {
+  if (next == null) return true
+  return mediaConditionRank(next) > mediaConditionRank(prev)
+}
+
+/** True when condition moved up the ladder (restore). Conversion grants are not inferred here. */
+export function isMediaConditionImproved(prev: MediaCondition, next: MediaCondition): boolean {
+  return mediaConditionRank(next) < mediaConditionRank(prev)
 }
 
 /**
@@ -438,6 +453,8 @@ export interface ItemUseResult {
   message?: string
   /** Optional toast display time in milliseconds. Omit for the client default. */
   duration?: number
+  /** Overrides the client toast variant (defaults from `success`). */
+  toastType?: "success" | "warning" | "error" | "info"
 }
 
 /**

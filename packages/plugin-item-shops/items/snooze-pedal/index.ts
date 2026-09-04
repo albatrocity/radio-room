@@ -20,7 +20,7 @@ export const snoozePedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 35,
+    coinValue: 50,
     icon: "Moon",
     rarity: "rare",
   },

@@ -772,7 +772,9 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
           fail("Invalid stored coins.")
           return
         }
-        await gameSessions.addScore(roomId, userId, "coin", amt, "stored-artifact:retrieve")
+        await gameSessions.addScore(roomId, userId, "coin", amt, "stored-artifact:retrieve", {
+          intent: "exact",
+        })
         await artifacts.remove(artifactId)
         await sendMessage(
           io,

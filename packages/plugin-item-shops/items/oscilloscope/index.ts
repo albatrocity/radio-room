@@ -13,7 +13,7 @@ export const oscilloscope = createItem({
     maxStack: 1,
     tradeable: true,
     consumable: false,
-    coinValue: 35,
+    coinValue: 50,
     icon: "AudioLines",
     rarity: "rare",
   },

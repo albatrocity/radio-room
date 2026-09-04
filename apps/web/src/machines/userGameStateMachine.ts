@@ -14,6 +14,7 @@
  */
 
 import type { StoredArtifactPublic, TradeSession, UserGameStatePayload } from "@repo/types"
+import { resolveEconomy } from "@repo/game-logic"
 import { setup, assign, enqueueActions } from "xstate"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { getCurrentUser } from "../actors/authActor"
@@ -72,6 +73,10 @@ type UserGameStateEvent =
   | { type: "TRADE_CANCELLED"; data?: GiftTradeEventData }
   | { type: "GAME_SESSION_STARTED"; data: unknown }
   | { type: "GAME_SESSION_CONFIG_UPDATED"; data: unknown }
+  | {
+      type: "GAME_ECONOMY_SCALE_CHANGED"
+      data: { costScale: number; earnScale: number; updatedBy?: "admin" | "plugin"; reason?: string }
+    }
   | { type: "GAME_SESSION_ENDED"; data: unknown }
   | {
       type: "PRESENTED_IDENTITY_CHANGED"
@@ -147,6 +152,7 @@ export const userGameStateMachine = setup({
           "TRADE_COMPLETED",
           "TRADE_CANCELLED",
           "GAME_SESSION_CONFIG_UPDATED",
+          "GAME_ECONOMY_SCALE_CHANGED",
           "STORED_ARTIFACTS_RESULT",
         ],
       })
@@ -215,6 +221,30 @@ export const userGameStateMachine = setup({
           presentedIdentity: d.presentedIdentity ?? null,
         },
         error: null,
+      }
+    }),
+    mergeEconomyScale: assign(({ event, context }) => {
+      if (event.type !== "GAME_ECONOMY_SCALE_CHANGED") return {}
+      const payload = context.payload
+      if (!payload?.session) return {}
+      const prev = resolveEconomy(payload.session.config.economy)
+      return {
+        payload: {
+          ...payload,
+          session: {
+            ...payload.session,
+            config: {
+              ...payload.session.config,
+              economy: {
+                ...prev,
+                costScale: event.data.costScale,
+                earnScale: event.data.earnScale,
+                updatedBy: event.data.updatedBy,
+                reason: event.data.reason,
+              },
+            },
+          },
+        },
       }
     }),
     notifyNavSession: ({ event, context }) => {
@@ -412,6 +442,9 @@ export const userGameStateMachine = setup({
         },
         GAME_SESSION_CONFIG_UPDATED: {
           actions: ["requestGameState"],
+        },
+        GAME_ECONOMY_SCALE_CHANGED: {
+          actions: ["mergeEconomyScale"],
         },
         GAME_SESSION_ENDED: {
           actions: ["clearPayload", "notifyNavSessionCleared"],

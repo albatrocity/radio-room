@@ -592,7 +592,7 @@ export class AdminHandlers {
     }
     socket.emit("event", {
       type: "GAME_SESSION_STATUS",
-      data: { session: result.session },
+      data: { session: result.session, economySnapshot: result.economySnapshot },
     })
   }
 
@@ -737,6 +737,33 @@ export class AdminHandlers {
     socket.emit("event", {
       type: "GAME_SESSION_ADMIN_CONFIG_UPDATED",
       data: { session: result.session },
+    })
+  }
+
+  /**
+   * Patch session economy scales (admin only). Emits GAME_ECONOMY_SCALE_CHANGED.
+   */
+  setEconomyScale = async (
+    { socket }: HandlerConnections,
+    data: { costScale?: number; earnScale?: number },
+  ) => {
+    const result = await this.adminService.setEconomyScale(
+      socket.data.roomId,
+      socket.data.userId,
+      data ?? {},
+    )
+
+    if (result.error) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
+      })
+      return
+    }
+
+    socket.emit("event", {
+      type: "GAME_SESSION_ADMIN_ECONOMY_UPDATED",
+      data: { session: result.session, economySnapshot: result.economySnapshot },
     })
   }
 }

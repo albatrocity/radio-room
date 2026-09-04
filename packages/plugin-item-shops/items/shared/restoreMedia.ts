@@ -1,8 +1,10 @@
 import type {
+  InventoryItem,
   ItemDefinition,
   ItemUseResult,
   MediaCondition,
   PhysicalMediaFormat,
+  UserInventory,
 } from "@repo/types"
 import {
   MEDIA_CONDITION_LABELS,
@@ -66,111 +68,153 @@ export function restoreSuccessToast(opts: {
   }
 }
 
-export function restoreMediaUse(opts: {
+export type LoadedMediaItemTarget = {
+  target: InventoryItem
+  def: ItemDefinition | null
+  inv: UserInventory
+  targetName: string
+}
+
+export type LoadMediaItemTargetResult =
+  | { ok: false; result: ItemUseResult }
+  | ({ ok: true } & LoadedMediaItemTarget)
+
+export function mediaItemDidNothing(itemLabel: string, targetName: string): ItemUseResult {
+  return {
+    success: false,
+    consumed: true,
+    message: `${itemLabel} used on ${targetName}. It did nothing.`,
+  }
+}
+
+/** Shared target lookup for restore / degrade media-item uses. */
+export async function loadMediaItemTarget(
+  deps: ItemShopsBehaviorDeps,
+  userId: string,
+  callContext?: unknown,
+): Promise<LoadMediaItemTargetResult> {
+  const ctx = callContext as { targetInventoryItemId?: string } | undefined
+  const targetInventoryItemId = ctx?.targetInventoryItemId?.trim()
+  if (!targetInventoryItemId) {
+    return {
+      ok: false,
+      result: { success: false, consumed: false, message: "Select something to use it on." },
+    }
+  }
+
+  const inv = await deps.context.inventory.getInventory(userId)
+  const target = inv.items.find((i) => i.itemId === targetInventoryItemId)
+  if (!target) {
+    return {
+      ok: false,
+      result: { success: false, consumed: false, message: "That item is not in your inventory." },
+    }
+  }
+
+  const def = await deps.context.inventory.getItemDefinition(target.definitionId)
+  return { ok: true, target, def, inv, targetName: def?.name ?? target.definitionId }
+}
+
+export type RestoreMediaOpts = {
   formats: readonly PhysicalMediaFormat[]
   itemLabel: string
   successBody: (albumTitle: string) => string
-}): ItemUseHandler {
+}
+
+export async function restoreLoadedMediaItem(
+  deps: ItemShopsBehaviorDeps,
+  userId: string,
+  loaded: LoadedMediaItemTarget,
+  opts: RestoreMediaOpts,
+): Promise<ItemUseResult> {
   const formatSet = new Set(opts.formats)
+  const { context } = deps
+  const { target, def, targetName } = loaded
+  const didNothing = () => mediaItemDidNothing(opts.itemLabel, targetName)
 
-  return async (
-    deps: ItemShopsBehaviorDeps,
-    userId: string,
-    _definition: ItemDefinition,
-    callContext?: unknown,
-  ): Promise<ItemUseResult> => {
-    const ctx = callContext as { targetInventoryItemId?: string } | undefined
-    const targetInventoryItemId = ctx?.targetInventoryItemId?.trim()
-    if (!targetInventoryItemId) {
-      return { success: false, consumed: false, message: "Select something to use it on." }
-    }
+  if (def && isPhysicalMediaDefinition(def)) {
+    const format = def.mediaFormat ?? formatFromArtworkFrame(def.artworkFrame)
+    if (format == null || !formatSet.has(format)) return didNothing()
 
-    const { context } = deps
-    const inv = await context.inventory.getInventory(userId)
-    const target = inv.items.find((i) => i.itemId === targetInventoryItemId)
-    if (!target) {
-      return { success: false, consumed: false, message: "That item is not in your inventory." }
-    }
+    const next = restoreCondition(readItemCondition(target))
+    if (next == null) return didNothing()
 
-    const def = await context.inventory.getItemDefinition(target.definitionId)
-    const targetName = def?.name ?? target.definitionId
-
-    const didNothing = (): ItemUseResult => ({
-      success: false,
-      consumed: true,
-      message: `${opts.itemLabel} used on ${targetName}. It did nothing.`,
+    await context.inventory.updateItemMetadata(userId, target.itemId, {
+      [PHYSICAL_MEDIA_CONDITION_KEY]: next,
     })
+    return {
+      success: true,
+      consumed: true,
+      ...restoreSuccessToast({
+        format,
+        condition: next,
+        albumTitle: albumTitleFromItemName(def.name),
+        successBody: opts.successBody,
+      }),
+    }
+  }
 
-    if (def && isPhysicalMediaDefinition(def)) {
-      const format = def.mediaFormat ?? formatFromArtworkFrame(def.artworkFrame)
-      if (format == null || !formatSet.has(format)) return didNothing()
+  if (def && isBrokenMediaShortId(def.shortId)) {
+    const brokenFormats = FORMATS_BY_BROKEN_SHORT_ID[def.shortId] ?? []
+    const eligible = brokenFormats.filter((f) => formatSet.has(f))
+    if (eligible.length === 0) return didNothing()
 
-      const next = restoreCondition(readItemCondition(target))
-      if (next == null) return didNothing()
-
-      await context.inventory.updateItemMetadata(userId, target.itemId, {
-        [PHYSICAL_MEDIA_CONDITION_KEY]: next,
-      })
+    const originId = readMediaOrigin(target)
+    const originDef = originId ? await context.inventory.getItemDefinition(originId) : null
+    let restored = originDef
+    if (!restored) {
+      const picked = deps.pickRandomRestoreCandidate?.(eligible) ?? null
+      restored = picked ? ((await context.inventory.getItemDefinition(picked.id)) ?? picked) : null
+    }
+    if (!restored) {
       return {
-        success: true,
-        consumed: true,
-        ...restoreSuccessToast({
-          format,
-          condition: next,
-          albumTitle: albumTitleFromItemName(def.name),
-          successBody: opts.successBody,
-        }),
+        success: false,
+        consumed: false,
+        message: "There's nothing to restore it to.",
       }
     }
 
-    if (def && isBrokenMediaShortId(def.shortId)) {
-      const brokenFormats = FORMATS_BY_BROKEN_SHORT_ID[def.shortId] ?? []
-      const eligible = brokenFormats.filter((f) => formatSet.has(f))
-      if (eligible.length === 0) return didNothing()
-
-      const originId = readMediaOrigin(target)
-      const originDef = originId ? await context.inventory.getItemDefinition(originId) : null
-      let restored = originDef
-      if (!restored) {
-        const picked = deps.pickRandomRestoreCandidate?.(eligible) ?? null
-        restored = picked
-          ? ((await context.inventory.getItemDefinition(picked.id)) ?? picked)
-          : null
-      }
-      if (!restored) {
-        return {
-          success: false,
-          consumed: false,
-          message: "There's nothing to restore it to.",
-        }
-      }
-
-      const given = await context.inventory.giveItem(userId, restored.id, 1, {
+    const given = await context.inventory.giveItem(
+      userId,
+      restored.id,
+      1,
+      {
         [PHYSICAL_MEDIA_CONDITION_KEY]: "poor",
-      })
-      if (!given) {
-        return {
-          success: false,
-          consumed: false,
-          message: `${slotPoolFullClause("collection")}.`,
-        }
-      }
-
-      await context.inventory.removeItem(userId, target.itemId, 1)
-      const format =
-        restored.mediaFormat ?? formatFromArtworkFrame(restored.artworkFrame) ?? eligible[0]!
+      },
+      "plugin",
+      undefined,
+      { restored: true },
+    )
+    if (!given) {
       return {
-        success: true,
-        consumed: true,
-        ...restoreSuccessToast({
-          format,
-          condition: "poor",
-          albumTitle: albumTitleFromItemName(restored.name),
-          successBody: opts.successBody,
-        }),
+        success: false,
+        consumed: false,
+        message: `${slotPoolFullClause("collection")}.`,
       }
     }
 
-    return didNothing()
+    await context.inventory.removeItem(userId, target.itemId, 1)
+    const format =
+      restored.mediaFormat ?? formatFromArtworkFrame(restored.artworkFrame) ?? eligible[0]!
+    return {
+      success: true,
+      consumed: true,
+      ...restoreSuccessToast({
+        format,
+        condition: "poor",
+        albumTitle: albumTitleFromItemName(restored.name),
+        successBody: opts.successBody,
+      }),
+    }
+  }
+
+  return didNothing()
+}
+
+export function restoreMediaUse(opts: RestoreMediaOpts): ItemUseHandler {
+  return async (deps, userId, _definition, callContext) => {
+    const loaded = await loadMediaItemTarget(deps, userId, callContext)
+    if (!loaded.ok) return loaded.result
+    return restoreLoadedMediaItem(deps, userId, loaded, opts)
   }
 }

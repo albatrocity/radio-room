@@ -19,9 +19,7 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     private readonly pluginName: string,
   ) {}
 
-  registerItemDefinitions(
-    definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>,
-  ): void {
+  registerItemDefinitions(definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>): void {
     const full: ItemDefinition[] = definitions.map((d) => ({
       ...d,
       id: `${this.pluginName}:${d.shortId}`,
@@ -36,6 +34,8 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     quantity = 1,
     metadata?: Record<string, unknown>,
     _source: InventoryAcquisitionSource = "plugin",
+    _knownInventory?: UserInventory,
+    _options?: { restored?: boolean },
   ): Promise<InventoryItem | null> {
     if (quantity <= 0) return null
     const def = this.room.getDefinition(definitionId)
@@ -49,9 +49,7 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     let inv = [...this.room.getInventory(userId)]
 
     if (def.stackable) {
-      const existing = inv.find(
-        (i) => i.definitionId === definitionId && i.quantity < def.maxStack,
-      )
+      const existing = inv.find((i) => i.definitionId === definitionId && i.quantity < def.maxStack)
       if (existing) {
         const room = def.maxStack - existing.quantity
         const toAdd = Math.min(room, quantity)
@@ -70,10 +68,7 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
       const d = this.room.getDefinition(i.definitionId)
       return resolveSlotPool(d) === pool
     }).length
-    const cap = capForPool(
-      { maxSlots, maxCollectionSlots, maxPlaybackSlots },
-      pool,
-    )
+    const cap = capForPool({ maxSlots, maxCollectionSlots, maxPlaybackSlots }, pool)
     if (used >= cap) return null
 
     const item: InventoryItem = {
@@ -97,7 +92,12 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     return item
   }
 
-  async removeItem(userId: string, itemId: string, quantity = 1): Promise<boolean> {
+  async removeItem(
+    userId: string,
+    itemId: string,
+    quantity = 1,
+    _options?: { degraded?: boolean },
+  ): Promise<boolean> {
     if (quantity <= 0) return false
     const inv = [...this.room.getInventory(userId)]
     const idx = inv.findIndex((i) => i.itemId === itemId)

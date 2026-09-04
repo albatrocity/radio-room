@@ -37,6 +37,38 @@ export {
   getChatSendDelayMs,
 } from "./chatBufferStacks"
 export * from "./shoppingSessionCatalog"
+export {
+  COST_SCALE_MAX,
+  COST_SCALE_MIN,
+  DEFAULT_PRICE_ROUNDING,
+  DEFAULT_SCALED_ATTRIBUTES,
+  EARN_SCALE_MAX,
+  EARN_SCALE_MIN,
+  clampCostScale,
+  clampEarnScale,
+  defaultEconomyScaleState,
+  resolveEconomy,
+  resolveSessionEconomy,
+  roundTo,
+  scalePrice,
+  scaleReward,
+} from "./economyScale"
+export {
+  DEFAULT_ECONOMY_POLICY,
+  computeEconomyMetrics,
+  computeWealth,
+  mean,
+  median,
+  nextCostScale,
+  trimmedMean,
+  type EconomyControllerPolicy,
+  type EconomyControllerPrev,
+  type EconomyMetrics,
+  type EconomySample,
+  type NextCostScaleReason,
+  type NextCostScaleResult,
+  type WealthStatistic,
+} from "./economyController"
 export { textEffectStyles, type TextEffectStyleObject } from "./textEffectStyles"
 export { shuffleQueueItems } from "./shuffleQueueItems"
 export {

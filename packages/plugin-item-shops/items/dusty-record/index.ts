@@ -15,7 +15,7 @@ export const dustyRecord = createItem({
     maxStack: 1,
     tradeable: true,
     consumable: true,
-    coinValue: 75,
+    coinValue: 50,
     icon: "Disc3",
     rarity: "rare",
   },

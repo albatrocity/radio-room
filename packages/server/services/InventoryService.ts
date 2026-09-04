@@ -197,6 +197,7 @@ export class InventoryService {
     metadata?: Record<string, unknown>,
     source: InventoryAcquisitionSource = "plugin",
     knownInventory?: UserInventory,
+    options?: { restored?: boolean },
   ): Promise<InventoryItem | null> {
     if (quantity <= 0) return null
 
@@ -207,6 +208,7 @@ export class InventoryService {
     }
 
     const inv = knownInventory ?? (await this.getInventory(roomId, userId))
+    const restoredFlag = options?.restored ? { restored: true as const } : {}
 
     // Prefer merging into an existing stack when stackable.
     if (definition.stackable) {
@@ -226,6 +228,7 @@ export class InventoryService {
             userId,
             item: existing,
             source,
+            ...restoredFlag,
           })
         }
 
@@ -233,7 +236,7 @@ export class InventoryService {
 
         const remaining = quantity - toAdd
         if (remaining > 0) {
-          // Recurse to allocate the remainder into a new stack.
+          // Recurse to allocate the remainder into a new stack (no restored flag).
           return this.giveItem(roomId, userId, definitionId, remaining, metadata, source)
         }
         return existing
@@ -245,9 +248,7 @@ export class InventoryService {
     const used = await this.countPoolSlots(roomId, inv.items, pool)
     const cap = capForPool(inv, pool)
     if (used >= cap) {
-      console.warn(
-        `[InventoryService] giveItem: ${userId} ${pool} full (${used}/${cap} slots)`,
-      )
+      console.warn(`[InventoryService] giveItem: ${userId} ${pool} full (${used}/${cap} slots)`)
       return null
     }
 
@@ -268,6 +269,7 @@ export class InventoryService {
         userId,
         item,
         source,
+        ...restoredFlag,
       })
     }
 
@@ -327,7 +329,13 @@ export class InventoryService {
    * Remove `quantity` (default 1) from an item stack. Empty stacks are deleted.
    * Returns whether anything was removed.
    */
-  async removeItem(roomId: string, userId: string, itemId: string, quantity = 1): Promise<boolean> {
+  async removeItem(
+    roomId: string,
+    userId: string,
+    itemId: string,
+    quantity = 1,
+    options?: { degraded?: boolean },
+  ): Promise<boolean> {
     if (quantity <= 0) return false
 
     const raw = await this.context.redis.pubClient.hGet(userItemsKey(roomId, userId), itemId)
@@ -356,6 +364,7 @@ export class InventoryService {
         userId,
         itemId,
         quantity: removeQty,
+        ...(options?.degraded ? { degraded: true } : {}),
       })
     }
 
@@ -480,12 +489,7 @@ export class InventoryService {
       const transferQty = Math.min(quantity, item.quantity)
       if (transferQty <= 0) return false
 
-      const canFit = await this.canAccommodateItem(
-        roomId,
-        toUserId,
-        item.definitionId,
-        transferQty,
-      )
+      const canFit = await this.canAccommodateItem(roomId, toUserId, item.definitionId, transferQty)
       if (!canFit) return false
 
       // Decrement / delete on the source side.

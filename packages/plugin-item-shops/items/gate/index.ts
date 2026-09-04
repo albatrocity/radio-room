@@ -21,7 +21,7 @@ export const gate = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 35,
+    coinValue: 50,
     icon: "Fence",
     rarity: "rare",
   },

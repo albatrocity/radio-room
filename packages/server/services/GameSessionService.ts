@@ -1,8 +1,11 @@
 import {
   AppContext,
+  AddScoreOptions,
   ApplyModifierResult,
   CheckModifierDefenseResult,
   DEFAULT_SLOT_CAPS,
+  EconomyScaleState,
+  EconomySnapshot,
   GameAttributeName,
   GameLeaderboardEntry,
   GameSession,
@@ -17,7 +20,15 @@ import {
   UserGameState,
   type SessionConfigBooleanKey,
 } from "@repo/types"
-import { evaluateModifiers, pruneExpiredModifiers } from "@repo/game-logic"
+import {
+  clampCostScale,
+  clampEarnScale,
+  defaultEconomyScaleState,
+  evaluateModifiers,
+  pruneExpiredModifiers,
+  resolveEconomy,
+  scaleReward,
+} from "@repo/game-logic"
 import generateId from "../lib/generateId"
 import systemMessage from "../lib/systemMessage"
 import { DefenseService } from "./DefenseService"
@@ -67,6 +78,7 @@ export function buildSessionConfig(
     allowTrading: partial.allowTrading ?? false,
     allowSelling: partial.allowSelling ?? false,
     physicalMediaWearForAdmins: partial.physicalMediaWearForAdmins ?? true,
+    economy: partial.economy ?? defaultEconomyScaleState(),
   }
 }
 
@@ -258,10 +270,7 @@ export class GameSessionService {
       }
     }
 
-    await this.context.redis.pubClient.set(
-      sessionKey(roomId, session.id),
-      JSON.stringify(updated),
-    )
+    await this.persistSession(roomId, updated)
 
     if (this.context.systemEvents) {
       await this.context.systemEvents.emit(roomId, "GAME_SESSION_CONFIG_UPDATED", {
@@ -272,6 +281,86 @@ export class GameSessionService {
     }
 
     return updated
+  }
+
+  private async persistSession(roomId: string, session: GameSession): Promise<void> {
+    await this.context.redis.pubClient.set(sessionKey(roomId, session.id), JSON.stringify(session))
+  }
+
+  /**
+   * Clamp and persist session economy scales. Emits `GAME_ECONOMY_SCALE_CHANGED`.
+   */
+  async setEconomyScale(
+    roomId: string,
+    patch: { costScale?: number; earnScale?: number },
+    meta: { updatedBy: "admin" | "plugin"; reason?: string },
+  ): Promise<GameSession | null> {
+    const session = await this.getActiveSession(roomId)
+    if (!session || session.status !== "active") return null
+
+    const current = resolveEconomy(session.config.economy)
+    const next: EconomyScaleState = {
+      ...current,
+      costScale:
+        patch.costScale != null ? clampCostScale(patch.costScale) : current.costScale,
+      earnScale:
+        patch.earnScale != null ? clampEarnScale(patch.earnScale) : current.earnScale,
+      updatedAt: Date.now(),
+      updatedBy: meta.updatedBy,
+      reason: meta.reason,
+    }
+
+    const updated: GameSession = {
+      ...session,
+      config: { ...session.config, economy: next },
+    }
+    await this.persistSession(roomId, updated)
+
+    if (this.context.systemEvents) {
+      await this.context.systemEvents.emit(roomId, "GAME_ECONOMY_SCALE_CHANGED", {
+        roomId,
+        sessionId: session.id,
+        costScale: next.costScale,
+        earnScale: next.earnScale,
+        previous: { costScale: current.costScale, earnScale: current.earnScale },
+        updatedBy: meta.updatedBy,
+        reason: meta.reason,
+      })
+    }
+
+    return updated
+  }
+
+  async getEconomyScale(roomId: string): Promise<EconomyScaleState> {
+    const session = await this.getActiveSession(roomId)
+    return resolveEconomy(session?.config.economy)
+  }
+
+  /**
+   * Participant coin balances from the coin leaderboard ZSET (full range, no
+   * username hydration). Participants missing from the ZSET count as 0.
+   */
+  async getEconomySnapshot(roomId: string): Promise<EconomySnapshot | null> {
+    const session = await this.getActiveSession(roomId)
+    if (!session) return null
+
+    const participantIds = await this.context.redis.pubClient.sMembers(
+      participantsKey(roomId, session.id),
+    )
+    const coinLb = session.config.leaderboards.find((lb) => lb.attribute === "coin")
+    const byUser = new Map<string, number>()
+    if (coinLb) {
+      const raw = await this.context.redis.pubClient.zRangeWithScores(
+        leaderboardKey(roomId, session.id, coinLb.id),
+        0,
+        -1,
+      )
+      for (const row of raw ?? []) {
+        byUser.set(row.value, row.score)
+      }
+    }
+    const balances = (participantIds as string[]).map((id) => byUser.get(id) ?? 0)
+    return { sessionId: session.id, balances }
   }
 
   /**
@@ -378,8 +467,9 @@ export class GameSessionService {
     attribute: GameAttributeName,
     amount: number,
     reason?: string,
+    options?: AddScoreOptions,
   ): Promise<number> {
-    const [value] = await this.addScores(roomId, userId, [{ attribute, amount }], reason)
+    const [value] = await this.addScores(roomId, userId, [{ attribute, amount }], reason, options)
     return value ?? 0
   }
 
@@ -387,12 +477,14 @@ export class GameSessionService {
    * Apply several attribute deltas in one read-modify-write: one session
    * lookup, one user-state persist, one `GAME_STATE_CHANGED` with all changes.
    * Each delta uses the same modifier/lock rules as {@link addScore}.
+   * `earnScale` is applied before modifiers; `{ intent: "exact" }` skips it.
    */
   async addScores(
     roomId: string,
     userId: string,
     changes: { attribute: GameAttributeName; amount: number }[],
     reason?: string,
+    options?: AddScoreOptions,
   ): Promise<number[]> {
     if (changes.length === 0) return []
 
@@ -404,9 +496,12 @@ export class GameSessionService {
     const results: number[] = []
     const emitted: GameStateChange[] = []
     const leaderboardUpdates: { attribute: GameAttributeName; value: number }[] = []
+    const economy = resolveEconomy(session.config.economy)
+    const intent = options?.intent ?? "earn"
 
     for (const { attribute, amount } of changes) {
-      const delta = evaluateModifiers(amount, attribute, state.modifiers, now)
+      const scaled = scaleReward(amount, attribute, economy, intent)
+      const delta = evaluateModifiers(scaled, attribute, state.modifiers, now)
       if (delta === null) {
         results.push(state.attributes[attribute] ?? 0)
         continue

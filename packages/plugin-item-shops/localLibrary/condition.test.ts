@@ -6,6 +6,8 @@ import {
   CONDITION_PRICE_MULTIPLIER,
   conditionsWithinBounds,
   degradeCondition,
+  isMediaConditionDegraded,
+  isMediaConditionImproved,
   priceForCondition,
   readItemCondition,
   readOfferConditionBounds,
@@ -61,6 +63,21 @@ describe("readItemCondition / degradeCondition", () => {
       const better = restoreCondition(condition)
       if (better) expect(degradeCondition(better)).toBe(condition)
     }
+  })
+
+  it("isMediaConditionDegraded matches the wear ladder", () => {
+    expect(isMediaConditionDegraded("mint", "good")).toBe(true)
+    expect(isMediaConditionDegraded("good", "poor")).toBe(true)
+    expect(isMediaConditionDegraded("poor", null)).toBe(true)
+    expect(isMediaConditionDegraded("poor", "good")).toBe(false)
+    expect(isMediaConditionDegraded("mint", "mint")).toBe(false)
+  })
+
+  it("isMediaConditionImproved matches the restore ladder", () => {
+    expect(isMediaConditionImproved("poor", "good")).toBe(true)
+    expect(isMediaConditionImproved("good", "mint")).toBe(true)
+    expect(isMediaConditionImproved("mint", "good")).toBe(false)
+    expect(isMediaConditionImproved("poor", "poor")).toBe(false)
   })
 })
 

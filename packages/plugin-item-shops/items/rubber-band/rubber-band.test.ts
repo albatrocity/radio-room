@@ -38,6 +38,7 @@ describe("rubber-band", () => {
       },
       game: {
         getUserState: vi.fn().mockResolvedValue(null),
+        getPresentedIdentity: vi.fn().mockResolvedValue(null),
         reboundModifier,
       } as unknown as ItemShopsBehaviorDeps["game"],
     } as unknown as ItemShopsBehaviorDeps

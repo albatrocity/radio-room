@@ -16,7 +16,7 @@ export const repulsiveSeltzer = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "queueItem",
-    coinValue: 20,
+    coinValue: 25,
     icon: "Refrigerator",
     rarity: "uncommon",
   },

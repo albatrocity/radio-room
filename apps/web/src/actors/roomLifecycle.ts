@@ -36,6 +36,7 @@ import { effectiveMetadataSourcesActor } from "./effectiveMetadataSourcesActor"
 import { teardownPluginComponentActors } from "./pluginComponentRegistry"
 import { clearMediaSession } from "../lib/mediaSession"
 import { bindUserToastSocket } from "../lib/userToastNotifications"
+import { bindPhysicalMediaConditionFx } from "../lib/physicalMediaConditionFx"
 import "./queueActor"
 import {
   getPersistedRoomState,
@@ -47,6 +48,7 @@ import {
 import socket from "../lib/socket"
 
 bindUserToastSocket()
+bindPhysicalMediaConditionFx()
 
 // ============================================================================
 // Constants
@@ -276,9 +278,7 @@ export function handleVisibilityChange(isVisible: boolean): void {
   lastVisibleTimestamp = Date.now()
 
   if (elapsed > STALE_THRESHOLD_MS) {
-    console.log(
-      `[RoomLifecycle] Away for ${Math.round(elapsed / 1000)}s, forcing full refresh`,
-    )
+    console.log(`[RoomLifecycle] Away for ${Math.round(elapsed / 1000)}s, forcing full refresh`)
     authActor.send({ type: "FORCE_REFRESH" })
     fetchRoom(currentRoomId)
   } else {

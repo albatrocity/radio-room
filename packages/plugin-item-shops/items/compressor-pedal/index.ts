@@ -12,7 +12,7 @@ export const compressorPedal = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "user",
-    coinValue: 15,
+    coinValue: 10,
     icon: "Shrink",
     rarity: "common",
   },
