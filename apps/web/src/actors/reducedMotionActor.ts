@@ -29,6 +29,18 @@ export function isReducedMotionEnabled(): boolean {
 }
 
 /**
+ * True when both the OS `prefers-reduced-motion` query and the in-app toggle
+ * allow animations. Use from non-React callers; components should prefer
+ * `useAnimationsEnabled`.
+ */
+export function areAnimationsEnabled(): boolean {
+  if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return false
+  }
+  return !isReducedMotionEnabled()
+}
+
+/**
  * Toggle the reduced motion preference.
  */
 export function toggleReducedMotion(): void {

@@ -55,8 +55,9 @@ Four Record Store SKUs: CD Player / Cassette Deck / Turntable (80, uncommon) and
 ## Consequences
 
 - Queueing a derived record without a matching device fails with
-  `"You don't have anything to play this with."` via the existing `SONG_QUEUE_FAILURE` toast. Browsing
-  is unchanged: unplayable records stay visible in the catalog.
+  `"You don't have anything to play this with."` via the existing `SONG_QUEUE_FAILURE` toast. The
+  Add button that submitted the request also plays animate.css `headShake`. Browsing is unchanged:
+  unplayable records stay visible in the catalog.
 - Call sites that construct `UserInventory` or `GameSessionConfig` must include `maxPlaybackSlots`.
 - A full playback pool does not block bag or collection purchases, and vice versa.
 - Selling a device always quotes 50% of `coinValue`, even during a Record Store or Green Room visit.

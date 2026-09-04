@@ -6,6 +6,7 @@ import { getIsAdmin } from "../actors/authActor"
 import { getCurrentRoom } from "../actors/roomActor"
 import { canAddToQueue } from "../actors/djActor"
 import { emitToSocket } from "../actors/socketActor"
+import { shakeArmedQueueAddButtonIfPlaybackMissing, disarmQueueAddButtonShake } from "../lib/queueAddButtonShake"
 
 export interface QueueContext {
   queuedTrack: MetadataSourceTrack | null | undefined
@@ -48,6 +49,7 @@ export const queueMachine = setup({
     },
     notifyQueued: ({ context, event }) => {
       if (event.type !== "SONG_QUEUED") return
+      disarmQueueAddButtonShake()
       const undoTrackId = queuedAddUndoTrackId({
         playbackMode: getCurrentRoom()?.playbackMode,
         queuedItem: event.data,
@@ -66,6 +68,7 @@ export const queueMachine = setup({
     },
     notifyQueueHeld: ({ event, context }) => {
       if (event.type !== "SONG_QUEUE_HELD") return
+      disarmQueueAddButtonShake()
       const undoTrackId = context.queuedTrack?.id?.trim() || null
       toast({
         title: "Song saved for your turn",
@@ -82,6 +85,7 @@ export const queueMachine = setup({
     },
     notifyQueueFailure: ({ event }) => {
       if (event.type === "SONG_QUEUE_FAILURE") {
+        shakeArmedQueueAddButtonIfPlaybackMissing(event.data?.message)
         toast({
           title: `Track was not added`,
           description: event.data?.message || "Something went wrong",

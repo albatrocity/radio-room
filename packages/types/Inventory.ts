@@ -121,6 +121,9 @@ export const PHYSICAL_MEDIA_CONDITION_KEY = "condition" as const
 /** `InventoryItem.metadata` key: definitionId of the record a broken-media copy came from (ADR 0159). */
 export const PHYSICAL_MEDIA_ORIGIN_KEY = "mediaOrigin" as const
 
+/** `SONG_QUEUE_FAILURE` copy when Physical Media is queued without a matching device (ADR 0160). */
+export const PLAYBACK_DEVICE_MISSING_REASON = "You don't have anything to play this with."
+
 export function isMediaCondition(value: unknown): value is MediaCondition {
   return value === "mint" || value === "good" || value === "poor"
 }

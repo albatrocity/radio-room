@@ -1,7 +1,12 @@
-import type { InventoryItem, ItemDefinition, PhysicalMediaFormat } from "@repo/types"
+import {
+  PLAYBACK_DEVICE_MISSING_REASON,
+  type InventoryItem,
+  type ItemDefinition,
+  type PhysicalMediaFormat,
+} from "@repo/types"
 import type { HeldLocalLibraryGrant } from "./grants"
 
-export const PLAYBACK_DEVICE_MISSING_REASON = "You don't have anything to play this with."
+export { PLAYBACK_DEVICE_MISSING_REASON }
 
 /** Union of `playbackFormats` across held device stacks. */
 export function playableFormats(params: {
