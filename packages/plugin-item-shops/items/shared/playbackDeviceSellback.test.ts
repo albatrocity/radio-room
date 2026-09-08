@@ -2,6 +2,9 @@ import { describe, expect, test } from "vitest"
 import { boombox } from "../boombox"
 import { cassetteDeck } from "../cassette-deck"
 import { cdPlayer } from "../cd-player"
+import { hifiCdPlayer } from "../hifi-cd-player"
+import { hifiTapeDeck } from "../hifi-tape-deck"
+import { hifiTurntable } from "../hifi-turntable"
 import { turntable } from "../turntable"
 import { createMockDefinition, createMockInventoryStack } from "./testHelpers"
 import {
@@ -25,16 +28,22 @@ describe("playbackDeviceSellbackValue", () => {
     expect(playbackDeviceSellbackValue(createMockInventoryStack(missing), missing)).toBe(0)
   })
 
-  test("is wired on all four Record Store devices", () => {
+  test("is wired on all Record Store devices", () => {
     expect(cdPlayer.sellbackValue).toBe(playbackDeviceSellbackValue)
     expect(cassetteDeck.sellbackValue).toBe(playbackDeviceSellbackValue)
     expect(turntable.sellbackValue).toBe(playbackDeviceSellbackValue)
     expect(boombox.sellbackValue).toBe(playbackDeviceSellbackValue)
+    expect(hifiCdPlayer.sellbackValue).toBe(playbackDeviceSellbackValue)
+    expect(hifiTapeDeck.sellbackValue).toBe(playbackDeviceSellbackValue)
+    expect(hifiTurntable.sellbackValue).toBe(playbackDeviceSellbackValue)
 
     const playerDef = createMockDefinition("cd-player", cdPlayer.catalogEntry.definition)
     expect(cdPlayer.sellbackValue!(createMockInventoryStack(playerDef), playerDef)).toBe(40)
 
     const boomDef = createMockDefinition("boombox", boombox.catalogEntry.definition)
     expect(boombox.sellbackValue!(createMockInventoryStack(boomDef), boomDef)).toBe(75)
+
+    const hifiDef = createMockDefinition("hifi-cd-player", hifiCdPlayer.catalogEntry.definition)
+    expect(hifiCdPlayer.sellbackValue!(createMockInventoryStack(hifiDef), hifiDef)).toBe(150)
   })
 })

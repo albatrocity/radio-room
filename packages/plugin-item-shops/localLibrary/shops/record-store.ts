@@ -15,6 +15,9 @@ export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] 
   { shortId: items.cassetteDeck.shortId, coinValue: 80 },
   { shortId: items.turntable.shortId, coinValue: 80 },
   { shortId: items.boombox.shortId, coinValue: 150 },
+  { shortId: items.hifiCdPlayer.shortId, coinValue: 300 },
+  { shortId: items.hifiTapeDeck.shortId, coinValue: 300 },
+  { shortId: items.hifiTurntable.shortId, coinValue: 300 },
 ]
 
 /**

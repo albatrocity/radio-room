@@ -22,8 +22,14 @@ function formatList(formats: PhysicalMediaFormat[] | undefined): string {
 }
 
 /** Devices are held, never activated — mirrors `usePassiveDefenseItem`. */
-export const usePlaybackDevice: ItemUseHandler = async (_deps, _userId, definition) => ({
-  success: true,
-  consumed: false,
-  message: `Keep this in your Playback Devices. It plays ${formatList(definition.playbackFormats)}.`,
-})
+export const usePlaybackDevice: ItemUseHandler = async (_deps, _userId, definition) => {
+  const plays = formatList(definition.playbackFormats)
+  const wearNote = definition.gentlePlayback
+    ? " It does not wear Physical Media when you queue from a matching copy."
+    : ""
+  return {
+    success: true,
+    consumed: false,
+    message: `Keep this in your Playback Devices. It plays ${plays}.${wearNote}`,
+  }
+}

@@ -336,6 +336,11 @@ export interface ItemDefinition {
    */
   playbackFormats?: PhysicalMediaFormat[]
   /**
+   * When true on a playback device, queueing a matching Physical Media copy
+   * does not degrade or convert it (ADR 0166). Omit/false keeps wear-on-queue.
+   */
+  gentlePlayback?: boolean
+  /**
    * When set, Inventory / shop UIs show a Details action that opens the Game
    * State item detail subroute (ADR 0104).
    */

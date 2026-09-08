@@ -35,6 +35,9 @@ import { cdPlayer } from "./cd-player"
 import { cassetteDeck } from "./cassette-deck"
 import { turntable } from "./turntable"
 import { boombox } from "./boombox"
+import { hifiCdPlayer } from "./hifi-cd-player"
+import { hifiTapeDeck } from "./hifi-tape-deck"
+import { hifiTurntable } from "./hifi-turntable"
 import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
 import { vanCubby } from "./van-cubby"
@@ -70,6 +73,9 @@ export const items = {
   cassetteDeck,
   turntable,
   boombox,
+  hifiCdPlayer,
+  hifiTapeDeck,
+  hifiTurntable,
   analogDelayPedal,
   fuzzPedal,
   tubeOverdrive,

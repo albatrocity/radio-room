@@ -1,7 +1,7 @@
 # 0160. Playback-device gating
 
 **Date:** 2026-09-04
-**Status:** Accepted
+**Status:** Accepted. Amended by [0166](0166-hifi-playback-devices-skip-wear.md)
 
 ## Context
 
@@ -71,3 +71,4 @@ Four Record Store SKUs: CD Player / Cassette Deck / Turntable (80, uncommon) and
 - [`packages/plugin-item-shops/localLibrary/playbackDevices.ts`](../../packages/plugin-item-shops/localLibrary/playbackDevices.ts)
 - [`packages/plugin-item-shops/items/shared/playbackDeviceSellback.ts`](../../packages/plugin-item-shops/items/shared/playbackDeviceSellback.ts)
 - [`packages/types/Inventory.ts`](../../packages/types/Inventory.ts)
+- [0166. Hifi playback devices skip wear](0166-hifi-playback-devices-skip-wear.md)

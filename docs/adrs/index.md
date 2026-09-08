@@ -165,12 +165,13 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0157](0157-physical-media-condition-artwork.md) | Physical Media condition artwork as an overlay modifier | Partially superseded by [0165](0165-physical-media-queue-condition-snapshot.md) (§2 Now Playing always-mint) |
 | [0158](0158-shopping-session-condition-bounds.md) | Shopping session condition bounds (Record Store min/max) | Accepted |
 | [0159](0159-physical-media-restoration-items.md) | Physical Media restoration items (CD Cleaner, Dust Cloth, Pencil; `mediaOrigin` + `mediaOriginTitle` on convert) | Accepted |
-| [0160](0160-playback-device-gating.md) | Playback-device gating (third slot pool, `playbackFormats`) | Accepted |
+| [0160](0160-playback-device-gating.md) | Playback-device gating (third slot pool, `playbackFormats`) | Accepted. Amended by [0166](0166-hifi-playback-devices-skip-wear.md) |
 | [0161](0161-spotify-device-readiness-on-demand.md) | Spotify SDK device readiness is prepared on demand, not by reload-looping | Accepted |
 | [0162](0162-economy-scale-for-game-sessions.md) | Economy scale for game sessions (`costScale` / `earnScale`, `intent: "exact"`) | Accepted |
 | [0163](0163-the-fed-economy-controller.md) | The Fed — optional plugin driving `costScale` toward target affordability | Accepted |
 | [0164](0164-inventory-item-dom-animations.md) | Inventory item DOM animations (named catalog + `degraded` / `restored`) | Accepted |
 | [0165](0165-physical-media-queue-condition-snapshot.md) | Physical Media queue condition snapshot on Now Playing | Accepted |
+| [0166](0166-hifi-playback-devices-skip-wear.md) | Hifi playback devices skip wear (`gentlePlayback`) | Accepted |
 
 ## Creating a New ADR
 

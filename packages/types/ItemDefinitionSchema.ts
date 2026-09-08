@@ -22,6 +22,8 @@ export const itemDefinitionAuthoringSchema = z.object({
   rarity: itemRaritySchema.optional(),
   slotPool: z.enum(ITEM_SLOT_POOLS).optional(),
   playbackFormats: z.array(z.enum(PHYSICAL_MEDIA_FORMATS)).optional(),
+  /** Skip Physical Media wear when this device covers the queued copy (ADR 0166). */
+  gentlePlayback: z.boolean().optional(),
   detailView: z
     .object({
       actionLabel: z.string().optional(),

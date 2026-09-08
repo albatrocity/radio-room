@@ -23,6 +23,11 @@ const CD_SHORT_ID = "pm-kid-a"
 const CD_DEF_ID = `item-shops:${CD_SHORT_ID}`
 const TURNTABLE_DEF_ID = "item-shops:turntable"
 const CD_PLAYER_DEF_ID = "item-shops:cd-player"
+const HIFI_TURNTABLE_DEF_ID = "item-shops:hifi-turntable"
+const HIFI_CD_PLAYER_DEF_ID = "item-shops:hifi-cd-player"
+const HIFI_TAPE_DECK_DEF_ID = "item-shops:hifi-tape-deck"
+const TAPE_SHORT_ID = "pm-blue-lines"
+const TAPE_DEF_ID = `item-shops:${TAPE_SHORT_ID}`
 
 function createStorage() {
   return {
@@ -145,10 +150,44 @@ const DERIVED_CD: ItemCatalogEntry = {
   },
 }
 
+const DERIVED_TAPE: ItemCatalogEntry = {
+  definition: {
+    shortId: TAPE_SHORT_ID,
+    name: "Cassette: Blue Lines",
+    description: "",
+    icon: "CassetteTape",
+    artworkFrame: "cassette-case",
+    mediaFormat: "TAPE",
+    stackable: false,
+    maxStack: 1,
+    tradeable: true,
+    consumable: false,
+    coinValue: 20,
+    rarity: "uncommon",
+    slotPool: "collection",
+  },
+  localLibraryGrant: {
+    scope: "playlist",
+    playlistKey: TAPE_SHORT_ID,
+    redemption: "durable",
+  },
+}
+
 function cdStack(overrides?: Partial<InventoryItem>): InventoryItem {
   return {
     itemId: "cd-stack-1",
     definitionId: CD_DEF_ID,
+    sourcePlugin: "item-shops",
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
+function tapeStack(overrides?: Partial<InventoryItem>): InventoryItem {
+  return {
+    itemId: "tape-stack-1",
+    definitionId: TAPE_DEF_ID,
     sourcePlugin: "item-shops",
     quantity: 1,
     acquiredAt: Date.now(),
@@ -171,6 +210,39 @@ function cdPlayerStack(overrides?: Partial<InventoryItem>): InventoryItem {
   return {
     itemId: "cd-player-stack-1",
     definitionId: CD_PLAYER_DEF_ID,
+    sourcePlugin: "item-shops",
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
+function hifiTurntableStack(overrides?: Partial<InventoryItem>): InventoryItem {
+  return {
+    itemId: "hifi-turntable-stack-1",
+    definitionId: HIFI_TURNTABLE_DEF_ID,
+    sourcePlugin: "item-shops",
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
+function hifiCdPlayerStack(overrides?: Partial<InventoryItem>): InventoryItem {
+  return {
+    itemId: "hifi-cd-player-stack-1",
+    definitionId: HIFI_CD_PLAYER_DEF_ID,
+    sourcePlugin: "item-shops",
+    quantity: 1,
+    acquiredAt: Date.now(),
+    ...overrides,
+  }
+}
+
+function hifiTapeDeckStack(overrides?: Partial<InventoryItem>): InventoryItem {
+  return {
+    itemId: "hifi-tape-deck-stack-1",
+    definitionId: HIFI_TAPE_DECK_DEF_ID,
     sourcePlugin: "item-shops",
     quantity: 1,
     acquiredAt: Date.now(),
@@ -422,6 +494,9 @@ describe("getEligibleShops", () => {
     expect(recordStore.availableItems.some((i) => i.shortId === "cassette-deck")).toBe(true)
     expect(recordStore.availableItems.some((i) => i.shortId === "turntable")).toBe(true)
     expect(recordStore.availableItems.some((i) => i.shortId === "boombox")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "hifi-cd-player")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "hifi-tape-deck")).toBe(true)
+    expect(recordStore.availableItems.some((i) => i.shortId === "hifi-turntable")).toBe(true)
   })
 
   it("omits Record Store when no records derive", () => {
@@ -1139,9 +1214,81 @@ describe("ItemShopsPlugin local library grants", () => {
       })
     })
 
+    it("allows a CD on a Hifi CD Player without wearing", async () => {
+      const { plugin, inventory } = setup({
+        extraItems: [cdStack(), hifiCdPlayerStack()],
+        extraDerivedPhysicalMedia: [DERIVED_CD],
+        extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
+        membershipPlaylistIds: ["nd-cd"],
+        hasPlaybackDevice: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+      expect(inventory.removeItem).not.toHaveBeenCalled()
+    })
+
+    it("allows an LP on a Hifi Turntable without wearing", async () => {
+      const { plugin, inventory } = setup({
+        hasPhysicalMedia: true,
+        membershipPlaylistIds: ["nd-lp"],
+        hasPlaybackDevice: false,
+        extraItems: [hifiTurntableStack()],
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+      expect(inventory.removeItem).not.toHaveBeenCalled()
+    })
+
+    it("allows a cassette on a Hifi Tape Deck without wearing", async () => {
+      const { plugin, inventory } = setup({
+        extraItems: [tapeStack(), hifiTapeDeckStack()],
+        extraDerivedPhysicalMedia: [DERIVED_TAPE],
+        extraPlaylistMap: { [TAPE_SHORT_ID]: "nd-tape" },
+        membershipPlaylistIds: ["nd-tape"],
+        hasPlaybackDevice: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+      expect(inventory.removeItem).not.toHaveBeenCalled()
+    })
+
+    it("skips wear when a hifi device covers one of several matching formats", async () => {
+      const { plugin, inventory } = setup({
+        hasPhysicalMedia: true,
+        membershipPlaylistIds: ["nd-lp", "nd-cd"],
+        hasPlaybackDevice: false,
+        extraPhysicalMedia: [cdStack()],
+        extraDerivedPhysicalMedia: [DERIVED_CD],
+        extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
+        extraItems: [hifiTurntableStack(), cdPlayerStack()],
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({ allowed: true })
+      expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+      expect(inventory.removeItem).not.toHaveBeenCalled()
+    })
+
     it("rejects a CD when the user only holds a Turntable", async () => {
       const { plugin } = setup({
         extraItems: [cdStack(), turntableStack()],
+        extraDerivedPhysicalMedia: [DERIVED_CD],
+        extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
+        membershipPlaylistIds: ["nd-cd"],
+        hasPlaybackDevice: false,
+      })
+      const result = await plugin.validateQueueRequest(localParams)
+      expect(result).toEqual({
+        allowed: false,
+        reason: PLAYBACK_DEVICE_MISSING_REASON,
+      })
+    })
+
+    it("rejects a CD when the user only holds a Hifi Turntable", async () => {
+      const { plugin } = setup({
+        extraItems: [cdStack(), hifiTurntableStack()],
         extraDerivedPhysicalMedia: [DERIVED_CD],
         extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
         membershipPlaylistIds: ["nd-cd"],

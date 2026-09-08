@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { InventoryItem } from "@repo/types"
 import type { HeldLocalLibraryGrant } from "./grants"
-import { playableFormats, requiresPlaybackDevice } from "./playbackDevices"
+import { gentlePlayableFormats, playableFormats, requiresPlaybackDevice } from "./playbackDevices"
 
 function stack(definitionId: string, itemId = definitionId): InventoryItem {
   return {
@@ -32,10 +32,40 @@ describe("playableFormats", () => {
     expect(formats.has("45")).toBe(true)
   })
 
+  it("lets hifi devices cover the same formats as their base counterparts", () => {
+    const formats = playableFormats([
+      stack("item-shops:hifi-turntable"),
+      stack("item-shops:hifi-tape-deck"),
+      stack("item-shops:hifi-cd-player"),
+    ])
+    expect(Array.from(formats).sort()).toEqual(["45", "CD", "LP", "TAPE"])
+  })
+
   it("ignores empty stacks and unknown definitions", () => {
     const formats = playableFormats([
       { ...stack("item-shops:cd-player"), quantity: 0 },
       stack("item-shops:missing"),
+    ])
+    expect(formats.size).toBe(0)
+  })
+})
+
+describe("gentlePlayableFormats", () => {
+  it("only includes formats from gentlePlayback devices", () => {
+    const formats = gentlePlayableFormats([
+      stack("item-shops:cd-player"),
+      stack("item-shops:hifi-cd-player"),
+      stack("item-shops:hifi-turntable"),
+    ])
+    expect(Array.from(formats).sort()).toEqual(["45", "CD", "LP"])
+    expect(formats.has("TAPE")).toBe(false)
+  })
+
+  it("ignores empty stacks and base devices", () => {
+    const formats = gentlePlayableFormats([
+      { ...stack("item-shops:hifi-cd-player"), quantity: 0 },
+      stack("item-shops:boombox"),
+      stack("item-shops:turntable"),
     ])
     expect(formats.size).toBe(0)
   })

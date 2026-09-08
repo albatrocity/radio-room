@@ -61,6 +61,7 @@ import {
 } from "./grants"
 import {
   PLAYBACK_DEVICE_MISSING_REASON,
+  gentlePlayableFormats,
   playableFormats,
   requiresPlaybackDevice,
 } from "./playbackDevices"
@@ -725,7 +726,8 @@ export class LocalLibraryModule {
    * Degrade (or convert) the worst matching playlist/album record. Never rejects.
    * `matching` is already membership- and (when required) format-filtered.
    * Returns the pre-wear condition snapshot for Now Playing (ADR 0165), or
-   * undefined when nothing wearable was spent (library-scope only).
+   * undefined when nothing wearable was spent (library-scope only, or gentle
+   * playback covered the format — ADR 0166).
    */
   private async wearRecordForQueue(
     params: QueueValidationParams,
@@ -737,6 +739,11 @@ export class LocalLibraryModule {
 
     const wearable = matching.filter((h) => h.grant.scope !== "library")
     if (wearable.length === 0) return undefined
+
+    const gentle = gentlePlayableFormats(inv.items)
+    if (wearable.some((h) => h.mediaFormat != null && gentle.has(h.mediaFormat))) {
+      return undefined
+    }
 
     const items = inv.items
     const byItemId = new Map(items.map((item) => [item.itemId, item]))
