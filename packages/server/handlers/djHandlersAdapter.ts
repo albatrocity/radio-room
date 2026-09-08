@@ -368,6 +368,8 @@ export class DJHandlers {
         source: result.source,
         items: result.items,
         total: result.total,
+        query: payload.query,
+        offset: payload.offset ?? 0,
       },
     })
   }
@@ -402,6 +404,8 @@ export class DJHandlers {
         source: result.source,
         items: result.items,
         total: result.total,
+        query: payload.query,
+        offset: payload.offset ?? 0,
       },
     })
   }

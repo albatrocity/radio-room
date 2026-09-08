@@ -31,6 +31,7 @@ const adapterApiMocks = vi.hoisted(() => {
 const bridgeMocks = vi.hoisted(() => ({
   getBridgeRpcClient: vi.fn(),
   getLocalPlaylistCoverArt: vi.fn(),
+  getLocalAlbumCoverArt: vi.fn(),
 }))
 
 vi.mock("../../operations/data", () => ({
@@ -56,6 +57,7 @@ vi.mock("../../services/AdapterService", () => ({
 vi.mock("@repo/adapter-bridge", () => ({
   getBridgeRpcClient: bridgeMocks.getBridgeRpcClient,
   getLocalPlaylistCoverArt: bridgeMocks.getLocalPlaylistCoverArt,
+  getLocalAlbumCoverArt: bridgeMocks.getLocalAlbumCoverArt,
 }))
 
 import {

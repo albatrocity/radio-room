@@ -43,6 +43,9 @@ vi.mock("../operations/playback/handlePlaybackVolumeChange", () => ({
 vi.mock("../operations/dj/publishDeputyDjChanged", () => ({
   publishDeputyDjChanged: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock("../operations/dj/rewriteLocalTrackImages", () => ({
+  rewriteLocalTrackImages: vi.fn(async ({ track }: { track: unknown }) => track),
+}))
 
 // Import mocked dependencies
 import systemMessage from "../lib/systemMessage"

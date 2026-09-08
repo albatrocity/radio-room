@@ -113,3 +113,72 @@ describe("catalogBrowseMachine session cache", () => {
     actor.stop()
   })
 })
+
+describe("catalogBrowseMachine artist/album paging", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    clearCatalogBrowseSessionCache()
+  })
+
+  it("replaces artists on offset 0 and appends on later pages", () => {
+    const actor = createActor(catalogBrowseMachine).start()
+    actor.send({ type: "FETCH_ARTISTS", source: "local", offset: 0, limit: 50 })
+
+    expect(emitToSocket).toHaveBeenCalledWith("BROWSE_ARTISTS", {
+      source: "local",
+      query: undefined,
+      offset: 0,
+      limit: 50,
+    })
+
+    actor.send({
+      type: "BROWSE_ARTISTS_RESULTS",
+      data: {
+        source: "local",
+        items: [{ id: "a1", title: "A" }],
+        total: 2,
+        offset: 0,
+      },
+    })
+    expect(actor.getSnapshot().context.artists.map((a) => a.id)).toEqual(["a1"])
+    expect(actor.getSnapshot().context.artistsHasMore).toBe(true)
+
+    actor.send({ type: "FETCH_ARTISTS", source: "local", offset: 1, limit: 50 })
+    expect(actor.getSnapshot().matches("loadingMoreArtists")).toBe(true)
+    expect(actor.getSnapshot().context.artists).toHaveLength(1)
+
+    actor.send({
+      type: "BROWSE_ARTISTS_RESULTS",
+      data: {
+        source: "local",
+        items: [{ id: "a2", title: "B" }],
+        total: 2,
+        offset: 1,
+      },
+    })
+    expect(actor.getSnapshot().context.artists.map((a) => a.id)).toEqual(["a1", "a2"])
+    expect(actor.getSnapshot().context.artistsHasMore).toBe(false)
+    actor.stop()
+  })
+
+  it("does not emit a second FETCH while loadingMore artists", () => {
+    const actor = createActor(catalogBrowseMachine).start()
+    actor.send({ type: "FETCH_ARTISTS", source: "local", offset: 0, limit: 50 })
+    actor.send({
+      type: "BROWSE_ARTISTS_RESULTS",
+      data: {
+        source: "local",
+        items: [{ id: "a1", title: "A" }],
+        total: 100,
+        offset: 0,
+      },
+    })
+
+    actor.send({ type: "FETCH_ARTISTS", source: "local", offset: 1, limit: 50 })
+    vi.mocked(emitToSocket).mockClear()
+    actor.send({ type: "FETCH_ARTISTS", source: "local", offset: 1, limit: 50 })
+    expect(emitToSocket).not.toHaveBeenCalled()
+    expect(actor.getSnapshot().matches("loadingMoreArtists")).toBe(true)
+    actor.stop()
+  })
+})

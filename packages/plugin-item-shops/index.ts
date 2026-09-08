@@ -132,6 +132,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   /** Bumped on each local-library refresh so in-flight artwork hydrates abort. */
   private albumArtworkHydrateGeneration = 0
 
+  /** Last `MEDIA_BRIDGE_STATUS_CHANGED` connected/services fingerprint. */
+  private lastBridgeStatusKey: string | null = null
+
+  /** Last HSET definition JSON by shortId — skip unchanged fields on resync. */
+  private lastDefinitionFingerprints = new Map<string, string>()
+
   /** Static + config + derived grant catalog. */
   private get grantCatalog(): ItemCatalogEntry[] {
     return this.localLibrary.grantCatalog
@@ -154,6 +160,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       hooks: physicalMediaShopEconomyHooks(() => this.offerConditionBounds),
     })
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
+    this.commitDefinitionFingerprints(itemCatalog.map((e) => e.definition))
     this.scheduleAlbumArtworkHydrate()
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
     this.on("GAME_SESSION_STARTED", this.handleGameSessionStarted.bind(this))
@@ -177,7 +184,17 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
   }
 
-  private async handleMediaBridgeStatusChanged(): Promise<void> {
+  private async handleMediaBridgeStatusChanged(
+    data: SystemEventPayload<"MEDIA_BRIDGE_STATUS_CHANGED">,
+  ): Promise<void> {
+    const servicesKey = [...(data.services ?? [])]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .sort()
+      .join(",")
+    const statusKey = `${data.connected ? "1" : "0"}:${servicesKey}`
+    if (this.lastBridgeStatusKey === statusKey) return
+    this.lastBridgeStatusKey = statusKey
     await this.applyLocalLibraryGrantConfig()
   }
 
@@ -204,7 +221,33 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
     this.shopping.replaceCatalogs({ itemCatalog, shopCatalog })
-    await this.context.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
+    await this.registerChangedItemDefinitions(itemCatalog.map((e) => e.definition))
+  }
+
+  private definitionFingerprint(definition: Omit<ItemDefinition, "id" | "sourcePlugin">): string {
+    return JSON.stringify(definition)
+  }
+
+  private commitDefinitionFingerprints(
+    definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>,
+  ): void {
+    this.lastDefinitionFingerprints = new Map(
+      definitions.map((d) => [d.shortId, this.definitionFingerprint(d)]),
+    )
+  }
+
+  /** HSET only new/changed definitions; skip identical JSON already written. */
+  private async registerChangedItemDefinitions(
+    definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>,
+  ): Promise<void> {
+    if (!this.context) return
+    const changed = definitions.filter(
+      (d) => this.lastDefinitionFingerprints.get(d.shortId) !== this.definitionFingerprint(d),
+    )
+    if (changed.length > 0) {
+      await this.context.inventory.registerItemDefinitions(changed)
+    }
+    this.commitDefinitionFingerprints(definitions)
   }
 
   /** Non-blocking album sleeve fill after catalog-mode refresh (perf F3). */
@@ -245,6 +288,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       .map((e) => e.definition)
     if (defs.length > 0) {
       await this.context.inventory.registerItemDefinitions(defs)
+      for (const d of defs) {
+        this.lastDefinitionFingerprints.set(d.shortId, this.definitionFingerprint(d))
+      }
     }
   }
 

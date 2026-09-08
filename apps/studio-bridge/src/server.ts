@@ -1532,7 +1532,7 @@ function wireSocketHandlers(io: IOServer): void {
           })
           return
         }
-        socket.emit("event", stubBrowseArtists(payload?.query))
+        socket.emit("event", stubBrowseArtists(payload?.query, payload?.offset ?? 0, payload?.limit))
       },
     )
 
@@ -1548,7 +1548,7 @@ function wireSocketHandlers(io: IOServer): void {
           })
           return
         }
-        socket.emit("event", stubBrowseAlbums(payload?.query))
+        socket.emit("event", stubBrowseAlbums(payload?.query, payload?.offset ?? 0, payload?.limit))
       },
     )
 

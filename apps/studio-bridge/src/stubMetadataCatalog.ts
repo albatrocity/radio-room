@@ -117,25 +117,29 @@ export function buildEffectiveMetadataSourcesEvent() {
   }
 }
 
-export function stubBrowseArtists(query?: string) {
+export function stubBrowseArtists(query?: string, offset = 0, limit?: number) {
   const q = query?.trim().toLowerCase()
   const items = q
     ? [stubArtist].filter((a) => a.title.toLowerCase().includes(q))
     : [stubArtist]
+  const start = Math.max(0, offset)
+  const page = typeof limit === "number" ? items.slice(start, start + limit) : items.slice(start)
   return {
     type: "BROWSE_ARTISTS_RESULTS" as const,
-    data: { source: "local", items, total: items.length },
+    data: { source: "local", items: page, total: items.length, query, offset },
   }
 }
 
-export function stubBrowseAlbums(query?: string) {
+export function stubBrowseAlbums(query?: string, offset = 0, limit?: number) {
   const q = query?.trim().toLowerCase()
   const items = q
     ? [stubAlbum].filter((a) => a.title.toLowerCase().includes(q))
     : [stubAlbum]
+  const start = Math.max(0, offset)
+  const page = typeof limit === "number" ? items.slice(start, start + limit) : items.slice(start)
   return {
     type: "BROWSE_ALBUMS_RESULTS" as const,
-    data: { source: "local", items, total: items.length },
+    data: { source: "local", items: page, total: items.length, query, offset },
   }
 }
 

@@ -106,6 +106,98 @@ async function storeAlbumCover(params: {
   return `${params.apiUrl}/api/rooms/${params.roomId}/images/${imageId}`
 }
 
+const LOCAL_COVER_STORE_BATCH = 8
+
+async function storePlaylistArtworkVariants(params: {
+  roomId: string
+  playlistId: string
+  variants: { sm?: string; lg?: string }
+  apiUrl: string
+  storeImage: (args: {
+    roomId: string
+    imageId: string
+    base64Data: string
+    mimeType: string
+    context: AppContext
+  }) => Promise<{ success: boolean }>
+  context: AppContext
+}): Promise<LocalPlaylistArtwork | null> {
+  const [imageUrl, imageUrlLarge] = await Promise.all([
+    params.variants.sm
+      ? storePlaylistCover({
+          roomId: params.roomId,
+          playlistId: params.playlistId,
+          dataUri: params.variants.sm,
+          variant: "sm",
+          apiUrl: params.apiUrl,
+          storeImage: params.storeImage,
+          context: params.context,
+        })
+      : Promise.resolve(undefined),
+    params.variants.lg
+      ? storePlaylistCover({
+          roomId: params.roomId,
+          playlistId: params.playlistId,
+          dataUri: params.variants.lg,
+          variant: "lg",
+          apiUrl: params.apiUrl,
+          storeImage: params.storeImage,
+          context: params.context,
+        })
+      : Promise.resolve(undefined),
+  ])
+  const art: LocalPlaylistArtwork = {}
+  if (imageUrl) art.imageUrl = imageUrl
+  if (imageUrlLarge) art.imageUrlLarge = imageUrlLarge
+  if (!art.imageUrl && art.imageUrlLarge) art.imageUrl = art.imageUrlLarge
+  return art.imageUrl || art.imageUrlLarge ? art : null
+}
+
+async function storeAlbumArtworkVariants(params: {
+  roomId: string
+  albumId: string
+  variants: { sm?: string; lg?: string }
+  apiUrl: string
+  storeImage: (args: {
+    roomId: string
+    imageId: string
+    base64Data: string
+    mimeType: string
+    context: AppContext
+  }) => Promise<{ success: boolean }>
+  context: AppContext
+}): Promise<LocalPlaylistArtwork | null> {
+  const [imageUrl, imageUrlLarge] = await Promise.all([
+    params.variants.sm
+      ? storeAlbumCover({
+          roomId: params.roomId,
+          albumId: params.albumId,
+          dataUri: params.variants.sm,
+          variant: "sm",
+          apiUrl: params.apiUrl,
+          storeImage: params.storeImage,
+          context: params.context,
+        })
+      : Promise.resolve(undefined),
+    params.variants.lg
+      ? storeAlbumCover({
+          roomId: params.roomId,
+          albumId: params.albumId,
+          dataUri: params.variants.lg,
+          variant: "lg",
+          apiUrl: params.apiUrl,
+          storeImage: params.storeImage,
+          context: params.context,
+        })
+      : Promise.resolve(undefined),
+  ])
+  const art: LocalPlaylistArtwork = {}
+  if (imageUrl) art.imageUrl = imageUrl
+  if (imageUrlLarge) art.imageUrlLarge = imageUrlLarge
+  if (!art.imageUrl && art.imageUrlLarge) art.imageUrl = art.imageUrlLarge
+  return art.imageUrl || art.imageUrlLarge ? art : null
+}
+
 /**
  * Implementation of the Plugin API
  * Provides safe, high-level methods for plugins to interact with the system
@@ -747,38 +839,25 @@ export class PluginAPIImpl implements PluginAPI {
       const { getBridgeRpcClient, getLocalPlaylistCoverArt } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return {}
-      const covers = await getLocalPlaylistCoverArt({ rpc, playlistIds: ids })
       const { storeImage } = await import("../../operations/data")
       const apiUrl = this.context.apiUrl || ""
       const urls: Record<string, LocalPlaylistArtwork> = {}
-      for (const [playlistId, variants] of Object.entries(covers)) {
-        const art: LocalPlaylistArtwork = {}
-        if (variants.sm) {
-          const url = await storePlaylistCover({
-            roomId,
-            playlistId,
-            dataUri: variants.sm,
-            variant: "sm",
-            apiUrl,
-            storeImage,
-            context: this.context,
-          })
-          if (url) art.imageUrl = url
-        }
-        if (variants.lg) {
-          const url = await storePlaylistCover({
-            roomId,
-            playlistId,
-            dataUri: variants.lg,
-            variant: "lg",
-            apiUrl,
-            storeImage,
-            context: this.context,
-          })
-          if (url) art.imageUrlLarge = url
-        }
-        if (!art.imageUrl && art.imageUrlLarge) art.imageUrl = art.imageUrlLarge
-        if (art.imageUrl || art.imageUrlLarge) urls[playlistId] = art
+      for (let i = 0; i < ids.length; i += LOCAL_COVER_STORE_BATCH) {
+        const chunk = ids.slice(i, i + LOCAL_COVER_STORE_BATCH)
+        const covers = await getLocalPlaylistCoverArt({ rpc, playlistIds: chunk })
+        await Promise.all(
+          Object.entries(covers).map(async ([playlistId, variants]) => {
+            const art = await storePlaylistArtworkVariants({
+              roomId,
+              playlistId,
+              variants,
+              apiUrl,
+              storeImage,
+              context: this.context,
+            })
+            if (art) urls[playlistId] = art
+          }),
+        )
       }
       return urls
     } catch (e) {
@@ -828,38 +907,25 @@ export class PluginAPIImpl implements PluginAPI {
       const { getBridgeRpcClient, getLocalAlbumCoverArt } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return {}
-      const covers = await getLocalAlbumCoverArt({ rpc, albumIds: ids })
       const { storeImage } = await import("../../operations/data")
       const apiUrl = this.context.apiUrl || ""
       const urls: Record<string, LocalPlaylistArtwork> = {}
-      for (const [albumId, variants] of Object.entries(covers)) {
-        const art: LocalPlaylistArtwork = {}
-        if (variants.sm) {
-          const url = await storeAlbumCover({
-            roomId,
-            albumId,
-            dataUri: variants.sm,
-            variant: "sm",
-            apiUrl,
-            storeImage,
-            context: this.context,
-          })
-          if (url) art.imageUrl = url
-        }
-        if (variants.lg) {
-          const url = await storeAlbumCover({
-            roomId,
-            albumId,
-            dataUri: variants.lg,
-            variant: "lg",
-            apiUrl,
-            storeImage,
-            context: this.context,
-          })
-          if (url) art.imageUrlLarge = url
-        }
-        if (!art.imageUrl && art.imageUrlLarge) art.imageUrl = art.imageUrlLarge
-        if (art.imageUrl || art.imageUrlLarge) urls[albumId] = art
+      for (let i = 0; i < ids.length; i += LOCAL_COVER_STORE_BATCH) {
+        const chunk = ids.slice(i, i + LOCAL_COVER_STORE_BATCH)
+        const covers = await getLocalAlbumCoverArt({ rpc, albumIds: chunk })
+        await Promise.all(
+          Object.entries(covers).map(async ([albumId, variants]) => {
+            const art = await storeAlbumArtworkVariants({
+              roomId,
+              albumId,
+              variants,
+              apiUrl,
+              storeImage,
+              context: this.context,
+            })
+            if (art) urls[albumId] = art
+          }),
+        )
       }
       return urls
     } catch (e) {

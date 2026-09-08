@@ -66,12 +66,49 @@ export function clearCatalogBrowseSessionCache(): void {
   sessionCache.clear()
 }
 
+/** Page size for root Artists/Albums lists (daemon default-caps to the same). */
+export const CATALOG_BROWSE_PAGE_SIZE = 50
+
+function uniqueById<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>()
+  const out: T[] = []
+  for (const item of items) {
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    out.push(item)
+  }
+  return out
+}
+
+function pageHasMore<T>(params: {
+  accumulated: T[]
+  incoming: T[]
+  previousLength: number
+  total: number | undefined
+  pageSize: number
+}): boolean {
+  if (params.incoming.length === 0) return false
+  if (params.accumulated.length <= params.previousLength) return false
+  if (typeof params.total === "number") return params.accumulated.length < params.total
+  return params.incoming.length >= params.pageSize
+}
+
+function normalizeBrowseQuery(query: string | undefined): string {
+  return query ?? ""
+}
+
 export interface CatalogBrowseContext {
   source: string | null
   artists: MetadataBrowseArtist[]
   artistsTotal: number | undefined
+  artistsHasMore: boolean
+  artistsPendingQuery: string | undefined
+  artistsPendingOffset: number
   rootAlbums: MetadataBrowseAlbum[]
   rootAlbumsTotal: number | undefined
+  rootAlbumsHasMore: boolean
+  albumsPendingQuery: string | undefined
+  albumsPendingOffset: number
   artist: MetadataBrowseArtist | null
   albums: MetadataBrowseAlbum[]
   album: MetadataBrowseAlbum | null
@@ -96,19 +133,31 @@ export const CATALOG_BROWSE_EVENT_TYPES = [
 ]
 
 type CatalogBrowseEvent =
-  | { type: "FETCH_ARTISTS"; source: string; query?: string }
-  | { type: "FETCH_ALBUMS"; source: string; query?: string; limit?: number }
+  | { type: "FETCH_ARTISTS"; source: string; query?: string; offset?: number; limit?: number }
+  | { type: "FETCH_ALBUMS"; source: string; query?: string; offset?: number; limit?: number }
   | { type: "FETCH_ARTIST"; source: string; artistId: string }
   | { type: "FETCH_ALBUM"; source: string; albumId: string }
   | { type: "FETCH_MEDIA"; mediaKey: string }
   | {
       type: "BROWSE_ARTISTS_RESULTS"
-      data: { source: string; items: MetadataBrowseArtist[]; total?: number }
+      data: {
+        source: string
+        items: MetadataBrowseArtist[]
+        total?: number
+        query?: string
+        offset?: number
+      }
     }
   | { type: "BROWSE_ARTISTS_FAILURE"; data: RequestError }
   | {
       type: "BROWSE_ALBUMS_RESULTS"
-      data: { source: string; items: MetadataBrowseAlbum[]; total?: number }
+      data: {
+        source: string
+        items: MetadataBrowseAlbum[]
+        total?: number
+        query?: string
+        offset?: number
+      }
     }
   | { type: "BROWSE_ALBUMS_FAILURE"; data: RequestError }
   | {
@@ -156,6 +205,28 @@ export const catalogBrowseMachine = setup({
       const entry = getSessionCache(mediaSessionCacheKey(event.mediaKey))
       return entry?.kind === "media"
     },
+    isArtistsFirstPage: ({ event }) =>
+      event.type === "FETCH_ARTISTS" && (event.offset ?? 0) === 0,
+    isArtistsLoadMore: ({ event }) => event.type === "FETCH_ARTISTS" && (event.offset ?? 0) > 0,
+    isAlbumsFirstPage: ({ event }) =>
+      event.type === "FETCH_ALBUMS" && (event.offset ?? 0) === 0,
+    isAlbumsLoadMore: ({ event }) => event.type === "FETCH_ALBUMS" && (event.offset ?? 0) > 0,
+    artistsResultsMatchRequest: ({ context, event }) => {
+      if (event.type !== "BROWSE_ARTISTS_RESULTS") return false
+      if (event.data.source !== context.source) return false
+      if (normalizeBrowseQuery(event.data.query) !== normalizeBrowseQuery(context.artistsPendingQuery)) {
+        return false
+      }
+      return (event.data.offset ?? 0) === context.artistsPendingOffset
+    },
+    albumsResultsMatchRequest: ({ context, event }) => {
+      if (event.type !== "BROWSE_ALBUMS_RESULTS") return false
+      if (event.data.source !== context.source) return false
+      if (normalizeBrowseQuery(event.data.query) !== normalizeBrowseQuery(context.albumsPendingQuery)) {
+        return false
+      }
+      return (event.data.offset ?? 0) === context.albumsPendingOffset
+    },
   },
   actions: {
     sendListArtists: ({ event }) => {
@@ -163,6 +234,8 @@ export const catalogBrowseMachine = setup({
         emitToSocket("BROWSE_ARTISTS", {
           source: event.source,
           query: event.query,
+          offset: event.offset ?? 0,
+          limit: event.limit ?? CATALOG_BROWSE_PAGE_SIZE,
         })
       }
     },
@@ -171,10 +244,27 @@ export const catalogBrowseMachine = setup({
         emitToSocket("BROWSE_ALBUMS", {
           source: event.source,
           query: event.query,
-          limit: event.limit,
+          offset: event.offset ?? 0,
+          limit: event.limit ?? CATALOG_BROWSE_PAGE_SIZE,
         })
       }
     },
+    stashArtistsRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_ARTISTS") return {}
+      return {
+        source: event.source,
+        artistsPendingQuery: event.query,
+        artistsPendingOffset: event.offset ?? 0,
+      }
+    }),
+    stashAlbumsRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_ALBUMS") return {}
+      return {
+        source: event.source,
+        albumsPendingQuery: event.query,
+        albumsPendingOffset: event.offset ?? 0,
+      }
+    }),
     sendGetArtist: ({ event }) => {
       if (event.type === "FETCH_ARTIST") {
         emitToSocket("BROWSE_ARTIST", {
@@ -224,21 +314,43 @@ export const catalogBrowseMachine = setup({
         error: null,
       }
     }),
-    setArtists: assign(({ event }) => {
+    setArtists: assign(({ context, event }) => {
       if (event.type !== "BROWSE_ARTISTS_RESULTS") return {}
+      const incoming = event.data.items ?? []
+      const offset = event.data.offset ?? context.artistsPendingOffset
+      const previousLength = offset === 0 ? 0 : context.artists.length
+      const artists = offset === 0 ? incoming : uniqueById([...context.artists, ...incoming])
       return {
         source: event.data.source,
-        artists: event.data.items ?? [],
+        artists,
         artistsTotal: event.data.total,
+        artistsHasMore: pageHasMore({
+          accumulated: artists,
+          incoming,
+          previousLength,
+          total: event.data.total,
+          pageSize: CATALOG_BROWSE_PAGE_SIZE,
+        }),
         error: null,
       }
     }),
-    setRootAlbums: assign(({ event }) => {
+    setRootAlbums: assign(({ context, event }) => {
       if (event.type !== "BROWSE_ALBUMS_RESULTS") return {}
+      const incoming = event.data.items ?? []
+      const offset = event.data.offset ?? context.albumsPendingOffset
+      const previousLength = offset === 0 ? 0 : context.rootAlbums.length
+      const rootAlbums = offset === 0 ? incoming : uniqueById([...context.rootAlbums, ...incoming])
       return {
         source: event.data.source,
-        rootAlbums: event.data.items ?? [],
+        rootAlbums,
         rootAlbumsTotal: event.data.total,
+        rootAlbumsHasMore: pageHasMore({
+          accumulated: rootAlbums,
+          incoming,
+          previousLength,
+          total: event.data.total,
+          pageSize: CATALOG_BROWSE_PAGE_SIZE,
+        }),
         error: null,
       }
     }),
@@ -309,8 +421,14 @@ export const catalogBrowseMachine = setup({
     source: null,
     artists: [],
     artistsTotal: undefined,
+    artistsHasMore: false,
+    artistsPendingQuery: undefined,
+    artistsPendingOffset: 0,
     rootAlbums: [],
     rootAlbumsTotal: undefined,
+    rootAlbumsHasMore: false,
+    albumsPendingQuery: undefined,
+    albumsPendingOffset: 0,
     artist: null,
     albums: [],
     album: null,
@@ -320,14 +438,28 @@ export const catalogBrowseMachine = setup({
     error: null,
   },
   on: {
-    FETCH_ARTISTS: {
-      target: ".loadingArtists",
-      actions: ["clearError"],
-    },
-    FETCH_ALBUMS: {
-      target: ".loadingAlbums",
-      actions: ["clearError"],
-    },
+    FETCH_ARTISTS: [
+      {
+        guard: "isArtistsLoadMore",
+        target: ".loadingMoreArtists",
+        actions: ["clearError", "stashArtistsRequest"],
+      },
+      {
+        target: ".loadingArtists",
+        actions: ["clearError", "stashArtistsRequest"],
+      },
+    ],
+    FETCH_ALBUMS: [
+      {
+        guard: "isAlbumsLoadMore",
+        target: ".loadingMoreAlbums",
+        actions: ["clearError", "stashAlbumsRequest"],
+      },
+      {
+        target: ".loadingAlbums",
+        actions: ["clearError", "stashAlbumsRequest"],
+      },
+    ],
     FETCH_ARTIST: {
       target: ".loadingArtist",
       actions: ["clearError"],
@@ -361,10 +493,55 @@ export const catalogBrowseMachine = setup({
     loadingArtists: {
       entry: ["sendListArtists"],
       on: {
-        BROWSE_ARTISTS_RESULTS: {
-          target: "idle",
-          actions: ["setArtists"],
+        FETCH_ARTISTS: [
+          {
+            guard: "isArtistsFirstPage",
+            target: "loadingArtists",
+            actions: ["clearError", "stashArtistsRequest"],
+          },
+          {
+            guard: "isArtistsLoadMore",
+            target: "loadingArtists",
+            reenter: false,
+          },
+        ],
+        BROWSE_ARTISTS_RESULTS: [
+          {
+            guard: "artistsResultsMatchRequest",
+            target: "idle",
+            actions: ["setArtists"],
+          },
+          { target: "idle" },
+        ],
+        BROWSE_ARTISTS_FAILURE: {
+          target: "failure",
+          actions: ["setError"],
         },
+      },
+    },
+    loadingMoreArtists: {
+      entry: ["sendListArtists"],
+      on: {
+        FETCH_ARTISTS: [
+          {
+            guard: "isArtistsFirstPage",
+            target: "loadingArtists",
+            actions: ["clearError", "stashArtistsRequest"],
+          },
+          {
+            guard: "isArtistsLoadMore",
+            target: "loadingMoreArtists",
+            reenter: false,
+          },
+        ],
+        BROWSE_ARTISTS_RESULTS: [
+          {
+            guard: "artistsResultsMatchRequest",
+            target: "idle",
+            actions: ["setArtists"],
+          },
+          { target: "idle" },
+        ],
         BROWSE_ARTISTS_FAILURE: {
           target: "failure",
           actions: ["setError"],
@@ -374,10 +551,55 @@ export const catalogBrowseMachine = setup({
     loadingAlbums: {
       entry: ["sendListAlbums"],
       on: {
-        BROWSE_ALBUMS_RESULTS: {
-          target: "idle",
-          actions: ["setRootAlbums"],
+        FETCH_ALBUMS: [
+          {
+            guard: "isAlbumsFirstPage",
+            target: "loadingAlbums",
+            actions: ["clearError", "stashAlbumsRequest"],
+          },
+          {
+            guard: "isAlbumsLoadMore",
+            target: "loadingAlbums",
+            reenter: false,
+          },
+        ],
+        BROWSE_ALBUMS_RESULTS: [
+          {
+            guard: "albumsResultsMatchRequest",
+            target: "idle",
+            actions: ["setRootAlbums"],
+          },
+          { target: "idle" },
+        ],
+        BROWSE_ALBUMS_FAILURE: {
+          target: "failure",
+          actions: ["setError"],
         },
+      },
+    },
+    loadingMoreAlbums: {
+      entry: ["sendListAlbums"],
+      on: {
+        FETCH_ALBUMS: [
+          {
+            guard: "isAlbumsFirstPage",
+            target: "loadingAlbums",
+            actions: ["clearError", "stashAlbumsRequest"],
+          },
+          {
+            guard: "isAlbumsLoadMore",
+            target: "loadingMoreAlbums",
+            reenter: false,
+          },
+        ],
+        BROWSE_ALBUMS_RESULTS: [
+          {
+            guard: "albumsResultsMatchRequest",
+            target: "idle",
+            actions: ["setRootAlbums"],
+          },
+          { target: "idle" },
+        ],
         BROWSE_ALBUMS_FAILURE: {
           target: "failure",
           actions: ["setError"],

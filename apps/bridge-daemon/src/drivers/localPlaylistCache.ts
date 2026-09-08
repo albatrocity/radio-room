@@ -245,10 +245,14 @@ export class PlaylistMembershipCache {
     return membership
   }
 
-  async getUnion(playlistIds: string[]): Promise<PlaylistMembership> {
+  async getUnion(
+    playlistIds: string[],
+    options?: { concurrency?: number },
+  ): Promise<PlaylistMembership> {
     const unique = [...new Set(playlistIds.map((p) => p.trim()).filter(Boolean))].sort()
     if (unique.length === 0) return membershipFromPlaylistEntries([])
-    const parts = await Promise.all(unique.map((id) => this.get(id)))
+    const concurrency = Math.max(1, options?.concurrency ?? ALBUM_UNION_FETCH_CONCURRENCY)
+    const parts = await mapWithConcurrency(unique, concurrency, (id) => this.get(id))
     const maxFetched = parts.reduce((m, p) => Math.max(m, p.fetchedAt), 0)
     const unionKey = `${unique.join(",")}:${maxFetched}`
     const cachedUnion = this.unionCache.get(unionKey)
@@ -259,22 +263,26 @@ export class PlaylistMembershipCache {
   }
 
   /**
-   * Which of `playlistIds` contain `trackId` (uses cache). Fetches in parallel.
-   * When `firstMatch` is true, still fetches in parallel but returns after the
-   * first hit in input order (queue-time grant resolution only needs one).
+   * Which of `playlistIds` contain `trackId` (uses cache). Fetches with the
+   * same concurrency bound as album unions so a large grant set cannot
+   * stampede Navidrome.
+   * When `firstMatch` is true, still fetches the set (bounded) but returns
+   * after the first hit in input order (queue-time grant resolution only needs one).
    */
   async playlistsContainingTrack(
     trackId: string,
     playlistIds: string[],
-    options?: { firstMatch?: boolean },
+    options?: { firstMatch?: boolean; concurrency?: number },
   ): Promise<string[]> {
     const tid = trackId.trim()
     if (!tid) return []
     const unique = [...new Set(playlistIds.map((p) => p.trim()).filter(Boolean))]
     if (unique.length === 0) return []
-    const parts = await Promise.all(
-      unique.map(async (id) => ({ id, membership: await this.get(id) })),
-    )
+    const concurrency = Math.max(1, options?.concurrency ?? ALBUM_UNION_FETCH_CONCURRENCY)
+    const parts = await mapWithConcurrency(unique, concurrency, async (id) => ({
+      id,
+      membership: await this.get(id),
+    }))
     const out: string[] = []
     for (const { id, membership } of parts) {
       if (!membership.trackIds.has(tid)) continue

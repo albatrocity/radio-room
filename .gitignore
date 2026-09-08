@@ -111,3 +111,7 @@ _old/
 
 # Locally-trusted TLS pairs (mkcert) for LAN device testing — never commit private keys
 *.pem
+# bugbash
+.bugbash.json
+.bugbash/
+.playwright-cli/

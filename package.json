@@ -9,6 +9,7 @@
     "@pandacss/is-valid-prop": "^1.8.1"
   },
   "devDependencies": {
+    "@playwright/cli": "^0.1.19",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "concurrently": "^9.2.1",

@@ -36,6 +36,7 @@ import { DefenseService } from "./DefenseService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 import { canResumeCurrentTrack, shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
 import { publishDeputyDjChanged } from "../operations/dj/publishDeputyDjChanged"
+import { rewriteLocalTrackImages } from "../operations/dj/rewriteLocalTrackImages"
 
 function isSameMultiset(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
@@ -206,6 +207,7 @@ export class DJService {
         context: this.context,
         roomId,
         userId: attribution.userId,
+        trueUsername: attribution.username,
       })
       addedBy = { userId: attribution.userId, username: presented.label }
     }
@@ -363,11 +365,18 @@ export class DJService {
       return { success: false as const, message: "Track resource URL not found" }
     }
 
+    // Re-host Local data-URI covers so queue Redis blobs / QUEUE_CHANGED stay small.
+    const persistTrack = await rewriteLocalTrackImages({
+      context: this.context,
+      roomId,
+      track,
+    })
+
     // IMPORTANT: Store in our internal queue FIRST, before adding to Spotify.
     // This prevents a race condition where Spotify immediately plays the track
     // (when queue is empty) before we've stored it, causing the DJ attribution to fail.
     const queuedItem = queueItemFactory.build({
-      track,
+      track: persistTrack,
       mediaSource: {
         type: resolvedSource as any,
         trackId: track.id,

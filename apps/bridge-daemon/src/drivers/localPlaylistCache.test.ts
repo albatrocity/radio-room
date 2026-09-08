@@ -163,6 +163,25 @@ describe("localPlaylistCache", () => {
     expect(maxInflight).toBeGreaterThan(1)
   })
 
+  it("playlist getUnion fetches with bounded concurrency", async () => {
+    let inflight = 0
+    let maxInflight = 0
+    const fetchEntries = vi.fn(async (playlistId: string) => {
+      inflight++
+      maxInflight = Math.max(maxInflight, inflight)
+      await new Promise((r) => setTimeout(r, 5))
+      inflight--
+      return [{ id: `t-${playlistId}` }]
+    })
+    const cache = new PlaylistMembershipCache(fetchEntries, 60_000)
+    const ids = Array.from({ length: 12 }, (_, i) => `pl-${i}`)
+    const union = await cache.getUnion(ids, { concurrency: 3 })
+    expect(union.trackIds.size).toBe(12)
+    expect(fetchEntries).toHaveBeenCalledTimes(12)
+    expect(maxInflight).toBeLessThanOrEqual(3)
+    expect(maxInflight).toBeGreaterThan(1)
+  })
+
   it("uses a larger default album LRU than playlists", async () => {
     const { ALBUM_CACHE_MAX_ENTRIES, PLAYLIST_CACHE_MAX_ENTRIES } = await import(
       "./localPlaylistCache"

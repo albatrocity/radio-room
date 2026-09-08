@@ -48,8 +48,13 @@ import { assertFfmpegAvailable, encodeTrackPreviewClip } from "./trackPreviewCli
 
 const MAP_SONG_CONCURRENCY = 4
 const COVER_ART_CONCURRENCY = 4
-/** Long-edge px for per-track data-URI covers (`mapSong` / Now Playing fallback). */
-export const COVER_ART_TRACK_SIZE = 640
+/** Max artists/albums per CatalogBrowse page (client infinite-scroll). */
+export const LOCAL_BROWSE_PAGE_SIZE = 50
+/**
+ * List/search thumbs. CatalogBrowse track rows hide artwork; search uses
+ * `album.images`. 640px covers used to ride every `mapSong` over Redis RPC.
+ */
+export const COVER_ART_TRACK_SIZE = COVER_ART_BROWSE_SIZE
 export type CoverArtVariant = "sm" | "lg"
 /** Playlist-sleeve sizes requested from Navidrome when the server asks for variants. */
 export const COVER_ART_VARIANTS: Record<CoverArtVariant, number> = { sm: 384, lg: 1200 }
@@ -666,7 +671,8 @@ export class LocalDriver implements Driver {
       trackNumber: song.track ?? 0,
       discNumber: song.discNumber ?? 0,
       popularity: 0,
-      images,
+      // Row UIs read `album.images`; omit the duplicate  so search/browse RPC stays small.
+      images: [],
     }
   }
 
@@ -789,6 +795,9 @@ export class LocalDriver implements Driver {
     params?: MetadataListArtistsParams,
   ): Promise<MetadataListArtistsResult> {
     if (!this.navidrome.username) return { items: [], total: 0 }
+    if (this.isAlbumOnlyShelf(params?.playlistIds, params?.albumIds)) {
+      return this.listArtistsForAlbumShelf(params)
+    }
     const membership = await this.membershipFor({
       playlistIds: params?.playlistIds,
       albumIds: params?.albumIds,
@@ -811,29 +820,62 @@ export class LocalDriver implements Driver {
       items = mapped.items
       coverKeys = mapped.coverKeys
     }
+    return this.pageBrowseArtists(items, coverKeys, params)
+  }
+
+  /**
+   * Album-only shelf: never `getUnion` of every held album (catalog mode can be
+   * thousands). Artist rows come from per-album membership (bounded concurrency);
+   * covers hydrate only for the requested page.
+   */
+  private async listArtistsForAlbumShelf(
+    params?: MetadataListArtistsParams,
+  ): Promise<MetadataListArtistsResult> {
+    const ids = [...this.albumIdAllowSet(params?.albumIds)]
+    const parts = await mapWithConcurrency(ids, ALBUM_UNION_FETCH_CONCURRENCY, (id) =>
+      this.albumCache.get(id),
+    )
+    const membership = unionMembership(parts)
+    const items = artistsFromMembership(membership, params?.query)
+    const coverKeys = items.map((a) => artistCoverKeyFromMembership(membership, a.id))
+    return this.pageBrowseArtists(items, coverKeys, params)
+  }
+
+  private async pageBrowseArtists(
+    items: MetadataBrowseArtist[],
+    coverKeys: (string | undefined)[],
+    params?: MetadataListArtistsParams,
+  ): Promise<MetadataListArtistsResult> {
     const total = items.length
     const offset = Math.max(0, params?.offset ?? 0)
-    const limit = params?.limit != null ? Math.max(0, params.limit) : undefined
-    if (offset > 0 || limit != null) {
-      const end = limit != null ? offset + limit : undefined
-      items = items.slice(offset, end)
-      coverKeys = coverKeys.slice(offset, end)
+    const limit = Math.min(
+      Math.max(params?.limit ?? LOCAL_BROWSE_PAGE_SIZE, 1),
+      LOCAL_BROWSE_PAGE_SIZE,
+    )
+    const pageItems = items.slice(offset, offset + limit)
+    const pageKeys = coverKeys.slice(offset, offset + limit)
+    return {
+      items: await this.withBrowseCoverDataUris(pageItems, pageKeys),
+      total,
     }
-    items = await this.withBrowseCoverDataUris(items, coverKeys)
-    return { items, total }
   }
 
   async listAlbums(
     params?: MetadataListAlbumsParams,
   ): Promise<MetadataListAlbumsResult> {
     if (!this.navidrome.username) return { items: [], total: 0 }
+    const query = params?.query?.trim()
+    const offset = Math.max(0, params?.offset ?? 0)
+    const limit = Math.min(Math.max(params?.limit ?? LOCAL_BROWSE_PAGE_SIZE, 1), LOCAL_BROWSE_PAGE_SIZE)
+
+    if (this.isAlbumOnlyShelf(params?.playlistIds, params?.albumIds)) {
+      return this.listAlbumsForAlbumShelf(params, query, offset, limit)
+    }
+
     const membership = await this.membershipFor({
       playlistIds: params?.playlistIds,
       albumIds: params?.albumIds,
     })
-    const query = params?.query?.trim()
-    const offset = Math.max(0, params?.offset ?? 0)
-    const limit = Math.min(Math.max(params?.limit ?? 50, 1), 50)
 
     if (membership) {
       let items = albumsFromMembership(membership, query)
@@ -866,7 +908,46 @@ export class LocalDriver implements Driver {
     const albums = data?.["subsonic-response"]?.albumList2?.album
     const { items: rawItems, coverKeys } = mapNavidromeAlbumListWithCoverKeys(albums)
     const items = await this.withBrowseCoverDataUris(rawItems, coverKeys)
-    return { items, total: items.length }
+    return {
+      items,
+      ...(items.length < limit ? { total: offset + items.length } : {}),
+    }
+  }
+
+  /**
+   * Album-only shelf: fetch membership only for the requested page of album ids
+   * (not a union of every held SKU).
+   */
+  private async listAlbumsForAlbumShelf(
+    params: MetadataListAlbumsParams | undefined,
+    query: string | undefined,
+    offset: number,
+    limit: number,
+  ): Promise<MetadataListAlbumsResult> {
+    const ids = [...this.albumIdAllowSet(params?.albumIds)].sort()
+    if (query) {
+      const parts = await mapWithConcurrency(ids, ALBUM_UNION_FETCH_CONCURRENCY, (id) =>
+        this.albumCache.get(id),
+      )
+      const membership = unionMembership(parts)
+      let items = albumsFromMembership(membership, query)
+      const total = items.length
+      items = items.slice(offset, offset + limit)
+      const coverKeys = items.map((a) => membership.albums.get(a.id)?.coverArt?.trim() || undefined)
+      return { items: await this.withBrowseCoverDataUris(items, coverKeys), total }
+    }
+    const total = ids.length
+    const pageIds = ids.slice(offset, offset + limit)
+    const parts = await mapWithConcurrency(pageIds, ALBUM_UNION_FETCH_CONCURRENCY, (id) =>
+      this.albumCache.get(id),
+    )
+    const membership = unionMembership(parts)
+    const byId = new Map(albumsFromMembership(membership).map((a) => [a.id, a]))
+    const items = pageIds
+      .map((id) => byId.get(id))
+      .filter((a): a is NonNullable<typeof a> => a != null)
+    const coverKeys = items.map((a) => membership.albums.get(a.id)?.coverArt?.trim() || undefined)
+    return { items: await this.withBrowseCoverDataUris(items, coverKeys), total }
   }
 
   async getArtist(
@@ -875,7 +956,9 @@ export class LocalDriver implements Driver {
     albumIds?: string[],
   ): Promise<MetadataGetArtistResult | null> {
     if (!this.navidrome.username || !artistId) return null
-    const membership = await this.membershipFor({ playlistIds, albumIds })
+    const albumOnly = this.isAlbumOnlyShelf(playlistIds, albumIds)
+    const allow = albumOnly ? this.albumIdAllowSet(albumIds) : null
+    const membership = albumOnly ? null : await this.membershipFor({ playlistIds, albumIds })
     if (membership && !membership.artists.has(artistId)) return null
 
     const url = `${this.navidrome.url}/rest/getArtist.view?id=${encodeURIComponent(artistId)}&${this.authParams()}`
@@ -889,17 +972,20 @@ export class LocalDriver implements Driver {
     const albumRaw = artist.album
     const albumList = Array.isArray(albumRaw) ? albumRaw : albumRaw ? [albumRaw] : []
     let { items: albums, coverKeys: albumCoverKeys } = mapNavidromeAlbumListWithCoverKeys(albumList)
-    if (membership) {
+    if (membership || allow) {
       const filtered: MetadataBrowseAlbum[] = []
       const filteredKeys: (string | undefined)[] = []
       for (let i = 0; i < albums.length; i++) {
-        if (!membership.albums.has(albums[i]!.id)) continue
+        const id = albums[i]!.id
+        if (membership && !membership.albums.has(id)) continue
+        if (allow && !allow.has(id)) continue
         filtered.push(albums[i]!)
         filteredKeys.push(albumCoverKeys[i])
       }
       albums = filtered
       albumCoverKeys = filteredKeys
     }
+    if (allow && albums.length === 0) return null
     albums = await this.withBrowseCoverDataUris(albums, albumCoverKeys)
     const artistCoverKey =
       artist.coverArt?.trim() ||
@@ -909,7 +995,7 @@ export class LocalDriver implements Driver {
       artist: {
         id: String(artist.id),
         title: String(artist.name ?? artist.id).trim() || String(artist.id),
-        albumCount: membership
+        albumCount: membership || allow
           ? albums.length
           : typeof artist.albumCount === "number"
             ? artist.albumCount

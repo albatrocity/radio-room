@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Box,
   Center,
@@ -20,7 +20,12 @@ import type {
   PhysicalMediaItem,
 } from "@repo/types"
 import { useSocketMachine } from "../hooks/useSocketMachine"
-import { CATALOG_BROWSE_EVENT_TYPES, catalogBrowseMachine } from "../machines/catalogBrowseMachine"
+import {
+  CATALOG_BROWSE_EVENT_TYPES,
+  CATALOG_BROWSE_PAGE_SIZE,
+  catalogBrowseMachine,
+} from "../machines/catalogBrowseMachine"
+import CatalogBrowseEntityList from "./CatalogBrowseEntityList"
 import EntityThumb from "./EntityThumb"
 import AlbumTrackListView, { type AlbumViewHeader } from "./AlbumTrackListView"
 import MetadataSourceAuthAlert from "./MetadataSourceAuthAlert"
@@ -183,13 +188,16 @@ function CatalogBrowse({
         type: "FETCH_ALBUMS",
         source: nextSource,
         query: query || undefined,
-        limit: 50,
+        offset: 0,
+        limit: CATALOG_BROWSE_PAGE_SIZE,
       })
     } else {
       send({
         type: "FETCH_ARTISTS",
         source: nextSource,
         query: query || undefined,
+        offset: 0,
+        limit: CATALOG_BROWSE_PAGE_SIZE,
       })
     }
   }
@@ -364,6 +372,45 @@ function CatalogBrowse({
   const rootAlbums = state.context.rootAlbums
   const artistAlbums = state.context.albums
   const tracks = state.context.tracks as MetadataSourceTrackWithSource[]
+  const loadingMoreArtists = state.matches("loadingMoreArtists")
+  const loadingMoreAlbums = state.matches("loadingMoreAlbums")
+
+  const loadMoreRoot = useCallback(() => {
+    if (!sourceId || disabled) return
+    if (rootKind === "artists") {
+      if (loadingMoreArtists || !state.context.artistsHasMore) return
+      send({
+        type: "FETCH_ARTISTS",
+        source: sourceId,
+        query: filter.trim() || undefined,
+        offset: artists.length,
+        limit: CATALOG_BROWSE_PAGE_SIZE,
+      })
+      return
+    }
+    if (rootKind === "albums") {
+      if (loadingMoreAlbums || !state.context.rootAlbumsHasMore) return
+      send({
+        type: "FETCH_ALBUMS",
+        source: sourceId,
+        query: filter.trim() || undefined,
+        offset: rootAlbums.length,
+        limit: CATALOG_BROWSE_PAGE_SIZE,
+      })
+    }
+  }, [
+    sourceId,
+    disabled,
+    rootKind,
+    filter,
+    artists.length,
+    rootAlbums.length,
+    loadingMoreArtists,
+    loadingMoreAlbums,
+    state.context.artistsHasMore,
+    state.context.rootAlbumsHasMore,
+    send,
+  ])
 
   const breadcrumb = useMemo(() => {
     const crumbs: { label: string; onClick?: () => void }[] = []
@@ -459,7 +506,6 @@ function CatalogBrowse({
     send({ type: "FETCH_MEDIA", mediaKey: item.mediaKey })
   }
 
-  const albumsForList = level === "artistAlbums" ? artistAlbums : rootAlbums
   const showEmptySearchHint =
     searchEntry && level === "root" && rootKind !== "media" && !filter.trim()
   const mediaFilter = filter.trim().toLowerCase()
@@ -608,6 +654,64 @@ function CatalogBrowse({
             <Center py={6}>
               <Spinner size="sm" />
             </Center>
+          ) : level === "root" && rootKind === "artists" ? (
+            <CatalogBrowseEntityList
+              items={artists}
+              getId={(artist) => artist.id}
+              emptyMessage="No artists found."
+              fillHeight={fillHeight}
+              hasMore={state.context.artistsHasMore}
+              loadingMore={loadingMoreArtists}
+              onLoadMore={loadMoreRoot}
+              renderRow={(artist) => (
+                <BrowseRowButton disabled={disabled} onClick={() => openArtist(artist)}>
+                  <HStack gap={2} minW={0} w="100%" overflow="hidden">
+                    <EntityThumb images={artist.images} shape="circle" size="track" />
+                    <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">
+                      <Text fontWeight="medium" lineClamp={2} minW={0} w="100%">
+                        {artist.title}
+                      </Text>
+                      {artist.albumCount != null && (
+                        <Text fontSize="xs" color="fg.muted">
+                          {artist.albumCount} album{artist.albumCount === 1 ? "" : "s"}
+                        </Text>
+                      )}
+                    </VStack>
+                  </HStack>
+                </BrowseRowButton>
+              )}
+            />
+          ) : level === "root" && rootKind === "albums" ? (
+            <CatalogBrowseEntityList
+              items={rootAlbums}
+              getId={(album) => album.id}
+              emptyMessage="No albums found."
+              fillHeight={fillHeight}
+              hasMore={state.context.rootAlbumsHasMore}
+              loadingMore={loadingMoreAlbums}
+              onLoadMore={loadMoreRoot}
+              renderRow={(album) => (
+                <BrowseRowButton disabled={disabled} onClick={() => openAlbum(album)}>
+                  <HStack gap={2} minW={0} w="100%" overflow="hidden">
+                    <EntityThumb images={album.images} shape="square" size="track" />
+                    <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">
+                      <Text fontWeight="medium" lineClamp={2} minW={0} w="100%">
+                        {album.title}
+                      </Text>
+                      <Text fontSize="xs" color="fg.muted" lineClamp={1} minW={0} w="100%">
+                        {[
+                          album.artists?.[0]?.title,
+                          album.year,
+                          album.trackCount != null ? `${album.trackCount} tracks` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </Text>
+                    </VStack>
+                  </HStack>
+                </BrowseRowButton>
+              )}
+            />
           ) : (
             <ScrollArea.Root
               size="sm"
@@ -618,36 +722,6 @@ function CatalogBrowse({
               <ScrollShadowViewport {...(fillHeight ? { height: "100%" } : {})}>
                 <ScrollArea.Content>
                   <VStack align="stretch" gap={0} w="100%">
-                    {level === "root" &&
-                      rootKind === "artists" &&
-                      (artists.length === 0 ? (
-                        <Text fontSize="sm" color="fg.muted" py={2}>
-                          No artists found.
-                        </Text>
-                      ) : (
-                        artists.map((artist) => (
-                          <BrowseRowButton
-                            key={artist.id}
-                            disabled={disabled}
-                            onClick={() => openArtist(artist)}
-                          >
-                            <HStack gap={2} minW={0} w="100%" overflow="hidden">
-                              <EntityThumb images={artist.images} shape="circle" size="track" />
-                              <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">
-                                <Text fontWeight="medium" lineClamp={2} minW={0} w="100%">
-                                  {artist.title}
-                                </Text>
-                                {artist.albumCount != null && (
-                                  <Text fontSize="xs" color="fg.muted">
-                                    {artist.albumCount} album{artist.albumCount === 1 ? "" : "s"}
-                                  </Text>
-                                )}
-                              </VStack>
-                            </HStack>
-                          </BrowseRowButton>
-                        ))
-                      ))}
-
                     {level === "root" &&
                       rootKind === "media" &&
                       (mediaItems.length === 0 ? (
@@ -685,13 +759,13 @@ function CatalogBrowse({
                         </>
                       ))}
 
-                    {((level === "root" && rootKind === "albums") || level === "artistAlbums") &&
-                      (albumsForList.length === 0 ? (
+                    {level === "artistAlbums" &&
+                      (artistAlbums.length === 0 ? (
                         <Text fontSize="sm" color="fg.muted" py={2}>
                           No albums found.
                         </Text>
                       ) : (
-                        albumsForList.map((album) => (
+                        artistAlbums.map((album) => (
                           <BrowseRowButton
                             key={album.id}
                             disabled={disabled}

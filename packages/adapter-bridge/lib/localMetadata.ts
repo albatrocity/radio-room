@@ -486,25 +486,45 @@ export function normalizePlaylistCoverArtResult(
   return out
 }
 
+/** Max playlist/album ids per cover-art Redis RPC (sm+lg data URIs). */
+export const LOCAL_COVER_ART_ID_BATCH = 8
+
+async function getLocalCoverArtInBatches(params: {
+  rpc: BridgeRpcClient
+  ids: string[]
+  method: "getPlaylistCoverArt" | "getAlbumCoverArt"
+  idField: "playlistIds" | "albumIds"
+}): Promise<Record<string, PlaylistCoverArtVariants>> {
+  const ids = Array.from(new Set(params.ids.map((id) => id.trim()).filter(Boolean)))
+  if (ids.length === 0) return {}
+  if (!(await params.rpc.isPresent())) return {}
+  const out: Record<string, PlaylistCoverArtVariants> = {}
+  for (let i = 0; i < ids.length; i += LOCAL_COVER_ART_ID_BATCH) {
+    const chunk = ids.slice(i, i + LOCAL_COVER_ART_ID_BATCH)
+    try {
+      const result = (await params.rpc.call(params.method, {
+        source: "local",
+        [params.idField]: chunk,
+        variants: ["sm", "lg"],
+      })) as unknown
+      Object.assign(out, normalizePlaylistCoverArtResult(result))
+    } catch {
+      // Skip this chunk; remaining batches still run.
+    }
+  }
+  return out
+}
+
 export async function getLocalPlaylistCoverArt(params: {
   rpc: BridgeRpcClient
   playlistIds: string[]
 }): Promise<Record<string, PlaylistCoverArtVariants>> {
-  const playlistIds = Array.from(
-    new Set(params.playlistIds.map((id) => id.trim()).filter(Boolean)),
-  )
-  if (playlistIds.length === 0) return {}
-  if (!(await params.rpc.isPresent())) return {}
-  try {
-    const result = (await params.rpc.call("getPlaylistCoverArt", {
-      source: "local",
-      playlistIds,
-      variants: ["sm", "lg"],
-    })) as unknown
-    return normalizePlaylistCoverArtResult(result)
-  } catch {
-    return {}
-  }
+  return getLocalCoverArtInBatches({
+    rpc: params.rpc,
+    ids: params.playlistIds,
+    method: "getPlaylistCoverArt",
+    idField: "playlistIds",
+  })
 }
 
 /** Album cover art as data URIs keyed by album id (same variant shape as playlists). */
@@ -512,19 +532,12 @@ export async function getLocalAlbumCoverArt(params: {
   rpc: BridgeRpcClient
   albumIds: string[]
 }): Promise<Record<string, PlaylistCoverArtVariants>> {
-  const albumIds = Array.from(new Set(params.albumIds.map((id) => id.trim()).filter(Boolean)))
-  if (albumIds.length === 0) return {}
-  if (!(await params.rpc.isPresent())) return {}
-  try {
-    const result = (await params.rpc.call("getAlbumCoverArt", {
-      source: "local",
-      albumIds,
-      variants: ["sm", "lg"],
-    })) as unknown
-    return normalizePlaylistCoverArtResult(result)
-  } catch {
-    return {}
-  }
+  return getLocalCoverArtInBatches({
+    rpc: params.rpc,
+    ids: params.albumIds,
+    method: "getAlbumCoverArt",
+    idField: "albumIds",
+  })
 }
 
 /** Drop daemon-side playlist membership and cover-art caches. */

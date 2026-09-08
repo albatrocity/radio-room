@@ -463,4 +463,126 @@ describe("LocalDriver shelf browsing", () => {
       driver.checkPlaylistMembership("t9", [], [], { includeTrackAlbumId: true }),
     ).resolves.toEqual({ playlistIds: [], albumIds: ["al-derived"] })
   })
+
+  it("listPlaylistTracks fetches 128px covers on album.images only", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getPlaylist.view")) {
+        return playlistResponse([
+          {
+            id: "t1",
+            title: "Only Shallow",
+            artist: "MBV",
+            albumId: "al1",
+            album: "Loveless",
+            coverArt: "al-cover",
+            duration: 257,
+          },
+        ])
+      }
+      if (url.includes("getCoverArt.view")) return coverResponse()
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const driver = new LocalDriver(navidrome, mpv)
+    const tracks = await driver.listPlaylistTracks("nd-lp")
+    expect(tracks[0]?.images).toEqual([])
+    expect(tracks[0]?.album.images[0]?.url).toMatch(/^data:image\/jpeg;base64,/)
+    expect(String(fetchMock.mock.calls.find((c) => String(c[0]).includes("getCoverArt"))?.[0])).toContain(
+      "size=128",
+    )
+  })
+
+  it("listArtists without limit returns at most 50", async () => {
+    const artists = Array.from({ length: 60 }, (_, i) => ({
+      id: `a${i}`,
+      name: `Artist ${String(i).padStart(2, "0")}`,
+    }))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("getArtists.view")) {
+          return {
+            ok: true,
+            json: async () => ({
+              "subsonic-response": { artists: { index: [{ artist: artists }] } },
+            }),
+          } as unknown as Response
+        }
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+
+    const driver = new LocalDriver(navidrome, mpv)
+    const result = await driver.listArtists()
+    expect(result.items).toHaveLength(50)
+    expect(result.total).toBe(60)
+  })
+
+  it("album-only listAlbums fetches only the requested page of albums", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getAlbum.view")) {
+        const idMatch = /[?&]id=([^&]+)/.exec(url)
+        const id = decodeURIComponent(idMatch?.[1] ?? "")
+        return {
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              album: {
+                id,
+                name: id,
+                artist: "A",
+                artistId: "ar-1",
+                song: [{ id: `t-${id}`, albumId: id }],
+              },
+            },
+          }),
+        } as unknown as Response
+      }
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const driver = new LocalDriver(navidrome, mpv)
+    const result = await driver.listAlbums({
+      albumIds: ["al-0", "al-1", "al-2"],
+      offset: 0,
+      limit: 2,
+    })
+    expect(result.items.map((a) => a.id)).toEqual(["al-0", "al-1"])
+    expect(result.total).toBe(3)
+    const albumFetches = fetchMock.mock.calls.filter((c) => String(c[0]).includes("getAlbum.view"))
+    expect(albumFetches).toHaveLength(2)
+  })
+
+  it("album-only getArtist does not union every held album", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getArtist.view")) {
+        return {
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              artist: {
+                id: "ar-1",
+                name: "MBV",
+                album: [
+                  { id: "al-1", name: "Loveless", artistId: "ar-1", artist: "MBV" },
+                  { id: "al-hidden", name: "Other", artistId: "ar-1", artist: "MBV" },
+                ],
+              },
+            },
+          }),
+        } as unknown as Response
+      }
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const driver = new LocalDriver(navidrome, mpv)
+    const albumIds = Array.from({ length: 20 }, (_, i) => `al-${i}`)
+    albumIds[1] = "al-1"
+    const result = await driver.getArtist("ar-1", [], albumIds)
+    expect(result?.albums.map((a) => a.id)).toEqual(["al-1"])
+    expect(fetchMock.mock.calls.every((c) => !String(c[0]).includes("getAlbum.view"))).toBe(true)
+  })
 })

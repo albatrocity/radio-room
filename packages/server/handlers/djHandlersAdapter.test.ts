@@ -702,6 +702,8 @@ describe("DJHandlers", () => {
           source: "local",
           items: [{ id: "a1", title: "Artist One" }],
           total: 1,
+          query: "art",
+          offset: 0,
         },
       })
     })
@@ -732,6 +734,8 @@ describe("DJHandlers", () => {
           source: "local",
           items: [{ id: "al1", title: "Album One", artists: [] }],
           total: 1,
+          query: "alb",
+          offset: 0,
         },
       })
     })
