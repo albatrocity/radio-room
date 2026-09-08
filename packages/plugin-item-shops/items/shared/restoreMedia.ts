@@ -1,3 +1,8 @@
+import {
+  albumTitleFromItemName,
+  BROKEN_RESTORE_CAVEAT,
+  isBrokenMediaShortId,
+} from "@repo/game-logic"
 import type {
   InventoryItem,
   ItemDefinition,
@@ -21,21 +26,14 @@ import { physicalMediaTypeLabel } from "../../localLibrary/physicalMedia"
 import {
   formatFromArtworkFrame,
   FORMATS_BY_BROKEN_SHORT_ID,
-  isBrokenMediaShortId,
   readMediaOrigin,
 } from "./brokenMedia"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
-const FORMAT_NAME_PREFIX = /^(CD|LP|Cassette|45):\s+/i
+export { albumTitleFromItemName } from "@repo/game-logic"
 
 /** Long enough to read the flavor line; default inventory toasts are ~5s. */
 export const RESTORE_TOAST_DURATION_MS = 10_000
-
-/** Strip the `LP: ` shop prefix so toast copy can use the album title. */
-export function albumTitleFromItemName(name: string): string {
-  const stripped = name.replace(FORMAT_NAME_PREFIX, "").trim()
-  return stripped || name
-}
 
 /**
  * Collection-pool Physical Media whose format is in `eligible`. Used for
@@ -60,10 +58,13 @@ export function restoreSuccessToast(opts: {
   condition: MediaCondition
   albumTitle: string
   successBody: (albumTitle: string) => string
+  /** When restoring a broken SKU to a Poor record. */
+  fromBroken?: boolean
 }): Pick<ItemUseResult, "title" | "message" | "duration"> {
+  const body = opts.successBody(opts.albumTitle)
   return {
     title: `${physicalMediaTypeLabel(opts.format)} restored to ${MEDIA_CONDITION_LABELS[opts.condition]} condition!`,
-    message: opts.successBody(opts.albumTitle),
+    message: opts.fromBroken ? `${body} ${BROKEN_RESTORE_CAVEAT}` : body,
     duration: RESTORE_TOAST_DURATION_MS,
   }
 }
@@ -204,6 +205,7 @@ export async function restoreLoadedMediaItem(
         condition: "poor",
         albumTitle: albumTitleFromItemName(restored.name),
         successBody: opts.successBody,
+        fromBroken: true,
       }),
     }
   }

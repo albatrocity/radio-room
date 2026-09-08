@@ -12,6 +12,7 @@ import {
   pickRandomRestoreCandidateFromCatalog,
   RESTORE_TOAST_DURATION_MS,
 } from "./restoreMedia"
+import { BROKEN_RESTORE_CAVEAT } from "../../localLibrary/conditionMessaging"
 import type { Item } from "./types"
 import { createMockDefinition, createMockDeps, invokeUse } from "./testHelpers"
 
@@ -130,11 +131,12 @@ export function describeRestoreMediaItem(opts: RestoreCaseOpts): void {
 
   function expectedToast(format: PhysicalMediaFormat, condition: "good" | "poor", name: string) {
     const albumTitle = albumTitleFromItemName(name)
+    const body = opts.successBody(albumTitle)
     return {
       success: true,
       consumed: true,
       title: `${physicalMediaTypeLabel(format)} restored to ${MEDIA_CONDITION_LABELS[condition]} condition!`,
-      message: opts.successBody(albumTitle),
+      message: condition === "poor" ? `${body} ${BROKEN_RESTORE_CAVEAT}` : body,
       duration: RESTORE_TOAST_DURATION_MS,
     }
   }

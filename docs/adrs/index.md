@@ -152,7 +152,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0144](0144-client-notification-center.md) | Client notification center (attention records + toasts) | Accepted |
 | [0145](0145-feedback-topics-as-core-feature.md) | Feedback topics as a core feature (Redis + admin inbox + export) | Accepted |
 | [0146](0146-feedback-overlays-integrated-panel.md) | Feedback overlays the integrated panel (`modalsMachine` parallel `feedback` region) | Accepted |
-| [0147](0147-user-inventory-peek.md) | User inventory peek (private by default; item use / trading / `inventory_peek` flag) | Accepted |
+| [0147](0147-user-inventory-peek.md) | User inventory peek (private by default; item use / trading / `inventory_peek` flag; optional derived `condition`) | Accepted |
 | [0148](0148-transactional-defense-and-user-toast.md) | Transactional defense check (`omitBlockedModifier`) + `USER_TOAST` | Accepted |
 | [0149](0149-inventory-peek-flag-and-identity-pierce.md) | Timed `inventory_peek` flag + viewer identity pierce (X-Ray) | Accepted |
 | [0150](0150-presented-identity-grant.md) | Core presented-identity grant (optional engage toggle) | Accepted |
@@ -162,14 +162,15 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) | Plugin `emit` may skip `USER_GAME_STATE_INVALIDATED` | Accepted |
 | [0155](0155-physical-media-condition-wear-and-conversion.md) | Physical Media condition, wear, and conversion | Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam). Amended by [0159](0159-physical-media-restoration-items.md) and [0160](0160-playback-device-gating.md) |
 | [0156](0156-mutable-inventory-stack-metadata.md) | Mutable inventory stack metadata (`updateItemMetadata`) | Accepted |
-| [0157](0157-physical-media-condition-artwork.md) | Physical Media condition artwork as an overlay modifier | Accepted |
+| [0157](0157-physical-media-condition-artwork.md) | Physical Media condition artwork as an overlay modifier | Partially superseded by [0165](0165-physical-media-queue-condition-snapshot.md) (§2 Now Playing always-mint) |
 | [0158](0158-shopping-session-condition-bounds.md) | Shopping session condition bounds (Record Store min/max) | Accepted |
-| [0159](0159-physical-media-restoration-items.md) | Physical Media restoration items (CD Cleaner, Dust Cloth, Pencil) | Accepted |
+| [0159](0159-physical-media-restoration-items.md) | Physical Media restoration items (CD Cleaner, Dust Cloth, Pencil; `mediaOrigin` + `mediaOriginTitle` on convert) | Accepted |
 | [0160](0160-playback-device-gating.md) | Playback-device gating (third slot pool, `playbackFormats`) | Accepted |
 | [0161](0161-spotify-device-readiness-on-demand.md) | Spotify SDK device readiness is prepared on demand, not by reload-looping | Accepted |
 | [0162](0162-economy-scale-for-game-sessions.md) | Economy scale for game sessions (`costScale` / `earnScale`, `intent: "exact"`) | Accepted |
 | [0163](0163-the-fed-economy-controller.md) | The Fed — optional plugin driving `costScale` toward target affordability | Accepted |
 | [0164](0164-inventory-item-dom-animations.md) | Inventory item DOM animations (named catalog + `degraded` / `restored`) | Accepted |
+| [0165](0165-physical-media-queue-condition-snapshot.md) | Physical Media queue condition snapshot on Now Playing | Accepted |
 
 ## Creating a New ADR
 

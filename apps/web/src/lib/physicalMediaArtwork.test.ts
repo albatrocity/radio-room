@@ -88,6 +88,26 @@ describe("resolvePhysicalMediaArt", () => {
     })
   })
 
+  it("passes through a pre-queue condition snapshot on the frame", () => {
+    expect(
+      resolvePhysicalMediaArt({
+        pluginData: {
+          "item-shops": {
+            physicalMediaFrame: { ...sleeve, condition: "poor" },
+          },
+        },
+        framesEnabled: true,
+        trackArtUrl: "/track.jpg",
+      }),
+    ).toEqual({
+      artworkFrame: "record-jacket",
+      imageUrl: sleeve.imageUrl,
+      imageUrlLarge: sleeve.imageUrlLarge,
+      fallbackImageUrl: "/track.jpg",
+      condition: "poor",
+    })
+  })
+
   it("omits fallbackImageUrl when the sleeve is the same as track art", () => {
     expect(
       resolvePhysicalMediaArt({

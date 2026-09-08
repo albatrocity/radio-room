@@ -191,6 +191,7 @@ function PeekPopoverBody({
                             artworkFrame: row.artworkFrame,
                             slotPool: row.slotPool,
                           }}
+                          condition={row.condition}
                           onActivate={
                             mode === "select" ? () => onChooseItem(row.itemId) : undefined
                           }

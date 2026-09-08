@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { isPhysicalMediaDefinition, readItemCondition, type MediaCondition } from "@repo/types"
 import { useUserGameStatePayload } from "../../../../hooks/useActors"
 import { itemDefinitionMap } from "../../../../lib/itemDefinitionMap"
 import { emitTradeSetOffer } from "../../../../lib/tradeSocketActions"
@@ -23,6 +24,16 @@ export function useTradeOfferDraft(tradeId: string) {
   )
 
   const bagItems = payload?.inventory?.items ?? []
+  const conditionByItemId = useMemo(() => {
+    const m = new Map<string, MediaCondition>()
+    for (const item of bagItems) {
+      const def = definitionMap.get(item.definitionId)
+      if (!isPhysicalMediaDefinition(def)) continue
+      m.set(item.itemId, readItemCondition(item))
+    }
+    return m
+  }, [bagItems, definitionMap])
+
   const selectable = useMemo(() => {
     const rows: SelectableTradeItem[] = []
     for (const item of bagItems) {
@@ -95,6 +106,7 @@ export function useTradeOfferDraft(tradeId: string) {
 
   return {
     definitionMap,
+    conditionByItemId,
     selectable,
     remainingInventory,
     offeredCount,

@@ -339,7 +339,9 @@ export class PluginRegistry {
       return { allowed: true }
     }
 
-    // Call each validator sequentially — first deferred or rejection wins
+    // Call each validator sequentially — first deferred or rejection wins.
+    // Allowed results may carry pluginData (ADR 0165); merge under each plugin name.
+    const mergedPluginData: Record<string, unknown> = {}
     for (const [pluginName, { plugin }] of pluginsWithValidation) {
       try {
         const result = await Promise.race([
@@ -365,6 +367,15 @@ export class PluginRegistry {
           )
           return result
         }
+
+        if (
+          "allowed" in result &&
+          result.allowed &&
+          result.pluginData &&
+          Object.keys(result.pluginData).length > 0
+        ) {
+          mergedPluginData[pluginName] = result.pluginData
+        }
       } catch (error) {
         // Fail-open: don't block queue on plugin errors
         console.warn(
@@ -374,7 +385,9 @@ export class PluginRegistry {
       }
     }
 
-    return { allowed: true }
+    return Object.keys(mergedPluginData).length > 0
+      ? { allowed: true, pluginData: mergedPluginData }
+      : { allowed: true }
   }
 
   /**

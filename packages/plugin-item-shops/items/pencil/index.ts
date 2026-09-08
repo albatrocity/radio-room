@@ -6,6 +6,7 @@ import type {
 } from "@repo/types"
 import { MEDIA_CONDITION_LABELS } from "@repo/types"
 import { physicalMediaTypeLabel } from "../../localLibrary/physicalMedia"
+import { brokenMediaInventoryName } from "../../localLibrary/conditionMessaging"
 import { BROKEN_MEDIA_BY_FORMAT } from "../shared/brokenMedia"
 import {
   degradeLoadedMediaItem,
@@ -38,9 +39,11 @@ export function pencilDegradeBrokenToast(opts: {
   format: PhysicalMediaFormat
 }): Pick<ItemUseResult, "title" | "message" | "duration"> {
   const formatLabel = physicalMediaTypeLabel(opts.format)
+  const broken = BROKEN_MEDIA_BY_FORMAT[opts.format]
+  const brokenName = brokenMediaInventoryName(broken.shortId)
   return {
-    title: BROKEN_MEDIA_BY_FORMAT[opts.format].transitionMessage(opts.recordName),
-    message: `For some reason, you used a Pencil on this ${formatLabel} and ruined it completely.`,
+    title: broken.transitionMessage(opts.recordName),
+    message: `For some reason, you used a Pencil on this ${formatLabel} and ruined it completely. It's now a ${brokenName} in Inventory.`,
     duration: RESTORE_TOAST_DURATION_MS,
   }
 }

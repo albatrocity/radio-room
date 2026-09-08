@@ -1,10 +1,11 @@
+import { brokenMediaConvertMetadata } from "@repo/game-logic"
 import type {
   ItemDefinition,
   ItemUseResult,
   MediaCondition,
   PhysicalMediaFormat,
 } from "@repo/types"
-import { PHYSICAL_MEDIA_CONDITION_KEY, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
+import { PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
 import {
   degradeCondition,
   isPhysicalMediaDefinition,
@@ -83,7 +84,10 @@ export async function degradeLoadedMediaItem(
       userId,
       definitionIdForShortId(deps.pluginName, broken.shortId),
       1,
-      { [PHYSICAL_MEDIA_ORIGIN_KEY]: target.definitionId },
+      brokenMediaConvertMetadata({
+        originDefinitionId: target.definitionId,
+        originRecordName: def.name,
+      }),
       "plugin",
       remaining,
     )

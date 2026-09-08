@@ -19,7 +19,7 @@ export default function TradeDetailPanel({ tradeId }: { tradeId: string }) {
   const lastError = useSelector(tradeActor, (s) => s.context.lastError)
   const counterpartTyping = useSelector(tradeActor, (s) => s.context.counterpartTyping)
   const { activeTrade, otherName, mine, theirs, bothLocked } = useTradeParticipants(tradeId)
-  const { definitionMap, canEdit, removeFromOffer } = useTradeOfferDraft(tradeId)
+  const { definitionMap, conditionByItemId, canEdit, removeFromOffer } = useTradeOfferDraft(tradeId)
 
   const myPublishedNote = mine?.message ?? null
 
@@ -49,6 +49,7 @@ export default function TradeDetailPanel({ tradeId }: { tradeId: string }) {
           title="You"
           rows={offerRows(mine)}
           definitionMap={definitionMap}
+          conditionByItemId={conditionByItemId}
           note={myPublishedNote}
           locked={!!mine?.locked}
           confirmed={!!mine?.confirmed}

@@ -1411,9 +1411,19 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       item.mediaSource?.type === "local" ? (item.mediaSource.trackId?.trim() ?? "") : "",
     )
     const frames = await this.localLibrary.resolveNowPlayingFrames(localIds.filter(Boolean))
-    return localIds.map((id) => {
-      const physicalMediaFrame = id ? frames.get(id) : undefined
-      return physicalMediaFrame ? { physicalMediaFrame } : {}
+    return items.map((item, index) => {
+      const id = localIds[index] ?? ""
+      const membership = id ? frames.get(id) : undefined
+      if (!membership) return {}
+
+      const persisted = item.pluginData?.[PLUGIN_NAME] as
+        | { physicalMediaFrame?: { condition?: unknown } }
+        | undefined
+      const condition = persisted?.physicalMediaFrame?.condition
+      const physicalMediaFrame = isMediaCondition(condition)
+        ? { ...membership, condition }
+        : membership
+      return { physicalMediaFrame }
     })
   }
 

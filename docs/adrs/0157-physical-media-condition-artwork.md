@@ -1,7 +1,7 @@
 # 0157. Physical Media condition artwork as an overlay modifier
 
 **Date:** 2026-09-04
-**Status:** Accepted
+**Status:** Partially superseded by [0165](0165-physical-media-queue-condition-snapshot.md) (§2 Now Playing always-mint; Collection/shop/browse still use live stack condition)
 
 ## Context
 
@@ -13,7 +13,7 @@ Condition is not a different object. A Poor CD is the same jewel case with a cra
 
 1. **Frame and condition are orthogonal props.** `ArtworkFrame` stays four tokens and keeps meaning "which physical object". `MediaCondition` rides alongside it as a second prop through `PhysicalMediaArt.condition` → `FramedArtwork` → `ArtworkFrameOverlay` → the per-format overlay, which modulates what it already draws. `resolveDisplayArtworkFrame` and `artworkFrameForFormat` keep their signatures and keep returning the format's one frame.
 
-2. **Absent condition renders Mint.** Matches `readItemCondition`, which reads missing `metadata.condition` as mint. Now Playing resolves its frame from playlist/album membership rather than from the copy that was spent (ADR 0099 §11), so it has no condition to report and shows a pristine object.
+2. **Absent condition renders Mint.** Matches `readItemCondition`, which reads missing `metadata.condition` as mint. Now Playing previously had no condition because frames resolved from playlist/album membership rather than the spent copy (ADR 0099 §11). **[ADR 0165](0165-physical-media-queue-condition-snapshot.md)** snapshots the pre-queue condition onto the QueueItem and merges it at read time; absent snapshots still render mint.
 
 3. **Wear lives where the material is.** Cases (`jewel-case`, `cassette-case`) crack in the plastic — an SVG overlay path — and fade in the paper, which is the cover `<img>` itself, so `insertConditionFilter` applies a CSS filter to that image. Sleeves (`record-jacket`, `die-cut-jacket`) are the artwork, so their scuffs scale in the overlay and a Poor sleeve loses its top-right corner through `cornerDentClipStyles` on the wrapper.
 

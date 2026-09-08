@@ -1,7 +1,9 @@
-import { Box, Circle, Float, HStack, Text } from "@chakra-ui/react"
-import { resolveSlotPool } from "@repo/types"
+import { Box, Circle, Float, HStack, Text, VStack } from "@chakra-ui/react"
+import { isMediaCondition, resolveSlotPool, type MediaCondition } from "@repo/types"
 import ItemArtwork from "../../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../../artworkFrames/frameStyles"
+import { MediaConditionTag } from "../../../PluginComponents/MediaConditionTag"
+import { resolveDisplayArtworkFrame } from "../../../../lib/resolveDisplayArtworkFrame"
 import { OFFER_ARTWORK_SIZE, PICKER_ARTWORK_SIZE } from "./tradeDetailConstants"
 import type { TradeItemDef } from "./tradeDetailTypes"
 
@@ -9,6 +11,7 @@ export function TradeItemRow({
   name,
   quantity,
   def,
+  condition: conditionProp,
   compact = false,
   onActivate,
   activateLabel,
@@ -16,6 +19,8 @@ export function TradeItemRow({
   name: string
   quantity: number
   def?: TradeItemDef
+  /** Per-stack condition; falls back to `def.condition` when omitted. */
+  condition?: MediaCondition
   compact?: boolean
   onActivate?: () => void
   activateLabel?: string
@@ -26,12 +31,21 @@ export function TradeItemRow({
       ? FRAMED_ARTWORK_BOX_SIZE
       : OFFER_ARTWORK_SIZE
 
+  const rawCondition = conditionProp ?? def?.condition
+  const condition = isMediaCondition(rawCondition) ? rawCondition : undefined
+  const artworkFrame = resolveDisplayArtworkFrame({
+    mediaFormat: def?.mediaFormat as never,
+    condition,
+    artworkFrame: def?.artworkFrame as never,
+  })
+
   const artwork = compact ? (
     <Box w={PICKER_ARTWORK_SIZE} flexShrink={0}>
       <ItemArtwork
         imageUrl={def?.imageUrl}
         icon={def?.icon as never}
-        artworkFrame={def?.artworkFrame as never}
+        artworkFrame={artworkFrame}
+        condition={condition}
         size="feature"
         boxSize={PICKER_ARTWORK_SIZE}
         alt={name}
@@ -42,7 +56,8 @@ export function TradeItemRow({
     <ItemArtwork
       imageUrl={def?.imageUrl}
       icon={def?.icon as never}
-      artworkFrame={def?.artworkFrame as never}
+      artworkFrame={artworkFrame}
+      condition={condition}
       boxSize={boxSize}
       alt={name}
       interactive={false}
@@ -52,9 +67,12 @@ export function TradeItemRow({
   const content = (
     <>
       {artwork}
-      <Text fontSize={compact ? "xs" : "sm"} flex="1" minW={0} truncate lineHeight="short">
-        {name}
-      </Text>
+      <VStack align="start" gap={0} flex="1" minW={0}>
+        <Text fontSize={compact ? "xs" : "sm"} w="100%" truncate lineHeight="short">
+          {name}
+        </Text>
+        {condition ? <MediaConditionTag size="xs" condition={condition} /> : null}
+      </VStack>
     </>
   )
 

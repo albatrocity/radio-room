@@ -252,7 +252,7 @@ describe("physicalMedia derivation", () => {
   })
 
   it("falls back to the canned description when comment is missing or blank", () => {
-    const canned = "A LP from the Record Store. Queue any track on it for the rest of the session."
+    const canned = "A LP from the Record Store."
     const { items } = derivePhysicalMediaItems([
       { id: "nd-1", name: "[LP] Loveless", songCount: 11 },
       { id: "nd-2", name: "[LP] Loveless", songCount: 11, comment: "   " },

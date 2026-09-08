@@ -1,6 +1,11 @@
 import { Box, Heading, HStack, Icon, Stack, Text, VStack } from "@chakra-ui/react"
 import { LuLock, LuThumbsUp } from "react-icons/lu"
-import type { TradeDraftItem, TradeOfferItem } from "@repo/types"
+import {
+  isMediaCondition,
+  type MediaCondition,
+  type TradeDraftItem,
+  type TradeOfferItem,
+} from "@repo/types"
 import { TradeItemRow } from "./TradeItemRow"
 import type { TradeItemDef } from "./tradeDetailTypes"
 
@@ -47,10 +52,23 @@ function TradeNoteBubble({ message, typing }: { message?: string | null; typing?
   )
 }
 
+function rowCondition(
+  row: TradeOfferItem | TradeDraftItem,
+  conditionByItemId?: Map<string, MediaCondition>,
+): MediaCondition | undefined {
+  if ("metadata" in row && row.metadata) {
+    const fromMeta = row.metadata.condition
+    if (isMediaCondition(fromMeta)) return fromMeta
+  }
+  const itemId = "itemId" in row ? row.itemId : row.originalItemId
+  return conditionByItemId?.get(itemId)
+}
+
 export function TradeColumn({
   title,
   rows,
   definitionMap,
+  conditionByItemId,
   note,
   typing,
   locked = false,
@@ -61,6 +79,8 @@ export function TradeColumn({
   title: string
   rows: (TradeOfferItem | TradeDraftItem)[]
   definitionMap: Map<string, TradeItemDef>
+  /** Live bag conditions for draft rows (escrow uses TradeOfferItem.metadata). */
+  conditionByItemId?: Map<string, MediaCondition>
   note?: string | null
   typing?: boolean
   locked?: boolean
@@ -116,6 +136,7 @@ export function TradeColumn({
               name={name}
               quantity={row.quantity}
               def={def}
+              condition={rowCondition(row, conditionByItemId)}
               onActivate={onRemoveFromOffer ? () => onRemoveFromOffer(itemId) : undefined}
               activateLabel={`Remove ${name} from offer`}
             />

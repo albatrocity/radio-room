@@ -7,6 +7,7 @@ import type {
 } from "@repo/types"
 import { ARTWORK_FRAME_BY_FORMAT } from "@repo/types"
 import type { PhysicalMediaOverride } from "./config"
+import { cannedPhysicalMediaDescription } from "./conditionMessaging"
 
 const FORMAT_BY_TOKEN: Record<
   PhysicalMediaFormat,
@@ -187,7 +188,7 @@ export function derivePhysicalMediaItemsFromAlbums(
         shortId,
         name,
         ...(artist ? { artist } : {}),
-        description: `A ${inferred.format} from the Record Store. Queue any track on it for the rest of the session.`,
+        description: cannedPhysicalMediaDescription(inferred.format),
         icon: inferred.icon,
         artworkFrame: inferred.artworkFrame,
         mediaFormat: inferred.token,
@@ -363,9 +364,7 @@ export function derivePhysicalMediaItems(
         shortId,
         name,
         ...(artist ? { artist } : {}),
-        description:
-          comment ||
-          `A ${parsed.format} from the Record Store. Queue any track on it for the rest of the session.`,
+        description: comment || cannedPhysicalMediaDescription(parsed.format),
         icon: (override?.icon as LucideIconName | undefined) ?? parsed.icon,
         artworkFrame: parsed.artworkFrame,
         mediaFormat: parsed.token,

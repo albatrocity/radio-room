@@ -35,6 +35,10 @@ import { LuChevronLeft } from "react-icons/lu"
 import { useUserGameState } from "../UserGameStateContext"
 import InventoryGiftSellControls from "./InventoryGiftSellControls"
 import ShopDetailBuyControls from "./ShopDetailBuyControls"
+import {
+  brokenMediaOriginLabel,
+  inventoryDisplayDescription,
+} from "../../../lib/brokenMediaOriginLabel"
 
 type Props = {
   frame: GameStateItemDetailFrame
@@ -150,7 +154,15 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
   }, [showTrackList, mediaKey, sendTracks])
 
   const name = definition?.name ?? frame.title
-  const description = definition?.description
+  const originHint =
+    inventoryItem != null
+      ? brokenMediaOriginLabel(
+          inventoryItem,
+          definition,
+          gameState?.definitionMap ?? new Map(),
+        )
+      : undefined
+  const description = inventoryDisplayDescription(definition, originHint)
   const firstTrack = tracks[0]
 
   const albumHeader = useMemo((): AlbumViewHeader => {

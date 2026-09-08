@@ -1,5 +1,9 @@
-import type { GameStateModifier, UserInventoryPeekItem } from "@repo/types"
-import { resolveSlotPool } from "@repo/types"
+import type { GameStateModifier, InventoryItem, UserInventoryPeekItem } from "@repo/types"
+import {
+  isPhysicalMediaDefinition,
+  readItemCondition,
+  resolveSlotPool,
+} from "@repo/types"
 import { hasInventoryPeek } from "./inventoryPeekFlag"
 
 export type PeekPolicyInventoryItem = {
@@ -83,7 +87,10 @@ export function evaluatePeekPolicy(params: {
   return { ok: true, reason: "item_use" }
 }
 
-export type PeekHydrationStack = PeekPolicyInventoryItem & { quantity: number }
+export type PeekHydrationStack = PeekPolicyInventoryItem & {
+  quantity: number
+  metadata?: InventoryItem["metadata"]
+}
 
 export type PeekHydrationDefinition = {
   id: string
@@ -92,6 +99,7 @@ export type PeekHydrationDefinition = {
   icon?: string
   imageUrl?: string | null
   artworkFrame?: UserInventoryPeekItem["artworkFrame"] | null
+  mediaFormat?: string | null
   rarity?: UserInventoryPeekItem["rarity"]
   tradeable: boolean
   slotPool?: string | null
@@ -102,7 +110,8 @@ export type PeekHydrationDefinition = {
  *
  * Pure and shared so the production server and the Game Studio bridge emit an
  * identical shape — a field added here reaches both. Stacks whose definition is
- * missing from the catalog are dropped. Never include stack `metadata`.
+ * missing from the catalog are dropped. Does not forward raw `metadata`; for
+ * Physical Media, derives a public `condition` field from the stack.
  */
 export function hydratePeekItems(
   stacks: PeekHydrationStack[],
@@ -113,6 +122,15 @@ export function hydratePeekItems(
   for (const stack of stacks) {
     const def = byId.get(stack.definitionId)
     if (!def) continue
+    const condition = isPhysicalMediaDefinition(def)
+      ? readItemCondition({
+          itemId: stack.itemId,
+          definitionId: stack.definitionId,
+          quantity: stack.quantity,
+          acquiredAt: 0,
+          metadata: stack.metadata,
+        })
+      : undefined
     items.push({
       itemId: stack.itemId,
       definitionId: stack.definitionId,
@@ -125,6 +143,7 @@ export function hydratePeekItems(
       rarity: def.rarity,
       tradeable: def.tradeable,
       slotPool: resolveSlotPool(def),
+      ...(condition != null ? { condition } : {}),
     })
   }
   return items

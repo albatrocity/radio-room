@@ -1,7 +1,7 @@
 # 0147. User inventory peek (private by default)
 
 **Date:** 2026-09-02
-**Status:** Accepted
+**Status:** Accepted (amended 2026-09-08: optional derived `condition` on peek rows)
 
 ## Context
 
@@ -16,7 +16,7 @@ A Black-Bag-only peek would duplicate the wire surface. Inventories should stay 
 
 1. **Private by default.** Clients cannot read another user's inventory unless a core policy check passes.
 
-2. **Core socket** `PEEK_USER_INVENTORY { targetUserId, itemId? }` → same-socket `USER_INVENTORY_PEEK_RESULT`. Not a plugin action. Payload is hydrated public catalog fields per stack (`itemId`, `definitionId`, `name`, `icon`, `imageUrl`, `artworkFrame`, `rarity`, `shortId`, `tradeable`, `slotPool`, `quantity`). Omit stack `metadata`. Return **both** slot pools ([ADR 0100](0100-dual-inventory-slot-pools.md)).
+2. **Core socket** `PEEK_USER_INVENTORY { targetUserId, itemId? }` → same-socket `USER_INVENTORY_PEEK_RESULT`. Not a plugin action. Payload is hydrated public catalog fields per stack (`itemId`, `definitionId`, `name`, `icon`, `imageUrl`, `artworkFrame`, `rarity`, `shortId`, `tradeable`, `slotPool`, `quantity`), plus optional derived `condition` for Physical Media stacks (Mint / Good / Poor from stack metadata — not raw `metadata`). Omit stack `metadata`. Return **both** slot pools ([ADR 0100](0100-dual-inventory-slot-pools.md)).
 
 3. **Policy OR** in `canPeekUserInventory` (extensible without a new socket):
    - **Item use:** actor owns `itemId` whose definition has `requiresTarget: "userInventoryItem"`.
@@ -38,6 +38,7 @@ A Black-Bag-only peek would duplicate the wire surface. Inventories should stay 
 - One peek primitive for burglar items, trading UX, and timed viewer items (X-Ray).
 - Hosts who enable trading opt into visible bags; default sessions stay private.
 - `evaluatePeekPolicy` in `@repo/game-logic` is the single authoritative source of peek rules; future policy changes (new reasons, new flag names) are made in one place.
+- Derived `condition` lets trade/peek UIs show wear tags without forwarding stack metadata.
 
 ### Negative / trade-offs
 
@@ -50,5 +51,6 @@ A Black-Bag-only peek would duplicate the wire surface. Inventories should stay 
 - [0114. Player item gifting and trading](0114-player-item-gifting-and-trading.md)
 - [0053. Defense-triggered callbacks](0053-targeted-item-use-defense-intercept.md)
 - [0149. Timed `inventory_peek` flag and viewer identity pierce](0149-inventory-peek-flag-and-identity-pierce.md)
+- [0157. Physical Media condition artwork](0157-physical-media-condition-artwork.md)
 - [`packages/game-logic/src/peekUserInventoryPolicy.ts`](../../packages/game-logic/src/peekUserInventoryPolicy.ts)
 - [`packages/server/operations/inventory/peekUserInventory.ts`](../../packages/server/operations/inventory/peekUserInventory.ts)

@@ -33,7 +33,9 @@ player holds, inventory and collection alike, without teaching the player which 
 3. **Broken media is non-stackable** (`stackable: false, maxStack: 1`). Each converted copy occupies
    its own inventory slot with its own metadata blob. Conversion writes
    `metadata.mediaOrigin` (`PHYSICAL_MEDIA_ORIGIN_KEY`) with the definitionId of the record that
-   wore out. That also throttles acquisition of a skip-current-track effect and makes the existing
+   wore out, and `metadata.mediaOriginTitle` (`PHYSICAL_MEDIA_ORIGIN_TITLE_KEY`) with the stripped
+   album title so Inventory can show the origin hint without loading the origin ItemDefinition into
+   `USER_GAME_STATE`. That also throttles acquisition of a skip-current-track effect and makes the existing
    "no room to keep it" branch a real 3-slot-bag outcome. Legacy stacks with `quantity` 2–3 keep
    working; missing origin takes the random-restore path. No migration.
 

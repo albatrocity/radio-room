@@ -259,6 +259,7 @@ export class DJService {
       }
     }
 
+    let queuePluginData: Record<string, unknown> | undefined
     if (runValidation && this.context.pluginRegistry) {
       const validationResult = await this.context.pluginRegistry.validateQueueRequest({
         roomId,
@@ -281,6 +282,15 @@ export class DJService {
           success: false as const,
           message: validationResult.reason ?? "Queue request was rejected",
         }
+      }
+
+      if (
+        "allowed" in validationResult &&
+        validationResult.allowed &&
+        validationResult.pluginData &&
+        Object.keys(validationResult.pluginData).length > 0
+      ) {
+        queuePluginData = validationResult.pluginData
       }
     }
 
@@ -389,6 +399,7 @@ export class DJService {
       addedAt: Date.now(),
       addedDuring: undefined,
       playedAt: undefined,
+      ...(queuePluginData ? { pluginData: queuePluginData } : {}),
     })
 
     await addToQueue({ context: this.context, roomId, item: queuedItem })

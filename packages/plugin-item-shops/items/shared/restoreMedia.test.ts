@@ -1,24 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
 import type { ItemDefinition } from "@repo/types"
 import {
-  albumTitleFromItemName,
   pickRandomRestoreCandidateFromCatalog,
   RESTORE_TOAST_DURATION_MS,
   restoreSuccessToast,
 } from "./restoreMedia"
-
-describe("albumTitleFromItemName", () => {
-  it("strips the shop format prefix", () => {
-    expect(albumTitleFromItemName("LP: Loveless")).toBe("Loveless")
-    expect(albumTitleFromItemName("Cassette: Mix Tape")).toBe("Mix Tape")
-    expect(albumTitleFromItemName("CD: Kid A")).toBe("Kid A")
-    expect(albumTitleFromItemName("45: Come as You Are")).toBe("Come as You Are")
-  })
-
-  it("leaves an unprefixed name alone", () => {
-    expect(albumTitleFromItemName("Kid A")).toBe("Kid A")
-  })
-})
 
 describe("restoreSuccessToast", () => {
   it("builds the title and per-item body", () => {
@@ -32,6 +18,22 @@ describe("restoreSuccessToast", () => {
     ).toEqual({
       title: "Cassette restored to Good condition!",
       message: "You used the pencil to respool the tape and brought Mix Tape back to life.",
+      duration: RESTORE_TOAST_DURATION_MS,
+    })
+  })
+
+  it("appends the fragile caveat when restoring from a broken SKU", () => {
+    expect(
+      restoreSuccessToast({
+        format: "CD",
+        condition: "poor",
+        albumTitle: "Kid A",
+        successBody: (title) => `You cleaned ${title}.`,
+        fromBroken: true,
+      }),
+    ).toEqual({
+      title: "CD restored to Poor condition!",
+      message: "You cleaned Kid A. It's playable again, but just barely.",
       duration: RESTORE_TOAST_DURATION_MS,
     })
   })

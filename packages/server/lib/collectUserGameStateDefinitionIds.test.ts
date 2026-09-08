@@ -35,6 +35,31 @@ describe("collectInventoryAndModifierDefinitionIds", () => {
       "item-shops:pm-al-1",
     ])
   })
+
+  it("does not pull mediaOrigin definition ids (title is denormalized on the stack)", () => {
+    const inventory = {
+      userId: "u1",
+      items: [
+        {
+          itemId: "broken-1",
+          definitionId: "item-shops:scratched-cd",
+          quantity: 1,
+          acquiredAt: 1,
+          metadata: {
+            mediaOrigin: "item-shops:pm-kid-a",
+            mediaOriginTitle: "Kid A",
+          },
+        },
+      ],
+      maxSlots: 10,
+      maxCollectionSlots: 10,
+      maxPlaybackSlots: 2,
+    } as UserInventory
+
+    expect(collectInventoryAndModifierDefinitionIds(inventory, null)).toEqual([
+      "item-shops:scratched-cd",
+    ])
+  })
 })
 
 describe("collectGiftOfferDefinitionIds", () => {

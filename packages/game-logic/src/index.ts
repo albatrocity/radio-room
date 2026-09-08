@@ -90,3 +90,14 @@ export {
   failIfTradingDisabled,
   type PlayerTransferFailure,
 } from "./playerTransferRules"
+export {
+  BROKEN_MEDIA_SHORT_IDS,
+  BROKEN_RESTORE_CAVEAT,
+  STALE_PHYSICAL_MEDIA_EMPTY,
+  albumTitleFromItemName,
+  brokenMediaConvertMetadata,
+  brokenMediaOriginHint,
+  inventoryItemDescription,
+  isBrokenMediaShortId,
+  type BrokenMediaShortId,
+} from "./physicalMediaMessaging"

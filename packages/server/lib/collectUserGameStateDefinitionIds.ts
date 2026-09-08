@@ -6,7 +6,9 @@ import type { GiftOffer, TradeSession, UserGameState, UserInventory } from "@rep
  * `referencedItemDefinitionIdsForUser` (see ADR 0097). Pending-gift SKUs are
  * collected separately — escrowed items are no longer in the bag. Active-trade
  * draft/offer SKUs (including the counterpart’s) are collected so trade-session
- * artwork can render without the full catalog.
+ * artwork can render without the full catalog. Broken-media origin album titles
+ * are denormalized on the stack (`mediaOriginTitle`) so Inventory hints do not
+ * pull origin Physical Media definitions into this payload.
  */
 export function collectInventoryAndModifierDefinitionIds(
   inventory: UserInventory | null | undefined,

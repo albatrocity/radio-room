@@ -18,6 +18,10 @@ import InventoryGiftSellControls from "./InventoryGiftSellControls"
 import { InventoryUseButton } from "./InventoryUseButton"
 import { InventoryPeekBanner } from "./InventoryPeekBanner"
 import { useHasInventoryPeek } from "../../../hooks/useHasInventoryPeek"
+import {
+  brokenMediaOriginLabel,
+  inventoryDisplayDescription,
+} from "../../../lib/brokenMediaOriginLabel"
 
 interface InventoryTabProps {
   items: InventoryItem[]
@@ -60,7 +64,6 @@ function InventoryRow({
 }: InventoryRowProps) {
   const openDetail = useOpenItemDetail("inventory")
   const name = definition?.name ?? item.definitionId
-  const description = definition?.description
   const consumable = definition?.consumable ?? false
   const detailView = definition?.detailView
   const isCollection = resolveSlotPool(definition) === "collection"
@@ -73,6 +76,8 @@ function InventoryRow({
     condition,
     artworkFrame: definition?.artworkFrame,
   })
+  const originHint = brokenMediaOriginLabel(item, definition, definitionMap)
+  const description = inventoryDisplayDescription(definition, originHint)
 
   const [pendingUse, setPendingUse] = useState<PendingUse>(null)
   const { track } = useSocketResultHandle()

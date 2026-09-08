@@ -141,6 +141,12 @@ export const PHYSICAL_MEDIA_CONDITION_KEY = "condition" as const
 /** `InventoryItem.metadata` key: definitionId of the record a broken-media copy came from (ADR 0159). */
 export const PHYSICAL_MEDIA_ORIGIN_KEY = "mediaOrigin" as const
 
+/**
+ * `InventoryItem.metadata` key: stripped album title for Inventory hint copy without loading the
+ * origin ItemDefinition into USER_GAME_STATE (performance review — messaging).
+ */
+export const PHYSICAL_MEDIA_ORIGIN_TITLE_KEY = "mediaOriginTitle" as const
+
 /** `SONG_QUEUE_FAILURE` copy when Physical Media is queued without a matching device (ADR 0160). */
 export const PLAYBACK_DEVICE_MISSING_REASON = "You don't have anything to play this with."
 
@@ -250,6 +256,11 @@ export type PhysicalMediaNowPlayingFrame = {
   /** ~1200px playlist cover for feature-sized display (Now Playing). */
   imageUrlLarge?: string
   artworkFrame: ArtworkFrame
+  /**
+   * Pre-queue copy condition snapshot (ADR 0165). Absent → mint at render.
+   * Membership still supplies artworkFrame / sleeve URLs at read time.
+   */
+  condition?: MediaCondition
 }
 
 /** Hosted playlist-sleeve URLs from `PluginAPI.getLocalPlaylistArtwork` (ADR 0099). */
@@ -411,7 +422,7 @@ export interface UserInventory {
 
 /**
  * One stack in a `USER_INVENTORY_PEEK_RESULT` payload (ADR 0147).
- * Public catalog fields only — no stack `metadata`.
+ * Public catalog fields only — no raw stack `metadata` (optional derived `condition` allowed).
  */
 export interface UserInventoryPeekItem {
   itemId: string
@@ -425,6 +436,8 @@ export interface UserInventoryPeekItem {
   rarity?: ItemRarity
   tradeable: boolean
   slotPool: ItemSlotPool
+  /** Derived from stack metadata for Physical Media (not raw metadata). */
+  condition?: MediaCondition
 }
 
 /** Same-socket reply for `PEEK_USER_INVENTORY`. */

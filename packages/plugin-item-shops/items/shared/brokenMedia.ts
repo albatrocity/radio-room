@@ -2,6 +2,7 @@ import type { ArtworkFrame, InventoryItem, PhysicalMediaFormat } from "@repo/typ
 import { formatFromArtworkFrame, PHYSICAL_MEDIA_FORMATS, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
 
 export { formatFromArtworkFrame } from "@repo/types"
+export { isBrokenMediaShortId } from "@repo/game-logic"
 import { scratchedCd, scratchedCdTransitionMessage } from "../scratched-cd"
 import { dustyRecord, dustyRecordTransitionMessage } from "../dusty-record"
 import { tangledTape, tangledTapeTransitionMessage } from "../tangled-tape"
@@ -41,12 +42,6 @@ export const FORMATS_BY_BROKEN_SHORT_ID: Record<string, PhysicalMediaFormat[]> =
   }
   return out
 })()
-
-export function isBrokenMediaShortId(shortId: string | undefined): boolean {
-  return (
-    shortId != null && Object.prototype.hasOwnProperty.call(FORMATS_BY_BROKEN_SHORT_ID, shortId)
-  )
-}
 
 export function readMediaOrigin(item: InventoryItem): string | undefined {
   const raw = item.metadata?.[PHYSICAL_MEDIA_ORIGIN_KEY]

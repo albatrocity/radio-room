@@ -13,9 +13,11 @@ import {
   type QueueValidationParams,
   type QueueValidationResult,
   type ResolvedPhysicalMediaItem,
-  PHYSICAL_MEDIA_ORIGIN_KEY,
+  type MediaCondition,
   PHYSICAL_MEDIA_CONDITION_KEY,
+  PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY,
 } from "@repo/types"
+import { brokenMediaConvertMetadata } from "@repo/game-logic"
 import type { ItemCatalogEntry, ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
 import { ITEM_CATALOG } from "../items/index"
 import {
@@ -32,11 +34,15 @@ import {
   parsePhysicalMediaName,
 } from "./physicalMedia"
 import {
-  MEDIA_CONDITION_LABELS,
   CONDITION_WEAR_RANK,
   degradeCondition,
   readItemCondition,
 } from "./condition"
+import {
+  convertWearToastDescription,
+  intactWearToastDescription,
+  intactWearToastTitle,
+} from "./conditionMessaging"
 import { brokenMediaForRecord } from "../items/shared/brokenMedia"
 import { pickRandomRestoreCandidateFromCatalog } from "../items/shared/restoreMedia"
 import {
@@ -679,16 +685,22 @@ export class LocalLibraryModule {
     if (durableMatches.length > 0) {
       const needsDevice = durableMatches.filter(requiresPlaybackDevice)
       // A library card or operator grant covers the track outright.
+      let snapshot: MediaCondition | undefined
       if (needsDevice.length < durableMatches.length) {
-        await this.wearRecordForQueue(params, durableMatches, inv)
-        return allowQueueRequest()
+        snapshot = await this.wearRecordForQueue(params, durableMatches, inv)
+      } else {
+        const devices = playableFormats(items)
+        const playable = needsDevice.filter((h) => h.mediaFormat && devices.has(h.mediaFormat))
+        if (playable.length === 0) {
+          return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
+        }
+        snapshot = await this.wearRecordForQueue(params, playable, inv)
       }
-      const devices = playableFormats(items)
-      const playable = needsDevice.filter((h) => h.mediaFormat && devices.has(h.mediaFormat))
-      if (playable.length === 0) {
-        return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
+      if (snapshot) {
+        return allowQueueRequest({
+          [PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY]: { condition: snapshot },
+        })
       }
-      await this.wearRecordForQueue(params, playable, inv)
       return allowQueueRequest()
     }
 
@@ -712,17 +724,19 @@ export class LocalLibraryModule {
   /**
    * Degrade (or convert) the worst matching playlist/album record. Never rejects.
    * `matching` is already membership- and (when required) format-filtered.
+   * Returns the pre-wear condition snapshot for Now Playing (ADR 0165), or
+   * undefined when nothing wearable was spent (library-scope only).
    */
   private async wearRecordForQueue(
     params: QueueValidationParams,
     matching: HeldLocalLibraryGrant[],
     inv: UserInventory,
-  ): Promise<void> {
+  ): Promise<MediaCondition | undefined> {
     const context = this.getContext()
-    if (!context) return
+    if (!context) return undefined
 
     const wearable = matching.filter((h) => h.grant.scope !== "library")
-    if (wearable.length === 0) return
+    if (wearable.length === 0) return undefined
 
     const items = inv.items
     const byItemId = new Map(items.map((item) => [item.itemId, item]))
@@ -739,8 +753,9 @@ export class LocalLibraryModule {
       return a.held.itemId.localeCompare(b.held.itemId)
     })
     const chosen = ranked[0]
-    if (!chosen) return
+    if (!chosen) return undefined
 
+    const snapshot = chosen.condition
     const next = degradeCondition(chosen.condition)
     const recordName = chosen.held.name
     if (next) {
@@ -748,11 +763,12 @@ export class LocalLibraryModule {
         [PHYSICAL_MEDIA_CONDITION_KEY]: next,
       })
       await context.api.sendUserToast(params.roomId, params.userId, {
-        title: `${recordName} is now in ${MEDIA_CONDITION_LABELS[next]} condition.`,
-        type: "info",
+        title: intactWearToastTitle(recordName, next),
+        description: intactWearToastDescription(chosen.held.mediaFormat),
+        type: next === "poor" ? "warning" : "info",
         source: "item-shops",
       })
-      return
+      return snapshot
     }
 
     const broken = brokenMediaForRecord({
@@ -772,7 +788,10 @@ export class LocalLibraryModule {
         params.userId,
         definitionIdForShortId(this.pluginName, broken.shortId),
         1,
-        { [PHYSICAL_MEDIA_ORIGIN_KEY]: chosen.held.definitionId },
+        brokenMediaConvertMetadata({
+          originDefinitionId: chosen.held.definitionId,
+          originRecordName: recordName,
+        }),
         "plugin",
         remaining,
       )
@@ -783,16 +802,17 @@ export class LocalLibraryModule {
       }
     }
     const transition = broken?.transitionMessage(recordName) ?? `${recordName} wore out.`
-    const woreOutLine = "You can no longer queue songs from it."
-    const description =
-      broken && !given ? `${woreOutLine} You had no room to keep the worn-out copy.` : woreOutLine
     await context.api.sendUserToast(params.roomId, params.userId, {
       title: transition,
-      description,
+      description: convertWearToastDescription({
+        brokenShortId: broken?.shortId,
+        given: Boolean(given),
+      }),
       type: "warning",
       duration: 10_000,
       source: "item-shops",
     })
+    return snapshot
   }
 
   private async resolveUserLocalCatalogScope(

@@ -1,6 +1,7 @@
 import {
   ITEM_SHOPS_PLUGIN_NAME,
   PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY,
+  isMediaCondition,
   parseArtworkFrame,
   type ArtworkFrame,
   type MediaCondition,
@@ -22,9 +23,9 @@ export type PhysicalMediaArt = {
   /** Hand-lettered title on a coverless jewel-case disc. */
   discLabel?: string
   /**
-   * Wear on this copy (ADR 0157). Absent means mint — Now Playing resolves its
-   * frame from playlist membership, not from the copy that was spent, so it has
-   * no condition to report.
+   * Wear on this copy (ADR 0157 / 0165). Absent means mint. Now Playing carries a
+   * pre-queue snapshot on the persisted frame when the track was queued from a
+   * wearing Physical Media copy.
    */
   condition?: MediaCondition
 }
@@ -43,16 +44,19 @@ function readFrame(value: unknown): PhysicalMediaNowPlayingFrame | undefined {
     imageUrl?: unknown
     imageUrlLarge?: unknown
     artworkFrame?: unknown
+    condition?: unknown
   }
   if (typeof record.artworkFrame !== "string") return undefined
   const artworkFrame = parseArtworkFrame(record.artworkFrame)
   if (!artworkFrame) return undefined
   const imageUrl = typeof record.imageUrl === "string" ? record.imageUrl.trim() : ""
   const imageUrlLarge = typeof record.imageUrlLarge === "string" ? record.imageUrlLarge.trim() : ""
+  const condition = isMediaCondition(record.condition) ? record.condition : undefined
   return {
     artworkFrame,
     ...(imageUrl ? { imageUrl } : {}),
     ...(imageUrlLarge ? { imageUrlLarge } : {}),
+    ...(condition ? { condition } : {}),
   }
 }
 
@@ -104,6 +108,7 @@ export function resolvePhysicalMediaArt(params: {
     imageUrl,
     ...(imageUrlLarge ? { imageUrlLarge } : {}),
     ...(sleeveUrl && trackUrl && sleeveUrl !== trackUrl ? { fallbackImageUrl: trackUrl } : {}),
+    ...(frame.condition ? { condition: frame.condition } : {}),
   }
 }
 

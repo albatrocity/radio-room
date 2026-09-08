@@ -1257,7 +1257,7 @@ export interface QueueValidationParams {
  * - `deferred: true` — accept the selection but do not enqueue yet (e.g. hold until turn)
  */
 export type QueueValidationResult =
-  | { allowed: true }
+  | { allowed: true; pluginData?: Record<string, unknown> }
   | { allowed: false; reason: string }
   | { deferred: true; message: string }
 
@@ -1307,10 +1307,18 @@ export function isChatMessageTransformDrop(
  * Helper to create an "allowed" queue validation response.
  * Use this when the queue request should proceed.
  *
+ * @param pluginData - Optional plugin-namespaced payload to persist on the QueueItem
+ *   (e.g. Physical Media pre-queue condition snapshot — ADR 0165).
+ *
  * @example
  * if (!config.enabled) return allowQueueRequest()
  */
-export const allowQueueRequest = (): QueueValidationResult => ({ allowed: true })
+export const allowQueueRequest = (
+  pluginData?: Record<string, unknown>,
+): QueueValidationResult =>
+  pluginData && Object.keys(pluginData).length > 0
+    ? { allowed: true, pluginData }
+    : { allowed: true }
 
 /**
  * Helper to create a "rejected" queue validation response.

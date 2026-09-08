@@ -19,6 +19,7 @@ import type {
   MetadataSourceTrackWithSource,
   PhysicalMediaItem,
 } from "@repo/types"
+import { MediaConditionTag } from "./PluginComponents/MediaConditionTag"
 import { useSocketMachine } from "../hooks/useSocketMachine"
 import {
   CATALOG_BROWSE_EVENT_TYPES,
@@ -34,6 +35,7 @@ import ScrollShadowViewport from "./ScrollShadowViewport"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
 import { artistsLabel, releaseYear } from "../lib/albumHeaderFields"
 import { preferBrowserRenderableImages } from "../lib/metadataImages"
+import { STALE_PHYSICAL_MEDIA_EMPTY } from "@repo/game-logic"
 import type { GetTrackPresence } from "../hooks/useTrackRoomPresence"
 
 type BrowseRowButtonProps = {
@@ -515,6 +517,10 @@ function CatalogBrowse({
 
   const browseAlbum = state.context.album ?? selectedAlbum
   const firstTrack = tracks[0]
+  const mediaCopyMissing =
+    selectedMedia != null &&
+    level === "tracks" &&
+    !myMedia.some((item) => item.mediaKey === selectedMedia.mediaKey)
   const albumHeader = useMemo((): AlbumViewHeader | null => {
     if (level !== "tracks") return null
     if (selectedMedia) {
@@ -629,6 +635,10 @@ function CatalogBrowse({
         <Text fontSize="sm" color="fg.muted" py={4}>
           Search for artists or albums to browse this catalog.
         </Text>
+      ) : level === "tracks" && mediaCopyMissing ? (
+        <Text fontSize="sm" color="fg.muted" py={4}>
+          {STALE_PHYSICAL_MEDIA_EMPTY}
+        </Text>
       ) : level === "tracks" ? (
         <AlbumTrackListView
           header={albumHeader}
@@ -729,34 +739,34 @@ function CatalogBrowse({
                           No records in your collection.
                         </Text>
                       ) : (
-                        <>
-                          <Text fontSize="xs" color="fg.muted" px={2} py={1}>
-                            Yours until the game session ends.
-                          </Text>
-                          {mediaItems.map((item) => (
-                            <BrowseRowButton
-                              key={item.mediaKey}
-                              disabled={disabled}
-                              onClick={() => openMedia(item)}
-                            >
-                              <HStack gap={2} minW={0} w="100%" overflow="hidden">
-                                <EntityThumb
-                                  images={physicalMediaImages(item)}
-                                  shape="square"
-                                  alt={item.name}
-                                  artworkFrame={item.artworkFrame}
-                                  condition={item.condition}
-                                  size="track"
-                                />
-                                <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">
-                                  <Text fontWeight="medium" lineClamp={2} minW={0} w="100%">
+                        mediaItems.map((item) => (
+                          <BrowseRowButton
+                            key={item.mediaKey}
+                            disabled={disabled}
+                            onClick={() => openMedia(item)}
+                          >
+                            <HStack gap={2} minW={0} w="100%" overflow="hidden">
+                              <EntityThumb
+                                images={physicalMediaImages(item)}
+                                shape="square"
+                                alt={item.name}
+                                artworkFrame={item.artworkFrame}
+                                condition={item.condition}
+                                size="track"
+                              />
+                              <VStack align="start" gap={0} minW={0} flex="1" overflow="hidden">
+                                <HStack gap={2} minW={0} w="100%" align="center">
+                                  <Text fontWeight="medium" lineClamp={2} minW={0} flex="1">
                                     {item.name}
                                   </Text>
-                                </VStack>
-                              </HStack>
-                            </BrowseRowButton>
-                          ))}
-                        </>
+                                  {item.condition != null ? (
+                                    <MediaConditionTag size="xs" condition={item.condition} flexShrink={0} />
+                                  ) : null}
+                                </HStack>
+                              </VStack>
+                            </HStack>
+                          </BrowseRowButton>
+                        ))
                       ))}
 
                     {level === "artistAlbums" &&

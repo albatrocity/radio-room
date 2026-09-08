@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { ShoppingSessionHelper } from "@repo/plugin-base"
 import type { InventoryItem, PluginContext, Room } from "@repo/types"
-import { PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
+import { PHYSICAL_MEDIA_ORIGIN_KEY, PHYSICAL_MEDIA_ORIGIN_TITLE_KEY } from "@repo/types"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { ItemShopsPlugin, getEligibleShops, defaultItemShopsConfig } from "./index"
 import { SHOP_CATALOG } from "./shops"
@@ -766,6 +766,27 @@ describe("ItemShopsPlugin local library grants", () => {
         {},
       ])
     })
+
+    it("merges persisted pre-queue condition onto the membership frame", async () => {
+      const { plugin } = setup({
+        hasPhysicalMedia: true,
+        physicalMediaImageUrl: "/cover.jpg",
+        membershipPlaylistIds: ["nd-lp"],
+      })
+      const worn = queueItemFactory.build({
+        mediaSource: { type: "local", trackId: "local-track-1" },
+        pluginData: {
+          "item-shops": { physicalMediaFrame: { condition: "good" } },
+        },
+      })
+      await expect(plugin.augmentNowPlaying(worn)).resolves.toEqual({
+        physicalMediaFrame: {
+          imageUrl: "/cover.jpg",
+          artworkFrame: "record-jacket",
+          condition: "good",
+        },
+      })
+    })
   })
 
   describe("resolvePhysicalMediaItem", () => {
@@ -827,7 +848,10 @@ describe("ItemShopsPlugin local library grants", () => {
         membershipPlaylistIds: ["nd-lp"],
       })
       const result = await plugin.validateQueueRequest(localParams)
-      expect(result).toEqual({ allowed: true })
+      expect(result).toEqual({
+        allowed: true,
+        pluginData: { physicalMediaFrame: { condition: "mint" } },
+      })
       expect(inventory.removeItem).not.toHaveBeenCalled()
       expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "pm-stack-1", {
         condition: "good",
@@ -878,7 +902,10 @@ describe("ItemShopsPlugin local library grants", () => {
         membershipPlaylistIds: ["nd-lp"],
       })
       const result = await plugin.validateQueueRequest(localParams)
-      expect(result).toEqual({ allowed: true })
+      expect(result).toEqual({
+        allowed: true,
+        pluginData: { physicalMediaFrame: { condition: "mint" } },
+      })
       expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "pm-stack-1", {
         condition: "good",
       })
@@ -887,6 +914,7 @@ describe("ItemShopsPlugin local library grants", () => {
         "u1",
         expect.objectContaining({
           title: expect.stringContaining("Good"),
+          description: "It got a little dusty on playback",
           type: "info",
         }),
       )
@@ -900,7 +928,10 @@ describe("ItemShopsPlugin local library grants", () => {
         membershipPlaylistIds: ["nd-lp"],
       })
       const result = await plugin.validateQueueRequest(localParams)
-      expect(result).toEqual({ allowed: true })
+      expect(result).toEqual({
+        allowed: true,
+        pluginData: { physicalMediaFrame: { condition: "poor" } },
+      })
       expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1, {
         degraded: true,
       })
@@ -908,7 +939,10 @@ describe("ItemShopsPlugin local library grants", () => {
         "u1",
         "item-shops:dusty-record",
         1,
-        { [PHYSICAL_MEDIA_ORIGIN_KEY]: PM_DEF_ID },
+        {
+          [PHYSICAL_MEDIA_ORIGIN_KEY]: PM_DEF_ID,
+          [PHYSICAL_MEDIA_ORIGIN_TITLE_KEY]: "Loveless",
+        },
         "plugin",
         expect.objectContaining({
           userId: "u1",
@@ -920,7 +954,8 @@ describe("ItemShopsPlugin local library grants", () => {
         "u1",
         expect.objectContaining({
           title: expect.stringContaining("dusty"),
-          description: "You can no longer queue songs from it.",
+          description:
+            "You can no longer queue songs from it. It's now a Dusty Record in Inventory.",
           type: "warning",
           duration: 10_000,
         }),
@@ -936,7 +971,10 @@ describe("ItemShopsPlugin local library grants", () => {
         membershipPlaylistIds: ["nd-lp"],
       })
       const result = await plugin.validateQueueRequest(localParams)
-      expect(result).toEqual({ allowed: true })
+      expect(result).toEqual({
+        allowed: true,
+        pluginData: { physicalMediaFrame: { condition: "poor" } },
+      })
       expect(inventory.removeItem).toHaveBeenCalledWith("u1", "pm-stack-1", 1, {
         degraded: true,
       })
@@ -1026,7 +1064,10 @@ describe("ItemShopsPlugin local library grants", () => {
         membershipPlaylistIds: ["nd-lp"],
       })
       const first = await plugin.validateQueueRequest(localParams)
-      expect(first).toEqual({ allowed: true })
+      expect(first).toEqual({
+        allowed: true,
+        pluginData: { physicalMediaFrame: { condition: "poor" } },
+      })
       const second = await plugin.validateQueueRequest(localParams)
       expect(second).toEqual({
         allowed: false,
@@ -1089,7 +1130,10 @@ describe("ItemShopsPlugin local library grants", () => {
         hasPlaybackDevice: false,
       })
       const result = await plugin.validateQueueRequest(localParams)
-      expect(result).toEqual({ allowed: true })
+      expect(result).toEqual({
+        allowed: true,
+        pluginData: { physicalMediaFrame: { condition: "mint" } },
+      })
       expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "cd-stack-1", {
         condition: "good",
       })
@@ -1119,7 +1163,10 @@ describe("ItemShopsPlugin local library grants", () => {
         membershipPlaylistIds: ["nd-lp", "nd-cd"],
       })
       const result = await plugin.validateQueueRequest(localParams)
-      expect(result).toEqual({ allowed: true })
+      expect(result).toEqual({
+        allowed: true,
+        pluginData: { physicalMediaFrame: { condition: "mint" } },
+      })
       expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "pm-stack-1", {
         condition: "good",
       })

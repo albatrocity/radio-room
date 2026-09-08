@@ -9,7 +9,7 @@ import { useTradeParticipants } from "./useTradeParticipants"
 /** Remaining bag items — pinned in Game State chrome below the compose field. */
 export function TradeDetailInventoryPicker({ tradeId }: { tradeId: string }) {
   const { activeTrade } = useTradeParticipants(tradeId)
-  const { definitionMap, selectable, remainingInventory, offeredCount, canEdit, addToOffer } =
+  const { definitionMap, conditionByItemId, selectable, remainingInventory, offeredCount, canEdit, addToOffer } =
     useTradeOfferDraft(tradeId)
   const presentation = useIntegratedPanelPresentation()
   const pickerRows = presentation === "panel" ? 2 : 1
@@ -45,6 +45,7 @@ export function TradeDetailInventoryPicker({ tradeId }: { tradeId: string }) {
                     name={item.name}
                     quantity={1}
                     def={definitionMap.get(item.definitionId)}
+                    condition={conditionByItemId.get(item.itemId)}
                     compact
                     onActivate={canEdit ? () => addToOffer(item.itemId) : undefined}
                     activateLabel={`Add ${item.name} to offer`}
