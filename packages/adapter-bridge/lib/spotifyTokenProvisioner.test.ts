@@ -4,6 +4,8 @@ const findRoom = vi.fn()
 const refreshAuth = vi.fn()
 const getUserServiceAuth = vi.fn()
 const set = vi.fn()
+const hGet = vi.fn()
+const publishAuthError = vi.fn()
 
 vi.mock("@repo/server/operations/data", () => ({
   findRoom: (...args: unknown[]) => findRoom(...args),
@@ -15,12 +17,16 @@ vi.mock("@repo/adapter-spotify", () => ({
   }),
 }))
 
+vi.mock("@repo/server/operations/dj/metadataAuthError", () => ({
+  publishMetadataAuthError: (...args: unknown[]) => publishAuthError(...args),
+}))
+
 import { provisionSpotifyTokenForRoom, wireSpotifyTokenProvisioning } from "./spotifyTokenProvisioner"
 import { spotifyTokenKey, BRIDGE_SPOTIFY_TOKEN_TTL_SEC } from "./protocol"
 
 describe("provisionSpotifyTokenForRoom", () => {
   const context = {
-    redis: { pubClient: { set } },
+    redis: { pubClient: { set, hGet } },
     data: { getUserServiceAuth },
   } as any
 
@@ -78,6 +84,38 @@ describe("provisionSpotifyTokenForRoom", () => {
     expect(set).toHaveBeenCalledWith(spotifyTokenKey("room-1"), "stored", {
       EX: BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
     })
+  })
+
+  it("announces a sticky auth error when no token can be provisioned", async () => {
+    findRoom.mockResolvedValue({ creator: "user-1" })
+    getUserServiceAuth.mockResolvedValue(null)
+    refreshAuth.mockRejectedValue(new Error("No refresh token available"))
+    hGet.mockResolvedValue(null)
+    publishAuthError.mockResolvedValue(undefined)
+
+    const token = await provisionSpotifyTokenForRoom({ context, roomId: "room-1" })
+
+    expect(token).toBeNull()
+    expect(set).not.toHaveBeenCalled()
+    expect(publishAuthError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roomId: "room-1",
+        creatorUserId: "user-1",
+        source: "spotify",
+      }),
+    )
+  })
+
+  it("does not re-announce when the room already has a spotifyError", async () => {
+    findRoom.mockResolvedValue({ creator: "user-1" })
+    getUserServiceAuth.mockResolvedValue(null)
+    refreshAuth.mockRejectedValue(new Error("No refresh token available"))
+    hGet.mockResolvedValue(JSON.stringify({ status: 401 }))
+
+    const token = await provisionSpotifyTokenForRoom({ context, roomId: "room-1" })
+
+    expect(token).toBeNull()
+    expect(publishAuthError).not.toHaveBeenCalled()
   })
 })
 

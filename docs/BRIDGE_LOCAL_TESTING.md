@@ -241,7 +241,7 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 | Double Now Playing | Turn off local-remote NP for this room |
 | Stream metadata is ` \| \| ` | File must be `Title:`/`Artist:`/`Album:` lines (not `{title} \| {artist}`). Put the pipe format in AH Title Format. |
 | YouTube “Video unavailable” hangs | Reconnect daemon (error/watchdog → ENDED → auto-advance). Some videos can’t embed; they’ll skip. |
-| Spotify SDK `TOKEN_REQUEST` loops / auth failed | Restart API so bridge `onRoomCreated` wires token provisioning; re-link Spotify for `streaming` scope (refresh alone does not add scopes); Premium required; check API logs for `[bridge-spotify-token]` |
+| Spotify SDK `TOKEN_REQUEST` loops / auth failed | In the room, use the **disconnected Spotify** banner or Admin → Overview → Authentication → **Re-link Spotify**. Playback uses the room creator's refresh token; linking from the room copies tokens onto that creator. `show_dialog` is required so Spotify issues a new refresh token. Premium + `streaming` scope required; check API logs for `[bridge-spotify-token]`. |
 | Spotify SDK stuck on “Connecting…” / CORS on `track-playback` | Daemon relaunches bridge Chrome with site-isolation off + CDP preflight fix. Look for `[chrome] Launched … (bridge profile, SDK flags)` and `fulfilling track-playback CORS preflight`, then `ready device_id=`. |
 | Spotify still needs Spotify.app | Remove `"spotify"` from daemon `services` to use legacy Connect, or verify `bridge:{room}:spotify_device` exists in Redis |
 

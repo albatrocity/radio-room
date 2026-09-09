@@ -55,6 +55,7 @@ import type {
 } from "./shared/types"
 import { greenPeas } from "./green-peas"
 import { oscilloscope } from "./oscilloscope"
+import { beatDetector } from "./beat-detector"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -112,6 +113,7 @@ export const items = {
   privateBathroom,
   coldBeer,
   oscilloscope,
+  beatDetector,
 } as const
 
 /**

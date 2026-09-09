@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react"
-import { Box, Button, Icon, IconButton, Popover, VStack, HStack, Flex, Switch, Separator, Field, Text, ScrollArea, Status, Badge } from "@chakra-ui/react"
+import { Box, Button, Icon, IconButton, Popover, Portal, VStack, HStack, Flex, Switch, Separator, Field, Text, ScrollArea, Status, Badge } from "@chakra-ui/react"
 import { LuMoon, LuZap } from "react-icons/lu"
 
 import FormTheme from "./FormTheme"
@@ -51,7 +51,19 @@ const PopoverPreferences = (props: Props) => {
   const showMetadataSourceSelect = availableSources.length > 1
 
   return (
-    <Popover.Root lazyMount open={open} onOpenChange={(e) => setOpen(e.open)}>
+    <Popover.Root
+      lazyMount
+      open={open}
+      onOpenChange={(e) => setOpen(e.open)}
+      positioning={{
+        strategy: "fixed",
+        placement: "top-start",
+        flip: true,
+        slide: true,
+        fitViewport: true,
+        overflowPadding: 12,
+      }}
+    >
       <Popover.Trigger asChild>
         <Box position="relative">
           <IconButton aria-label="Settings" variant="ghost" size="md">
@@ -74,27 +86,28 @@ const PopoverPreferences = (props: Props) => {
           ) : null}
         </Box>
       </Popover.Trigger>
-      <Popover.Positioner>
-        <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
-          <Popover.Header fontWeight="bold">
-            <HStack align="center">
-              <Flex grow={1}>Theme</Flex>
+      <Portal>
+        <Popover.Positioner zIndex="popover">
+          <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }}>
+            <Popover.Header fontWeight="bold">
               <HStack align="center">
-                <Icon as={LuMoon} aria-label="Dark Mode" />
-                <Switch.Root
-                  id="darkMode"
-                  onCheckedChange={toggleColorMode}
-                  checked={colorMode === "dark"}
-                >
-                  <Switch.HiddenInput />
-                  <Switch.Control>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                </Switch.Root>
+                <Flex grow={1}>Theme</Flex>
+                <HStack align="center">
+                  <Icon as={LuMoon} aria-label="Dark Mode" />
+                  <Switch.Root
+                    id="darkMode"
+                    onCheckedChange={toggleColorMode}
+                    checked={colorMode === "dark"}
+                  >
+                    <Switch.HiddenInput />
+                    <Switch.Control>
+                      <Switch.Thumb />
+                    </Switch.Control>
+                  </Switch.Root>
+                </HStack>
               </HStack>
-            </HStack>
-          </Popover.Header>
-          <Popover.Arrow />
+            </Popover.Header>
+            <Popover.Arrow />
           <ScrollArea.Root maxH="70dvh" size="sm" variant="hover">
             <ScrollArea.Viewport>
               <ScrollArea.Content>
@@ -196,7 +209,8 @@ const PopoverPreferences = (props: Props) => {
             <ScrollArea.Corner />
           </ScrollArea.Root>
         </Popover.Content>
-      </Popover.Positioner>
+        </Popover.Positioner>
+      </Portal>
     </Popover.Root>
   )
 }

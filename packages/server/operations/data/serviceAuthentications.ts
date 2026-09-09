@@ -21,9 +21,16 @@ export async function storeUserServiceAuth({
   tokens,
 }: StoreUserServiceAuthParams): Promise<void> {
   const key = `user:${userId}:auth:${serviceName}`
+  // Spotify often omits refresh_token on re-consent. Never clobber a stored
+  // refresh token with empty/undefined or the room cannot renew access.
+  let refreshToken = tokens.refreshToken
+  if (!refreshToken) {
+    const existing = await context.redis.pubClient.hGet(key, "refreshToken")
+    refreshToken = existing || ""
+  }
   await context.redis.pubClient.hSet(key, {
     accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
+    refreshToken,
     expiresAt: tokens.expiresAt?.toString() ?? "",
     updatedAt: Date.now().toString(),
     metadata: tokens.metadata ? JSON.stringify(tokens.metadata) : "",

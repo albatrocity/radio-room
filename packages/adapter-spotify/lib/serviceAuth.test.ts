@@ -144,6 +144,22 @@ describe("createSpotifyServiceAuthAdapter", () => {
       expect(result.isAuthenticated).toBe(true)
       expect(result.accessToken).toBe("different-access-token")
     })
+
+    test("should return unauthenticated when access token exists without a refresh token", async () => {
+      mockGetUserServiceAuth.mockResolvedValue({
+        accessToken: "access-only",
+        refreshToken: "",
+        expiresAt: Date.now() + 3600000,
+      })
+
+      const result = await spotifyAuthAdapter.getAuthStatus("user123")
+
+      expect(result).toEqual({
+        isAuthenticated: false,
+        accessToken: "access-only",
+        serviceName: "spotify",
+      })
+    })
   })
 
   describe("logout", () => {

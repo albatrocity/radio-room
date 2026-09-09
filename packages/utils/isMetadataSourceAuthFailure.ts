@@ -12,6 +12,8 @@ export function isMetadataSourceAuthFailure(error: unknown): boolean {
     msg.includes("access token has expired") ||
     msg.includes("invalid_grant") ||
     msg.includes("no auth tokens found") ||
+    msg.includes("no refresh token") ||
+    msg.includes("no spotify token available") ||
     (msg.includes("unauthorized") && msg.includes("token"))
   )
 }

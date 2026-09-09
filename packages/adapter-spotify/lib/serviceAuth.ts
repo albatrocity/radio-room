@@ -31,8 +31,10 @@ export function createSpotifyServiceAuthAdapter(context: AppContext): ServiceAut
           serviceName: "spotify",
         })
 
+        // Playback and token refresh both need a refresh token. An access
+        // token alone looks "linked" in admin UI but cannot be renewed.
         return {
-          isAuthenticated: !!auth?.accessToken,
+          isAuthenticated: Boolean(auth?.accessToken && auth?.refreshToken),
           accessToken: auth?.accessToken,
           serviceName: "spotify",
         }

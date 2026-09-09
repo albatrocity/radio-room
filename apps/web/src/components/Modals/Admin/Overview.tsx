@@ -329,6 +329,10 @@ function Overview() {
             <Heading as="h4" size="sm" textAlign="left">
               Authentication
             </Heading>
+            <Text fontSize="sm" color="gray.500">
+              Spotify must stay linked for playback and catalog search. Re-link if the room
+              reports a disconnected account.
+            </Text>
             <VStack w="100%" align="left" gap={4}>
               <ButtonRoomAuthSpotify />
               <ButtonRoomAuthTidal />

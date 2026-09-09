@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, lazy, Suspense } from "react"
 import { LuMusic, LuUser, LuWaves } from "react-icons/lu"
 import {
   Heading,
@@ -23,7 +23,7 @@ import { Room, RoomMeta } from "../../types/Room"
 import { PluginArea } from "../PluginComponents"
 import { usePluginStyles } from "../../hooks/usePluginStyles"
 import { usePluginElementProps } from "../../hooks/usePluginElementProps"
-import { usePreferredMetadataSource } from "../../hooks/useActors"
+import { usePreferredMetadataSource, useUserInventory } from "../../hooks/useActors"
 import { usePhysicalMediaArt } from "../../hooks/usePhysicalMediaArt"
 import { usePresentedAttribution } from "../../hooks/usePresentedAttribution"
 import FramedArtwork from "../artworkFrames/FramedArtwork"
@@ -32,6 +32,9 @@ import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginI
 import { labelForMetadataSource, type PluginElementProps } from "@repo/types"
 import { NowPlayingTransport } from "./NowPlayingTransport"
 import { getTrackExternalUrl } from "../../lib/getTrackExternalUrl"
+import { inventoryOwnsBeatDetector } from "../../lib/oscilloscopeOwnership"
+
+const BeatDetector = lazy(() => import("./BeatDetector"))
 
 type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 
@@ -104,6 +107,9 @@ function getPreferredTrackData(
 export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
   const { album, artist, track, nowPlaying, title, dj } = meta
   const preferredSource = usePreferredMetadataSource()
+  const inventory = useUserInventory()
+  const showBeatDetector =
+    room?.type === "radio" && inventoryOwnsBeatDetector(inventory)
 
   // Get track data based on user's preference
   const { track: preferredTrack, metadataSource: activeMetadataSource } = useMemo(
@@ -246,6 +252,11 @@ export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
                     zIndex={1}
                     width="100%"
                   >
+                    {showBeatDetector && (
+                      <Suspense fallback={null}>
+                        <BeatDetector />
+                      </Suspense>
+                    )}
                     <PluginArea
                       area="nowPlayingInfo"
                       direction="column"
