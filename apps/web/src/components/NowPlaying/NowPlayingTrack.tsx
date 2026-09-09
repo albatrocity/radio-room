@@ -245,25 +245,17 @@ export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
                     addedAt={addedAt}
                   />
 
-                  <Box
-                    colorPalette="primary"
-                    color="colorPalette.contrast"
-                    position="relative"
-                    zIndex={1}
-                    width="100%"
-                  >
-                    {showBeatDetector && (
-                      <Suspense fallback={null}>
-                        <BeatDetector />
-                      </Suspense>
-                    )}
-                    <PluginArea
-                      area="nowPlayingInfo"
-                      direction="column"
-                      color="colorPalette.contrast"
-                      itemContext={nowPlayingInfoItemContext}
-                    />
-                  </Box>
+                  {showBeatDetector && (
+                    <Suspense fallback={null}>
+                      <BeatDetector />
+                    </Suspense>
+                  )}
+                  <PluginArea
+                    area="nowPlayingInfo"
+                    direction="column"
+                    color="primary.contrast"
+                    itemContext={nowPlayingInfoItemContext}
+                  />
 
                   <MetadataSourceInfo metadataSource={activeMetadataSource} />
                 </VStack>
