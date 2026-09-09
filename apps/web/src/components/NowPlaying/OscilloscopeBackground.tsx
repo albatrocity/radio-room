@@ -12,7 +12,7 @@ import {
   getRadioAudioTapDebugSnapshot,
   type RadioAudioTapDebugSnapshot,
 } from "../../lib/radioAudioTap"
-import { startAnalysisTap, stopAnalysisTap } from "../../lib/mse/analysisTap"
+import { acquireAnalysisTap, releaseAnalysisTap } from "../../lib/mse/analysisTap"
 import { backfillRadioMseAnalysisTap } from "../../lib/mse/radioMseTransport"
 import {
   getRadioStreamPlayerDebug,
@@ -24,6 +24,7 @@ import {
   PRIMARY_CONTRAST_CSS_VAR,
   PRIMARY_SOLID_CSS_VAR,
 } from "../../lib/oscilloscopeOwnership"
+import { useNowPlayingGraphTopPx } from "./useNowPlayingGraphTopPx"
 
 const TRACE_SAMPLES = 2048
 const MAJOR_X = 10
@@ -33,9 +34,6 @@ const REDUCED_MOTION_INTERVAL_MS = 1000
 /** TEMP debug HUD — leave false; console logging + status churn tanks Safari. */
 const OSCILLOSCOPE_TEMP_DEBUG = false
 const DEBUG_LOG_INTERVAL_MS = 2000
-/** Chakra default `sm` — column layout puts artwork above metadata. */
-const DESKTOP_LAYOUT_MQ = "(min-width: 30em)"
-const ARTWORK_ANCHOR = "[data-now-playing-artwork]"
 
 function formatDebugHud(s: RadioAudioTapDebugSnapshot): string {
   const stream = getRadioStreamPlayerStatus()
@@ -167,9 +165,8 @@ export default function OscilloscopeBackground() {
   const animationsEnabled = useAnimationsEnabled()
   const isPlaying = useIsPlaying()
   const [debugHud, setDebugHud] = useState("")
-  const [supported, setSupported] = useState(radioStreamOscilloscopeSupported)
-  /** Desktop: offset below artwork so the graph isn't under the cover. */
-  const [desktopTopPx, setDesktopTopPx] = useState(0)
+  const [supported, setSupported] = useState(() => radioStreamOscilloscopeSupported())
+  const desktopTopPx = useNowPlayingGraphTopPx(containerRef, supported)
 
   const isPlayingRef = useRef(isPlaying)
   isPlayingRef.current = isPlaying
@@ -184,66 +181,10 @@ export default function OscilloscopeBackground() {
 
   useEffect(() => {
     if (!supported) return
-    startAnalysisTap()
+    acquireAnalysisTap()
     backfillRadioMseAnalysisTap()
-    return () => stopAnalysisTap()
+    return () => releaseAnalysisTap()
   }, [supported])
-
-  useEffect(() => {
-    const host = containerRef.current?.parentElement
-    if (!host) return
-
-    const mq = window.matchMedia(DESKTOP_LAYOUT_MQ)
-    let artRo: ResizeObserver | null = null
-    let observedArt: Element | null = null
-
-    const updateTop = () => {
-      if (!mq.matches) {
-        setDesktopTopPx(0)
-        return
-      }
-      const art = host.querySelector(ARTWORK_ANCHOR)
-      if (!(art instanceof HTMLElement)) {
-        setDesktopTopPx(0)
-        return
-      }
-      const hostRect = host.getBoundingClientRect()
-      const artRect = art.getBoundingClientRect()
-      setDesktopTopPx(Math.max(0, Math.round(artRect.bottom - hostRect.top)))
-    }
-
-    const bindArtObserver = () => {
-      const art = host.querySelector(ARTWORK_ANCHOR)
-      if (art === observedArt) return
-      artRo?.disconnect()
-      observedArt = art
-      if (art) {
-        artRo = new ResizeObserver(updateTop)
-        artRo.observe(art)
-      }
-    }
-
-    const onDomChange = () => {
-      bindArtObserver()
-      updateTop()
-    }
-
-    const hostRo = new ResizeObserver(onDomChange)
-    hostRo.observe(host)
-    const mo = new MutationObserver(onDomChange)
-    mo.observe(host, { childList: true, subtree: true })
-    host.addEventListener("scroll", updateTop, true)
-    mq.addEventListener("change", updateTop)
-    onDomChange()
-
-    return () => {
-      hostRo.disconnect()
-      artRo?.disconnect()
-      mo.disconnect()
-      host.removeEventListener("scroll", updateTop, true)
-      mq.removeEventListener("change", updateTop)
-    }
-  }, [])
 
   useEffect(() => {
     if (!OSCILLOSCOPE_TEMP_DEBUG) return

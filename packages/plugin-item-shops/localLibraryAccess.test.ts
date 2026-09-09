@@ -517,18 +517,24 @@ describe("getEligibleShops", () => {
     expect(shops.some((s) => s.shopId === "green-room")).toBe(true)
   })
 
-  it("keeps oscilloscope offers in radio rooms and strips them in jukebox/live", () => {
+  it("keeps oscilloscope and beat-detector offers in radio rooms and strips them in jukebox/live", () => {
     const radioShops = getEligibleShops(config, "spotify", [], "radio")
     const sweetwaterRadio = radioShops.find((s) => s.shopId === "sweetwater")
     expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(true)
+    const spyWorldRadio = radioShops.find((s) => s.shopId === "spy-world")
+    expect(spyWorldRadio?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(true)
 
     const jukeboxShops = getEligibleShops(config, "spotify", [], "jukebox")
     const sweetwaterJukebox = jukeboxShops.find((s) => s.shopId === "sweetwater")
     expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(false)
+    const spyWorldJukebox = jukeboxShops.find((s) => s.shopId === "spy-world")
+    expect(spyWorldJukebox?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
 
     const liveShops = getEligibleShops(config, "spotify", [], "live")
     const sweetwaterLive = liveShops.find((s) => s.shopId === "sweetwater")
     expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(false)
+    const spyWorldLive = liveShops.find((s) => s.shopId === "spy-world")
+    expect(spyWorldLive?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
   })
 })
 

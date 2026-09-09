@@ -129,4 +129,6 @@ Artwork on lock screen must still be verified on a **physical** device ([WebKit 
 - [ADR 0136](0136-inventory-owned-client-visuals.md) — inventory-owned client visuals
 - [ADR 0139](0139-radio-stream-lifecycle-machine.md) — radio stream lifecycle machine
 - [ADR 0140](0140-radio-element-playback-oscilloscope-tabled.md) — approaches ruled out; element fallback retained
+- [ADR 0167](0167-shared-radio-analysis-tap.md) — refcounted shared tap + envelope (amends §3 start/stop)
+- [ADR 0168](0168-beat-detector-now-playing-info.md) — Beat Detector consumer of the shared tap
 - [MMS_RADIO_TRANSPORT_PLAN.md](../MMS_RADIO_TRANSPORT_PLAN.md) — implementation plan and file map

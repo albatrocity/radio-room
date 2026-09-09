@@ -84,6 +84,8 @@ export const oscilloscope = createItem({
 
 Shopping offer assignment filters out SKUs whose list does not include `room.type` ([ADR 0136](adrs/0136-inventory-owned-client-visuals.md)). Gift/trade into other room types remains allowed; client visuals stay inert there. Omit the field for unrestricted SKUs.
 
+**Shared radio analysis tap.** Radio-only visuals that read the MSE stream (Oscilloscope CRT, Beat Detector BPM + pulse) share one refcounted decoder in `apps/web` ([ADR 0167](adrs/0167-shared-radio-analysis-tap.md), [ADR 0168](adrs/0168-beat-detector-now-playing-info.md)). Ownership is inventory `definitionId` (`item-shops:oscilloscope`, `item-shops:beat-detector`); both may be held at once. Do not start a second worker per SKU — call `acquireAnalysisTap` / `releaseAnalysisTap`. The 60 s MPEG backfill is Oscilloscope-only. Beat Detector analyzes float PCM from the tap client-side (no Web Audio element routing).
+
 ### Custom sellback value (per-stack)
 
 Some items need a **sellback** coin amount that depends on the **inventory stack** (e.g. time held via `acquiredAt`), not the shop’s `listedBuybackRate`. Put the pure function in a small module (e.g. **`items/mars-egg/sellbackValue.ts`**) and pass it as **`sellbackValue`** in **`createItem`**. The plugin exposes **`getSellbackValues`**; the server attaches **`sellbackValue`** on each `InventoryItem` in **`USER_GAME_STATE`**, and **`onItemSold`** uses the same handler so the client **Sell (N)** label matches the coins credited. **Game Studio / studio-bridge** import **`@repo/plugin-item-shops/sellback`** (`ITEM_SELLBACK_VALUE_BEHAVIORS` keyed by `shortId`) so preview uses the same math without a per-item package export.

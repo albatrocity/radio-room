@@ -11,7 +11,7 @@ import {
 import {
   __resetAnalysisTapForTests,
   __writeAnalysisTapSamplesForTests,
-  startAnalysisTap,
+  acquireAnalysisTap,
 } from "./mse/analysisTap"
 
 function fakeAudio(): HTMLAudioElement {
@@ -43,7 +43,7 @@ describe("radioAudioTap", () => {
   })
 
   it("serves time-domain data from the analysis tap", () => {
-    startAnalysisTap(44100)
+    acquireAnalysisTap(44100)
     __writeAnalysisTapSamplesForTests(0, new Float32Array([0, 0.5, -0.5, 0]), 44100)
 
     // Stub the MSE element currentTime via module — fillRadioTimeDomainData reads getRadioMseElement()

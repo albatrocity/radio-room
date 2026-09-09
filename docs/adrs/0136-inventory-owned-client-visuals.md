@@ -33,3 +33,5 @@ Radio stream analysis needs a browser `AnalyserNode` on the listen element. Cros
 - [ADR 0114](0114-player-item-gifting-and-trading.md) — gift/trade inventory removal
 - [`docs/SHOP_ITEM_DEVELOPMENT.md`](../SHOP_ITEM_DEVELOPMENT.md) — `availableInRoomTypes`
 - [ADR 0137](0137-radio-stream-player-web-audio.md) — radio Web Audio stream player
+- [ADR 0167](0167-shared-radio-analysis-tap.md) — shared MSE analysis tap (Oscilloscope + Beat Detector)
+- [ADR 0168](0168-beat-detector-now-playing-info.md) — Beat Detector in `nowPlayingInfo`

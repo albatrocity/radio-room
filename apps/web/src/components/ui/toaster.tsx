@@ -52,6 +52,12 @@ export const Toaster = () => {
                     <Button
                       size="sm"
                       variant="ghost"
+                      {...(toast.type === "success"
+                        ? {
+                            color: "white",
+                            _hover: { bg: "whiteAlpha.200" },
+                          }
+                        : {})}
                       onClick={() => {
                         meta.secondaryAction?.onClick()
                         toaster.dismiss(toast.id)
@@ -64,6 +70,16 @@ export const Toaster = () => {
                     <Button
                       size="sm"
                       variant="outline"
+                      {...(toast.type === "success"
+                        ? {
+                            color: "white",
+                            borderColor: "whiteAlpha.700",
+                            _hover: {
+                              bg: "whiteAlpha.200",
+                              borderColor: "white",
+                            },
+                          }
+                        : {})}
                       onClick={() => {
                         toast.action?.onClick?.()
                         toaster.dismiss(toast.id)

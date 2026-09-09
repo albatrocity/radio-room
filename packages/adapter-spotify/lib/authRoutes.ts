@@ -3,18 +3,19 @@ import querystring from "querystring"
 import { AppContext } from "@repo/types"
 import { SpotifyApi } from "@spotify/web-api-ts-sdk"
 import generateRandomString from "./generateRandomString"
-import { storeUserServiceAuth } from "@repo/server/operations/data/serviceAuthentications"
-import { removeUserRoomsSpotifyError } from "@repo/server/operations/data/rooms"
 import { storeUserChallenge } from "@repo/server/operations/userChallenge"
+import { persistSpotifyAuthForRoom } from "./persistSpotifyAuthForRoom"
 
 const stateKey = "spotify_auth_state"
 const redirectKey = "after_spotify_auth_redirect"
 const userIdKey = "spotify_auth_user_id"
+const roomIdKey = "spotify_auth_room_id"
 
 type ReqQuery = {
   userId?: string
   roomTitle?: string
   redirect?: string
+  roomId?: string
 }
 
 export function createSpotifyAuthRoutes(context: AppContext) {
@@ -55,6 +56,10 @@ export function createSpotifyAuthRoutes(context: AppContext) {
     if (validUserId) {
       res.cookie(userIdKey, validUserId, cookieOptions)
     }
+    const requestRoomId = req.query.roomId
+    if (requestRoomId && requestRoomId !== "undefined" && requestRoomId !== "null") {
+      res.cookie(roomIdKey, requestRoomId, cookieOptions)
+    }
 
     const scope =
       "user-read-private user-read-email playlist-modify-public playlist-modify-private user-read-playback-state user-modify-playback-state user-read-currently-playing user-library-read user-library-modify streaming"
@@ -70,6 +75,8 @@ export function createSpotifyAuthRoutes(context: AppContext) {
           scope: scope,
           redirect_uri: redirectUri,
           state: state,
+          // Force the consent screen so Spotify issues a refresh token on re-link.
+          show_dialog: true,
         }),
     )
   })
@@ -81,6 +88,9 @@ export function createSpotifyAuthRoutes(context: AppContext) {
     const storedState = req.cookies ? req.cookies[stateKey] : null
     const redirect = req.cookies ? req.cookies[redirectKey] : null
     const rawOriginalUserId = req.cookies ? req.cookies[userIdKey] : null
+    const rawRoomId = req.cookies ? req.cookies[roomIdKey] : null
+    const roomId =
+      rawRoomId && rawRoomId !== "undefined" && rawRoomId !== "null" ? rawRoomId : null
 
     // Validate originalUserId - treat "undefined" and "null" strings as null
     const originalUserId =
@@ -169,14 +179,14 @@ export function createSpotifyAuthRoutes(context: AppContext) {
 
       const { access_token, refresh_token, expires_in } = tokenData as {
         access_token: string
-        refresh_token: string
+        refresh_token?: string
         expires_in: number
       }
 
       // Get user info from Spotify
       const spotifyApi = SpotifyApi.withAccessToken(clientId, {
         access_token,
-        refresh_token,
+        refresh_token: refresh_token ?? "",
         token_type: "Bearer",
         expires_in,
       })
@@ -196,6 +206,7 @@ export function createSpotifyAuthRoutes(context: AppContext) {
 
       // Clear the userId cookie
       res.clearCookie(userIdKey)
+      res.clearCookie(roomIdKey)
 
       // Update session
       req.session.user = { userId, username }
@@ -214,24 +225,17 @@ export function createSpotifyAuthRoutes(context: AppContext) {
         })
       })
 
-      // Store tokens in authentication store (under Listening Room user ID)
-      await storeUserServiceAuth({
+      // Store tokens under the linking user and room.creator when in a room
+      await persistSpotifyAuthForRoom({
         context,
-        userId,
-        serviceName: "spotify",
+        linkingUserId: userId,
+        roomId,
         tokens: {
           accessToken: access_token,
-          refreshToken: refresh_token,
+          refreshToken: refresh_token ?? "",
           expiresAt: Date.now() + expires_in * 1000,
         },
       })
-
-      // Dismiss room "Spotify disconnected" banners now that tokens are valid again
-      try {
-        await removeUserRoomsSpotifyError({ context, userId })
-      } catch (clearErr) {
-        console.warn("[Spotify Auth] Failed to clear room spotifyError:", clearErr)
-      }
 
       // Save user to Redis (if needed for backward compatibility)
       const userKey = `user:${userId}`

@@ -5,6 +5,35 @@ import {
   spotifyTokenKey,
 } from "./protocol"
 
+async function announceMissingSpotifyAuth(params: {
+  context: AppContext
+  roomId: string
+  creatorUserId: string
+}): Promise<void> {
+  const { context, roomId, creatorUserId } = params
+  try {
+    const existing = await context.redis.pubClient.hGet(`room:${roomId}:details`, "spotifyError")
+    if (existing) return
+  } catch {
+    // Still try to publish; missing hGet should not hide the admin banner.
+  }
+
+  const { publishMetadataAuthError } = await import(
+    "@repo/server/operations/dj/metadataAuthError"
+  )
+  try {
+    await publishMetadataAuthError({
+      context,
+      roomId,
+      creatorUserId,
+      error: new Error("No refresh token available"),
+      source: "spotify",
+    })
+  } catch (e) {
+    console.warn(`[bridge-spotify-token] failed to announce missing auth for ${roomId}:`, e)
+  }
+}
+
 /**
  * Copy the room creator's current Spotify access token into the bridge mailbox.
  * Same auth record search/playback use (`user:{creator}:auth:spotify`) — Redis
@@ -55,6 +84,7 @@ export async function provisionSpotifyTokenForRoom(params: {
 
   if (!accessToken) {
     console.warn(`[bridge-spotify-token] no Spotify token available for room ${roomId}`)
+    await announceMissingSpotifyAuth({ context, roomId, creatorUserId: room.creator })
     return null
   }
 
