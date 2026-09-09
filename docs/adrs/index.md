@@ -174,6 +174,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0166](0166-hifi-playback-devices-skip-wear.md) | Hifi playback devices skip wear (`gentlePlayback`) | Accepted |
 | [0167](0167-shared-radio-analysis-tap.md) | Shared radio analysis tap (refcount + seismograph) | Partially superseded by [0168](0168-beat-detector-now-playing-info.md) |
 | [0168](0168-beat-detector-now-playing-info.md) | Beat Detector in Now Playing info (Spy World SKU) | Accepted |
+| [0169](0169-vu-meter-now-playing-overlay.md) | VU Meter on Now Playing artwork (Sweetwater SKU) | Accepted |
 
 ## Creating a New ADR
 

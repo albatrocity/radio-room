@@ -56,6 +56,7 @@ import type {
 import { greenPeas } from "./green-peas"
 import { oscilloscope } from "./oscilloscope"
 import { beatDetector } from "./beat-detector"
+import { vuMeter } from "./vu-meter"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -114,6 +115,7 @@ export const items = {
   coldBeer,
   oscilloscope,
   beatDetector,
+  vuMeter,
 } as const
 
 /**

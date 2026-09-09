@@ -3,9 +3,11 @@ import type { UserInventory } from "@repo/types"
 import {
   OSCILLOSCOPE_DEFINITION_ID,
   BEAT_DETECTOR_DEFINITION_ID,
+  VU_METER_DEFINITION_ID,
   inventoryNeedsAnalysisTap,
   inventoryOwnsOscilloscope,
   inventoryOwnsBeatDetector,
+  inventoryOwnsVuMeter,
 } from "./oscilloscopeOwnership"
 
 function inv(items: UserInventory["items"]): UserInventory {
@@ -44,14 +46,28 @@ describe("inventoryOwnsBeatDetector", () => {
   })
 })
 
+describe("inventoryOwnsVuMeter", () => {
+  it("returns true only when vu-meter quantity > 0", () => {
+    expect(inventoryOwnsVuMeter(inv([stack(VU_METER_DEFINITION_ID)]))).toBe(true)
+    expect(inventoryOwnsVuMeter(inv([stack(VU_METER_DEFINITION_ID, 0)]))).toBe(false)
+    expect(inventoryOwnsVuMeter(inv([stack(OSCILLOSCOPE_DEFINITION_ID)]))).toBe(false)
+  })
+})
+
 describe("inventoryNeedsAnalysisTap", () => {
-  it("is true when either visual is owned", () => {
+  it("is true when any visual is owned", () => {
     expect(inventoryNeedsAnalysisTap(inv([]))).toBe(false)
     expect(inventoryNeedsAnalysisTap(inv([stack(OSCILLOSCOPE_DEFINITION_ID)]))).toBe(true)
     expect(inventoryNeedsAnalysisTap(inv([stack(BEAT_DETECTOR_DEFINITION_ID)]))).toBe(true)
+    expect(inventoryNeedsAnalysisTap(inv([stack(VU_METER_DEFINITION_ID)]))).toBe(true)
     expect(
       inventoryNeedsAnalysisTap(
         inv([stack(OSCILLOSCOPE_DEFINITION_ID), stack(BEAT_DETECTOR_DEFINITION_ID)]),
+      ),
+    ).toBe(true)
+    expect(
+      inventoryNeedsAnalysisTap(
+        inv([stack(OSCILLOSCOPE_DEFINITION_ID), stack(VU_METER_DEFINITION_ID)]),
       ),
     ).toBe(true)
   })

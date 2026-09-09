@@ -84,7 +84,7 @@ export const oscilloscope = createItem({
 
 Shopping offer assignment filters out SKUs whose list does not include `room.type` ([ADR 0136](adrs/0136-inventory-owned-client-visuals.md)). Gift/trade into other room types remains allowed; client visuals stay inert there. Omit the field for unrestricted SKUs.
 
-**Shared radio analysis tap.** Radio-only visuals that read the MSE stream (Oscilloscope CRT, Beat Detector BPM + pulse) share one refcounted decoder in `apps/web` ([ADR 0167](adrs/0167-shared-radio-analysis-tap.md), [ADR 0168](adrs/0168-beat-detector-now-playing-info.md)). Ownership is inventory `definitionId` (`item-shops:oscilloscope`, `item-shops:beat-detector`); both may be held at once. Do not start a second worker per SKU — call `acquireAnalysisTap` / `releaseAnalysisTap`. The 60 s MPEG backfill is Oscilloscope-only. Beat Detector analyzes float PCM from the tap client-side (no Web Audio element routing).
+**Shared radio analysis tap.** Radio-only visuals that read the MSE stream (Oscilloscope CRT, Beat Detector BPM + pulse, VU Meter needle) share one refcounted decoder in `apps/web` ([ADR 0167](adrs/0167-shared-radio-analysis-tap.md), [ADR 0168](adrs/0168-beat-detector-now-playing-info.md), [ADR 0169](adrs/0169-vu-meter-now-playing-overlay.md)). Ownership is inventory `definitionId` (`item-shops:oscilloscope`, `item-shops:beat-detector`, `item-shops:vu-meter`); any combination may be held at once. Do not start a second worker per SKU — call `acquireAnalysisTap` / `releaseAnalysisTap`. The 60 s MPEG backfill is Oscilloscope-only. Beat Detector analyzes float PCM from the tap client-side; VU Meter reads envelope RMS hops (no Web Audio element routing).
 
 ### Custom sellback value (per-stack)
 

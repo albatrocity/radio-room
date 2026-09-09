@@ -32,9 +32,10 @@ import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginI
 import { labelForMetadataSource, type PluginElementProps } from "@repo/types"
 import { NowPlayingTransport } from "./NowPlayingTransport"
 import { getTrackExternalUrl } from "../../lib/getTrackExternalUrl"
-import { inventoryOwnsBeatDetector } from "../../lib/oscilloscopeOwnership"
+import { inventoryOwnsBeatDetector, inventoryOwnsVuMeter } from "../../lib/oscilloscopeOwnership"
 
 const BeatDetector = lazy(() => import("./BeatDetector"))
+const VuMeter = lazy(() => import("./VuMeter"))
 
 type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 
@@ -110,6 +111,7 @@ export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
   const inventory = useUserInventory()
   const showBeatDetector =
     room?.type === "radio" && inventoryOwnsBeatDetector(inventory)
+  const showVuMeter = room?.type === "radio" && inventoryOwnsVuMeter(inventory)
 
   // Get track data based on user's preference
   const { track: preferredTrack, metadataSource: activeMetadataSource } = useMemo(
@@ -169,18 +171,21 @@ export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
         <ScrollArea.Content>
           <VStack align="start" gap={4} w="100%" data-screen-effect-target="nowPlaying">
             <LinkBox width="100%">
-              <Stack direction={["row", "column"]} gap={5} justify="center">
+              <Stack direction={["row", "column"]} gap={5} justify="center" align="start">
                 {(coverUrl || framedArt) && (
                   <Box
                     position="relative"
                     width={artworkSize}
                     flexShrink={0}
+                    alignSelf="start"
                     data-now-playing-artwork=""
                   >
-                    <Box position="absolute">
-                      <PluginArea area="nowPlayingArt" color="primaryBg" />
-                    </Box>
-                    <Box position="relative" overflow={framedArt ? "visible" : "hidden"} width="100%">
+                    <Box
+                      position="relative"
+                      zIndex={0}
+                      overflow={framedArt ? "visible" : "hidden"}
+                      width="100%"
+                    >
                       {artworkElementProps.obscured ? (
                         <Image
                           src={OBSCURED_ARTWORK_PLACEHOLDER}
@@ -194,6 +199,25 @@ export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
                         <FramedArtwork art={framedArt} size="feature" squareSlot alt="" />
                       ) : (
                         <AlbumArtwork coverUrl={coverUrl!} />
+                      )}
+                      <Box position="absolute" inset={0} zIndex={1}>
+                        <PluginArea area="nowPlayingArt" color="primaryBg" />
+                      </Box>
+                      {showVuMeter && (
+                        <Box
+                          position="absolute"
+                          left={0}
+                          bottom={0}
+                          w={["100%", "50%"]}
+                          p={1}
+                          zIndex={2}
+                          overflow="visible"
+                          pointerEvents="none"
+                        >
+                          <Suspense fallback={null}>
+                            <VuMeter />
+                          </Suspense>
+                        </Box>
                       )}
                     </Box>
                   </Box>

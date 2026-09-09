@@ -38,7 +38,7 @@ The Seismograph SKU (`item-shops:seismograph`) never shipped; it is deleted rath
 
 ## Consequences
 
-- Spy World gains a radio-only gadget SKU; Sweetwater keeps Oscilloscope only.
+- Spy World gains a radio-only gadget SKU; Sweetwater keeps Oscilloscope (and later VU Meter — [0169](0169-vu-meter-now-playing-overlay.md)).
 - Orphan `item-shops:seismograph` stacks (if any local/dev) are inert with no conversion path.
 - Follow-on inventory visuals that need analysis still share the same acquire/release contract.
 
@@ -47,4 +47,5 @@ The Seismograph SKU (`item-shops:seismograph`) never shipped; it is deleted rath
 - [ADR 0136](0136-inventory-owned-client-visuals.md) — inventory-owned client visuals
 - [ADR 0141](0141-radio-mse-transport-and-oscilloscope.md) — MSE transport and Oscilloscope
 - [ADR 0167](0167-shared-radio-analysis-tap.md) — shared analysis tap (refcount + envelope)
+- [ADR 0169](0169-vu-meter-now-playing-overlay.md) — VU Meter on Now Playing artwork
 - [`apps/web/src/components/NowPlaying/BeatDetector.tsx`](../../apps/web/src/components/NowPlaying/BeatDetector.tsx)

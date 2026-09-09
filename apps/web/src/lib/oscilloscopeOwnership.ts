@@ -6,6 +6,9 @@ export const OSCILLOSCOPE_DEFINITION_ID = "item-shops:oscilloscope" as const
 /** Fully-qualified Item Shops beat-detector definition id (ADR 0168). */
 export const BEAT_DETECTOR_DEFINITION_ID = "item-shops:beat-detector" as const
 
+/** Fully-qualified Item Shops vu-meter definition id (ADR 0169). */
+export const VU_METER_DEFINITION_ID = "item-shops:vu-meter" as const
+
 export const PRIMARY_SOLID_CSS_VAR = "--chakra-colors-primary-solid"
 export const PRIMARY_CONTRAST_CSS_VAR = "--chakra-colors-primary-contrast"
 
@@ -29,7 +32,16 @@ export function inventoryOwnsBeatDetector(inventory: UserInventory | null | unde
   return inventoryOwnsDefinition(inventory, BEAT_DETECTOR_DEFINITION_ID)
 }
 
-/** True when either radio visual needs the shared MSE analysis tap. */
+/** True when inventory holds at least one vu-meter stack. */
+export function inventoryOwnsVuMeter(inventory: UserInventory | null | undefined): boolean {
+  return inventoryOwnsDefinition(inventory, VU_METER_DEFINITION_ID)
+}
+
+/** True when any radio visual needs the shared MSE analysis tap. */
 export function inventoryNeedsAnalysisTap(inventory: UserInventory | null | undefined): boolean {
-  return inventoryOwnsOscilloscope(inventory) || inventoryOwnsBeatDetector(inventory)
+  return (
+    inventoryOwnsOscilloscope(inventory) ||
+    inventoryOwnsBeatDetector(inventory) ||
+    inventoryOwnsVuMeter(inventory)
+  )
 }
