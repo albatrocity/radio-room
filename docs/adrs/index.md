@@ -160,11 +160,11 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0152](0152-plugin-authored-core-polls.md) | Plugin-authored core polls (`source.pluginName`, `announce`, `getPollVotes`) | Accepted |
 | [0153](0153-plugin-authored-queue-split.md) | Plugin-authored queue split (`source.pluginName` on `DJService` / `PluginAPI`) | Accepted |
 | [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) | Plugin `emit` may skip `USER_GAME_STATE_INVALIDATED` | Accepted |
-| [0155](0155-physical-media-condition-wear-and-conversion.md) | Physical Media condition, wear, and conversion | Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam). Amended by [0159](0159-physical-media-restoration-items.md) and [0160](0160-playback-device-gating.md) |
+| [0155](0155-physical-media-condition-wear-and-conversion.md) | Physical Media condition, wear, and conversion | Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam). Amended by [0159](0159-physical-media-restoration-items.md), [0160](0160-playback-device-gating.md), and [0170](0170-broken-media-dead-weight.md) |
 | [0156](0156-mutable-inventory-stack-metadata.md) | Mutable inventory stack metadata (`updateItemMetadata`) | Accepted |
 | [0157](0157-physical-media-condition-artwork.md) | Physical Media condition artwork as an overlay modifier | Partially superseded by [0165](0165-physical-media-queue-condition-snapshot.md) (§2 Now Playing always-mint) |
 | [0158](0158-shopping-session-condition-bounds.md) | Shopping session condition bounds (Record Store min/max) | Accepted |
-| [0159](0159-physical-media-restoration-items.md) | Physical Media restoration items (CD Cleaner, Dust Cloth, Pencil; `mediaOrigin` + `mediaOriginTitle` on convert) | Accepted |
+| [0159](0159-physical-media-restoration-items.md) | Physical Media restoration items (CD Cleaner, Dust Cloth, Pencil; `mediaOrigin` + `mediaOriginTitle` on convert) | Accepted. Amended by [0170](0170-broken-media-dead-weight.md) |
 | [0160](0160-playback-device-gating.md) | Playback-device gating (third slot pool, `playbackFormats`) | Accepted. Amended by [0166](0166-hifi-playback-devices-skip-wear.md) |
 | [0161](0161-spotify-device-readiness-on-demand.md) | Spotify SDK device readiness is prepared on demand, not by reload-looping | Accepted |
 | [0162](0162-economy-scale-for-game-sessions.md) | Economy scale for game sessions (`costScale` / `earnScale`, `intent: "exact"`) | Accepted |
@@ -175,6 +175,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0167](0167-shared-radio-analysis-tap.md) | Shared radio analysis tap (refcount + seismograph) | Partially superseded by [0168](0168-beat-detector-now-playing-info.md) |
 | [0168](0168-beat-detector-now-playing-info.md) | Beat Detector in Now Playing info (Spy World SKU) | Accepted |
 | [0169](0169-vu-meter-now-playing-overlay.md) | VU Meter on Now Playing artwork (Sweetwater SKU) | Accepted |
+| [0170](0170-broken-media-dead-weight.md) | Broken media is dead weight (no skip; cheap/common; Green Room delist) | Accepted |
 
 ## Creating a New ADR
 

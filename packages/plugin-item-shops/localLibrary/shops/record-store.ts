@@ -5,9 +5,9 @@ export const RECORD_STORE_SHOP_ID = "record-store"
 
 /** Broken-media SKUs sold alongside derived records (ADR 0155). */
 export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] = [
-  { shortId: items.scratchedCd.shortId, coinValue: 75 },
-  { shortId: items.dustyRecord.shortId, coinValue: 75 },
-  { shortId: items.tangledTape.shortId, coinValue: 75 },
+  { shortId: items.scratchedCd.shortId, coinValue: 10 },
+  { shortId: items.dustyRecord.shortId, coinValue: 10 },
+  { shortId: items.tangledTape.shortId, coinValue: 10 },
   { shortId: items.cdCleaner.shortId, coinValue: 25 },
   { shortId: items.dustCloth.shortId, coinValue: 25 },
   { shortId: items.pencil.shortId, coinValue: 25 },

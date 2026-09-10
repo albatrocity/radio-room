@@ -1,7 +1,7 @@
 # 0159. Physical Media restoration items
 
 **Date:** 2026-09-04
-**Status:** Accepted
+**Status:** Accepted. Amended by [0170](0170-broken-media-dead-weight.md)
 
 ## Context
 
@@ -35,9 +35,10 @@ player holds, inventory and collection alike, without teaching the player which 
    `metadata.mediaOrigin` (`PHYSICAL_MEDIA_ORIGIN_KEY`) with the definitionId of the record that
    wore out, and `metadata.mediaOriginTitle` (`PHYSICAL_MEDIA_ORIGIN_TITLE_KEY`) with the stripped
    album title so Inventory can show the origin hint without loading the origin ItemDefinition into
-   `USER_GAME_STATE`. That also throttles acquisition of a skip-current-track effect and makes the existing
-   "no room to keep it" branch a real 3-slot-bag outcome. Legacy stacks with `quantity` 2–3 keep
-   working; missing origin takes the random-restore path. No migration.
+   `USER_GAME_STATE`. The slot tax makes the existing "no room to keep it" branch a real 3-slot-bag
+   outcome. *(Skip-on-use removed by [ADR 0170](0170-broken-media-dead-weight.md); non-stackable
+   remains for origin metadata and dead-weight inventory cost.)* Legacy stacks with `quantity` 2–3
+   keep working; missing origin takes the random-restore path. No migration.
 
 4. **Restore of a matching broken SKU** consumes it and grants a `poor` copy of a record. Prefer
    `mediaOrigin` when that definition is still registered. Otherwise pick at random from the
@@ -54,8 +55,8 @@ player holds, inventory and collection alike, without teaching the player which 
 
 - Wear and restoration stay consistent because they share one table; XState is not used for this
   synchronous lookup.
-- Broken-media skips are harder to stockpile (one slot each). Rooms that already hold stacked
-  copies are unaffected besides lacking origin metadata.
+- Each broken copy costs an inventory slot (dead weight until restored; [ADR 0170](0170-broken-media-dead-weight.md)).
+  Rooms that already hold stacked copies are unaffected besides lacking origin metadata.
 - Players can waste a cleaner on the wrong target; that is intended.
 - `"mediaItem"` extends the [ADR 0045](0045-inventory-item-targeting.md) union without a new wire
   field. Clients that do not handle the variant still render a plain Use button that omits
@@ -68,4 +69,5 @@ player holds, inventory and collection alike, without teaching the player which 
 - [0155. Physical Media condition, wear, and conversion](0155-physical-media-condition-wear-and-conversion.md)
 - [0156. Mutable inventory stack metadata](0156-mutable-inventory-stack-metadata.md)
 - [0164. Inventory item DOM animations](0164-inventory-item-dom-animations.md)
+- [0170. Broken media is dead weight](0170-broken-media-dead-weight.md)
 - [`packages/plugin-item-shops/items/shared/restoreMedia.ts`](../../packages/plugin-item-shops/items/shared/restoreMedia.ts)

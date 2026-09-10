@@ -517,6 +517,15 @@ describe("getEligibleShops", () => {
     expect(shops.some((s) => s.shopId === "green-room")).toBe(true)
   })
 
+  it("does not list scratched-cd in Green Room", () => {
+    const shops = getEligibleShops(
+      { ...config, enabledShopIds: SHOP_CATALOG.map((s) => s.shopId) },
+      "spotify",
+    )
+    const greenRoom = shops.find((s) => s.shopId === "green-room")
+    expect(greenRoom?.availableItems.some((i) => i.shortId === "scratched-cd")).toBe(false)
+  })
+
   it("keeps oscilloscope, vu-meter, and beat-detector offers in radio rooms and strips them in jukebox/live", () => {
     const radioShops = getEligibleShops(config, "spotify", [], "radio")
     const sweetwaterRadio = radioShops.find((s) => s.shopId === "sweetwater")

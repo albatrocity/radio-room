@@ -1,5 +1,4 @@
 import { createItem } from "../shared/types"
-import { skipCurrentTrackUse } from "../shared/skipCurrentTrack"
 
 export function dustyRecordTransitionMessage(recordName: string): string {
   return `${recordName} got all dusty!`
@@ -9,17 +8,13 @@ export const dustyRecord = createItem({
   shortId: "dusty-record",
   definition: {
     name: "Dusty Record",
-    description:
-      "When was the last time this thing was cleaned? Unplayable. Skips whatever song is currently playing",
+    description: "When was the last time this thing was cleaned? Unplayable.",
     stackable: false,
     maxStack: 1,
     tradeable: true,
-    consumable: true,
-    coinValue: 50,
+    consumable: false,
+    coinValue: 10,
     icon: "Disc3",
-    rarity: "rare",
+    rarity: "common",
   },
-  use: skipCurrentTrackUse({
-    usedMessage: "Used Dusty Record. It was lost with use.",
-  }),
 })

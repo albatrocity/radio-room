@@ -208,7 +208,7 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
    - **Without SDK device**: confirm Spotify.app plays as before
 6. (Optional) Queue a local Navidrome track; confirm mpv audio and artwork (data URI)
 7. (Optional) **Browse / hybrid Search**: Add to Queue → **Browse** (Library index or Spotify search-entry) → album → track; or Search and click an Artist/Album row to deep-link into Browse ([ADR 0090](adrs/0090-hybrid-metadata-catalog-browse.md)).
-8. Empty the queue and trigger a democracy skip / scratched-cd — active daemon source should **stop**
+8. Empty the queue and trigger a democracy skip — active daemon source should **stop**
 9. As room admin, use the **Now Playing scrubber** to seek within the track; with Volume Manager enabled, use its **broadcast volume** slider in Now Playing to change driver volume
 
 ## 7b. Thrift Store Local shelves (optional)

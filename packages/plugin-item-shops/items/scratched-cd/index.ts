@@ -1,5 +1,4 @@
 import { createItem } from "../shared/types"
-import { skipCurrentTrackUse } from "../shared/skipCurrentTrack"
 
 export function scratchedCdTransitionMessage(recordName: string): string {
   return `${recordName} became scratched!`
@@ -9,16 +8,13 @@ export const scratchedCd = createItem({
   shortId: "scratched-cd",
   definition: {
     name: "Scratched CD",
-    description: "It's in pretty bad shape. Skips whatever song is currently playing.",
+    description: "It's in pretty bad shape.",
     stackable: false,
     maxStack: 1,
     tradeable: true,
-    consumable: true,
-    coinValue: 50,
+    consumable: false,
+    coinValue: 10,
     icon: "Disc2",
-    rarity: "rare",
+    rarity: "common",
   },
-  use: skipCurrentTrackUse({
-    usedMessage: "Used Scratched CD. It was lost with use.",
-  }),
 })

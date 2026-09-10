@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest"
 import type { InventoryItem, ItemDefinition, PhysicalMediaFormat } from "@repo/types"
-import { PHYSICAL_MEDIA_CONDITION_KEY, PHYSICAL_MEDIA_ORIGIN_KEY } from "@repo/types"
+import { PHYSICAL_MEDIA_CONDITION_KEY } from "@repo/types"
+import { brokenMediaConvertMetadata } from "@repo/game-logic"
 import { userFactory } from "@repo/factories"
 import { dustyRecordTransitionMessage } from "../dusty-record"
 import { scratchedCdTransitionMessage } from "../scratched-cd"
@@ -213,7 +214,10 @@ describe("pencil degrades discs and vinyl", () => {
         actor.userId,
         `item-shops:${row.brokenShortId}`,
         1,
-        { [PHYSICAL_MEDIA_ORIGIN_KEY]: def.id },
+        brokenMediaConvertMetadata({
+          originDefinitionId: def.id,
+          originRecordName: def.name,
+        }),
         "plugin",
         expect.objectContaining({
           userId: actorId,

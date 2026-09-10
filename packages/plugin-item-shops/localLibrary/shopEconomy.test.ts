@@ -34,10 +34,10 @@ const LIBRARY_CARD = catalogEntry(
 const SCRATCHED = catalogEntry({
   shortId: "scratched-cd",
   name: "Scratched CD",
-  stackable: true,
-  maxStack: 3,
-  consumable: true,
-  coinValue: 75,
+  stackable: false,
+  maxStack: 1,
+  consumable: false,
+  coinValue: 10,
 })
 
 describe("physicalMediaShopEconomyHooks", () => {
