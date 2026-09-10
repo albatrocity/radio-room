@@ -13,7 +13,8 @@ type ToastOptions = {
   action?: { label: string; onClick: () => void }
 }
 
-function resolveDuration(duration: number | null | undefined): number {
+/** `null` = stay until dismissed; omitted uses the default timeout. */
+export function resolveToastDuration(duration: number | null | undefined): number {
   if (duration === null) return Infinity
   if (duration === undefined) return 5000
   return duration
@@ -29,7 +30,7 @@ export function toast(options: ToastOptions) {
     title: options.title,
     description: options.description,
     type,
-    duration: resolveDuration(options.duration),
+    duration: resolveToastDuration(options.duration),
     ...(options.action ? { action: options.action } : {}),
     meta: {
       closable,

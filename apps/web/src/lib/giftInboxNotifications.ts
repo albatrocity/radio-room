@@ -27,7 +27,7 @@ export function raiseGiftOffered(offer?: GiftOffer): void {
       title: "Gift received",
       description: `${fromName} offered you ${label}. Open Trades/Gifts to accept or decline.`,
       type: "info",
-      duration: 8000,
+      duration: null,
       action: "open",
     },
   })

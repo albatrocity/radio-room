@@ -21,7 +21,8 @@ export type NotificationToastSpec = {
   title: string
   description?: string
   type?: "info" | "success" | "warning" | "error"
-  duration?: number
+  /** Milliseconds. `null` keeps the toast until the user dismisses it. */
+  duration?: number | null
   action?: NotificationToastAction
   secondaryAction?: { label: string; onClick: () => void }
 }

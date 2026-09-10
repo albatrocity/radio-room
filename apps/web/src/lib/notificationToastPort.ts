@@ -5,6 +5,7 @@
 
 import { toaster } from "../components/ui/toaster"
 import { navigateToTarget } from "./navigateToNotificationTarget"
+import { resolveToastDuration } from "./toasts"
 import type { NotificationSpec, NotificationToastSpec } from "../types/Notification"
 
 export type NotificationToastCreateInput = {
@@ -32,7 +33,7 @@ export function createNotificationToast(input: NotificationToastCreateInput): vo
     title: toast.title,
     description: toast.description,
     type: toast.type ?? "info",
-    duration: toast.duration ?? 5000,
+    duration: resolveToastDuration(toast.duration),
     closable: true,
     ...(action ? { action } : {}),
     meta: {

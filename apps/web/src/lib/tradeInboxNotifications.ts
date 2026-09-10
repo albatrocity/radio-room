@@ -72,7 +72,7 @@ export function applyTradeInviteOffered(invite?: TradeInvite): void {
       title: "Trade invite",
       description: `${fromName} wants to trade with you.`,
       type: "info",
-      duration: 12000,
+      duration: null,
       action: {
         label: "Accept",
         onClick: () => {

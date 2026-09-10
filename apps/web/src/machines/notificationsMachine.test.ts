@@ -30,7 +30,7 @@ function giftSpec(id = "gift-offer-1"): NotificationSpec {
     toast: {
       title: "Gift received",
       action: "open",
-      duration: 8000,
+      duration: null,
     },
   }
 }
