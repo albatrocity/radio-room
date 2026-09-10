@@ -435,7 +435,13 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
       } catch (error) {
         console.error(`[${this.name}] Timer callback error for "${id}":`, error)
       } finally {
-        this.timers.delete(id)
+        // Only remove our own entry. A callback that re-arms the same id via
+        // startTimer must keep the new handle (otherwise clearTimer becomes a
+        // no-op and the orphaned timeout still fires — e.g. auto-shop reset).
+        const current = this.timers.get(id)
+        if (current?.timeout === timeout) {
+          this.timers.delete(id)
+        }
       }
     }, config.duration)
 

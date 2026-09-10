@@ -458,6 +458,33 @@ describe("BasePlugin", () => {
         expect(callback2).toHaveBeenCalledTimes(1)
       })
 
+      test("should keep a same-id timer re-armed from inside the callback", async () => {
+        const secondCallback = vi.fn()
+        timerPlugin.testStartTimer("test-timer", {
+          duration: 1000,
+          callback: () => {
+            timerPlugin.testStartTimer("test-timer", {
+              duration: 2000,
+              callback: secondCallback,
+            })
+          },
+        })
+
+        await vi.advanceTimersByTimeAsync(1000)
+
+        expect(timerPlugin.testGetTimer("test-timer")).not.toBeNull()
+        expect(timerPlugin.testGetTimer("test-timer")?.duration).toBe(2000)
+        expect(secondCallback).not.toHaveBeenCalled()
+
+        // Original fire time + 999ms must not run the re-armed callback early
+        await vi.advanceTimersByTimeAsync(1999)
+        expect(secondCallback).not.toHaveBeenCalled()
+
+        await vi.advanceTimersByTimeAsync(1)
+        expect(secondCallback).toHaveBeenCalledTimes(1)
+        expect(timerPlugin.testGetTimer("test-timer")).toBeNull()
+      })
+
       test("should store optional data with timer", () => {
         interface TimerData {
           trackId: string
