@@ -1,9 +1,11 @@
-import type { ItemDefinition, ItemUseResult } from "@repo/types"
+import type { ChatMessage, ItemDefinition, ItemUseResult } from "@repo/types"
 import {
-  sendAttributedSystemMessage,
+  maskedAttributionMeta,
   resolveItemUseActorDisplayName,
 } from "./resolveItemUseActorDisplayName"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
+
+const SKIP_ALERT_META: ChatMessage["meta"] = { type: "alert", status: "info" }
 
 export function skipCurrentTrackUse(opts: { usedMessage: string }): ItemUseHandler {
   return async (
@@ -23,10 +25,10 @@ export function skipCurrentTrackUse(opts: { usedMessage: string }): ItemUseHandl
       return { success: false, consumed: false, message: "Could not skip the track." }
     }
     const displayName = await resolveItemUseActorDisplayName(deps, userId)
-    await sendAttributedSystemMessage(
-      deps,
+    await context.api.sendSystemMessage(
+      context.roomId,
       `${displayName.label} put in a ${definition.name} and skipped the current track!`,
-      displayName,
+      { ...SKIP_ALERT_META, ...maskedAttributionMeta(displayName) },
     )
     return { success: true, consumed: true, message: opts.usedMessage }
   }

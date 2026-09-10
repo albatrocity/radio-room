@@ -38,6 +38,7 @@ describe("dustyRecord", () => {
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
       expect.stringContaining(user.username ?? ""),
+      { type: "alert", status: "info" },
     )
   })
 
@@ -79,7 +80,12 @@ describe("dustyRecord", () => {
     expect(deps.context.api.sendSystemMessage).toHaveBeenCalledWith(
       "room-1",
       "Somebody put in a Dusty Record and skipped the current track!",
-      { maskedUserIds: [user.userId], maskedLabel: "Somebody" },
+      {
+        type: "alert",
+        status: "info",
+        maskedUserIds: [user.userId],
+        maskedLabel: "Somebody",
+      },
     )
   })
 
