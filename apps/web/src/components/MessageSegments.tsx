@@ -10,6 +10,25 @@ type InlinePiece = { effects?: TextEffect[]; text: string }
 
 type Row = { type: "inline"; items: InlinePiece[] } | { type: "image"; src: string; alt: string }
 
+function effectsKey(effects?: TextEffect[]): string {
+  return JSON.stringify(effects ?? null)
+}
+
+/** Join adjacent pieces that share the same effects so Markdown spans can cross word boundaries. */
+export function mergeAdjacentSameEffectPieces(items: InlinePiece[]): InlinePiece[] {
+  if (items.length === 0) return items
+  const merged: InlinePiece[] = []
+  for (const item of items) {
+    const prev = merged[merged.length - 1]
+    if (prev && effectsKey(prev.effects) === effectsKey(item.effects)) {
+      prev.text += item.text
+    } else {
+      merged.push({ effects: item.effects, text: item.text })
+    }
+  }
+  return merged
+}
+
 function segmentsToRows(segments: TextSegment[]): Row[] {
   const pieces: Array<
     { type: "inline"; piece: InlinePiece } | { type: "image"; src: string; alt: string }
@@ -31,7 +50,7 @@ function segmentsToRows(segments: TextSegment[]): Row[] {
   for (const p of pieces) {
     if (p.type === "image") {
       if (inlineBuf.length > 0) {
-        rows.push({ type: "inline", items: inlineBuf })
+        rows.push({ type: "inline", items: mergeAdjacentSameEffectPieces(inlineBuf) })
         inlineBuf = []
       }
       rows.push({ type: "image", src: p.src, alt: p.alt })
@@ -40,7 +59,7 @@ function segmentsToRows(segments: TextSegment[]): Row[] {
     }
   }
   if (inlineBuf.length > 0) {
-    rows.push({ type: "inline", items: inlineBuf })
+    rows.push({ type: "inline", items: mergeAdjacentSameEffectPieces(inlineBuf) })
   }
 
   return rows

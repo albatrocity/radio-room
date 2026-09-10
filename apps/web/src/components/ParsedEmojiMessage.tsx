@@ -1,27 +1,24 @@
-import { Image, Link, Text } from "@chakra-ui/react"
+import { Em, Image, Link, Strong, Text } from "@chakra-ui/react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkBreaks from "remark-breaks"
 import remarkGemoji from "remark-gemoji"
 
 function buildMarkdownTheme(inlineParagraphs: boolean) {
+  const inlineDisplay = inlineParagraphs ? "inline" : undefined
   return {
     p: ({ children }) => {
       return (
-        <Text as={inlineParagraphs ? "span" : undefined} display={inlineParagraphs ? "inline" : undefined}>
+        <Text as={inlineParagraphs ? "span" : undefined} display={inlineDisplay}>
           {children}
         </Text>
       )
     },
     em: ({ children }) => {
-      return (
-        <Text as="em" display={inlineParagraphs ? "inline" : undefined}>
-          {children}
-        </Text>
-      )
+      return <Em display={inlineDisplay}>{children}</Em>
     },
     strong: ({ children }) => {
-      return <strong style={{ display: inlineParagraphs ? "inline" : undefined }}>{children}</strong>
+      return <Strong display={inlineDisplay}>{children}</Strong>
     },
     a: ({ children, href }) => {
       return (
@@ -30,7 +27,7 @@ function buildMarkdownTheme(inlineParagraphs: boolean) {
           textDecoration="underline"
           target="_blank"
           href={href}
-          display={inlineParagraphs ? "inline" : undefined}
+          display={inlineDisplay}
         >
           {children}
         </Link>
