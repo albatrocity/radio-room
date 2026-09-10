@@ -1368,13 +1368,62 @@ describe("ItemShopsPlugin local library grants", () => {
     })
 
     it("grants a library-scope item in a bridge room", async () => {
-      const { plugin, inventory } = setup({ playbackControllerId: "bridge", hasLibraryGrant: true })
+      const { plugin, inventory, api } = setup({
+        playbackControllerId: "bridge",
+        hasLibraryGrant: true,
+      })
       const result = await plugin.executeAction("giveItemToUsers", undefined, {
         itemShortId: LIBRARY_GRANT_SHORT_ID,
         userId: "u1",
       })
       expect(result.success).toBe(true)
       expect(inventory.giveItem).toHaveBeenCalled()
+      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+        ROOM,
+        "u1",
+        "You received Library Pass from a mysterious and benevolent presence.",
+        { type: "alert", status: "info" },
+      )
+    })
+
+    it("does not notify when the grant fails", async () => {
+      const { plugin, api } = setup({
+        playbackControllerId: "bridge",
+        hasLibraryGrant: true,
+        giveItemResult: null,
+      })
+      const result = await plugin.executeAction("giveItemToUsers", undefined, {
+        itemShortId: LIBRARY_GRANT_SHORT_ID,
+        userId: "u1",
+      })
+      expect(result.success).toBe(false)
+      expect(api.sendUserSystemMessage).not.toHaveBeenCalled()
+    })
+
+    it("notifies each recipient when granting to everyone", async () => {
+      const { plugin, api } = setup({ playbackControllerId: "bridge" })
+      vi.mocked(api.getUsers).mockResolvedValue([
+        { userId: "u1", username: "U1" },
+        { userId: "u2", username: "U2" },
+      ] as never)
+      const result = await plugin.executeAction("giveItemToUsers", undefined, {
+        itemShortId: "cold-beer",
+        userId: "__all__",
+      })
+      expect(result.success).toBe(true)
+      expect(api.sendUserSystemMessage).toHaveBeenCalledTimes(2)
+      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+        ROOM,
+        "u1",
+        "You received Cold Beer from a mysterious and benevolent presence.",
+        { type: "alert", status: "info" },
+      )
+      expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+        ROOM,
+        "u2",
+        "You received Cold Beer from a mysterious and benevolent presence.",
+        { type: "alert", status: "info" },
+      )
     })
 
     it("give-item picker is a combobox and omits catalog-mode album SKUs", () => {

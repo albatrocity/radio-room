@@ -1065,6 +1065,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       )
       const itemName = catalogEntry?.definition.name ?? itemShortId
       const poolLabel = SLOT_POOL_LABELS[resolveSlotPool(catalogEntry?.definition)]
+      const grantNoticeMeta: ChatMessage["meta"] = { type: "alert", status: "info" }
+      const notifyGrant = async (userId: string) => {
+        await this.context!.api.sendUserSystemMessage(
+          this.context!.roomId,
+          userId,
+          `You received ${itemName} from a mysterious and benevolent presence.`,
+          grantNoticeMeta,
+        )
+      }
 
       if (userIdParam === "__all__") {
         const users = await this.context.api.getUsers(this.context.roomId)
@@ -1072,8 +1081,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         let failed = 0
         for (const u of users) {
           const row = await this.context.inventory.giveItem(u.userId, defId, 1, undefined, "plugin")
-          if (row) ok++
-          else failed++
+          if (row) {
+            ok++
+            await notifyGrant(u.userId)
+          } else {
+            failed++
+          }
         }
         if (users.length === 0) {
           return { success: false, message: "No users in this room." }
@@ -1100,6 +1113,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: `Could not grant item (${poolLabel} may be full).`,
         }
       }
+      await notifyGrant(userIdParam)
       return {
         success: true,
         message: `Granted ${itemName}.`,
