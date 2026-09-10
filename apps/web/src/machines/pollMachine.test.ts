@@ -147,7 +147,7 @@ describe("pollMachine", () => {
     expect(actor.getSnapshot().context.myVote?.optionId).toBe("opt-b")
   })
 
-  it("POLL_CLOSED moves poll to history and clears active", () => {
+  it("POLL_CLOSED moves poll to history and keeps it as the closed active poll", () => {
     actor.send({
       type: "INIT",
       data: {
@@ -177,6 +177,93 @@ describe("pollMachine", () => {
     expect(snap.context.myVote).toBeNull()
     expect(snap.context.history).toHaveLength(1)
     expect(snap.context.history[0].poll.status).toBe("closed")
+  })
+
+  it("CLEAR_REVEAL drops a closed poll after the reveal window", () => {
+    actor.send({
+      type: "INIT",
+      data: { activePoll: basePoll(), pollHistory: [] },
+    })
+    actor.send({
+      type: "POLL_CLOSED",
+      data: {
+        poll: basePoll({ status: "closed", closedAt: 9_000 }),
+        results: {
+          pollId: "poll-1",
+          totalVotes: 0,
+          optionTallies: { "opt-a": 0, "opt-b": 0 },
+          winners: [],
+          closedAt: 9_000,
+        },
+      },
+    })
+
+    actor.send({ type: "CLEAR_REVEAL" })
+
+    const snap = actor.getSnapshot()
+    expect(snap.context.activePoll).toBeNull()
+    expect(snap.context.revealResults).toBeNull()
+  })
+
+  it("CLEAR_REVEAL does not wipe a replacement open poll", () => {
+    actor.send({
+      type: "INIT",
+      data: { activePoll: basePoll({ id: "poll-1" }), pollHistory: [] },
+    })
+    actor.send({
+      type: "POLL_CLOSED",
+      data: {
+        poll: basePoll({ id: "poll-1", status: "closed", closedAt: 9_000 }),
+        results: {
+          pollId: "poll-1",
+          totalVotes: 0,
+          optionTallies: { "opt-a": 0, "opt-b": 0 },
+          winners: [],
+          closedAt: 9_000,
+        },
+      },
+    })
+    actor.send({
+      type: "POLL_PUBLISHED",
+      data: { poll: basePoll({ id: "poll-2", publishedAt: 10_000 }) },
+    })
+
+    actor.send({ type: "CLEAR_REVEAL" })
+
+    const snap = actor.getSnapshot()
+    expect(snap.context.activePoll?.id).toBe("poll-2")
+    expect(snap.context.activePoll?.status).toBe("open")
+    expect(snap.context.revealResults).toBeNull()
+  })
+
+  it("POLL_CLOSED for a previous poll does not overwrite a newer active poll", () => {
+    actor.send({
+      type: "INIT",
+      data: { activePoll: basePoll({ id: "poll-1" }), pollHistory: [] },
+    })
+    actor.send({
+      type: "POLL_PUBLISHED",
+      data: { poll: basePoll({ id: "poll-2", publishedAt: 10_000 }) },
+    })
+    actor.send({
+      type: "POLL_CLOSED",
+      data: {
+        poll: basePoll({ id: "poll-1", status: "closed", closedAt: 9_000 }),
+        results: {
+          pollId: "poll-1",
+          totalVotes: 1,
+          optionTallies: { "opt-a": 1, "opt-b": 0 },
+          winners: ["opt-a"],
+          closedAt: 9_000,
+        },
+      },
+    })
+
+    const snap = actor.getSnapshot()
+    expect(snap.context.activePoll?.id).toBe("poll-2")
+    expect(snap.context.activePoll?.status).toBe("open")
+    expect(snap.context.revealResults).toBeNull()
+    expect(snap.context.history[0]?.poll.id).toBe("poll-1")
   })
 
   it("reaches active state on ACTIVATE", () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { createActor } from "xstate"
 import { pollCardDisplayMachine } from "./pollCardDisplayMachine"
 
@@ -14,6 +14,10 @@ describe("pollCardDisplayMachine", () => {
         delete store[key]
       },
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it("starts from hydrated mode", () => {
@@ -58,5 +62,57 @@ describe("pollCardDisplayMachine", () => {
     actor.send({ type: "REVEAL_TIMEOUT" })
     expect(actor.getSnapshot().value).toBe("collapsed")
     expect(actor.getSnapshot().context.revealStartedAt).toBeNull()
+  })
+
+  it("cancels reveal and expands when a replacement poll is published", () => {
+    vi.useFakeTimers()
+    const onRevealTimeout = vi.fn()
+    const actor = createActor(
+      pollCardDisplayMachine.provide({
+        actions: { onRevealTimeout },
+      }),
+      {
+        input: { roomId: "room-1", pollId: "poll-1", initialMode: "expanded" },
+      },
+    )
+    actor.start()
+
+    actor.send({ type: "POLL_CLOSED" })
+    expect(actor.getSnapshot().value).toBe("revealing")
+
+    actor.send({ type: "NEW_POLL_PUBLISHED", pollId: "poll-2" })
+    expect(actor.getSnapshot().value).toBe("expanded")
+    expect(actor.getSnapshot().context.pollId).toBe("poll-2")
+    expect(actor.getSnapshot().context.revealStartedAt).toBeNull()
+
+    vi.advanceTimersByTime(20_000)
+    expect(onRevealTimeout).not.toHaveBeenCalled()
+    expect(actor.getSnapshot().value).toBe("expanded")
+    vi.useRealTimers()
+  })
+
+  it("hydrates out of revealing onto the replacement poll", () => {
+    const onRevealTimeout = vi.fn()
+    const actor = createActor(
+      pollCardDisplayMachine.provide({
+        actions: { onRevealTimeout },
+      }),
+      {
+        input: { roomId: "room-1", pollId: "poll-1", initialMode: "expanded" },
+      },
+    )
+    actor.start()
+
+    actor.send({ type: "POLL_CLOSED" })
+    actor.send({
+      type: "HYDRATE",
+      roomId: "room-1",
+      pollId: "poll-2",
+      mode: "expanded",
+    })
+
+    expect(actor.getSnapshot().value).toBe("expanded")
+    expect(actor.getSnapshot().context.pollId).toBe("poll-2")
+    expect(onRevealTimeout).not.toHaveBeenCalled()
   })
 })

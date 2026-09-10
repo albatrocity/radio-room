@@ -206,6 +206,14 @@ export const pollMachine = setup({
         poll: event.data.poll,
         results: event.data.results,
       }
+      const history = mergeHistory(context.history, [entry])
+      // Queue Theme (and any plugin) can close poll A and publish poll B in one
+      // cycle. If B is already active, keep it — only record A's results.
+      const isCurrentPoll =
+        context.activePoll != null && context.activePoll.id === event.data.poll.id
+      if (!isCurrentPoll) {
+        return { history }
+      }
       return {
         activePoll: event.data.poll,
         myVote: null,
@@ -213,7 +221,7 @@ export const pollMachine = setup({
         votePending: false,
         totalVotes: null,
         revealResults: event.data.results,
-        history: mergeHistory(context.history, [entry]),
+        history,
       }
     }),
     removeFromHistory: assign(({ context, event }) => {
@@ -241,9 +249,16 @@ export const pollMachine = setup({
         optionId: event.data.optionId,
       })
     },
-    clearReveal: assign({
-      activePoll: () => null,
-      revealResults: () => null,
+    clearReveal: assign(({ context }) => {
+      // Reveal timeout must not wipe a poll that replaced the closed one
+      // (Queue Theme TRACK_CHANGED: close + immediately create).
+      if (context.activePoll?.status === "open") {
+        return { revealResults: null }
+      }
+      return {
+        activePoll: null,
+        revealResults: null,
+      }
     }),
     markAnimationSeen: assign(({ context, event }) => {
       if (event.type !== "MARK_ANIMATION_SEEN") return {}

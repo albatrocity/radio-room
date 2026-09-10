@@ -122,6 +122,35 @@ export const pollCardDisplayMachine = setup({
     }
   },
   initial: "boot",
+  // Replacement polls (Queue Theme close+open) must cancel reveal from any
+  // state, including `revealing` — otherwise the 20s timer still CLEAR_REVEALs
+  // and wipes the new open poll from pollMachine.
+  on: {
+    NEW_POLL_PUBLISHED: {
+      guard: "isNewPoll",
+      target: ".expanded",
+      actions: ["setPollContext", "persistExpanded", "clearRevealTiming"],
+    },
+    HYDRATE: [
+      {
+        guard: ({ event }) =>
+          event.type === "HYDRATE" && toMachineMode(event.mode) === "collapsed",
+        target: ".collapsed",
+        actions: ["hydrateFromStorage"],
+      },
+      {
+        guard: ({ event }) =>
+          event.type === "HYDRATE" && toMachineMode(event.mode) === "dismissed",
+        target: ".dismissed",
+        actions: ["hydrateFromStorage"],
+      },
+      {
+        guard: ({ event }) => event.type === "HYDRATE",
+        target: ".expanded",
+        actions: ["hydrateFromStorage"],
+      },
+    ],
+  },
   states: {
     boot: {
       always: [
@@ -148,30 +177,6 @@ export const pollCardDisplayMachine = setup({
             revealStartedAt: Date.now(),
           })),
         },
-        NEW_POLL_PUBLISHED: {
-          guard: "isNewPoll",
-          target: "expanded",
-          actions: ["setPollContext", "persistExpanded"],
-        },
-        HYDRATE: [
-          {
-            guard: ({ event }) =>
-              event.type === "HYDRATE" && toMachineMode(event.mode) === "collapsed",
-            target: "collapsed",
-            actions: ["hydrateFromStorage"],
-          },
-          {
-            guard: ({ event }) =>
-              event.type === "HYDRATE" && toMachineMode(event.mode) === "dismissed",
-            target: "dismissed",
-            actions: ["hydrateFromStorage"],
-          },
-          {
-            guard: ({ event }) => event.type === "HYDRATE",
-            target: "expanded",
-            actions: ["hydrateFromStorage"],
-          },
-        ],
       },
     },
     collapsed: {
@@ -186,30 +191,6 @@ export const pollCardDisplayMachine = setup({
             revealStartedAt: () => Date.now(),
           }),
         },
-        NEW_POLL_PUBLISHED: {
-          guard: "isNewPoll",
-          target: "expanded",
-          actions: ["setPollContext", "persistExpanded"],
-        },
-        HYDRATE: [
-          {
-            guard: ({ event }) =>
-              event.type === "HYDRATE" && toMachineMode(event.mode) === "expanded",
-            target: "expanded",
-            actions: ["hydrateFromStorage"],
-          },
-          {
-            guard: ({ event }) =>
-              event.type === "HYDRATE" && toMachineMode(event.mode) === "dismissed",
-            target: "dismissed",
-            actions: ["hydrateFromStorage"],
-          },
-          {
-            guard: ({ event }) => event.type === "HYDRATE",
-            target: "collapsed",
-            actions: ["hydrateFromStorage"],
-          },
-        ],
       },
     },
     dismissed: {
@@ -224,30 +205,6 @@ export const pollCardDisplayMachine = setup({
             revealStartedAt: () => Date.now(),
           }),
         },
-        NEW_POLL_PUBLISHED: {
-          guard: "isNewPoll",
-          target: "expanded",
-          actions: ["setPollContext", "persistExpanded"],
-        },
-        HYDRATE: [
-          {
-            guard: ({ event }) =>
-              event.type === "HYDRATE" && toMachineMode(event.mode) === "expanded",
-            target: "expanded",
-            actions: ["hydrateFromStorage"],
-          },
-          {
-            guard: ({ event }) =>
-              event.type === "HYDRATE" && toMachineMode(event.mode) === "collapsed",
-            target: "collapsed",
-            actions: ["hydrateFromStorage"],
-          },
-          {
-            guard: ({ event }) => event.type === "HYDRATE",
-            target: "dismissed",
-            actions: ["hydrateFromStorage"],
-          },
-        ],
       },
     },
     revealing: {

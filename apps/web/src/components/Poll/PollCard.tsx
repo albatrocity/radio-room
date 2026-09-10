@@ -63,7 +63,11 @@ function PollCard() {
     () =>
       pollCardDisplayMachine.provide({
         actions: {
-          onRevealTimeout: () => pollSendRef.current({ type: "CLEAR_REVEAL" }),
+          onRevealTimeout: () => {
+            const active = pollActor.getSnapshot().context.activePoll
+            if (active?.status === "open") return
+            pollSendRef.current({ type: "CLEAR_REVEAL" })
+          },
         },
       }),
     [],
