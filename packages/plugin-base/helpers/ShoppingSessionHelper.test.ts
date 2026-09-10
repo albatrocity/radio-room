@@ -79,8 +79,13 @@ function makeContext(params?: {
     roomId: "room-1",
     storage: {
       get: vi.fn(async () => "true"),
+      del: vi.fn(async () => {}),
+      set: vi.fn(async () => {}),
       hget: vi.fn(async () => JSON.stringify(instance)),
       hset: vi.fn(async () => {}),
+    },
+    api: {
+      sendUserSystemMessage: vi.fn(async () => {}),
     },
     game: {
       getActiveSession: vi.fn(async () => ({ id: "s1", config: {} })),
@@ -264,5 +269,35 @@ describe("ShoppingSessionHelper purchase / sell hooks", () => {
       success: false,
       message: "Playback Devices are full — could not add Cassette Deck.",
     })
+  })
+})
+
+describe("ShoppingSessionHelper opening DMs", () => {
+  it("forwards openingMessageMeta on the private system message", async () => {
+    const { context } = makeContext()
+    const sendUserSystemMessage = context.api.sendUserSystemMessage
+    const shop: ShopCatalogEntry = {
+      ...SHOP,
+      openingMessage: "Hi from {{shopName}}!",
+      openingMessageMeta: { type: "alert", status: "info", title: "Message from your Sweetwater Rep" },
+    }
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [shop])
+    await helper.assignInstanceForUserId("u1")
+
+    expect(sendUserSystemMessage).toHaveBeenCalledWith(
+      "room-1",
+      "u1",
+      "Hi from Record Store!",
+      { type: "alert", status: "info", title: "Message from your Sweetwater Rep" },
+    )
+  })
+
+  it("omits opening meta when the shop does not set it", async () => {
+    const { context } = makeContext()
+    const sendUserSystemMessage = context.api.sendUserSystemMessage
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    await helper.assignInstanceForUserId("u1")
+
+    expect(sendUserSystemMessage).toHaveBeenCalledWith("room-1", "u1", expect.any(String), undefined)
   })
 })

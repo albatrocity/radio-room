@@ -110,6 +110,8 @@ export type ShopCatalogEntry = {
   shopId: string
   name: string
   openingMessage?: string
+  /** Chat meta for the private opening DM (e.g. `{ type: "alert", status: "info" }`). */
+  openingMessageMeta?: ChatMessage["meta"]
   availableItems: ShopAvailableItem[]
   listedBuybackRate: number
   unlistedBuybackRate: number

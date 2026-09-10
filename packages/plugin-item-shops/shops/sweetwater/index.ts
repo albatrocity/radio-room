@@ -1,9 +1,16 @@
 import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"
+import type { ChatMessage } from "@repo/types"
 import { items } from "../../items"
 import { formatSweetwaterMessage, pickRandomSweetwaterMessage } from "./messages"
 
 /** 10 minutes between Sweetwater sales rep follow-ups */
 const SWEETWATER_FOLLOWUP_MS = 10 * 60 * 1000
+
+const SWEETWATER_REP_ALERT_META: ChatMessage["meta"] = {
+  type: "alert",
+  status: "info",
+  title: "Message from your Sweetwater Rep",
+}
 
 type SweetwaterUserState = { username: string; lastPurchasedItemName: string }
 
@@ -32,11 +39,7 @@ async function deliverSweetwaterFollowUpAndReschedule(
 
   const template = pickRandomSweetwaterMessage()
   const content = formatSweetwaterMessage(template, state.username, state.lastPurchasedItemName)
-  await ctx.sendUserSystemMessage(userId, content, {
-    type: "alert",
-    status: "info",
-    title: "Message from your Sweetwater Rep",
-  })
+  await ctx.sendUserSystemMessage(userId, content, SWEETWATER_REP_ALERT_META)
 
   ctx.startTimer(sweetwaterTimerId(userId), {
     duration: SWEETWATER_FOLLOWUP_MS,
@@ -72,6 +75,7 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
   name: "Sweetwater",
   openingMessage:
     "Hi! It's Chuck, from {{shopName}}! Come check out the shop. We can take your sound to the next level! Together :)",
+  openingMessageMeta: SWEETWATER_REP_ALERT_META,
   availableItems: [
     { shortId: items.analogDelayPedal.shortId, coinValue: 20 },
     { shortId: items.compressorPedal.shortId, coinValue: 10 },
