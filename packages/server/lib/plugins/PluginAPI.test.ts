@@ -590,6 +590,89 @@ describe("PluginAPIImpl single-user room lookups", () => {
         expect.objectContaining({ type: "SOUND_EFFECT_QUEUED" }),
       )
     })
+
+    test("includes duck: true on targeted emit when duck is set", async () => {
+      vi.mocked(getOnlineUserSocketId).mockResolvedValue("socket-abc")
+      const { api, emit } = buildApi()
+      api.setPluginContext("queue-theme", roomId)
+
+      await api.queueSoundEffect({
+        url: "https://example.com/ding.mp3",
+        userId,
+        duck: true,
+      })
+
+      expect(emit).toHaveBeenCalledWith("event", {
+        type: "SOUND_EFFECT_QUEUED",
+        data: {
+          roomId,
+          url: "https://example.com/ding.mp3",
+          volume: 1,
+          userId,
+          duck: true,
+        },
+      })
+    })
+
+    test("omits duck from targeted emit when duck is unset", async () => {
+      vi.mocked(getOnlineUserSocketId).mockResolvedValue("socket-abc")
+      const { api, emit } = buildApi()
+      api.setPluginContext("queue-theme", roomId)
+
+      await api.queueSoundEffect({ url: "https://example.com/ding.mp3", userId })
+
+      expect(emit).toHaveBeenCalledWith("event", {
+        type: "SOUND_EFFECT_QUEUED",
+        data: {
+          roomId,
+          url: "https://example.com/ding.mp3",
+          volume: 1,
+          userId,
+        },
+      })
+    })
+
+    test("includes duck: true on room-wide systemEvents emit when duck is set", async () => {
+      const systemEmit = vi.fn()
+      const emit = vi.fn()
+      const to = vi.fn().mockReturnValue({ emit })
+      const context = appContextFactory.build()
+      context.systemEvents = { emit: systemEmit } as AppContext["systemEvents"]
+      const api = new PluginAPIImpl(context, { to } as unknown as Server)
+      api.setPluginContext("queue-theme", roomId)
+
+      await api.queueSoundEffect({
+        url: "https://example.com/ding.mp3",
+        volume: 0.5,
+        duck: true,
+      })
+
+      expect(systemEmit).toHaveBeenCalledWith(roomId, "SOUND_EFFECT_QUEUED", {
+        roomId,
+        url: "https://example.com/ding.mp3",
+        volume: 0.5,
+        duck: true,
+      })
+      expect(to).not.toHaveBeenCalled()
+    })
+
+    test("omits duck from room-wide emit when duck is unset", async () => {
+      const systemEmit = vi.fn()
+      const emit = vi.fn()
+      const to = vi.fn().mockReturnValue({ emit })
+      const context = appContextFactory.build()
+      context.systemEvents = { emit: systemEmit } as AppContext["systemEvents"]
+      const api = new PluginAPIImpl(context, { to } as unknown as Server)
+      api.setPluginContext("queue-theme", roomId)
+
+      await api.queueSoundEffect({ url: "https://example.com/ding.mp3", volume: 0.5 })
+
+      expect(systemEmit).toHaveBeenCalledWith(roomId, "SOUND_EFFECT_QUEUED", {
+        roomId,
+        url: "https://example.com/ding.mp3",
+        volume: 0.5,
+      })
+    })
   })
 
   describe("queueScreenEffect", () => {

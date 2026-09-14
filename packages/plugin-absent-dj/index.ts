@@ -438,6 +438,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
       await this.context.api.queueSoundEffect({
         url: config.soundEffectOnSkipUrl,
         volume: 0.6,
+        duck: true,
       })
     }
 

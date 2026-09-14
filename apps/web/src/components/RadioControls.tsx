@@ -6,12 +6,13 @@ import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import RadioPlayer from "./RadioPlayer"
 import {
   useAudioSend,
+  useDuckGain,
   useIsAudioLoading,
   useIsMuted,
   useIsPlaying,
-  useIsPreviewDucked,
   useVolume,
 } from "../hooks/useActors"
+import { programmeOutput } from "../lib/programmeDuck"
 
 type Props = {
   trackId: string // For reactions (stable ID)
@@ -24,10 +25,10 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
   const audioSend = useAudioSend()
   const playing = useIsPlaying()
   const muted = useIsMuted()
-  const previewDucked = useIsPreviewDucked()
+  const duckGain = useDuckGain()
   const volume = useVolume()
   const loading = useIsAudioLoading()
-  const streamMuted = muted || previewDucked
+  const { outputVolume, outputMuted } = programmeOutput(volume, muted, duckGain)
   const handleVolume = (v: number) => audioSend({ type: "CHANGE_VOLUME", volume: v })
 
   const handlePlayPause = () => audioSend({ type: "TOGGLE" })
@@ -65,8 +66,9 @@ export default function RadioControls({ trackId, onShowPlaylist, hasPlaylist, st
       {streamUrl && (
         <RadioPlayer
           volume={volume}
+          outputVolume={outputVolume}
           playing={playing}
-          muted={streamMuted}
+          muted={outputMuted}
           volumeMuted={muted}
           onVolume={handleVolume}
           onPlayPause={handlePlayPause}

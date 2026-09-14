@@ -208,7 +208,10 @@ describe("LyricHeroPlugin", () => {
     await start(on.plugin, on.context)
     await on.plugin.executeAction("submitGuess", { userId: "u1", username: "A" }, { word: "nope" })
     expect(on.api.queueSoundEffect).toHaveBeenCalledWith(
-      expect.objectContaining({ url: expect.stringContaining("/assets/sfx/") }),
+      expect.objectContaining({
+        url: expect.stringContaining("/assets/sfx/"),
+        duck: true,
+      }),
     )
 
     const off = setup({

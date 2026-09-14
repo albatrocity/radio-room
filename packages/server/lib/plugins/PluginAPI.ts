@@ -1136,12 +1136,14 @@ export class PluginAPIImpl implements PluginAPI {
 
   /**
    * Queue a sound effect. Omit `userId` for room-wide playback; set `userId`
-   * to emit only to that user's socket (ADR 0072).
+   * to emit only to that user's socket (ADR 0072). Set `duck: true` to duck
+   * in-browser programme while the clip plays (ADR 0174).
    */
   async queueSoundEffect(params: {
     url: string
     volume?: number
     userId?: string
+    duck?: boolean
   }): Promise<void> {
     if (!this.roomId) {
       console.warn("[PluginAPI] Cannot queue sound effect: room context not set")
@@ -1154,6 +1156,7 @@ export class PluginAPIImpl implements PluginAPI {
       url: params.url,
       volume,
       ...(params.userId !== undefined ? { userId: params.userId } : {}),
+      ...(params.duck === true ? { duck: true as const } : {}),
     }
 
     // User-targeted: private socket emit (same delivery model as sendUserSystemMessage).

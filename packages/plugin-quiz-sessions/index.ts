@@ -580,9 +580,9 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (config.soundEffectOnCorrect) {
       const url = config.soundEffectOnCorrectUrl ?? ""
       if (mode === "inclusive") {
-        await this.context.api.queueSoundEffect({ url, volume: 0.3, userId })
+        await this.context.api.queueSoundEffect({ url, volume: 0.3, userId, duck: true })
       } else {
-        await this.context.api.queueSoundEffect({ url, volume: 0.3 })
+        await this.context.api.queueSoundEffect({ url, volume: 0.3, duck: true })
       }
     }
 

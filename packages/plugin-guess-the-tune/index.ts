@@ -407,6 +407,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       await this.context.api.queueSoundEffect({
         url: config.soundEffectOnMatchUrl ?? "",
         volume: 0.3,
+        duck: true,
       })
     }
 

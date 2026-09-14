@@ -9,6 +9,7 @@
 import { createActor } from "xstate"
 import { audioMachine } from "../machines/audioMachine"
 import { RoomMeta } from "../types/Room"
+import { effectiveDuckGain } from "../lib/programmeDuck"
 
 // ============================================================================
 // Actor Instance
@@ -55,8 +56,15 @@ export function isMuted(): boolean {
   return audioActor.getSnapshot().matches({ active: { online: { volume: "muted" } } })
 }
 
+export function getDuckGain(): number {
+  return effectiveDuckGain(audioActor.getSnapshot().context.duckSources)
+}
+
+/**
+ * True when programme is fully muted by a duck source (e.g. track preview).
+ */
 export function isPreviewDucked(): boolean {
-  return audioActor.getSnapshot().context.previewDucked
+  return getDuckGain() === 0
 }
 
 /**

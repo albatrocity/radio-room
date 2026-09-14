@@ -10,6 +10,7 @@
 import { useSelector } from "@xstate/react"
 
 import { physicalMediaFramesEnabled } from "../lib/physicalMediaArtwork"
+import { effectiveDuckGain } from "../lib/programmeDuck"
 
 // Import all actors
 import { authActor, sendAuthEvent } from "../actors/authActor"
@@ -481,8 +482,8 @@ export const useIsMuted = () => {
   return useSelector(audioActor, (s) => s.matches({ active: { online: { volume: "muted" } } }))
 }
 
-export const useIsPreviewDucked = () => {
-  return useSelector(audioActor, (s) => s.context.previewDucked)
+export const useDuckGain = () => {
+  return useSelector(audioActor, (s) => effectiveDuckGain(s.context.duckSources))
 }
 
 export const useTrackPreviewStatus = (trackKey: string): TrackPreviewStatus => {

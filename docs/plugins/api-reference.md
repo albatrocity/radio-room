@@ -98,6 +98,7 @@ Play audio sound effects in the room. Sound effects are queued and played one at
 await this.context.api.queueSoundEffect({
   url: "https://example.com/sounds/notification.mp3",
   volume: 0.5, // 0.0 to 1.0, defaults to 1.0
+  duck: true, // duck in-browser radio/live while this clip plays (ADR 0174)
 })
 
 // Play only for one user (ADR 0072)
@@ -105,16 +106,18 @@ await this.context.api.queueSoundEffect({
   url: "https://example.com/sounds/ding.mp3",
   volume: 0.3,
   userId: "user-123",
+  duck: true,
 })
 ```
 
 **Parameters:**
 
-| Parameter | Type     | Required | Description                                                              |
-| --------- | -------- | -------- | ------------------------------------------------------------------------ |
-| `url`     | `string` | Yes      | URL to the audio file (mp3, wav, ogg, etc)                               |
-| `volume`  | `number` | No       | Volume level from 0.0 to 1.0 (default: 1.0)                              |
-| `userId`  | `string` | No       | When set, play only on that user's client; omit for room-wide (ADR 0072) |
+| Parameter | Type      | Required | Description                                                                 |
+| --------- | --------- | -------- | --------------------------------------------------------------------------- |
+| `url`     | `string`  | Yes      | URL to the audio file (mp3, wav, ogg, etc)                                  |
+| `volume`  | `number`  | No       | Volume level from 0.0 to 1.0 (default: 1.0)                                 |
+| `userId`  | `string`  | No       | When set, play only on that user's client; omit for room-wide (ADR 0072)    |
+| `duck`    | `boolean` | No       | When true, duck in-browser radio/live programme while this clip plays (ADR 0174) |
 
 **Example: Play sound on special event**
 
@@ -136,11 +139,12 @@ private async onReactionAdded(data: { roomId: string; reaction: any }): Promise<
 **Notes:**
 
 - Omit `userId` to play on all clients; set `userId` for per-client delivery
+- Set `duck: true` to lower in-browser radio/live programme while the clip plays (ADR 0174; amount is client-owned)
 - Multiple sound effects are queued and played sequentially (one at a time)
 - Audio files must be accessible via HTTPS and support CORS
 - Sound effect volume is capped at the user's current volume setting (sound effects will never be louder than the radio)
 - If a user has muted audio, sound effects are skipped
-- Sound effects use Web Audio API, separate from the radio stream
+- Sound effects use a separate audio element from the radio stream
 
 ### Screen Effects
 

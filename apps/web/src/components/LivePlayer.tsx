@@ -12,11 +12,11 @@ import PlayPauseButton from "./PlayPauseButton"
 import AdminControls from "./AdminControls"
 import {
   useAudioSend,
+  useDuckGain,
   useIsAudioLoading,
   useIsAdmin,
   useIsMuted,
   useIsPlaying,
-  useIsPreviewDucked,
   useVolume,
 } from "../hooks/useActors"
 import { useLiveTransport } from "../hooks/useLiveTransport"
@@ -25,6 +25,7 @@ import {
   registerRadioAudioElement,
   resumeRadioAudioContext,
 } from "../lib/radioAudioTap"
+import { programmeOutput } from "../lib/programmeDuck"
 
 type Props = {
   trackId: string
@@ -44,10 +45,11 @@ const LivePlayer = ({
   const audioSend = useAudioSend()
   const playing = useIsPlaying()
   const muted = useIsMuted()
-  const previewDucked = useIsPreviewDucked()
+  const duckGain = useDuckGain()
   const volume = useVolume()
   const loading = useIsAudioLoading()
   const isAdmin = useIsAdmin()
+  const { outputVolume, outputMuted } = programmeOutput(volume, muted, duckGain)
 
   const { audioRef } = useLiveTransport(whepUrl, hlsUrl, audioSend as
     (event: { type: "LOADED" } | { type: "PLAY" } | { type: "STOP" }) => void)
@@ -72,10 +74,10 @@ const LivePlayer = ({
   useHotkeys("space", () => handlePlayPause())
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = muted || previewDucked ? 0 : volume
-    }
-  }, [volume, muted, previewDucked, audioRef])
+    if (!audioRef.current) return
+    audioRef.current.volume = outputMuted ? 0 : outputVolume
+    audioRef.current.muted = outputMuted
+  }, [outputVolume, outputMuted, audioRef])
 
   useEffect(() => {
     if (!audioRef.current) return

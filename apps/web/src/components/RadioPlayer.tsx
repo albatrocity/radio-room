@@ -27,8 +27,13 @@ import {
 
 interface RadioPlayerProps {
   volume: number
+  /**
+   * Volume applied to the stream element (may be ducked). Slider uses `volume`.
+   * Defaults to `volume` when omitted.
+   */
+  outputVolume?: number
   playing: boolean
-  /** Mute the stream (user mute or preview ducking). */
+  /** Mute the stream (user mute or full programme duck). */
   muted: boolean
   /** User-initiated mute — controls slider display and mute button state. */
   volumeMuted?: boolean
@@ -48,6 +53,7 @@ interface RadioPlayerProps {
 
 const RadioPlayer = ({
   volume,
+  outputVolume,
   playing,
   muted,
   volumeMuted,
@@ -65,6 +71,7 @@ const RadioPlayer = ({
 }: RadioPlayerProps) => {
   const isAdmin = useIsAdmin()
   const showVolumeMuted = volumeMuted ?? muted
+  const streamVolume = outputVolume ?? volume
   /** iOS reserves level to the hardware buttons — hide the slider there. */
   const [volumeSettable, setVolumeSettable] = useState(true)
 
@@ -90,8 +97,8 @@ const RadioPlayer = ({
   }, [streamUrl])
 
   useEffect(() => {
-    setRadioStreamPlayerVolume(volume)
-  }, [volume])
+    setRadioStreamPlayerVolume(streamVolume)
+  }, [streamVolume])
 
   useEffect(() => {
     setRadioStreamPlayerMuted(muted)

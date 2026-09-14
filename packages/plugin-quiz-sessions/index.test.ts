@@ -509,6 +509,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       expect(api.queueSoundEffect).toHaveBeenCalledWith({
         url: "https://ross-brown.s3.amazonaws.com/broadcast/correct.mp3",
         volume: 0.3,
+        duck: true,
       })
 
       // PvP: card animation plays room-wide (no recipientUserId).
@@ -610,6 +611,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
         url: "https://ross-brown.s3.amazonaws.com/broadcast/correct.mp3",
         volume: 0.3,
         userId: "u1",
+        duck: true,
       })
 
       // PvG: card animation plays only for the guesser.

@@ -577,6 +577,7 @@ describe("AbsentDjPlugin", () => {
       expect(mockContext.api.queueSoundEffect).toHaveBeenCalledWith({
         url: "https://example.com/skip.mp3",
         volume: 0.6,
+        duck: true,
       })
     })
 

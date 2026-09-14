@@ -795,22 +795,31 @@ export interface PluginAPI {
    * @param params.url - URL to the sound effect audio file
    * @param params.volume - Volume level (0.0 to 1.0, defaults to 1.0)
    * @param params.userId - Optional recipient; omit for room-wide playback
+   * @param params.duck - When true, duck in-browser radio/live programme while
+   *   this clip plays (ADR 0174). Amount is client-owned (~0.3 remaining gain).
    *
    * @example
    * ```typescript
    * await this.context.api.queueSoundEffect({
    *   url: "https://example.com/sounds/ding.mp3",
    *   volume: 0.8,
+   *   duck: true,
    * })
    * // Play only for one user:
    * await this.context.api.queueSoundEffect({
    *   url: "https://example.com/sounds/ding.mp3",
    *   volume: 0.3,
    *   userId: "user-123",
+   *   duck: true,
    * })
    * ```
    */
-  queueSoundEffect(params: { url: string; volume?: number; userId?: string }): Promise<void>
+  queueSoundEffect(params: {
+    url: string
+    volume?: number
+    userId?: string
+    duck?: boolean
+  }): Promise<void>
 
   /**
    * Queue a screen effect (CSS animation) on a UI target in the room.

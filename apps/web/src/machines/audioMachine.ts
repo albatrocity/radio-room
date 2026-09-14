@@ -4,6 +4,12 @@ import { RoomMeta } from "../types/Room"
 import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import { getListeningAudioTransportForSocket } from "../lib/listeningAudioTransportPreference"
 import { QueueItem } from "../types/Queue"
+import {
+  DuckSource,
+  DuckSources,
+  PREVIEW_DUCK_GAIN,
+  SFX_DUCK_GAIN,
+} from "../lib/programmeDuck"
 
 // ============================================================================
 // Types
@@ -22,8 +28,11 @@ export interface AudioContext {
   streamBufferReady: boolean
   /** User requested play while still offline (e.g. username submit before INIT). */
   playOnReady: boolean
-  /** Track preview is playing — duck the radio stream without flipping mute (ADR 0103). */
-  previewDucked: boolean
+  /**
+   * Active programme duck sources (ADR 0174). Preview = 0 (mute), SFX = 0.3.
+   * Effective remaining gain is Math.min of values, or 1 when empty.
+   */
+  duckSources: DuckSources
 }
 
 type AudioEvent =
@@ -61,6 +70,8 @@ type AudioEvent =
   | { type: "CHANGE_VOLUME"; volume: number }
   | { type: "START_PREVIEW" }
   | { type: "END_PREVIEW" }
+  | { type: "SET_DUCK"; source: DuckSource; gain?: number }
+  | { type: "CLEAR_DUCK"; source: DuckSource }
 
 // ============================================================================
 // Machine
@@ -77,7 +88,7 @@ const defaultContext: AudioContext = {
   subscriptionId: null,
   streamBufferReady: false,
   playOnReady: false,
-  previewDucked: false,
+  duckSources: {},
 }
 
 export const audioMachine = setup({
@@ -216,8 +227,26 @@ export const audioMachine = setup({
     clearStreamBufferReady: assign({ streamBufferReady: false }),
     setPlayOnReady: assign({ playOnReady: true }),
     clearPlayOnReady: assign({ playOnReady: false }),
-    setPreviewDucked: assign({ previewDucked: true }),
-    clearPreviewDucked: assign({ previewDucked: false }),
+    setPreviewDuck: assign(({ context }) => ({
+      duckSources: { ...context.duckSources, preview: PREVIEW_DUCK_GAIN },
+    })),
+    clearPreviewDuck: assign(({ context }) => {
+      const { preview: _removed, ...rest } = context.duckSources
+      return { duckSources: rest }
+    }),
+    setDuckSource: assign(({ context, event }) => {
+      if (event.type !== "SET_DUCK") return {}
+      const gain =
+        event.gain ?? (event.source === "sfx" ? SFX_DUCK_GAIN : PREVIEW_DUCK_GAIN)
+      return {
+        duckSources: { ...context.duckSources, [event.source]: gain },
+      }
+    }),
+    clearDuckSource: assign(({ context, event }) => {
+      if (event.type !== "CLEAR_DUCK") return {}
+      const { [event.source]: _removed, ...rest } = context.duckSources
+      return { duckSources: rest }
+    }),
   },
   guards: {
     shouldAutoPlayFromReady: ({ context }) => context.playOnReady,
@@ -284,10 +313,16 @@ export const audioMachine = setup({
           actions: ["resetAudio"],
         },
         START_PREVIEW: {
-          actions: ["setPreviewDucked"],
+          actions: ["setPreviewDuck"],
         },
         END_PREVIEW: {
-          actions: ["clearPreviewDucked"],
+          actions: ["clearPreviewDuck"],
+        },
+        SET_DUCK: {
+          actions: ["setDuckSource"],
+        },
+        CLEAR_DUCK: {
+          actions: ["clearDuckSource"],
         },
         ROOM_SETTINGS_UPDATED: {
           actions: ["clearDisabledPluginDataFromNowPlaying"],

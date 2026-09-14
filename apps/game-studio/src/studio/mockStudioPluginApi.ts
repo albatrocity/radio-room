@@ -357,6 +357,7 @@ export class MockStudioPluginApi implements PluginAPI {
     url: string
     volume?: number
     userId?: string
+    duck?: boolean
   }): Promise<void> {
     this.room.logEvent("SOUND_EFFECT", params)
   }

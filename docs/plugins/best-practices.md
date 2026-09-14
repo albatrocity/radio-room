@@ -103,6 +103,7 @@ await this.emit("STATE_CHANGED", {
 await this.context.api.queueSoundEffect({
   url: "https://example.com/sounds/ding.mp3",
   volume: 0.5, // Don't blast users at full volume
+  duck: true, // Lower radio/live programme while the cue plays (ADR 0174)
 })
 ```
 

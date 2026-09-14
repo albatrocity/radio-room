@@ -179,6 +179,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0171](0171-chromatic-tuner-now-playing-info.md) | Chromatic Tuner in Now Playing info (Sweetwater SKU) | Accepted |
 | [0172](0172-cooperative-participation-mode.md) | Cooperative participation mode (plugin-local; Lyric Hero) | Accepted |
 | [0173](0173-asset-cdn-cors-for-browser-decoded-media.md) | Asset CDN CORS for browser-decoded media (SFX / Howler) | Accepted |
+| [0174](0174-programme-ducking-for-sound-effects.md) | Programme ducking for sound effects (`duck` on `queueSoundEffect`) | Accepted |
 
 ## Creating a New ADR
 

@@ -233,6 +233,8 @@ export type SystemEventHandlers = {
     volume: number
     /** Present only on user-targeted emits (ADR 0072); room broadcasts omit it. */
     userId?: string
+    /** When true, client ducks programme while this clip plays (ADR 0174). */
+    duck?: boolean
   }) => Promise<void> | void
 
   // Screen effect events

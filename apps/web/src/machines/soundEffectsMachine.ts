@@ -1,6 +1,6 @@
 import { setup, assign } from "xstate"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
-import { getVolume, isMuted } from "../actors/audioActor"
+import { audioActor, getVolume, isMuted } from "../actors/audioActor"
 
 // ============================================================================
 // Types
@@ -9,6 +9,8 @@ import { getVolume, isMuted } from "../actors/audioActor"
 export interface SoundEffect {
   url: string
   volume: number
+  /** When true, duck programme while this clip plays (ADR 0174). */
+  duck?: boolean
 }
 
 export interface SoundEffectsContext {
@@ -21,7 +23,10 @@ export interface SoundEffectsContext {
 type SoundEffectsEvent =
   | { type: "ACTIVATE" }
   | { type: "DEACTIVATE" }
-  | { type: "SOUND_EFFECT_QUEUED"; data: { url: string; volume: number } }
+  | {
+      type: "SOUND_EFFECT_QUEUED"
+      data: { url: string; volume: number; duck?: boolean }
+    }
   | { type: "SOUND_ENDED" }
   | { type: "SOUND_ERROR" }
 
@@ -48,6 +53,14 @@ function stopAndClear(audio: HTMLAudioElement | null) {
   }
 }
 
+function clearSfxDuck() {
+  audioActor.send({ type: "CLEAR_DUCK", source: "sfx" })
+}
+
+function setSfxDuck() {
+  audioActor.send({ type: "SET_DUCK", source: "sfx" })
+}
+
 export const soundEffectsMachine = setup({
   types: {
     context: {} as SoundEffectsContext,
@@ -72,11 +85,13 @@ export const soundEffectsMachine = setup({
       const newEffect: SoundEffect = {
         url: event.data.url,
         volume: event.data.volume,
+        ...(event.data.duck === true ? { duck: true } : {}),
       }
       return { queue: [...context.queue, newEffect] }
     }),
     playNextSound: assign(({ context, self }) => {
       if (context.queue.length === 0) {
+        clearSfxDuck()
         return { currentSound: null }
       }
 
@@ -87,10 +102,17 @@ export const soundEffectsMachine = setup({
       const userMuted = isMuted()
 
       if (userMuted) {
+        clearSfxDuck()
         if (rest.length > 0) {
           self.send({ type: "SOUND_ENDED" })
         }
         return { queue: rest, currentSound: null }
+      }
+
+      if (next.duck) {
+        setSfxDuck()
+      } else {
+        clearSfxDuck()
       }
 
       // Cap SFX at the user's volume. Do NOT set crossOrigin — Howler's global
@@ -119,8 +141,12 @@ export const soundEffectsMachine = setup({
     stopCurrentSound: ({ context }) => {
       stopAndClear(context.currentSound)
     },
+    clearSfxDuckAction: () => {
+      clearSfxDuck()
+    },
     resetSoundEffects: assign(({ context }) => {
       stopAndClear(context.currentSound)
+      clearSfxDuck()
       return defaultContext
     }),
   },
@@ -149,6 +175,7 @@ export const soundEffectsMachine = setup({
       initial: "waiting",
       states: {
         waiting: {
+          entry: ["clearSfxDuckAction"],
           on: {
             SOUND_EFFECT_QUEUED: {
               target: "playing",
@@ -169,6 +196,7 @@ export const soundEffectsMachine = setup({
               },
               {
                 target: "waiting",
+                actions: ["clearSfxDuckAction"],
               },
             ],
             SOUND_ERROR: [
@@ -179,6 +207,7 @@ export const soundEffectsMachine = setup({
               },
               {
                 target: "waiting",
+                actions: ["clearSfxDuckAction"],
               },
             ],
           },

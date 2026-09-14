@@ -484,13 +484,14 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
     if (config?.playSoundEffects === false) return
 
     if ("roomWide" in delivery) {
-      await this.context.api.queueSoundEffect({ url: soundUrl, volume: 0.35 })
+      await this.context.api.queueSoundEffect({ url: soundUrl, volume: 0.75, duck: true })
       return
     }
     await this.context.api.queueSoundEffect({
       url: soundUrl,
-      volume: 0.35,
+      volume: 0.75,
       userId: delivery.userId,
+      duck: true,
     })
   }
 
