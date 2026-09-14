@@ -1,4 +1,4 @@
-import { ECHO_FLAG } from "../textEffects/sizeShift"
+import { ECHO_FLAG } from "../textEffects/flags"
 import { timedModifierEffect } from "../shared/behaviorHelpers"
 import { createItem } from "../shared/types"
 

@@ -38,7 +38,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | Guide | Topics |
 | ----- | ------ |
 | [Game Sessions & Inventory](plugins/game-sessions.md) | Shared score/coin, modifiers, items, defense, `onItemUsed` |
-| [Per-User State](plugins/per-user-state.md) | `contributeToUserGameState`, `pluginUserState`, invalidation, tab attention |
+| [Per-User State](plugins/per-user-state.md) | `contributeToUserGameState`, `pluginUserState`, invalidation, tab attention; Lyric Hero cooperative mode: [ADR 0172](adrs/0172-cooperative-participation-mode.md) |
 | [User Personas](plugins/user-personas.md) | Identity labels, badges, admin assignment |
 | [Shop Helper](plugins/shop-helper.md) | `ShopHelper`, `ShopPlugin`, coin shops, stock management |
 

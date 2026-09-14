@@ -770,6 +770,18 @@ export interface PluginAPI {
   ): Promise<void>
 
   /**
+   * Emit a custom plugin event to one connected user (namespaced like {@link emit}).
+   * Does not persist chat, does not fan out room-wide, and does not queue
+   * `USER_GAME_STATE_INVALIDATED` (use for live per-user puzzle patches).
+   * No-ops with a warning when the user has no connected socket.
+   */
+  emitToUser<T extends Record<string, unknown>>(
+    userId: string,
+    eventName: string,
+    data: T,
+  ): Promise<void>
+
+  /**
    * Queue a sound effect to be played on clients in the room.
    *
    * Sound effects are played one at a time in order. If a sound is already

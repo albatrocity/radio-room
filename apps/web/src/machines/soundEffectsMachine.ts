@@ -1,5 +1,4 @@
 import { setup, assign } from "xstate"
-import { Howl } from "howler"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
 import { getVolume, isMuted } from "../actors/audioActor"
 
@@ -14,7 +13,8 @@ export interface SoundEffect {
 
 export interface SoundEffectsContext {
   queue: SoundEffect[]
-  currentSound: Howl | null
+  /** Native element — avoids Howler's global `crossOrigin=anonymous` patch (CDN SFX). */
+  currentSound: HTMLAudioElement | null
   subscriptionId: string | null
 }
 
@@ -35,6 +35,17 @@ const defaultContext: SoundEffectsContext = {
   queue: [],
   currentSound: null,
   subscriptionId: null,
+}
+
+function stopAndClear(audio: HTMLAudioElement | null) {
+  if (!audio) return
+  try {
+    audio.pause()
+    audio.removeAttribute("src")
+    audio.load()
+  } catch {
+    /* ignore */
+  }
 }
 
 export const soundEffectsMachine = setup({
@@ -70,67 +81,46 @@ export const soundEffectsMachine = setup({
       }
 
       const [next, ...rest] = context.queue
+      stopAndClear(context.currentSound)
 
-      // Clean up previous sound if any
-      if (context.currentSound) {
-        context.currentSound.unload()
-      }
-
-      // Respect user's volume setting - sound effects should not exceed user volume
-      // If user is muted, skip the sound effect entirely
       const userVolume = getVolume()
       const userMuted = isMuted()
 
       if (userMuted) {
-        // Skip this sound and check if there are more in queue
         if (rest.length > 0) {
           self.send({ type: "SOUND_ENDED" })
         }
         return { queue: rest, currentSound: null }
       }
 
-      // Cap the sound effect volume at the user's volume level
+      // Cap SFX at the user's volume. Do NOT set crossOrigin — Howler's global
+      // HTML5 CORS patch (anonymous) breaks CDN hosts without ACAO (ADR 0173).
       const effectiveVolume = Math.min(next.volume, userVolume)
-
-      // Create new Howl instance for the sound effect
-      // Note: We intentionally don't use html5: true here.
-      // Web Audio API mode allows multiple simultaneous sounds and
-      // works better alongside the radio stream (which uses HTML5 Audio).
-      const sound = new Howl({
-        src: [next.url],
-        volume: effectiveVolume,
-        onend: () => {
-          self.send({ type: "SOUND_ENDED" })
-        },
-        onloaderror: () => {
-          console.error("[SoundEffects] Failed to load sound:", next.url)
-          self.send({ type: "SOUND_ERROR" })
-        },
-        onplayerror: () => {
-          console.error("[SoundEffects] Failed to play sound:", next.url)
-          self.send({ type: "SOUND_ERROR" })
-        },
+      const audio = new Audio(next.url)
+      audio.volume = Math.max(0, Math.min(1, effectiveVolume))
+      audio.addEventListener("ended", () => {
+        self.send({ type: "SOUND_ENDED" })
+      })
+      audio.addEventListener("error", () => {
+        console.error("[SoundEffects] Failed to load/play sound:", next.url)
+        self.send({ type: "SOUND_ERROR" })
       })
 
-      sound.play()
+      void audio.play().catch((err) => {
+        console.error("[SoundEffects] play() rejected (autoplay/unlock?):", next.url, err)
+        self.send({ type: "SOUND_ERROR" })
+      })
 
       return {
         queue: rest,
-        currentSound: sound,
+        currentSound: audio,
       }
     }),
     stopCurrentSound: ({ context }) => {
-      if (context.currentSound) {
-        context.currentSound.stop()
-        context.currentSound.unload()
-      }
+      stopAndClear(context.currentSound)
     },
     resetSoundEffects: assign(({ context }) => {
-      // Clean up current sound if playing
-      if (context.currentSound) {
-        context.currentSound.stop()
-        context.currentSound.unload()
-      }
+      stopAndClear(context.currentSound)
       return defaultContext
     }),
   },
@@ -143,13 +133,11 @@ export const soundEffectsMachine = setup({
   initial: "idle",
   context: defaultContext,
   states: {
-    // Idle state - not subscribed to socket events (not in a room)
     idle: {
       on: {
         ACTIVATE: "active",
       },
     },
-    // Active state - subscribed to socket events
     active: {
       entry: ["subscribe"],
       exit: ["unsubscribe", "resetSoundEffects"],
@@ -160,7 +148,6 @@ export const soundEffectsMachine = setup({
       },
       initial: "waiting",
       states: {
-        // Waiting for sound effects to be queued
         waiting: {
           on: {
             SOUND_EFFECT_QUEUED: {
@@ -169,7 +156,6 @@ export const soundEffectsMachine = setup({
             },
           },
         },
-        // Playing a sound effect
         playing: {
           on: {
             SOUND_EFFECT_QUEUED: {

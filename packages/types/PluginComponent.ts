@@ -65,6 +65,7 @@ export type TemplateComponentName =
   | "quiz-question-card"
   | "bingo-card"
   | "queue-theme-brief-card"
+  | "lyric-hero-card"
   | "slider"
 
 /**
@@ -394,6 +395,16 @@ export type BingoCardComponentProps = {}
 export type QueueThemeBriefCardComponentProps = {}
 
 /**
+ * Props for the lyric-hero-card template (Lyric Hero plugin).
+ * Cooperative mode reads the shared puzzle from the plugin store; competitive /
+ * inclusive prefer `pluginUserState` (ADR 0097) with live MY_PUZZLE store merges.
+ */
+export interface LyricHeroCardComponentProps {
+  /** Hint under the guess field. */
+  hint?: string
+}
+
+/**
  * Props for the quiz-question-card template component (Quiz Sessions plugin).
  *
  * The card reads live quiz state from the plugin store; props only tune which
@@ -462,6 +473,7 @@ export interface TemplateComponentPropsMap {
   "quiz-question-card": QuizQuestionCardComponentProps
   "bingo-card": BingoCardComponentProps
   "queue-theme-brief-card": QueueThemeBriefCardComponentProps
+  "lyric-hero-card": LyricHeroCardComponentProps
   slider: SliderComponentProps
 }
 
@@ -548,6 +560,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "quiz-question-card" } & QuizQuestionCardComponentProps)
   | (PluginComponentMetadata & { type: "bingo-card" } & BingoCardComponentProps)
   | (PluginComponentMetadata & { type: "queue-theme-brief-card" } & QueueThemeBriefCardComponentProps)
+  | (PluginComponentMetadata & { type: "lyric-hero-card" } & LyricHeroCardComponentProps)
   | (PluginComponentMetadata & { type: "slider" } & SliderComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs

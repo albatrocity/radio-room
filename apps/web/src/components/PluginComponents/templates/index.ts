@@ -13,6 +13,7 @@ export { ShopOfferTableTemplateComponent } from "./ShopOfferTableComponent"
 export { CurrentShopOffersTemplateComponent } from "./CurrentShopOffersComponent"
 export { QuizQuestionCardTemplateComponent } from "./QuizQuestionCard"
 export { QueueThemeBriefCardTemplateComponent } from "./QueueThemeBriefCard"
+export { LyricHeroCardTemplateComponent } from "./LyricHeroCard"
 export { SliderTemplateComponent } from "./SliderComponent"
 
 // Utilities

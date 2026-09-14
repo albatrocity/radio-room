@@ -208,7 +208,7 @@ getConfigSchema(): PluginConfigSchema {
 
 ### Config import actions
 
-Use `configImport` when an admin should paste bulk content into a config field (typically an `object-array`). **Parsing stays in the plugin** — override `parseConfigImportRows` on `BasePlugin`. Do not put plugin-specific paste grammars in `@repo/utils`. Consumers today include Quiz Sessions (`importQuestions`) and Playlist Bingo (`importCriteria`).
+Use `configImport` when an admin should paste bulk content into a config field (typically an `object-array`). **Parsing stays in the plugin** — override `parseConfigImportRows` on `BasePlugin`. Do not put plugin-specific paste grammars in `@repo/utils`. Consumers today include Quiz Sessions (`importQuestions`), Playlist Bingo (`importCriteria`), and Lyric Hero (`importPhrases`).
 
 ```typescript
 {

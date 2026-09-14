@@ -2,7 +2,7 @@ import {
   PRESENTED_IDENTITY_ANONYMOUS_LABEL,
   hasAnonymousActions,
   resolvePresentedIdentity,
-} from "@repo/plugin-base/helpers"
+} from "@repo/game-logic"
 import type { ItemShopsBehaviorDeps } from "./types"
 
 /** Alias of the canonical label in `@repo/game-logic` (ADR 0149 / 0150). */

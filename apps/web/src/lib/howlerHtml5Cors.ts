@@ -1,13 +1,12 @@
 /**
  * Ensure Howler HTML5 Audio nodes get `crossOrigin = "anonymous"` before `src`
- * is assigned (required for Web Audio AnalyserNode on Icecast/Shoutcast — ADR 0136).
+ * is assigned. Historically required for Web Audio taps on Howler-driven radio
+ * (ADR 0136). Radio listen no longer uses Howler ([ADR 0140](0140-radio-element-playback-oscilloscope-tabled.md));
+ * this patch remains for track-preview Howls that may still need CORS-safe nodes.
  *
- * Howler creates / pools `Audio` in `_obtainHtml5Audio` and only then sets `src`
- * in `Sound.create`. Patching that obtain path covers pool hits and the
- * exhausted-pool `new Audio()` fallback.
- *
- * Must run before the first radio Howl is constructed (module load / import time),
- * not in a useEffect — otherwise Safari plays the stream but Web Audio stays silent.
+ * Plugin SFX must NOT use Howler HTML5 under this patch when the CDN lacks ACAO
+ * ([ADR 0173](../../../../docs/adrs/0173-asset-cdn-cors-for-browser-decoded-media.md)) —
+ * `soundEffectsMachine` plays via a plain `Audio` element instead.
  */
 
 import { Howler } from "howler"

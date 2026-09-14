@@ -41,11 +41,20 @@ resource "aws_s3_bucket_public_access_block" "assets" {
 resource "aws_s3_bucket_cors_configuration" "assets" {
   bucket = aws_s3_bucket.assets.id
 
+  # PUT: browser presigned uploads (newsletter images, music uploads).
   cors_rule {
     allowed_headers = ["*"]
     allowed_methods = ["PUT"]
     allowed_origins = var.cors_allowed_origins
     expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+
+  # GET/HEAD: direct S3 reads (rare; CloudFront is the public path for assets/*).
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["GET", "HEAD"]
+    allowed_origins = var.cors_allowed_origins
     max_age_seconds = 3000
   }
 }
@@ -121,6 +130,32 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
   name = "Managed-CachingOptimized"
 }
 
+# CORS on CDN responses so browsers can decode assets via Web Audio / fetch
+# (Howler default path, canvas, etc.). Origins match S3 PUT CORS allowlist.
+resource "aws_cloudfront_response_headers_policy" "assets_cors" {
+  name    = "${var.bucket_name}-cors"
+  comment = "CORS for Listening Room asset CDN (SFX, images)"
+
+  cors_config {
+    access_control_allow_credentials = false
+
+    access_control_allow_headers {
+      items = ["*"]
+    }
+
+    access_control_allow_methods {
+      items = ["GET", "HEAD", "OPTIONS"]
+    }
+
+    access_control_allow_origins {
+      items = var.cors_allowed_origins
+    }
+
+    access_control_max_age_sec = 600
+    origin_override            = true
+  }
+}
+
 resource "aws_cloudfront_distribution" "assets" {
   enabled         = true
   is_ipv6_enabled = true
@@ -140,7 +175,8 @@ resource "aws_cloudfront_distribution" "assets" {
     target_origin_id       = "s3-assets"
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+    cache_policy_id            = data.aws_cloudfront_cache_policy.caching_optimized.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_cors.id
   }
 
   restrictions {

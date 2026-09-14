@@ -1,4 +1,3 @@
-import { ITEM_SELLBACK_VALUE_BEHAVIORS } from "@repo/plugin-item-shops/sellback"
 import type {
   GameAttributeName,
   GameSession,
@@ -20,12 +19,30 @@ import {
 } from "./stubFeedback.js"
 import type { BridgeSnapshot } from "./types.js"
 
+type SellbackHandler = (item: InventoryItem, def: ItemDefinition) => number | undefined
+let sellbackBehaviors: Record<string, SellbackHandler> | null = null
+
+export async function loadSellbackBehaviors(): Promise<Record<string, SellbackHandler>> {
+  if (sellbackBehaviors) return sellbackBehaviors
+  try {
+    const mod = await import("@repo/plugin-item-shops/sellback")
+    sellbackBehaviors = (mod.ITEM_SELLBACK_VALUE_BEHAVIORS ?? {}) as Record<
+      string,
+      SellbackHandler
+    >
+  } catch (err) {
+    console.warn("[studio-bridge] sellback behaviors unavailable:", err)
+    sellbackBehaviors = {}
+  }
+  return sellbackBehaviors
+}
+
 function attachItemShopsSellback(
   item: InventoryItem,
   def: ItemDefinition | undefined,
 ): InventoryItem {
   if (def?.sourcePlugin !== "item-shops") return item
-  const handler = ITEM_SELLBACK_VALUE_BEHAVIORS[def.shortId]
+  const handler = sellbackBehaviors?.[def.shortId]
   if (!handler) return item
   return { ...item, sellbackValue: handler(item, def) }
 }
@@ -276,7 +293,7 @@ export function buildInitPayload(snap: BridgeSnapshot, self: User) {
     feedbackTopics: snap.feedbackTopics ?? buildStubFeedbackTopics(),
     myFeedbackResponses:
       snap.myFeedbackResponses ??
-      getStudioMyFeedbackResponses(snap.roomId, user.userId, [
+      getStudioMyFeedbackResponses(snap.roomId, self.userId, [
         ...(snap.feedbackTopics ?? buildStubFeedbackTopics()).map((t) => t.id),
         GENERAL_FEEDBACK_TOPIC_ID,
       ]),

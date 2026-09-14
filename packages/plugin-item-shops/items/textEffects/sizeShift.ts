@@ -1,29 +1,15 @@
-import type { TextEffectKind, TextEffectStacks } from "@repo/plugin-base"
 import type { TextEffect, TextSegment } from "@repo/types"
+import type { TextEffectKind, TextEffectStacks } from "../../../plugin-base/helpers/textTransform/types"
 import {
-  MAX_SIZE_SHIFT,
   baseTextSizeFromNetShift,
   textSizeFromNetShift,
-} from "@repo/plugin-base"
+} from "../../../plugin-base/helpers/textTransform/effects"
+import { ECHO_FLAG, GROW_FLAG, SHRINK_FLAG } from "./flags"
 
-/**
- * Cross-folder flag constants for chat text effects.
- *
- * These flags are written by one item (e.g. `boost-pedal` writes `GROW_FLAG`)
- * and read by kinds in this file (`sizeShiftTextEffect`, `echoTextEffect`) plus
- * any item that wants to react to them. Because writer and readers live in
- * different folders, the named constant exists to prevent string drift.
- *
- * **`echoTextEffect`** (multiply phase) appends a leading space plus a copy of each
- * base word segment per echo tier, carrying that segment's non-`size` effects so
- * per-letter `segment` colors compose with delay/echo.
- *
- * Self-contained flags (where one item is both sole writer and sole reader)
- * are inlined as string literals at their item file and have no constant here.
- */
-export const GROW_FLAG = "grow"
-export const SHRINK_FLAG = "shrink"
-export const ECHO_FLAG = "echo"
+export { ECHO_FLAG, GROW_FLAG, SHRINK_FLAG } from "./flags"
+
+/** Mirrors `MAX_SIZE_SHIFT` in plugin-base (NORMAL_INDEX = 4). Keep in sync. */
+const MAX_SIZE_SHIFT = 4
 
 function clampNetShift(shift: number): number {
   if (shift > MAX_SIZE_SHIFT) return MAX_SIZE_SHIFT

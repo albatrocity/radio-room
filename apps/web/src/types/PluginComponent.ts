@@ -54,4 +54,6 @@ export type {
   QuizQuestionCardComponentProps,
   BingoCardComponentProps,
   SliderComponentProps,
+  LyricHeroCardComponentProps,
+  QueueThemeBriefCardComponentProps,
 } from "@repo/types"

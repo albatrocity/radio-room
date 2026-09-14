@@ -259,4 +259,53 @@ export const bridgePluginSchemasForApi = [
       storeKeys: ["uploaderUserIds", "uploadingUserIds"],
     },
   },
+  {
+    name: "lyric-hero",
+    version: "0.0.0-bridge",
+    description: "Lyric Hero (bridge preview stub).",
+    defaultConfig: {
+      enabled: true,
+      mode: "cooperative",
+    },
+    componentSchema: {
+      components: [
+        {
+          id: "lyric-hero-card",
+          type: "lyric-hero-card",
+          area: "aboveChat",
+          showWhen: { field: "roundActive", value: true },
+        },
+        {
+          id: "lyric-hero-tab",
+          type: "tab",
+          area: "gameStateTab",
+          label: "Lyric Hero",
+          icon: "Music2",
+          showWhen: { field: "enabled", value: true },
+          children: [
+            {
+              id: "lyric-hero-leaderboard",
+              type: "leaderboard",
+              area: "gameStateTab",
+              dataKey: "leaderboard",
+              title: "Lyric Hero standings",
+              rowTemplate: "{{username}} — {{score}}",
+              maxItems: 25,
+              showRank: true,
+            },
+          ],
+        },
+      ],
+      storeKeys: [
+        "roundActive",
+        "mode",
+        "phraseIndex",
+        "phraseTotal",
+        "acceptingGuesses",
+        "puzzle",
+        "leaderboard",
+        "statusMessage",
+      ],
+    },
+  },
 ]

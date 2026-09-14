@@ -57,6 +57,7 @@ export type Event =
   | { type: "EDIT_MUSIC_UPLOAD" }
   | { type: "EDIT_QUEUE_THEME" }
   | { type: "EDIT_THE_FED" }
+  | { type: "EDIT_LYRIC_HERO" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -100,6 +101,7 @@ const settingsSectionOn = {
   EDIT_MUSIC_UPLOAD: ".music_upload",
   EDIT_QUEUE_THEME: ".queue_theme",
   EDIT_THE_FED: ".the_fed",
+  EDIT_LYRIC_HERO: ".lyric_hero",
 } as const
 
 export const modalsMachine = setup({
@@ -180,6 +182,7 @@ export const modalsMachine = setup({
         EDIT_MUSIC_UPLOAD: openSettingsSection("music_upload"),
         EDIT_QUEUE_THEME: openSettingsSection("queue_theme"),
         EDIT_THE_FED: openSettingsSection("the_fed"),
+        EDIT_LYRIC_HERO: openSettingsSection("lyric_hero"),
         VIEW_BOOKMARKS: {
           target: ".bookmarks",
           guard: "isAdmin",
@@ -240,6 +243,7 @@ export const modalsMachine = setup({
             music_upload: { on: { BACK: "overview" } },
             queue_theme: { on: { BACK: "overview" } },
             the_fed: { on: { BACK: "overview" } },
+            lyric_hero: { on: { BACK: "overview" } },
           },
         },
         bookmarks: {},

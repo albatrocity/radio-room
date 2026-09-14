@@ -10,7 +10,8 @@ Self-contained Terraform for the Listening Room **newsletter / static asset CDN*
 |----------|---------|
 | `aws_s3_bucket` (+ public access block, ownership) | Private object store |
 | `aws_s3_bucket_lifecycle_configuration` | Auto-delete `uploads/` prefix after 30 days (private music uploads) |
-| `aws_s3_bucket_cors_configuration` | Browser `PUT` from web app + scheduler origins (presigned URLs) |
+| `aws_s3_bucket_cors_configuration` | Browser `PUT` (presigned uploads) + `GET`/`HEAD` from web app + scheduler origins |
+| `aws_cloudfront_response_headers_policy` | CORS on CDN responses so browsers can decode assets (Howler / fetch) |
 | `aws_acm_certificate` + validation | TLS for `cdn.<domain>` (must be **us-east-1**) |
 | `aws_cloudfront_origin_access_control` + `aws_cloudfront_distribution` | CDN in front of S3 |
 | `aws_s3_bucket_policy` | Allow CloudFront `GetObject` on `assets/*` and `newsletter/*` only (`uploads/*` is private) |
@@ -64,7 +65,12 @@ Reuse the same `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from the SES sender
 
 ## CORS origins
 
-`cors_allowed_origins` must include every browser origin that PUTs via presigned URLs. Defaults include local web app (`http://127.0.0.1:8000`, `http://localhost:8000`), local scheduler (`http://127.0.0.1:8001`, `http://localhost:8001`), and production (`https://listeningroom.club`, `https://scheduler.listeningroom.club`). A missing origin makes the browser OPTIONS preflight return **403** and the upload fail with “access control checks”.
+`cors_allowed_origins` must include every browser origin that:
+
+1. **PUTs** via presigned URLs (newsletter images, music uploads), and/or
+2. **GETs** CDN assets that the web app decodes in-browser (plugin SFX via Howler / fetch — see [ADR 0173](../../docs/adrs/0173-asset-cdn-cors-for-browser-decoded-media.md)).
+
+Defaults include local web app (`http://127.0.0.1:8000`, `http://localhost:8000`), local scheduler (`http://127.0.0.1:8001`, `http://localhost:8001`), and production (`https://listeningroom.club`, `https://scheduler.listeningroom.club`). A missing origin makes the browser OPTIONS preflight return **403** (upload) or omit `Access-Control-Allow-Origin` on CDN GETs (Web Audio decode fails).
 
 ## Private music uploads (`uploads/`)
 

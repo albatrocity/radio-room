@@ -177,6 +177,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0169](0169-vu-meter-now-playing-overlay.md) | VU Meter on Now Playing artwork (Sweetwater SKU) | Accepted |
 | [0170](0170-broken-media-dead-weight.md) | Broken media is dead weight (no skip; cheap/common; Green Room delist) | Accepted |
 | [0171](0171-chromatic-tuner-now-playing-info.md) | Chromatic Tuner in Now Playing info (Sweetwater SKU) | Accepted |
+| [0172](0172-cooperative-participation-mode.md) | Cooperative participation mode (plugin-local; Lyric Hero) | Accepted |
+| [0173](0173-asset-cdn-cors-for-browser-decoded-media.md) | Asset CDN CORS for browser-decoded media (SFX / Howler) | Accepted |
 
 ## Creating a New ADR
 

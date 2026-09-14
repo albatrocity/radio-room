@@ -3,7 +3,7 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 
-const vitePort = 8000
+const vitePort = Number(process.env.VITE_DEV_PORT || 8000)
 
 /** Docker bind mounts often don't propagate fs events (especially Docker Desktop). */
 const pollFiles = process.env.VITE_DOCKER === "1" || process.env.CHOKIDAR_USEPOLLING === "true"

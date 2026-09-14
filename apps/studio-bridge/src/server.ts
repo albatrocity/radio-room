@@ -16,6 +16,7 @@ import {
   buildRoomGameStateSnapshot,
   buildRoomMeta,
   buildUserGameStatePayload,
+  loadSellbackBehaviors,
   resolveBridgeUser,
   roomSocketPath,
   studioControlRoomPath,
@@ -46,6 +47,12 @@ import {
   buildStubQuizSessionStarted,
   runStubQuizAction,
 } from "./stubQuiz.js"
+import {
+  LYRIC_HERO_PREVIEW_PLUGIN,
+  buildStubLyricHeroComponentState,
+  buildStubLyricHeroSessionStarted,
+  runStubLyricHeroAction,
+} from "./stubLyricHero.js"
 import {
   buildEffectiveMetadataSourcesEvent,
   requireBrowseableSource,
@@ -81,6 +88,13 @@ function pollPreviewEnabled(socket: Socket): boolean {
 /** When `quizPreview=1` on the Socket.IO handshake query, LOGIN emits a stub quiz SESSION_STARTED. */
 function quizPreviewEnabled(socket: Socket): boolean {
   const q = socket.handshake.query.quizPreview ?? socket.handshake.query.quiz
+  const raw = Array.isArray(q) ? q[0] : q
+  return raw === "1" || raw === "true"
+}
+
+/** When `lyricPreview=1` on the Socket.IO handshake query, LOGIN emits Lyric Hero SESSION_STARTED. */
+function lyricPreviewEnabled(socket: Socket): boolean {
+  const q = socket.handshake.query.lyricPreview ?? socket.handshake.query.lyricHero
   const raw = Array.isArray(q) ? q[0] : q
   return raw === "1" || raw === "true"
 }
@@ -356,6 +370,11 @@ function wireSocketHandlers(io: IOServer): void {
 
         if (quizPreviewEnabled(socket)) {
           const started = buildStubQuizSessionStarted(payload.roomId)
+          socket.emit("event", started)
+        }
+
+        if (lyricPreviewEnabled(socket)) {
+          const started = buildStubLyricHeroSessionStarted(payload.roomId)
           socket.emit("event", started)
         }
       },
@@ -1392,6 +1411,21 @@ function wireSocketHandlers(io: IOServer): void {
           })
           return
         }
+        if (data.pluginName === LYRIC_HERO_PREVIEW_PLUGIN) {
+          const { success, message, events } = runStubLyricHeroAction(
+            roomId,
+            data.action,
+            data.params,
+          )
+          for (const ev of events) {
+            io.to(roomSocketPath(roomId)).emit("event", ev)
+          }
+          socket.emit("event", {
+            type: "PLUGIN_ACTION_RESULT",
+            data: { success, message },
+          })
+          return
+        }
         if (data.pluginName === VOLUME_MANAGER_PLUGIN) {
           const { success, message, events } = runStubVolumeAction(roomId, data.action, data.params)
           for (const ev of events) {
@@ -2148,6 +2182,7 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
       [QUIZ_PREVIEW_PLUGIN]: buildStubQuizComponentState(roomId),
       [VOLUME_MANAGER_PLUGIN]: buildStubVolumeComponentState(roomId),
       [ROUND_ROBIN_PREVIEW_PLUGIN]: buildStubRoundRobinComponentState(roomId),
+      [LYRIC_HERO_PREVIEW_PLUGIN]: buildStubLyricHeroComponentState(roomId),
     },
   })
 })
@@ -2162,7 +2197,9 @@ app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
         ? buildStubVolumeComponentState(roomId)
         : pluginName === ROUND_ROBIN_PREVIEW_PLUGIN
           ? buildStubRoundRobinComponentState(roomId)
-          : {}
+          : pluginName === LYRIC_HERO_PREVIEW_PLUGIN
+            ? buildStubLyricHeroComponentState(roomId)
+            : {}
   res.status(200).json({ state })
 })
 
@@ -2339,6 +2376,8 @@ app.post("/preview/queue-remove-result", (req, res) => {
   res.status(204).end()
 })
 
-httpServer.listen(PORT, "127.0.0.1", () => {
-  console.log(`[studio-bridge] listening on http://127.0.0.1:${PORT}`)
+void loadSellbackBehaviors().then(() => {
+  httpServer.listen(PORT, "127.0.0.1", () => {
+    console.log(`[studio-bridge] listening on http://127.0.0.1:${PORT}`)
+  })
 })

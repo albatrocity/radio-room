@@ -1048,6 +1048,38 @@ export class PluginAPIImpl implements PluginAPI {
     }
   }
 
+  /**
+   * Targeted plugin event (same `PLUGIN:{name}:{event}` namespace as {@link emit}).
+   * Does not invalidate user game state — callers that change contributed bags
+   * should either include the bag in the payload or invalidate explicitly.
+   */
+  async emitToUser<T extends Record<string, unknown>>(
+    userId: string,
+    eventName: string,
+    data: T,
+  ): Promise<void> {
+    if (!this.pluginName || !this.roomId) {
+      console.warn("[PluginAPI] Cannot emitToUser: plugin context not set")
+      return
+    }
+
+    const { emitToUserSocket } = await import("../../lib/emitToUserSocket")
+    const namespacedEvent = `PLUGIN:${this.pluginName}:${eventName}`
+    const payload = {
+      roomId: this.roomId,
+      ...data,
+    }
+
+    await emitToUserSocket({
+      io: this.io,
+      context: this.context,
+      roomId: this.roomId,
+      userId,
+      type: namespacedEvent,
+      data: payload,
+    })
+  }
+
   private queueUserGameStateInvalidation(): void {
     if (!this.pluginName || !this.roomId) return
     const roomId = this.roomId
