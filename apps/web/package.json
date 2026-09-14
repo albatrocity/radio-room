@@ -5,6 +5,8 @@
   "version": "0.1.0",
   "author": "Ross Brown <albatrocity@gmail.com>",
   "dependencies": {
+    "@audio/mir-chroma": "^1.1.2",
+    "@audio/mir-key": "^1.0.1",
     "@chakra-ui/react": "^3.36.1",
     "@dnd-kit/helpers": "^0.3.2",
     "@dnd-kit/react": "^0.3.2",

@@ -176,6 +176,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0168](0168-beat-detector-now-playing-info.md) | Beat Detector in Now Playing info (Spy World SKU) | Accepted |
 | [0169](0169-vu-meter-now-playing-overlay.md) | VU Meter on Now Playing artwork (Sweetwater SKU) | Accepted |
 | [0170](0170-broken-media-dead-weight.md) | Broken media is dead weight (no skip; cheap/common; Green Room delist) | Accepted |
+| [0171](0171-chromatic-tuner-now-playing-info.md) | Chromatic Tuner in Now Playing info (Sweetwater SKU) | Accepted |
 
 ## Creating a New ADR
 

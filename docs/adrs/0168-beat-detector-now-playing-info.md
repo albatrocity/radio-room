@@ -48,4 +48,5 @@ The Seismograph SKU (`item-shops:seismograph`) never shipped; it is deleted rath
 - [ADR 0141](0141-radio-mse-transport-and-oscilloscope.md) — MSE transport and Oscilloscope
 - [ADR 0167](0167-shared-radio-analysis-tap.md) — shared analysis tap (refcount + envelope)
 - [ADR 0169](0169-vu-meter-now-playing-overlay.md) — VU Meter on Now Playing artwork
+- [ADR 0171](0171-chromatic-tuner-now-playing-info.md) — Chromatic Tuner in `nowPlayingInfo`
 - [`apps/web/src/components/NowPlaying/BeatDetector.tsx`](../../apps/web/src/components/NowPlaying/BeatDetector.tsx)

@@ -9,6 +9,9 @@ export const BEAT_DETECTOR_DEFINITION_ID = "item-shops:beat-detector" as const
 /** Fully-qualified Item Shops vu-meter definition id (ADR 0169). */
 export const VU_METER_DEFINITION_ID = "item-shops:vu-meter" as const
 
+/** Fully-qualified Item Shops chromatic-tuner definition id (ADR 0171). */
+export const CHROMATIC_TUNER_DEFINITION_ID = "item-shops:chromatic-tuner" as const
+
 export const PRIMARY_SOLID_CSS_VAR = "--chakra-colors-primary-solid"
 export const PRIMARY_CONTRAST_CSS_VAR = "--chakra-colors-primary-contrast"
 
@@ -37,11 +40,17 @@ export function inventoryOwnsVuMeter(inventory: UserInventory | null | undefined
   return inventoryOwnsDefinition(inventory, VU_METER_DEFINITION_ID)
 }
 
+/** True when inventory holds at least one chromatic-tuner stack. */
+export function inventoryOwnsChromaticTuner(inventory: UserInventory | null | undefined): boolean {
+  return inventoryOwnsDefinition(inventory, CHROMATIC_TUNER_DEFINITION_ID)
+}
+
 /** True when any radio visual needs the shared MSE analysis tap. */
 export function inventoryNeedsAnalysisTap(inventory: UserInventory | null | undefined): boolean {
   return (
     inventoryOwnsOscilloscope(inventory) ||
     inventoryOwnsBeatDetector(inventory) ||
-    inventoryOwnsVuMeter(inventory)
+    inventoryOwnsVuMeter(inventory) ||
+    inventoryOwnsChromaticTuner(inventory)
   )
 }

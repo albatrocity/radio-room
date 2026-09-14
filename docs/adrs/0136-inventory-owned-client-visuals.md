@@ -36,3 +36,4 @@ Radio stream analysis needs a browser `AnalyserNode` on the listen element. Cros
 - [ADR 0167](0167-shared-radio-analysis-tap.md) — shared MSE analysis tap (Oscilloscope + Beat Detector + VU Meter)
 - [ADR 0168](0168-beat-detector-now-playing-info.md) — Beat Detector in `nowPlayingInfo`
 - [ADR 0169](0169-vu-meter-now-playing-overlay.md) — VU Meter on Now Playing artwork
+- [ADR 0171](0171-chromatic-tuner-now-playing-info.md) — Chromatic Tuner in `nowPlayingInfo`

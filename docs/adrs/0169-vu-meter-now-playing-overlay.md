@@ -49,4 +49,5 @@ strip above Add to Queue were tried; the meter belongs on the artwork face inste
 - [ADR 0141](0141-radio-mse-transport-and-oscilloscope.md) — MSE transport and Oscilloscope
 - [ADR 0167](0167-shared-radio-analysis-tap.md) — shared analysis tap (refcount + envelope)
 - [ADR 0168](0168-beat-detector-now-playing-info.md) — Beat Detector in `nowPlayingInfo`
+- [ADR 0171](0171-chromatic-tuner-now-playing-info.md) — Chromatic Tuner in `nowPlayingInfo`
 - [`apps/web/src/components/NowPlaying/VuMeter.tsx`](../../apps/web/src/components/NowPlaying/VuMeter.tsx)

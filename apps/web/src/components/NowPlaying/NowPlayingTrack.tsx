@@ -32,10 +32,11 @@ import { guessTheTuneNowPlayingItemContext } from "../../lib/guessTheTunePluginI
 import { labelForMetadataSource, type PluginElementProps } from "@repo/types"
 import { NowPlayingTransport } from "./NowPlayingTransport"
 import { getTrackExternalUrl } from "../../lib/getTrackExternalUrl"
-import { inventoryOwnsBeatDetector, inventoryOwnsVuMeter } from "../../lib/oscilloscopeOwnership"
+import { inventoryOwnsBeatDetector, inventoryOwnsVuMeter, inventoryOwnsChromaticTuner } from "../../lib/oscilloscopeOwnership"
 
 const BeatDetector = lazy(() => import("./BeatDetector"))
 const VuMeter = lazy(() => import("./VuMeter"))
+const ChromaticTuner = lazy(() => import("./ChromaticTuner"))
 
 type RevealedBy = NonNullable<PluginElementProps["revealedBy"]>
 
@@ -112,6 +113,8 @@ export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
   const showBeatDetector =
     room?.type === "radio" && inventoryOwnsBeatDetector(inventory)
   const showVuMeter = room?.type === "radio" && inventoryOwnsVuMeter(inventory)
+  const showChromaticTuner =
+    room?.type === "radio" && inventoryOwnsChromaticTuner(inventory)
 
   // Get track data based on user's preference
   const { track: preferredTrack, metadataSource: activeMetadataSource } = useMemo(
@@ -272,6 +275,11 @@ export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
                   {showBeatDetector && (
                     <Suspense fallback={null}>
                       <BeatDetector />
+                    </Suspense>
+                  )}
+                  {showChromaticTuner && (
+                    <Suspense fallback={null}>
+                      <ChromaticTuner />
                     </Suspense>
                   )}
                   <PluginArea

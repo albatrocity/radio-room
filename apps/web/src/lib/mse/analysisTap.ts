@@ -1,11 +1,11 @@
 /**
- * MSE-aligned PCM + envelope rings for inventory radio visuals (ADR 0141 / 0167 / 0169).
+ * MSE-aligned PCM + envelope rings for inventory radio visuals (ADR 0141 / 0167 / 0169 / 0171).
  *
  * Decodes the same MP3 frames appended to the MediaSource, keyed by presentation
  * time, so `audio.currentTime` maps directly to sample indices. Refcounted so
- * Oscilloscope, Beat Detector, and VU Meter share one worker. Oscilloscope and
- * Beat Detector read float PCM via `fillPcmAt`; VU Meter reads envelope RMS hops
- * via `fillEnvelopeAt`.
+ * Oscilloscope, Beat Detector, VU Meter, and Chromatic Tuner share one worker.
+ * Oscilloscope, Beat Detector, and Chromatic Tuner read float PCM via `fillPcmAt`;
+ * VU Meter reads envelope RMS hops via `fillEnvelopeAt`.
  */
 
 import { MPEGDecoderWebWorker } from "mpg123-decoder"

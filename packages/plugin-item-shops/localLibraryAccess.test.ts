@@ -526,11 +526,12 @@ describe("getEligibleShops", () => {
     expect(greenRoom?.availableItems.some((i) => i.shortId === "scratched-cd")).toBe(false)
   })
 
-  it("keeps oscilloscope, vu-meter, and beat-detector offers in radio rooms and strips them in jukebox/live", () => {
+  it("keeps oscilloscope, vu-meter, chromatic-tuner, and beat-detector offers in radio rooms and strips them in jukebox/live", () => {
     const radioShops = getEligibleShops(config, "spotify", [], "radio")
     const sweetwaterRadio = radioShops.find((s) => s.shopId === "sweetwater")
     expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(true)
     expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "vu-meter")).toBe(true)
+    expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "chromatic-tuner")).toBe(true)
     const spyWorldRadio = radioShops.find((s) => s.shopId === "spy-world")
     expect(spyWorldRadio?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(true)
 
@@ -538,6 +539,7 @@ describe("getEligibleShops", () => {
     const sweetwaterJukebox = jukeboxShops.find((s) => s.shopId === "sweetwater")
     expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(false)
     expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "vu-meter")).toBe(false)
+    expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "chromatic-tuner")).toBe(false)
     const spyWorldJukebox = jukeboxShops.find((s) => s.shopId === "spy-world")
     expect(spyWorldJukebox?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
 
@@ -545,6 +547,7 @@ describe("getEligibleShops", () => {
     const sweetwaterLive = liveShops.find((s) => s.shopId === "sweetwater")
     expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(false)
     expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "vu-meter")).toBe(false)
+    expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "chromatic-tuner")).toBe(false)
     const spyWorldLive = liveShops.find((s) => s.shopId === "spy-world")
     expect(spyWorldLive?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
   })

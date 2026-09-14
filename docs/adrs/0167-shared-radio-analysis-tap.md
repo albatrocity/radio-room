@@ -48,4 +48,5 @@ hops (§§1–2, 6) remain in force.
 - [ADR 0141](0141-radio-mse-transport-and-oscilloscope.md) — MSE transport and Oscilloscope
 - [ADR 0168](0168-beat-detector-now-playing-info.md) — Beat Detector in `nowPlayingInfo`
 - [ADR 0169](0169-vu-meter-now-playing-overlay.md) — VU Meter envelope consumer on artwork
+- [ADR 0171](0171-chromatic-tuner-now-playing-info.md) — Chromatic Tuner in `nowPlayingInfo`
 - [`apps/web/src/lib/mse/analysisTap.ts`](../../apps/web/src/lib/mse/analysisTap.ts)
