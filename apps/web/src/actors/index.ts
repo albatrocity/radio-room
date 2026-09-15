@@ -231,6 +231,12 @@ export {
   getFeedbackInbox,
 } from "./feedbackActor"
 
+export {
+  whatsNewActor,
+  getWhatsNewMonths,
+  getLatestWhatsNewMonthId,
+} from "./whatsNewActor"
+
 // Quick Access Panels Actor
 export { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 

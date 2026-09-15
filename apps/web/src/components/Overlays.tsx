@@ -15,6 +15,7 @@ import { ModifierBlurLayer } from "./ModifierBlurLayer"
 import DrawerSchedule from "./Drawers/DrawerSchedule"
 import PollHistoryModal from "./Poll/PollHistoryModal"
 import FeedbackModal from "./Feedback/FeedbackModal"
+import ModalWhatsNew from "./Modals/ModalWhatsNew"
 import { useIsAdmin } from "../hooks/useActors"
 import { useIntegratedPanelPresentation } from "../hooks/useIntegratedPanelPresentation"
 
@@ -49,6 +50,7 @@ function Overlays() {
       {showModalSurfaces && <ModalUserGameState />}
       <PollHistoryModal />
       <FeedbackModal />
+      <ModalWhatsNew />
 
       {isAdmin && (
         <Suspense fallback={null}>

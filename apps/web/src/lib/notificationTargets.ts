@@ -16,6 +16,10 @@ export function locationMatchesTarget(
     return true
   }
 
+  if (location.surface === "whatsNew" && target.surface === "whatsNew") {
+    return true
+  }
+
   if (location.surface === "adminSettings" && target.surface === "adminSettings") {
     return location.tabId === target.tabId
   }

@@ -13,6 +13,9 @@ export function navigateToTarget(target: NotificationTarget): void {
     case "feedback":
       sendModalsEvent({ type: "VIEW_FEEDBACK" })
       break
+    case "whatsNew":
+      sendModalsEvent({ type: "VIEW_WHATS_NEW" })
+      break
     case "adminSettings":
       if (target.tabId === "feedback") {
         sendModalsEvent({ type: "EDIT_FEEDBACK" })

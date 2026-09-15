@@ -26,9 +26,11 @@ export type Event =
   | { type: "VIEW_GAME_STATE" }
   | { type: "VIEW_POLL_HISTORY" }
   | { type: "VIEW_FEEDBACK" }
+  | { type: "VIEW_WHATS_NEW" }
   | { type: "CLOSE" }
   | { type: "CLOSE_QUEUE" }
   | { type: "CLOSE_FEEDBACK" }
+  | { type: "CLOSE_WHATS_NEW" }
   | { type: "CLOSE_HELP" }
   | { type: "CREATE_ROOM" }
   | { type: "BACK" }
@@ -136,6 +138,9 @@ export const modalsMachine = setup({
     },
     enterFeedbackLocation: () => {
       notifyNotificationLocation({ surface: "feedback" })
+    },
+    enterWhatsNewLocation: () => {
+      notifyNotificationLocation({ surface: "whatsNew" })
     },
     enterAdminFeedbackLocation: () => {
       notifyNotificationLocation({ surface: "adminSettings", tabId: "feedback" })
@@ -279,6 +284,20 @@ export const modalsMachine = setup({
         closed: {},
         open: {
           entry: ["enterFeedbackLocation"],
+          exit: ["clearNotificationLocation"],
+        },
+      },
+    },
+    whatsNew: {
+      initial: "closed",
+      on: {
+        VIEW_WHATS_NEW: ".open",
+        CLOSE_WHATS_NEW: ".closed",
+      },
+      states: {
+        closed: {},
+        open: {
+          entry: ["enterWhatsNewLocation"],
           exit: ["clearNotificationLocation"],
         },
       },

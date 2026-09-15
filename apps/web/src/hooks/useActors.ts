@@ -52,6 +52,7 @@ import { metadataPreferenceActor } from "../actors/metadataPreferenceActor"
 import { lobbyActor } from "../actors/lobbyActor"
 import { pollActor } from "../actors/pollActor"
 import { feedbackActor } from "../actors/feedbackActor"
+import { whatsNewActor } from "../actors/whatsNewActor"
 import { quickAccessPanelsActor } from "../actors/quickAccessPanelsActor"
 import { addToQueueUiActor } from "../actors/addToQueueUiActor"
 import { gameStateNavActor } from "../actors/gameStateNavActor"
@@ -111,6 +112,7 @@ const sendToLobby = boundSendRef(lobbyActor)
 const sendToAdminListener = boundSendRef(adminListenerStateActor)
 const sendToPoll = boundSendRef(pollActor)
 const sendToFeedback = boundSendRef(feedbackActor)
+const sendToWhatsNew = boundSendRef(whatsNewActor)
 const sendToQuickAccessPanels = boundSendRef(quickAccessPanelsActor)
 const sendToAddToQueueUi = boundSendRef(addToQueueUiActor)
 const sendToMediaBridge = boundSendRef(mediaBridgeActor)
@@ -880,6 +882,20 @@ export const useFeedbackLastFailed = () => {
     at: s.context.lastFailedAt,
   }))
 }
+
+export const useWhatsNewMonths = () => {
+  return useSelector(whatsNewActor, (s) => s.context.months)
+}
+
+export const useLatestWhatsNewMonthId = () => {
+  return useSelector(whatsNewActor, (s) => s.context.latestMonthId)
+}
+
+export const useHasWhatsNewContent = () => {
+  return useSelector(whatsNewActor, (s) => s.context.months.length > 0)
+}
+
+export const useWhatsNewSend = () => sendToWhatsNew
 
 // ============================================================================
 // Quick Access Panels Hooks

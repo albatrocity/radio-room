@@ -1,41 +1,48 @@
 import { Box, Button, Icon, Status, type ButtonProps } from "@chakra-ui/react"
-import { LuMessageSquareHeart } from "react-icons/lu"
-import { useModalsSend, useSurfaceHasNotifications } from "../hooks/useActors"
+import { Gift } from "lucide-react"
+import {
+  useHasWhatsNewContent,
+  useModalsSend,
+  useSurfaceHasNotifications,
+} from "../hooks/useActors"
 
 type Props = {
   variant?: ButtonProps["variant"]
   colorPalette?: ButtonProps["colorPalette"]
   w?: ButtonProps["w"]
   flex?: ButtonProps["flex"]
-  /** Called before opening feedback (e.g. close Preferences / Help). */
+  /** Called before opening Changelog (e.g. close Preferences). */
   beforeOpen?: () => void
   label?: string
 }
 
-/** Opens the listener Feedback modal. */
-function ButtonFeedback({
+/** Opens the listener Changelog modal. Hidden when the changelog has no months. */
+function ButtonWhatsNew({
   variant = "outline",
   colorPalette = "action",
   w,
   flex,
   beforeOpen,
-  label = "Feedback",
+  label = "Changelog",
 }: Props) {
   const modalSend = useModalsSend()
-  const hasFeedbackAttention = useSurfaceHasNotifications("feedback")
+  const hasContent = useHasWhatsNewContent()
+  const hasAttention = useSurfaceHasNotifications("whatsNew")
 
-  const openFeedback = () => {
+  if (!hasContent) return null
+
+  const openWhatsNew = () => {
     beforeOpen?.()
-    modalSend({ type: "VIEW_FEEDBACK" })
+    modalSend({ type: "VIEW_WHATS_NEW" })
   }
 
   return (
     <Box position="relative" w={w} flex={flex} minW={0}>
-      <Button variant={variant} w="100%" colorPalette={colorPalette} onClick={openFeedback}>
-        <Icon as={LuMessageSquareHeart} />
+      <Button variant={variant} w="100%" colorPalette={colorPalette} onClick={openWhatsNew}>
+        <Icon as={Gift} />
         {label}
       </Button>
-      {hasFeedbackAttention ? (
+      {hasAttention ? (
         <Status.Root
           size="sm"
           colorPalette="primary"
@@ -52,4 +59,4 @@ function ButtonFeedback({
   )
 }
 
-export default ButtonFeedback
+export default ButtonWhatsNew

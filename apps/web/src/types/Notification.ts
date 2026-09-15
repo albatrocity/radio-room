@@ -4,6 +4,7 @@ import type { GameStateDetailFrame } from "./GameStateDetail"
 export type NotificationTarget =
   | { surface: "gameState"; tabId: string; frame?: GameStateDetailFrame }
   | { surface: "feedback" }
+  | { surface: "whatsNew" }
   | { surface: "adminSettings"; tabId: "feedback" }
 
 /** Current UI location the user is looking at (fed by nav / panel lifecycle). */
@@ -11,6 +12,7 @@ export type NotificationLocation =
   | { surface: null }
   | { surface: "gameState"; tabId: string; frame: GameStateDetailFrame | null }
   | { surface: "feedback" }
+  | { surface: "whatsNew" }
   | { surface: "adminSettings"; tabId: string }
 
 export type NotificationToastAction =

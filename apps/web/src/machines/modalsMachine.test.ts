@@ -123,6 +123,21 @@ describe("modalsMachine", () => {
     expect(actor.getSnapshot().matches("help.closed")).toBe(true)
   })
 
+  it("keeps game state open when What’s new opens and closes", () => {
+    const actor = createActor(modalsMachine).start()
+
+    actor.send({ type: "VIEW_GAME_STATE" })
+    actor.send({ type: "VIEW_WHATS_NEW" })
+
+    expect(actor.getSnapshot().matches("modal.gameState")).toBe(true)
+    expect(actor.getSnapshot().matches("whatsNew.open")).toBe(true)
+
+    actor.send({ type: "CLOSE_WHATS_NEW" })
+
+    expect(actor.getSnapshot().matches("modal.gameState")).toBe(true)
+    expect(actor.getSnapshot().matches("whatsNew.closed")).toBe(true)
+  })
+
   it("activates game state nav and refreshes when Game State opens", () => {
     const actor = createActor(modalsMachine).start()
     actor.send({ type: "VIEW_GAME_STATE" })

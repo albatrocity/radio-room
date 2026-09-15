@@ -5,6 +5,7 @@ import { LuMoon, LuVolume2, LuZap } from "react-icons/lu"
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
 import ButtonFeedback from "./ButtonFeedback"
+import ButtonWhatsNew from "./ButtonWhatsNew"
 import { ServiceSelect } from "./ServiceSelect"
 import {
   useCurrentRoom,
@@ -32,6 +33,8 @@ const PopoverPreferences = (props: Props) => {
   const preferredSource = usePreferredMetadataSource()
   const sendMetadataPreference = useMetadataPreferenceSend()
   const hasFeedbackAttention = useSurfaceHasNotifications("feedback")
+  const hasWhatsNewAttention = useSurfaceHasNotifications("whatsNew")
+  const hasSettingsAttention = hasFeedbackAttention || hasWhatsNewAttention
   const [open, setOpen] = useState(false)
   const { listeningTransport, persistTransport, isHybrid, hybridReady } =
     useHybridListeningTransport()
@@ -74,7 +77,7 @@ const PopoverPreferences = (props: Props) => {
               secondaryColor={{ base: "action.solid", _dark: "primary.subtle" }}
             />
           </IconButton>
-          {hasFeedbackAttention ? (
+          {hasSettingsAttention ? (
             <Status.Root
               size="sm"
               colorPalette="primary"
@@ -212,7 +215,10 @@ const PopoverPreferences = (props: Props) => {
                   </Box>
                   <Separator />
                   <Box p={2} px={4}>
-                    <ButtonFeedback w="100%" beforeOpen={() => setOpen(false)} />
+                    <HStack align="stretch" gap={2}>
+                      <ButtonWhatsNew flex="1" beforeOpen={() => setOpen(false)} />
+                      <ButtonFeedback flex="1" beforeOpen={() => setOpen(false)} />
+                    </HStack>
                   </Box>
                   {room?.enableSpotifyLogin && (
                     <>

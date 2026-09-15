@@ -1,9 +1,9 @@
 /**
- * Match helpers for the parallel `modalsMachine` (ADR 0128 / 0146).
+ * Match helpers for the parallel `modalsMachine` (ADR 0128 / 0146 / 0177).
  *
- * Region paths (`modal.gameState`, `queue.open`, `feedback.open`, `help.open`)
+ * Region paths (`modal.gameState`, `queue.open`, `feedback.open`, `whatsNew.open`, `help.open`)
  * stay in one place so UI can keep asking for the logical surface name
- * (`"gameState"`, `"queue"`, `"feedback"`, `"help"`).
+ * (`"gameState"`, `"queue"`, `"feedback"`, `"whatsNew"`, `"help"`).
  */
 import type { SnapshotFrom } from "xstate"
 
@@ -18,6 +18,9 @@ export function matchesModals(state: ModalsSnapshot, path: string): boolean {
   if (path === "feedback" || path === "feedback.open") {
     return state.matches("feedback.open")
   }
+  if (path === "whatsNew" || path === "whatsNew.open") {
+    return state.matches("whatsNew.open")
+  }
   if (path === "help" || path === "help.open") {
     return state.matches("help.open")
   }
@@ -29,6 +32,7 @@ export function isModalsIdle(state: ModalsSnapshot): boolean {
     modal: "closed",
     queue: "closed",
     feedback: "closed",
+    whatsNew: "closed",
     help: "closed",
   })
 }

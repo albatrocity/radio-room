@@ -26,6 +26,7 @@ import { trackPreviewActor } from "./trackPreviewActor"
 import { screenEffectsActor } from "./screenEffectsActor"
 import { pollActor } from "./pollActor"
 import { feedbackActor } from "./feedbackActor"
+import { whatsNewActor } from "./whatsNewActor"
 import { quickAccessPanelsActor } from "./quickAccessPanelsActor"
 import { addToQueueUiActor } from "./addToQueueUiActor"
 import { gameStateNavActor } from "./gameStateNavActor"
@@ -119,7 +120,9 @@ export function initializeRoom(roomId: string): void {
   mediaBridgeActor.send({ type: "ACTIVATE" })
   effectiveMetadataSourcesActor.send({ type: "ACTIVATE" })
   giftInboxActor.send({ type: "ACTIVATE" })
+  // After ROOM_ENTERED so RAISE is not wiped by loadPersistedNotifications (ADR 0144).
   notifyRoomEntered(roomId)
+  whatsNewActor.send({ type: "ACTIVATE" })
 
   // Start fetching room data
   fetchRoom(roomId)
@@ -173,6 +176,7 @@ export function teardownRoom(): void {
   screenEffectsActor.send({ type: "DEACTIVATE" })
   pollActor.send({ type: "DEACTIVATE" })
   feedbackActor.send({ type: "DEACTIVATE" })
+  whatsNewActor.send({ type: "DEACTIVATE" })
   quickAccessPanelsActor.send({ type: "DEACTIVATE" })
   addToQueueUiActor.send({ type: "DEACTIVATE" })
   // Activated by modalsMachine gameState entry (ADR 0130), not by room entry; reset

@@ -67,6 +67,10 @@ export function closeModal(): void {
     modalsActor.send({ type: "CLOSE_HELP" })
     return
   }
+  if (matchesModals(snapshot, "whatsNew")) {
+    modalsActor.send({ type: "CLOSE_WHATS_NEW" })
+    return
+  }
   if (matchesModals(snapshot, "feedback")) {
     modalsActor.send({ type: "CLOSE_FEEDBACK" })
     return

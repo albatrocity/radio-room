@@ -48,6 +48,12 @@ describe("locationMatchesTarget", () => {
     ).toBe(true)
   })
 
+  it("matches whatsNew surface", () => {
+    expect(
+      locationMatchesTarget({ surface: "whatsNew" }, { surface: "whatsNew" }),
+    ).toBe(true)
+  })
+
   it("matches adminSettings feedback tab", () => {
     expect(
       locationMatchesTarget(
