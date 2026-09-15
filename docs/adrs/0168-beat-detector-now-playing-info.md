@@ -1,7 +1,7 @@
 # 0168. Beat Detector in Now Playing info
 
 **Date:** 2026-09-09
-**Status:** Accepted
+**Status:** Partially superseded by [0175](0175-item-shop-themes-and-assignment-rarity.md) (shop placement only)
 **Amends:** [0167](0167-shared-radio-analysis-tap.md) (Seismograph SKU / tape layout)
 **Partially supersedes:** [0167](0167-shared-radio-analysis-tap.md) §§3–5 (BPM consumer + second visual SKU)
 
@@ -18,7 +18,8 @@ The Seismograph SKU (`item-shops:seismograph`) never shipped; it is deleted rath
 ## Decision
 
 1. **Beat Detector SKU** — `item-shops:beat-detector`, inert catalog (no `use`), rare, 50 coins,
-   `availableInRoomTypes: ["radio"]`, sold at **Spy World**. Icon `Radar`.
+   `availableInRoomTypes: ["radio"]`, sold at **Sweetwater** ([ADR 0175](0175-item-shop-themes-and-assignment-rarity.md);
+   originally Spy World). Icon `Radar`.
 2. **Mount in `nowPlayingInfo`** — Lazy React in `apps/web`
    (`BeatDetector.tsx`) inside the existing Now Playing metadata column (sibling above
    `<PluginArea area="nowPlayingInfo" />`), gated by inventory ownership. Not a plugin
@@ -38,7 +39,7 @@ The Seismograph SKU (`item-shops:seismograph`) never shipped; it is deleted rath
 
 ## Consequences
 
-- Spy World gains a radio-only gadget SKU; Sweetwater keeps Oscilloscope (and later VU Meter — [0169](0169-vu-meter-now-playing-overlay.md)).
+- Sweetwater sells Beat Detector alongside Oscilloscope / VU Meter / Chromatic Tuner ([ADR 0175](0175-item-shop-themes-and-assignment-rarity.md)).
 - Orphan `item-shops:seismograph` stacks (if any local/dev) are inert with no conversion path.
 - Follow-on inventory visuals that need analysis still share the same acquire/release contract.
 
@@ -49,4 +50,5 @@ The Seismograph SKU (`item-shops:seismograph`) never shipped; it is deleted rath
 - [ADR 0167](0167-shared-radio-analysis-tap.md) — shared analysis tap (refcount + envelope)
 - [ADR 0169](0169-vu-meter-now-playing-overlay.md) — VU Meter on Now Playing artwork
 - [ADR 0171](0171-chromatic-tuner-now-playing-info.md) — Chromatic Tuner in `nowPlayingInfo`
+- [ADR 0175](0175-item-shop-themes-and-assignment-rarity.md) — shop themes; Beat Detector at Sweetwater
 - [`apps/web/src/components/NowPlaying/BeatDetector.tsx`](../../apps/web/src/components/NowPlaying/BeatDetector.tsx)

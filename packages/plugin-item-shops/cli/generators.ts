@@ -33,9 +33,23 @@ export async function generateItemScaffold(
     const updated = await appendShopItem(path, answers.variableName, answers.shops.greenRoom)
     if (updated) changedFiles.push(path)
   }
-  if (answers.shops.startupGuy != null) {
-    const path = join(packageDir, "shops", "index.ts")
-    const updated = await appendStartupGuyItem(path, answers.variableName, answers.shops.startupGuy)
+  if (answers.shops.farmersMarket != null) {
+    const path = join(packageDir, "shops", "farmers-market", "index.ts")
+    const updated = await appendShopItem(path, answers.variableName, answers.shops.farmersMarket)
+    if (updated) changedFiles.push(path)
+  }
+  if (answers.shops.spyWorld != null) {
+    const path = join(packageDir, "shops", "spy-world", "index.ts")
+    const updated = await appendShopItem(path, answers.variableName, answers.shops.spyWorld)
+    if (updated) changedFiles.push(path)
+  }
+  if (answers.shops.recordStore != null) {
+    const path = join(packageDir, "localLibrary", "shops", "record-store.ts")
+    const updated = await appendRecordStoreFixedItem(
+      path,
+      answers.variableName,
+      answers.shops.recordStore,
+    )
     if (updated) changedFiles.push(path)
   }
 
@@ -93,28 +107,27 @@ async function appendShopItem(
   return true
 }
 
-async function appendStartupGuyItem(
-  shopsIndexPath: string,
+async function appendRecordStoreFixedItem(
+  recordStorePath: string,
   variableName: string,
   coinValue: number,
 ): Promise<boolean> {
-  const content = await readFile(shopsIndexPath, "utf8")
+  const content = await readFile(recordStorePath, "utf8")
   const itemExpression = `{ shortId: items.${variableName}.shortId, coinValue: ${coinValue} }`
   if (content.includes(itemExpression)) return false
 
   const replaced = content.replace(
-    /shopId:\s*"startup-guy"([\s\S]*?)availableItems:\s*\[(.*?)\],/s,
-    (_match, prefix: string, list: string) => {
-      const trimmed = list.trim()
-      const nextList = trimmed.length > 0 ? `${trimmed}, ${itemExpression}` : itemExpression
-      return `shopId: "startup-guy"${prefix}availableItems: [${nextList}],`
+    /export const RECORD_STORE_FIXED_ITEMS: \{ shortId: string; coinValue: number \}\[\] = \[\n([\s\S]*?)\n\]/,
+    (_match, body: string) => {
+      const row = `  ${itemExpression},`
+      return `export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] = [\n${body}\n${row}\n]`
     },
   )
   if (replaced === content) {
-    throw new Error(`Could not update startup-guy availableItems in ${shopsIndexPath}`)
+    throw new Error(`Could not update RECORD_STORE_FIXED_ITEMS in ${recordStorePath}`)
   }
 
-  await writeFile(shopsIndexPath, replaced, "utf8")
+  await writeFile(recordStorePath, replaced, "utf8")
   return true
 }
 

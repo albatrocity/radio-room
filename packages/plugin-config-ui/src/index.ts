@@ -12,6 +12,7 @@ export { renderField } from "./fields"
 export type { FieldProps } from "./fields"
 export {
   shouldShow,
+  nextSparseSelectMap,
   emptyRow,
   addRow,
   removeRow,

@@ -48,7 +48,9 @@ export type PassiveDefenseConfig = {
 export type ShopConfig = {
   sweetwater?: number
   greenRoom?: number
-  startupGuy?: number
+  farmersMarket?: number
+  spyWorld?: number
+  recordStore?: number
 }
 
 export type ItemWizardAnswers = {
@@ -372,25 +374,50 @@ async function promptPassiveDefense(): Promise<PassiveDefenseConfig> {
 }
 
 async function promptShops(): Promise<ShopConfig> {
-  const shops = await checkbox<Array<"sweetwater" | "greenRoom" | "startupGuy">>({
-    message: "Register item in shops:",
+  const shops = await checkbox<
+    Array<"sweetwater" | "greenRoom" | "farmersMarket" | "spyWorld" | "recordStore">
+  >({
+    message: "Register item in shops (prefer one theme match — ADR 0175):",
     choices: [
-      { value: "sweetwater", name: "Sweetwater" },
-      { value: "greenRoom", name: "Green Room" },
-      { value: "startupGuy", name: "Startup Guy" },
+      {
+        value: "farmersMarket",
+        name: "Farmers Market — inconsequential produce letter treatments",
+      },
+      {
+        value: "sweetwater",
+        name: "Sweetwater — toys/gear gadgets (pedals, radio toys)",
+      },
+      {
+        value: "greenRoom",
+        name: "Green Room — queue manipulation + long-term storage",
+      },
+      {
+        value: "spyWorld",
+        name: "Spy World — game-altering sneaky tools",
+      },
+      {
+        value: "recordStore",
+        name: "Record Store — Physical Media + playback capability",
+      },
     ],
   })
 
   const config: ShopConfig = {}
 
+  if (shops.includes("farmersMarket")) {
+    config.farmersMarket = await promptPositiveInt("Farmers Market coin value:", 5)
+  }
   if (shops.includes("sweetwater")) {
     config.sweetwater = await promptPositiveInt("Sweetwater coin value:", 20)
   }
   if (shops.includes("greenRoom")) {
     config.greenRoom = await promptPositiveInt("Green Room coin value:", 50)
   }
-  if (shops.includes("startupGuy")) {
-    config.startupGuy = await promptPositiveInt("Startup Guy coin value:", 200)
+  if (shops.includes("spyWorld")) {
+    config.spyWorld = await promptPositiveInt("Spy World coin value:", 50)
+  }
+  if (shops.includes("recordStore")) {
+    config.recordStore = await promptPositiveInt("Record Store coin value:", 25)
   }
 
   return config

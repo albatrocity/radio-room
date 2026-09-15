@@ -10,6 +10,7 @@ import {
   resolveItemRarity,
   buildItemCatalogMap,
   filterShopCatalogByRoomType,
+  applyShopRarityOverrides,
   resolveEconomy,
   scalePrice,
 } from "@repo/game-logic"
@@ -55,6 +56,7 @@ import {
 } from "./items/index"
 import { SHOP_CATALOG } from "./shops"
 import { buildEffectiveShopCatalog } from "./localLibrary/catalog"
+import { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
 import {
@@ -102,9 +104,14 @@ export function getEligibleShops(
     }
     return true
   })
-  if (!roomType) return eligible
-  const catalogMap = buildItemCatalogMap([...ITEM_CATALOG, ...derivedPhysicalMedia])
-  return filterShopCatalogByRoomType(eligible, catalogMap, roomType)
+  const filtered = roomType
+    ? filterShopCatalogByRoomType(
+        eligible,
+        buildItemCatalogMap([...ITEM_CATALOG, ...derivedPhysicalMedia]),
+        roomType,
+      )
+    : eligible
+  return applyShopRarityOverrides(filtered, config.shopRarityOverrides)
 }
 
 export type { ItemShopsConfig } from "./types"
@@ -825,18 +832,35 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           type: "checkbox-group",
           label: "Shops in rotation",
           description:
-            "Only checked shops are eligible when randomly assigning a shop for a shopping session.",
+            "Only checked shops are eligible when assigning a shop for a shopping session. Assignment is rarity-weighted among checked shops (ADR 0175). Per-row rarity selects override catalog defaults for this room until the next shopping round (ADR 0176).",
           options: [
-            ...SHOP_CATALOG.map((s) => ({ value: s.shopId, label: s.name })),
-            { value: "record-store", label: "Record Store" },
+            ...SHOP_CATALOG.map((s) => ({
+              value: s.shopId,
+              label: s.name,
+              selectDefault: s.rarity ?? "common",
+            })),
+            {
+              value: RECORD_STORE_SHOP.shopId,
+              label: RECORD_STORE_SHOP.name,
+              selectDefault: RECORD_STORE_SHOP.rarity ?? "common",
+            },
           ],
+          optionSelect: {
+            field: "shopRarityOverrides",
+            options: [
+              { value: "common", label: "Common" },
+              { value: "uncommon", label: "Uncommon" },
+              { value: "rare", label: "Rare" },
+              { value: "legendary", label: "Legendary" },
+            ],
+          },
           showWhen: { field: "enabled", value: true },
         },
         assignShopOnJoin: {
           type: "boolean",
           label: "Assign shop when users join mid-session",
           description:
-            "If a shopping round is active, give late joiners their own random shop instance.",
+            "If a shopping round is active, give late joiners their own rarity-weighted shop instance.",
           showWhen: { field: "enabled", value: true },
         },
         autoShop: {

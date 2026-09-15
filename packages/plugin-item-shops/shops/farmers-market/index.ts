@@ -5,9 +5,14 @@ function farmersMarketOnBuy(_ctx: ShopBuyContext): void {
   // TODO: Implement purchase side effects (state, timers, messages).
 }
 
+/**
+ * Theme: inconsequential produce letter treatments (color/shape chat flair,
+ * no queue or inventory power). Assignment rarity: common (ADR 0175).
+ */
 export const FARMERS_MARKET_SHOP: ItemShopsShopCatalogEntry = {
   shopId: "farmers-market",
   name: "Farmers Market",
+  rarity: "common",
   openingMessage: "Howdy, friend! You strike me as somebody who appreciates a good piece of fresh produce. Come get you some at the {{shopName}}!",
   availableItems: [
     { shortId: items.carrots.shortId, coinValue: 5 },

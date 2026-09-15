@@ -532,24 +532,63 @@ describe("getEligibleShops", () => {
     expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(true)
     expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "vu-meter")).toBe(true)
     expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "chromatic-tuner")).toBe(true)
+    expect(sweetwaterRadio?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(true)
     const spyWorldRadio = radioShops.find((s) => s.shopId === "spy-world")
-    expect(spyWorldRadio?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(true)
+    expect(spyWorldRadio?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
 
     const jukeboxShops = getEligibleShops(config, "spotify", [], "jukebox")
     const sweetwaterJukebox = jukeboxShops.find((s) => s.shopId === "sweetwater")
     expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(false)
     expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "vu-meter")).toBe(false)
     expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "chromatic-tuner")).toBe(false)
-    const spyWorldJukebox = jukeboxShops.find((s) => s.shopId === "spy-world")
-    expect(spyWorldJukebox?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
+    expect(sweetwaterJukebox?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
 
     const liveShops = getEligibleShops(config, "spotify", [], "live")
     const sweetwaterLive = liveShops.find((s) => s.shopId === "sweetwater")
     expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "oscilloscope")).toBe(false)
     expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "vu-meter")).toBe(false)
     expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "chromatic-tuner")).toBe(false)
-    const spyWorldLive = liveShops.find((s) => s.shopId === "spy-world")
-    expect(spyWorldLive?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
+    expect(sweetwaterLive?.availableItems.some((i) => i.shortId === "beat-detector")).toBe(false)
+  })
+
+  it("does not list disguise in Green Room", () => {
+    const shops = getEligibleShops(
+      { ...config, enabledShopIds: SHOP_CATALOG.map((s) => s.shopId) },
+      "spotify",
+    )
+    const greenRoom = shops.find((s) => s.shopId === "green-room")
+    expect(greenRoom?.availableItems.some((i) => i.shortId === "disguise")).toBe(false)
+    const spyWorld = shops.find((s) => s.shopId === "spy-world")
+    expect(spyWorld?.availableItems.some((i) => i.shortId === "disguise")).toBe(true)
+  })
+
+  it("applies shopRarityOverrides to eligible shops and ignores stale ids", () => {
+    const shops = getEligibleShops(
+      {
+        ...config,
+        enabledShopIds: SHOP_CATALOG.map((s) => s.shopId),
+        shopRarityOverrides: {
+          "spy-world": "common",
+          "not-a-shop": "legendary",
+        },
+      },
+      "spotify",
+    )
+    expect(shops.find((s) => s.shopId === "spy-world")?.rarity).toBe("common")
+    expect(shops.find((s) => s.shopId === "green-room")?.rarity).toBe("rare")
+  })
+
+  it("keeps catalog rarities when shopRarityOverrides is empty", () => {
+    const shops = getEligibleShops(
+      {
+        ...config,
+        enabledShopIds: SHOP_CATALOG.map((s) => s.shopId),
+        shopRarityOverrides: {},
+      },
+      "spotify",
+    )
+    expect(shops.find((s) => s.shopId === "spy-world")?.rarity).toBe("legendary")
+    expect(shops.find((s) => s.shopId === "sweetwater")?.rarity).toBe("common")
   })
 })
 

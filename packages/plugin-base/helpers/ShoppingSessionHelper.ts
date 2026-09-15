@@ -19,6 +19,7 @@ import {
   buildShoppingInstance,
   pickWeightedShortIds,
   pickWeightedDistinctShortIds,
+  pickWeightedShop,
   resolveItemRarity,
   resolveShopItemPrice,
   resolveUnlistedSellBasePrice,
@@ -119,7 +120,7 @@ export class ShoppingSessionHelper {
   /**
    * Starts a new shopping round for every user in `users`.
    *
-   * @param eligibleShops - Subset of the constructor `shopCatalog` to pick from at random.
+   * @param eligibleShops - Subset of the constructor `shopCatalog` to pick from (rarity-weighted).
    *   When omitted, uses the full catalog. When provided as a non-empty array, only those shops
    *   are eligible. An explicit empty array falls back to the full catalog (backward compatibility).
    */
@@ -136,7 +137,7 @@ export class ShoppingSessionHelper {
   }
 
   /**
-   * Picks a random shop, 3 weighted offers (duplicates allowed), persists, DMs the user.
+   * Picks a rarity-weighted shop, 3 weighted offers (duplicates allowed), persists, DMs the user.
    *
    * @param eligibleShops - Same semantics as {@link startSession}.
    */
@@ -149,7 +150,10 @@ export class ShoppingSessionHelper {
     if (pool.length === 0) {
       throw new Error(`[${this.pluginName}] No shops defined.`)
     }
-    const shop = pool[Math.floor(Math.random() * pool.length)]!
+    const shop = pickWeightedShop(pool, this.rarityWeights)
+    if (!shop) {
+      throw new Error(`[${this.pluginName}] No shops defined.`)
+    }
     const shortIds = this.sampleOfferShortIds(shop, 3)
     const session = await this.context.game.getActiveSession()
     const instance = buildShoppingInstance(

@@ -109,6 +109,11 @@ export type ShopSessionContext = {
 export type ShopCatalogEntry = {
   shopId: string
   name: string
+  /**
+   * Assignment rarity for shopping-round shop picks (ADR 0175). Uses the same
+   * weight ladder as item offers (`DEFAULT_RARITY_WEIGHTS`). Omitted = common.
+   */
+  rarity?: ItemRarity
   openingMessage?: string
   /** Chat meta for the private opening DM (e.g. `{ type: "alert", status: "info" }`). */
   openingMessageMeta?: ChatMessage["meta"]
@@ -166,6 +171,45 @@ export const DEFAULT_RARITY_WEIGHTS: Record<ItemRarity, number> = {
 
 export function resolveItemRarity(def: Pick<ItemDefinition, "rarity">): ItemRarity {
   return def.rarity ?? "common"
+}
+
+export function resolveShopRarity(shop: Pick<ShopCatalogEntry, "rarity">): ItemRarity {
+  return shop.rarity ?? "common"
+}
+
+const ITEM_RARITIES: ReadonlySet<string> = new Set([
+  "common",
+  "uncommon",
+  "rare",
+  "legendary",
+])
+
+function isItemRarity(value: unknown): value is ItemRarity {
+  return typeof value === "string" && ITEM_RARITIES.has(value)
+}
+
+/**
+ * Stamp room-scoped rarity overrides onto a shop pool (ADR 0176).
+ * Sparse map: only shops with a valid override that differs from catalog are cloned.
+ * Unknown shop ids and non-enum values are ignored.
+ */
+export function applyShopRarityOverrides<T extends ShopCatalogEntry>(
+  shops: readonly T[],
+  overrides: Record<string, unknown> | null | undefined,
+): T[] {
+  if (!overrides || Object.keys(overrides).length === 0) {
+    return shops as T[]
+  }
+  let changed = false
+  const next = shops.map((shop) => {
+    const raw = overrides[shop.shopId]
+    if (!isItemRarity(raw)) return shop
+    const catalog = resolveShopRarity(shop)
+    if (raw === catalog) return shop
+    changed = true
+    return { ...shop, rarity: raw }
+  })
+  return changed ? next : (shops as T[])
 }
 
 export function buildItemCatalogMap(
@@ -246,6 +290,46 @@ export function resolveUnlistedSellBasePrice(
 
 export type WeightedCandidate = { shortId: string; weight: number }
 
+export type WeightedEntry<T> = { value: T; weight: number }
+
+/**
+ * Single weighted pick. Returns `undefined` when the pool is empty or all weights are ≤ 0.
+ */
+export function pickWeightedOne<T>(
+  candidates: readonly WeightedEntry<T>[],
+  random: () => number = Math.random,
+): T | undefined {
+  if (candidates.length === 0) return undefined
+  const total = candidates.reduce((s, c) => s + c.weight, 0)
+  if (total <= 0) return undefined
+  let r = random() * total
+  let chosen = candidates[0]!
+  for (const c of candidates) {
+    r -= c.weight
+    if (r <= 0) {
+      chosen = c
+      break
+    }
+  }
+  return chosen.value
+}
+
+/**
+ * Rarity-weighted shop assignment among an eligible pool (ADR 0175).
+ * Omitted shop `rarity` is treated as common.
+ */
+export function pickWeightedShop(
+  shops: readonly ShopCatalogEntry[],
+  rarityWeights: Record<ItemRarity, number> = DEFAULT_RARITY_WEIGHTS,
+  random: () => number = Math.random,
+): ShopCatalogEntry | undefined {
+  const candidates: WeightedEntry<ShopCatalogEntry>[] = shops.map((shop) => ({
+    value: shop,
+    weight: rarityWeights[resolveShopRarity(shop)] ?? rarityWeights.common,
+  }))
+  return pickWeightedOne(candidates, random)
+}
+
 export function pickWeightedDistinctShortIds(
   candidates: WeightedCandidate[],
   count: number,
@@ -277,21 +361,14 @@ export function pickWeightedShortIds(
   random: () => number = Math.random,
 ): string[] {
   if (candidates.length === 0 || count <= 0) return []
-  const total = candidates.reduce((s, c) => s + c.weight, 0)
-  if (total <= 0) return []
-
   const picked: string[] = []
   for (let i = 0; i < count; i++) {
-    let r = random() * total
-    let chosen = candidates[0]!
-    for (const c of candidates) {
-      r -= c.weight
-      if (r <= 0) {
-        chosen = c
-        break
-      }
-    }
-    picked.push(chosen.shortId)
+    const shortId = pickWeightedOne(
+      candidates.map((c) => ({ value: c.shortId, weight: c.weight })),
+      random,
+    )
+    if (shortId === undefined) break
+    picked.push(shortId)
   }
   return picked
 }

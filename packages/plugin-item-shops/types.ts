@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { itemRaritySchema } from "@repo/types"
 import { SHOP_CATALOG } from "./shops"
 import {
   DEFAULT_LOCAL_LIBRARY_GRANTS,
@@ -26,6 +27,11 @@ export const itemShopsConfigSchema = z.object({
    * Stale ids not in the effective catalog are ignored at runtime (see `getEligibleShops`).
    */
   enabledShopIds: z.array(z.string()).default(() => defaultEnabledShopIds()),
+  /**
+   * Sparse room-scoped overrides of catalog shop assignment rarity (ADR 0176).
+   * Empty = use {@link ShopCatalogEntry.rarity} from code. Unknown ids ignored at assign time.
+   */
+  shopRarityOverrides: z.record(z.string(), itemRaritySchema).default({}),
   /**
    * Extra operator-authored Local library grants (optional playlist shelves).
    * Physical Media is derived from Navidrome; extra grants are operator-authored.
@@ -80,6 +86,7 @@ export const defaultItemShopsConfig: ItemShopsConfig = {
   enabled: false,
   assignShopOnJoin: true,
   enabledShopIds: defaultEnabledShopIds(),
+  shopRarityOverrides: {},
   localLibraryGrants: [...DEFAULT_LOCAL_LIBRARY_GRANTS],
   physicalMediaOverrides: [],
   showPhysicalMediaFrameInNowPlaying: false,

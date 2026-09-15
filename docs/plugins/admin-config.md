@@ -55,6 +55,32 @@ getConfigSchema(): PluginConfigSchema {
 | `emoji`      | Emoji picker     | -                                |
 | `duration`   | Time duration    | `displayUnit`, `storageUnit`     |
 | `percentage` | Percentage input | -                                |
+| `checkbox-group` | Multi-select checkboxes | `options`; optional `optionSelect` for a per-row sibling `<select>` |
+
+### Checkbox group with per-row select
+
+Use `optionSelect` when each checkbox row needs a sibling enum (e.g. shop enablement + assignment rarity). The select writes a **sparse** map on another config field — selecting an option's `selectDefault` deletes that key so catalog defaults apply.
+
+```typescript
+fieldMeta: {
+  enabledShopIds: {
+    type: "checkbox-group",
+    label: "Shops in rotation",
+    options: [
+      { value: "spy-world", label: "SPY WORLD", selectDefault: "legendary" },
+    ],
+    optionSelect: {
+      field: "shopRarityOverrides",
+      options: [
+        { value: "common", label: "Common" },
+        { value: "legendary", label: "Legendary" },
+      ],
+    },
+  },
+}
+```
+
+Do **not** put the sibling map field (`shopRarityOverrides`) in `layout` — it is edited only via the per-row selects.
 
 ### Conditional Fields
 

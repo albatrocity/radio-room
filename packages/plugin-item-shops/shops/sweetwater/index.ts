@@ -70,9 +70,15 @@ function sweetwaterOnBuy(ctx: ShopBuyContext): void {
   })
 }
 
+/**
+ * Theme: toys and gear gadgets — pedals and radio toys you can use on yourself
+ * or others (including for mildly nefarious chat mischief). Assignment rarity:
+ * common (ADR 0175).
+ */
 export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
   shopId: "sweetwater",
   name: "Sweetwater",
+  rarity: "common",
   openingMessage:
     "Hi! It's Chuck, from {{shopName}}! Come check out the shop. We can take your sound to the next level! Together :)",
   openingMessageMeta: SWEETWATER_REP_ALERT_META,
@@ -93,6 +99,7 @@ export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.oscilloscope.shortId, coinValue: 50 },
     { shortId: items.vuMeter.shortId, coinValue: 50 },
     { shortId: items.chromaticTuner.shortId, coinValue: 50 },
+    { shortId: items.beatDetector.shortId, coinValue: 50 },
   ],
   listedBuybackRate: 0.5,
   unlistedBuybackRate: 0.25,

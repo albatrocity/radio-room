@@ -1,4 +1,6 @@
-import { checkbox, input } from "@inquirer/prompts"
+import { checkbox, input, select } from "@inquirer/prompts"
+
+export type Rarity = "common" | "uncommon" | "rare" | "legendary"
 
 export type ShopItemSelection = {
   variableName: string
@@ -10,6 +12,8 @@ export type ShopWizardAnswers = {
   shopConstName: string
   onBuyHandlerName: string
   name: string
+  theme: string
+  rarity: Rarity
   openingMessage?: string
   listedBuybackRate: number
   unlistedBuybackRate: number
@@ -43,6 +47,26 @@ export async function promptForShopConfig(context: PromptContext): Promise<ShopW
     })
   ).trim()
 
+  const theme = (
+    await input({
+      message:
+        "Thematic description (what belongs here? e.g. 'game-altering sneaky tools'):",
+      validate: (value) =>
+        value.trim().length > 0 ? true : "Theme is required — see ADR 0175 / existing shop comments.",
+    })
+  ).trim()
+
+  const rarity = await select<Rarity>({
+    message: "Assignment rarity (how often this shop appears when enabled):",
+    choices: [
+      { value: "common", name: "common (weight 4) — everyday shops" },
+      { value: "uncommon", name: "uncommon (weight 3)" },
+      { value: "rare", name: "rare (weight 2) — e.g. Green Room" },
+      { value: "legendary", name: "legendary (weight 1) — e.g. Spy World" },
+    ],
+    default: "common",
+  })
+
   const openingMessage = (
     await input({
       message: "Opening message (optional, supports {{shopName}}):",
@@ -73,6 +97,8 @@ export async function promptForShopConfig(context: PromptContext): Promise<ShopW
     shopConstName: `${toScreamingSnakeCase(shopId)}_SHOP`,
     onBuyHandlerName: `${toCamelCase(shopId)}OnBuy`,
     name,
+    theme,
+    rarity,
     openingMessage: openingMessage.length > 0 ? openingMessage : undefined,
     listedBuybackRate,
     unlistedBuybackRate,

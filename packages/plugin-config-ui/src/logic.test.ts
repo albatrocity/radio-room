@@ -11,6 +11,7 @@ import {
   getQuickAccessActions,
   getQuickAccessSchema,
   getQuickAccessStatusFields,
+  nextSparseSelectMap,
 } from "./logic"
 
 describe("shouldShow (nested scope)", () => {
@@ -197,5 +198,27 @@ describe("getQuickAccessStatusFields", () => {
     const startAction: PluginActionElement = { type: "action", action: "start", label: "Start" }
     const filtered = getQuickAccessSchema(schema)
     expect(filtered?.layout).toEqual(["autoShop", "autoShopIntervalMs", startAction])
+  })
+})
+
+describe("nextSparseSelectMap", () => {
+  it("adds an override when value differs from selectDefault", () => {
+    expect(nextSparseSelectMap({}, "spy-world", "common", "legendary")).toEqual({
+      "spy-world": "common",
+    })
+  })
+
+  it("deletes the key when value matches selectDefault", () => {
+    expect(
+      nextSparseSelectMap({ "spy-world": "common", "green-room": "common" }, "spy-world", "legendary", "legendary"),
+    ).toEqual({ "green-room": "common" })
+  })
+
+  it("treats missing selectDefault as common", () => {
+    expect(nextSparseSelectMap({ a: "rare" }, "a", "common", undefined)).toEqual({})
+  })
+
+  it("starts from an empty map when current is not an object", () => {
+    expect(nextSparseSelectMap(undefined, "a", "rare", "common")).toEqual({ a: "rare" })
   })
 })

@@ -9,10 +9,12 @@ description: Adds a new shop to @repo/plugin-item-shops—dedicated shop module,
 
 1. **shopId** — stable string (kebab-case), unique across `SHOP_CATALOG`.
 2. **name** — display name; **`openingMessage`** — optional; may use `{{shopName}}` like existing shops.
-3. **Inventory**: which catalog items (from `items/index.ts`) and **per-item prices** — each `availableItems` entry is `{ shortId: items.<camel>.shortId, coinValue?: number }`. Omit `coinValue` only when the item's catalog `coinValue` should apply.
-4. **Economy**: **listedBuybackRate** and **unlistedBuybackRate** (multipliers vs base price; see Sweetwater vs Green Room for scale).
-5. **onBuy**: Needed after each successful purchase? If yes, what side effects (state, timers, follow-up messages)?
-6. **onSessionEnd**: Optional cleanup when the shopping round ends (timers are cleared automatically—use for extra teardown if required).
+3. **Thematic description** (required) — what belongs in this shop? Written into the shop module comment. Existing themes (ADR 0175): Farmer's Market = produce letter flair; Sweetwater = toys/gear; Green Room = queue + storage; Spy World = sneaky game-altering tools; Record Store = Physical Media + playback. New shops need their own one-sentence theme.
+4. **Assignment rarity** — `common` | `uncommon` | `rare` | `legendary` (same weights as items: 4 / 3 / 2 / 1). Defaults for existing shops: Record Store / Farmer's Market / Sweetwater = common; Green Room = rare; Spy World = legendary.
+5. **Inventory**: which catalog items (from `items/index.ts`) and **per-item prices** — each `availableItems` entry is `{ shortId: items.<camel>.shortId, coinValue?: number }`. Omit `coinValue` only when the item’s catalog `coinValue` should apply. Prefer items that match the theme.
+6. **Economy**: **listedBuybackRate** and **unlistedBuybackRate** (multipliers vs base price; see Sweetwater vs Green Room for scale).
+7. **onBuy**: Needed after each successful purchase? If yes, what side effects (state, timers, follow-up messages)?
+8. **onSessionEnd**: Optional cleanup when the shopping round ends (timers are cleared automatically—use for extra teardown if required).
 
 Canonical type definitions live in `packages/game-logic/src/shoppingSessionCatalog.ts` (`ShopCatalogEntry`, `ShopBuyContext`).
 
@@ -27,6 +29,8 @@ Create **`packages/plugin-item-shops/shops/<shopId>/index.ts`** exporting e.g. `
 | Field | Notes |
 |-------|--------|
 | `shopId`, `name` | Required |
+| `rarity` | Assignment rarity (`ItemRarity`); omit = common |
+| Theme comment | JSDoc above the export with theme + rarity (ADR 0175) |
 | `openingMessage` | Optional |
 | `availableItems` | `ShopAvailableItem[]` — must reference **registered** item `shortId`s |
 | `listedBuybackRate`, `unlistedBuybackRate` | Required numbers |
@@ -73,18 +77,19 @@ In `packages/plugin-item-shops/shops/index.ts`:
 1. `import { MY_SHOP } from "./<shopId>"`.
 2. Append **`MY_SHOP`** to the **`SHOP_CATALOG`** array.
 
-`defaultItemShopsConfig.enabledShopIds` defaults to **all** `shopId`s from `SHOP_CATALOG` (`types.ts`), so new shops participate in random assignment unless an admin narrows **enabledShopIds** in plugin config.
+`defaultItemShopsConfig.enabledShopIds` defaults to **all** `shopId`s from `SHOP_CATALOG` (`types.ts`), so new shops participate in rarity-weighted assignment unless an admin narrows **enabledShopIds** in plugin config.
 
 ### Do not
 
 - List items that are not in `ITEM_CATALOG` (derived from `items` registry).
 - Duplicate item definitions in the shop—only `shortId` + optional `coinValue`.
+- Skip asking for theme / rarity.
 
 ## Checklist
 
 ```
-- [ ] Discovery: shopId, name, openingMessage, items + prices, buyback rates, onBuy/session hooks
-- [ ] shops/<shopId>/index.ts satisfies ItemShopsShopCatalogEntry
+- [ ] Discovery: shopId, name, theme, rarity, openingMessage, items + prices, buyback rates, onBuy/session hooks
+- [ ] shops/<shopId>/index.ts satisfies ItemShopsShopCatalogEntry (theme comment + rarity)
 - [ ] shops/index.ts imports and SHOP_CATALOG includes the shop
 - [ ] If onBuy: shops/<shopId>/<shopId>.test.ts with mocked ShopBuyContext (and extracted helpers if needed)
 - [ ] If onBuy uses timers: cancel paths when session/game/room invalid (mirror Sweetwater)
@@ -92,7 +97,9 @@ In `packages/plugin-item-shops/shops/index.ts`:
 
 ## References in-repo
 
+- ADR 0175 — shop themes and assignment rarity
+- `docs/SHOP_ITEM_DEVELOPMENT.md` — themes + rarity
 - `shops/sweetwater/index.ts` — timers, `sendSystemMessage` with meta, state
 - `shops/green-room/index.ts` — minimal `onBuy`
 - `shops/index.ts` — `SHOP_CATALOG` assembly
-- `packages/game-logic/src/shoppingSessionCatalog.ts` — `ShopBuyContext`, `ShopCatalogEntry`
+- `packages/game-logic/src/shoppingSessionCatalog.ts` — `ShopBuyContext`, `ShopCatalogEntry`, `pickWeightedShop`

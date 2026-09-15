@@ -21,12 +21,15 @@ export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] 
 ]
 
 /**
- * Bridge-only shop. Physical Media SKUs are injected at runtime from
- * prefix-derived Navidrome playlists and extra playlist-scoped grant rows.
+ * Theme: Physical Media and playback capability (derived records, broken SKUs,
+ * cleaners, playback devices). Bridge-only; Physical Media SKUs are injected at
+ * runtime from prefix-derived Navidrome playlists and extra playlist-scoped
+ * grant rows. Assignment rarity: common (ADR 0175).
  */
 export const RECORD_STORE_SHOP: ItemShopsShopCatalogEntry = {
   shopId: RECORD_STORE_SHOP_ID,
   name: "Record Store",
+  rarity: "common",
   openingMessage: "Flip through the bins and buy a record to expand your queuing options.",
   requiresPlaybackControllerId: "bridge",
   distinctOffers: true,

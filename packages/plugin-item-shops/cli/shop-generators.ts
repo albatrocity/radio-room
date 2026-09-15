@@ -35,9 +35,14 @@ function buildShopIndexFile(answers: ShopWizardAnswers): string {
   lines.push(`  // TODO: Implement purchase side effects (state, timers, messages).`)
   lines.push("}")
   lines.push("")
+  lines.push("/**")
+  lines.push(` * Theme: ${answers.theme}`)
+  lines.push(` * Assignment rarity: ${answers.rarity} (ADR 0175).`)
+  lines.push(" */")
   lines.push(`export const ${answers.shopConstName}: ItemShopsShopCatalogEntry = {`)
   lines.push(`  shopId: "${answers.shopId}",`)
   lines.push(`  name: "${escapeDoubleQuotes(answers.name)}",`)
+  lines.push(`  rarity: "${answers.rarity}",`)
   if (answers.openingMessage) {
     lines.push(`  openingMessage: "${escapeDoubleQuotes(answers.openingMessage)}",`)
   }
@@ -63,8 +68,12 @@ async function updateShopsCatalogIndex(
 
   const importLine = `import { ${answers.shopConstName} } from "./${answers.shopId}"`
   if (!content.includes(importLine)) {
-    const marker = /import\s+\{\s*GREEN_ROOM_SHOP\s*\}\s+from\s+"\.\/green-room"/
-    content = content.replace(marker, (match) => `${match}\n${importLine}`)
+    const marker = /import\s+\{\s*SPY_WORLD_SHOP\s*\}\s+from\s+"\.\/spy-world"/
+    if (marker.test(content)) {
+      content = content.replace(marker, (match) => `${match}\n${importLine}`)
+    } else {
+      content = `${importLine}\n${content}`
+    }
     changed = true
   }
 

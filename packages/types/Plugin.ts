@@ -242,8 +242,19 @@ export interface PluginFieldMeta {
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
   /** For enum types: custom labels for each option */
   enumLabels?: Record<string, string>
-  /** For `checkbox-group`: value/label pairs (e.g. shop id + display name) */
-  options?: { value: string; label: string }[]
+  /**
+   * For `checkbox-group`: value/label pairs (e.g. shop id + display name).
+   * Optional `selectDefault` seeds a per-row sibling select when `optionSelect` is set.
+   */
+  options?: { value: string; label: string; selectDefault?: string }[]
+  /**
+   * For `checkbox-group`: optional per-row `<select>` that writes a sibling config field
+   * (sparse `Record<optionValue, enumValue>`). Selecting `selectDefault` deletes the key.
+   */
+  optionSelect?: {
+    field: string
+    options: { value: string; label: string }[]
+  }
   /** Field scope. `private` fields are server-only and never broadcast (ADR 0068). Defaults to `public`. */
   scope?: "public" | "private"
   /**

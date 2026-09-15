@@ -37,7 +37,7 @@ npm run create-item -w @repo/plugin-item-shops
   - passive defense
   - custom handler stub
   - none
-- Optional shop registration (per-shop `coinValue`)
+- Optional shop registration (per-shop `coinValue`). Match the item to a shop theme ([ADR 0175](adrs/0175-item-shop-themes-and-assignment-rarity.md)); prefer one shop.
 
 ### Economy ladder (base `coinValue`)
 
@@ -249,6 +249,26 @@ use: timedModifierEffect({
 })
 ```
 
+## Shop themes and assignment rarity
+
+Shops have a **theme** (authoring guidance) and an **assignment rarity** (runtime). See [ADR 0175](adrs/0175-item-shop-themes-and-assignment-rarity.md).
+
+### Themes
+
+- **Farmer's Market** — Inconsequential produce letter treatments (chat color/shape flair only).
+- **Sweetwater** — Toys and gear gadgets; pedals and radio toys usable on self or others (including mildly nefarious chat mischief).
+- **Green Room** — Queue manipulation and long-term storage (fridge snacks, passworded cubbies / cash boxes, Mars Egg).
+- **Spy World** — Game-altering sneaky tools (steal, peek, disguise, rebound defenses).
+- **Record Store** — Physical Media and playback capability (derived records, broken SKUs, cleaners, devices).
+
+When creating a **new item**, match one theme and list it in that shop. If none fit, offer to create a new shop rather than dual-listing by default. When creating a **new shop**, capture a thematic description (and assignment rarity) before scaffolding.
+
+### Assignment rarity
+
+`ShopCatalogEntry.rarity` uses the same ladder as items (`common` / `uncommon` / `rare` / `legendary`) and `DEFAULT_RARITY_WEIGHTS` (4 / 3 / 2 / 1). Shopping rounds pick among **enabled and otherwise eligible** shops with `pickWeightedShop` — not uniform random. Catalog defaults: Record Store, Farmer's Market, and Sweetwater are **common**; Green Room is **rare**; Spy World is **legendary**. Omitted rarity is treated as common.
+
+Hosts can override those weights per room from Item Shops settings (rarity select beside each shop checkbox). Overrides live in sparse Redis config `shopRarityOverrides` and apply on the **next** shopping round — see [ADR 0176](adrs/0176-room-shop-assignment-rarity-overrides.md). Catalog code remains the default when a shop has no override.
+
 ## Creating Shops
 
 Use the shop generator:
@@ -260,6 +280,8 @@ npm run create-shop -w @repo/plugin-item-shops
 ### What the shop CLI asks for
 
 - Shop identity (`shopId`, display `name`)
+- **Thematic description** (required; written into the shop module comment)
+- **Assignment rarity** (`common` | `uncommon` | `rare` | `legendary`)
 - `openingMessage` (optional, may include `{{shopName}}`)
 - Economy rates (`listedBuybackRate`, `unlistedBuybackRate`)
 - Available item lineup and per-item prices
@@ -267,6 +289,7 @@ npm run create-shop -w @repo/plugin-item-shops
 ### What the shop CLI generates
 
 - `shops/<shopId>/index.ts`
+  - Theme comment + `rarity` field
   - Includes a no-op `onBuy` scaffold:
     - `function <shopName>OnBuy(_ctx: ShopBuyContext): void {}`
 - `shops/index.ts` updates:
@@ -324,3 +347,5 @@ npm test -w @repo/plugin-item-shops
 - `packages/plugin-item-shops/items/shared/testHelpers.ts`
 - `packages/plugin-item-shops/shops/sweetwater/index.ts` (advanced `onBuy` timers/messages)
 - `packages/plugin-item-shops/shops/green-room/index.ts` (`onBuy` + `onSessionEnd`)
+- [ADR 0175](adrs/0175-item-shop-themes-and-assignment-rarity.md) — shop themes and assignment rarity
+- [ADR 0176](adrs/0176-room-shop-assignment-rarity-overrides.md) — room-scoped admin rarity overrides

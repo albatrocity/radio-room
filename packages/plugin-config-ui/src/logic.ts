@@ -71,6 +71,29 @@ export function shouldShow(
   return matchesCondition(showWhen, values)
 }
 
+/**
+ * Update a sparse sibling map for checkbox-group `optionSelect`.
+ * Selecting `selectDefault` (or `"common"` when omitted) deletes the key.
+ */
+export function nextSparseSelectMap(
+  current: unknown,
+  id: string,
+  value: string,
+  selectDefault?: string,
+): Record<string, string> {
+  const map: Record<string, string> =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? { ...(current as Record<string, string>) }
+      : {}
+  const fallback = selectDefault ?? "common"
+  if (value === fallback) {
+    delete map[id]
+  } else {
+    map[id] = value
+  }
+  return map
+}
+
 /** Build an empty row object from an object-array field's item sub-fields. */
 export function emptyRow(itemFields: { name: string; meta: PluginFieldMeta }[]): Record<string, unknown> {
   const row: Record<string, unknown> = {}

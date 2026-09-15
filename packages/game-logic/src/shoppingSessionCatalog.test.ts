@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest"
 import type { ItemCatalogEntry, ShopCatalogEntry } from "./shoppingSessionCatalog"
 import {
+  applyShopRarityOverrides,
   buildItemCatalogMap,
   buildShoppingInstance,
   filterShopCatalogByRoomType,
   isItemAvailableInRoomType,
+  pickWeightedShop,
+  resolveShopRarity,
 } from "./shoppingSessionCatalog"
 
 const PM_ENTRY: ItemCatalogEntry = {
@@ -176,5 +179,118 @@ describe("buildShoppingInstance", () => {
     expect(instance.offers[0]?.mediaFormat).toBe("LP")
     expect(instance.offers[1]?.condition).toBeUndefined()
     expect(instance.offers[1]?.price).toBe(25)
+  })
+})
+
+describe("pickWeightedShop / resolveShopRarity", () => {
+  const shops: ShopCatalogEntry[] = [
+    {
+      shopId: "record-store",
+      name: "Record Store",
+      rarity: "common",
+      availableItems: [],
+      listedBuybackRate: 0.1,
+      unlistedBuybackRate: 0,
+    },
+    {
+      shopId: "farmers-market",
+      name: "Farmers Market",
+      rarity: "common",
+      availableItems: [],
+      listedBuybackRate: 0.5,
+      unlistedBuybackRate: 0.25,
+    },
+    {
+      shopId: "sweetwater",
+      name: "Sweetwater",
+      rarity: "common",
+      availableItems: [],
+      listedBuybackRate: 0.5,
+      unlistedBuybackRate: 0.25,
+    },
+    {
+      shopId: "green-room",
+      name: "Green Room",
+      rarity: "rare",
+      availableItems: [],
+      listedBuybackRate: 0.1,
+      unlistedBuybackRate: 0,
+    },
+    {
+      shopId: "spy-world",
+      name: "SPY WORLD",
+      rarity: "legendary",
+      availableItems: [],
+      listedBuybackRate: 0.35,
+      unlistedBuybackRate: 0.12,
+    },
+  ]
+
+  it("treats omitted rarity as common", () => {
+    expect(resolveShopRarity({ rarity: undefined })).toBe("common")
+    expect(resolveShopRarity({ rarity: "legendary" })).toBe("legendary")
+  })
+
+  it("picks the heaviest shop when random hits the start of the weight range", () => {
+    // Weights: common×3=12, rare=2, legendary=1 → total 15. r=0 → first common.
+    const picked = pickWeightedShop(shops, undefined, () => 0)
+    expect(picked?.shopId).toBe("record-store")
+  })
+
+  it("picks Spy World when random hits the legendary tail", () => {
+    // Total weight 15; last slot is legendary. Use just under 1.0.
+    const picked = pickWeightedShop(shops, undefined, () => 0.999)
+    expect(picked?.shopId).toBe("spy-world")
+  })
+
+  it("returns undefined for an empty pool", () => {
+    expect(pickWeightedShop([])).toBeUndefined()
+  })
+})
+
+describe("applyShopRarityOverrides", () => {
+  const shops: ShopCatalogEntry[] = [
+    {
+      shopId: "spy-world",
+      name: "SPY WORLD",
+      rarity: "legendary",
+      availableItems: [],
+      listedBuybackRate: 0.35,
+      unlistedBuybackRate: 0.12,
+    },
+    {
+      shopId: "green-room",
+      name: "Green Room",
+      rarity: "rare",
+      availableItems: [],
+      listedBuybackRate: 0.1,
+      unlistedBuybackRate: 0,
+    },
+  ]
+
+  it("returns the same array reference when overrides are empty", () => {
+    expect(applyShopRarityOverrides(shops, {})).toBe(shops)
+    expect(applyShopRarityOverrides(shops, undefined)).toBe(shops)
+    expect(applyShopRarityOverrides(shops, null)).toBe(shops)
+  })
+
+  it("stamps a valid override that differs from catalog", () => {
+    const next = applyShopRarityOverrides(shops, { "spy-world": "common" })
+    expect(next).not.toBe(shops)
+    expect(next.find((s) => s.shopId === "spy-world")?.rarity).toBe("common")
+    expect(next.find((s) => s.shopId === "green-room")?.rarity).toBe("rare")
+  })
+
+  it("ignores unknown shop ids and non-enum values", () => {
+    const next = applyShopRarityOverrides(shops, {
+      "not-a-shop": "common",
+      "spy-world": "ultra",
+    })
+    expect(next).toBe(shops)
+  })
+
+  it("does not clone when override matches catalog rarity", () => {
+    const next = applyShopRarityOverrides(shops, { "spy-world": "legendary" })
+    expect(next).toBe(shops)
   })
 })

@@ -173,13 +173,15 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0165](0165-physical-media-queue-condition-snapshot.md) | Physical Media queue condition snapshot on Now Playing | Accepted |
 | [0166](0166-hifi-playback-devices-skip-wear.md) | Hifi playback devices skip wear (`gentlePlayback`) | Accepted |
 | [0167](0167-shared-radio-analysis-tap.md) | Shared radio analysis tap (refcount + seismograph) | Partially superseded by [0168](0168-beat-detector-now-playing-info.md) |
-| [0168](0168-beat-detector-now-playing-info.md) | Beat Detector in Now Playing info (Spy World SKU) | Accepted |
-| [0169](0169-vu-meter-now-playing-overlay.md) | VU Meter on Now Playing artwork (Sweetwater SKU) | Accepted |
+| [0168](0168-beat-detector-now-playing-info.md) | Beat Detector in Now Playing info (Sweetwater SKU) | Partially superseded by [0175](0175-item-shop-themes-and-assignment-rarity.md) (shop placement) |
+| [0169](0169-vu-meter-now-playing-overlay.md) | VU Meter on Now Playing artwork (Sweetwater SKU) | Partially superseded by [0175](0175-item-shop-themes-and-assignment-rarity.md) (Beat Detector shop note) |
 | [0170](0170-broken-media-dead-weight.md) | Broken media is dead weight (no skip; cheap/common; Green Room delist) | Accepted |
-| [0171](0171-chromatic-tuner-now-playing-info.md) | Chromatic Tuner in Now Playing info (Sweetwater SKU) | Accepted |
+| [0171](0171-chromatic-tuner-now-playing-info.md) | Chromatic Tuner in Now Playing info (Sweetwater SKU) | Partially superseded by [0175](0175-item-shop-themes-and-assignment-rarity.md) (Beat Detector shop note) |
 | [0172](0172-cooperative-participation-mode.md) | Cooperative participation mode (plugin-local; Lyric Hero) | Accepted |
 | [0173](0173-asset-cdn-cors-for-browser-decoded-media.md) | Asset CDN CORS for browser-decoded media (SFX / Howler) | Accepted |
 | [0174](0174-programme-ducking-for-sound-effects.md) | Programme ducking for sound effects (`duck` on `queueSoundEffect`) | Accepted |
+| [0175](0175-item-shop-themes-and-assignment-rarity.md) | Item shop themes and assignment rarity | Accepted |
+| [0176](0176-room-shop-assignment-rarity-overrides.md) | Room shop assignment rarity overrides (admin UI) | Accepted |
 
 ## Creating a New ADR
 

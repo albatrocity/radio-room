@@ -27,7 +27,7 @@ import type { DateValue } from "@internationalized/date"
 import Picker from "@emoji-mart/react"
 import data from "@emoji-mart/data"
 import type { PluginFieldMeta } from "@repo/types/Plugin"
-import { shouldShow, emptyRow, addRow, removeRow, updateRow, moveRow, getItemJsonSchema } from "./logic"
+import { shouldShow, emptyRow, addRow, removeRow, updateRow, moveRow, getItemJsonSchema, nextSparseSelectMap } from "./logic"
 import { formatMsAsClock, parseClockDurationToMs } from "./durationClock"
 
 export interface FieldProps {
@@ -42,6 +42,10 @@ export interface FieldProps {
   loadRemoteOptions?: (
     remoteSource: string,
   ) => Promise<{ value: string; label: string }[]>
+  /** Full form values — used by checkbox-group `optionSelect` sibling maps. */
+  allValues?: Record<string, unknown>
+  /** Write an arbitrary sibling field (checkbox-group `optionSelect`). */
+  onChangeField?: (field: string, value: unknown) => void
 }
 
 function toDisplayValue(value: unknown, meta: PluginFieldMeta): unknown {
@@ -283,34 +287,89 @@ function safeIdFragment(s: string): string {
   return s.replace(/[^a-zA-Z0-9_-]/g, "-")
 }
 
-function CheckboxGroupField({ meta, value, onChange }: FieldProps) {
+function CheckboxGroupField({
+  meta,
+  value,
+  onChange,
+  allValues,
+  onChangeField,
+  readOnly,
+}: FieldProps) {
   const selected = Array.isArray(value) ? (value as string[]) : []
   const options = meta.options ?? []
   const idPrefix = useId().replace(/:/g, "")
+  const optionSelect = meta.optionSelect
+  const selectMapRaw =
+    optionSelect && allValues ? allValues[optionSelect.field] : undefined
+  const selectMap: Record<string, string> =
+    selectMapRaw && typeof selectMapRaw === "object" && !Array.isArray(selectMapRaw)
+      ? (selectMapRaw as Record<string, string>)
+      : {}
+  const showSelect = Boolean(optionSelect && onChangeField)
+
   return (
     <>
       <Field.Label>{meta.label}</Field.Label>
-      <CheckboxGroup value={selected} onValueChange={(nextValue) => onChange(nextValue)}>
+      <CheckboxGroup
+        value={selected}
+        disabled={readOnly}
+        onValueChange={(nextValue) => !readOnly && onChange(nextValue)}
+      >
         <VStack align="stretch" gap={2}>
           {options.map((opt) => {
             const frag = safeIdFragment(opt.value)
+            const displayed = selectMap[opt.value] ?? opt.selectDefault ?? "common"
             return (
-              <Checkbox.Root
-                key={opt.value}
-                value={opt.value}
-                ids={{
-                  root: `${idPrefix}-root-${frag}`,
-                  hiddenInput: `${idPrefix}-input-${frag}`,
-                  control: `${idPrefix}-control-${frag}`,
-                  label: `${idPrefix}-label-${frag}`,
-                }}
-              >
-                <Checkbox.HiddenInput />
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                <Checkbox.Label>{opt.label}</Checkbox.Label>
-              </Checkbox.Root>
+              <HStack key={opt.value} justify="space-between" align="center" gap={3}>
+                <Checkbox.Root
+                  value={opt.value}
+                  flex="1"
+                  ids={{
+                    root: `${idPrefix}-root-${frag}`,
+                    hiddenInput: `${idPrefix}-input-${frag}`,
+                    control: `${idPrefix}-control-${frag}`,
+                    label: `${idPrefix}-label-${frag}`,
+                  }}
+                >
+                  <Checkbox.HiddenInput />
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Label>{opt.label}</Checkbox.Label>
+                </Checkbox.Root>
+                {showSelect && optionSelect ? (
+                  <Box
+                    flexShrink={0}
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <NativeSelect.Root size="sm" width="auto" minW="9rem" disabled={readOnly}>
+                      <NativeSelect.Field
+                        value={displayed}
+                        aria-label={`${opt.label} rarity`}
+                        onChange={(e) => {
+                          if (readOnly || !onChangeField) return
+                          onChangeField(
+                            optionSelect.field,
+                            nextSparseSelectMap(
+                              allValues?.[optionSelect.field],
+                              opt.value,
+                              e.target.value,
+                              opt.selectDefault,
+                            ),
+                          )
+                        }}
+                      >
+                        {optionSelect.options.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </NativeSelect.Field>
+                    </NativeSelect.Root>
+                  </Box>
+                ) : null}
+              </HStack>
             )
           })}
         </VStack>
@@ -601,6 +660,8 @@ export function renderField(
   jsonSchema: Record<string, unknown>,
   loadRemoteOptions?: FieldProps["loadRemoteOptions"],
   readOnly?: boolean,
+  allValues?: Record<string, unknown>,
+  onChangeField?: (field: string, value: unknown) => void,
 ): React.ReactNode {
   const props: FieldProps = {
     fieldName,
@@ -610,6 +671,8 @@ export function renderField(
     jsonSchema,
     loadRemoteOptions,
     readOnly,
+    allValues,
+    onChangeField,
   }
   switch (meta.type) {
     case "boolean":

@@ -151,6 +151,8 @@ export function PluginConfigForm({
                 schema.jsonSchema,
                 loadRemoteOptions,
                 readOnly,
+                effectiveValues,
+                readOnly ? undefined : onChange,
               )}
               {meta.description && <Field.HelperText>{meta.description}</Field.HelperText>}
             </Field.Root>

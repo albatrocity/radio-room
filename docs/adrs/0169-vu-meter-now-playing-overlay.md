@@ -1,7 +1,7 @@
 # 0169. VU Meter on Now Playing artwork
 
 **Date:** 2026-09-09
-**Status:** Accepted
+**Status:** Partially superseded by [0175](0175-item-shop-themes-and-assignment-rarity.md) (Beat Detector shop placement in Consequences only)
 **Amends:** [0167](0167-shared-radio-analysis-tap.md) (envelope consumer)
 
 ## Context
@@ -37,7 +37,7 @@ strip above Add to Queue were tried; the meter belongs on the artwork face inste
 
 ## Consequences
 
-- Sweetwater sells Oscilloscope and VU Meter; Spy World keeps Beat Detector.
+- Sweetwater sells Oscilloscope, VU Meter, and Beat Detector ([ADR 0175](0175-item-shop-themes-and-assignment-rarity.md)).
 - Envelope hops (already written on decode) gain a first shipped consumer.
 - Three inventory visuals may share one analysis worker; listeners owning none still incur no
   decoder.
@@ -50,4 +50,5 @@ strip above Add to Queue were tried; the meter belongs on the artwork face inste
 - [ADR 0167](0167-shared-radio-analysis-tap.md) — shared analysis tap (refcount + envelope)
 - [ADR 0168](0168-beat-detector-now-playing-info.md) — Beat Detector in `nowPlayingInfo`
 - [ADR 0171](0171-chromatic-tuner-now-playing-info.md) — Chromatic Tuner in `nowPlayingInfo`
+- [ADR 0175](0175-item-shop-themes-and-assignment-rarity.md) — shop themes and assignment rarity
 - [`apps/web/src/components/NowPlaying/VuMeter.tsx`](../../apps/web/src/components/NowPlaying/VuMeter.tsx)
