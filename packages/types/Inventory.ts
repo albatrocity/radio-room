@@ -376,6 +376,8 @@ export interface ItemDefinition {
    * (see ADR 0147).
    * When `"mediaItem"`, the UI opens a picker over all of the user's own stacks
    * and sends `targetInventoryItemId`; the handler decides whether the target was valid.
+   * When `"spokenMessage"`, the UI collects a short message + macOS voice for Media Bridge
+   * TTS (ADR 0177) and sends `message` + `voice`.
    * When `"self"` or omitted, the effect applies to the inventory owner only.
    */
   requiresTarget?:
@@ -386,6 +388,9 @@ export interface ItemDefinition {
     | "userInventoryItem"
     | "mediaItem"
     | "coinAmount"
+    | "spokenMessage"
+    /** Message + voice for Media Bridge TTS (ADR 0177). */
+    | "spokenMessage"
   /**
    * When set, holding this item passively blocks matching modifiers / queue
    * moves; one block consumes one from stack `quantity`.

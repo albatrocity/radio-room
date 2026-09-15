@@ -624,6 +624,21 @@ export interface PluginAPI {
   supportsVolumeControl(roomId: string): Promise<boolean>
 
   /**
+   * List installed macOS `say` voices on the linked Media Bridge (ADR 0177).
+   * Returns `{ voices: [] }` when offline / not bridge.
+   */
+  listMediaBridgeSayVoices(roomId: string): Promise<{ voices: Array<{ id: string; name: string; locale: string }> }>
+
+  /**
+   * Queue TTS on the DJ Mac via Media Bridge (ADR 0177). Does not wait for playback.
+   * Returns `{ ok: false, message }` when unlinked, misconfigured, or invalid input — never throws.
+   */
+  speakOnMediaBridge(
+    roomId: string,
+    params: { text: string; voice: string },
+  ): Promise<{ ok: true } | { ok: false; message: string }>
+
+  /**
    * List metadata sources available to the room (policy ∩ bridge CAPABILITIES).
    * Not filtered per-user — use for plugin config / grant discovery (ADR 0088).
    */

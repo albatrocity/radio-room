@@ -25,6 +25,7 @@ import { StudioCoinAmountStoragePopover } from "./StudioCoinAmountStoragePopover
 import { StudioInventoryItemStoragePopover } from "./StudioInventoryItemStoragePopover"
 import { StudioUserInventoryItemPopover } from "./StudioUserInventoryItemPopover"
 import { StudioUseTargetPopover } from "./StudioUseTargetPopover"
+import { StudioSpokenMessagePopover } from "./StudioSpokenMessagePopover"
 import { toaster } from "../ui/toaster"
 import { LinkifiedText } from "./LinkifiedText"
 
@@ -435,6 +436,21 @@ export function UserCard({
                       Use
                     </Button>
                   </StudioCoinAmountStoragePopover>
+                ) : rt === "spokenMessage" ? (
+                  <StudioSpokenMessagePopover
+                    onConfirm={(message, voice) =>
+                      void run(`Use ${label}`, async () =>
+                        studioActions.useInventoryItem(userId, row.itemId, {
+                          message,
+                          voice,
+                        }),
+                      )
+                    }
+                  >
+                    <Button size="xs" variant="surface">
+                      Use
+                    </Button>
+                  </StudioSpokenMessagePopover>
                 ) : (
                   <Button
                     size="xs"

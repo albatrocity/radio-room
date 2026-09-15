@@ -8,6 +8,7 @@ import {
 import type { LocalDriver } from "./drivers/local"
 import { normalizeCoverVariants } from "./drivers/local"
 import type { Router } from "./router"
+import type { TtsService } from "./tts"
 
 type RedisLike = RedisClientType<any, any, any>
 
@@ -19,6 +20,7 @@ export class RpcServer {
     private readonly roomId: string,
     private readonly router: Router,
     private readonly localDriver: LocalDriver | null,
+    private readonly tts: TtsService | null = null,
   ) {}
 
   async start(): Promise<void> {
@@ -239,6 +241,17 @@ export class RpcServer {
           album: p.album != null ? String(p.album) : undefined,
         })
         return null
+      case "listSayVoices": {
+        if (!this.tts) throw new Error("TTS is not available")
+        return { voices: await this.tts.listVoices() }
+      }
+      case "speak": {
+        if (!this.tts) throw new Error("TTS is not available")
+        return await this.tts.speak({
+          text: String(p.text ?? ""),
+          voice: String(p.voice ?? ""),
+        })
+      }
       default:
         throw new Error(`Unknown method ${req.method}`)
     }

@@ -32,6 +32,8 @@ const bridgeMocks = vi.hoisted(() => ({
   getBridgeRpcClient: vi.fn(),
   getLocalPlaylistCoverArt: vi.fn(),
   getLocalAlbumCoverArt: vi.fn(),
+  listSayVoices: vi.fn(),
+  speakOnBridge: vi.fn(),
 }))
 
 vi.mock("../../operations/data", () => ({
@@ -58,6 +60,8 @@ vi.mock("@repo/adapter-bridge", () => ({
   getBridgeRpcClient: bridgeMocks.getBridgeRpcClient,
   getLocalPlaylistCoverArt: bridgeMocks.getLocalPlaylistCoverArt,
   getLocalAlbumCoverArt: bridgeMocks.getLocalAlbumCoverArt,
+  listSayVoices: bridgeMocks.listSayVoices,
+  speakOnBridge: bridgeMocks.speakOnBridge,
 }))
 
 import {
@@ -296,6 +300,44 @@ describe("PluginAPIImpl.supportsVolumeControl", () => {
   test("returns false when controller missing", async () => {
     getRoomPlaybackController.mockResolvedValue(null)
     await expect(api.supportsVolumeControl(roomId)).resolves.toBe(false)
+  })
+})
+
+describe("PluginAPIImpl Media Bridge TTS", () => {
+  let api: PluginAPIImpl
+  const roomId = "room-1"
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api = new PluginAPIImpl(appContextFactory.build(), {} as Server)
+  })
+
+  test("listMediaBridgeSayVoices returns empty when no rpc client", async () => {
+    bridgeMocks.getBridgeRpcClient.mockReturnValue(undefined)
+    await expect(api.listMediaBridgeSayVoices(roomId)).resolves.toEqual({ voices: [] })
+  })
+
+  test("speakOnMediaBridge fails softly when no rpc client", async () => {
+    bridgeMocks.getBridgeRpcClient.mockReturnValue(undefined)
+    await expect(api.speakOnMediaBridge(roomId, { text: "hi", voice: "Samantha" })).resolves.toEqual(
+      {
+        ok: false,
+        message: "The line is dead — the DJ Mac isn’t linked.",
+      },
+    )
+  })
+
+  test("speakOnMediaBridge forwards ok from speakOnBridge", async () => {
+    bridgeMocks.getBridgeRpcClient.mockReturnValue({})
+    bridgeMocks.speakOnBridge.mockResolvedValue({ ok: true, queued: true })
+    await expect(
+      api.speakOnMediaBridge(roomId, { text: "hi", voice: "Samantha" }),
+    ).resolves.toEqual({ ok: true })
+    expect(bridgeMocks.speakOnBridge).toHaveBeenCalledWith({
+      rpc: {},
+      text: "hi",
+      voice: "Samantha",
+    })
   })
 })
 

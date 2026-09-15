@@ -6,6 +6,7 @@ import { InventoryItemStoragePopover } from "./InventoryItemPicker"
 import { CoinAmountStoragePopover } from "./CoinAmountPicker"
 import { UserInventoryItemPicker } from "./UserInventoryItemPicker"
 import { UseTargetPopover } from "./UseTargetPicker"
+import { SpokenMessagePopover } from "./SpokenMessagePicker"
 
 type UseExtra = {
   targetUserId?: string
@@ -13,6 +14,8 @@ type UseExtra = {
   targetInventoryItemId?: string
   password?: string
   coinAmount?: number
+  message?: string
+  voice?: string
 }
 
 interface InventoryUseButtonProps {
@@ -123,6 +126,15 @@ export function InventoryUseButton({
         >
           {useTriggerButton(useLoading, undefined, fullWidth)}
         </CoinAmountStoragePopover>,
+      )
+    case "spokenMessage":
+      return wrapFullWidth(
+        fullWidth,
+        <SpokenMessagePopover
+          onConfirm={(message, voice) => onUse({ message, voice })}
+        >
+          {useTriggerButton(useLoading, undefined, fullWidth)}
+        </SpokenMessagePopover>,
       )
     default:
       return useTriggerButton(useLoading, () => onUse(), fullWidth)

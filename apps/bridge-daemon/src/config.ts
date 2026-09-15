@@ -74,6 +74,15 @@ export const bridgeDaemonConfigSchema = z.object({
       socketPath: z.string().optional(),
     })
     .default({ path: "mpv" }),
+  /**
+   * Burner Phone / Media Bridge TTS (ADR 0177).
+   * `audioDevice` is an mpv CoreAudio name (e.g. coreaudio/BlackHole2ch_UID).
+   */
+  tts: z
+    .object({
+      audioDevice: z.string().optional(),
+    })
+    .default({}),
   nowPlayingPath: z.string().optional(),
   /** @deprecated File always uses Audio Hijack Title:/Artist:/Album: lines. */
   nowPlayingFormat: z.string().default("{title} | {artist} | {album}"),

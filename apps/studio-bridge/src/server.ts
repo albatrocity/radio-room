@@ -700,6 +700,8 @@ function wireSocketHandlers(io: IOServer): void {
         targetInventoryItemId?: string
         password?: string
         coinAmount?: number
+        message?: string
+        voice?: string
       }) => {
         const roomId = socket.data.roomId as string | undefined
         const userId = socket.data.userId as string | undefined
@@ -722,6 +724,8 @@ function wireSocketHandlers(io: IOServer): void {
             : {}),
           ...(data.password != null ? { password: data.password } : {}),
           ...(data.coinAmount != null ? { coinAmount: data.coinAmount } : {}),
+          ...(data.message != null ? { message: data.message } : {}),
+          ...(data.voice != null ? { voice: data.voice } : {}),
         })
         socket.emit("event", {
           type: "INVENTORY_ACTION_RESULT",
@@ -1546,6 +1550,19 @@ function wireSocketHandlers(io: IOServer): void {
           roomId: socket.data.roomId,
           connected: true,
           services: ["spotify", "local", "youtube"],
+        },
+      })
+    })
+
+    socket.on("GET_MEDIA_BRIDGE_SAY_VOICES", () => {
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_SAY_VOICES_RESULT",
+        data: {
+          voices: [
+            { id: "Samantha", name: "Samantha", locale: "en_US" },
+            { id: "Zarvox", name: "Zarvox", locale: "en_US" },
+            { id: "Whisper", name: "Whisper", locale: "en_US" },
+          ],
         },
       })
     })

@@ -28,6 +28,9 @@ export {
   parseStoredBridgeCapabilities,
   spotifyTokenKey,
   spotifyDeviceKey,
+  BRIDGE_SAY_MAX_CHARS,
+  sanitizeBridgeSayText,
+  bridgeSayCodePointLength,
 } from "./lib/protocol"
 export type {
   BridgeRequest,
@@ -36,7 +39,10 @@ export type {
   BridgeSource,
   BridgeControlMessage,
   BridgeDaemonPresence,
+  BridgeSayVoice,
 } from "./lib/protocol"
+export { listSayVoices, speakOnBridge } from "./lib/tts"
+export type { ListSayVoicesResult, SpeakOnBridgeResult } from "./lib/tts"
 export {
   requestChannel,
   responseChannel,

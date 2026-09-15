@@ -1200,6 +1200,29 @@ export class DJHandlers {
       })
     }
   }
+
+  getMediaBridgeSayVoices = async ({ socket }: HandlerConnections) => {
+    try {
+      const { roomId, userId } = socket.data
+      const result = await this.mediaBridgeService.listSayVoices(roomId, userId)
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_SAY_VOICES_RESULT",
+        data: {
+          voices: result.voices,
+          ...(result.success ? {} : { error: result.message }),
+        },
+      })
+    } catch (error: any) {
+      console.error("Error listing Media Bridge say voices:", error)
+      socket.emit("event", {
+        type: "MEDIA_BRIDGE_SAY_VOICES_RESULT",
+        data: {
+          voices: [],
+          error: error?.message || "Failed to list voices",
+        },
+      })
+    }
+  }
 }
 
 /**

@@ -88,6 +88,8 @@ function InventoryRow({
     targetInventoryItemId?: string
     password?: string
     coinAmount?: number
+    message?: string
+    voice?: string
   }) => {
     setPendingUse({ itemId: item.itemId })
     track(
@@ -107,6 +109,8 @@ function InventoryRow({
         : {}),
       ...(extra?.password != null ? { password: extra.password } : {}),
       ...(extra?.coinAmount != null ? { coinAmount: extra.coinAmount } : {}),
+      ...(extra?.message != null ? { message: extra.message } : {}),
+      ...(extra?.voice != null ? { voice: extra.voice } : {}),
     })
   }
 

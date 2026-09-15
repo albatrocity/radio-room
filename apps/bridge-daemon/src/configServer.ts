@@ -22,6 +22,8 @@ export type ConfigServerHandlers = {
   disconnect: () => Promise<void>
   /** Reload in-memory config after a save (caller may restart session). */
   onConfigSaved: (config: BridgeDaemonConfig) => void
+  /** mpv CoreAudio device list for TTS output picker (ADR 0177). */
+  listAudioDevices?: () => Promise<Array<{ id: string; label: string }>>
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
@@ -176,6 +178,24 @@ async function handleRequest(
   if (method === "POST" && path === "/api/disconnect") {
     await handlers.disconnect()
     sendJson(res, 200, { ok: true, ...handlers.getStatus() })
+    return
+  }
+
+  if (method === "GET" && path === "/api/audio-devices") {
+    if (!handlers.listAudioDevices) {
+      sendJson(res, 501, { ok: false, error: "Audio device listing unavailable", devices: [] })
+      return
+    }
+    try {
+      const devices = await handlers.listAudioDevices()
+      sendJson(res, 200, { ok: true, devices })
+    } catch (e) {
+      sendJson(res, 500, {
+        ok: false,
+        error: e instanceof Error ? e.message : String(e),
+        devices: [],
+      })
+    }
     return
   }
 

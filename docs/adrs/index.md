@@ -182,6 +182,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0174](0174-programme-ducking-for-sound-effects.md) | Programme ducking for sound effects (`duck` on `queueSoundEffect`) | Accepted |
 | [0175](0175-item-shop-themes-and-assignment-rarity.md) | Item shop themes and assignment rarity | Accepted |
 | [0176](0176-room-shop-assignment-rarity-overrides.md) | Room shop assignment rarity overrides (admin UI) | Accepted |
+| [0177](0177-media-bridge-tts-say-output.md) | Media Bridge TTS (`say`) to a dedicated CoreAudio output | Accepted |
 
 ## Creating a New ADR
 

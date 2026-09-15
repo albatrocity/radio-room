@@ -197,6 +197,17 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 
 **Quick check:** while a local track is playing, look at daemon logs for `[local] loadfile` / `[local] playing durationSec=…`. If that appears and Now Playing updates, mpv is playing — missing stream audio is almost always capture routing, not Navidrome.
 
+### Burner Phone / TTS output (ADR 0177)
+
+Spy World’s **Burner Phone** speaks listener text via macOS `say` into a **dedicated** CoreAudio device (not the Physical Media mpv process):
+
+1. Install a virtual output (Loopback device or BlackHole).
+2. Open the Media Bridge UI (`http://127.0.0.1:18766/`) → **TTS / Burner Phone** → select that device → **Save**.
+3. In Audio Hijack, add that virtual device as its **own** source (separate from Chrome/mpv programme capture) so you can duck/mix the call independently.
+4. Leave `tts.audioDevice` empty to fail closed (item is not consumed; UI shows a clear error).
+
+Do not set the TTS device to the same output as Physical Media unless you intentionally want the streams to mix.
+
 ## 7. Smoke test checklist
 
 1. Open the room in the web app
@@ -210,6 +221,7 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 7. (Optional) **Browse / hybrid Search**: Add to Queue → **Browse** (Library index or Spotify search-entry) → album → track; or Search and click an Artist/Album row to deep-link into Browse ([ADR 0090](adrs/0090-hybrid-metadata-catalog-browse.md)).
 8. Empty the queue and trigger a democracy skip — active daemon source should **stop**
 9. As room admin, use the **Now Playing scrubber** to seek within the track; with Volume Manager enabled, use its **broadcast volume** slider in Now Playing to change driver volume
+10. (Optional) **Burner Phone**: configure TTS device (above), buy/use from Spy World, confirm Audio Hijack hears `say` on that device while Physical Media keeps playing
 
 ## 7b. Thrift Store Local shelves (optional)
 
