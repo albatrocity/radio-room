@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from "react"
 import { Box, Button, Icon, IconButton, Popover, Portal, VStack, HStack, Flex, Switch, Separator, Field, Text, ScrollArea, Status, Badge } from "@chakra-ui/react"
-import { LuMoon, LuZap } from "react-icons/lu"
+import { LuMoon, LuVolume2, LuZap } from "react-icons/lu"
 
 import FormTheme from "./FormTheme"
 import ButtonAuthSpotify from "./ButtonAuthSpotify"
@@ -17,6 +17,7 @@ import { useColorMode } from "./ui/color-mode"
 import { setAvailableSources } from "../actors"
 import { MetadataSourceType } from "../types/Queue"
 import { useAnimationPreference } from "../hooks/useReducedMotion"
+import { useSoundEffectsPreference } from "../hooks/useSoundEffectsPreference"
 import { useHybridListeningTransport } from "../hooks/useHybridListeningTransport"
 import { Logo } from "./ui/logo"
 
@@ -25,6 +26,7 @@ type Props = {}
 const PopoverPreferences = (props: Props) => {
   const { colorMode, toggleColorMode } = useColorMode()
   const { animationsEnabled, toggleAnimations } = useAnimationPreference()
+  const { soundEffectsEnabled, toggleSoundEffects } = useSoundEffectsPreference()
   const room = useCurrentRoom()
   const availableSources = useAvailableMetadataSources()
   const preferredSource = usePreferredMetadataSource()
@@ -172,22 +174,42 @@ const PopoverPreferences = (props: Props) => {
                       </Field.Root>
                     </Box>
                   )}
-                  <HStack p={4} align="center" justify="space-between" gap={2}>
-                    <Text fontWeight="semibold">Animations</Text>
-                    <HStack align="center">
-                      <Icon as={LuZap} aria-label="Animations" />
-                      <Switch.Root
-                        id="animations"
-                        onCheckedChange={toggleAnimations}
-                        checked={animationsEnabled}
-                      >
-                        <Switch.HiddenInput />
-                        <Switch.Control>
-                          <Switch.Thumb />
-                        </Switch.Control>
-                      </Switch.Root>
-                    </HStack>
-                  </HStack>
+                  <Box p={4}>
+                    <VStack align="stretch" gap={2} p={0}>
+                      <HStack align="center" justify="space-between" gap={2}>
+                        <Text fontWeight="semibold">Animations</Text>
+                        <HStack align="center">
+                          <Icon as={LuZap} aria-label="Animations" />
+                          <Switch.Root
+                            id="animations"
+                            onCheckedChange={toggleAnimations}
+                            checked={animationsEnabled}
+                          >
+                            <Switch.HiddenInput />
+                            <Switch.Control>
+                              <Switch.Thumb />
+                            </Switch.Control>
+                          </Switch.Root>
+                        </HStack>
+                      </HStack>
+                      <HStack align="center" justify="space-between" gap={2}>
+                        <Text fontWeight="semibold">Sound effects</Text>
+                        <HStack align="center">
+                          <Icon as={LuVolume2} aria-label="Sound effects" />
+                          <Switch.Root
+                            id="soundEffects"
+                            onCheckedChange={toggleSoundEffects}
+                            checked={soundEffectsEnabled}
+                          >
+                            <Switch.HiddenInput />
+                            <Switch.Control>
+                              <Switch.Thumb />
+                            </Switch.Control>
+                          </Switch.Root>
+                        </HStack>
+                      </HStack>
+                    </VStack>
+                  </Box>
                   <Separator />
                   <Box p={2} px={4}>
                     <ButtonFeedback w="100%" beforeOpen={() => setOpen(false)} />

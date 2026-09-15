@@ -1,6 +1,7 @@
 import { setup, assign } from "xstate"
 import { subscribeById, unsubscribeById } from "../actors/socketActor"
 import { audioActor, getVolume, isMuted } from "../actors/audioActor"
+import { areSoundEffectsEnabled } from "../actors/soundEffectsPreferenceActor"
 
 // ============================================================================
 // Types
@@ -29,6 +30,7 @@ type SoundEffectsEvent =
     }
   | { type: "SOUND_ENDED" }
   | { type: "SOUND_ERROR" }
+  | { type: "FLUSH" }
 
 // ============================================================================
 // Machine
@@ -95,6 +97,13 @@ export const soundEffectsMachine = setup({
         return { currentSound: null }
       }
 
+      // Preference off: do not play or duck (belt-and-suspenders next to the guard).
+      if (!areSoundEffectsEnabled()) {
+        clearSfxDuck()
+        stopAndClear(context.currentSound)
+        return { queue: [], currentSound: null }
+      }
+
       const [next, ...rest] = context.queue
       stopAndClear(context.currentSound)
 
@@ -144,6 +153,12 @@ export const soundEffectsMachine = setup({
     clearSfxDuckAction: () => {
       clearSfxDuck()
     },
+    /** Stop in-flight clip, empty queue, clear duck — keep socket subscription. */
+    flushPlayback: assign(({ context }) => {
+      stopAndClear(context.currentSound)
+      clearSfxDuck()
+      return { queue: [], currentSound: null }
+    }),
     resetSoundEffects: assign(({ context }) => {
       stopAndClear(context.currentSound)
       clearSfxDuck()
@@ -153,6 +168,7 @@ export const soundEffectsMachine = setup({
   guards: {
     hasQueuedSounds: ({ context }) => context.queue.length > 0,
     queueIsEmpty: ({ context }) => context.queue.length === 0,
+    soundEffectsEnabled: () => areSoundEffectsEnabled(),
   },
 }).createMachine({
   id: "soundEffects",
@@ -162,6 +178,9 @@ export const soundEffectsMachine = setup({
     idle: {
       on: {
         ACTIVATE: "active",
+        FLUSH: {
+          actions: ["flushPlayback"],
+        },
       },
     },
     active: {
@@ -179,14 +198,23 @@ export const soundEffectsMachine = setup({
           on: {
             SOUND_EFFECT_QUEUED: {
               target: "playing",
+              guard: "soundEffectsEnabled",
               actions: ["addToQueue", "playNextSound"],
+            },
+            FLUSH: {
+              actions: ["flushPlayback"],
             },
           },
         },
         playing: {
           on: {
             SOUND_EFFECT_QUEUED: {
+              guard: "soundEffectsEnabled",
               actions: ["addToQueue"],
+            },
+            FLUSH: {
+              target: "waiting",
+              actions: ["flushPlayback"],
             },
             SOUND_ENDED: [
               {

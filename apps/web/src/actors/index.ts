@@ -139,6 +139,14 @@ export {
   getQueuedSoundEffectsCount,
 } from "./soundEffectsActor"
 
+// Sound Effects Preference Actor
+export {
+  soundEffectsPreferenceActor,
+  areSoundEffectsEnabled,
+  toggleSoundEffectsEnabled,
+  setSoundEffectsEnabled,
+} from "./soundEffectsPreferenceActor"
+
 // Screen Effects Actor
 export {
   screenEffectsActor,
