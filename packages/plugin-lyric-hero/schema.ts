@@ -101,7 +101,7 @@ const importPhrasesAction = {
     sourceParam: "rawText",
     itemNoun: "phrases",
     helpText:
-      "Paste one lyric phrase per line. Blank lines and # comments are ignored. Optional - / * / 1. list markers are stripped.",
+      "Paste one lyric phrase per line. Optional hint after ` | ` (e.g. don't stop believin' | Journey, 1981). Blank lines and # comments are ignored. Optional - / * / 1. list markers are stripped.",
   },
 } satisfies PluginActionElement
 
@@ -196,6 +196,15 @@ export function getConfigSchema(): PluginConfigSchema {
               type: "string",
               label: "Lyric / phrase",
               placeholder: "Don't stop believin'",
+            },
+          },
+          {
+            name: "hint",
+            meta: {
+              type: "string",
+              label: "Hint",
+              description: "Shown under the puzzle to all guests. Leave blank for no hint.",
+              placeholder: "Journey, 1981",
             },
           },
         ],

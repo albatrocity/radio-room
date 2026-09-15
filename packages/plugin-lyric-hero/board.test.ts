@@ -39,4 +39,11 @@ describe("createBoard / applyGuess", () => {
     expect(view.tokens[0]?.display).toBe("__!")
     expect(view.moodLabel).toBe("locked in")
   })
+
+  it("includes trimmed hint and omits empty hints", () => {
+    const board = createBoard("hello", 6)
+    expect(toPublicPuzzleView(board, { hint: "Journey" }).hint).toBe("Journey")
+    expect(toPublicPuzzleView(board).hint).toBeUndefined()
+    expect(toPublicPuzzleView(board, { hint: "" }).hint).toBeUndefined()
+  })
 })

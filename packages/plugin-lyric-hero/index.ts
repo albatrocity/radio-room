@@ -29,6 +29,7 @@ import {
   type LyricHeroUserGameState,
   type PuzzleBoard,
   type PublicPuzzleView,
+  publicHint,
 } from "./types"
 
 export type {
@@ -115,7 +116,7 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
         : undefined
 
     return {
-      puzzle: toPublicPuzzleView(board, reveal ? { revealedPhrase: reveal } : undefined),
+      puzzle: toPublicPuzzleView(board, this.puzzleViewOpts(phrase, reveal)),
       phraseIndex: session.activePhraseIndex,
       phraseTotal: phrases.length,
       acceptingGuesses:
@@ -542,12 +543,12 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
           this.context.roomId,
           `🎉 The room completed the lyric: “${phraseText}”`,
         )
-        await this.emitPuzzleUpdated(session, board, phraseText, autoAdvanceDeadline)
+        await this.emitPuzzleUpdated(session, board, phrases, phraseText, autoAdvanceDeadline)
         return { success: true, message: "Solved!" }
       }
 
       await this.saveSession(session)
-      await this.emitPuzzleUpdated(session, board)
+      await this.emitPuzzleUpdated(session, board, phrases)
       return { success: true, message: "Hit!" }
     }
 
@@ -571,12 +572,12 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
         this.context.roomId,
         `The lyric was: “${phraseText}”`,
       )
-      await this.emitPuzzleUpdated(session, board, phraseText, autoAdvanceDeadline)
+      await this.emitPuzzleUpdated(session, board, phrases, phraseText, autoAdvanceDeadline)
       return { success: true, message: "The crowd walked out." }
     }
 
     await this.saveSession(session)
-    await this.emitPuzzleUpdated(session, board)
+    await this.emitPuzzleUpdated(session, board, phrases)
     return { success: true, message: "Miss." }
   }
 
@@ -652,7 +653,10 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
         await this.emit<LyricHeroEvents["PUZZLE_UPDATED"]>(
           "PUZZLE_UPDATED",
           {
-            puzzle: toPublicPuzzleView(board, { revealedPhrase: phraseText }),
+            puzzle: toPublicPuzzleView(
+              board,
+              this.puzzleViewOpts(phrases[session.activePhraseIndex], phraseText),
+            ),
             acceptingGuesses: false,
             statusMessage: `${username} finished first`,
             autoAdvanceDeadline,
@@ -742,16 +746,32 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
     }
   }
 
+  private puzzleViewOpts(
+    phrase: LyricHeroPhrase | undefined,
+    revealedPhrase?: string,
+  ): { revealedPhrase?: string; hint?: string } | undefined {
+    const hint = publicHint(phrase)
+    if (!revealedPhrase && !hint) return undefined
+    return {
+      ...(revealedPhrase ? { revealedPhrase } : {}),
+      ...(hint ? { hint } : {}),
+    }
+  }
+
   private async emitPuzzleUpdated(
     session: LyricHeroSession,
     board: PuzzleBoard,
+    phrases: LyricHeroPhrase[],
     revealedPhrase?: string,
     autoAdvanceDeadline?: LyricHeroAutoAdvanceDeadline | null,
   ): Promise<void> {
     await this.emit<LyricHeroEvents["PUZZLE_UPDATED"]>(
       "PUZZLE_UPDATED",
       {
-        puzzle: toPublicPuzzleView(board, revealedPhrase ? { revealedPhrase } : undefined),
+        puzzle: toPublicPuzzleView(
+          board,
+          this.puzzleViewOpts(phrases[session.activePhraseIndex], revealedPhrase),
+        ),
         acceptingGuesses: session.acceptingGuesses,
         statusMessage: this.statusFor(session, board),
         autoAdvanceDeadline:
@@ -772,7 +792,10 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
   ): Promise<void> {
     if (!this.context) return
     await this.context.api.emitToUser(userId, "MY_PUZZLE", {
-      puzzle: toPublicPuzzleView(board, revealedPhrase ? { revealedPhrase } : undefined),
+      puzzle: toPublicPuzzleView(
+        board,
+        this.puzzleViewOpts(phrases[session.activePhraseIndex], revealedPhrase),
+      ),
       acceptingGuesses:
         session.acceptingGuesses &&
         !board.solved &&
@@ -882,10 +905,7 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
         !session.acceptingGuesses && (session.sharedBoard.walkedOut || session.sharedBoard.solved)
           ? phrase?.text
           : undefined
-      puzzle = toPublicPuzzleView(
-        session.sharedBoard,
-        reveal ? { revealedPhrase: reveal } : undefined,
-      )
+      puzzle = toPublicPuzzleView(session.sharedBoard, this.puzzleViewOpts(phrase, reveal))
     }
 
     return {

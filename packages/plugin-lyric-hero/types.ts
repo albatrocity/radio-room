@@ -26,9 +26,17 @@ export const lyricHeroModeFieldMeta = {
 
 export const lyricHeroPhraseSchema = z.object({
   text: z.string().default(""),
+  /** Guest-facing hint shown under the puzzle blanks (optional). */
+  hint: z.string().default(""),
 })
 
 export type LyricHeroPhrase = z.infer<typeof lyricHeroPhraseSchema>
+
+/** Trimmed public hint, or undefined when empty / whitespace-only. */
+export function publicHint(phrase: LyricHeroPhrase | undefined | null): string | undefined {
+  const trimmed = phrase?.hint?.trim()
+  return trimmed ? trimmed : undefined
+}
 
 export const lyricHeroConfigSchema = z.object({
   enabled: z.boolean().default(false),
@@ -107,6 +115,8 @@ export interface PublicPuzzleView {
   solved: boolean
   /** Revealed full phrase when the round is over (walk-out or competitive win). */
   revealedPhrase?: string
+  /** Optional guest-facing hint authored on the phrase (omitted when empty). */
+  hint?: string
 }
 
 // ============================================================================

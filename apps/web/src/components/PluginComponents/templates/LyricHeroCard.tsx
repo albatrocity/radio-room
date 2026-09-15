@@ -32,6 +32,8 @@ interface PublicPuzzleView {
   walkedOut: boolean
   solved: boolean
   revealedPhrase?: string
+  /** Optional guest-facing hint authored on the phrase. */
+  hint?: string
 }
 
 interface AutoAdvanceDeadline {
@@ -198,6 +200,12 @@ export function LyricHeroCardTemplateComponent({
                   Loading your board…
                 </Text>
               )}
+
+              {puzzle?.hint ? (
+                <Text fontSize="xs" color="fg.muted" wordBreak="break-word">
+                  {puzzle.hint}
+                </Text>
+              ) : null}
 
               <HStack gap={2} flexWrap="wrap" minW={0}>
                 <Badge colorPalette={puzzle?.walkedOut ? "red" : puzzle?.solved ? "green" : "purple"}>

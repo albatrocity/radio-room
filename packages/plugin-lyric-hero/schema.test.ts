@@ -45,4 +45,15 @@ describe("lyric-hero config schema", () => {
   it("includes autoAdvanceDeadline in the component store", () => {
     expect(getComponentSchema().storeKeys).toContain("autoAdvanceDeadline")
   })
+
+  it("declares optional hint on each phrase row", () => {
+    const phrases = getConfigSchema().fieldMeta.phrases
+    expect(phrases.type).toBe("object-array")
+    if (phrases.type !== "object-array") return
+    expect(phrases.itemFields?.map((f) => f.name)).toEqual(["text", "hint"])
+    expect(phrases.itemFields?.find((f) => f.name === "hint")?.meta).toMatchObject({
+      type: "string",
+      label: "Hint",
+    })
+  })
 })

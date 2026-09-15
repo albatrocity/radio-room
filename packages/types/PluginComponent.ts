@@ -400,7 +400,7 @@ export type QueueThemeBriefCardComponentProps = {}
  * inclusive prefer `pluginUserState` (ADR 0097) with live MY_PUZZLE store merges.
  */
 export interface LyricHeroCardComponentProps {
-  /** Hint under the guess field. */
+  /** Guess-input placeholder. Per-phrase hint copy is `store.puzzle.hint`. */
   hint?: string
 }
 

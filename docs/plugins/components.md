@@ -124,8 +124,8 @@ getComponentSchema(): PluginComponentSchema {
 | `inventory-button` | Opens inventory modal      | `label`, `opensModal`, `icon?`                                  |
 | `inventory-grid`   | Item grid (often in modal) | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
 | `item-badge`       | Owns-item indicator        | `definitionId`, `showQuantity`                                  |
-| `quiz-question-card` | Quiz above-chat card     | `questionKey?`, `hint?`                                         |
-| `lyric-hero-card`  | Lyric Hero above-chat card | `hint?` (coop store / solo `pluginUserState`)                 |
+| `quiz-question-card` | Quiz above-chat card     | `questionKey?`, `hint?` (input placeholder)                     |
+| `lyric-hero-card`  | Lyric Hero above-chat card | `hint?` (guess-input placeholder); per-phrase copy is `store.puzzle.hint` |
 | `queue-theme-brief-card` | Queue Theme brief     | (none — reads `pluginUserState`)                                |
 | `bingo-card`       | Playlist Bingo card        | (none — reads `pluginUserState`)                                |
 | `slider`           | Value slider + action      | `dataKey`, `action`, `paramKey?`                                |

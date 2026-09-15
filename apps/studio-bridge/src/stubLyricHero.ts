@@ -16,6 +16,7 @@ type Puzzle = {
   walkedOut: boolean
   solved: boolean
   revealedPhrase?: string
+  hint?: string
 }
 
 type Session = {
@@ -32,15 +33,16 @@ const sessions = new Map<string, Session>()
 export const LYRIC_HERO_PREVIEW_PLUGIN = "lyric-hero"
 
 const DEFAULT_PHRASE = "don't stop"
+const DEFAULT_HINT = "Journey, 1981"
 
 function blank(surface: string): string {
   return surface
     .split("")
-    .map((ch) => (/[a-z0-9]/i.test(ch) ? "_" : ch))
+    .map((ch) => (/[a-z0-9']/i.test(ch) ? "_" : ch))
     .join("")
 }
 
-function makePuzzle(phrase: string): Puzzle {
+function makePuzzle(phrase: string, hint?: string): Puzzle {
   const words = phrase.trim().split(/\s+/).filter(Boolean)
   return {
     tokens: words.map((w) => ({ display: blank(w), revealed: false })),
@@ -50,6 +52,7 @@ function makePuzzle(phrase: string): Puzzle {
     moodLabel: "locked in",
     walkedOut: false,
     solved: false,
+    ...(hint ? { hint } : {}),
   }
 }
 
@@ -75,7 +78,7 @@ function ensureSession(roomId: string, mode: Mode = "cooperative"): Session {
     phraseTotal: 1,
     acceptingGuesses: true,
     phrase: DEFAULT_PHRASE,
-    puzzle: makePuzzle(DEFAULT_PHRASE),
+    puzzle: makePuzzle(DEFAULT_PHRASE, DEFAULT_HINT),
   }
   sessions.set(roomId, session)
   return session

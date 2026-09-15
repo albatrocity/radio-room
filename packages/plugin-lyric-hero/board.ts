@@ -26,7 +26,7 @@ function isBoardSolved(tokens: PuzzleToken[]): boolean {
 
 export function toPublicPuzzleView(
   board: PuzzleBoard,
-  options?: { revealedPhrase?: string },
+  options?: { revealedPhrase?: string; hint?: string },
 ): PublicPuzzleView {
   return {
     tokens: board.tokens.map((t) => ({
@@ -43,6 +43,7 @@ export function toPublicPuzzleView(
     walkedOut: board.walkedOut,
     solved: board.solved,
     ...(options?.revealedPhrase ? { revealedPhrase: options.revealedPhrase } : {}),
+    ...(options?.hint ? { hint: options.hint } : {}),
   }
 }
 

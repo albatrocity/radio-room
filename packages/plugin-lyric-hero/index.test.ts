@@ -144,6 +144,48 @@ describe("LyricHeroPlugin", () => {
     )
   })
 
+  it("publishes phrase hint on cooperative SESSION_STARTED puzzle", async () => {
+    const { plugin, context, api } = setup({
+      mode: "cooperative",
+      phrases: [{ text: "don't stop", hint: "Journey, 1981" }],
+    })
+    await start(plugin, context)
+    expect(api.emit).toHaveBeenCalledWith(
+      "SESSION_STARTED",
+      expect.objectContaining({
+        puzzle: expect.objectContaining({ hint: "Journey, 1981" }),
+      }),
+      undefined,
+    )
+  })
+
+  it("keeps hint on PUZZLE_UPDATED after a guess", async () => {
+    const { plugin, context, api } = setup({
+      mode: "cooperative",
+      phrases: [{ text: "don't stop", hint: "  Journey  " }],
+    })
+    await start(plugin, context)
+    api.emit.mockClear()
+    await plugin.executeAction("submitGuess", { userId: "u1", username: "A" }, { word: "don't" })
+    expect(api.emit).toHaveBeenCalledWith(
+      "PUZZLE_UPDATED",
+      expect.objectContaining({
+        puzzle: expect.objectContaining({ hint: "Journey" }),
+      }),
+      expect.anything(),
+    )
+  })
+
+  it("includes hint in competitive contributeToUserGameState bag", async () => {
+    const { plugin, context } = setup({
+      mode: "competitive",
+      phrases: [{ text: "don't stop", hint: "Journey, 1981" }],
+    })
+    await start(plugin, context)
+    const bag = await plugin.contributeToUserGameState("u1", {} as any)
+    expect(bag?.puzzle?.hint).toBe("Journey, 1981")
+  })
+
   it("fills all occurrences and rejects extra tokens", async () => {
     const { plugin, context, api, game } = setup({
       mode: "cooperative",
