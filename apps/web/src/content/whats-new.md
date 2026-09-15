@@ -29,3 +29,19 @@ Recap of what’s landed since the August 20 show.
 - Spotify is much less likely to skip a playing track on a blip, stall at the end of a song, or fail to advance the queue.
 - Game sessions keep running when the show rolls into the next segment.
 - Add to Queue is snappier; search rows no longer overflow.
+
+## August 2026
+
+Recap of what’s landed since the July 16 show.
+
+### New
+
+- Playlist Bingo: each listener gets a private card; mark squares as the night’s playlist hits your criteria.
+- Round Robin DJ: when you’re deputized, turns rotate fairly so everyone gets a shot to queue.
+- Quiz sessions got a polish pass (clearer flow and authoring for hosts).
+
+### Fixed
+
+- Queue Pacer is less likely to skip twice in a row.
+- Spotify auth is more resilient when Spotify returns temporary errors.
+- General performance pass so the room UI feels snappier under load.
