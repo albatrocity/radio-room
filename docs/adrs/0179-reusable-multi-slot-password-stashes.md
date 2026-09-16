@@ -56,3 +56,4 @@ Studio's `retrieveArtifact` had cloned the socket handler, including a live drif
 - [0175. Item shop themes](0175-item-shop-themes-and-assignment-rarity.md)
 - [0180. Tour Laminate](0180-tour-laminate-punch-accrual.md)
 - [0181. Empty stashes persist; container return is best-effort](0181-empty-stash-container-return.md)
+- [0182. Stash `lastTouchedAt`](0182-stash-last-touched-at.md)

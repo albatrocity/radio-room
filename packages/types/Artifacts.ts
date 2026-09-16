@@ -59,6 +59,13 @@ export interface StoredArtifact {
   /** Public note — typically a password hint. Max 140 chars. */
   note?: string
   storedAt: number
+  /**
+   * Last completed password-granted action (create, deposit, withdraw), stamped
+   * by the artifacts API — not settable through `update`. Absent on rows last
+   * written before the field existed; read it through `artifactLastTouchedAt`,
+   * which falls back to `storedAt`.
+   */
+  lastTouchedAt?: number
   storedByUserId: string
   storedByUsername: string
   password: string

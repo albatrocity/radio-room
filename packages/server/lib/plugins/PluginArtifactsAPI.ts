@@ -78,7 +78,7 @@ export class PluginArtifactsAPI implements ArtifactsPluginAPI {
     artifact: Omit<StoredArtifact, "id" | "contents"> & { contents?: ArtifactContentInput[] },
   ): Promise<string> {
     const id = randomUUID()
-    let full: StoredArtifact = { id, ...artifact }
+    let full: StoredArtifact = { id, ...artifact, lastTouchedAt: Date.now() }
     full = applyNormalized(full)
     full = applyPublicText(full, artifact.label, artifact.note, "replace")
     await this.context.redis.pubClient.hSet(REDIS_KEY, id, JSON.stringify(full))
@@ -147,6 +147,9 @@ export class PluginArtifactsAPI implements ArtifactsPluginAPI {
     if ("note" in patch) {
       next = applyPublicText(next, undefined, patch.note, "if-present")
     }
+    // Every `update` caller is downstream of an `attemptRetrieve` grant, so
+    // reaching here means a deposit or withdraw completed (ADR 0182).
+    next.lastTouchedAt = Date.now()
 
     await this.context.redis.pubClient.hSet(REDIS_KEY, id, JSON.stringify(next))
     return next

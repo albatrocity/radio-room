@@ -139,6 +139,20 @@ export function readArtifactContents(
   return shimLegacyContents(a)
 }
 
+/**
+ * When this stash last saw a completed password-granted action — create,
+ * deposit, or withdraw (ADR 0182). Rows written before `lastTouchedAt` existed
+ * fall back to `storedAt`; wrong-password attempts and failed operations never
+ * move it.
+ */
+export function artifactLastTouchedAt(
+  a: Pick<StoredArtifact, "storedAt" | "lastTouchedAt">,
+): number {
+  const touched = a.lastTouchedAt
+  if (typeof touched !== "number" || !Number.isFinite(touched) || touched <= 0) return a.storedAt
+  return Math.max(touched, a.storedAt)
+}
+
 /** Positive `storageCapacity` from a definition, else `undefined`. */
 export function readStorageCapacity(
   definition?: { storageCapacity?: number } | null,

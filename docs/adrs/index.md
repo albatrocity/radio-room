@@ -187,6 +187,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0179](0179-reusable-multi-slot-password-stashes.md) | Reusable, multi-slot password stashes (`contents[]`, deposit/withdraw, container return) | Partially superseded by [0181](0181-empty-stash-container-return.md) (points 4 and 8) |
 | [0180](0180-tour-laminate-punch-accrual.md) | Tour Laminate: per-copy punch accrual | Accepted |
 | [0181](0181-empty-stash-container-return.md) | Empty stashes persist; container return is best-effort | Accepted |
+| [0182](0182-stash-last-touched-at.md) | Stash `lastTouchedAt` stamped by the artifacts API | Accepted |
 
 ## Creating a New ADR
 

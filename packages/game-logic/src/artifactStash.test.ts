@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { ArtifactContent, StoredArtifact } from "@repo/types"
 import {
+  artifactLastTouchedAt,
   artifactSummaryLabel,
   computeFreeSlotsByPool,
   normalizeArtifactPayload,
@@ -474,6 +475,23 @@ describe("selectFittingContentIds", () => {
         defs,
       ),
     ).toEqual(["c-coins"])
+  })
+})
+
+describe("artifactLastTouchedAt", () => {
+  it("falls back to storedAt on rows written before the field existed", () => {
+    expect(artifactLastTouchedAt(LEGACY_COIN)).toBe(LEGACY_COIN.storedAt)
+    expect(artifactLastTouchedAt({ storedAt: 10, lastTouchedAt: undefined })).toBe(10)
+  })
+
+  it("uses the stamp once a deposit or withdraw has moved it", () => {
+    expect(artifactLastTouchedAt({ storedAt: 10, lastTouchedAt: 99 })).toBe(99)
+  })
+
+  it("never reports a touch older than creation, or a garbage stamp", () => {
+    expect(artifactLastTouchedAt({ storedAt: 10, lastTouchedAt: 5 })).toBe(10)
+    expect(artifactLastTouchedAt({ storedAt: 10, lastTouchedAt: 0 })).toBe(10)
+    expect(artifactLastTouchedAt({ storedAt: 10, lastTouchedAt: Number.NaN })).toBe(10)
   })
 })
 

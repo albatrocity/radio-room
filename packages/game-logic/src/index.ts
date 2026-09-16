@@ -93,6 +93,7 @@ export {
 export {
   STASH_LABEL_MAX_CHARS,
   STASH_NOTE_MAX_CHARS,
+  artifactLastTouchedAt,
   artifactSummaryLabel,
   computeFreeSlotsByPool,
   hydrateStoredArtifactContainers,

@@ -28,7 +28,11 @@ export class MockStudioArtifactsApi implements ArtifactsPluginAPI {
     artifact: Omit<StoredArtifact, "id" | "contents"> & { contents?: ArtifactContentInput[] },
   ): Promise<string> {
     const id = crypto.randomUUID()
-    let full: StoredArtifact = applyNormalized({ ...artifact, id } as StoredArtifact)
+    let full: StoredArtifact = applyNormalized({
+      ...artifact,
+      id,
+      lastTouchedAt: Date.now(),
+    } as StoredArtifact)
     const label = sanitizeStashLabel(artifact.label)
     const note = sanitizeStashNote(artifact.note)
     if (label.status === "too_long") throw new Error("Stash name must be 32 characters or fewer.")
@@ -83,6 +87,8 @@ export class MockStudioArtifactsApi implements ArtifactsPluginAPI {
       if (result.status === "ok") next.note = result.value
       else delete next.note
     }
+    // Reaching `update` means a password-granted deposit or withdraw completed (ADR 0182).
+    next.lastTouchedAt = Date.now()
     this.room.updateStoredArtifact(next)
     return next
   }
