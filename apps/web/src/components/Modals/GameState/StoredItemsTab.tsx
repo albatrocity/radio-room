@@ -243,9 +243,9 @@ export default function StoredItemsTab() {
   return (
     <>
       <Stack gap={2}>
-        <Text fontSize="xs" color="fg.muted">
-          Anyone can try to retrieve these with the password that was set when they were stored.
-          Names and notes are public.
+        <Text fontSize="sm" color="fg.muted">
+          Password-protected containers to store items in. Accessible during and across shows.
+          Anyone can access these with the right password.
         </Text>
         {artifacts.map((a) => {
           const contents = readArtifactContents(a)
@@ -468,10 +468,10 @@ export default function StoredItemsTab() {
                           {remainingCapacity == null
                             ? ""
                             : remainingCapacity > 0
-                              ? `, ${remainingCapacity} slot${
-                                  remainingCapacity === 1 ? "" : "s"
-                                } left`
-                              : ", full"}
+                            ? `, ${remainingCapacity} slot${
+                                remainingCapacity === 1 ? "" : "s"
+                              } left`
+                            : ", full"}
                           )
                         </Text>
                         {depositableItems.length === 0 ? (
@@ -496,9 +496,9 @@ export default function StoredItemsTab() {
                                     prev.includes(row.itemId)
                                       ? prev.filter((id) => id !== row.itemId)
                                       : remainingCapacity != null &&
-                                          prev.length >= remainingCapacity
-                                        ? prev
-                                        : [...prev, row.itemId],
+                                        prev.length >= remainingCapacity
+                                      ? prev
+                                      : [...prev, row.itemId],
                                   )
                                 }}
                               >

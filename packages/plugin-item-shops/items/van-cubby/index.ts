@@ -6,7 +6,7 @@ export const vanCubby = createItem({
   definition: {
     name: "Van Cubby",
     description:
-      "A one-slot hideaway. Lock an item with a password — the cubby comes back when the stash is emptied. Anyone who knows the password can open it from Storage.",
+      "Stash one item in password-protected storage. Retrievable via password, works across shows. Reusable.",
     stackable: false,
     maxStack: 1,
     tradeable: true,

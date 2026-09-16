@@ -6,14 +6,14 @@ export const trailer = createItem({
   definition: {
     name: "Trailer",
     description:
-      "Five slots on the hitch. Fill it over time — even across shows — then lock it with a password. The trailer comes back when the last thing is taken.",
+      "Haul more gear. Five storage slots for saving items, event across shows. Secure it with a password. Reusable.",
     stackable: false,
     maxStack: 1,
     tradeable: true,
     consumable: true,
     requiresTarget: "inventoryItems",
     storageCapacity: 5,
-    coinValue: 100,
+    coinValue: 200,
     icon: "Truck",
     rarity: "legendary",
   },

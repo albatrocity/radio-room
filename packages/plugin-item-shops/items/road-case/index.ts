@@ -6,7 +6,7 @@ export const roadCase = createItem({
   definition: {
     name: "Road Case",
     description:
-      "Three slots of touring luggage. Lock items with a password, retrieve them from Storage. Reusable.",
+      "Sturdy protection for precious gear. Three slots of storage. Lock items with a password, retrieve them from Storage. Reusable.",
     stackable: false,
     maxStack: 1,
     tradeable: true,
