@@ -18,17 +18,25 @@ import {
   useTabNotificationIds,
 } from "../../hooks/useActors"
 import { useActiveIntegratedPanelSlot } from "../../hooks/useIntegratedPanelPresentation"
-import { ADMIN_LISTENERS_TAB, STORED_ITEMS_TAB, TRADES_GIFTS_TAB } from "../../constants/gameStateTabs"
+import {
+  ADMIN_LISTENERS_TAB,
+  STORAGE_TAB,
+  TRADES_GIFTS_TAB,
+} from "../../constants/gameStateTabs"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
 import { SvgIcon } from "../ui/svg-icon"
-import { UserGameStateContext, useUserGameState, type UserGameStateSnapshot } from "./UserGameStateContext"
+import {
+  UserGameStateContext,
+  useUserGameState,
+  type UserGameStateSnapshot,
+} from "./UserGameStateContext"
 import {
   GameStateInventoryContent,
   GameStatePluginTabTriggers,
   GameStatePluginTabContents,
 } from "./GameState"
-import StoredItemsTab from "./GameState/StoredItemsTab"
+import StorageTab from "./GameState/StorageTab"
 import AdminListenersTab from "./GameState/AdminListenersTab"
 import { UserModifiersList } from "../UserModifiersList"
 import ScrollShadowViewport from "../ScrollShadowViewport"
@@ -115,7 +123,7 @@ function GameStateTabsBody({
   const tabLabel = useMemo(() => {
     if (gameStateTab === "inventory") return "Inventory"
     if (gameStateTab === TRADES_GIFTS_TAB) return "Trades/Gifts"
-    if (gameStateTab === STORED_ITEMS_TAB) return "Stored Items"
+    if (gameStateTab === STORAGE_TAB) return "Storage"
     if (gameStateTab === ADMIN_LISTENERS_TAB) return "Big Brother"
     return pluginTabs.find((t) => t.id === gameStateTab)?.label ?? "Back"
   }, [gameStateTab, pluginTabs])
@@ -142,8 +150,8 @@ function GameStateTabsBody({
       </Tabs.Content>
 
       {showStoredTab ? (
-        <Tabs.Content value={STORED_ITEMS_TAB}>
-          <StoredItemsTab />
+        <Tabs.Content value={STORAGE_TAB}>
+          <StorageTab />
         </Tabs.Content>
       ) : null}
 
@@ -213,13 +221,13 @@ function GameStateTabsBody({
                   </Tabs.Trigger>
                   {showStoredTab ? (
                     <Tabs.Trigger
-                      value={STORED_ITEMS_TAB}
+                      value={STORAGE_TAB}
                       whiteSpace="nowrap"
                       gap={1}
-                      onClick={() => selectTab(STORED_ITEMS_TAB)}
+                      onClick={() => selectTab(STORAGE_TAB)}
                     >
                       {STORED_ICON ? <SvgIcon icon={STORED_ICON} boxSize="1em" /> : null}
-                      Stored Items
+                      Storage
                     </Tabs.Trigger>
                   ) : null}
                   {includeTradesGiftsTab ? (
@@ -358,7 +366,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
     number
   >
 
-  const showStoredTab = storedArtifacts.length > 0
+  const showStoredTab = storedArtifacts.length > 0 || gameStateTab === STORAGE_TAB
   const showTradesGiftsTab = payload?.session?.config.allowTrading === true
   // Keep the tab mounted when deep-linking (Accept toast) before USER_GAME_STATE
   // has allowTrading — otherwise Chakra Tabs coerces to Inventory and SET_ACTIVE_TAB
@@ -370,7 +378,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   const availableTabIds = useMemo(() => {
     const ids = new Set<string>(["inventory"])
     if (showStoredTab) {
-      ids.add(STORED_ITEMS_TAB)
+      ids.add(STORAGE_TAB)
     }
     if (includeTradesGiftsTab) {
       ids.add(TRADES_GIFTS_TAB)

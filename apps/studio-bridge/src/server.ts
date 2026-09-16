@@ -7,7 +7,12 @@ import { Server } from "socket.io"
 import type { User } from "@repo/types/User"
 import { canonicalQueueTrackKey } from "@repo/types/Queue"
 import type { QueueItem } from "@repo/types/Queue"
-import { evaluatePeekPolicy, hydratePeekItems } from "@repo/game-logic"
+import {
+  evaluatePeekPolicy,
+  hydratePeekItems,
+  hydrateStoredArtifactContainers,
+  toStoredArtifactListing,
+} from "@repo/game-logic"
 
 import type { BridgeSnapshot } from "./types.js"
 import {
@@ -698,10 +703,13 @@ function wireSocketHandlers(io: IOServer): void {
         targetUserId?: string
         targetQueueItemId?: string
         targetInventoryItemId?: string
+        targetInventoryItemIds?: string[]
         password?: string
         coinAmount?: number
         message?: string
         voice?: string
+        label?: string
+        note?: string
       }) => {
         const roomId = socket.data.roomId as string | undefined
         const userId = socket.data.userId as string | undefined
@@ -722,10 +730,15 @@ function wireSocketHandlers(io: IOServer): void {
           ...(data.targetInventoryItemId != null
             ? { targetInventoryItemId: data.targetInventoryItemId }
             : {}),
+          ...(data.targetInventoryItemIds != null
+            ? { targetInventoryItemIds: data.targetInventoryItemIds }
+            : {}),
           ...(data.password != null ? { password: data.password } : {}),
           ...(data.coinAmount != null ? { coinAmount: data.coinAmount } : {}),
           ...(data.message != null ? { message: data.message } : {}),
           ...(data.voice != null ? { voice: data.voice } : {}),
+          ...(data.label != null ? { label: data.label } : {}),
+          ...(data.note != null ? { note: data.note } : {}),
         })
         socket.emit("event", {
           type: "INVENTORY_ACTION_RESULT",
@@ -2066,15 +2079,20 @@ function wireSocketHandlers(io: IOServer): void {
 
     socket.on("GET_STORED_ARTIFACTS", () => {
       const snap = getBridgeSnapshot()
+      const artifacts = (snap?.storedArtifacts ?? []).map(toStoredArtifactListing)
+      const defsById: Record<string, { storageCapacity?: number; name?: string }> = {}
+      for (const def of snap?.itemDefinitions ?? []) {
+        defsById[def.id] = def
+      }
       socket.emit("event", {
         type: "STORED_ARTIFACTS_RESULT",
-        data: { artifacts: snap?.storedArtifacts ?? [] },
+        data: { artifacts: hydrateStoredArtifactContainers(artifacts, defsById) },
       })
     })
 
     socket.on(
       "RETRIEVE_STORED_ARTIFACT",
-      async (data: { artifactId?: string; password?: string }) => {
+      async (data: { artifactId?: string; password?: string; contentIds?: string[] }) => {
         const roomId = socket.data.roomId as string | undefined
         const userId = socket.data.userId as string | undefined
 
@@ -2119,6 +2137,7 @@ function wireSocketHandlers(io: IOServer): void {
               userId,
               artifactId,
               password,
+              ...(Array.isArray(data.contentIds) ? { contentIds: data.contentIds } : {}),
             },
           },
           (response: unknown) => {
@@ -2130,6 +2149,74 @@ function wireSocketHandlers(io: IOServer): void {
                 message:
                   r?.message ??
                   (r?.success === true ? "Retrieved from storage." : "Could not retrieve."),
+              },
+            })
+          },
+        )
+      },
+    )
+
+    socket.on(
+      "DEPOSIT_STORED_ARTIFACT",
+      async (data: {
+        artifactId?: string
+        password?: string
+        targetInventoryItemIds?: string[]
+        coinAmount?: number
+      }) => {
+        const roomId = socket.data.roomId as string | undefined
+        const userId = socket.data.userId as string | undefined
+        const fail = (message: string): void => {
+          socket.emit("event", {
+            type: "DEPOSIT_STORED_ARTIFACT_RESULT",
+            data: { success: false, message },
+          })
+        }
+        if (!roomId || !userId) {
+          fail("Not in a room.")
+          return
+        }
+        const artifactId = data?.artifactId?.trim()
+        const password = typeof data?.password === "string" ? data.password : ""
+        if (!artifactId || !password) {
+          fail("Artifact id and password are required.")
+          return
+        }
+        const studioSockets = await io.in(studioControlRoomPath(roomId)).fetchSockets()
+        if (studioSockets.length === 0) {
+          fail(
+            "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open.",
+          )
+          return
+        }
+        type StudioEmitWithAck = {
+          emit: (ev: string, payload: unknown, ack?: (response: unknown) => void) => void
+        }
+        const toGameStudio = studioSockets[0]! as unknown as StudioEmitWithAck
+        toGameStudio.emit(
+          "event",
+          {
+            type: "STUDIO_BRIDGE_COMMAND",
+            data: {
+              kind: "DEPOSIT_STORED_ARTIFACT",
+              roomId,
+              userId,
+              artifactId,
+              password,
+              ...(Array.isArray(data.targetInventoryItemIds)
+                ? { targetInventoryItemIds: data.targetInventoryItemIds }
+                : {}),
+              ...(data.coinAmount != null ? { coinAmount: data.coinAmount } : {}),
+            },
+          },
+          (response: unknown) => {
+            const r = response as { success?: boolean; message?: string } | undefined
+            socket.emit("event", {
+              type: "DEPOSIT_STORED_ARTIFACT_RESULT",
+              data: {
+                success: r?.success === true,
+                message:
+                  r?.message ?? (r?.success === true ? "Added to stash." : "Could not add to stash."),
               },
             })
           },

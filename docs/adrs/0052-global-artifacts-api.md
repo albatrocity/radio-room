@@ -1,7 +1,7 @@
 # 0052. Global artifacts API (`context.artifacts`)
 
 **Date:** 2026-05-08  
-**Status:** Accepted
+**Status:** Accepted. Extended by [0179](0179-reusable-multi-slot-password-stashes.md)
 
 ## Context
 
@@ -14,9 +14,9 @@ Allowing plugins to call Redis (`context.appContext.redis`) directly for this wo
 Introduce a first-class **`ArtifactsPluginAPI`** exposed as **`context.artifacts`** on `PluginContext`, alongside `storage`, `game`, and `inventory`.
 
 - **Implementation:** `PluginArtifactsAPI` in `@repo/server` reads/writes a single global Redis hash (`global:storedArtifacts`), serialized as JSON per artifact id.
-- **Surface:** `store`, `getAll` (password-stripped public rows), `attemptRetrieve` (distinguishes missing vs wrong password), `remove`.
+- **Surface:** `store`, `getAll` (password-stripped public rows), `attemptRetrieve` (distinguishes missing vs wrong password), `remove`, **`update`** (narrow patch: `contents`, `containerDefinitionId`, `label`, `note` — cannot rotate a password or reassign `storedByUserId`; stamps `lastTouchedAt`), **`withArtifactLock`** (`SET NX EX 10` to serialize retrieve/deposit). See [0179](0179-reusable-multi-slot-password-stashes.md), [0181](0181-empty-stash-container-return.md), [0182](0182-stash-last-touched-at.md).
 - **Lifecycle:** Shared service instance is attached to `AppContext` during server startup (same phase as `InventoryService`). Plugin instances receive the same API object in their context.
-- **Wire protocol:** Clients list and retrieve via Socket.IO events (`GET_STORED_ARTIFACTS`, `RETRIEVE_STORED_ARTIFACT`) handled in `roomsController`, which uses `AppContext.artifacts` plus core inventory / game session services — not plugin instances — so retrieval works without routing through a specific room plugin.
+- **Wire protocol:** Clients list, retrieve, and deposit via Socket.IO events (`GET_STORED_ARTIFACTS`, `RETRIEVE_STORED_ARTIFACT`, `DEPOSIT_STORED_ARTIFACT`) handled in `roomsController`, which uses `AppContext.artifacts` plus core inventory / game session services — not plugin instances — so retrieval works without routing through a specific room plugin.
 
 Passwords are stored in plaintext per product requirement (not a security boundary).
 

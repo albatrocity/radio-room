@@ -54,6 +54,7 @@ import {
   TEXT_EFFECT_KINDS,
   items,
 } from "./items/index"
+import { maybeAccrueTourLaminateOnAcquire } from "./items/tour-laminate"
 import { SHOP_CATALOG } from "./shops"
 import { buildEffectiveShopCatalog } from "./localLibrary/catalog"
 import { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
@@ -174,11 +175,28 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     this.on("GAME_ECONOMY_SCALE_CHANGED", this.handleEconomyScaleChanged.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
     this.on("MEDIA_BRIDGE_STATUS_CHANGED", this.handleMediaBridgeStatusChanged.bind(this))
+    this.on("INVENTORY_ITEM_ACQUIRED", this.handleInventoryItemAcquired.bind(this))
     this.onConfigChange(async () => {
       await this.applyLocalLibraryGrantConfig()
       await this.syncAutoShopTimer()
     })
     await this.syncAutoShopTimer()
+  }
+
+  private async handleInventoryItemAcquired(
+    data: SystemEventPayload<"INVENTORY_ITEM_ACQUIRED">,
+  ): Promise<void> {
+    if (!this.context) return
+    await maybeAccrueTourLaminateOnAcquire(
+      {
+        pluginName: this.name,
+        context: this.context,
+        game: this.game,
+        activeInventoryItem: data.item,
+      },
+      data.userId,
+      data.item,
+    )
   }
 
   private async handleGameSessionStarted(): Promise<void> {

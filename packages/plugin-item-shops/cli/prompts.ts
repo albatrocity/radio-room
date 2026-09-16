@@ -6,7 +6,7 @@ export type RequiresTarget =
   | "self"
   | "user"
   | "queueItem"
-  | "inventoryItem"
+  | "inventoryItems"
   | "userInventoryItem"
   | "mediaItem"
   | "coinAmount"
@@ -152,7 +152,7 @@ export async function promptForItemConfig(context: PromptContext): Promise<ItemW
       { value: "self", name: "self" },
       { value: "user", name: "user" },
       { value: "queueItem", name: "queueItem" },
-      { value: "inventoryItem", name: "inventoryItem" },
+      { value: "inventoryItems", name: "inventoryItems" },
       { value: "userInventoryItem", name: "userInventoryItem" },
       { value: "mediaItem", name: "mediaItem" },
       { value: "coinAmount", name: "coinAmount" },

@@ -11,7 +11,8 @@ Recap of what’s landed since the August 20 show.
 
 ### New
 
-- New shop and a new class of item (it's a surprise)!
+- Passworded stashes you can reuse: name them, leave a hint, add to them later, and take things out one at a time. The cubby (or case, or trailer) comes back when you empty it.
+- Tour Laminate: a backstage pass that records every show it turns up for. Keep it locked away if you want it to last.
 - Gift items to other listeners, or open a two-party trade.
 - Sweetwater toys: Oscilloscope, Beat Detector, VU Meter, and Chromatic Tuner.
 - "Queue Theme" game mode: vote on whether queued tracks match a theme

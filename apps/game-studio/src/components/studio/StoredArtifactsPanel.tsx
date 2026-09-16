@@ -1,27 +1,30 @@
 "use client"
 
-import {
-  Box,
-  Button,
-  Field,
-  HStack,
-  Input,
-  NativeSelect,
-  Stack,
-  Text,
-} from "@chakra-ui/react"
+import { Box, Button, Field, HStack, Input, NativeSelect, Stack, Text } from "@chakra-ui/react"
 import type { StoredArtifact } from "@repo/types"
+import {
+  artifactKindBadge,
+  artifactSummaryLabel,
+  emptyStashLine,
+  readArtifactContents,
+} from "@repo/game-logic"
 import { useEffect, useMemo, useState } from "react"
 import * as studioActions from "../../studio/studioActions"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { toaster } from "../ui/toaster"
 
-function publicLabel(a: StoredArtifact): string {
-  if (a.artifactType === "coin") {
-    const amt = a.coinValue ?? 0
-    return `${amt.toLocaleString()} coins`
+function publicLabel(a: StoredArtifact, containerName?: string): string {
+  const contents = readArtifactContents(a)
+  if (contents.length === 0) {
+    return a.label?.trim() || emptyStashLine(containerName)
   }
-  return a.itemName ?? a.itemDefinitionId ?? "Item"
+  return a.label?.trim() || artifactSummaryLabel(contents)
+}
+
+function rowSummary(a: StoredArtifact, containerName?: string): string {
+  const contents = readArtifactContents(a)
+  if (contents.length === 0) return emptyStashLine(containerName)
+  return artifactSummaryLabel(contents)
 }
 
 export type StoredArtifactsPanelProps = {
@@ -52,7 +55,8 @@ export function StoredArtifactsPanel({ room }: StoredArtifactsPanelProps) {
   if (artifacts.length === 0) {
     return (
       <Text fontSize="sm" color="fg.muted">
-        No stored artifacts yet — use Van Cubby or Merch Cash Box from a user card.
+        No stored artifacts yet — use Van Cubby, Merch Cash Box, Road Case, or Trailer from a user
+        card.
       </Text>
     )
   }
@@ -87,15 +91,22 @@ export function StoredArtifactsPanel({ room }: StoredArtifactsPanelProps) {
   return (
     <Stack gap="3" fontSize="sm">
       <Stack gap="1">
-        {artifacts.map((a) => (
-          <Box key={a.id} borderWidth="1px" borderRadius="sm" p="2">
-            <Text fontWeight="medium">{publicLabel(a)}</Text>
-            <Text fontSize="xs" color="fg.muted">
-              {a.artifactType === "item" ? "Item" : "Coins"} · id {a.id.slice(0, 8)}… · stored by{" "}
-              {a.storedByUsername}
-            </Text>
-          </Box>
-        ))}
+        {artifacts.map((a) => {
+          const contents = readArtifactContents(a)
+          const containerName = a.containerDefinitionId
+            ? room.getDefinition(a.containerDefinitionId)?.name
+            : undefined
+          return (
+            <Box key={a.id} borderWidth="1px" borderRadius="sm" p="2">
+              <Text fontWeight="medium">{publicLabel(a, containerName)}</Text>
+              <Text fontSize="xs" color="fg.muted">
+                {artifactKindBadge(contents)}
+                {contents.length === 0 || a.label?.trim() ? ` · ${rowSummary(a, containerName)}` : ""}{" "}
+                · id {a.id.slice(0, 8)}… · stored by {a.storedByUsername}
+              </Text>
+            </Box>
+          )
+        })}
       </Stack>
 
       <Field.Root gap="1">
@@ -119,11 +130,16 @@ export function StoredArtifactsPanel({ room }: StoredArtifactsPanelProps) {
         <Field.Label fontSize="xs">Artifact to retrieve</Field.Label>
         <NativeSelect.Root size="sm">
           <NativeSelect.Field value={artifactId} onChange={(e) => setArtifactId(e.target.value)}>
-            {artifacts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {publicLabel(a)} ({a.id.slice(0, 8)}…)
-              </option>
-            ))}
+            {artifacts.map((a) => {
+              const containerName = a.containerDefinitionId
+                ? room.getDefinition(a.containerDefinitionId)?.name
+                : undefined
+              return (
+                <option key={a.id} value={a.id}>
+                  {publicLabel(a, containerName)} ({a.id.slice(0, 8)}…)
+                </option>
+              )
+            })}
           </NativeSelect.Field>
           <NativeSelect.Indicator />
         </NativeSelect.Root>

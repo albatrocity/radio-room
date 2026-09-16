@@ -2,9 +2,11 @@ import { useState } from "react"
 import { Badge, Box, Center, HStack, Heading, Stack, Text, VStack } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition, MediaCondition } from "@repo/types"
 import { isPhysicalMediaDefinition, readItemCondition, resolveSlotPool } from "@repo/types"
-import { resolveItemRarity } from "@repo/game-logic"
+import { coinsForPunchNumber, readTourPunchCount, resolveItemRarity, resolvePunchCountNoun } from "@repo/game-logic"
 import { emitToSocket } from "../../../actors/socketActor"
+import { refreshStoredArtifacts } from "../../../actors/userGameStateActor"
 import { subscribeInventoryActionResult } from "../../../lib/inventoryActionResult"
+import { TourPunchCountTag } from "../../PluginComponents/TourPunchCountTag"
 import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
 import ItemArtwork from "../../ItemArtwork"
 import { FRAMED_ARTWORK_BOX_SIZE } from "../../artworkFrames/frameStyles"
@@ -86,10 +88,13 @@ function InventoryRow({
     targetUserId?: string
     targetQueueItemId?: string
     targetInventoryItemId?: string
+    targetInventoryItemIds?: string[]
     password?: string
     coinAmount?: number
     message?: string
     voice?: string
+    label?: string
+    note?: string
   }) => {
     setPendingUse({ itemId: item.itemId })
     track(
@@ -107,11 +112,19 @@ function InventoryRow({
       ...(extra?.targetInventoryItemId != null
         ? { targetInventoryItemId: extra.targetInventoryItemId }
         : {}),
+      ...(extra?.targetInventoryItemIds != null
+        ? { targetInventoryItemIds: extra.targetInventoryItemIds }
+        : {}),
       ...(extra?.password != null ? { password: extra.password } : {}),
       ...(extra?.coinAmount != null ? { coinAmount: extra.coinAmount } : {}),
       ...(extra?.message != null ? { message: extra.message } : {}),
       ...(extra?.voice != null ? { voice: extra.voice } : {}),
+      ...(extra?.label != null ? { label: extra.label } : {}),
+      ...(extra?.note != null ? { note: extra.note } : {}),
     })
+    if (extra?.password != null) {
+      refreshStoredArtifacts()
+    }
   }
 
   const handleDetails = () => {
@@ -179,6 +192,14 @@ function InventoryRow({
       titleAddon={
         <>
           {isCollection && condition ? <MediaConditionTag size="sm" condition={condition} /> : null}
+          {definition?.detailView?.layout === "punchCard" ? (
+            <TourPunchCountTag
+              size="sm"
+              noun={resolvePunchCountNoun(definition.detailView)}
+              count={readTourPunchCount(item)}
+              nextCoins={coinsForPunchNumber(readTourPunchCount(item) + 1)}
+            />
+          ) : null}
           {item.quantity > 1 ? (
             <Badge size="sm" variant="subtle">
               ×{item.quantity}

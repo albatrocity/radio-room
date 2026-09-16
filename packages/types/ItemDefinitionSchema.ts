@@ -24,13 +24,21 @@ export const itemDefinitionAuthoringSchema = z.object({
   playbackFormats: z.array(z.enum(PHYSICAL_MEDIA_FORMATS)).optional(),
   /** Skip Physical Media wear when this device covers the queued copy (ADR 0166). */
   gentlePlayback: z.boolean().optional(),
+  /** Max stash content entries; presence marks a reusable container (ADR 0179). */
+  storageCapacity: z.number().int().positive().optional(),
   detailView: z
     .object({
       actionLabel: z.string().optional(),
       /** Lucide icon name (PascalCase). */
       actionIcon: z.string().optional(),
       iconOnly: z.boolean().optional(),
-      layout: z.enum(["default", "trackList"]).optional(),
+      layout: z.enum(["default", "trackList", "punchCard"]).optional(),
+      countNoun: z
+        .object({
+          singular: z.string().min(1),
+          plural: z.string().min(1),
+        })
+        .optional(),
     })
     .optional(),
 })

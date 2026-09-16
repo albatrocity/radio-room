@@ -237,6 +237,14 @@ export class StudioRoom {
     this.notify()
   }
 
+  updateStoredArtifact(artifact: StoredArtifact): boolean {
+    const idx = this.storedArtifacts.findIndex((a) => a.id === artifact.id)
+    if (idx === -1) return false
+    this.storedArtifacts[idx] = artifact
+    this.notify()
+    return true
+  }
+
   removeStoredArtifact(id: string): boolean {
     const idx = this.storedArtifacts.findIndex((a) => a.id === id)
     if (idx === -1) return false

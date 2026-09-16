@@ -12,10 +12,13 @@ type UseExtra = {
   targetUserId?: string
   targetQueueItemId?: string
   targetInventoryItemId?: string
+  targetInventoryItemIds?: string[]
   password?: string
   coinAmount?: number
   message?: string
   voice?: string
+  label?: string
+  note?: string
 }
 
 interface InventoryUseButtonProps {
@@ -91,20 +94,24 @@ export function InventoryUseButton({
           {useTriggerButton(useLoading, undefined, fullWidth)}
         </UserInventoryItemPicker>,
       )
-    case "inventoryItem":
+    case "inventoryItems": {
+      const acting = allItems.find((row) => row.itemId === itemId)
+      const actingDef = acting ? definitionMap.get(acting.definitionId) : undefined
       return wrapFullWidth(
         fullWidth,
         <InventoryItemStoragePopover
           excludingItemId={itemId}
           items={allItems}
           definitionMap={definitionMap}
-          onConfirm={(targetInventoryItemId, password) =>
-            onUse({ targetInventoryItemId, password })
+          capacity={actingDef?.storageCapacity ?? 1}
+          onConfirm={(targetInventoryItemIds, password, label, note) =>
+            onUse({ targetInventoryItemIds, password, label, note })
           }
         >
           {useTriggerButton(useLoading, undefined, fullWidth)}
         </InventoryItemStoragePopover>,
       )
+    }
     case "mediaItem":
       return wrapFullWidth(
         fullWidth,
@@ -122,7 +129,9 @@ export function InventoryUseButton({
         fullWidth,
         <CoinAmountStoragePopover
           maxCoins={Math.max(0, Math.floor(coinBalance))}
-          onConfirm={(coinAmount, password) => onUse({ coinAmount, password })}
+          onConfirm={(coinAmount, password, label, note) =>
+            onUse({ coinAmount, password, label, note })
+          }
         >
           {useTriggerButton(useLoading, undefined, fullWidth)}
         </CoinAmountStoragePopover>,

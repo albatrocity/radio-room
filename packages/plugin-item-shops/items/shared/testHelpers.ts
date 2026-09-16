@@ -49,7 +49,9 @@ export function createMockArtifacts(): ArtifactsPluginAPI {
     getAll: vi.fn().mockResolvedValue([]),
     attemptRetrieve: vi.fn().mockResolvedValue({ status: "not_found" }),
     remove: vi.fn().mockResolvedValue(true),
-  }
+    update: vi.fn().mockResolvedValue(null),
+    withArtifactLock: vi.fn(async (_id: string, fn: () => Promise<unknown>) => fn()),
+  } as ArtifactsPluginAPI
 }
 
 export function createMockGame(): GameSessionPluginAPI {
@@ -99,6 +101,7 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
       roomId: "room-1",
       api: createMockPluginAPI(),
       artifacts: createMockArtifacts(),
+      getRoom: vi.fn().mockResolvedValue(null),
       inventory: {
         getInventory: vi
           .fn()

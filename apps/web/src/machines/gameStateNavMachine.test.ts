@@ -13,7 +13,7 @@ vi.mock("../lib/gameStateNavEffects", () => ({
 
 import { currentDetailFrame, gameStateNavMachine } from "./gameStateNavMachine"
 import type { GameStateDetailFrame } from "../types/GameStateDetail"
-import { STORED_ITEMS_TAB, TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
+import { STORAGE_TAB, TRADES_GIFTS_TAB } from "../constants/gameStateTabs"
 
 const SHOP_TAB = "item-shops:item-shops-tab"
 
@@ -148,7 +148,7 @@ describe("gameStateNavMachine", () => {
 
   it("snaps an unavailable tab to inventory while active", () => {
     const actor = startActive()
-    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORAGE_TAB })
     actor.send({
       type: "SET_AVAILABLE_TABS",
       tabIds: ["inventory", TRADES_GIFTS_TAB],
@@ -163,7 +163,7 @@ describe("gameStateNavMachine", () => {
 
   it("still accepts SET_ACTIVE_TAB after snapping an unavailable tab", () => {
     const actor = startActive()
-    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORAGE_TAB })
     actor.send({
       type: "SET_AVAILABLE_TABS",
       tabIds: ["inventory", SHOP_TAB],
@@ -188,9 +188,9 @@ describe("gameStateNavMachine", () => {
 
   it("does not snap before available tabs are known", () => {
     const actor = startActive()
-    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORAGE_TAB })
 
-    expect(actor.getSnapshot().context.activeTabId).toBe(STORED_ITEMS_TAB)
+    expect(actor.getSnapshot().context.activeTabId).toBe(STORAGE_TAB)
   })
 
   it("returns to inventory and drops the trade frame when the viewer is on the session", () => {
@@ -285,14 +285,14 @@ describe("gameStateNavMachine", () => {
 
   it("snaps on activate when the stored list already omits the current tab", () => {
     const actor = createActor(gameStateNavMachine).start()
-    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORAGE_TAB })
     actor.send({
       type: "SET_AVAILABLE_TABS",
       tabIds: ["inventory", TRADES_GIFTS_TAB],
     })
     expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
 
-    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORED_ITEMS_TAB })
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORAGE_TAB })
     actor.send({ type: "ACTIVATE" })
 
     expect(actor.getSnapshot().status).toBe("active")

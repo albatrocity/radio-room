@@ -12,13 +12,14 @@ import {
   readItemCondition,
   resolveSlotPool,
 } from "@repo/types"
-import { resolveItemRarity } from "@repo/game-logic"
+import { resolveItemRarity, resolvePunchCountNoun } from "@repo/game-logic"
 import AlbumTrackListView, { type AlbumViewHeader } from "../../AlbumTrackListView"
 import ItemArtwork from "../../ItemArtwork"
 import { LinkifiedText } from "../../LinkifiedText"
 import PathBreadcrumb from "../../PathBreadcrumb"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
 import { MediaConditionTag } from "../../PluginComponents/MediaConditionTag"
+import { TourPunchList } from "../../PluginComponents/TourPunchList"
 import { resolveDisplayArtworkFrame } from "../../../lib/resolveDisplayArtworkFrame"
 import { stopTrackPreview, toggleTrackPreview } from "../../../actors/trackPreviewActor"
 import { useCanAddToQueue, useIsAdmin } from "../../../hooks/useActors"
@@ -100,6 +101,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
   const gameState = useUserGameState()
   const layout = definition?.detailView?.layout ?? "default"
   const showTrackList = layout === "trackList"
+  const showPunchCard = layout === "punchCard"
   const mediaKey = frame.mediaKey?.trim() || undefined
   const { getPresence: getTrackPresence } = useTrackRoomPresence(showTrackList)
 
@@ -264,6 +266,12 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
           </LinkifiedText>
         ) : null}
         {primaryActions}
+        {showPunchCard && inventoryItem ? (
+          <TourPunchList
+            item={inventoryItem}
+            noun={resolvePunchCountNoun(definition?.detailView)}
+          />
+        ) : null}
       </VStack>
     </Stack>
   )

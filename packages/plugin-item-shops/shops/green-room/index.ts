@@ -66,8 +66,8 @@ async function greenRoomOnSessionEnd(ctx: ShopSessionContext): Promise<void> {
 
 /**
  * Theme: queue manipulation and long-term storage (fridge snacks that move
- * tracks, passworded cubbies / cash boxes, Mars Egg). Assignment rarity: rare
- * (ADR 0175).
+ * tracks, passworded cubbies / cases / trailers / cash boxes, Mars Egg).
+ * Assignment rarity: rare (ADR 0175).
  */
 export const GREEN_ROOM_SHOP: ItemShopsShopCatalogEntry = {
   shopId: "green-room",
@@ -81,6 +81,8 @@ export const GREEN_ROOM_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.cateredMeal.shortId, coinValue: 10 },
     { shortId: items.buyout.shortId, coinValue: 50 },
     { shortId: items.vanCubby.shortId, coinValue: 80 },
+    { shortId: items.roadCase.shortId, coinValue: 150 },
+    { shortId: items.trailer.shortId, coinValue: 220 },
     { shortId: items.gravityBong.shortId, coinValue: 100 },
     { shortId: items.privateBathroom.shortId, coinValue: 20 },
     { shortId: items.merchCashBox.shortId, coinValue: 50 },

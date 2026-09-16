@@ -2,29 +2,26 @@
 
 import { Button, Input, Popover, Stack, Text } from "@chakra-ui/react"
 import { useState } from "react"
+import { StashPublicFields } from "./StashPublicFields"
 
 type Props = {
   maxCoins: number
-  onConfirm: (coinAmount: number, password: string) => void
+  onConfirm: (coinAmount: number, password: string, label?: string, note?: string) => void
   children: React.ReactNode
 }
 
-/**
- * Choose coin amount and password for Merch Cash Box (Game Studio).
- */
 export function StudioCoinAmountStoragePopover({ maxCoins, onConfirm, children }: Props) {
   const [open, setOpen] = useState(false)
   const [amountStr, setAmountStr] = useState("")
   const [password, setPassword] = useState("")
+  const [label, setLabel] = useState("")
+  const [note, setNote] = useState("")
 
   const reset = () => {
     setAmountStr("")
     setPassword("")
-  }
-
-  const handleOpenChange = (e: { open: boolean }) => {
-    setOpen(e.open)
-    if (!e.open) reset()
+    setLabel("")
+    setNote("")
   }
 
   const submit = () => {
@@ -32,9 +29,11 @@ export function StudioCoinAmountStoragePopover({ maxCoins, onConfirm, children }
     if (!Number.isFinite(n) || n < 1 || n > maxCoins) return
     if (!password.trim()) return
     const pw = password
+    const name = label.trim() || undefined
+    const hint = note.trim() || undefined
     setOpen(false)
     reset()
-    onConfirm(n, pw)
+    onConfirm(n, pw, name, hint)
   }
 
   const parsed = Number.parseInt(amountStr, 10)
@@ -42,7 +41,14 @@ export function StudioCoinAmountStoragePopover({ maxCoins, onConfirm, children }
     Number.isFinite(parsed) && parsed >= 1 && parsed <= maxCoins && maxCoins >= 1
 
   return (
-    <Popover.Root open={open} onOpenChange={handleOpenChange} lazyMount>
+    <Popover.Root
+      open={open}
+      onOpenChange={(e) => {
+        setOpen(e.open)
+        if (!e.open) reset()
+      }}
+      lazyMount
+    >
       <Popover.Trigger asChild>{children}</Popover.Trigger>
       <Popover.Positioner>
         <Popover.Content minW="260px" p={3}>
@@ -56,6 +62,12 @@ export function StudioCoinAmountStoragePopover({ maxCoins, onConfirm, children }
               value={amountStr}
               onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, ""))}
             />
+            <StashPublicFields
+              label={label}
+              note={note}
+              onLabelChange={setLabel}
+              onNoteChange={setNote}
+            />
             <Input
               type="password"
               placeholder="Password"
@@ -63,11 +75,7 @@ export function StudioCoinAmountStoragePopover({ maxCoins, onConfirm, children }
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
-            <Button
-              size="xs"
-              onClick={submit}
-              disabled={!password.trim() || !amountStr || !amountOk}
-            >
+            <Button size="xs" onClick={submit} disabled={!password.trim() || !amountStr || !amountOk}>
               Lock coins
             </Button>
           </Stack>

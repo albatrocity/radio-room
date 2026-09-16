@@ -138,6 +138,27 @@ export const MEDIA_CONDITION_PALETTE: Record<MediaCondition, string> = {
 /** `InventoryItem.metadata` key for `MediaCondition`. */
 export const PHYSICAL_MEDIA_CONDITION_KEY = "condition" as const
 
+/** `InventoryItem.metadata` key: ordered punch history on a Tour Laminate (ADR 0180). */
+export const TOUR_LAMINATE_PUNCHES_KEY = "tourPunches" as const
+/** Monotonic punch total; survives history trimming. */
+export const TOUR_LAMINATE_PUNCH_COUNT_KEY = "tourPunchCount" as const
+export const TOUR_LAMINATE_PUNCH_HISTORY_LIMIT = 25
+
+export type TourPunch = {
+  key: string
+  showId?: string
+  sessionId?: string
+  at: number
+  /** Base coins awarded, pre-earnScale. */
+  coins: number
+  /** Room title snapshot. */
+  label?: string
+  /** Session-scoped id of whoever held the laminate when this punch landed. */
+  holderUserId?: string
+  /** Username snapshot for the punch-card row — `userId` regenerates each session. */
+  holderUsername?: string
+}
+
 /** `InventoryItem.metadata` key: definitionId of the record a broken-media copy came from (ADR 0159). */
 export const PHYSICAL_MEDIA_ORIGIN_KEY = "mediaOrigin" as const
 
@@ -243,6 +264,17 @@ export function isPhysicalMediaDefinition(
   return definition?.mediaFormat != null || definition?.artworkFrame != null
 }
 
+/** True when this definition is a reusable passworded stash container (ADR 0179). */
+export function isStorageContainerDefinition(
+  definition?: Pick<ItemDefinition, "storageCapacity"> | null,
+): boolean {
+  return (
+    typeof definition?.storageCapacity === "number" &&
+    Number.isFinite(definition.storageCapacity) &&
+    definition.storageCapacity > 0
+  )
+}
+
 /** Wear ladder read. Absent / invalid metadata is mint (ADR 0155). */
 export function readItemCondition(item: InventoryItem): MediaCondition {
   const raw = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
@@ -275,7 +307,13 @@ export const PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY = "physicalMediaFrame" as cons
  * Opt-in Game State item detail (ADR 0104). Presence shows a Details secondary
  * action; `layout` chooses the built-in detail body.
  */
-export type ItemDetailViewLayout = "default" | "trackList"
+export type ItemDetailViewLayout = "default" | "trackList" | "punchCard"
+
+/** User-facing unit for `punchCard` counts. Internal storage stays punches (ADR 0180). */
+export type ItemDetailCountNoun = {
+  singular: string
+  plural: string
+}
 
 export type ItemDetailView = {
   /** Button label; default "Details". Also used as tooltip when `iconOnly`. */
@@ -290,8 +328,14 @@ export type ItemDetailView = {
   /**
    * `default` — name, large artwork/icon, full description.
    * `trackList` — default plus a track list keyed by `mediaKey` on the nav frame.
+   * `punchCard` — default plus a punch itinerary rendered as a tour ledger (ADR 0180).
    */
   layout?: ItemDetailViewLayout
+  /**
+   * Count noun on punch-card tags and the detail ledger. Default is
+   * `{ singular: "show", plural: "shows" }`.
+   */
+  countNoun?: ItemDetailCountNoun
 }
 
 /**
@@ -345,6 +389,11 @@ export interface ItemDefinition {
    * State item detail subroute (ADR 0104).
    */
   detailView?: ItemDetailView
+  /**
+   * When set, this item is a reusable passworded stash container (ADR 0179).
+   * Capacity is the max number of content entries (coins merge into one entry).
+   */
+  storageCapacity?: number
 
   /** When `true`, multiple acquisitions combine into a single stack. */
   stackable: boolean
@@ -374,6 +423,8 @@ export interface ItemDefinition {
    * When `"userInventoryItem"`, the UI picks a user, peeks their inventory
    * (`PEEK_USER_INVENTORY`), then sends `targetUserId` + `targetInventoryItemId`
    * (see ADR 0147).
+   * When `"inventoryItems"`, the UI multi-selects the actor's own stacks (excluding
+   * the acting container and other containers) and sends `targetInventoryItemIds`.
    * When `"mediaItem"`, the UI opens a picker over all of the user's own stacks
    * and sends `targetInventoryItemId`; the handler decides whether the target was valid.
    * When `"spokenMessage"`, the UI collects a short message + macOS voice for Media Bridge
@@ -384,12 +435,10 @@ export interface ItemDefinition {
     | "self"
     | "user"
     | "queueItem"
-    | "inventoryItem"
+    | "inventoryItems"
     | "userInventoryItem"
     | "mediaItem"
     | "coinAmount"
-    | "spokenMessage"
-    /** Message + voice for Media Bridge TTS (ADR 0178). */
     | "spokenMessage"
   /**
    * When set, holding this item passively blocks matching modifiers / queue

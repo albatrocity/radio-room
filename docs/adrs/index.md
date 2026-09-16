@@ -57,7 +57,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0049](0049-item-shops-and-shopping-sessions.md) | Item Shops and Shopping Sessions (per-user instances) | Accepted |
 | [0050](0050-inventory-defense-items.md) | Passive defense items (inventory + `DefenseService`) | Accepted |
 | [0051](0051-game-studio-client-sandbox.md) | Game Studio — client-side plugin sandbox (`apps/game-studio`) | Accepted |
-| [0052](0052-global-artifacts-api.md) | Global artifacts API (`context.artifacts`) | Accepted |
+| [0052](0052-global-artifacts-api.md) | Global artifacts API (`context.artifacts`) | Accepted. Extended by [0179](0179-reusable-multi-slot-password-stashes.md) |
 | [0053](0053-targeted-item-use-defense-intercept.md) | Defense `onDefenseTriggered` callbacks after passive block (modifier/queue) | Accepted |
 | [0054](0054-text-effect-kind-pattern.md) | Text Effect Kind Pattern + flag stack map | Accepted |
 | [0055](0055-per-socket-login-serialization.md) | Per-Socket LOGIN Serialization | Accepted |
@@ -184,6 +184,10 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0176](0176-room-shop-assignment-rarity-overrides.md) | Room shop assignment rarity overrides (admin UI) | Accepted |
 | [0177](0177-listener-whats-new-from-bundled-markdown.md) | Listener What’s new from bundled markdown | Accepted |
 | [0178](0178-media-bridge-tts-say-output.md) | Media Bridge TTS (`say`) to a dedicated CoreAudio output | Accepted |
+| [0179](0179-reusable-multi-slot-password-stashes.md) | Reusable, multi-slot password stashes (`contents[]`, deposit/withdraw, container return) | Partially superseded by [0181](0181-empty-stash-container-return.md) (points 4 and 8) |
+| [0180](0180-tour-laminate-punch-accrual.md) | Tour Laminate: per-copy punch accrual | Accepted |
+| [0181](0181-empty-stash-container-return.md) | Empty stashes persist; container return is best-effort | Accepted |
+| [0182](0182-stash-last-touched-at.md) | Stash `lastTouchedAt` stamped by the artifacts API | Accepted |
 
 ## Creating a New ADR
 
