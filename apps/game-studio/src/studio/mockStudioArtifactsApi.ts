@@ -6,7 +6,11 @@ import type {
   StoredArtifact,
   StoredArtifactPublic,
 } from "@repo/types"
-import { applyArtifactStoreWrite, applyArtifactUpdateWrite } from "@repo/game-logic"
+import {
+  applyArtifactStoreWrite,
+  applyArtifactUpdateWrite,
+  toStoredArtifactListing,
+} from "@repo/game-logic"
 import type { StudioRoom } from "./studioRoom"
 
 export class MockStudioArtifactsApi implements ArtifactsPluginAPI {
@@ -26,7 +30,7 @@ export class MockStudioArtifactsApi implements ArtifactsPluginAPI {
   }
 
   async getAll(): Promise<StoredArtifactPublic[]> {
-    return this.room.storedArtifacts.map(({ password: _p, ...rest }) => rest)
+    return this.room.storedArtifacts.map(toStoredArtifactListing)
   }
 
   async attemptRetrieve(id: string, password: string): Promise<ArtifactRetrieveAttempt> {

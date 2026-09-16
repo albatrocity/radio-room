@@ -23,7 +23,7 @@ function definitionsRecord(defs: ItemDefinition[]): Record<string, ItemDefinitio
   return out
 }
 
-async function loadDefinitions(
+export async function loadDefinitions(
   inventory: NonNullable<AppContext["inventory"]>,
   roomId: string,
   ids: string[],
@@ -76,26 +76,19 @@ export async function retrieveStoredArtifact(params: {
 
   const username = await displayName(context, userId, roomId)
 
-  const failRoom = async (roomLine: string, message: string) => {
-    await postSystemChatMessage({ context, roomId, content: roomLine })
-    return { success: false, message }
-  }
+  let roomChat: string | undefined
 
   try {
-    return await artifacts.withArtifactLock(artifactId, async () => {
+    const result = await artifacts.withArtifactLock(artifactId, async () => {
       const attempt = await artifacts.attemptRetrieve(artifactId, password)
 
       if (attempt.status === "not_found") {
-        return failRoom(
-          `${username} tried to retrieve storage that is no longer here.`,
-          "That stored item no longer exists.",
-        )
+        roomChat = `${username} tried to retrieve storage that is no longer here.`
+        return { success: false, message: "That stored item no longer exists." }
       }
       if (attempt.status === "wrong_password") {
-        return failRoom(
-          `${username} failed to retrieve an artifact from storage (wrong password).`,
-          "Wrong password.",
-        )
+        roomChat = `${username} failed to retrieve an artifact from storage (wrong password).`
+        return { success: false, message: "Wrong password." }
       }
 
       const art = attempt.artifact
@@ -195,9 +188,13 @@ export async function retrieveStoredArtifact(params: {
         containerName: containerDef?.name ?? null,
         containerReturned: Boolean(plan.container),
       })
-      await postSystemChatMessage({ context, roomId, content: summary.roomMessage })
+      roomChat = summary.roomMessage
       return { success: true, message: summary.privateMessage }
     })
+    if (roomChat) {
+      await postSystemChatMessage({ context, roomId, content: roomChat })
+    }
+    return result
   } catch (e) {
     if (e instanceof Error && e.message.includes("could not acquire artifact lock")) {
       return { success: false, message: "That stash is busy. Try again." }

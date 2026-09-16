@@ -71,7 +71,11 @@ export interface StoredArtifact {
   password: string
 }
 
-/** Public listing (password omitted). */
+/**
+ * Public listing (password omitted). Item `contents` omit stack `metadata`;
+ * ids, names, and quantities stay so Storage and the retrieve picker can render.
+ * Retrieve/deposit still read the Redis row, which keeps metadata.
+ */
 export type StoredArtifactPublic = Omit<StoredArtifact, "password"> & {
   /**
    * Catalog capacity of the creating container. Hydrated at list time from

@@ -1,4 +1,9 @@
-import type { ArtifactContentInput, InventoryItem, ItemUseResult } from "@repo/types"
+import type {
+  ArtifactContentInput,
+  InventoryItem,
+  ItemDefinition,
+  ItemUseResult,
+} from "@repo/types"
 import { isStorageContainerDefinition } from "@repo/types"
 import {
   planDeposit,
@@ -9,7 +14,21 @@ import {
   sendAttributedSystemMessage,
   resolveItemUseActorDisplayName,
 } from "./resolveItemUseActorDisplayName"
-import type { ItemUseHandler } from "./types"
+import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
+
+type PluginInventory = ItemShopsBehaviorDeps["context"]["inventory"]
+
+async function fetchDefinitions(
+  inventory: PluginInventory,
+  ids: readonly string[],
+): Promise<ItemDefinition[]> {
+  if (ids.length === 0) return []
+  if (typeof inventory.getItemDefinitions === "function") {
+    return inventory.getItemDefinitions(ids)
+  }
+  const rows = await Promise.all(ids.map((id) => inventory.getItemDefinition(id)))
+  return rows.filter((d): d is ItemDefinition => d != null)
+}
 
 function stashTextError(kind: "label" | "note"): string {
   return kind === "label"
@@ -70,9 +89,13 @@ export function storeInContainer(): ItemUseHandler {
       targets.push(target)
     }
 
+    const uniqueDefIds = [...new Set(targets.map((t) => t.definitionId).filter(Boolean))]
+    const targetDefs = await fetchDefinitions(context.inventory, uniqueDefIds)
+    const targetDefById = new Map(targetDefs.map((d) => [d.id, d]))
+
     const incoming: ArtifactContentInput[] = []
     for (const target of targets) {
-      const targetDef = await context.inventory.getItemDefinition(target.definitionId)
+      const targetDef = targetDefById.get(target.definitionId)
       if (isStorageContainerDefinition(targetDef)) {
         return { success: false, consumed: false, message: "You can't store that item." }
       }

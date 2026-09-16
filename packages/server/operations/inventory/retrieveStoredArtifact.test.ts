@@ -350,4 +350,63 @@ describe("retrieveStoredArtifact", () => {
     expect(remove).not.toHaveBeenCalled()
     expect(update).not.toHaveBeenCalled()
   })
+
+  test("posts wrong-password chat after releasing the lock", async () => {
+    const { context, artifacts } = makeContext()
+    artifacts.attemptRetrieve.mockResolvedValue({ status: "wrong_password" })
+    let chatDuringLock = 0
+    artifacts.withArtifactLock.mockImplementation(async (_id: string, fn: () => Promise<unknown>) => {
+      const result = await fn()
+      chatDuringLock = vi.mocked(postSystemChatMessage).mock.calls.length
+      return result
+    })
+    const result = await retrieveStoredArtifact({
+      context,
+      roomId,
+      userId,
+      artifactId: "3448e696-d86a-46ab-a18a-d61dba076718",
+      password: "nope",
+    })
+    expect(result).toEqual({ success: false, message: "Wrong password." })
+    expect(chatDuringLock).toBe(0)
+    expect(postSystemChatMessage).toHaveBeenCalledWith({
+      context,
+      roomId,
+      content: "Ross failed to retrieve an artifact from storage (wrong password).",
+    })
+  })
+
+  test("posts success chat after the artifact lock is released", async () => {
+    const { context, artifacts } = makeContext()
+    let chatDuringLock = 0
+    artifacts.withArtifactLock.mockImplementation(async (_id: string, fn: () => Promise<unknown>) => {
+      const result = await fn()
+      chatDuringLock = vi.mocked(postSystemChatMessage).mock.calls.length
+      return result
+    })
+    const result = await retrieveStoredArtifact({
+      context,
+      roomId,
+      userId,
+      artifactId: "3448e696-d86a-46ab-a18a-d61dba076718",
+      password: "eggsonmars",
+    })
+    expect(result.success).toBe(true)
+    expect(chatDuringLock).toBe(0)
+    expect(postSystemChatMessage).toHaveBeenCalledTimes(1)
+  })
+
+  test("does not post chat when the artifact lock cannot be acquired", async () => {
+    const { context, artifacts } = makeContext()
+    artifacts.withArtifactLock.mockRejectedValue(new Error("could not acquire artifact lock"))
+    const result = await retrieveStoredArtifact({
+      context,
+      roomId,
+      userId,
+      artifactId: "3448e696-d86a-46ab-a18a-d61dba076718",
+      password: "eggsonmars",
+    })
+    expect(result).toEqual({ success: false, message: "That stash is busy. Try again." })
+    expect(postSystemChatMessage).not.toHaveBeenCalled()
+  })
 })

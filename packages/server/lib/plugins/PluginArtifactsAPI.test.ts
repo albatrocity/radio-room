@@ -100,3 +100,63 @@ describe("PluginArtifactsAPI lastTouchedAt", () => {
     expect(read(id).lastTouchedAt).toBe(CREATED_AT + 60_000)
   })
 })
+
+describe("PluginArtifactsAPI getAll listing", () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(CREATED_AT)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function storeWithMetadata() {
+    return {
+      ...storeInput(),
+      contents: [
+        {
+          kind: "item" as const,
+          itemDefinitionId: "item-shops:tour-laminate",
+          itemName: "Tour Laminate",
+          itemQuantity: 1,
+          metadata: { punches: [{ at: CREATED_AT }] },
+        },
+      ],
+    }
+  }
+
+  test("omits password and item stack metadata from listing rows", async () => {
+    const { api } = makeApi()
+    const id = await api.store(storeWithMetadata())
+    const [row] = await api.getAll()
+    expect(row?.id).toBe(id)
+    expect(row).not.toHaveProperty("password")
+    const item = row?.contents?.[0]
+    expect(item).toMatchObject({
+      kind: "item",
+      itemDefinitionId: "item-shops:tour-laminate",
+      itemName: "Tour Laminate",
+      itemQuantity: 1,
+    })
+    expect(item).not.toHaveProperty("metadata")
+  })
+
+  test("attemptRetrieve still returns stack metadata from Redis", async () => {
+    const { api, read } = makeApi()
+    const id = await api.store(storeWithMetadata())
+    const redisItem = read(id).contents?.[0]
+    expect(redisItem).toMatchObject({
+      kind: "item",
+      metadata: { punches: [{ at: CREATED_AT }] },
+    })
+
+    const attempt = await api.attemptRetrieve(id, "eggsonmars")
+    expect(attempt.status).toBe("success")
+    if (attempt.status !== "success") return
+    expect(attempt.artifact.contents?.[0]).toMatchObject({
+      kind: "item",
+      metadata: { punches: [{ at: CREATED_AT }] },
+    })
+  })
+})

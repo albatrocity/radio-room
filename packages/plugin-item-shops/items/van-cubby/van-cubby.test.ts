@@ -88,6 +88,8 @@ describe("container store payloads", () => {
         ],
       }),
     )
+    expect(deps.context.inventory.getItemDefinitions).toHaveBeenCalledTimes(1)
+    expect(deps.context.inventory.getItemDefinitions).toHaveBeenCalledWith(["item-shops:mars-egg"])
   })
 
   test("merch-cash-box writes a coin content row", async () => {
@@ -153,6 +155,7 @@ describe("container store payloads", () => {
     })
     expect(result.success).toBe(false)
     expect(deps.context.artifacts.store).not.toHaveBeenCalled()
+    expect(deps.context.inventory.getItemDefinitions).toHaveBeenCalledTimes(1)
   })
 
   test("refunds every removed stack with original metadata if store throws", async () => {

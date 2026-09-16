@@ -9,7 +9,10 @@ import {
 import type { GameSessionService } from "../../services/GameSessionService"
 import { postSystemChatMessage } from "../polls/postSystemChatMessage"
 import { displayName } from "./transferEvents"
-import type { StoredArtifactActionResult } from "./retrieveStoredArtifact"
+import {
+  loadDefinitions,
+  type StoredArtifactActionResult,
+} from "./retrieveStoredArtifact"
 
 /**
  * Add inventory stacks and/or coins to an existing passworded stash.
@@ -41,25 +44,18 @@ export async function depositStoredArtifact(params: {
 
   const username = await displayName(context, userId, roomId)
 
-  const failRoom = async (roomLine: string, message: string) => {
-    await postSystemChatMessage({ context, roomId, content: roomLine })
-    return { success: false, message }
-  }
+  let roomChat: string | undefined
 
   try {
-    return await artifacts.withArtifactLock(artifactId, async () => {
+    const result = await artifacts.withArtifactLock(artifactId, async () => {
       const attempt = await artifacts.attemptRetrieve(artifactId, password)
       if (attempt.status === "not_found") {
-        return failRoom(
-          `${username} tried to add to storage that is no longer here.`,
-          "That stored item no longer exists.",
-        )
+        roomChat = `${username} tried to add to storage that is no longer here.`
+        return { success: false, message: "That stored item no longer exists." }
       }
       if (attempt.status === "wrong_password") {
-        return failRoom(
-          `${username} failed to add to a stash (wrong password).`,
-          "Wrong password.",
-        )
+        roomChat = `${username} failed to add to a stash (wrong password).`
+        return { success: false, message: "Wrong password." }
       }
 
       const art = attempt.artifact
@@ -80,18 +76,7 @@ export async function depositStoredArtifact(params: {
         if (!stack) {
           return { success: false, message: "That item is not in your inventory." }
         }
-        const def = await inventory.getItemDefinition(roomId, stack.definitionId)
-        if (isStorageContainerDefinition(def)) {
-          return { success: false, message: "You can't store that item." }
-        }
         stacks.push(stack)
-        incoming.push({
-          kind: "item",
-          itemDefinitionId: stack.definitionId,
-          itemName: def?.name ?? stack.definitionId,
-          itemQuantity: stack.quantity,
-          ...(stack.metadata != null ? { metadata: stack.metadata } : {}),
-        })
       }
 
       const rawAmount = params.coinAmount
@@ -103,16 +88,38 @@ export async function depositStoredArtifact(params: {
         if (current < coinAmount) {
           return { success: false, message: "You don't have enough coins." }
         }
-        incoming.push({ kind: "coin", coinValue: coinAmount })
       }
 
-      if (incoming.length === 0) {
+      if (stacks.length === 0 && coinAmount <= 0) {
         return { success: false, message: "Nothing to add." }
+      }
+
+      const definitionsById = await loadDefinitions(inventory, roomId, [
+        ...stacks.map((s) => s.definitionId),
+        art.containerDefinitionId ?? "",
+      ])
+
+      for (const stack of stacks) {
+        const def = definitionsById[stack.definitionId]
+        if (isStorageContainerDefinition(def)) {
+          return { success: false, message: "You can't store that item." }
+        }
+        incoming.push({
+          kind: "item",
+          itemDefinitionId: stack.definitionId,
+          itemName: def?.name ?? stack.definitionId,
+          itemQuantity: stack.quantity,
+          ...(stack.metadata != null ? { metadata: stack.metadata } : {}),
+        })
+      }
+
+      if (coinAmount > 0) {
+        incoming.push({ kind: "coin", coinValue: coinAmount })
       }
 
       let capacity = Math.max(contents.length, 1)
       if (art.containerDefinitionId) {
-        const containerDef = await inventory.getItemDefinition(roomId, art.containerDefinitionId)
+        const containerDef = definitionsById[art.containerDefinitionId]
         if (typeof containerDef?.storageCapacity === "number" && containerDef.storageCapacity > 0) {
           capacity = containerDef.storageCapacity
         }
@@ -152,16 +159,20 @@ export async function depositStoredArtifact(params: {
       }
 
       const containerDef = art.containerDefinitionId
-        ? await inventory.getItemDefinition(roomId, art.containerDefinitionId)
-        : null
+        ? definitionsById[art.containerDefinitionId]
+        : undefined
       const summary = summarizeDeposit({
         username,
         incoming,
         containerName: containerDef?.name ?? null,
       })
-      await postSystemChatMessage({ context, roomId, content: summary.roomMessage })
+      roomChat = summary.roomMessage
       return { success: true, message: summary.privateMessage }
     })
+    if (roomChat) {
+      await postSystemChatMessage({ context, roomId, content: roomChat })
+    }
+    return result
   } catch (e) {
     if (e instanceof Error && e.message.includes("could not acquire artifact lock")) {
       return { success: false, message: "That stash is busy. Try again." }

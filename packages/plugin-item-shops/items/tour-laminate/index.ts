@@ -1,5 +1,9 @@
 import type { InventoryItem } from "@repo/types"
-import { TOUR_LAMINATE_PUNCH_COUNT_KEY, TOUR_LAMINATE_PUNCHES_KEY } from "@repo/types"
+import {
+  ITEM_SHOPS_PLUGIN_NAME,
+  TOUR_LAMINATE_PUNCH_COUNT_KEY,
+  TOUR_LAMINATE_PUNCHES_KEY,
+} from "@repo/types"
 import { planTourPunch, readTourPunchCount, readTourPunches } from "@repo/game-logic"
 import {
   resolveItemUseActorDisplayName,
@@ -8,6 +12,30 @@ import {
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
 export const TOUR_LAMINATE_SHORT_ID = "tour-laminate"
+export const TOUR_LAMINATE_DEFINITION_ID = `${ITEM_SHOPS_PLUGIN_NAME}:${TOUR_LAMINATE_SHORT_ID}`
+
+/** Namespaced catalog id or bare shortId (same dual-id caution as buyout). */
+export function isTourLaminateAcquireId(definitionId: string): boolean {
+  return definitionId === TOUR_LAMINATE_DEFINITION_ID || definitionId === TOUR_LAMINATE_SHORT_ID
+}
+
+/**
+ * Accrue a punch on INVENTORY_ITEM_ACQUIRED without HGETing definitions for
+ * other SKUs. Load the definition only after the payload id matches.
+ */
+export async function maybeAccrueTourLaminateOnAcquire(
+  deps: ItemShopsBehaviorDeps,
+  userId: string,
+  item: InventoryItem,
+): Promise<void> {
+  if (!isTourLaminateAcquireId(item.definitionId)) return
+  let definition = await deps.context.inventory.getItemDefinition(item.definitionId)
+  if (!definition && item.definitionId === TOUR_LAMINATE_SHORT_ID) {
+    definition = await deps.context.inventory.getItemDefinition(TOUR_LAMINATE_DEFINITION_ID)
+  }
+  if (definition?.shortId !== TOUR_LAMINATE_SHORT_ID) return
+  await accrueTourLaminatePunch(deps, userId, item)
+}
 
 function punchRoomLine(username: string, punchNumber: number, coins: number): string {
   if (punchNumber === 1) {

@@ -11,6 +11,7 @@ import {
   evaluatePeekPolicy,
   hydratePeekItems,
   hydrateStoredArtifactContainers,
+  toStoredArtifactListing,
 } from "@repo/game-logic"
 
 import type { BridgeSnapshot } from "./types.js"
@@ -2078,7 +2079,7 @@ function wireSocketHandlers(io: IOServer): void {
 
     socket.on("GET_STORED_ARTIFACTS", () => {
       const snap = getBridgeSnapshot()
-      const artifacts = snap?.storedArtifacts ?? []
+      const artifacts = (snap?.storedArtifacts ?? []).map(toStoredArtifactListing)
       const defsById: Record<string, { storageCapacity?: number; name?: string }> = {}
       for (const def of snap?.itemDefinitions ?? []) {
         defsById[def.id] = def

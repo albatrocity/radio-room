@@ -5,6 +5,7 @@ import type {
   ItemDefinition,
   ItemSlotPool,
   StoredArtifact,
+  StoredArtifactPublic,
   UserInventory,
 } from "@repo/types"
 import { ITEM_SLOT_POOLS, resolveSlotPool } from "@repo/types"
@@ -176,6 +177,30 @@ export function remainingStashSlots(
 ): number | undefined {
   if (storageCapacity == null) return undefined
   return Math.max(0, storageCapacity - Math.max(0, occupied))
+}
+
+/**
+ * Password-stripped listing row for `GET_STORED_ARTIFACTS`.
+ * Contents keep ids/names/qty; item stack `metadata` is omitted (retrieve still
+ * reads the Redis row). Does not mutate the source artifact.
+ */
+export function toStoredArtifactListing(
+  artifact: StoredArtifact | StoredArtifactPublic,
+): StoredArtifactPublic {
+  const { password: _password, ...pub } = artifact as StoredArtifactPublic & {
+    password?: string
+  }
+  if (!Array.isArray(pub.contents)) {
+    return pub
+  }
+  return {
+    ...pub,
+    contents: pub.contents.map((content) => {
+      if (content.kind !== "item") return content
+      const { metadata: _metadata, ...item } = content
+      return item
+    }),
+  }
 }
 
 /**

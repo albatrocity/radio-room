@@ -8,7 +8,11 @@ import type {
   StoredArtifact,
   StoredArtifactPublic,
 } from "@repo/types"
-import { applyArtifactStoreWrite, applyArtifactUpdateWrite } from "@repo/game-logic"
+import {
+  applyArtifactStoreWrite,
+  applyArtifactUpdateWrite,
+  toStoredArtifactListing,
+} from "@repo/game-logic"
 import generateId from "../generateId"
 
 const REDIS_KEY = "global:storedArtifacts"
@@ -48,8 +52,7 @@ export class PluginArtifactsAPI implements ArtifactsPluginAPI {
     return Object.values(all)
       .map((raw) => {
         try {
-          const { password: _p, ...pub } = JSON.parse(raw) as StoredArtifact
-          return pub
+          return toStoredArtifactListing(JSON.parse(raw) as StoredArtifact)
         } catch {
           return null
         }

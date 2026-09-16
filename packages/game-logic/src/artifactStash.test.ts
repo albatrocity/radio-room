@@ -14,6 +14,7 @@ import {
   hydrateStoredArtifactContainers,
   remainingStashSlots,
   selectFittingContentIds,
+  toStoredArtifactListing,
 } from "./artifactStash"
 
 /** Production dump 2026-09-16, passwords redacted. */
@@ -519,6 +520,70 @@ describe("hydrateStoredArtifactContainers", () => {
       "item-shops:road-case": { storageCapacity: 3, name: "Road Case" },
     })
     expect(hydrated).toEqual({ id: "legacy" })
+  })
+})
+
+describe("toStoredArtifactListing", () => {
+  const punchedLaminate: StoredArtifact = {
+    id: "stash-1",
+    storingPlugin: "item-shops",
+    storingItemId: "road-case",
+    artifactType: "item",
+    containerDefinitionId: "item-shops:road-case",
+    contents: [
+      {
+        id: "c-laminate",
+        kind: "item",
+        itemDefinitionId: "item-shops:tour-laminate",
+        itemName: "Tour Laminate",
+        itemQuantity: 1,
+        metadata: { punches: [{ at: 1 }, { at: 2 }] },
+      },
+      {
+        id: "c-coins",
+        kind: "coin",
+        coinValue: 40,
+      },
+    ],
+    storedAt: 1,
+    storedByUserId: "u1",
+    storedByUsername: "Ross",
+    password: "secret",
+  }
+
+  it("omits password and item stack metadata without leaving metadata: undefined", () => {
+    const listing = toStoredArtifactListing(punchedLaminate)
+    expect(listing).not.toHaveProperty("password")
+    const item = listing.contents?.[0]
+    expect(item).toEqual({
+      id: "c-laminate",
+      kind: "item",
+      itemDefinitionId: "item-shops:tour-laminate",
+      itemName: "Tour Laminate",
+      itemQuantity: 1,
+    })
+    expect(item).not.toHaveProperty("metadata")
+  })
+
+  it("leaves coin rows unchanged", () => {
+    const listing = toStoredArtifactListing(punchedLaminate)
+    expect(listing.contents?.[1]).toEqual({
+      id: "c-coins",
+      kind: "coin",
+      coinValue: 40,
+    })
+  })
+
+  it("does not mutate the source artifact", () => {
+    const source: StoredArtifact = {
+      ...punchedLaminate,
+      contents: punchedLaminate.contents?.map((c) =>
+        c.kind === "item" ? { ...c, metadata: { ...c.metadata } } : { ...c },
+      ),
+    }
+    toStoredArtifactListing(source)
+    expect(source.password).toBe("secret")
+    expect(source.contents?.[0]).toEqual(punchedLaminate.contents?.[0])
   })
 })
 

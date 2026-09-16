@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest"
+import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { AppContext, InventoryItem, StoredArtifact } from "@repo/types"
 import { depositStoredArtifact } from "./depositStoredArtifact"
 
@@ -8,6 +8,8 @@ vi.mock("./transferEvents", () => ({
 vi.mock("../polls/postSystemChatMessage", () => ({
   postSystemChatMessage: vi.fn().mockResolvedValue(undefined),
 }))
+
+import { postSystemChatMessage } from "../polls/postSystemChatMessage"
 
 const roomId = "room1"
 const userId = "u1"
@@ -55,6 +57,23 @@ function makeContext() {
     attemptRetrieve: vi.fn().mockResolvedValue({ status: "success", artifact: trailerStash }),
     update,
   }
+  const getItemDefinition = vi.fn().mockImplementation(async (_room: string, id: string) => {
+    if (id === "item-shops:trailer") {
+      return { id, name: "Trailer", storageCapacity: 5 }
+    }
+    if (id === "item-shops:boost-pedal") {
+      return { id, name: "Boost Pedal" }
+    }
+    return { id, name: id }
+  })
+  const getItemDefinitions = vi.fn(async (room: string, ids: readonly string[]) => {
+    const out: { id: string; name: string; storageCapacity?: number }[] = []
+    for (const id of [...new Set(ids)]) {
+      const def = await getItemDefinition(room, id)
+      if (def) out.push(def)
+    }
+    return out
+  })
   const inventory = {
     getInventory: vi.fn().mockResolvedValue({
       userId,
@@ -63,15 +82,8 @@ function makeContext() {
       maxCollectionSlots: 12,
       maxPlaybackSlots: 2,
     }),
-    getItemDefinition: vi.fn().mockImplementation(async (_room: string, id: string) => {
-      if (id === "item-shops:trailer") {
-        return { id, name: "Trailer", storageCapacity: 5 }
-      }
-      if (id === "item-shops:boost-pedal") {
-        return { id, name: "Boost Pedal" }
-      }
-      return { id, name: id }
-    }),
+    getItemDefinition,
+    getItemDefinitions,
     removeItem,
     giveItem,
   }
@@ -80,12 +92,16 @@ function makeContext() {
     inventory,
     gameSessions: { addScore, getUserState: vi.fn().mockResolvedValue({ attributes: { coin: 50 } }) },
   } as unknown as AppContext
-  return { context, update, removeItem, addScore }
+  return { context, artifacts, inventory, update, removeItem, addScore }
 }
 
 describe("depositStoredArtifact", () => {
+  beforeEach(() => {
+    vi.mocked(postSystemChatMessage).mockClear()
+  })
+
   test("moves an inventory stack (with metadata) into the stash", async () => {
-    const { context, update, removeItem } = makeContext()
+    const { context, inventory, update, removeItem } = makeContext()
     const result = await depositStoredArtifact({
       context,
       roomId,
@@ -107,6 +123,16 @@ describe("depositStoredArtifact", () => {
         ]),
       }),
     )
+    expect(inventory.getItemDefinitions).toHaveBeenCalledTimes(1)
+    expect(inventory.getItemDefinitions).toHaveBeenCalledWith(roomId, [
+      "item-shops:boost-pedal",
+      "item-shops:trailer",
+    ])
+    expect(postSystemChatMessage).toHaveBeenCalledWith({
+      context,
+      roomId,
+      content: "Ross added a Boost Pedal to a Trailer.",
+    })
   })
 
   test("does not rewrite name or note on deposit", async () => {
@@ -156,5 +182,67 @@ describe("depositStoredArtifact", () => {
     expect(addScore).toHaveBeenCalledWith(roomId, userId, "coin", -20, "stored-artifact:deposit", {
       intent: "exact",
     })
+  })
+
+  test("posts wrong-password chat after releasing the lock", async () => {
+    const { context, artifacts } = makeContext()
+    artifacts.attemptRetrieve.mockResolvedValue({ status: "wrong_password" })
+    let chatDuringLock = 0
+    artifacts.withArtifactLock.mockImplementation(async (_id: string, fn: () => Promise<unknown>) => {
+      const result = await fn()
+      chatDuringLock = vi.mocked(postSystemChatMessage).mock.calls.length
+      return result
+    })
+    const result = await depositStoredArtifact({
+      context,
+      roomId,
+      userId,
+      artifactId: "stash-1",
+      password: "nope",
+      targetInventoryItemIds: ["inv-pedal"],
+    })
+    expect(result).toEqual({ success: false, message: "Wrong password." })
+    expect(chatDuringLock).toBe(0)
+    expect(postSystemChatMessage).toHaveBeenCalledWith({
+      context,
+      roomId,
+      content: "Ross failed to add to a stash (wrong password).",
+    })
+  })
+
+  test("posts success chat after the artifact lock is released", async () => {
+    const { context, artifacts } = makeContext()
+    let chatDuringLock = 0
+    artifacts.withArtifactLock.mockImplementation(async (_id: string, fn: () => Promise<unknown>) => {
+      const result = await fn()
+      chatDuringLock = vi.mocked(postSystemChatMessage).mock.calls.length
+      return result
+    })
+    const result = await depositStoredArtifact({
+      context,
+      roomId,
+      userId,
+      artifactId: "stash-1",
+      password: "secret",
+      targetInventoryItemIds: ["inv-pedal"],
+    })
+    expect(result.success).toBe(true)
+    expect(chatDuringLock).toBe(0)
+    expect(postSystemChatMessage).toHaveBeenCalledTimes(1)
+  })
+
+  test("does not post chat when the artifact lock cannot be acquired", async () => {
+    const { context, artifacts } = makeContext()
+    artifacts.withArtifactLock.mockRejectedValue(new Error("could not acquire artifact lock"))
+    const result = await depositStoredArtifact({
+      context,
+      roomId,
+      userId,
+      artifactId: "stash-1",
+      password: "secret",
+      targetInventoryItemIds: ["inv-pedal"],
+    })
+    expect(result).toEqual({ success: false, message: "That stash is busy. Try again." })
+    expect(postSystemChatMessage).not.toHaveBeenCalled()
   })
 })

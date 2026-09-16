@@ -115,6 +115,7 @@ export {
   summarizeDeposit,
   summarizeStashOp,
   summarizeWithdrawal,
+  toStoredArtifactListing,
   type NormalizedArtifactPayload,
   type PlanDepositResult,
   type PlanWithdrawalResult,

@@ -54,7 +54,7 @@ import {
   TEXT_EFFECT_KINDS,
   items,
 } from "./items/index"
-import { accrueTourLaminatePunch, TOUR_LAMINATE_SHORT_ID } from "./items/tour-laminate"
+import { maybeAccrueTourLaminateOnAcquire } from "./items/tour-laminate"
 import { SHOP_CATALOG } from "./shops"
 import { buildEffectiveShopCatalog } from "./localLibrary/catalog"
 import { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
@@ -187,9 +187,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     data: SystemEventPayload<"INVENTORY_ITEM_ACQUIRED">,
   ): Promise<void> {
     if (!this.context) return
-    const definition = await this.context.inventory.getItemDefinition(data.item.definitionId)
-    if (definition?.shortId !== TOUR_LAMINATE_SHORT_ID) return
-    await accrueTourLaminatePunch(
+    await maybeAccrueTourLaminateOnAcquire(
       {
         pluginName: this.name,
         context: this.context,
