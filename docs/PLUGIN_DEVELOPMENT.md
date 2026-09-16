@@ -37,7 +37,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 
 | Guide | Topics |
 | ----- | ------ |
-| [Game Sessions & Inventory](plugins/game-sessions.md) | Shared score/coin, modifiers, items, defense, `onItemUsed` |
+| [Game Sessions & Inventory](plugins/game-sessions.md) | Shared score/coin, modifiers, items, defense, `onItemUsed`; **`context.artifacts`** for cross-room passworded storage ([ADR 0052](adrs/0052-global-artifacts-api.md), [ADR 0179](adrs/0179-reusable-multi-slot-password-stashes.md)) |
 | [Per-User State](plugins/per-user-state.md) | `contributeToUserGameState`, `pluginUserState`, invalidation, tab attention; Lyric Hero cooperative mode: [ADR 0172](adrs/0172-cooperative-participation-mode.md) |
 | [User Personas](plugins/user-personas.md) | Identity labels, badges, admin assignment |
 | [Shop Helper](plugins/shop-helper.md) | `ShopHelper`, `ShopPlugin`, coin shops, stock management |

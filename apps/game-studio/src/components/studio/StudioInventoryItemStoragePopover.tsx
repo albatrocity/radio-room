@@ -9,13 +9,12 @@ import {
   Popover,
   Stack,
   Text,
-  Textarea,
 } from "@chakra-ui/react"
 import type { InventoryItem } from "@repo/types"
 import { isStorageContainerDefinition } from "@repo/types"
-import { STASH_LABEL_MAX_CHARS, STASH_NOTE_MAX_CHARS } from "@repo/game-logic"
 import { useMemo, useState } from "react"
 import type { StudioRoom } from "../../studio/studioRoom"
+import { StashPublicFields } from "./StashPublicFields"
 
 type ItemOption = { label: string; value: string }
 
@@ -199,21 +198,11 @@ export function StudioInventoryItemStoragePopover({
                 <Text fontSize="sm">
                   Locking: <strong>{pickedLabels}</strong>
                 </Text>
-                <Input
-                  placeholder="Name (optional)"
-                  value={label}
-                  maxLength={STASH_LABEL_MAX_CHARS}
-                  onChange={(e) => setLabel(e.target.value)}
-                />
-                <Text fontSize="2xs" color="fg.muted">
-                  Everyone can see this
-                </Text>
-                <Textarea
-                  placeholder="Note (optional)"
-                  value={note}
-                  maxLength={STASH_NOTE_MAX_CHARS}
-                  rows={2}
-                  onChange={(e) => setNote(e.target.value)}
+                <StashPublicFields
+                  label={label}
+                  note={note}
+                  onLabelChange={setLabel}
+                  onNoteChange={setNote}
                 />
                 <Input
                   type="password"

@@ -8,12 +8,7 @@ import type {
   StoredArtifact,
   StoredArtifactPublic,
 } from "@repo/types"
-import {
-  normalizeArtifactPayload,
-  readArtifactContents,
-  sanitizeStashLabel,
-  sanitizeStashNote,
-} from "@repo/game-logic"
+import { applyArtifactStoreWrite, applyArtifactUpdateWrite } from "@repo/game-logic"
 import generateId from "../generateId"
 
 const REDIS_KEY = "global:storedArtifacts"
@@ -29,45 +24,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function applyNormalized(
-  artifact: StoredArtifact,
-  contents = readArtifactContents(artifact),
-): StoredArtifact {
-  const normalized = normalizeArtifactPayload(contents, () => randomUUID())
-  const next: StoredArtifact = { ...artifact, ...normalized }
-  if (normalized.coinValue === undefined) delete next.coinValue
-  if (normalized.itemDefinitionId === undefined) delete next.itemDefinitionId
-  if (normalized.itemName === undefined) delete next.itemName
-  if (normalized.itemQuantity === undefined) delete next.itemQuantity
-  return next
-}
-
-function applyPublicText(
-  artifact: StoredArtifact,
-  label: unknown,
-  note: unknown,
-  mode: "replace" | "if-present",
-): StoredArtifact {
-  const next = { ...artifact }
-  if (mode === "replace" || label !== undefined) {
-    const result = sanitizeStashLabel(label)
-    if (result.status === "too_long") {
-      throw new Error("Stash name must be 32 characters or fewer.")
-    }
-    if (result.status === "ok") next.label = result.value
-    else delete next.label
-  }
-  if (mode === "replace" || note !== undefined) {
-    const result = sanitizeStashNote(note)
-    if (result.status === "too_long") {
-      throw new Error("Stash note must be 140 characters or fewer.")
-    }
-    if (result.status === "ok") next.note = result.value
-    else delete next.note
-  }
-  return next
-}
-
 /**
  * Global (cross-room) artifact storage backed by a single Redis hash.
  */
@@ -78,9 +34,11 @@ export class PluginArtifactsAPI implements ArtifactsPluginAPI {
     artifact: Omit<StoredArtifact, "id" | "contents"> & { contents?: ArtifactContentInput[] },
   ): Promise<string> {
     const id = randomUUID()
-    let full: StoredArtifact = { id, ...artifact, lastTouchedAt: Date.now() }
-    full = applyNormalized(full)
-    full = applyPublicText(full, artifact.label, artifact.note, "replace")
+    const full = applyArtifactStoreWrite(
+      { id, ...artifact } as StoredArtifact,
+      () => randomUUID(),
+      Date.now(),
+    )
     await this.context.redis.pubClient.hSet(REDIS_KEY, id, JSON.stringify(full))
     return id
   }
@@ -131,26 +89,7 @@ export class PluginArtifactsAPI implements ArtifactsPluginAPI {
       return null
     }
 
-    const contents =
-      patch.contents !== undefined ? patch.contents : readArtifactContents(artifact)
-    let next = applyNormalized({ ...artifact, contents: undefined }, contents)
-    if (patch.containerDefinitionId !== undefined) {
-      if (patch.containerDefinitionId == null || patch.containerDefinitionId === "") {
-        delete next.containerDefinitionId
-      } else {
-        next.containerDefinitionId = patch.containerDefinitionId
-      }
-    }
-    if ("label" in patch) {
-      next = applyPublicText(next, patch.label, undefined, "if-present")
-    }
-    if ("note" in patch) {
-      next = applyPublicText(next, undefined, patch.note, "if-present")
-    }
-    // Every `update` caller is downstream of an `attemptRetrieve` grant, so
-    // reaching here means a deposit or withdraw completed (ADR 0182).
-    next.lastTouchedAt = Date.now()
-
+    const next = applyArtifactUpdateWrite(artifact, patch, () => randomUUID(), Date.now())
     await this.context.redis.pubClient.hSet(REDIS_KEY, id, JSON.stringify(next))
     return next
   }

@@ -10,8 +10,11 @@ Listening Room provides **core infrastructure** for cross-plugin game state so p
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **`this.context.storage`** (`zincrby`, etc.) | Scoreboards or state that should stay **isolated** to your plugin (current behaviour for Guess the Tune, etc.).                           |
 | **`this.game` / `this.inventory`**           | **Shared** economy (`coin`), unified leaderboards, buffs/debuffs that affect multiple plugins, items another plugin can award or consume. |
+| **`this.context.artifacts`**                 | **Cross-room** passworded stashes (`global:storedArtifacts`). Never call Redis for this — use `store` / `update` / `attemptRetrieve` / `withArtifactLock` ([ADR 0052](../adrs/0052-global-artifacts-api.md), [ADR 0179](../adrs/0179-reusable-multi-slot-password-stashes.md)). |
 
 Access APIs via **`this.game`** and **`this.inventory`** on `BasePlugin` (aliases for `this.context!.game` / `this.context!.inventory`). They are room-scoped: you never pass `roomId`; the server ties calls to the plugin’s room.
+
+**Global artifacts** (`this.context.artifacts`): cross-room, password-gated rows that survive sessions. Plugins persist through this API only — do not write `global:storedArtifacts` via Redis. `update` is a narrow patch (`contents`, `containerDefinitionId`, `label`, `note`); `withArtifactLock` serializes retrieve/deposit. See [ADR 0052](../adrs/0052-global-artifacts-api.md), [ADR 0179](../adrs/0179-reusable-multi-slot-password-stashes.md), [ADR 0181](../adrs/0181-empty-stash-container-return.md), [ADR 0182](../adrs/0182-stash-last-touched-at.md).
 
 If `GameSessionService` is not running (should not happen in production), methods no-op or return empty values safely.
 

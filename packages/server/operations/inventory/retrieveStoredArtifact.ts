@@ -1,9 +1,11 @@
 import type { AppContext, ArtifactContent, ItemDefinition, ItemSlotPool } from "@repo/types"
 import {
+  applyWithdrawalDeliveries,
   computeFreeSlotsByPool,
   planWithdrawal,
   readArtifactContents,
   summarizeWithdrawal,
+  withdrawalPersistAction,
 } from "@repo/game-logic"
 import { resolveSlotPool, slotPoolFullMessage } from "@repo/types"
 import type { GameSessionService } from "../../services/GameSessionService"
@@ -47,6 +49,7 @@ async function overflowMessage(
 
 /**
  * Unlock selected (or all) contents of a stored artifact into the user's bags.
+ * Game Studio's `retrieveArtifact` is the other caller of `applyWithdrawalDeliveries`.
  */
 export async function retrieveStoredArtifact(params: {
   roomId: string
@@ -145,95 +148,40 @@ export async function retrieveStoredArtifact(params: {
         return { success: false, message: "Nothing to retrieve." }
       }
 
-      const given: { itemId: string; quantity: number }[] = []
-      let coinsAdded = 0
-      try {
-        for (const delivery of plan.deliveries) {
-          if (delivery.kind === "coin") {
-            if (delivery.coinValue < 1) {
-              return { success: false, message: "Invalid stored coins." }
-            }
-            await gameSessions.addScore(
-              roomId,
-              userId,
-              "coin",
-              delivery.coinValue,
-              "stored-artifact:retrieve",
-              { intent: "exact" },
-            )
-            coinsAdded += delivery.coinValue
-            continue
-          }
-          if (!delivery.itemDefinitionId || delivery.itemQuantity < 1) {
-            return { success: false, message: "Invalid stored item." }
-          }
-          const givenItem = await inventory.giveItem(
+      const delivered = await applyWithdrawalDeliveries({
+        deliveries: plan.deliveries,
+        container: plan.container,
+        ports: {
+          addCoins: (amount, reason) =>
+            gameSessions.addScore(roomId, userId, "coin", amount, reason, { intent: "exact" }),
+          giveItem: async (definitionId, quantity, metadata) =>
+            inventory.giveItem(roomId, userId, definitionId, quantity, metadata, "plugin"),
+          removeItem: (itemId, quantity) => inventory.removeItem(roomId, userId, itemId, quantity),
+        },
+      })
+      if (!delivered.ok) {
+        if (delivered.code === "invalid_coins") {
+          return { success: false, message: "Invalid stored coins." }
+        }
+        if (delivered.code === "invalid_item") {
+          return { success: false, message: "Invalid stored item." }
+        }
+        return {
+          success: false,
+          message: await overflowMessage(
+            inventory,
             roomId,
-            userId,
-            delivery.itemDefinitionId,
-            delivery.itemQuantity,
-            delivery.metadata,
-            "plugin",
-          )
-          if (!givenItem) {
-            throw new Error("GIVE_FAILED")
-          }
-          given.push({ itemId: givenItem.itemId, quantity: delivery.itemQuantity })
+            delivered.failedItem ? [delivered.failedItem] : [],
+            plan.container?.definitionId,
+          ),
         }
-
-        if (plan.container) {
-          const containerItem = await inventory.giveItem(
-            roomId,
-            userId,
-            plan.container.definitionId,
-            1,
-            undefined,
-            "plugin",
-          )
-          if (!containerItem) {
-            throw new Error("GIVE_FAILED")
-          }
-          given.push({ itemId: containerItem.itemId, quantity: 1 })
-        }
-      } catch (e) {
-        if (coinsAdded > 0) {
-          await gameSessions.addScore(
-            roomId,
-            userId,
-            "coin",
-            -coinsAdded,
-            "stored-artifact:retrieve-rollback",
-            { intent: "exact" },
-          )
-        }
-        for (const row of given) {
-          await inventory.removeItem(roomId, userId, row.itemId, row.quantity)
-        }
-        if (e instanceof Error && e.message === "GIVE_FAILED") {
-          const failed = plan.deliveries.find((d) => d.kind === "item")
-          return {
-            success: false,
-            message: await overflowMessage(
-              inventory,
-              roomId,
-              failed ? [failed] : [],
-              plan.container?.definitionId,
-            ),
-          }
-        }
-        throw e
       }
 
-      if (plan.container) {
-        await artifacts.remove(artifactId)
-      } else if (plan.remainder.length === 0 && art.containerDefinitionId?.trim()) {
-        // The container had no free slot, so the stash stays listed as an empty
-        // row that anyone with the password can claim later (ADR 0181).
-        await artifacts.update(artifactId, { contents: [] })
-      } else if (plan.remainder.length === 0) {
+      const persist = withdrawalPersistAction(plan, art.containerDefinitionId)
+      if (persist.type === "remove") {
         await artifacts.remove(artifactId)
       } else {
-        await artifacts.update(artifactId, { contents: plan.remainder })
+        await artifacts.update(artifactId, { contents: persist.contents })
       }
 
       const containerDef = plan.container

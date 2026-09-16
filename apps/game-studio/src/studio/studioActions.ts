@@ -13,11 +13,12 @@ import {
   resolveSlotPool,
   slotPoolFullMessage,
   type ArtifactContentInput,
-  type ArtifactUpdatePatch,
   type InventoryItem,
   type ItemDefinition,
 } from "@repo/types"
 import {
+  applyDepositMutations,
+  applyWithdrawalDeliveries,
   computeFreeSlotsByPool,
   getChatSendDelayMs,
   planDeposit,
@@ -25,6 +26,7 @@ import {
   readArtifactContents,
   summarizeDeposit,
   summarizeWithdrawal,
+  withdrawalPersistAction,
 } from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
@@ -364,7 +366,8 @@ export async function transferInventoryItem(
 }
 
 /**
- * Retrieve a stored artifact into the given user's inventory/coins (sandbox mirror of production socket flow).
+ * Retrieve a stored artifact into the given user's inventory/coins.
+ * Mirrors `retrieveStoredArtifact` via `applyWithdrawalDeliveries`.
  */
 export async function retrieveArtifact(
   artifactId: string,
@@ -443,64 +446,50 @@ export async function retrieveArtifact(
       }
     }
 
-    for (const delivery of plan.deliveries) {
-      if (delivery.kind === "coin") {
-        if (delivery.coinValue < 1) return { success: false, message: "Invalid stored coins." }
-        await itemShopsContext.game.addScore(
-          retrievingUserId,
-          "coin",
-          delivery.coinValue,
-          "stored-artifact:retrieve",
-          { intent: "exact" },
-        )
-        continue
-      }
-      const given = await itemShopsContext.inventory.giveItem(
-        retrievingUserId,
-        delivery.itemDefinitionId,
-        delivery.itemQuantity,
-        delivery.metadata,
-        "plugin",
-      )
-      if (!given) {
-        return {
-          success: false,
-          message: slotPoolFullMessage(
-            resolveSlotPool(room.getDefinition(delivery.itemDefinitionId)),
-            "make space and try again.",
+    const delivered = await applyWithdrawalDeliveries({
+      deliveries: plan.deliveries,
+      container: plan.container,
+      ports: {
+        addCoins: (amount, reason) =>
+          itemShopsContext.game.addScore(retrievingUserId, "coin", amount, reason, {
+            intent: "exact",
+          }),
+        giveItem: (definitionId, quantity, metadata) =>
+          itemShopsContext.inventory.giveItem(
+            retrievingUserId,
+            definitionId,
+            quantity,
+            metadata,
+            "plugin",
           ),
-        }
+        removeItem: (itemId, quantity) =>
+          itemShopsContext.inventory.removeItem(retrievingUserId, itemId, quantity),
+      },
+    })
+    if (!delivered.ok) {
+      if (delivered.code === "invalid_coins") {
+        return { success: false, message: "Invalid stored coins." }
+      }
+      if (delivered.code === "invalid_item") {
+        return { success: false, message: "Invalid stored item." }
+      }
+      const failedDef =
+        delivered.failedItem?.kind === "item"
+          ? room.getDefinition(delivered.failedItem.itemDefinitionId)
+          : plan.container
+            ? room.getDefinition(plan.container.definitionId)
+            : undefined
+      return {
+        success: false,
+        message: slotPoolFullMessage(resolveSlotPool(failedDef), "make space and try again."),
       }
     }
 
-    if (plan.container) {
-      const given = await itemShopsContext.inventory.giveItem(
-        retrievingUserId,
-        plan.container.definitionId,
-        1,
-        undefined,
-        "plugin",
-      )
-      if (!given) {
-        return {
-          success: false,
-          message: slotPoolFullMessage(
-            resolveSlotPool(room.getDefinition(plan.container.definitionId)),
-            "make space and try again.",
-          ),
-        }
-      }
-    }
-
-    if (plan.container) {
-      await itemShopsContext.artifacts.remove(artifactId)
-    } else if (plan.remainder.length === 0 && art.containerDefinitionId?.trim()) {
-      // Container had no free slot — keep the empty row so it can be claimed later.
-      await itemShopsContext.artifacts.update(artifactId, { contents: [] })
-    } else if (plan.remainder.length === 0) {
+    const persist = withdrawalPersistAction(plan, art.containerDefinitionId)
+    if (persist.type === "remove") {
       await itemShopsContext.artifacts.remove(artifactId)
     } else {
-      await itemShopsContext.artifacts.update(artifactId, { contents: plan.remainder })
+      await itemShopsContext.artifacts.update(artifactId, { contents: persist.contents })
     }
 
     const containerDef = plan.container
@@ -519,6 +508,7 @@ export async function retrieveArtifact(
   })
 }
 
+/** Mirrors `depositStoredArtifact` via `applyDepositMutations`. */
 export async function depositArtifact(
   artifactId: string,
   password: string,
@@ -534,6 +524,10 @@ export async function depositArtifact(
   return itemShopsContext.artifacts.withArtifactLock(artifactId, async () => {
     const attempt = await itemShopsContext.artifacts.attemptRetrieve(artifactId, password)
     if (attempt.status === "not_found") {
+      await itemShopsContext.api.sendSystemMessage(
+        room.roomId,
+        `${username} tried to add to storage that is no longer here.`,
+      )
       return { success: false, message: "That stored item no longer exists." }
     }
     if (attempt.status === "wrong_password") {
@@ -548,6 +542,7 @@ export async function depositArtifact(
     const contents = readArtifactContents(art)
     const inv = await itemShopsContext.inventory.getInventory(depositingUserId)
     const incoming: ArtifactContentInput[] = []
+    const stacks: InventoryItem[] = []
     const targetIds = opts?.targetInventoryItemIds ?? []
 
     for (const itemId of targetIds) {
@@ -557,6 +552,7 @@ export async function depositArtifact(
       if (isStorageContainerDefinition(def)) {
         return { success: false, message: "You can't store that item." }
       }
+      stacks.push(stack)
       incoming.push({
         kind: "item",
         itemDefinitionId: stack.definitionId,
@@ -593,24 +589,44 @@ export async function depositArtifact(
       return { success: false, message: "That stash is full." }
     }
 
-    for (const itemId of targetIds) {
-      const stack = inv.items.find((i: InventoryItem) => i.itemId === itemId)
-      if (!stack) continue
-      await itemShopsContext.inventory.removeItem(depositingUserId, stack.itemId, stack.quantity)
+    const mutated = await applyDepositMutations({
+      stacks,
+      coinAmount,
+      nextContents: plan.nextContents,
+      ports: {
+        removeItem: (itemId, quantity) =>
+          itemShopsContext.inventory.removeItem(depositingUserId, itemId, quantity),
+        giveItem: (definitionId, quantity, metadata) =>
+          itemShopsContext.inventory.giveItem(
+            depositingUserId,
+            definitionId,
+            quantity,
+            metadata,
+            "plugin",
+          ),
+        debitCoins: (amount) =>
+          itemShopsContext.game.addScore(
+            depositingUserId,
+            "coin",
+            -amount,
+            "stored-artifact:deposit",
+            { intent: "exact" },
+          ),
+        creditCoins: (amount) =>
+          itemShopsContext.game.addScore(
+            depositingUserId,
+            "coin",
+            amount,
+            "stored-artifact:deposit-refund",
+            { intent: "exact" },
+          ),
+        updateArtifact: (nextContents) =>
+          itemShopsContext.artifacts.update(artifactId, { contents: nextContents }),
+      },
+    })
+    if (!mutated.ok) {
+      return { success: false, message: mutated.message }
     }
-    if (coinAmount > 0) {
-      await itemShopsContext.game.addScore(
-        depositingUserId,
-        "coin",
-        -coinAmount,
-        "stored-artifact:deposit",
-        { intent: "exact" },
-      )
-    }
-
-    const patch: ArtifactUpdatePatch = { contents: plan.nextContents }
-    const updated = await itemShopsContext.artifacts.update(artifactId, patch)
-    if (!updated) return { success: false, message: "Could not add to the stash." }
 
     const containerDef = art.containerDefinitionId
       ? room.getDefinition(art.containerDefinitionId)

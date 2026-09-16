@@ -1,6 +1,7 @@
 import type {
   ArtifactContent,
   ArtifactContentInput,
+  ArtifactUpdatePatch,
   ItemDefinition,
   ItemSlotPool,
   StoredArtifact,
@@ -10,6 +11,8 @@ import { ITEM_SLOT_POOLS, resolveSlotPool } from "@repo/types"
 
 export const STASH_LABEL_MAX_CHARS = 32
 export const STASH_NOTE_MAX_CHARS = 140
+export const STASH_LABEL_TOO_LONG_MESSAGE = "Stash name must be 32 characters or fewer."
+export const STASH_NOTE_TOO_LONG_MESSAGE = "Stash note must be 140 characters or fewer."
 
 export type SanitizeStashTextResult =
   | { status: "absent" }
@@ -245,6 +248,96 @@ export function normalizeArtifactPayload(
   }
 
   return { contents, artifactType: "item" }
+}
+
+function applyNormalizedPayload(
+  artifact: StoredArtifact,
+  contents: ArtifactContentInput[],
+  nextId: () => string,
+): StoredArtifact {
+  const normalized = normalizeArtifactPayload(contents, nextId)
+  const next: StoredArtifact = { ...artifact, ...normalized }
+  if (normalized.coinValue === undefined) delete next.coinValue
+  if (normalized.itemDefinitionId === undefined) delete next.itemDefinitionId
+  if (normalized.itemName === undefined) delete next.itemName
+  if (normalized.itemQuantity === undefined) delete next.itemQuantity
+  return next
+}
+
+function applyPublicTextFields(
+  artifact: StoredArtifact,
+  label: unknown,
+  note: unknown,
+  mode: "replace" | "if-present",
+): StoredArtifact {
+  const next = { ...artifact }
+  if (mode === "replace" || label !== undefined) {
+    const result = sanitizeStashLabel(label)
+    if (result.status === "too_long") throw new Error(STASH_LABEL_TOO_LONG_MESSAGE)
+    if (result.status === "ok") next.label = result.value
+    else delete next.label
+  }
+  if (mode === "replace" || note !== undefined) {
+    const result = sanitizeStashNote(note)
+    if (result.status === "too_long") throw new Error(STASH_NOTE_TOO_LONG_MESSAGE)
+    if (result.status === "ok") next.note = result.value
+    else delete next.note
+  }
+  return next
+}
+
+/** Normalize contents, apply public text, stamp `lastTouchedAt` for `store`. */
+export function applyArtifactStoreWrite(
+  artifact: StoredArtifact,
+  nextId: () => string,
+  now: number,
+): StoredArtifact {
+  let next = applyNormalizedPayload(artifact, readArtifactContents(artifact), nextId)
+  next = applyPublicTextFields(next, artifact.label, artifact.note, "replace")
+  next.lastTouchedAt = now
+  return next
+}
+
+/** Normalize patch, apply optional public text, stamp `lastTouchedAt` for `update`. */
+export function applyArtifactUpdateWrite(
+  artifact: StoredArtifact,
+  patch: ArtifactUpdatePatch,
+  nextId: () => string,
+  now: number,
+): StoredArtifact {
+  const contents = patch.contents !== undefined ? patch.contents : readArtifactContents(artifact)
+  let next = applyNormalizedPayload({ ...artifact, contents: undefined }, contents, nextId)
+  if (patch.containerDefinitionId !== undefined) {
+    if (patch.containerDefinitionId == null || patch.containerDefinitionId === "") {
+      delete next.containerDefinitionId
+    } else {
+      next.containerDefinitionId = patch.containerDefinitionId
+    }
+  }
+  if ("label" in patch) {
+    next = applyPublicTextFields(next, patch.label, undefined, "if-present")
+  }
+  if ("note" in patch) {
+    next = applyPublicTextFields(next, undefined, patch.note, "if-present")
+  }
+  next.lastTouchedAt = now
+  return next
+}
+
+export function emptyStashLine(containerName?: string | null): string {
+  const name = containerName?.trim()
+  return name ? `${name} is empty.` : "This stash is empty."
+}
+
+export function artifactKindBadge(
+  contents: ArtifactContent[],
+): "Mixed" | "Coins" | "Item" | "Empty" {
+  const hasCoin = contents.some((c) => c.kind === "coin")
+  const hasItem = contents.some((c) => c.kind === "item")
+  if (hasCoin && hasItem) return "Mixed"
+  if (hasCoin) return "Coins"
+  if (hasItem) return "Item"
+  return "Empty"
 }
 
 function itemSummary(c: Extract<ArtifactContent, { kind: "item" }>): string {

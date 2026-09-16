@@ -6,20 +6,8 @@ import type {
   StoredArtifact,
   StoredArtifactPublic,
 } from "@repo/types"
-import { normalizeArtifactPayload, readArtifactContents, sanitizeStashLabel, sanitizeStashNote } from "@repo/game-logic"
+import { applyArtifactStoreWrite, applyArtifactUpdateWrite } from "@repo/game-logic"
 import type { StudioRoom } from "./studioRoom"
-
-function applyNormalized(artifact: StoredArtifact): StoredArtifact {
-  const normalized = normalizeArtifactPayload(readArtifactContents(artifact), () =>
-    crypto.randomUUID(),
-  )
-  const next: StoredArtifact = { ...artifact, ...normalized }
-  if (normalized.coinValue === undefined) delete next.coinValue
-  if (normalized.itemDefinitionId === undefined) delete next.itemDefinitionId
-  if (normalized.itemName === undefined) delete next.itemName
-  if (normalized.itemQuantity === undefined) delete next.itemQuantity
-  return next
-}
 
 export class MockStudioArtifactsApi implements ArtifactsPluginAPI {
   constructor(private readonly room: StudioRoom) {}
@@ -28,19 +16,11 @@ export class MockStudioArtifactsApi implements ArtifactsPluginAPI {
     artifact: Omit<StoredArtifact, "id" | "contents"> & { contents?: ArtifactContentInput[] },
   ): Promise<string> {
     const id = crypto.randomUUID()
-    let full: StoredArtifact = applyNormalized({
-      ...artifact,
-      id,
-      lastTouchedAt: Date.now(),
-    } as StoredArtifact)
-    const label = sanitizeStashLabel(artifact.label)
-    const note = sanitizeStashNote(artifact.note)
-    if (label.status === "too_long") throw new Error("Stash name must be 32 characters or fewer.")
-    if (note.status === "too_long") throw new Error("Stash note must be 140 characters or fewer.")
-    if (label.status === "ok") full.label = label.value
-    else delete full.label
-    if (note.status === "ok") full.note = note.value
-    else delete full.note
+    const full = applyArtifactStoreWrite(
+      { ...artifact, id } as StoredArtifact,
+      () => crypto.randomUUID(),
+      Date.now(),
+    )
     this.room.addStoredArtifact(full)
     return id
   }
@@ -63,32 +43,7 @@ export class MockStudioArtifactsApi implements ArtifactsPluginAPI {
   async update(id: string, patch: ArtifactUpdatePatch): Promise<StoredArtifact | null> {
     const artifact = this.room.storedArtifacts.find((a) => a.id === id)
     if (!artifact) return null
-    const contents = patch.contents !== undefined ? patch.contents : readArtifactContents(artifact)
-    let next = applyNormalized({
-      ...artifact,
-      contents: contents as StoredArtifact["contents"],
-    })
-    if (patch.containerDefinitionId !== undefined) {
-      if (patch.containerDefinitionId == null || patch.containerDefinitionId === "") {
-        delete next.containerDefinitionId
-      } else {
-        next.containerDefinitionId = patch.containerDefinitionId
-      }
-    }
-    if ("label" in patch) {
-      const result = sanitizeStashLabel(patch.label)
-      if (result.status === "too_long") throw new Error("Stash name must be 32 characters or fewer.")
-      if (result.status === "ok") next.label = result.value
-      else delete next.label
-    }
-    if ("note" in patch) {
-      const result = sanitizeStashNote(patch.note)
-      if (result.status === "too_long") throw new Error("Stash note must be 140 characters or fewer.")
-      if (result.status === "ok") next.note = result.value
-      else delete next.note
-    }
-    // Reaching `update` means a password-granted deposit or withdraw completed (ADR 0182).
-    next.lastTouchedAt = Date.now()
+    const next = applyArtifactUpdateWrite(artifact, patch, () => crypto.randomUUID(), Date.now())
     this.room.updateStoredArtifact(next)
     return next
   }

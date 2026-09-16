@@ -92,10 +92,16 @@ export {
 } from "./playerTransferRules"
 export {
   STASH_LABEL_MAX_CHARS,
+  STASH_LABEL_TOO_LONG_MESSAGE,
   STASH_NOTE_MAX_CHARS,
+  STASH_NOTE_TOO_LONG_MESSAGE,
+  applyArtifactStoreWrite,
+  applyArtifactUpdateWrite,
+  artifactKindBadge,
   artifactLastTouchedAt,
   artifactSummaryLabel,
   computeFreeSlotsByPool,
+  emptyStashLine,
   hydrateStoredArtifactContainers,
   normalizeArtifactPayload,
   planDeposit,
@@ -115,6 +121,15 @@ export {
   type SanitizeStashTextResult,
   type StashOpSummary,
 } from "./artifactStash"
+export {
+  applyDepositMutations,
+  applyWithdrawalDeliveries,
+  withdrawalPersistAction,
+  type DepositMutationPorts,
+  type DepositStackRef,
+  type WithdrawalDeliveryPorts,
+  type WithdrawalDeliveryResult,
+} from "./artifactStashCommit"
 export {
   DEFAULT_PUNCH_COUNT_NOUN,
   TOUR_PUNCH_COIN_LADDER,

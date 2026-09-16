@@ -1,6 +1,7 @@
-import type { AppContext, ArtifactContentInput, ArtifactUpdatePatch, InventoryItem } from "@repo/types"
+import type { AppContext, ArtifactContentInput } from "@repo/types"
 import { isStorageContainerDefinition } from "@repo/types"
 import {
+  applyDepositMutations,
   planDeposit,
   readArtifactContents,
   summarizeDeposit,
@@ -12,6 +13,7 @@ import type { StoredArtifactActionResult } from "./retrieveStoredArtifact"
 
 /**
  * Add inventory stacks and/or coins to an existing passworded stash.
+ * Game Studio's `depositArtifact` is the other caller of `applyDepositMutations`.
  */
 export async function depositStoredArtifact(params: {
   roomId: string
@@ -65,11 +67,16 @@ export async function depositStoredArtifact(params: {
       const inv = await inventory.getInventory(roomId, userId)
 
       const incoming: ArtifactContentInput[] = []
-      const removed: InventoryItem[] = []
+      const stacks: {
+        itemId: string
+        definitionId: string
+        quantity: number
+        metadata?: Record<string, unknown>
+      }[] = []
 
       const targetIds = (params.targetInventoryItemIds ?? []).map((id) => id.trim()).filter(Boolean)
       for (const itemId of targetIds) {
-        const stack = inv.items.find((i: InventoryItem) => i.itemId === itemId)
+        const stack = inv.items.find((i) => i.itemId === itemId)
         if (!stack) {
           return { success: false, message: "That item is not in your inventory." }
         }
@@ -77,6 +84,7 @@ export async function depositStoredArtifact(params: {
         if (isStorageContainerDefinition(def)) {
           return { success: false, message: "You can't store that item." }
         }
+        stacks.push(stack)
         incoming.push({
           kind: "item",
           itemDefinitionId: stack.definitionId,
@@ -115,60 +123,32 @@ export async function depositStoredArtifact(params: {
         return { success: false, message: "That stash is full." }
       }
 
-      for (const itemId of targetIds) {
-        const stack = inv.items.find((i: InventoryItem) => i.itemId === itemId)
-        if (!stack) continue
-        const ok = await inventory.removeItem(roomId, userId, stack.itemId, stack.quantity)
-        if (!ok) {
-          for (const row of removed) {
-            await inventory.giveItem(roomId, userId, row.definitionId, row.quantity, row.metadata, "plugin")
-          }
-          return { success: false, message: "Could not remove the item from inventory." }
-        }
-        removed.push(stack)
-      }
-
-      if (coinAmount > 0) {
-        await gameSessions.addScore(
-          roomId,
-          userId,
-          "coin",
-          -coinAmount,
-          "stored-artifact:deposit",
-          { intent: "exact" },
-        )
-      }
-
-      const patch: ArtifactUpdatePatch = { contents: plan.nextContents }
-
-      try {
-        const updated = await artifacts.update(artifactId, patch)
-        if (!updated) {
-          throw new Error("UPDATE_FAILED")
-        }
-      } catch (e) {
-        for (const row of removed) {
-          await inventory.giveItem(
-            roomId,
-            userId,
-            row.definitionId,
-            row.quantity,
-            row.metadata,
-            "plugin",
-          )
-        }
-        if (coinAmount > 0) {
-          await gameSessions.addScore(
-            roomId,
-            userId,
-            "coin",
-            coinAmount,
-            "stored-artifact:deposit-refund",
-            { intent: "exact" },
-          )
-        }
-        console.error("[depositStoredArtifact] update failed, refunded", e)
-        return { success: false, message: "Could not add to the stash." }
+      const mutated = await applyDepositMutations({
+        stacks,
+        coinAmount,
+        nextContents: plan.nextContents,
+        ports: {
+          removeItem: (itemId, quantity) => inventory.removeItem(roomId, userId, itemId, quantity),
+          giveItem: (definitionId, quantity, metadata) =>
+            inventory.giveItem(roomId, userId, definitionId, quantity, metadata, "plugin"),
+          debitCoins: (amount) =>
+            gameSessions.addScore(roomId, userId, "coin", -amount, "stored-artifact:deposit", {
+              intent: "exact",
+            }),
+          creditCoins: (amount) =>
+            gameSessions.addScore(
+              roomId,
+              userId,
+              "coin",
+              amount,
+              "stored-artifact:deposit-refund",
+              { intent: "exact" },
+            ),
+          updateArtifact: (nextContents) => artifacts.update(artifactId, { contents: nextContents }),
+        },
+      })
+      if (!mutated.ok) {
+        return { success: false, message: mutated.message }
       }
 
       const containerDef = art.containerDefinitionId
