@@ -202,7 +202,7 @@ First Chrome launch uses a dedicated profile under `~/.config/listening-room-bri
 Spy World’s **Burner Phone** speaks listener text via macOS `say` into a **dedicated** CoreAudio device (not the Physical Media mpv process):
 
 1. Install a virtual output (Loopback device or BlackHole).
-2. Open the Media Bridge UI (`http://127.0.0.1:18766/`) → **TTS / Burner Phone** → select that device → **Save**.
+2. On the DJ Mac, open the operator UI (`http://127.0.0.1:9876/`) → **Media Bridge** → **TTS / Burner Phone** → select that device → **Save bridge config**. During development you can use the child escape hatch at `http://127.0.0.1:18766/` instead; both write the same `tts.audioDevice`.
 3. In Audio Hijack, add that virtual device as its **own** source (separate from Chrome/mpv programme capture) so you can duck/mix the call independently.
 4. Leave `tts.audioDevice` empty to fail closed (item is not consumed; UI shows a clear error).
 

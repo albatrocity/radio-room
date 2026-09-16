@@ -40,6 +40,7 @@ pub fn build_router(state: SharedState) -> Router {
         )
         .route("/api/bridge/status", get(bridge_proxy_get))
         .route("/api/bridge/rooms", get(bridge_proxy_get))
+        .route("/api/bridge/audio-devices", get(bridge_proxy_get))
         .route("/api/bridge/connect", post(bridge_proxy_post))
         .route("/api/bridge/disconnect", post(bridge_proxy_post))
         .route("/api/bridge/restart", post(bridge_restart))
@@ -359,6 +360,7 @@ async fn bridge_proxy_get(
         "/api/bridge/config" => "/api/config",
         "/api/bridge/status" => "/api/status",
         "/api/bridge/rooms" => "/api/rooms",
+        "/api/bridge/audio-devices" => "/api/audio-devices",
         other => other,
     };
     bridge_proxy(state, Method::GET, child_path, query.as_deref(), None).await

@@ -577,6 +577,23 @@
         </p>
       </fieldset>
 
+      <fieldset>
+        <legend>TTS / Burner Phone</legend>
+        <p class="hint">
+          Create a Loopback or BlackHole virtual output, select it here, then add that device as a
+          source in Audio Hijack. Do not use “auto” — speak needs an explicit device. Speak audio
+          never uses the Physical Media mpv process.
+        </p>
+        <label for="bridgeTtsAudioDevice">Output audio device (mpv)</label>
+        <div class="row">
+          <select id="bridgeTtsAudioDevice" style="flex: 1; max-width: 28rem; padding: 0.45rem 0.5rem">
+            <option value="">— none (TTS disabled) —</option>
+          </select>
+          <button type="button" id="bridgeRefreshAudioDevices">Refresh devices</button>
+        </div>
+        <div id="bridgeTtsDevicesError" class="err" hidden></div>
+      </fieldset>
+
       <div class="row" style="margin: 0.5rem 0 1rem">
         <button type="button" class="primary" id="bridgeSaveConfig">Save bridge config</button>
         <button type="button" id="bridgeReloadConfig">Reload bridge config</button>
@@ -1005,6 +1022,48 @@
         $("mpvPath").value = mpv.path || "";
         $("mpvSocket").value = mpv.socketPath || "";
         $("bridgeNowPlayingPath").value = c.nowPlayingPath || "";
+        void refreshBridgeAudioDevices(normalizeTtsDevice((c.tts || {}).audioDevice));
+      }
+
+      /** mpv rejects quoted ids and "auto" as a speak target; treat both as unset. */
+      function normalizeTtsDevice(raw) {
+        const value = String(raw || "")
+          .trim()
+          .replace(/^['"]|['"]$/g, "");
+        return value.toLowerCase() === "auto" ? "" : value;
+      }
+
+      async function refreshBridgeAudioDevices(preferred) {
+        const sel = $("bridgeTtsAudioDevice");
+        const err = $("bridgeTtsDevicesError");
+        err.hidden = true;
+        const keep = preferred != null ? preferred : sel.value;
+        try {
+          const data = await bridgeApi("/api/bridge/audio-devices");
+          sel.innerHTML = "";
+          const none = document.createElement("option");
+          none.value = "";
+          none.textContent = "— none (TTS disabled) —";
+          sel.appendChild(none);
+          (data.devices || []).forEach((d) => {
+            const opt = document.createElement("option");
+            opt.value = d.id;
+            opt.textContent = d.label && d.label !== d.id ? d.id + " — " + d.label : d.id;
+            sel.appendChild(opt);
+          });
+          if (keep) {
+            if (!Array.from(sel.options).some((o) => o.value === keep)) {
+              const orphan = document.createElement("option");
+              orphan.value = keep;
+              orphan.textContent = keep + " (saved — not listed)";
+              sel.appendChild(orphan);
+            }
+            sel.value = keep;
+          }
+        } catch (e) {
+          err.hidden = false;
+          err.textContent = e.message || String(e);
+        }
       }
 
       function collectBridgeConfig() {
@@ -1048,6 +1107,9 @@
           mpv: {
             path: $("mpvPath").value.trim() || "mpv",
             socketPath: socket || undefined,
+          },
+          tts: {
+            audioDevice: normalizeTtsDevice($("bridgeTtsAudioDevice").value) || undefined,
           },
           nowPlayingPath: np || undefined,
         };
@@ -1325,6 +1387,10 @@
 
       $("bridgeRefreshRooms").onclick = () => {
         void refreshBridgeRooms();
+      };
+
+      $("bridgeRefreshAudioDevices").onclick = () => {
+        void refreshBridgeAudioDevices();
       };
       $("bridgeOnly").onchange = renderBridgeRooms;
 

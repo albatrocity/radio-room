@@ -244,6 +244,9 @@ Optional — other services
 2. Capture audio sources into the same mix as the stream:
    - Google Chrome (the instance the bridge launches)
    - mpv (if using Navidrome/local tracks)
+   - The TTS virtual device, if you use Burner Phone (Media Bridge →
+     TTS / Burner Phone in the UI). Needs Loopback or BlackHole
+     installed; add it as its own source so you can mix it separately.
 
 3. For stream titles: Other Source… → the bridge Now Playing.txt path
    (configured in the UI; often under ~/.config/listening-room-bridge/).
