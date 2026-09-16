@@ -16,6 +16,7 @@ import {
 } from "@chakra-ui/react"
 import { getActiveFlags } from "@repo/game-logic"
 import type { ItemDefinition } from "@repo/types"
+import { isStorageContainerDefinition } from "@repo/types"
 import { Eye, User as UserIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 import { requestStudioBridgeViewAs } from "../../studio/bridgeClient"
@@ -349,16 +350,15 @@ export function UserCard({
 
               const inventoryRows = room.getInventory(userId)
               const selectableOther =
-                rt === "inventoryItem"
+                rt === "inventoryItems"
                   ? inventoryRows.filter((invItem) => {
                       if (invItem.itemId === row.itemId) return false
                       const d = room.getDefinition(invItem.definitionId)
-                      const sid = d?.shortId
-                      if (sid === "van-cubby" || sid === "merch-cash-box") return false
+                      if (isStorageContainerDefinition(d)) return false
                       return true
                     })
                   : []
-              const storageBlocked = rt === "inventoryItem" && selectableOther.length === 0
+              const storageBlocked = rt === "inventoryItems" && selectableOther.length === 0
               const mediaItemBlocked =
                 rt === "mediaItem" &&
                 inventoryRows.filter((invItem) => invItem.itemId !== row.itemId).length === 0
@@ -367,16 +367,19 @@ export function UserCard({
               const burgleBlocked = rt === "userInventoryItem" && otherUsers.length === 0
 
               const useButton =
-                rt === "inventoryItem" ? (
+                rt === "inventoryItems" ? (
                   <StudioInventoryItemStoragePopover
                     room={room}
                     userId={userId}
                     excludingItemId={row.itemId}
-                    onConfirm={(targetInventoryItemId, password) =>
+                    capacity={def?.storageCapacity ?? 1}
+                    onConfirm={(targetInventoryItemIds, password, stashLabel, note) =>
                       void run(`Use ${label}`, async () =>
                         studioActions.useInventoryItem(userId, row.itemId, {
-                          targetInventoryItemId,
+                          targetInventoryItemIds,
                           password,
+                          label: stashLabel,
+                          note,
                         }),
                       )
                     }
@@ -423,11 +426,13 @@ export function UserCard({
                 ) : rt === "coinAmount" ? (
                   <StudioCoinAmountStoragePopover
                     maxCoins={coin}
-                    onConfirm={(coinAmount, password) =>
+                    onConfirm={(coinAmount, password, stashLabel, note) =>
                       void run(`Use ${label}`, async () =>
                         studioActions.useInventoryItem(userId, row.itemId, {
                           coinAmount,
                           password,
+                          label: stashLabel,
+                          note,
                         }),
                       )
                     }

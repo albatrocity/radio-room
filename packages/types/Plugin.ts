@@ -37,7 +37,9 @@ import type {
   UserInventory,
 } from "./Inventory"
 import type {
+  ArtifactContentInput,
   ArtifactRetrieveAttempt,
+  ArtifactUpdatePatch,
   ArtifactsPluginAPI,
   StoredArtifact,
   StoredArtifactPublic,
@@ -1077,7 +1079,14 @@ export interface GameSessionPluginAPI {
   clearPresentedIdentity(userId: string): Promise<boolean>
 }
 
-export type { ArtifactRetrieveAttempt, ArtifactsPluginAPI, StoredArtifact, StoredArtifactPublic }
+export type {
+  ArtifactContentInput,
+  ArtifactRetrieveAttempt,
+  ArtifactUpdatePatch,
+  ArtifactsPluginAPI,
+  StoredArtifact,
+  StoredArtifactPublic,
+}
 
 // ============================================================================
 // Inventory API (exposed on PluginContext.inventory)

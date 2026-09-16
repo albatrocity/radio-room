@@ -1,7 +1,7 @@
 # 0052. Global artifacts API (`context.artifacts`)
 
 **Date:** 2026-05-08  
-**Status:** Accepted
+**Status:** Accepted. Extended by [0179](0179-reusable-multi-slot-password-stashes.md)
 
 ## Context
 

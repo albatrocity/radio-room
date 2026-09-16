@@ -43,6 +43,9 @@ import { tubeOverdrive } from "./tube-overdrive"
 import { warranty } from "./warranty"
 import { vanCubby } from "./van-cubby"
 import { merchCashBox } from "./merch-cash-box"
+import { roadCase } from "./road-case"
+import { trailer } from "./trailer"
+import { tourLaminate } from "./tour-laminate"
 import { snoozePedal } from "./snooze-pedal"
 import { coffeePedal } from "./coffee-pedal"
 import { gravityBong } from "./gravity-bong"
@@ -96,6 +99,9 @@ export const items = {
   buyout,
   vanCubby,
   merchCashBox,
+  roadCase,
+  trailer,
+  tourLaminate,
   snoozePedal,
   coffeePedal,
   gravityBong,

@@ -87,7 +87,7 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
 
   const pluginApi = new MockStudioPluginApi(room, lifecycle, pluginName)
   const gameApi = new MockStudioGameSessionApi(room, lifecycle, pluginName)
-  const inventoryApi = new MockStudioInventoryApi(room, registry, pluginName)
+  const inventoryApi = new MockStudioInventoryApi(room, registry, pluginName, lifecycle)
   const artifactsApi = new MockStudioArtifactsApi(room)
 
   registry.register(room.roomId, pluginName, itemShopsPlugin)

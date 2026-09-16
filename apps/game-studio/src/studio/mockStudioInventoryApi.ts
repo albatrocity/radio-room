@@ -7,6 +7,7 @@ import type {
   UserInventory,
 } from "@repo/types"
 import { capForPool, resolveSlotPool } from "@repo/types"
+import type { MockPluginLifecycle } from "./mockLifecycle"
 import type { StudioRoom } from "./studioRoom"
 import type { StudioPluginRegistry } from "./studioPluginRegistry"
 import { DEFAULT_PLAYBACK_SLOTS } from "./buildSessionConfig"
@@ -17,6 +18,7 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     private readonly room: StudioRoom,
     private readonly registry: StudioPluginRegistry,
     private readonly pluginName: string,
+    private readonly lifecycle?: MockPluginLifecycle,
   ) {}
 
   registerItemDefinitions(definitions: Array<Omit<ItemDefinition, "id" | "sourcePlugin">>): void {
@@ -55,6 +57,7 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
         const toAdd = Math.min(room, quantity)
         existing.quantity += toAdd
         this.room.setInventory(userId, inv)
+        await this.emitAcquired(userId, existing, _source, _options?.restored)
         const remaining = quantity - toAdd
         if (remaining > 0) {
           return this.giveItem(userId, definitionId, remaining, metadata, _source)
@@ -81,6 +84,7 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     }
     inv.push(item)
     this.room.setInventory(userId, inv)
+    await this.emitAcquired(userId, item, _source, _options?.restored)
 
     if (!def.stackable && quantity > 1) {
       await this.giveItem(userId, definitionId, quantity - 1, metadata, _source)
@@ -103,13 +107,22 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     const idx = inv.findIndex((i) => i.itemId === itemId)
     if (idx === -1) return false
     const row = inv[idx]!
-    row.quantity -= quantity
+    const removeQty = Math.min(quantity, row.quantity)
+    row.quantity -= removeQty
     if (row.quantity <= 0) {
       inv.splice(idx, 1)
     } else {
       inv[idx] = row
     }
     this.room.setInventory(userId, inv)
+    await this.lifecycle?.emit("INVENTORY_ITEM_REMOVED", {
+      roomId: this.room.roomId,
+      sessionId: this.room.activeSession?.id ?? "",
+      userId,
+      itemId,
+      quantity: removeQty,
+      ...(_options?.degraded ? { degraded: true } : {}),
+    })
     return true
   }
 
@@ -128,6 +141,12 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     }
     inv[idx] = updated
     this.room.setInventory(userId, inv)
+    await this.lifecycle?.emit("INVENTORY_ITEM_UPDATED", {
+      roomId: this.room.roomId,
+      sessionId: this.room.activeSession?.id ?? "",
+      userId,
+      item: updated,
+    })
     return updated
   }
 
@@ -236,5 +255,21 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
 
   async getAllItemDefinitions(): Promise<ItemDefinition[]> {
     return [...this.room.definitions.values()]
+  }
+
+  private async emitAcquired(
+    userId: string,
+    item: InventoryItem,
+    source: InventoryAcquisitionSource,
+    restored?: boolean,
+  ): Promise<void> {
+    await this.lifecycle?.emit("INVENTORY_ITEM_ACQUIRED", {
+      roomId: this.room.roomId,
+      sessionId: this.room.activeSession?.id ?? "",
+      userId,
+      item,
+      source,
+      ...(restored ? { restored: true } : {}),
+    })
   }
 }

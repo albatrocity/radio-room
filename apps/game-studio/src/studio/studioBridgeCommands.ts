@@ -29,10 +29,13 @@ export type StudioBridgeCommand =
       targetUserId?: string
       targetQueueItemId?: string
       targetInventoryItemId?: string
+      targetInventoryItemIds?: string[]
       password?: string
       coinAmount?: number
       message?: string
       voice?: string
+      label?: string
+      note?: string
     }
   | { kind: "SELL_INVENTORY_ITEM"; roomId: string; userId: string; itemId: string }
   | {
@@ -109,6 +112,16 @@ export type StudioBridgeCommand =
       userId: string
       artifactId: string
       password: string
+      contentIds?: string[]
+    }
+  | {
+      kind: "DEPOSIT_STORED_ARTIFACT"
+      roomId: string
+      userId: string
+      artifactId: string
+      password: string
+      targetInventoryItemIds?: string[]
+      coinAmount?: number
     }
   | { kind: "CAST_POLL_VOTE"; roomId: string; userId: string; pollId: string; optionId: string }
   | { kind: "CLOSE_POLL"; roomId: string; userId: string; pollId: string }
@@ -154,10 +167,13 @@ export async function dispatchStudioBridgeCommand(
       if (cmd.targetUserId != null) ctx.targetUserId = cmd.targetUserId
       if (cmd.targetQueueItemId != null) ctx.targetQueueItemId = cmd.targetQueueItemId
       if (cmd.targetInventoryItemId != null) ctx.targetInventoryItemId = cmd.targetInventoryItemId
+      if (cmd.targetInventoryItemIds != null) ctx.targetInventoryItemIds = cmd.targetInventoryItemIds
       if (cmd.password != null) ctx.password = cmd.password
       if (cmd.coinAmount != null) ctx.coinAmount = cmd.coinAmount
       if (cmd.message != null) ctx.message = cmd.message
       if (cmd.voice != null) ctx.voice = cmd.voice
+      if (cmd.label != null) ctx.label = cmd.label
+      if (cmd.note != null) ctx.note = cmd.note
       await studioActions.useInventoryItem(
         cmd.userId,
         cmd.itemId,
@@ -269,7 +285,13 @@ export async function dispatchStudioBridgeCommand(
       return { success: true }
     }
     case "RETRIEVE_STORED_ARTIFACT": {
-      return studioActions.retrieveArtifact(cmd.artifactId, cmd.password, cmd.userId)
+      return studioActions.retrieveArtifact(cmd.artifactId, cmd.password, cmd.userId, cmd.contentIds)
+    }
+    case "DEPOSIT_STORED_ARTIFACT": {
+      return studioActions.depositArtifact(cmd.artifactId, cmd.password, cmd.userId, {
+        targetInventoryItemIds: cmd.targetInventoryItemIds,
+        coinAmount: cmd.coinAmount,
+      })
     }
     case "CAST_POLL_VOTE": {
       if (room.activePoll?.id !== cmd.pollId) {

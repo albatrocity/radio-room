@@ -1,27 +1,15 @@
 "use client"
 
-import {
-  Box,
-  Button,
-  Field,
-  HStack,
-  Input,
-  NativeSelect,
-  Stack,
-  Text,
-} from "@chakra-ui/react"
+import { Box, Button, Field, HStack, Input, NativeSelect, Stack, Text } from "@chakra-ui/react"
 import type { StoredArtifact } from "@repo/types"
+import { artifactSummaryLabel, readArtifactContents } from "@repo/game-logic"
 import { useEffect, useMemo, useState } from "react"
 import * as studioActions from "../../studio/studioActions"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { toaster } from "../ui/toaster"
 
 function publicLabel(a: StoredArtifact): string {
-  if (a.artifactType === "coin") {
-    const amt = a.coinValue ?? 0
-    return `${amt.toLocaleString()} coins`
-  }
-  return a.itemName ?? a.itemDefinitionId ?? "Item"
+  return a.label?.trim() || artifactSummaryLabel(readArtifactContents(a))
 }
 
 export type StoredArtifactsPanelProps = {

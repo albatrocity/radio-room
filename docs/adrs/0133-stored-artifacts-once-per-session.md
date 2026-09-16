@@ -11,14 +11,14 @@
 
 1. **`userGameStateMachine` still owns stored artifacts** (ADR 0130 point 5 otherwise stands: not a view `useState`).
 2. **Fetch once per `session.id`.** `requestStoredArtifacts` records `storedArtifactsSessionId` and skips if that id already matches. Session end and actor reset clear it so a later session fetches again.
-3. **Explicit refresh still emits.** `refreshStoredArtifacts()` (Stored Items retrieve success, and any other caller) sends `GET_STORED_ARTIFACTS` regardless of session id.
+3. **Explicit refresh still emits.** `refreshStoredArtifacts()` (Storage tab retrieve success, and any other caller) sends `GET_STORED_ARTIFACTS` regardless of session id.
 
 This **partially supersedes [ADR 0130](0130-game-state-overlay-lifecycle-in-machines.md) point 5** (fetch cadence only). Overlay lifecycle in 0130 is unchanged.
 
 ## Consequences
 
 - The storage list stays current across a session without a round-trip on every game-state payload.
-- A stash created mid-session is not listed until an explicit refresh or a new session id. Retrieve already refreshes; code that stores artifacts should call `refreshStoredArtifacts()` or invalidate game state if the Stored Items tab must update immediately.
+- A stash created mid-session is not listed until an explicit refresh or a new session id. Retrieve already refreshes; code that stores artifacts should call `refreshStoredArtifacts()` or invalidate game state if the Storage tab must update immediately.
 
 ## See also
 

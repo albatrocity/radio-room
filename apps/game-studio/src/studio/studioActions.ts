@@ -9,10 +9,23 @@ import type {
 import {
   ITEM_SHOPS_PLUGIN_NAME,
   POLL_OPTION_LIMITS,
+  isStorageContainerDefinition,
   resolveSlotPool,
   slotPoolFullMessage,
+  type ArtifactContentInput,
+  type ArtifactUpdatePatch,
+  type InventoryItem,
+  type ItemDefinition,
 } from "@repo/types"
-import { getChatSendDelayMs } from "@repo/game-logic"
+import {
+  computeFreeSlotsByPool,
+  getChatSendDelayMs,
+  planDeposit,
+  planWithdrawal,
+  readArtifactContents,
+  summarizeDeposit,
+  summarizeWithdrawal,
+} from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
 import { SHOP_CATALOG, ITEM_CATALOG } from "@repo/plugin-item-shops"
 import { cloneSampleQueueItem, getSampleQueueTemplates } from "./studioSampleQueue"
@@ -357,80 +370,265 @@ export async function retrieveArtifact(
   artifactId: string,
   password: string,
   retrievingUserId: string,
+  contentIds?: string[],
 ): Promise<{ success: boolean; message: string }> {
   const { itemShopsContext, room } = getStudio()
   const username = room.users.get(retrievingUserId)?.username?.trim() || "Someone"
 
-  const attempt = await itemShopsContext.artifacts.attemptRetrieve(artifactId, password)
+  return itemShopsContext.artifacts.withArtifactLock(artifactId, async () => {
+    const attempt = await itemShopsContext.artifacts.attemptRetrieve(artifactId, password)
 
-  if (attempt.status === "not_found") {
-    await itemShopsContext.api.sendSystemMessage(
-      room.roomId,
-      `${username} tried to retrieve storage that is no longer here.`,
-    )
-    return { success: false, message: "That stored item no longer exists." }
-  }
-
-  if (attempt.status === "wrong_password") {
-    await itemShopsContext.api.sendSystemMessage(
-      room.roomId,
-      `${username} failed to retrieve an artifact from storage (wrong password).`,
-    )
-    return { success: false, message: "Wrong password." }
-  }
-
-  const art = attempt.artifact
-
-  if (art.artifactType === "coin") {
-    const amt = art.coinValue ?? 0
-    if (amt < 1) {
-      return { success: false, message: "Invalid stored coins." }
+    if (attempt.status === "not_found") {
+      await itemShopsContext.api.sendSystemMessage(
+        room.roomId,
+        `${username} tried to retrieve storage that is no longer here.`,
+      )
+      return { success: false, message: "That stored item no longer exists." }
     }
-    await itemShopsContext.game.addScore(retrievingUserId, "coin", amt, "stored-artifact:retrieve")
-    await itemShopsContext.artifacts.remove(artifactId)
-    await itemShopsContext.api.sendSystemMessage(
-      room.roomId,
-      `${username} retrieved ${amt.toLocaleString()} coins from storage.`,
-    )
-    return { success: true, message: `Added ${amt.toLocaleString()} coins.` }
-  }
 
-  const defId = art.itemDefinitionId
-  const qty = art.itemQuantity ?? 1
-  if (!defId || qty < 1) {
-    return { success: false, message: "Invalid stored item." }
-  }
-
-  const given = await itemShopsContext.inventory.giveItem(
-    retrievingUserId,
-    defId,
-    qty,
-    undefined,
-    "plugin",
-  )
-  if (!given) {
-    return {
-      success: false,
-      message: slotPoolFullMessage(
-        resolveSlotPool(room.getDefinition(defId)),
-        "make space and try again.",
-      ),
+    if (attempt.status === "wrong_password") {
+      await itemShopsContext.api.sendSystemMessage(
+        room.roomId,
+        `${username} failed to retrieve an artifact from storage (wrong password).`,
+      )
+      return { success: false, message: "Wrong password." }
     }
-  }
 
-  await itemShopsContext.artifacts.remove(artifactId)
-  const label = art.itemName ?? "an item"
-  await itemShopsContext.api.sendSystemMessage(
-    room.roomId,
-    `${username} retrieved ${label} from storage.`,
-  )
-  return { success: true, message: `Received ${label}.` }
+    const art = attempt.artifact
+    const contents = readArtifactContents(art)
+    // An empty stash is retrieved to claim its container (ADR 0181).
+    if (contentIds != null && contentIds.length === 0 && contents.length > 0) {
+      return { success: false, message: "Select what to take." }
+    }
+
+    const inv = await itemShopsContext.inventory.getInventory(retrievingUserId)
+    const definitionsById: Record<string, ItemDefinition | undefined> = {}
+    for (const c of contents) {
+      if (c.kind === "item") {
+        definitionsById[c.itemDefinitionId] = room.getDefinition(c.itemDefinitionId) ?? undefined
+      }
+    }
+    if (art.containerDefinitionId) {
+      definitionsById[art.containerDefinitionId] =
+        room.getDefinition(art.containerDefinitionId) ?? undefined
+    }
+    const freeSlotsByPool = computeFreeSlotsByPool(inv.items, inv, definitionsById)
+    const plan = planWithdrawal({
+      contents,
+      selectedIds: contentIds,
+      containerDefinitionId: art.containerDefinitionId,
+      freeSlotsByPool,
+      definitionsById,
+    })
+    if (plan.rejected.length > 0) {
+      const first = plan.rejected.find((c) => c.kind === "item")
+      return {
+        success: false,
+        message: slotPoolFullMessage(
+          resolveSlotPool(first ? room.getDefinition(first.itemDefinitionId) : undefined),
+          "make space and try again.",
+        ),
+      }
+    }
+    if (plan.deliveries.length === 0 && !plan.container) {
+      if (!plan.containerBlocked) return { success: false, message: "Nothing to retrieve." }
+      return {
+        success: false,
+        message: slotPoolFullMessage(
+          resolveSlotPool(
+            art.containerDefinitionId ? room.getDefinition(art.containerDefinitionId) : undefined,
+          ),
+          "make space and try again.",
+        ),
+      }
+    }
+
+    for (const delivery of plan.deliveries) {
+      if (delivery.kind === "coin") {
+        if (delivery.coinValue < 1) return { success: false, message: "Invalid stored coins." }
+        await itemShopsContext.game.addScore(
+          retrievingUserId,
+          "coin",
+          delivery.coinValue,
+          "stored-artifact:retrieve",
+          { intent: "exact" },
+        )
+        continue
+      }
+      const given = await itemShopsContext.inventory.giveItem(
+        retrievingUserId,
+        delivery.itemDefinitionId,
+        delivery.itemQuantity,
+        delivery.metadata,
+        "plugin",
+      )
+      if (!given) {
+        return {
+          success: false,
+          message: slotPoolFullMessage(
+            resolveSlotPool(room.getDefinition(delivery.itemDefinitionId)),
+            "make space and try again.",
+          ),
+        }
+      }
+    }
+
+    if (plan.container) {
+      const given = await itemShopsContext.inventory.giveItem(
+        retrievingUserId,
+        plan.container.definitionId,
+        1,
+        undefined,
+        "plugin",
+      )
+      if (!given) {
+        return {
+          success: false,
+          message: slotPoolFullMessage(
+            resolveSlotPool(room.getDefinition(plan.container.definitionId)),
+            "make space and try again.",
+          ),
+        }
+      }
+    }
+
+    if (plan.container) {
+      await itemShopsContext.artifacts.remove(artifactId)
+    } else if (plan.remainder.length === 0 && art.containerDefinitionId?.trim()) {
+      // Container had no free slot — keep the empty row so it can be claimed later.
+      await itemShopsContext.artifacts.update(artifactId, { contents: [] })
+    } else if (plan.remainder.length === 0) {
+      await itemShopsContext.artifacts.remove(artifactId)
+    } else {
+      await itemShopsContext.artifacts.update(artifactId, { contents: plan.remainder })
+    }
+
+    const containerDef = plan.container
+      ? room.getDefinition(plan.container.definitionId)
+      : art.containerDefinitionId
+        ? room.getDefinition(art.containerDefinitionId)
+        : null
+    const summary = summarizeWithdrawal({
+      username,
+      deliveries: plan.deliveries,
+      containerName: containerDef?.name ?? null,
+      containerReturned: Boolean(plan.container),
+    })
+    await itemShopsContext.api.sendSystemMessage(room.roomId, summary.roomMessage)
+    return { success: true, message: summary.privateMessage }
+  })
+}
+
+export async function depositArtifact(
+  artifactId: string,
+  password: string,
+  depositingUserId: string,
+  opts?: {
+    targetInventoryItemIds?: string[]
+    coinAmount?: number
+  },
+): Promise<{ success: boolean; message: string }> {
+  const { itemShopsContext, room } = getStudio()
+  const username = room.users.get(depositingUserId)?.username?.trim() || "Someone"
+
+  return itemShopsContext.artifacts.withArtifactLock(artifactId, async () => {
+    const attempt = await itemShopsContext.artifacts.attemptRetrieve(artifactId, password)
+    if (attempt.status === "not_found") {
+      return { success: false, message: "That stored item no longer exists." }
+    }
+    if (attempt.status === "wrong_password") {
+      await itemShopsContext.api.sendSystemMessage(
+        room.roomId,
+        `${username} failed to add to a stash (wrong password).`,
+      )
+      return { success: false, message: "Wrong password." }
+    }
+
+    const art = attempt.artifact
+    const contents = readArtifactContents(art)
+    const inv = await itemShopsContext.inventory.getInventory(depositingUserId)
+    const incoming: ArtifactContentInput[] = []
+    const targetIds = opts?.targetInventoryItemIds ?? []
+
+    for (const itemId of targetIds) {
+      const stack = inv.items.find((i: InventoryItem) => i.itemId === itemId)
+      if (!stack) return { success: false, message: "That item is not in your inventory." }
+      const def = room.getDefinition(stack.definitionId)
+      if (isStorageContainerDefinition(def)) {
+        return { success: false, message: "You can't store that item." }
+      }
+      incoming.push({
+        kind: "item",
+        itemDefinitionId: stack.definitionId,
+        itemName: def?.name ?? stack.definitionId,
+        itemQuantity: stack.quantity,
+        ...(stack.metadata != null ? { metadata: stack.metadata } : {}),
+      })
+    }
+
+    const coinAmount =
+      typeof opts?.coinAmount === "number" && Number.isFinite(opts.coinAmount)
+        ? Math.floor(opts.coinAmount)
+        : 0
+    if (coinAmount > 0) {
+      const state = await itemShopsContext.game.getUserState(depositingUserId)
+      const current = state?.attributes?.coin ?? 0
+      if (current < coinAmount) return { success: false, message: "You don't have enough coins." }
+      incoming.push({ kind: "coin", coinValue: coinAmount })
+    }
+
+    if (incoming.length === 0) {
+      return { success: false, message: "Nothing to add." }
+    }
+
+    let capacity = Math.max(contents.length, 1)
+    if (art.containerDefinitionId) {
+      const containerDef = room.getDefinition(art.containerDefinitionId)
+      if (typeof containerDef?.storageCapacity === "number" && containerDef.storageCapacity > 0) {
+        capacity = containerDef.storageCapacity
+      }
+    }
+    const plan = planDeposit({ contents, capacity, incoming })
+    if (plan.rejected.length > 0) {
+      return { success: false, message: "That stash is full." }
+    }
+
+    for (const itemId of targetIds) {
+      const stack = inv.items.find((i: InventoryItem) => i.itemId === itemId)
+      if (!stack) continue
+      await itemShopsContext.inventory.removeItem(depositingUserId, stack.itemId, stack.quantity)
+    }
+    if (coinAmount > 0) {
+      await itemShopsContext.game.addScore(
+        depositingUserId,
+        "coin",
+        -coinAmount,
+        "stored-artifact:deposit",
+        { intent: "exact" },
+      )
+    }
+
+    const patch: ArtifactUpdatePatch = { contents: plan.nextContents }
+    const updated = await itemShopsContext.artifacts.update(artifactId, patch)
+    if (!updated) return { success: false, message: "Could not add to the stash." }
+
+    const containerDef = art.containerDefinitionId
+      ? room.getDefinition(art.containerDefinitionId)
+      : null
+    const summary = summarizeDeposit({
+      username,
+      incoming,
+      containerName: containerDef?.name ?? null,
+    })
+    await itemShopsContext.api.sendSystemMessage(room.roomId, summary.roomMessage)
+    return { success: true, message: summary.privateMessage }
+  })
 }
 
 /** `storingItemId` for artifacts injected via Game Studio drawer (not from Van Cubby / Merch Cash Box use). */
 const STUDIO_MANUAL_STORING_ITEM_ID = "studio-manual"
 
-/** Seed global stored artifacts with coins (Listening Room “Stored Items” / bridge preview). */
+/** Seed global stored artifacts with coins (Listening Room “Storage” tab / bridge preview). */
 export async function storeSandboxArtifactCoin(
   storedByUserId: string,
   coinValue: number,
@@ -548,9 +746,7 @@ export function createStudioPoll({
   question,
   options,
   hideRunningTotal = false,
-}: CreateStudioPollInput):
-  | { ok: true; poll: Poll }
-  | { ok: false; message: string } {
+}: CreateStudioPollInput): { ok: true; poll: Poll } | { ok: false; message: string } {
   const { room } = getStudio()
   const trimmedQuestion = question.trim()
 
@@ -598,9 +794,7 @@ export function createStudioPoll({
   return { ok: true, poll }
 }
 
-export function closeStudioPoll():
-  | { ok: true; pollId: string }
-  | { ok: false; message: string } {
+export function closeStudioPoll(): { ok: true; pollId: string } | { ok: false; message: string } {
   const { room } = getStudio()
   const entry = room.closePoll()
   if (!entry) {
@@ -615,9 +809,7 @@ export function closeStudioPoll():
   return { ok: true, pollId: entry.poll.id }
 }
 
-export function deleteStudioPoll(
-  pollId: string,
-): { ok: true } | { ok: false; message: string } {
+export function deleteStudioPoll(pollId: string): { ok: true } | { ok: false; message: string } {
   const { room } = getStudio()
   if (!pollId.trim()) {
     return { ok: false, message: "Poll id is required." }
@@ -636,10 +828,7 @@ export type CastStudioPollVoteResult =
   | { ok: true; isFirstVote: boolean; totalVotes: number | null }
   | { ok: false; reason: "POLL_CLOSED" | "POLL_NOT_FOUND" | "INVALID_OPTION" }
 
-export function castStudioPollVote(
-  userId: string,
-  optionId: string,
-): CastStudioPollVoteResult {
+export function castStudioPollVote(userId: string, optionId: string): CastStudioPollVoteResult {
   const { room } = getStudio()
   const poll = room.activePoll
 

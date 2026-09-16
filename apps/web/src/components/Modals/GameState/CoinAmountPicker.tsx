@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { Button, Input, Popover, Stack, Text } from "@chakra-ui/react"
+import { StashPublicFields } from "./StashPublicFields"
 
 /**
  * Choose coin amount and password for Merch Cash Box.
@@ -11,15 +12,19 @@ export function CoinAmountStoragePopover({
 }: {
   children: React.ReactNode
   maxCoins: number
-  onConfirm: (coinAmount: number, password: string) => void
+  onConfirm: (coinAmount: number, password: string, label?: string, note?: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [amountStr, setAmountStr] = useState("")
   const [password, setPassword] = useState("")
+  const [label, setLabel] = useState("")
+  const [note, setNote] = useState("")
 
   const reset = () => {
     setAmountStr("")
     setPassword("")
+    setLabel("")
+    setNote("")
   }
 
   const handleOpenChange = (e: { open: boolean }) => {
@@ -32,9 +37,11 @@ export function CoinAmountStoragePopover({
     if (!Number.isFinite(n) || n < 1 || n > maxCoins) return
     if (!password.trim()) return
     const pw = password
+    const name = label.trim() || undefined
+    const hint = note.trim() || undefined
     setOpen(false)
     reset()
-    onConfirm(n, pw)
+    onConfirm(n, pw, name, hint)
   }
 
   return (
@@ -57,6 +64,12 @@ export function CoinAmountStoragePopover({
               placeholder="Amount"
               value={amountStr}
               onChange={(e) => setAmountStr(e.target.value.replace(/\D/g, ""))}
+            />
+            <StashPublicFields
+              label={label}
+              note={note}
+              onLabelChange={setLabel}
+              onNoteChange={setNote}
             />
             <Input
               type="password"
