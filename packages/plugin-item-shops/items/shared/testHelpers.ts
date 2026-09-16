@@ -35,6 +35,11 @@ export function createMockPluginAPI(): PluginAPI {
     emit: vi.fn().mockResolvedValue(undefined),
     queueSoundEffect: vi.fn().mockResolvedValue(undefined),
     queueScreenEffect: vi.fn().mockResolvedValue(undefined),
+    speakOnMediaBridge: vi.fn().mockResolvedValue({
+      ok: false,
+      message: "The line is dead — the DJ Mac isn’t linked.",
+    }),
+    listMediaBridgeSayVoices: vi.fn().mockResolvedValue({ voices: [] }),
   } as unknown as PluginAPI
 }
 

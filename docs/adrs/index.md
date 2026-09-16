@@ -183,6 +183,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0175](0175-item-shop-themes-and-assignment-rarity.md) | Item shop themes and assignment rarity | Accepted |
 | [0176](0176-room-shop-assignment-rarity-overrides.md) | Room shop assignment rarity overrides (admin UI) | Accepted |
 | [0177](0177-listener-whats-new-from-bundled-markdown.md) | Listener What’s new from bundled markdown | Accepted |
+| [0178](0178-media-bridge-tts-say-output.md) | Media Bridge TTS (`say`) to a dedicated CoreAudio output | Accepted |
 
 ## Creating a New ADR
 

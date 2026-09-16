@@ -31,10 +31,23 @@ export const bridgeRequestSchema = z.object({
     "getAlbumCoverArt",
     "getTrackPreview",
     "invalidatePlaylistCache",
+    /** List installed macOS `say` voices (ADR 0178). */
+    "listSayVoices",
+    /** Synthesize + queue TTS to configured CoreAudio device (ADR 0178). */
+    "speak",
   ]),
   params: z.record(z.string(), z.unknown()).default({}),
 })
 export type BridgeRequest = z.infer<typeof bridgeRequestSchema>
+
+/** Max code points for Media Bridge TTS / Burner Phone (ADR 0178). */
+export const BRIDGE_SAY_MAX_CHARS = 100
+
+export type BridgeSayVoice = {
+  id: string
+  name: string
+  locale: string
+}
 
 export const bridgeResponseSchema = z.object({
   id: z.string(),
@@ -135,6 +148,25 @@ export const BRIDGE_LAST_ENDED_TTL_SEC = 60
 export const BRIDGE_DAEMON_PRESENCE_TTL_SEC = 15
 /** Slightly under Spotify's typical 1h access-token lifetime. */
 export const BRIDGE_SPOTIFY_TOKEN_TTL_SEC = 50 * 60
+
+/**
+ * Sanitize TTS text: trim, strip C0 controls (keep tab/LF/CR as spaces), NFC.
+ * Returns null when empty after sanitize.
+ */
+export function sanitizeBridgeSayText(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const cleaned = raw
+    .normalize("NFC")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/[\t\n\r]+/g, " ")
+    .trim()
+  return cleaned.length > 0 ? cleaned : null
+}
+
+/** Count Unicode code points (not UTF-16 code units). */
+export function bridgeSayCodePointLength(text: string): number {
+  return [...text].length
+}
 
 /** Global (not room-scoped) control channel for Media Bridge link handshake. */
 export function controlChannel() {

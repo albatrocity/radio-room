@@ -21,6 +21,7 @@ import { StaticHost } from "./staticHost"
 import { SpotifyDeviceHost } from "./spotifyDevice"
 import { startConfigServer } from "./configServer"
 import { StandbyControl } from "./standbyControl"
+import { TtsService } from "./tts"
 
 type Session = {
   roomId: string
@@ -40,6 +41,10 @@ let session: Session | null = null
 let activeConfig: BridgeDaemonConfig = loadConfig()
 let standbyRedis: BridgeRedisClient | null = null
 let standby: StandbyControl | null = null
+const ttsService = new TtsService(() => ({
+  audioDevice: activeConfig.tts?.audioDevice,
+  mpvPath: activeConfig.mpv?.path,
+}))
 
 function getStatus() {
   return {
@@ -177,7 +182,7 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
     }
   }
   const router = new Router(drivers, presence, nowPlaying, roomId, spotifyDevice)
-  const rpc = new RpcServer(redis as any, roomId, router, localDriver)
+  const rpc = new RpcServer(redis as any, roomId, router, localDriver, ttsService)
 
   await presence.start(Array.from(drivers.keys()))
   await rpc.start()
@@ -276,6 +281,7 @@ function startUiServer() {
       activeConfig = ensureDaemonId(cfg)
       console.log(`[config-ui] saved ${configPath()}`)
     },
+    listAudioDevices: () => ttsService.listAudioDevices(),
   })
 }
 

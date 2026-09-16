@@ -125,4 +125,30 @@ export class MediaBridgeService {
 
     return { success: true as const, connected, services, roomId }
   }
+
+  /**
+   * List macOS `say` voices for Burner Phone inventory picker (ADR 0178).
+   * Any room member; fails softly when unlinked.
+   */
+  async listSayVoices(roomId: string, userId: string) {
+    if (!userId) {
+      return { success: false as const, message: "Not authorized", voices: [] as const }
+    }
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      return { success: false as const, message: "Room not found", voices: [] as const }
+    }
+    const { listMediaBridgeSayVoices } = await import(
+      "../operations/bridge/listMediaBridgeSayVoices"
+    )
+    const result = await listMediaBridgeSayVoices({ context: this.context, roomId })
+    if (result.error) {
+      return {
+        success: false as const,
+        message: result.error,
+        voices: result.voices,
+      }
+    }
+    return { success: true as const, voices: result.voices }
+  }
 }

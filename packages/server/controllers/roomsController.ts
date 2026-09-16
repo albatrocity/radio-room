@@ -640,6 +640,8 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       targetInventoryItemId?: string
       password?: string
       coinAmount?: number
+      message?: string
+      voice?: string
     }) => {
       const callContextRaw: Record<string, unknown> = {}
       if (data?.targetUserId != null) callContextRaw.targetUserId = data.targetUserId
@@ -648,6 +650,8 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
         callContextRaw.targetInventoryItemId = data.targetInventoryItemId
       if (data?.password != null) callContextRaw.password = data.password
       if (data?.coinAmount != null) callContextRaw.coinAmount = data.coinAmount
+      if (data?.message != null) callContextRaw.message = data.message
+      if (data?.voice != null) callContextRaw.voice = data.voice
       const callContext =
         Object.keys(callContextRaw).length > 0 ? callContextRaw : undefined
 

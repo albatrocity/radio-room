@@ -258,6 +258,23 @@
       <p class="hint">File always uses Audio Hijack <code>Title:</code> / <code>Artist:</code> / <code>Album:</code> lines.</p>
     </fieldset>
 
+    <fieldset>
+      <legend>TTS / Burner Phone</legend>
+      <p class="hint">
+        Create a Loopback or BlackHole virtual output, select it here, then add that device as a
+        source in Audio Hijack. Do not use “auto” — speak needs an explicit device. Speak audio
+        never uses the Physical Media mpv process.
+      </p>
+      <label for="ttsAudioDevice">Output audio device (mpv)</label>
+      <div class="row">
+        <select id="ttsAudioDevice" style="flex: 1; max-width: 28rem; padding: 0.45rem 0.5rem">
+          <option value="">— none (TTS disabled) —</option>
+        </select>
+        <button type="button" id="btnRefreshAudioDevices">Refresh devices</button>
+      </div>
+      <div id="ttsDevicesError" class="err" hidden></div>
+    </fieldset>
+
     <div class="row">
       <button type="button" class="primary" id="btnSave">Save config</button>
       <button type="button" id="btnReload">Reload from disk</button>
@@ -317,6 +334,10 @@
           $("mpvPath").value = mpv.path || ""
           $("mpvSocket").value = mpv.socketPath || ""
           $("nowPlayingPath").value = c.nowPlayingPath || ""
+          var tts = c.tts || {}
+          var selectedDevice = (tts.audioDevice || "").replace(/^['"]|['"]$/g, "")
+          if (selectedDevice.toLowerCase() === "auto") selectedDevice = ""
+          void refreshAudioDevices(selectedDevice)
         }
 
         function collectConfig() {
@@ -335,6 +356,8 @@
           if (prevNav.publicUrlTagPriority) {
             navidrome.publicUrlTagPriority = prevNav.publicUrlTagPriority
           }
+          var ttsDevice = $("ttsAudioDevice").value.trim().replace(/^['"]|['"]$/g, "")
+          if (ttsDevice.toLowerCase() === "auto") ttsDevice = ""
           return {
             redisUrl: $("redisUrl").value.trim(),
             httpListen: $("httpListen").value.trim(),
@@ -355,7 +378,51 @@
               path: $("mpvPath").value.trim() || "mpv",
               socketPath: socket || undefined,
             },
+            tts: {
+              audioDevice: ttsDevice || undefined,
+            },
             nowPlayingPath: np || undefined,
+          }
+        }
+
+        async function refreshAudioDevices(preferred) {
+          var sel = $("ttsAudioDevice")
+          var err = $("ttsDevicesError")
+          err.hidden = true
+          var keep = preferred != null ? preferred : sel.value
+          try {
+            var data = await api("/api/audio-devices")
+            var devices = data.devices || []
+            sel.innerHTML = ""
+            var none = document.createElement("option")
+            none.value = ""
+            none.textContent = "— none (TTS disabled) —"
+            sel.appendChild(none)
+            devices.forEach(function (d) {
+              var opt = document.createElement("option")
+              opt.value = d.id
+              opt.textContent = d.label && d.label !== d.id ? d.id + " — " + d.label : d.id
+              sel.appendChild(opt)
+            })
+            if (keep) {
+              var found = false
+              for (var i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === keep) {
+                  found = true
+                  break
+                }
+              }
+              if (!found) {
+                var orphan = document.createElement("option")
+                orphan.value = keep
+                orphan.textContent = keep + " (saved — not listed)"
+                sel.appendChild(orphan)
+              }
+              sel.value = keep
+            }
+          } catch (e) {
+            err.hidden = false
+            err.textContent = e.message || String(e)
           }
         }
 
@@ -524,6 +591,10 @@
           void refreshRooms()
         })
         $("bridgeOnly").addEventListener("change", renderRooms)
+
+        $("btnRefreshAudioDevices").addEventListener("click", function () {
+          void refreshAudioDevices()
+        })
 
         $("btnConnectManual").addEventListener("click", function () {
           var id = $("manualRoomId").value.trim()

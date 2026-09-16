@@ -21,6 +21,7 @@ function baseConfig(overrides: Partial<BridgeDaemonConfig> = {}): BridgeDaemonCo
       publicUrlTagPriority: ["wcom"],
     },
     mpv: { path: "mpv" },
+    tts: {},
     nowPlayingFormat: "{title} | {artist} | {album}",
     ...overrides,
   } as BridgeDaemonConfig

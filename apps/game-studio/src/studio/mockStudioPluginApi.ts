@@ -315,6 +315,26 @@ export class MockStudioPluginApi implements PluginAPI {
     return false
   }
 
+  async listMediaBridgeSayVoices(
+    _roomId: string,
+  ): Promise<{ voices: Array<{ id: string; name: string; locale: string }> }> {
+    return {
+      voices: [
+        { id: "Samantha", name: "Samantha", locale: "en_US" },
+        { id: "Zarvox", name: "Zarvox", locale: "en_US" },
+        { id: "Whisper", name: "Whisper", locale: "en_US" },
+      ],
+    }
+  }
+
+  async speakOnMediaBridge(
+    _roomId: string,
+    params: { text: string; voice: string },
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    this.room.logEvent("SPEAK_ON_MEDIA_BRIDGE", params)
+    return { ok: true }
+  }
+
   /** Studio stub catalog — not filtered by bridge CAPABILITIES. */
   async listMetadataSources(_roomId: string): Promise<{ id: string; label: string }[]> {
     return ["spotify", "youtube", "local"].map((id) => ({

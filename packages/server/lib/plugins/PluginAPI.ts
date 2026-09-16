@@ -703,6 +703,42 @@ export class PluginAPIImpl implements PluginAPI {
     return Boolean(playbackController?.api.setVolume)
   }
 
+  async listMediaBridgeSayVoices(
+    roomId: string,
+  ): Promise<{ voices: Array<{ id: string; name: string; locale: string }> }> {
+    try {
+      const { getBridgeRpcClient, listSayVoices } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return { voices: [] }
+      return await listSayVoices({ rpc })
+    } catch (e) {
+      console.warn("[PluginAPI] listMediaBridgeSayVoices failed:", e)
+      return { voices: [] }
+    }
+  }
+
+  async speakOnMediaBridge(
+    roomId: string,
+    params: { text: string; voice: string },
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    try {
+      const { getBridgeRpcClient, speakOnBridge } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) {
+        return { ok: false, message: "The line is dead — the DJ Mac isn’t linked." }
+      }
+      const result = await speakOnBridge({ rpc, text: params.text, voice: params.voice })
+      if (result.ok) return { ok: true }
+      return { ok: false, message: result.message }
+    } catch (e) {
+      console.warn("[PluginAPI] speakOnMediaBridge failed:", e)
+      return {
+        ok: false,
+        message: e instanceof Error ? e.message : "Could not put the call through.",
+      }
+    }
+  }
+
   private async getMetadataSourceAccess() {
     const { MetadataSourceAccessService } = await import(
       "../../services/MetadataSourceAccessService"

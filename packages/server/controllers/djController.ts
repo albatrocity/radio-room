@@ -214,6 +214,10 @@ export function createDJController(socket: SocketWithContext, io: Server): void 
   socket.on("GET_MEDIA_BRIDGE_STATUS", async () => {
     await handlers.getMediaBridgeStatus(connections)
   })
+
+  socket.on("GET_MEDIA_BRIDGE_SAY_VOICES", async () => {
+    await handlers.getMediaBridgeSayVoices(connections)
+  })
 }
 
 /**
