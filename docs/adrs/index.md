@@ -188,6 +188,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0180](0180-tour-laminate-punch-accrual.md) | Tour Laminate: per-copy punch accrual | Accepted |
 | [0181](0181-empty-stash-container-return.md) | Empty stashes persist; container return is best-effort | Accepted |
 | [0182](0182-stash-last-touched-at.md) | Stash `lastTouchedAt` stamped by the artifacts API | Accepted |
+| [0183](0183-item-use-cross-shop-state-access.md) | Item-use handlers reach shop state through `shopAccess` | Accepted |
 
 ## Creating a New ADR
 

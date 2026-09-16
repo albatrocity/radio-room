@@ -55,6 +55,7 @@ import {
   items,
 } from "./items/index"
 import { maybeAccrueTourLaminateOnAcquire } from "./items/tour-laminate"
+import type { ItemShopsShopAccess } from "./items/shared/types"
 import { SHOP_CATALOG } from "./shops"
 import { buildEffectiveShopCatalog } from "./localLibrary/catalog"
 import { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
@@ -386,6 +387,28 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private shopTimerPrefix(shopId: string): string {
     return `shop:${shopId}:`
+  }
+
+  /**
+   * Shop-scoped state and timers for item-use handlers, over the same stores and timer
+   * prefix `createShopBuyContext` uses so items and shops share one namespace (ADR 0183).
+   */
+  private createItemShopAccess(): ItemShopsShopAccess {
+    return {
+      getState: <T>(shopId: string, key: string) =>
+        this.getShopStateStore(shopId).get(key) as T | undefined,
+      setState: <T>(shopId: string, key: string, value: T) => {
+        this.getShopStateStore(shopId).set(key, value)
+      },
+      deleteState: (shopId, key) => {
+        this.getShopStateStore(shopId).delete(key)
+      },
+      getTimer: (shopId, id) => {
+        const timer = this.getTimer(this.shopTimerPrefix(shopId) + id)
+        return timer ? { id: timer.id } : null
+      },
+      clearTimer: (shopId, id) => this.clearTimer(this.shopTimerPrefix(shopId) + id),
+    }
   }
 
   private async resolveBuyerUsername(initiator: PluginActionInitiator): Promise<string> {
@@ -1363,6 +1386,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         activeInventoryItem: _item,
         pickRandomRestoreCandidate: (eligible) =>
           this.localLibrary.pickRandomRestoreCandidate(eligible),
+        shopAccess: this.createItemShopAccess(),
       },
       userId,
       definition,

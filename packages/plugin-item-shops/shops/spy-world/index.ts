@@ -2,8 +2,8 @@ import type { ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
 import { items } from "../../items"
 
 /**
- * Theme: game-altering sneaky tools (steal, peek, disguise, rebound defenses, TTS).
- * Assignment rarity: legendary (ADR 0175).
+ * Theme: game-altering sneaky tools (steal, peek, disguise, rebound defenses, TTS,
+ * call screening). Assignment rarity: legendary (ADR 0175).
  */
 export const SPY_WORLD_SHOP: ItemShopsShopCatalogEntry = {
   shopId: "spy-world",
@@ -18,6 +18,7 @@ export const SPY_WORLD_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.blackBag.shortId, coinValue: 100 },
     { shortId: items.xRay.shortId, coinValue: 60 },
     { shortId: items.burnerPhone.shortId, coinValue: 60 },
+    { shortId: items.callScreener.shortId, coinValue: 30 },
   ],
   listedBuybackRate: 0.35,
   unlistedBuybackRate: 0.12,

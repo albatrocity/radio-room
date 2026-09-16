@@ -11,14 +11,16 @@ Recap of what’s landed since the August 20 show.
 
 ### New
 
-- Passworded stashes you can reuse: name them, leave a hint, add to them later, and take things out one at a time. The cubby (or case, or trailer) comes back when you empty it.
-- Tour Laminate: a backstage pass that records every show it turns up for. Keep it locked away if you want it to last.
+- Tour Laminate: a punch-card of sorts: records every show it's in someone's inventory. Keep it safe across shows for prestige.
 - Gift items to other listeners, or open a two-party trade.
 - Sweetwater toys: Oscilloscope, Beat Detector, VU Meter, and Chromatic Tuner.
+- Spy World shop: devious but useful items.
 - "Queue Theme" game mode: vote on whether queued tracks match a theme
 - Lyric Hero: complete a phrase by guessing words, hangman style.
-- Sound effects in the room. Music ducks under them. Mute SFX in Settings if you’d rather not.
-- Feedback: tell us whether you like or dislike a particular feature, plus an open feedback form/
+- Upgrades Van Cubby and Merch Cash Box to be reusable: empty them and reclaim them to use again. 3 and 5 item variants are also available.
+- Add public names and notes to storage containers.
+- Music now ducks under sound effects, and there's a setting to disable them completely.
+- Feedback: tell us whether you like or dislike a particular feature, plus an open feedback form.
 - Inline markdown support in chat.
 - iOS Home Screen support via "Add to Home Screen" in the share sheet. Runs without browser's address bar Chrome.
 - On a wide screen, Game State docks beside the room instead of opening in a modal. Phone layout is less cramped.

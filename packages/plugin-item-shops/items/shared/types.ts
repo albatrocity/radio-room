@@ -30,6 +30,27 @@ export type ItemShopsBehaviorDeps = {
   pickRandomRestoreCandidate?: (
     eligible: readonly PhysicalMediaFormat[],
   ) => ItemDefinition | null
+  /**
+   * Shop-scoped state and timers for items that change another shop's behavior
+   * (ADR 0183). Absent when a handler is called outside the plugin; guard before use.
+   */
+  shopAccess?: ItemShopsShopAccess
+}
+
+/**
+ * Scoped access to a shop's in-memory state store and timers, keyed by `shopId`.
+ * Lets an item influence a mechanic another shop owns (Call Screener silencing the
+ * Sweetwater rep) without the plugin branching on any SKU. See ADR 0183.
+ *
+ * Keys and predicates belong to the owning shop — import its leaf helpers
+ * (e.g. `shops/sweetwater/followUps.ts`) rather than assembling key strings here.
+ */
+export type ItemShopsShopAccess = {
+  getState: <T>(shopId: string, key: string) => T | undefined
+  setState: <T>(shopId: string, key: string, value: T) => void
+  deleteState: (shopId: string, key: string) => void
+  getTimer: (shopId: string, id: string) => { id: string } | null
+  clearTimer: (shopId: string, id: string) => boolean
 }
 
 export type ItemUseHandler = (

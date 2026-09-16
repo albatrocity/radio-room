@@ -329,6 +329,12 @@ Optional hooks on **`ShopCatalogEntry`** (`ItemShopsShopCatalogEntry`). Import *
 
 **Room game session:** Hooks are **not** run on **`GAME_SESSION_ENDED`**. The plugin clears shop-scoped timers and state and removes item-shops-owned stacks via its game-session handler without calling `onSessionEnd`.
 
+### Items that change a shop's behavior (`shopAccess`)
+
+An item can read and write another shop's in-memory state and timers through **`ItemShopsBehaviorDeps.shopAccess`** (`getState` / `setState` / `deleteState` / `getTimer` / `clearTimer`, each taking `(shopId, key)`). Same stores and `shop:{shopId}:` timer prefix as `ShopBuyContext`, so items and shops share one namespace. `shopAccess` is optional — guard before use.
+
+The shop owns its keys: export them plus any predicates from a **leaf** module the item imports (shop modules import `items`, so a shop's entry file would cycle). Sweetwater does this in [`shops/sweetwater/followUps.ts`](../packages/plugin-item-shops/shops/sweetwater/followUps.ts), which Spy World's Call Screener uses to silence the sales rep for the rest of the session. Flags live only in memory, so a server restart forgets them. See [ADR 0183](adrs/0183-item-use-cross-shop-state-access.md).
+
 ## Testing Guidance
 
 - Item and shop tests use Vitest in this package.

@@ -26,6 +26,7 @@ import { disguise } from "./disguise"
 import { blackBag } from "./black-bag"
 import { xRay } from "./x-ray"
 import { burnerPhone } from "./burner-phone"
+import { callScreener } from "./call-screener"
 import { scratchedCd } from "./scratched-cd"
 import { dustyRecord } from "./dusty-record"
 import { tangledTape } from "./tangled-tape"
@@ -111,6 +112,7 @@ export const items = {
   blackBag,
   xRay,
   burnerPhone,
+  callScreener,
   nineVoltBattery,
   rubberBand,
   carrots,

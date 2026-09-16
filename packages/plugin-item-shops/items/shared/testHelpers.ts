@@ -9,7 +9,7 @@ import type {
   PluginContext,
   User,
 } from "@repo/types"
-import type { Item, ItemShopsBehaviorDeps } from "./types"
+import type { Item, ItemShopsBehaviorDeps, ItemShopsShopAccess } from "./types"
 
 export function createMockPluginAPI(): PluginAPI {
   return {
@@ -85,6 +85,48 @@ export function createMockGame(): GameSessionPluginAPI {
   } as unknown as GameSessionPluginAPI
 }
 
+/**
+ * Map-backed `shopAccess` (ADR 0183) mirroring the plugin's per-shop state stores and
+ * `shop:{shopId}:` timer prefix. Timers only record registration — callbacks never fire.
+ */
+export function createMockShopAccess(): ItemShopsShopAccess & {
+  seedState: (shopId: string, key: string, value: unknown) => void
+  seedTimer: (shopId: string, id: string) => void
+} {
+  const stores = new Map<string, Map<string, unknown>>()
+  const timers = new Set<string>()
+  const storeFor = (shopId: string): Map<string, unknown> => {
+    let store = stores.get(shopId)
+    if (!store) {
+      store = new Map()
+      stores.set(shopId, store)
+    }
+    return store
+  }
+  const timerKey = (shopId: string, id: string): string => `shop:${shopId}:${id}`
+
+  return {
+    getState: <T>(shopId: string, key: string) => storeFor(shopId).get(key) as T | undefined,
+    setState: vi.fn(<T>(shopId: string, key: string, value: T) => {
+      storeFor(shopId).set(key, value)
+    }),
+    deleteState: vi.fn((shopId: string, key: string) => {
+      storeFor(shopId).delete(key)
+    }),
+    getTimer: (shopId: string, id: string) => {
+      const key = timerKey(shopId, id)
+      return timers.has(key) ? { id: key } : null
+    },
+    clearTimer: vi.fn((shopId: string, id: string) => timers.delete(timerKey(shopId, id))),
+    seedState: (shopId, key, value) => {
+      storeFor(shopId).set(key, value)
+    },
+    seedTimer: (shopId, id) => {
+      timers.add(timerKey(shopId, id))
+    },
+  }
+}
+
 export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): ItemShopsBehaviorDeps {
   const getItemDefinition = vi.fn().mockResolvedValue(null)
   const getItemDefinitions = vi.fn(async (ids: readonly string[]) => {
@@ -115,6 +157,7 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
       },
     } as unknown as PluginContext,
     game: createMockGame(),
+    shopAccess: createMockShopAccess(),
     ...overrides,
   }
 }

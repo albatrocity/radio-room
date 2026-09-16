@@ -1,6 +1,7 @@
 import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-base/helpers"
 import type { ChatMessage } from "@repo/types"
 import { items } from "../../items"
+import { isSweetwaterDoNotCall, SWEETWATER_SHOP_ID, sweetwaterTimerId } from "./followUps"
 import { formatSweetwaterMessage, pickRandomSweetwaterMessage } from "./messages"
 
 /** 10 minutes between Sweetwater sales rep follow-ups */
@@ -14,16 +15,18 @@ const SWEETWATER_REP_ALERT_META: ChatMessage["meta"] = {
 
 type SweetwaterUserState = { username: string; lastPurchasedItemName: string }
 
-function sweetwaterTimerId(userId: string): string {
-  return `followup:${userId}`
-}
-
 async function deliverSweetwaterFollowUpAndReschedule(
   ctx: ShopBuyContext,
   userId: string,
 ): Promise<void> {
   const state = ctx.getState<SweetwaterUserState>(userId)
   if (!state) return
+
+  // Call Screener (ADR 0183) — screened users get no more rep DMs this session.
+  if (isSweetwaterDoNotCall(ctx.getState, userId)) {
+    ctx.clearTimer(sweetwaterTimerId(userId))
+    return
+  }
 
   if (!(await ctx.isGameSessionActive())) {
     ctx.clearTimer(sweetwaterTimerId(userId))
@@ -56,6 +59,10 @@ function sweetwaterOnBuy(ctx: ShopBuyContext): void {
     lastPurchasedItemName: ctx.itemName,
   })
 
+  if (isSweetwaterDoNotCall(ctx.getState, ctx.userId)) {
+    return
+  }
+
   const timerId = sweetwaterTimerId(ctx.userId)
   if (ctx.getTimer(timerId) !== null) {
     return
@@ -76,7 +83,7 @@ function sweetwaterOnBuy(ctx: ShopBuyContext): void {
  * common (ADR 0175).
  */
 export const SWEETWATER_SHOP: ItemShopsShopCatalogEntry = {
-  shopId: "sweetwater",
+  shopId: SWEETWATER_SHOP_ID,
   name: "Sweetwater",
   rarity: "common",
   openingMessage:
