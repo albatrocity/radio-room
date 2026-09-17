@@ -34,6 +34,7 @@ import { containerDisplayName } from "./stashUi"
 
 export function RetrieveStashDialog({
   artifact,
+  pickGranted,
   freeSlots,
   definitionsById,
   definitionMap,
@@ -41,6 +42,7 @@ export function RetrieveStashDialog({
   onSuccess,
 }: {
   artifact: StoredArtifactPublic | null
+  pickGranted?: boolean
   freeSlots: Record<ItemSlotPool, number>
   definitionsById: Record<string, ItemDefinition | undefined>
   definitionMap: Map<string, ItemDefinition>
@@ -53,6 +55,13 @@ export function RetrieveStashDialog({
     artifact ? selectFittingContentIds(contents, freeSlots, definitionsById) : [],
   )
   const [password, setPassword] = useState("")
+
+  const grantActive =
+    pickGranted === true || (artifact?.accessGrantExpiresAt ?? 0) > Date.now()
+  const grantMinsLeft =
+    grantActive && artifact?.accessGrantExpiresAt
+      ? Math.max(1, Math.ceil((artifact.accessGrantExpiresAt - Date.now()) / 60_000))
+      : 0
 
   const isEmpty = artifact != null && contents.length === 0
   const containerName = containerDisplayName(artifact ?? undefined, definitionMap)
@@ -83,7 +92,8 @@ export function RetrieveStashDialog({
   }
 
   const submit = () => {
-    if (!artifact || !password.trim()) return
+    if (!artifact) return
+    if (!grantActive && !password.trim()) return
     const id = artifact.id
     const pw = password
     const contentIds = selectedIds.length === contents.length ? undefined : selectedIds
@@ -102,7 +112,7 @@ export function RetrieveStashDialog({
     })
     emitToSocket("RETRIEVE_STORED_ARTIFACT", {
       artifactId: id,
-      password: pw,
+      ...(grantActive ? { useAccessGrant: true } : { password: pw }),
       ...(contentIds ? { contentIds } : {}),
     })
   }
@@ -178,21 +188,36 @@ export function RetrieveStashDialog({
                     })}
                   </Stack>
                 )}
-                {artifact?.note?.trim() ? (
-                  <Text fontSize="sm" color="fg.muted">
-                    Hint: {artifact.note}
-                  </Text>
-                ) : null}
-                <Text fontSize="sm" color="fg.muted">
-                  Enter the password for this stash.
-                </Text>
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="off"
-                />
+                {grantActive ? (
+                  <Stack gap={1}>
+                    <Text fontSize="sm" color="fg.muted">
+                      The lock is already open. Take what you can carry.
+                    </Text>
+                    {grantMinsLeft > 0 ? (
+                      <Text fontSize="xs" color="fg.muted">
+                        {grantMinsLeft} min left
+                      </Text>
+                    ) : null}
+                  </Stack>
+                ) : (
+                  <>
+                    {artifact?.note?.trim() ? (
+                      <Text fontSize="sm" color="fg.muted">
+                        Hint: {artifact.note}
+                      </Text>
+                    ) : null}
+                    <Text fontSize="sm" color="fg.muted">
+                      Enter the password for this stash.
+                    </Text>
+                    <Input
+                      type="password"
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="off"
+                    />
+                  </>
+                )}
               </Stack>
             </DialogBody>
             <DialogFooter>
@@ -204,7 +229,9 @@ export function RetrieveStashDialog({
                   size="sm"
                   colorPalette="action"
                   disabled={
-                    !password.trim() || containerBlocked || (!isEmpty && selectedIds.length === 0)
+                    (!grantActive && !password.trim()) ||
+                    containerBlocked ||
+                    (!isEmpty && selectedIds.length === 0)
                   }
                   onClick={submit}
                 >

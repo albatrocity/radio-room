@@ -626,6 +626,10 @@ export const useStoredArtifacts = () => {
   return useSelector(userGameStateActor, (s) => s.context.storedArtifacts)
 }
 
+export const usePendingPickArtifactId = () => {
+  return useSelector(userGameStateActor, (s) => s.context.pendingPickArtifactId)
+}
+
 // ============================================================================
 // Admin listener snapshot (all participants — admin tab only)
 // ============================================================================

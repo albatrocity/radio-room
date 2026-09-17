@@ -72,4 +72,12 @@ describe("subscribeInventoryActionResult", () => {
     expect(payload.duration).toBeUndefined()
     expect(payload.closable).toBe(true)
   })
+
+  it("invokes onSettled with the result so callers can branch (e.g. stash pick)", () => {
+    const onSettled = vi.fn()
+    subscribeInventoryActionResult({ id: "inv-settled", onSettled })
+    const data = { success: true, message: "The lock gives" }
+    capturedSend()({ type: "INVENTORY_ACTION_RESULT", data })
+    expect(onSettled).toHaveBeenCalledWith(data)
+  })
 })

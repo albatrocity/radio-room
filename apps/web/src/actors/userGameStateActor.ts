@@ -16,7 +16,9 @@ import type {
   UserGameStatePayload,
   UserInventory,
 } from "@repo/types"
+import { STORAGE_TAB } from "../constants/gameStateTabs"
 import { userGameStateMachine } from "../machines/userGameStateMachine"
+import { gameStateNavActor } from "./gameStateNavActor"
 import { emitToSocket } from "./socketActor"
 
 export const userGameStateActor = createActor(userGameStateMachine).start()
@@ -31,6 +33,23 @@ export function refreshUserGameState(): void {
 /** Re-list global stored artifacts (e.g. after a successful retrieve). */
 export function refreshStoredArtifacts(): void {
   emitToSocket("GET_STORED_ARTIFACTS", {})
+}
+
+/** After a successful lock pick — open Storage on the cracked stash. */
+export function beginStashPick(artifactId: string): void {
+  const id = artifactId.trim()
+  if (!id) return
+  userGameStateActor.send({ type: "BEGIN_STASH_PICK", artifactId: id })
+  refreshStoredArtifacts()
+  gameStateNavActor.send({ type: "SET_ACTIVE_TAB", tabId: STORAGE_TAB })
+}
+
+export function clearStashPick(): void {
+  userGameStateActor.send({ type: "CLEAR_STASH_PICK" })
+}
+
+export function getPendingPickArtifactId(): string | null {
+  return userGameStateActor.getSnapshot().context.pendingPickArtifactId
 }
 
 /** Current payload (session, state, inventory, itemDefinitions). */

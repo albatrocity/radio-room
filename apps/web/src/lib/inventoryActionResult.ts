@@ -23,14 +23,14 @@ function toastTypeFor(data: InventoryActionResult): "success" | "warning" | "err
 export function subscribeInventoryActionResult(
   options: {
     id: string
-    onSettled?: () => void
+    onSettled?: (data: InventoryActionResult) => void
   } & Pick<SubscribeForSocketResultOptions<InventoryActionResult>, "onTimeout">,
 ): () => void {
   return subscribeForSocketResult<InventoryActionResult>({
     id: options.id,
     eventType: "INVENTORY_ACTION_RESULT",
     onResult: (data) => {
-      options.onSettled?.()
+      options.onSettled?.(data)
       const type = toastTypeFor(data)
       toaster.create({
         title: data.title ?? (data.success ? "Success" : type === "warning" ? "Blocked" : "Error"),

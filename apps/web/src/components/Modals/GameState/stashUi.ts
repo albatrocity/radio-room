@@ -1,4 +1,5 @@
 import type { ItemDefinition, StoredArtifactPublic } from "@repo/types"
+import { formatStashUntouchedFor, stashUntouchedForMs } from "@repo/game-logic"
 
 export function formatStashWhen(ms: number): string {
   try {
@@ -9,6 +10,14 @@ export function formatStashWhen(ms: number): string {
   } catch {
     return String(ms)
   }
+}
+
+/** Coarse "last opened" duration — shared with server refusal copy (ADR 0185). */
+export function formatStashLastTouched(
+  a: Pick<StoredArtifactPublic, "storedAt" | "lastTouchedAt">,
+  now: number = Date.now(),
+): string {
+  return formatStashUntouchedFor(stashUntouchedForMs(a, now))
 }
 
 /** `containerName` is hydrated at list time; Game State rarely has the definition. */

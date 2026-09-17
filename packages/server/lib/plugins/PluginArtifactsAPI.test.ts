@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest"
 import type { AppContext, StoredArtifact } from "@repo/types"
 import { PluginArtifactsAPI } from "./PluginArtifactsAPI"
+import { STASH_ACCESS_GRANT_TTL_MS } from "@repo/game-logic"
 
 const CREATED_AT = 1_700_000_000_000
 const REDIS_KEY = "global:storedArtifacts"
@@ -8,21 +9,44 @@ const REDIS_KEY = "global:storedArtifacts"
 /** Single-hash stub for `global:storedArtifacts` plus the lock key. */
 function makeApi() {
   const hash = new Map<string, string>()
+  const accessHashes = new Map<string, Map<string, string>>()
   const pubClient = {
-    hSet: vi.fn(async (_key: string, field: string, raw: string) => {
-      hash.set(field, raw)
+    hSet: vi.fn(async (key: string, field: string, raw: string) => {
+      if (key === REDIS_KEY) {
+        hash.set(field, raw)
+      } else {
+        let map = accessHashes.get(key)
+        if (!map) {
+          map = new Map()
+          accessHashes.set(key, map)
+        }
+        map.set(field, raw)
+      }
       return 1
     }),
-    hGet: vi.fn(async (_key: string, field: string) => hash.get(field) ?? null),
-    hGetAll: vi.fn(async () => Object.fromEntries(hash)),
-    hDel: vi.fn(async (_key: string, field: string) => (hash.delete(field) ? 1 : 0)),
+    hGet: vi.fn(async (key: string, field: string) => {
+      if (key === REDIS_KEY) return hash.get(field) ?? null
+      return accessHashes.get(key)?.get(field) ?? null
+    }),
+    hGetAll: vi.fn(async (key?: string) => {
+      if (key && key !== REDIS_KEY) {
+        const map = accessHashes.get(key)
+        return map ? Object.fromEntries(map) : {}
+      }
+      return Object.fromEntries(hash)
+    }),
+    hDel: vi.fn(async (key: string, field: string) => {
+      if (key === REDIS_KEY) return hash.delete(field) ? 1 : 0
+      return accessHashes.get(key)?.delete(field) ? 1 : 0
+    }),
+    expire: vi.fn(async () => true),
     set: vi.fn(async () => "OK"),
     get: vi.fn(async () => null),
     del: vi.fn(async () => 1),
   }
   const api = new PluginArtifactsAPI({ redis: { pubClient } } as unknown as AppContext)
   const read = (id: string): StoredArtifact => JSON.parse(hash.get(id)!) as StoredArtifact
-  return { api, read, pubClient, key: REDIS_KEY }
+  return { api, read, pubClient, key: REDIS_KEY, accessHashes }
 }
 
 function storeInput() {
@@ -158,5 +182,68 @@ describe("PluginArtifactsAPI getAll listing", () => {
       kind: "item",
       metadata: { punches: [{ at: CREATED_AT }] },
     })
+  })
+})
+
+describe("PluginArtifactsAPI access grants", () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(CREATED_AT)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  test("grantAccess writes field and sets key TTL", async () => {
+    const { api, pubClient } = makeApi()
+    const id = await api.store(storeInput())
+    const grant = await api.grantAccess({
+      artifactId: id,
+      userId: "u1",
+      source: "lock-pick",
+      roomId: "room1",
+    })
+    expect(grant).toMatchObject({
+      artifactId: id,
+      userId: "u1",
+      source: "lock-pick",
+      roomId: "room1",
+      issuedAt: CREATED_AT,
+      expiresAt: CREATED_AT + STASH_ACCESS_GRANT_TTL_MS,
+    })
+    expect(pubClient.expire).toHaveBeenCalledWith(`${REDIS_KEY}:access:u1`, 600)
+  })
+
+  test("grantAccess on missing artifact returns null", async () => {
+    const { api } = makeApi()
+    expect(
+      await api.grantAccess({ artifactId: "missing", userId: "u1", source: "lock-pick" }),
+    ).toBeNull()
+  })
+
+  test("listAccessGrants filters expired", async () => {
+    const { api } = makeApi()
+    const id = await api.store(storeInput())
+    await api.grantAccess({ artifactId: id, userId: "u1", source: "lock-pick", ttlMs: 1000 })
+    vi.setSystemTime(CREATED_AT + 2000)
+    expect(await api.listAccessGrants("u1")).toEqual([])
+  })
+
+  test("attemptRetrieveWithGrant returns not_found / success / no_grant", async () => {
+    const { api } = makeApi()
+    expect(await api.attemptRetrieveWithGrant("missing", "u1")).toEqual({ status: "no_grant" })
+
+    const id = await api.store(storeInput())
+    expect(await api.attemptRetrieveWithGrant(id, "u1")).toEqual({ status: "no_grant" })
+
+    await api.grantAccess({ artifactId: id, userId: "u1", source: "lock-pick" })
+    const attempt = await api.attemptRetrieveWithGrant(id, "u1")
+    expect(attempt.status).toBe("success")
+  })
+
+  test("revokeAccessGrant false when absent", async () => {
+    const { api } = makeApi()
+    expect(await api.revokeAccessGrant("a", "u1")).toBe(false)
   })
 })

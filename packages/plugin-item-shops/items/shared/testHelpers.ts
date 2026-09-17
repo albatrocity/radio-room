@@ -47,7 +47,12 @@ export function createMockArtifacts(): ArtifactsPluginAPI {
   return {
     store: vi.fn().mockResolvedValue("artifact-id"),
     getAll: vi.fn().mockResolvedValue([]),
+    getPublic: vi.fn().mockResolvedValue(null),
     attemptRetrieve: vi.fn().mockResolvedValue({ status: "not_found" }),
+    attemptRetrieveWithGrant: vi.fn().mockResolvedValue({ status: "no_grant" }),
+    grantAccess: vi.fn().mockResolvedValue(null),
+    listAccessGrants: vi.fn().mockResolvedValue([]),
+    revokeAccessGrant: vi.fn().mockResolvedValue(false),
     remove: vi.fn().mockResolvedValue(true),
     update: vi.fn().mockResolvedValue(null),
     withArtifactLock: vi.fn(async (_id: string, fn: () => Promise<unknown>) => fn()),

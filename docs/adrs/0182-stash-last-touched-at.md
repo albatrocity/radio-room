@@ -1,7 +1,7 @@
 # 0182. `lastTouchedAt` is stamped by the artifacts API, not by callers
 
 **Date:** 2026-09-16
-**Status:** Accepted
+**Status:** Accepted. Extended by [0184](0184-short-lived-stash-access-grants.md)
 **Extends:** [0052](0052-global-artifacts-api.md), [0179](0179-reusable-multi-slot-password-stashes.md)
 
 ## Context
@@ -55,11 +55,12 @@ untouched since creation.
 - A retrieve that empties a stash and returns its container deletes the row, so
   no stamp is needed; a retrieve that leaves contents or an empty row (ADR 0181)
   stamps on the way out.
-- A Lock Pick still needs a password-free read path; `attemptRetrieve` is the only
-  way into a row's contents today. That is out of scope here.
+- Password-free retrieve for Lock Pick is implemented in [0184](0184-short-lived-stash-access-grants.md).
 
 ## See also
 
 - [0052. Global artifacts API](0052-global-artifacts-api.md)
 - [0179. Reusable, multi-slot password stashes](0179-reusable-multi-slot-password-stashes.md)
 - [0181. Empty stashes persist; container return is best-effort](0181-empty-stash-container-return.md)
+- [0184. Short-lived stash access grants](0184-short-lived-stash-access-grants.md)
+- [0185. Lock-picking items and the crack-resolution seam](0185-lock-picking-items-and-crack-resolution.md)

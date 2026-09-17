@@ -27,6 +27,8 @@ import { blackBag } from "./black-bag"
 import { xRay } from "./x-ray"
 import { burnerPhone } from "./burner-phone"
 import { callScreener } from "./call-screener"
+import { lockPick } from "./lock-pick"
+import { locksmithsKit } from "./locksmiths-kit"
 import { scratchedCd } from "./scratched-cd"
 import { dustyRecord } from "./dusty-record"
 import { tangledTape } from "./tangled-tape"
@@ -113,6 +115,8 @@ export const items = {
   xRay,
   burnerPhone,
   callScreener,
+  lockPick,
+  locksmithsKit,
   nineVoltBattery,
   rubberBand,
   carrots,

@@ -2,6 +2,7 @@ import { Box, Button } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
 import { InventoryTargetUserPopover } from "./TargetUserPicker"
 import { InventoryUseQueueItemPicker } from "./QueueItemPicker"
+import { InventoryUseStashTargetPicker } from "./StashTargetPicker"
 import { InventoryItemStoragePopover } from "./InventoryItemPicker"
 import { CoinAmountStoragePopover } from "./CoinAmountPicker"
 import { UserInventoryItemPicker } from "./UserInventoryItemPicker"
@@ -11,6 +12,7 @@ import { SpokenMessagePopover } from "./SpokenMessagePicker"
 type UseExtra = {
   targetUserId?: string
   targetQueueItemId?: string
+  targetArtifactId?: string
   targetInventoryItemId?: string
   targetInventoryItemIds?: string[]
   password?: string
@@ -70,6 +72,16 @@ export function InventoryUseButton({
         <InventoryUseQueueItemPicker onPick={(targetQueueItemId) => onUse({ targetQueueItemId })}>
           {useTriggerButton(useLoading, undefined, fullWidth)}
         </InventoryUseQueueItemPicker>,
+      )
+    case "storedArtifact":
+      return wrapFullWidth(
+        fullWidth,
+        <InventoryUseStashTargetPicker
+          definitionMap={definitionMap}
+          onPick={(targetArtifactId) => onUse({ targetArtifactId })}
+        >
+          {useTriggerButton(useLoading, undefined, fullWidth)}
+        </InventoryUseStashTargetPicker>,
       )
     case "user":
       return (

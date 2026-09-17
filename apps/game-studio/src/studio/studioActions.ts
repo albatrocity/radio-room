@@ -19,11 +19,13 @@ import {
 import {
   applyDepositMutations,
   applyWithdrawalDeliveries,
+  authorizeArtifactRetrieve,
   computeFreeSlotsByPool,
   getChatSendDelayMs,
   planDeposit,
   planWithdrawal,
   readArtifactContents,
+  STASH_NO_GRANT_MESSAGE,
   summarizeDeposit,
   summarizeWithdrawal,
   withdrawalPersistAction,
@@ -374,12 +376,20 @@ export async function retrieveArtifact(
   password: string,
   retrievingUserId: string,
   contentIds?: string[],
+  opts?: { useAccessGrant?: boolean },
 ): Promise<{ success: boolean; message: string }> {
   const { itemShopsContext, room } = getStudio()
   const username = room.users.get(retrievingUserId)?.username?.trim() || "Someone"
+  const useGrant = opts?.useAccessGrant === true
 
   return itemShopsContext.artifacts.withArtifactLock(artifactId, async () => {
-    const attempt = await itemShopsContext.artifacts.attemptRetrieve(artifactId, password)
+    const attempt = await authorizeArtifactRetrieve({
+      artifacts: itemShopsContext.artifacts,
+      artifactId,
+      userId: retrievingUserId,
+      password,
+      useGrant,
+    })
 
     if (attempt.status === "not_found") {
       await itemShopsContext.api.sendSystemMessage(
@@ -395,6 +405,9 @@ export async function retrieveArtifact(
         `${username} failed to retrieve an artifact from storage (wrong password).`,
       )
       return { success: false, message: "Wrong password." }
+    }
+    if (attempt.status === "no_grant") {
+      return { success: false, message: STASH_NO_GRANT_MESSAGE }
     }
 
     const art = attempt.artifact
@@ -491,6 +504,9 @@ export async function retrieveArtifact(
     } else {
       await itemShopsContext.artifacts.update(artifactId, { contents: persist.contents })
     }
+    if (useGrant) {
+      await itemShopsContext.artifacts.revokeAccessGrant(artifactId, retrievingUserId)
+    }
 
     const containerDef = plan.container
       ? room.getDefinition(plan.container.definitionId)
@@ -506,6 +522,40 @@ export async function retrieveArtifact(
     await itemShopsContext.api.sendSystemMessage(room.roomId, summary.roomMessage)
     return { success: true, message: summary.privateMessage }
   })
+}
+
+/** Dev helper: grant pick access on a mock stash row (Game Studio only). */
+export async function grantStashPickAccess(
+  artifactId: string,
+  userId: string,
+  source = "lock-pick",
+): Promise<{ success: boolean; message: string }> {
+  const { itemShopsContext, room } = getStudio()
+  const grant = await itemShopsContext.artifacts.grantAccess({
+    artifactId,
+    userId,
+    source,
+    roomId: room.roomId,
+  })
+  if (!grant) {
+    return { success: false, message: "Could not grant access — stash missing?" }
+  }
+  return { success: true, message: "Pick access granted for ten minutes." }
+}
+
+/** Dev helper: backdate lastTouchedAt on a mock row (ADR 0182 pt 3). */
+export function backdateStashLastTouched(
+  artifactId: string,
+  lastTouchedAt: number,
+): { success: boolean; message: string } {
+  const { itemShopsContext } = getStudio()
+  const api = itemShopsContext.artifacts as import("./mockStudioArtifactsApi").MockStudioArtifactsApi
+  if (typeof api.backdateLastTouchedAt !== "function") {
+    return { success: false, message: "Backdate is only available in Game Studio." }
+  }
+  return api.backdateLastTouchedAt(artifactId, lastTouchedAt)
+    ? { success: true, message: "lastTouchedAt backdated." }
+    : { success: false, message: "Stash not found." }
 }
 
 /** Mirrors `depositStoredArtifact` via `applyDepositMutations`. */

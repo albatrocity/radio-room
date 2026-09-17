@@ -1,16 +1,18 @@
 import type { AppContext, ArtifactContent, ItemDefinition, ItemSlotPool } from "@repo/types"
 import {
   applyWithdrawalDeliveries,
+  authorizeArtifactRetrieve,
   computeFreeSlotsByPool,
   planWithdrawal,
   readArtifactContents,
+  STASH_NO_GRANT_MESSAGE,
   summarizeWithdrawal,
   withdrawalPersistAction,
 } from "@repo/game-logic"
 import { resolveSlotPool, slotPoolFullMessage } from "@repo/types"
 import type { GameSessionService } from "../../services/GameSessionService"
 import { postSystemChatMessage } from "../polls/postSystemChatMessage"
-import { displayName } from "./transferEvents"
+import { displayNameWithMaskMeta } from "./transferEvents"
 
 export type StoredArtifactActionResult = {
   success: boolean
@@ -56,6 +58,7 @@ export async function retrieveStoredArtifact(params: {
   userId: string
   artifactId?: string
   password?: string
+  useAccessGrant?: boolean
   contentIds?: string[]
   context: AppContext
 }): Promise<StoredArtifactActionResult> {
@@ -70,17 +73,28 @@ export async function retrieveStoredArtifact(params: {
 
   const artifactId = params.artifactId?.trim()
   const password = typeof params.password === "string" ? params.password : ""
-  if (!artifactId || !password) {
+  const useGrant = params.useAccessGrant === true
+  if (!artifactId || (!password && !useGrant)) {
     return { success: false, message: "Artifact id and password are required." }
   }
 
-  const username = await displayName(context, userId, roomId)
+  const usernameAttr = await displayNameWithMaskMeta(context, roomId, userId)
+  const username = usernameAttr.label
+  const roomChatMeta = usernameAttr.masked
+    ? { maskedUserIds: [usernameAttr.userId], maskedLabel: usernameAttr.label }
+    : undefined
 
   let roomChat: string | undefined
 
   try {
     const result = await artifacts.withArtifactLock(artifactId, async () => {
-      const attempt = await artifacts.attemptRetrieve(artifactId, password)
+      const attempt = await authorizeArtifactRetrieve({
+        artifacts,
+        artifactId,
+        userId,
+        password,
+        useGrant,
+      })
 
       if (attempt.status === "not_found") {
         roomChat = `${username} tried to retrieve storage that is no longer here.`
@@ -89,6 +103,9 @@ export async function retrieveStoredArtifact(params: {
       if (attempt.status === "wrong_password") {
         roomChat = `${username} failed to retrieve an artifact from storage (wrong password).`
         return { success: false, message: "Wrong password." }
+      }
+      if (attempt.status === "no_grant") {
+        return { success: false, message: STASH_NO_GRANT_MESSAGE }
       }
 
       const art = attempt.artifact
@@ -176,6 +193,9 @@ export async function retrieveStoredArtifact(params: {
       } else {
         await artifacts.update(artifactId, { contents: persist.contents })
       }
+      if (useGrant) {
+        await artifacts.revokeAccessGrant(artifactId, userId)
+      }
 
       const containerDef = plan.container
         ? definitionsById[plan.container.definitionId]
@@ -192,7 +212,12 @@ export async function retrieveStoredArtifact(params: {
       return { success: true, message: summary.privateMessage }
     })
     if (roomChat) {
-      await postSystemChatMessage({ context, roomId, content: roomChat })
+      await postSystemChatMessage({
+        context,
+        roomId,
+        content: roomChat,
+        meta: roomChatMeta,
+      })
     }
     return result
   } catch (e) {

@@ -30,6 +30,7 @@ export type StudioBridgeCommand =
       targetQueueItemId?: string
       targetInventoryItemId?: string
       targetInventoryItemIds?: string[]
+      targetArtifactId?: string
       password?: string
       coinAmount?: number
       message?: string
@@ -111,7 +112,8 @@ export type StudioBridgeCommand =
       roomId: string
       userId: string
       artifactId: string
-      password: string
+      password?: string
+      useAccessGrant?: boolean
       contentIds?: string[]
     }
   | {
@@ -168,6 +170,7 @@ export async function dispatchStudioBridgeCommand(
       if (cmd.targetQueueItemId != null) ctx.targetQueueItemId = cmd.targetQueueItemId
       if (cmd.targetInventoryItemId != null) ctx.targetInventoryItemId = cmd.targetInventoryItemId
       if (cmd.targetInventoryItemIds != null) ctx.targetInventoryItemIds = cmd.targetInventoryItemIds
+      if (cmd.targetArtifactId != null) ctx.targetArtifactId = cmd.targetArtifactId
       if (cmd.password != null) ctx.password = cmd.password
       if (cmd.coinAmount != null) ctx.coinAmount = cmd.coinAmount
       if (cmd.message != null) ctx.message = cmd.message
@@ -285,7 +288,13 @@ export async function dispatchStudioBridgeCommand(
       return { success: true }
     }
     case "RETRIEVE_STORED_ARTIFACT": {
-      return studioActions.retrieveArtifact(cmd.artifactId, cmd.password, cmd.userId, cmd.contentIds)
+      return studioActions.retrieveArtifact(
+        cmd.artifactId,
+        cmd.password ?? "",
+        cmd.userId,
+        cmd.contentIds,
+        cmd.useAccessGrant ? { useAccessGrant: true } : undefined,
+      )
     }
     case "DEPOSIT_STORED_ARTIFACT": {
       return studioActions.depositArtifact(cmd.artifactId, cmd.password, cmd.userId, {

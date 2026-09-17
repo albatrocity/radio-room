@@ -640,6 +640,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       targetQueueItemId?: string
       targetInventoryItemId?: string
       targetInventoryItemIds?: string[]
+      targetArtifactId?: string
       password?: string
       coinAmount?: number
       message?: string
@@ -654,6 +655,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
         callContextRaw.targetInventoryItemId = data.targetInventoryItemId
       if (data?.targetInventoryItemIds != null)
         callContextRaw.targetInventoryItemIds = data.targetInventoryItemIds
+      if (data?.targetArtifactId != null) callContextRaw.targetArtifactId = data.targetArtifactId
       if (data?.password != null) callContextRaw.password = data.password
       if (data?.coinAmount != null) callContextRaw.coinAmount = data.coinAmount
       if (data?.message != null) callContextRaw.message = data.message
@@ -718,9 +720,16 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
     for (const def of defs) {
       defsById[def.id] = def
     }
+    const hydrated = hydrateStoredArtifactContainers(list, defsById)
+    const grants = await artifacts.listAccessGrants(socket.data.userId)
+    const grantExpiryById = new Map(grants.map((g) => [g.artifactId, g.expiresAt]))
+    const withGrants = hydrated.map((row) => {
+      const accessGrantExpiresAt = grantExpiryById.get(row.id)
+      return accessGrantExpiresAt != null ? { ...row, accessGrantExpiresAt } : row
+    })
     socket.emit("event", {
       type: "STORED_ARTIFACTS_RESULT",
-      data: { artifacts: hydrateStoredArtifactContainers(list, defsById) },
+      data: { artifacts: withGrants },
     })
   })
 
@@ -729,12 +738,18 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
    */
   socket.on(
     "RETRIEVE_STORED_ARTIFACT",
-    async (data: { artifactId?: string; password?: string; contentIds?: string[] }) => {
+    async (data: {
+      artifactId?: string
+      password?: string
+      useAccessGrant?: boolean
+      contentIds?: string[]
+    }) => {
       const result = await retrieveStoredArtifact({
         roomId: socket.data.roomId,
         userId: socket.data.userId,
         artifactId: data?.artifactId,
         password: data?.password,
+        useAccessGrant: data?.useAccessGrant,
         contentIds: data?.contentIds,
         context: socket.context,
       })

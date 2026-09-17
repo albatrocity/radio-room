@@ -1,7 +1,11 @@
 import type {
+  ArtifactAccessGrant,
   ArtifactContent,
   ArtifactContentInput,
+  ArtifactGrantRetrieveAttempt,
+  ArtifactRetrieveAttempt,
   ArtifactUpdatePatch,
+  ArtifactsPluginAPI,
   ItemDefinition,
   ItemSlotPool,
   StoredArtifact,
@@ -155,6 +159,114 @@ export function artifactLastTouchedAt(
   const touched = a.lastTouchedAt
   if (typeof touched !== "number" || !Number.isFinite(touched) || touched <= 0) return a.storedAt
   return Math.max(touched, a.storedAt)
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+/** Minimum untouched duration before a stash is Lock Pick–eligible (ADR 0185). */
+export const STASH_PICKABLE_AFTER_MS = 60 * MS_PER_DAY
+
+export function stashUntouchedForMs(
+  a: Pick<StoredArtifact, "storedAt" | "lastTouchedAt">,
+  now: number,
+): number {
+  return Math.max(0, now - artifactLastTouchedAt(a))
+}
+
+export function isStashPickable(
+  a: Pick<StoredArtifact, "storedAt" | "lastTouchedAt">,
+  now: number,
+  thresholdMs: number = STASH_PICKABLE_AFTER_MS,
+): boolean {
+  return stashUntouchedForMs(a, now) >= thresholdMs
+}
+
+function formatCoarseDuration(count: number, unit: "day" | "week" | "month"): string {
+  if (count === 1) return `1 ${unit}`
+  return `${count} ${unit}s`
+}
+
+/** Coarse human duration for "Untouched for …" copy (days / weeks / months). */
+export function formatStashUntouchedFor(ms: number): string {
+  const safe = Number.isFinite(ms) && ms > 0 ? ms : 0
+  const days = Math.floor(safe / MS_PER_DAY)
+  const weeks = Math.floor(days / 7)
+  const months = Math.floor(days / 30)
+  if (months >= 2) {
+    return formatCoarseDuration(months, "month")
+  }
+  if (days >= 30 && weeks <= 4) {
+    return formatCoarseDuration(1, "month")
+  }
+  if (days >= 14) {
+    return formatCoarseDuration(weeks, "week")
+  }
+  if (days === 7) {
+    return formatCoarseDuration(1, "week")
+  }
+  return formatCoarseDuration(days, "day")
+}
+
+/** Shared refusal when a stash has not sat untouched long enough (ADR 0185). */
+export function stashNotPickableMessage(untouchedForMs: number): string {
+  return `That stash hasn't sat untouched for two months yet — only ${formatStashUntouchedFor(untouchedForMs)}.`
+}
+
+/** Default TTL for password-free retrieve grants (ADR 0184). */
+export const STASH_ACCESS_GRANT_TTL_MS = 10 * 60 * 1000
+
+/** Private failure when `useAccessGrant` finds no live grant. */
+export const STASH_NO_GRANT_MESSAGE = "That lock is shut again."
+
+export function buildArtifactAccessGrant(params: {
+  artifactId: string
+  userId: string
+  source: string
+  roomId?: string
+  ttlMs?: number
+  now?: number
+}): ArtifactAccessGrant {
+  const now = params.now ?? Date.now()
+  const ttlMs = params.ttlMs ?? STASH_ACCESS_GRANT_TTL_MS
+  return {
+    artifactId: params.artifactId,
+    userId: params.userId,
+    source: params.source,
+    roomId: params.roomId,
+    issuedAt: now,
+    expiresAt: now + ttlMs,
+  }
+}
+
+export function isLiveAccessGrant(
+  grant: ArtifactAccessGrant | null | undefined,
+  now: number,
+): grant is ArtifactAccessGrant {
+  return grant != null && typeof grant.expiresAt === "number" && grant.expiresAt > now
+}
+
+/** Parse a Redis (or serialized) grant field; expired / malformed → null. */
+export function readLiveAccessGrant(raw: string, now: number): ArtifactAccessGrant | null {
+  try {
+    const grant = JSON.parse(raw) as ArtifactAccessGrant
+    return isLiveAccessGrant(grant, now) ? grant : null
+  } catch {
+    return null
+  }
+}
+
+/** Password vs grant retrieve — callers still own lock, persist, and revoke. */
+export async function authorizeArtifactRetrieve(params: {
+  artifacts: Pick<ArtifactsPluginAPI, "attemptRetrieve" | "attemptRetrieveWithGrant">
+  artifactId: string
+  userId: string
+  password: string
+  useGrant: boolean
+}): Promise<ArtifactRetrieveAttempt | ArtifactGrantRetrieveAttempt> {
+  if (params.useGrant) {
+    return params.artifacts.attemptRetrieveWithGrant(params.artifactId, params.userId)
+  }
+  return params.artifacts.attemptRetrieve(params.artifactId, params.password)
 }
 
 /** Positive `storageCapacity` from a definition, else `undefined`. */

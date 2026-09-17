@@ -429,6 +429,9 @@ export interface ItemDefinition {
    * and sends `targetInventoryItemId`; the handler decides whether the target was valid.
    * When `"spokenMessage"`, the UI collects a short message + macOS voice for Media Bridge
    * TTS (ADR 0178) and sends `message` + `voice`.
+   * When `"storedArtifact"`, the UI opens a stash picker and sends `targetArtifactId`
+   * with `USE_INVENTORY_ITEM`. The server re-checks pick eligibility (60-day untouched
+   * clock) at use time — client-side filtering is advisory only.
    * When `"self"` or omitted, the effect applies to the inventory owner only.
    */
   requiresTarget?:
@@ -440,6 +443,7 @@ export interface ItemDefinition {
     | "mediaItem"
     | "coinAmount"
     | "spokenMessage"
+    | "storedArtifact"
   /**
    * When set, holding this item passively blocks matching modifiers / queue
    * moves; one block consumes one from stack `quantity`.

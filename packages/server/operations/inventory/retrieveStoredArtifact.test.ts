@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import type { AppContext, StoredArtifact } from "@repo/types"
 import { retrieveStoredArtifact } from "./retrieveStoredArtifact"
+import { STASH_NO_GRANT_MESSAGE } from "@repo/game-logic"
 
 vi.mock("./transferEvents", () => ({
-  displayName: async () => "Ross",
+  displayNameWithMaskMeta: async (_context: unknown, _roomId: string, userId: string) => ({
+    label: "Ross",
+    userId,
+    masked: false,
+  }),
 }))
 vi.mock("../polls/postSystemChatMessage", () => ({
   postSystemChatMessage: vi.fn().mockResolvedValue(undefined),
@@ -52,6 +57,8 @@ function makeContext(opts?: {
   const artifacts = {
     withArtifactLock: vi.fn(async (_id: string, fn: () => Promise<unknown>) => fn()),
     attemptRetrieve: vi.fn().mockResolvedValue({ status: "success", artifact }),
+    attemptRetrieveWithGrant: vi.fn().mockResolvedValue({ status: "no_grant" }),
+    revokeAccessGrant: vi.fn().mockResolvedValue(true),
     remove,
     update,
   }
@@ -149,6 +156,7 @@ describe("retrieveStoredArtifact", () => {
       context,
       roomId,
       content: "Ross retrieved Mars Egg from storage.",
+      meta: undefined,
     })
   })
 
@@ -321,6 +329,7 @@ describe("retrieveStoredArtifact", () => {
       context,
       roomId,
       content: "Ross picked up the empty Road Case from storage.",
+      meta: undefined,
     })
   })
 
@@ -373,6 +382,7 @@ describe("retrieveStoredArtifact", () => {
       context,
       roomId,
       content: "Ross failed to retrieve an artifact from storage (wrong password).",
+      meta: undefined,
     })
   })
 
@@ -394,6 +404,114 @@ describe("retrieveStoredArtifact", () => {
     expect(result.success).toBe(true)
     expect(chatDuringLock).toBe(0)
     expect(postSystemChatMessage).toHaveBeenCalledTimes(1)
+  })
+
+  describe("access grant path", () => {
+    test("succeeds with no password; attemptRetrieve never called; revoke after persist", async () => {
+      const { context, artifacts, giveItem, remove } = makeContext()
+      artifacts.attemptRetrieveWithGrant.mockResolvedValue({
+        status: "success",
+        artifact: legacyItem(),
+      })
+      const result = await retrieveStoredArtifact({
+        context,
+        roomId,
+        userId,
+        artifactId: "3448e696-d86a-46ab-a18a-d61dba076718",
+        useAccessGrant: true,
+      })
+      expect(result.success).toBe(true)
+      expect(artifacts.attemptRetrieve).not.toHaveBeenCalled()
+      expect(artifacts.attemptRetrieveWithGrant).toHaveBeenCalledWith(
+        "3448e696-d86a-46ab-a18a-d61dba076718",
+        userId,
+      )
+      expect(artifacts.revokeAccessGrant).toHaveBeenCalledWith(
+        "3448e696-d86a-46ab-a18a-d61dba076718",
+        userId,
+      )
+      expect(giveItem).toHaveBeenCalled()
+      expect(remove).toHaveBeenCalled()
+    })
+
+    test("expired grant returns no_grant without chat or revoke", async () => {
+      const { context, artifacts } = makeContext()
+      artifacts.attemptRetrieveWithGrant.mockResolvedValue({ status: "no_grant" })
+      const result = await retrieveStoredArtifact({
+        context,
+        roomId,
+        userId,
+        artifactId: "3448e696-d86a-46ab-a18a-d61dba076718",
+        useAccessGrant: true,
+      })
+      expect(result).toEqual({ success: false, message: STASH_NO_GRANT_MESSAGE })
+      expect(artifacts.revokeAccessGrant).not.toHaveBeenCalled()
+      expect(postSystemChatMessage).not.toHaveBeenCalled()
+    })
+
+    test("full bag keeps grant for retry", async () => {
+      const artifact = legacyItem({
+        contents: [
+          {
+            id: "a",
+            kind: "item",
+            itemDefinitionId: "item-shops:mars-egg",
+            itemName: "Mars Egg",
+            itemQuantity: 1,
+          },
+        ],
+        containerDefinitionId: "item-shops:road-case",
+      })
+      const { context, artifacts } = makeContext({
+        artifact,
+        inventoryItems: [
+          { itemId: "i1", definitionId: "item-shops:mars-egg", quantity: 1 },
+          { itemId: "i2", definitionId: "item-shops:mars-egg", quantity: 1 },
+          { itemId: "i3", definitionId: "item-shops:mars-egg", quantity: 1 },
+        ],
+      })
+      artifacts.attemptRetrieveWithGrant.mockResolvedValue({ status: "success", artifact })
+      const result = await retrieveStoredArtifact({
+        context,
+        roomId,
+        userId,
+        artifactId: artifact.id,
+        useAccessGrant: true,
+      })
+      expect(result.success).toBe(false)
+      expect(artifacts.revokeAccessGrant).not.toHaveBeenCalled()
+    })
+
+    test("empty stash delivers container password-free", async () => {
+      const artifact = legacyItem({
+        storingItemId: "road-case",
+        contents: [],
+        containerDefinitionId: "item-shops:road-case",
+        itemDefinitionId: undefined,
+        itemName: undefined,
+        itemQuantity: undefined,
+      })
+      const { context, artifacts, giveItem, remove } = makeContext({ artifact })
+      artifacts.attemptRetrieveWithGrant.mockResolvedValue({ status: "success", artifact })
+      const result = await retrieveStoredArtifact({
+        context,
+        roomId,
+        userId,
+        artifactId: artifact.id,
+        useAccessGrant: true,
+        contentIds: [],
+      })
+      expect(result.success).toBe(true)
+      expect(giveItem).toHaveBeenCalledWith(
+        roomId,
+        userId,
+        "item-shops:road-case",
+        1,
+        undefined,
+        "plugin",
+      )
+      expect(remove).toHaveBeenCalledWith(artifact.id)
+    })
   })
 
   test("does not post chat when the artifact lock cannot be acquired", async () => {

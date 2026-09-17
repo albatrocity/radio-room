@@ -4,7 +4,7 @@ import type { InventoryItem, ItemDefinition, MediaCondition } from "@repo/types"
 import { isPhysicalMediaDefinition, readItemCondition, resolveSlotPool } from "@repo/types"
 import { coinsForPunchNumber, readTourPunchCount, resolveItemRarity, resolvePunchCountNoun } from "@repo/game-logic"
 import { emitToSocket } from "../../../actors/socketActor"
-import { refreshStoredArtifacts } from "../../../actors/userGameStateActor"
+import { beginStashPick, refreshStoredArtifacts } from "../../../actors/userGameStateActor"
 import { subscribeInventoryActionResult } from "../../../lib/inventoryActionResult"
 import { TourPunchCountTag } from "../../PluginComponents/TourPunchCountTag"
 import { useSocketResultHandle } from "../../../lib/subscribeForSocketResult"
@@ -87,6 +87,7 @@ function InventoryRow({
   const dispatchUse = (extra?: {
     targetUserId?: string
     targetQueueItemId?: string
+    targetArtifactId?: string
     targetInventoryItemId?: string
     targetInventoryItemIds?: string[]
     password?: string
@@ -100,7 +101,12 @@ function InventoryRow({
     track(
       subscribeInventoryActionResult({
         id: `inventory-use-${item.itemId}-${Date.now()}`,
-        onSettled: () => setPendingUse(null),
+        onSettled: (data) => {
+          setPendingUse(null)
+          if (data.success && extra?.targetArtifactId) {
+            beginStashPick(extra.targetArtifactId)
+          }
+        },
         onTimeout: () => setPendingUse(null),
       }),
     )
@@ -109,6 +115,7 @@ function InventoryRow({
       itemId: item.itemId,
       ...(extra?.targetUserId != null ? { targetUserId: extra.targetUserId } : {}),
       ...(extra?.targetQueueItemId != null ? { targetQueueItemId: extra.targetQueueItemId } : {}),
+      ...(extra?.targetArtifactId != null ? { targetArtifactId: extra.targetArtifactId } : {}),
       ...(extra?.targetInventoryItemId != null
         ? { targetInventoryItemId: extra.targetInventoryItemId }
         : {}),

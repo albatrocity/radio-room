@@ -4,9 +4,12 @@ import { Box, Button, Field, HStack, Input, NativeSelect, Stack, Text } from "@c
 import type { StoredArtifact } from "@repo/types"
 import {
   artifactKindBadge,
+  artifactLastTouchedAt,
   artifactSummaryLabel,
   emptyStashLine,
+  formatStashUntouchedFor,
   readArtifactContents,
+  STASH_PICKABLE_AFTER_MS,
 } from "@repo/game-logic"
 import { useEffect, useMemo, useState } from "react"
 import * as studioActions from "../../studio/studioActions"
@@ -61,6 +64,29 @@ export function StoredArtifactsPanel({ room }: StoredArtifactsPanelProps) {
     )
   }
 
+  const grantPickAccess = () => {
+    if (!artifactId || !effectiveRetriever) return
+    void (async () => {
+      const res = await studioActions.grantStashPickAccess(artifactId, effectiveRetriever)
+      toaster.create({
+        title: res.success ? "Grant issued" : "Failed",
+        description: res.message,
+        type: res.success ? "success" : "error",
+      })
+    })()
+  }
+
+  const backdateForPick = () => {
+    if (!artifactId) return
+    const lastTouchedAt = Date.now() - STASH_PICKABLE_AFTER_MS - 24 * 60 * 60 * 1000
+    const res = studioActions.backdateStashLastTouched(artifactId, lastTouchedAt)
+    toaster.create({
+      title: res.success ? "Backdated" : "Failed",
+      description: res.message,
+      type: res.success ? "success" : "error",
+    })
+  }
+
   const submit = () => {
     const pw = password.trim()
     if (!artifactId || !pw || !effectiveRetriever) {
@@ -102,7 +128,8 @@ export function StoredArtifactsPanel({ room }: StoredArtifactsPanelProps) {
               <Text fontSize="xs" color="fg.muted">
                 {artifactKindBadge(contents)}
                 {contents.length === 0 || a.label?.trim() ? ` · ${rowSummary(a, containerName)}` : ""}{" "}
-                · id {a.id.slice(0, 8)}… · stored by {a.storedByUsername}
+                · untouched {formatStashUntouchedFor(Date.now() - artifactLastTouchedAt(a))} · id{" "}
+                {a.id.slice(0, 8)}… · stored by {a.storedByUsername}
               </Text>
             </Box>
           )
@@ -144,6 +171,15 @@ export function StoredArtifactsPanel({ room }: StoredArtifactsPanelProps) {
           <NativeSelect.Indicator />
         </NativeSelect.Root>
       </Field.Root>
+
+      <HStack gap="2" flexWrap="wrap">
+        <Button size="sm" variant="outline" onClick={backdateForPick}>
+          Backdate lastTouchedAt (61d)
+        </Button>
+        <Button size="sm" variant="outline" onClick={grantPickAccess}>
+          Grant pick access
+        </Button>
+      </HStack>
 
       <HStack gap="2" align="flex-end">
         <Input

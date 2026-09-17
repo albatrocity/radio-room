@@ -86,12 +86,33 @@ export type StoredArtifactPublic = Omit<StoredArtifact, "password"> & {
   storageCapacity?: number
   /** Catalog display name of the creating container, hydrated the same way. */
   containerName?: string
+  /**
+   * When the viewer holds a live access grant for this stash, set at list time
+   * from `listAccessGrants(userId)` — never persisted on the Redis row.
+   */
+  accessGrantExpiresAt?: number
+}
+
+/** Short-lived password-free retrieve grant, stored per viewer (not on the artifact row). */
+export type ArtifactAccessGrant = {
+  artifactId: string
+  userId: string
+  source: string
+  roomId?: string
+  issuedAt: number
+  expiresAt: number
 }
 
 export type ArtifactRetrieveAttempt =
   | { status: "success"; artifact: StoredArtifact }
   | { status: "not_found" }
   | { status: "wrong_password" }
+
+/** Grant-based retrieve — separate union so the password path cannot regress. */
+export type ArtifactGrantRetrieveAttempt =
+  | { status: "success"; artifact: StoredArtifact }
+  | { status: "not_found" }
+  | { status: "no_grant" }
 
 /**
  * Cross-room artifact storage. Implemented server-side; plugins must not access Redis directly.
@@ -110,4 +131,15 @@ export interface ArtifactsPluginAPI {
   update(id: string, patch: ArtifactUpdatePatch): Promise<StoredArtifact | null>
   /** `SET …:lock:<id> <token> NX EX 10`. Serializes retrieve / deposit. */
   withArtifactLock<T>(id: string, fn: () => Promise<T>): Promise<T>
+  getPublic(id: string): Promise<StoredArtifactPublic | null>
+  grantAccess(params: {
+    artifactId: string
+    userId: string
+    source: string
+    roomId?: string
+    ttlMs?: number
+  }): Promise<ArtifactAccessGrant | null>
+  listAccessGrants(userId: string, now?: number): Promise<ArtifactAccessGrant[]>
+  attemptRetrieveWithGrant(id: string, userId: string): Promise<ArtifactGrantRetrieveAttempt>
+  revokeAccessGrant(artifactId: string, userId: string): Promise<boolean>
 }

@@ -704,6 +704,7 @@ function wireSocketHandlers(io: IOServer): void {
         targetQueueItemId?: string
         targetInventoryItemId?: string
         targetInventoryItemIds?: string[]
+        targetArtifactId?: string
         password?: string
         coinAmount?: number
         message?: string
@@ -733,6 +734,7 @@ function wireSocketHandlers(io: IOServer): void {
           ...(data.targetInventoryItemIds != null
             ? { targetInventoryItemIds: data.targetInventoryItemIds }
             : {}),
+          ...(data.targetArtifactId != null ? { targetArtifactId: data.targetArtifactId } : {}),
           ...(data.password != null ? { password: data.password } : {}),
           ...(data.coinAmount != null ? { coinAmount: data.coinAmount } : {}),
           ...(data.message != null ? { message: data.message } : {}),
@@ -2092,7 +2094,12 @@ function wireSocketHandlers(io: IOServer): void {
 
     socket.on(
       "RETRIEVE_STORED_ARTIFACT",
-      async (data: { artifactId?: string; password?: string; contentIds?: string[] }) => {
+      async (data: {
+        artifactId?: string
+        password?: string
+        useAccessGrant?: boolean
+        contentIds?: string[]
+      }) => {
         const roomId = socket.data.roomId as string | undefined
         const userId = socket.data.userId as string | undefined
 
@@ -2110,7 +2117,8 @@ function wireSocketHandlers(io: IOServer): void {
 
         const artifactId = data?.artifactId?.trim()
         const password = typeof data?.password === "string" ? data.password : ""
-        if (!artifactId || !password) {
+        const useAccessGrant = data?.useAccessGrant === true
+        if (!artifactId || (!password && !useAccessGrant)) {
           fail("Artifact id and password are required.")
           return
         }
@@ -2136,7 +2144,8 @@ function wireSocketHandlers(io: IOServer): void {
               roomId,
               userId,
               artifactId,
-              password,
+              ...(password ? { password } : {}),
+              ...(useAccessGrant ? { useAccessGrant: true } : {}),
               ...(Array.isArray(data.contentIds) ? { contentIds: data.contentIds } : {}),
             },
           },

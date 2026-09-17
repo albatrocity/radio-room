@@ -40,6 +40,7 @@ interface UserGameStateContext {
   payload: UserGameStatePayload | null
   storedArtifacts: StoredArtifactPublic[]
   storedArtifactsSessionId: string | null
+  pendingPickArtifactId: string | null
   error: string | null
 }
 
@@ -84,6 +85,8 @@ type UserGameStateEvent =
     }
   | { type: "ERROR_OCCURRED"; data: { message?: string } }
   | { type: "STORED_ARTIFACTS_RESULT"; data?: { artifacts?: StoredArtifactPublic[] } }
+  | { type: "BEGIN_STASH_PICK"; artifactId: string }
+  | { type: "CLEAR_STASH_PICK" }
 
 /** Trailing debounce so bursts of invalidation collapse into one refetch. */
 const REQUEST_DEBOUNCE_MS = 150
@@ -294,6 +297,15 @@ export const userGameStateMachine = setup({
       if (event.type !== "STORED_ARTIFACTS_RESULT") return {}
       return { storedArtifacts: event.data?.artifacts ?? [] }
     }),
+    beginStashPick: assign(({ event }) => {
+      if (event.type !== "BEGIN_STASH_PICK") return {}
+      const artifactId = event.artifactId?.trim()
+      if (!artifactId) return {}
+      return { pendingPickArtifactId: artifactId }
+    }),
+    clearStashPick: assign({
+      pendingPickArtifactId: () => null,
+    }),
     clearPayload: assign({
       payload: () => ({
         session: null,
@@ -308,6 +320,7 @@ export const userGameStateMachine = setup({
       }),
       storedArtifacts: () => [],
       storedArtifactsSessionId: () => null,
+      pendingPickArtifactId: () => null,
       error: () => null,
     }),
     setError: assign(({ event }) => {
@@ -319,6 +332,7 @@ export const userGameStateMachine = setup({
       payload: () => null,
       storedArtifacts: () => [],
       storedArtifactsSessionId: () => null,
+      pendingPickArtifactId: () => null,
       error: () => null,
     }),
   },
@@ -330,10 +344,17 @@ export const userGameStateMachine = setup({
     payload: null,
     storedArtifacts: [],
     storedArtifactsSessionId: null,
+    pendingPickArtifactId: null,
     error: null,
   },
   /** Socket invalidations apply in every subscribed state (loading / ready / refreshing). */
   on: {
+    BEGIN_STASH_PICK: {
+      actions: ["beginStashPick"],
+    },
+    CLEAR_STASH_PICK: {
+      actions: ["clearStashPick"],
+    },
     USER_GAME_STATE_INVALIDATED: {
       actions: ["scheduleRequestGameState"],
     },

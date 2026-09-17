@@ -4,17 +4,27 @@ import {
   artifactLastTouchedAt,
   artifactSummaryLabel,
   computeFreeSlotsByPool,
+  formatStashUntouchedFor,
+  isStashPickable,
   normalizeArtifactPayload,
   planDeposit,
   planWithdrawal,
   readArtifactContents,
   sanitizeStashLabel,
   sanitizeStashNote,
+  stashNotPickableMessage,
+  stashUntouchedForMs,
   summarizeWithdrawal,
   hydrateStoredArtifactContainers,
   remainingStashSlots,
   selectFittingContentIds,
   toStoredArtifactListing,
+  authorizeArtifactRetrieve,
+  buildArtifactAccessGrant,
+  isLiveAccessGrant,
+  readLiveAccessGrant,
+  STASH_ACCESS_GRANT_TTL_MS,
+  STASH_NO_GRANT_MESSAGE,
 } from "./artifactStash"
 
 /** Production dump 2026-09-16, passwords redacted. */
@@ -493,6 +503,143 @@ describe("artifactLastTouchedAt", () => {
     expect(artifactLastTouchedAt({ storedAt: 10, lastTouchedAt: 5 })).toBe(10)
     expect(artifactLastTouchedAt({ storedAt: 10, lastTouchedAt: 0 })).toBe(10)
     expect(artifactLastTouchedAt({ storedAt: 10, lastTouchedAt: Number.NaN })).toBe(10)
+  })
+})
+
+const DAY_MS = 24 * 60 * 60 * 1000
+const NOW_MS = 1_700_000_000_000
+
+describe("isStashPickable", () => {
+  it("is false at 59 days and true at 60 and 61 days", () => {
+    const storedAt = NOW_MS - 120 * DAY_MS
+    expect(
+      isStashPickable({ storedAt, lastTouchedAt: NOW_MS - 59 * DAY_MS }, NOW_MS),
+    ).toBe(false)
+    expect(
+      isStashPickable({ storedAt, lastTouchedAt: NOW_MS - 60 * DAY_MS }, NOW_MS),
+    ).toBe(true)
+    expect(
+      isStashPickable({ storedAt, lastTouchedAt: NOW_MS - 61 * DAY_MS }, NOW_MS),
+    ).toBe(true)
+  })
+
+  it("treats legacy rows without lastTouchedAt as untouched since storedAt", () => {
+    expect(isStashPickable({ storedAt: NOW_MS - 90 * DAY_MS }, NOW_MS)).toBe(true)
+    expect(isStashPickable({ storedAt: NOW_MS - 30 * DAY_MS }, NOW_MS)).toBe(false)
+  })
+
+  it("reads the newer of lastTouchedAt and storedAt", () => {
+    const storedAt = NOW_MS - 90 * DAY_MS
+    expect(
+      isStashPickable({ storedAt, lastTouchedAt: NOW_MS - 10 * DAY_MS }, NOW_MS),
+    ).toBe(false)
+    expect(
+      isStashPickable({ storedAt, lastTouchedAt: NOW_MS - 120 * DAY_MS }, NOW_MS),
+    ).toBe(true)
+  })
+
+  it("ignores non-finite, zero, and negative lastTouchedAt stamps", () => {
+    const storedAt = NOW_MS - 90 * DAY_MS
+    for (const lastTouchedAt of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(isStashPickable({ storedAt, lastTouchedAt }, NOW_MS)).toBe(true)
+    }
+  })
+})
+
+describe("stashUntouchedForMs", () => {
+  it("never reports negative duration when now is before the last touch", () => {
+    expect(stashUntouchedForMs({ storedAt: NOW_MS, lastTouchedAt: NOW_MS + DAY_MS }, NOW_MS)).toBe(
+      0,
+    )
+  })
+})
+
+describe("formatStashUntouchedFor", () => {
+  it("formats days below one week", () => {
+    expect(formatStashUntouchedFor(6 * DAY_MS)).toBe("6 days")
+    expect(formatStashUntouchedFor(9 * DAY_MS)).toBe("9 days")
+    expect(formatStashUntouchedFor(1 * DAY_MS)).toBe("1 day")
+  })
+
+  it("formats weeks below one month", () => {
+    expect(formatStashUntouchedFor(7 * DAY_MS)).toBe("1 week")
+    expect(formatStashUntouchedFor(6 * 7 * DAY_MS)).toBe("6 weeks")
+    expect(formatStashUntouchedFor(29 * DAY_MS)).toBe("4 weeks")
+  })
+
+  it("formats months at and above thirty days", () => {
+    expect(formatStashUntouchedFor(30 * DAY_MS)).toBe("1 month")
+    expect(formatStashUntouchedFor(90 * DAY_MS)).toBe("3 months")
+  })
+
+  it("treats non-finite and non-positive input as zero days", () => {
+    expect(formatStashUntouchedFor(Number.NaN)).toBe("0 days")
+    expect(formatStashUntouchedFor(0)).toBe("0 days")
+    expect(formatStashUntouchedFor(-DAY_MS)).toBe("0 days")
+  })
+})
+
+describe("stashNotPickableMessage", () => {
+  it("mentions two months and embeds the formatted untouched duration", () => {
+    const message = stashNotPickableMessage(9 * DAY_MS)
+    expect(message).toContain("two months")
+    expect(message).toContain("9 days")
+  })
+})
+
+describe("artifact access grants", () => {
+  const now = 1_700_000_000_000
+
+  it("builds a 10-minute grant from the shared TTL", () => {
+    const grant = buildArtifactAccessGrant({
+      artifactId: "a1",
+      userId: "u1",
+      source: "lock-pick",
+      roomId: "r1",
+      now,
+    })
+    expect(grant.expiresAt - grant.issuedAt).toBe(STASH_ACCESS_GRANT_TTL_MS)
+    expect(grant).toMatchObject({ artifactId: "a1", userId: "u1", source: "lock-pick", roomId: "r1" })
+  })
+
+  it("readLiveAccessGrant drops expired and malformed fields", () => {
+    const live = buildArtifactAccessGrant({
+      artifactId: "a1",
+      userId: "u1",
+      source: "lock-pick",
+      now,
+      ttlMs: 1000,
+    })
+    expect(readLiveAccessGrant(JSON.stringify(live), now)).toEqual(live)
+    expect(readLiveAccessGrant(JSON.stringify(live), now + 1001)).toBeNull()
+    expect(readLiveAccessGrant("not-json", now)).toBeNull()
+    expect(isLiveAccessGrant(undefined, now)).toBe(false)
+  })
+
+  it("authorizeArtifactRetrieve branches password vs grant", async () => {
+    const artifacts = {
+      attemptRetrieve: async () => ({ status: "wrong_password" as const }),
+      attemptRetrieveWithGrant: async () => ({ status: "no_grant" as const }),
+    }
+    expect(
+      await authorizeArtifactRetrieve({
+        artifacts,
+        artifactId: "a1",
+        userId: "u1",
+        password: "x",
+        useGrant: false,
+      }),
+    ).toEqual({ status: "wrong_password" })
+    expect(
+      await authorizeArtifactRetrieve({
+        artifacts,
+        artifactId: "a1",
+        userId: "u1",
+        password: "",
+        useGrant: true,
+      }),
+    ).toEqual({ status: "no_grant" })
+    expect(STASH_NO_GRANT_MESSAGE).toMatch(/lock is shut again/)
   })
 })
 
