@@ -122,12 +122,40 @@ export async function storeDedupedRoomImage({
     }
 
     const { ensureRoomImageObject } = await import("../../services/MediaObjectCache")
-    const uploaded = await ensureRoomImageObject({
-      context,
-      roomId,
-      buffer,
-      mimeType,
-    })
+    let uploaded: { url: string; contentHash: string; uploaded: boolean }
+    try {
+      uploaded = await ensureRoomImageObject({
+        context,
+        roomId,
+        buffer,
+        mimeType,
+      })
+    } catch (s3Err) {
+      console.warn(
+        "[images] ensureRoomImageObject failed, falling back to Redis blob:",
+        s3Err,
+      )
+      const imageId = generateId()
+      const stored = await storeImage({
+        roomId,
+        imageId,
+        base64Data: buffer.toString("base64"),
+        mimeType,
+        contentHash,
+        context,
+      })
+      if (!stored.success) {
+        return stored
+      }
+      await context.redis.pubClient.set(dedupKey, imageId)
+      const apiUrl = context.apiUrl || ""
+      return {
+        success: true as const,
+        imageId,
+        cached: false as const,
+        url: `${apiUrl}/api/rooms/${roomId}/images/${imageId}`,
+      }
+    }
 
     const imageId = generateId()
     const stored = await storeImage({

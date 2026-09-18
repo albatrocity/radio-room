@@ -62,8 +62,27 @@ async function storeCoverVariantToS3(params: {
     })
     return result.url
   } catch (e) {
-    console.warn("[PluginAPI] storeCoverVariantToS3 failed:", e)
-    return undefined
+    console.warn("[PluginAPI] storeCoverVariantToS3 failed, falling back to Redis:", e)
+    // Emergency fallback so a show is not blank when S3/IAM/CDN is misconfigured.
+    try {
+      const { createHash } = await import("node:crypto")
+      const { storeImage } = await import("../../operations/data")
+      const hash = createHash("md5").update(parsed.base64Data).digest("hex").slice(0, 12)
+      const imageId = `fallback-${params.variant}-${hash}`
+      const stored = await storeImage({
+        roomId: params.roomId,
+        imageId,
+        base64Data: parsed.base64Data,
+        mimeType: parsed.mimeType,
+        context: params.context,
+      })
+      if (!stored.success) return undefined
+      const apiUrl = params.context.apiUrl || ""
+      return `${apiUrl}/api/rooms/${params.roomId}/images/${imageId}`
+    } catch (fallbackErr) {
+      console.warn("[PluginAPI] Redis cover fallback failed:", fallbackErr)
+      return undefined
+    }
   }
 }
 
@@ -923,7 +942,11 @@ export class PluginAPIImpl implements PluginAPI {
             if (art) urls[playlistId] = art
           }),
         )
-        // Ids requested but missing from daemon response → negative pointer
+        // Negative-cache only when the daemon answered with at least one cover in
+        // this chunk. An entirely empty result usually means RPC failure (same as
+        // track-list misses) — caching `{ none: true }` would hide art for 7 days.
+        const rpcReturnedAny = Object.keys(covers).length > 0
+        if (!rpcReturnedAny) continue
         for (const playlistId of chunk) {
           if (urls[playlistId] || covers[playlistId]) continue
           await storePlaylistArtworkVariants({
@@ -1043,6 +1066,9 @@ export class PluginAPIImpl implements PluginAPI {
             if (art) urls[albumId] = art
           }),
         )
+        // Same rule as playlists: empty chunk ⇒ RPC failure, do not negative-cache.
+        const rpcReturnedAny = Object.keys(covers).length > 0
+        if (!rpcReturnedAny) continue
         for (const albumId of chunk) {
           if (urls[albumId] || covers[albumId]) continue
           const meta = metaById.get(albumId)

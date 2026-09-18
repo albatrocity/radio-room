@@ -113,6 +113,30 @@ describe("MediaObjectCache", () => {
     expect(pointer).toEqual({ url: result.url })
   })
 
+  it("treats HeadObject 403 as a miss so Put can proceed", async () => {
+    send.mockImplementation(async (cmd: { constructor: { name: string } }) => {
+      if (cmd.constructor.name === "HeadObjectCommand") {
+        const err = new Error("Forbidden") as Error & {
+          name: string
+          $metadata: { httpStatusCode: number }
+        }
+        err.name = "AccessDenied"
+        err.$metadata = { httpStatusCode: 403 }
+        throw err
+      }
+      return {}
+    })
+    const result = await ensureCoverObject({
+      context,
+      libraryId: "lib-1",
+      identityHash: "idhash",
+      variant: "sm",
+      base64Data: Buffer.from("jpeg-bytes").toString("base64"),
+    })
+    expect(result.uploaded).toBe(true)
+    expect(result.url).toContain("media/covers/")
+  })
+
   it("headPreviewByFingerprint sets pointer when S3 object exists", async () => {
     send.mockImplementation(async (cmd: { constructor: { name: string }; input?: { Key?: string } }) => {
       if (cmd.constructor.name === "HeadObjectCommand") {

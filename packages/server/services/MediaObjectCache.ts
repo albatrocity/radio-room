@@ -35,7 +35,17 @@ async function objectExists(bucket: string, key: string): Promise<boolean> {
     return true
   } catch (e: unknown) {
     const err = e as { name?: string; $metadata?: { httpStatusCode?: number } }
-    if (err?.name === "NotFound" || err?.$metadata?.httpStatusCode === 404) {
+    const status = err?.$metadata?.httpStatusCode
+    if (err?.name === "NotFound" || status === 404) {
+      return false
+    }
+    // Missing s3:GetObject on the IAM user surfaces as 403. Treat as a miss so
+    // PutObject (which the sender user already has) can still proceed — otherwise
+    // every cover/preview write fails closed and the UI shows placeholders.
+    if (status === 403 || err?.name === "AccessDenied" || err?.name === "Forbidden") {
+      console.warn(
+        `[MediaObjectCache] HeadObject denied for s3://${bucket}/${key} (${err?.name ?? status}); assuming miss`,
+      )
       return false
     }
     throw e

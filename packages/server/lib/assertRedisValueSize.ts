@@ -3,11 +3,11 @@
  * Measure UTF-8 bytes (Buffer.byteLength), not JS string length.
  */
 
-/** After S3 cutover (ADR 0186): Redis holds pointers only. */
-export const REDIS_BLOB_MAX_BYTES = 8 * 1024
+/** While Redis blob fallback exists for S3 outages; prefer 8KB once only pointers remain. */
+export const REDIS_BLOB_MAX_BYTES = 256 * 1024
 
-/** Alias for pointer / metadata values. */
-export const REDIS_POINTER_MAX_BYTES = REDIS_BLOB_MAX_BYTES
+/** Pointer / metadata values after S3 cutover. */
+export const REDIS_POINTER_MAX_BYTES = 8 * 1024
 
 export class RedisValueTooLargeError extends Error {
   readonly label: string
