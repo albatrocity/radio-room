@@ -221,7 +221,7 @@ export async function saveUser({ context, userId, attributes }: SaveUserParams) 
   try {
     return await writeJsonToHset({ setKey: `user:${userId}`, attributes, context })
   } catch (e) {
-    console.log("ERROR FROM data/users/persistUser", userId, attributes)
+    console.log("ERROR FROM data/users/saveUser", userId, attributes)
     console.error(e)
     return null
   }
@@ -313,7 +313,13 @@ type ExpireUserInParams = {
 }
 
 export async function expireUserIn({ context, userId, ms }: ExpireUserInParams) {
-  await context.redis.pubClient.pExpire(`user:${userId}`, ms)
+  try {
+    return await context.redis.pubClient.pExpire(`user:${userId}`, ms)
+  } catch (e) {
+    console.log("ERROR FROM data/users/expireUserIn", userId)
+    console.error(e)
+    return null
+  }
 }
 
 type PersistUserParams = {
@@ -322,7 +328,13 @@ type PersistUserParams = {
 }
 
 export async function persistUser({ context, userId }: PersistUserParams) {
-  await context.redis.pubClient.persist(`user:${userId}`)
+  try {
+    return await context.redis.pubClient.persist(`user:${userId}`)
+  } catch (e) {
+    console.log("ERROR FROM data/users/persistUser", userId)
+    console.error(e)
+    return null
+  }
 }
 
 // =============================================================================

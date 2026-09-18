@@ -126,6 +126,41 @@ export class AuthService {
     socketId: string
     sessionUser?: { userId?: string; username?: string }
   }) {
+    try {
+      return await this.loginToRoom({
+        incomingUserId,
+        incomingUsername,
+        password,
+        roomId,
+        socketId,
+        sessionUser,
+      })
+    } catch (e) {
+      console.error("[AuthService] login failed", roomId, e)
+      return {
+        error: {
+          message: "Could not join room. Please try again.",
+          status: 503,
+        },
+      }
+    }
+  }
+
+  private async loginToRoom({
+    incomingUserId,
+    incomingUsername,
+    password,
+    roomId,
+    socketId,
+    sessionUser,
+  }: {
+    incomingUserId?: string
+    incomingUsername?: string
+    password?: string
+    roomId: string
+    socketId: string
+    sessionUser?: { userId?: string; username?: string }
+  }) {
     const room = await findRoom({ context: this.context, roomId })
 
     // Throw an error if the room doesn't exist
@@ -179,8 +214,16 @@ export class AuthService {
     const newUsers = uniqueBy([...usersArray, newUser], (u: any) => u.userId)
 
     // save data to redis
-    await addOnlineUser({ context: this.context, roomId, userId })
-    await saveUser({ context: this.context, userId, attributes: newUser })
+    const addedOnline = await addOnlineUser({ context: this.context, roomId, userId })
+    const savedUser = await saveUser({ context: this.context, userId, attributes: newUser })
+    if (addedOnline === null || savedUser === null) {
+      return {
+        error: {
+          message: "Could not join room. Please try again.",
+          status: 503,
+        },
+      }
+    }
     // Track user in room history for export (only adds if not already present)
     await addUserToRoomHistory({ context: this.context, roomId, userId })
     // Add user as DJ if auto-deputize is enabled OR if they were previously manually deputized

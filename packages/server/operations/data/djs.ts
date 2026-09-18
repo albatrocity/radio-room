@@ -288,7 +288,7 @@ export async function addDj({
   context: AppContext
 }) {
   try {
-    return context.redis.pubClient.sAdd(`room:${roomId}:djs`, userId)
+    return await context.redis.pubClient.sAdd(`room:${roomId}:djs`, userId)
   } catch (e) {
     console.log("ERROR FROM data/djs/addDj", roomId, userId)
     console.error(e)
@@ -306,7 +306,7 @@ export async function removeDj({
 }) {
   try {
     if (userId) {
-      return context.redis.pubClient.sRem(`room:${roomId}:djs`, userId)
+      return await context.redis.pubClient.sRem(`room:${roomId}:djs`, userId)
     }
     return null
   } catch (e) {
@@ -317,7 +317,7 @@ export async function removeDj({
 }
 export async function getDjs({ roomId, context }: { roomId: string; context: AppContext }) {
   try {
-    return context.redis.pubClient.sMembers(`room:${roomId}:djs`)
+    return await context.redis.pubClient.sMembers(`room:${roomId}:djs`)
   } catch (e) {
     console.log("ERROR FROM data/djs/getDjs", roomId)
     console.error(e)
@@ -334,7 +334,7 @@ export async function isDj({
   context: AppContext
 }) {
   try {
-    return context.redis.pubClient.sIsMember(`room:${roomId}:djs`, userId)
+    return await context.redis.pubClient.sIsMember(`room:${roomId}:djs`, userId)
   } catch (e) {
     console.log("ERROR FROM data/djs/getDjs", roomId)
     console.error(e)

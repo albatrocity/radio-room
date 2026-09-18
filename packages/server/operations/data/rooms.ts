@@ -91,7 +91,7 @@ export async function saveRoom({ context, room }: SaveRoomParams) {
         : {}),
     }
 
-    return writeJsonToHset({
+    return await writeJsonToHset({
       context,
       setKey: `room:${room.id}:details`,
       attributes: roomToSave,
@@ -552,12 +552,17 @@ type ExpireRoomInParams = {
 }
 
 export async function expireRoomIn({ context, roomId, ms }: ExpireRoomInParams) {
-  const room = await findRoom({ context, roomId })
-  if (!room) {
-    return
+  try {
+    const room = await findRoom({ context, roomId })
+    if (!room) {
+      return
+    }
+    const keys = await getAllRoomDataKeys({ context, roomId })
+    await Promise.all(keys.map((k) => context.redis.pubClient.pExpire(k, ms)))
+  } catch (e) {
+    console.log("ERROR FROM data/rooms/expireRoomIn", roomId)
+    console.error(e)
   }
-  const keys = await getAllRoomDataKeys({ context, roomId })
-  await Promise.all(keys.map((k) => context.redis.pubClient.pExpire(k, ms)))
 }
 
 type PersistRoomParams = {
@@ -566,12 +571,17 @@ type PersistRoomParams = {
 }
 
 export async function persistRoom({ context, roomId }: PersistRoomParams) {
-  const room = await findRoom({ context, roomId })
-  if (!room) {
-    return
+  try {
+    const room = await findRoom({ context, roomId })
+    if (!room) {
+      return
+    }
+    const keys = await getAllRoomDataKeys({ context, roomId })
+    await Promise.all(keys.map((k) => context.redis.pubClient.persist(k)))
+  } catch (e) {
+    console.log("ERROR FROM data/rooms/persistRoomKeys", roomId)
+    console.error(e)
   }
-  const keys = await getAllRoomDataKeys({ context, roomId })
-  await Promise.all(keys.map((k) => context.redis.pubClient.persist(k)))
 }
 
 type GetRoomOnlineUserIdsParams = {
@@ -670,8 +680,13 @@ type SetRoomLastEmptiedParams = {
  * Used to determine when to pause polling jobs.
  */
 export async function setRoomLastEmptied({ context, roomId }: SetRoomLastEmptiedParams) {
-  const key = `room:${roomId}:lastEmptied`
-  await context.redis.pubClient.set(key, Date.now().toString())
+  try {
+    const key = `room:${roomId}:lastEmptied`
+    await context.redis.pubClient.set(key, Date.now().toString())
+  } catch (e) {
+    console.log("ERROR FROM data/rooms/setRoomLastEmptied", roomId)
+    console.error(e)
+  }
 }
 
 type GetRoomLastEmptiedParams = {
@@ -701,8 +716,13 @@ type ClearRoomLastEmptiedParams = {
  * Clear the lastEmptied timestamp (called when a user joins the room).
  */
 export async function clearRoomLastEmptied({ context, roomId }: ClearRoomLastEmptiedParams) {
-  const key = `room:${roomId}:lastEmptied`
-  await context.redis.pubClient.del(key)
+  try {
+    const key = `room:${roomId}:lastEmptied`
+    await context.redis.pubClient.del(key)
+  } catch (e) {
+    console.log("ERROR FROM data/rooms/clearRoomLastEmptied", roomId)
+    console.error(e)
+  }
 }
 
 type IsRoomPollingPausedParams = {

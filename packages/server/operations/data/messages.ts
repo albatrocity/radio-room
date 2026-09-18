@@ -14,7 +14,7 @@ export async function persistMessage({
     const messageString = JSON.stringify(message)
     const key = `room:${roomId}:messages`
     const score = new Date(message.timestamp).getTime()
-    return context.redis.pubClient.zAdd(key, [{ score, value: messageString }])
+    return await context.redis.pubClient.zAdd(key, [{ score, value: messageString }])
   } catch (e) {
     console.log("ERROR FROM data/messages/persistMessage", roomId, message)
     console.error(e)
@@ -100,7 +100,7 @@ export async function clearMessages({ roomId, context }: { roomId: string; conte
   try {
     console.log("CLEARING MESSAGES", roomId)
     const roomKey = `room:${roomId}:messages`
-    return context.redis.pubClient.unlink(roomKey)
+    return await context.redis.pubClient.unlink(roomKey)
   } catch (e) {
     console.log("ERROR FROM data/messages/clearMessages", roomId)
     console.error(e)

@@ -10,7 +10,7 @@ export async function addAdmin({
   context: AppContext
 }) {
   try {
-    return context.redis.pubClient.sAdd(`room:${roomId}:admins`, userId)
+    return await context.redis.pubClient.sAdd(`room:${roomId}:admins`, userId)
   } catch (e) {
     console.log("ERROR FROM data/admins/addAdmin", roomId, userId)
     console.error(e)
@@ -29,7 +29,7 @@ export async function removeAdmin({
 }) {
   try {
     if (userId) {
-      return context.redis.pubClient.sRem(`room:${roomId}:admins`, userId)
+      return await context.redis.pubClient.sRem(`room:${roomId}:admins`, userId)
     }
     return null
   } catch (e) {
@@ -41,7 +41,7 @@ export async function removeAdmin({
 
 export async function getAdmins({ roomId, context }: { roomId: string; context: AppContext }) {
   try {
-    return context.redis.pubClient.sMembers(`room:${roomId}:admins`)
+    return await context.redis.pubClient.sMembers(`room:${roomId}:admins`)
   } catch (e) {
     console.log("ERROR FROM data/admins/getAdmins", roomId)
     console.error(e)
@@ -59,7 +59,7 @@ export async function isAdminMember({
   context: AppContext
 }) {
   try {
-    return context.redis.pubClient.sIsMember(`room:${roomId}:admins`, userId)
+    return await context.redis.pubClient.sIsMember(`room:${roomId}:admins`, userId)
   } catch (e) {
     console.log("ERROR FROM data/admins/isAdminMember", roomId)
     console.error(e)

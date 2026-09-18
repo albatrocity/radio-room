@@ -12,6 +12,8 @@ import {
   getUserRooms,
   deleteUser,
   expireUserIn,
+  persistUser,
+  addOnlineUser,
   getRoomUsers,
   isDj,
   addDj,
@@ -414,6 +416,62 @@ describe("AuthService", () => {
       expect(result.error).toBeNull()
       expect(result.newUser?.isDeputyDj).toBe(false)
       expect(addDj).not.toHaveBeenCalled()
+    })
+
+    test("returns 503 when Redis writes throw during login", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce(mockRoom)
+      vi.mocked(getUser).mockResolvedValueOnce(
+        userFactory.build({
+          userId: "user123",
+          username: "Homer",
+        }),
+      )
+      vi.mocked(persistUser).mockRejectedValueOnce(
+        new Error("OOM command not allowed when used memory > 'maxmemory'."),
+      )
+
+      const result = await authService.login({
+        incomingUserId: "user123",
+        incomingUsername: "Homer",
+        password: "secret",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result).toEqual({
+        error: {
+          message: "Could not join room. Please try again.",
+          status: 503,
+        },
+      })
+    })
+
+    test("returns 503 when adding the user to Redis fails", async () => {
+      vi.mocked(findRoom).mockResolvedValueOnce(mockRoom)
+      vi.mocked(getUser).mockResolvedValueOnce(
+        userFactory.build({
+          userId: "user123",
+          username: "Homer",
+        }),
+      )
+      vi.mocked(addOnlineUser).mockResolvedValueOnce(null)
+
+      const result = await authService.login({
+        incomingUserId: "user123",
+        incomingUsername: "Homer",
+        password: "secret",
+        roomId: "room123",
+        socketId: "socket123",
+        sessionUser: undefined,
+      })
+
+      expect(result).toEqual({
+        error: {
+          message: "Could not join room. Please try again.",
+          status: 503,
+        },
+      })
     })
   })
 

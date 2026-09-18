@@ -15,7 +15,7 @@ export async function addTrackToRoomPlaylist({
     const trackString = JSON.stringify(item)
     const key = `room:${roomId}:playlist`
     const score = item.addedAt ?? Date.now()
-    return context.redis.pubClient.zAdd(key, [{ score, value: trackString }])
+    return await context.redis.pubClient.zAdd(key, [{ score, value: trackString }])
   } catch (e) {
     console.log("ERROR FROM data/playlists/addTrackToRoomPlaylist", roomId, item)
     console.error(e)
@@ -101,7 +101,7 @@ export async function clearRoomPlaylist({ context, roomId }: ClearRoomPlaylistPa
   try {
     console.log("CLEARING Playlist", roomId)
     const roomKey = `room:${roomId}:playlist`
-    return context.redis.pubClient.unlink(roomKey)
+    return await context.redis.pubClient.unlink(roomKey)
   } catch (e) {
     console.log("ERROR FROM data/messages/clearMessages", roomId)
     console.error(e)

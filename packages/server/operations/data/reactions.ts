@@ -28,7 +28,7 @@ export async function addReaction({ context, roomId, reaction, reactTo }: AddRea
     const reactionSubjectKey = makeReactionSubjectKey(roomId, reaction.reactTo)
     await context.redis.pubClient.zAdd(reactionTypeKey, { score: Date.now(), value: key })
     await context.redis.pubClient.zAdd(reactionSubjectKey, { score: Date.now(), value: key })
-    return context.redis.pubClient.set(key, reactionString)
+    return await context.redis.pubClient.set(key, reactionString)
   } catch (e) {
     console.log("ERROR FROM data/reactions/addReaction", roomId, reaction, reactTo)
     console.error(e)
@@ -49,7 +49,7 @@ export async function removeReaction({ context, roomId, reaction, reactTo }: Rem
     const reactionSubjectKey = makeReactionSubjectKey(roomId, reaction.reactTo)
     await context.redis.pubClient.zRem(reactionTypeKey, key)
     await context.redis.pubClient.zRem(reactionSubjectKey, key)
-    return context.redis.pubClient.unlink(key)
+    return await context.redis.pubClient.unlink(key)
   } catch (e) {
     console.log("ERROR FROM data/reactions/removeReaction", roomId, reaction, reactTo)
     console.error(e)
