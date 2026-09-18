@@ -54,6 +54,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   envPrefix: "VITE_",
+  // ADR 0171: keyDetection.worker.ts dynamically imports MIR packages.
+  // Vite defaults worker.format to "iife", which cannot emit split chunks.
+  worker: {
+    format: "es",
+  },
   build: {
     outDir: "dist",
     sourcemap: mode !== "production",
