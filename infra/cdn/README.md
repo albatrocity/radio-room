@@ -9,12 +9,12 @@ Self-contained Terraform for the Listening Room **newsletter / static asset CDN*
 | Resource | Purpose |
 |----------|---------|
 | `aws_s3_bucket` (+ public access block, ownership) | Private object store |
-| `aws_s3_bucket_lifecycle_configuration` | Auto-delete `uploads/` prefix after 30 days (private music uploads) |
+| `aws_s3_bucket_lifecycle_configuration` | Auto-delete `uploads/` after 30 days; `media/rooms/` after 90 days (covers/previews under `media/covers/` and `media/previews/` do not expire) |
 | `aws_s3_bucket_cors_configuration` | Browser `PUT` (presigned uploads) + `GET`/`HEAD` from web app + scheduler origins |
 | `aws_cloudfront_response_headers_policy` | CORS on CDN responses so browsers can decode assets (Howler / fetch) |
 | `aws_acm_certificate` + validation | TLS for `cdn.<domain>` (must be **us-east-1**) |
 | `aws_cloudfront_origin_access_control` + `aws_cloudfront_distribution` | CDN in front of S3 |
-| `aws_s3_bucket_policy` | Allow CloudFront `GetObject` on `assets/*` and `newsletter/*` only (`uploads/*` is private) |
+| `aws_s3_bucket_policy` | Allow CloudFront `GetObject` on `assets/*`, `newsletter/*`, and `media/*` (`uploads/*` is private) |
 | `netlify_dns_record` × N | ACM validation CNAME(s) + `cdn` → CloudFront |
 | `aws_iam_user_policy` | `s3:PutObject` on the SES sender user |
 | `aws_s3_object` | Seeds `assets/logo.png` |

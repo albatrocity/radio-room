@@ -57,6 +57,8 @@ export class MusicUploadNotFoundError extends Error {
   }
 }
 
+import { getAssetBucket as readAssetBucket } from "../lib/assetEnv"
+
 export interface MusicUploadSession {
   uploadId: string
   roomId: string
@@ -66,11 +68,11 @@ export interface MusicUploadSession {
 }
 
 function getAssetBucket(): string {
-  const bucket = process.env.ASSET_S3_BUCKET?.trim()
-  if (!bucket) {
+  try {
+    return readAssetBucket()
+  } catch {
     throw new MusicUploadBadRequestError("ASSET_S3_BUCKET is not configured")
   }
-  return bucket
 }
 
 export function sanitizeUsernameSegment(username: string | undefined, userId: string): string {

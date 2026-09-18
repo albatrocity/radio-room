@@ -83,9 +83,12 @@ async function processAndStoreImage(params: {
   }
 
   const apiUrl = context.apiUrl || ""
+  const url =
+    ("url" in result && result.url) ||
+    `${apiUrl}/api/rooms/${roomId}/images/${result.imageId}`
   return {
     id: result.imageId,
-    url: `${apiUrl}/api/rooms/${roomId}/images/${result.imageId}`,
+    url,
   }
 }
 

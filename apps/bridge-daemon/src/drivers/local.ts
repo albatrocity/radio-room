@@ -683,7 +683,17 @@ export class LocalDriver implements Driver {
    */
   async getTrackPreview(
     trackId: string,
-  ): Promise<{ mimeType: "audio/mpeg"; data: string; durationMs: number }> {
+  ): Promise<{
+    mimeType: "audio/mpeg"
+    data: string
+    durationMs: number
+    title?: string
+    artist?: string
+    album?: string
+    discNumber?: number
+    trackNumber?: number
+    trackDurationMs?: number
+  }> {
     await assertFfmpegAvailable()
     const id = trackId.trim()
     if (!this.navidrome.username || !id) {
@@ -703,11 +713,21 @@ export class LocalDriver implements Driver {
       )
     }
     const durationSec = song.duration ?? 0
-    return encodeTrackPreviewClip({
+    const clip = await encodeTrackPreviewClip({
       trackId: id,
       input,
       durationSec: durationSec > 0 ? durationSec : 15,
     })
+    const artistTitle = isPlaceholderArtist(song.artist) ? "" : String(song.artist ?? "").trim()
+    return {
+      ...clip,
+      title: resolveLocalDisplayTitle(song),
+      ...(artistTitle ? { artist: artistTitle } : {}),
+      ...(song.album ? { album: String(song.album) } : {}),
+      discNumber: song.discNumber ?? 0,
+      trackNumber: song.track ?? 0,
+      trackDurationMs: (song.duration ?? 0) * 1000,
+    }
   }
 
   async findById(

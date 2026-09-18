@@ -48,6 +48,12 @@ export class MediaBridgeService {
       if (!result.ok) {
         return { success: false as const, message: result.error }
       }
+      const { setBridgeDaemonId } = await import("../operations/bridge/bridgeDaemonId")
+      await setBridgeDaemonId({
+        context: this.context,
+        roomId,
+        daemonId: result.daemonId,
+      })
       try {
         let services: string[] | undefined
         try {

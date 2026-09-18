@@ -1,7 +1,7 @@
 # 0099. Physical Media personal libraries
 
 **Date:** 2026-08-17
-**Status:** Partially superseded by [0155](0155-physical-media-condition-wear-and-conversion.md) (§3 durable-but-wearing; §11 frames resolved from format + condition)
+**Status:** Partially superseded by [0155](0155-physical-media-condition-wear-and-conversion.md) (§3 durable-but-wearing; §11 frames resolved from format + condition). §8 cover re-hosting in the room Redis image store partially superseded by [0186](0186-redis-coordination-s3-media.md) (S3 + CDN URLs; Redis pointers only).
 
 ## Context
 

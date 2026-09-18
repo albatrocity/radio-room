@@ -1,63 +1,74 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
-import { appContextFactory, metadataSourceTrackFactory } from "@repo/factories"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { AppContext, MetadataSourceTrack } from "@repo/types"
 
-vi.mock("../data", () => ({
-  storeImage: vi.fn(),
+const ensureCoverObject = vi.hoisted(() =>
+  vi.fn(async () => ({
+    url: "https://cdn.example/media/covers/v1/abc/sm.jpg",
+    contentHash: "abc",
+    uploaded: true,
+  })),
+)
+const resolveMediaLibraryId = vi.hoisted(() => vi.fn(async () => "daemon-1"))
+
+vi.mock("../bridge/bridgeDaemonId", () => ({
+  resolveMediaLibraryId,
 }))
 
-import { storeImage } from "../data"
+vi.mock("../../services/MediaObjectCache", () => ({
+  ensureCoverObject,
+}))
+
 import { rewriteLocalTrackImages } from "./rewriteLocalTrackImages"
 
-const DATA_URI = "data:image/jpeg;base64,abc123"
-
 describe("rewriteLocalTrackImages", () => {
+  const context = { apiUrl: "https://api.example" } as AppContext
+
   beforeEach(() => {
-    vi.mocked(storeImage).mockReset()
-    vi.mocked(storeImage).mockResolvedValue({ success: true, imageId: "qimg-test" })
+    vi.clearAllMocks()
   })
 
-  it("is a no-op when there are no data URIs", async () => {
-    const context = appContextFactory.build()
-    context.apiUrl = "https://api.example"
-    const track = metadataSourceTrackFactory.build({
-      images: [{ type: "image", url: "https://i.scdn.co/img.png", id: "a" }],
-      album: {
-        ...metadataSourceTrackFactory.build().album,
-        images: [{ type: "image", url: "https://i.scdn.co/album.png", id: "b" }],
-      },
-    })
-
+  it("leaves https thumbs alone", async () => {
+    const track = {
+      images: [{ type: "image", url: "https://cdn.example/a.jpg", id: "1" }],
+      album: { images: [{ type: "image", url: "https://cdn.example/b.jpg", id: "2" }] },
+    } as MetadataSourceTrack
     const result = await rewriteLocalTrackImages({ context, roomId: "room-1", track })
+    expect(ensureCoverObject).not.toHaveBeenCalled()
     expect(result).toBe(track)
-    expect(storeImage).not.toHaveBeenCalled()
   })
 
-  it("rehosts data URIs onto the room image store", async () => {
-    const context = appContextFactory.build()
-    context.apiUrl = "https://api.example"
-    const track = metadataSourceTrackFactory.build({
+  it("uploads data URIs to S3 and rewrites URLs", async () => {
+    const track = {
       images: [],
       album: {
-        ...metadataSourceTrackFactory.build().album,
-        images: [{ type: "image", url: DATA_URI, id: "al1" }],
+        images: [
+          {
+            type: "image",
+            url: "data:image/jpeg;base64,YWJj",
+            id: "1",
+          },
+        ],
       },
-    })
-
+    } as unknown as MetadataSourceTrack
     const result = await rewriteLocalTrackImages({ context, roomId: "room-1", track })
-    expect(storeImage).toHaveBeenCalledTimes(1)
-    expect(result.album.images[0]?.url).toMatch(
-      /^https:\/\/api\.example\/api\/rooms\/room-1\/images\/qimg-[0-9a-f]{12}$/,
+    expect(ensureCoverObject).toHaveBeenCalledTimes(1)
+    expect(result.album.images[0]?.url).toBe(
+      "https://cdn.example/media/covers/v1/abc/sm.jpg",
     )
-    expect(result.album.images[0]?.url).not.toContain("data:")
   })
 
-  it("drops data URIs when storeImage fails", async () => {
-    vi.mocked(storeImage).mockResolvedValue({ success: false, error: new Error("nope") })
-    const context = appContextFactory.build()
-    const track = metadataSourceTrackFactory.build({
-      images: [{ type: "image", url: DATA_URI, id: "t1" }],
-    })
-
+  it("drops data URIs when S3 upload fails", async () => {
+    ensureCoverObject.mockRejectedValueOnce(new Error("nope"))
+    const track = {
+      images: [
+        {
+          type: "image",
+          url: "data:image/jpeg;base64,YWJj",
+          id: "1",
+        },
+      ],
+      album: { images: [] },
+    } as unknown as MetadataSourceTrack
     const result = await rewriteLocalTrackImages({ context, roomId: "room-1", track })
     expect(result.images).toEqual([])
   })

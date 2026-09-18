@@ -1,12 +1,17 @@
 import { createHash } from "node:crypto"
 import { AppContext } from "@repo/types"
 import generateId from "../../lib/generateId"
+import {
+  assertRedisValueSize,
+  REDIS_POINTER_MAX_BYTES,
+  RedisValueTooLargeError,
+} from "../../lib/assertRedisValueSize"
 
 /**
- * Image storage operations for chat images.
- * Images are stored as base64 strings in Redis, namespaced under rooms.
+ * Room image storage (ADR 0186): bytes live in S3 under media/rooms/;
+ * Redis holds URL pointers (and legacy base64 during cutover).
  * Key pattern: room:{roomId}:images:{imageId}
- * Index set: room:{roomId}:image-ids (tracks all image IDs for cleanup)
+ * Index set: room:{roomId}:image-ids
  * Content dedup: room:{roomId}:image-content:{sha256} -> imageId
  */
 
@@ -29,20 +34,21 @@ function imageContentKey(roomId: string, contentHash: string) {
 type StoreImageParams = {
   roomId: string
   imageId: string
-  base64Data: string
+  base64Data?: string
+  url?: string
   mimeType: string
   contentHash?: string
   context: AppContext
 }
 
 /**
- * Store an image in Redis.
- * Also adds the imageId to a set for tracking (enables bulk deletion).
+ * Store an image record in Redis (URL pointer preferred; base64 legacy only).
  */
 export async function storeImage({
   roomId,
   imageId,
   base64Data,
+  url,
   mimeType,
   contentHash,
   context,
@@ -52,8 +58,16 @@ export async function storeImage({
     const indexKey = imageIdsIndexKey(roomId)
 
     const fields: Record<string, string> = {
-      data: base64Data,
       mimeType,
+    }
+    if (url) {
+      assertRedisValueSize(`storeImage:${imageId}:url`, url, REDIS_POINTER_MAX_BYTES)
+      fields.url = url
+    } else if (base64Data) {
+      assertRedisValueSize(`storeImage:${imageId}`, base64Data)
+      fields.data = base64Data
+    } else {
+      throw new Error("storeImage requires url or base64Data")
     }
     if (contentHash) {
       fields.contentHash = contentHash
@@ -64,6 +78,10 @@ export async function storeImage({
 
     return { success: true as const, imageId }
   } catch (e) {
+    if (e instanceof RedisValueTooLargeError) {
+      console.error("ERROR FROM data/images/storeImage", roomId, imageId, e.message)
+      return { success: false as const, error: e }
+    }
     console.error("ERROR FROM data/images/storeImage", roomId, imageId, e)
     return { success: false as const, error: e }
   }
@@ -77,7 +95,7 @@ type StoreDedupedRoomImageParams = {
 }
 
 /**
- * Store processed image bytes, reusing an existing room image when content matches.
+ * Store processed image bytes in S3; Redis keeps URL + content-hash dedup.
  */
 export async function storeDedupedRoomImage({
   roomId,
@@ -92,17 +110,30 @@ export async function storeDedupedRoomImage({
     const existingId = await context.redis.pubClient.get(dedupKey)
     if (existingId) {
       const existing = await getImage({ roomId, imageId: existingId, context })
-      if (existing) {
-        return { success: true as const, imageId: existingId, cached: true as const }
+      if (existing && (existing.url || existing.data)) {
+        return {
+          success: true as const,
+          imageId: existingId,
+          cached: true as const,
+          url: existing.url,
+        }
       }
       await context.redis.pubClient.unlink(dedupKey)
     }
+
+    const { ensureRoomImageObject } = await import("../../services/MediaObjectCache")
+    const uploaded = await ensureRoomImageObject({
+      context,
+      roomId,
+      buffer,
+      mimeType,
+    })
 
     const imageId = generateId()
     const stored = await storeImage({
       roomId,
       imageId,
-      base64Data: buffer.toString("base64"),
+      url: uploaded.url,
       mimeType,
       contentHash,
       context,
@@ -113,7 +144,12 @@ export async function storeDedupedRoomImage({
     }
 
     await context.redis.pubClient.set(dedupKey, imageId)
-    return { success: true as const, imageId, cached: false as const }
+    return {
+      success: true as const,
+      imageId,
+      cached: false as const,
+      url: uploaded.url,
+    }
   } catch (e) {
     console.error("ERROR FROM data/images/storeDedupedRoomImage", roomId, e)
     return { success: false as const, error: e }
@@ -127,25 +163,26 @@ type GetImageParams = {
 }
 
 type ImageData = {
-  data: string
+  data?: string
+  url?: string
   mimeType: string
 } | null
 
 /**
- * Retrieve an image from Redis.
- * Returns the base64 data and mimeType, or null if not found.
+ * Retrieve an image record from Redis (CDN URL or legacy base64).
  */
 export async function getImage({ roomId, imageId, context }: GetImageParams): Promise<ImageData> {
   try {
     const key = imageKey(roomId, imageId)
     const result = await context.redis.pubClient.hGetAll(key)
 
-    if (!result || !result.data) {
+    if (!result || (!result.data && !result.url)) {
       return null
     }
 
     return {
-      data: result.data,
+      ...(result.url ? { url: result.url } : {}),
+      ...(result.data ? { data: result.data } : {}),
       mimeType: result.mimeType || "image/jpeg",
     }
   } catch (e) {
@@ -160,8 +197,7 @@ type DeleteRoomImagesParams = {
 }
 
 /**
- * Delete all images for a room.
- * Uses the image-ids set to find and delete all image keys.
+ * Delete all image Redis records for a room (S3 objects rely on lifecycle).
  */
 export async function deleteRoomImages({ roomId, context }: DeleteRoomImagesParams) {
   try {

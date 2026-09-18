@@ -1,7 +1,7 @@
 # 0103. Physical Media Track Previews
 
 **Date:** 2026-08-19
-**Status:** Accepted
+**Status:** Partially superseded by [0186](0186-redis-coordination-s3-media.md) (§1 Redis blob cache and §4 clip URL serving — bytes live in S3; Redis holds URL pointers)
 
 ## Context
 

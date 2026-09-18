@@ -109,6 +109,10 @@ Flag (only what the boundary touches):
 | Work in handlers that belongs in operations, or sync heavy work on the socket turn | Head-of-line blocking for that connection / event loop stall |
 | Per-user Redis round-trips in a loop (N+1) | Latency × online users |
 | Unbounded `KEYS`, full-set scans, or loading entire collections when a slice/id set would do | Redis CPU + memory spikes |
+| **File bytes / base64 / `data:` URIs stored in Redis** (covers, previews, chat images, any blob **> 8KB**) | Fills `maxmemory`; with `noeviction` every write OOMs and can kill the dyno mid-show ([ADR 0186](docs/adrs/0186-redis-coordination-s3-media.md)) |
+| **Blob or cache keys with no TTL**, or `persistRoom` / admin join `PERSIST`ing cache keys under `room:{id}:*` | `volatile-lru` cannot reclaim them; memory only grows |
+| **Keyspaces that grow with catalog size** (albums × cover variants) or unbounded history written on join / hydrate / browse | Stampede + OOM under reconnect or library refresh |
+| **Large payloads over Redis pub/sub in a batch** (e.g. cover hydration) | `client-output-buffer-limit pubsub` pressure — not keyspace, still show-risk |
 | Large payloads broadcast to the room on high-frequency events | Bandwidth × concurrent listeners |
 | Re-broadcasting full snapshots where a delta would do | Same |
 | Room-wide emit for data only one user needs | Wasted fanout |
@@ -116,6 +120,8 @@ Flag (only what the boundary touches):
 | Timers / intervals per user or per socket without clear teardown | Leak under reconnect churn |
 | Serializing huge objects (full room + playlist + users) on every minor change | CPU + GC on api process |
 | Plugin storage read/write on every event without coalescing | Redis + plugin CPU under chat/reactions load |
+
+**Redis memory default:** Redis stays for room ops and small TTL'd URL pointers. Binaries go to S3 / asset CDN ([ADR 0186](docs/adrs/0186-redis-coordination-s3-media.md)). Prefer content-addressed object keys + Redis pointers outside the `room:` persist sweep. **P0** if a write path can OOM a live show.
 
 ### 3. Plugins / adapters / media
 
@@ -126,6 +132,8 @@ Flag when in boundary:
 - Adapter polling or metadata refresh tighter than needed; stampeding on reconnect
 - Bridge / daemon RPC on a hot interactive path without timeout/backoff
 - Grant/list metadata source calls inside tight loops
+- **Cover / preview / chat image writers that put base64 in Redis** instead of S3 + CDN URL — especially hydrate-on-reconnect paths that re-RPC when a pointer would suffice
+- Batched daemon RPCs that ferry large binary payloads over Redis pub/sub without bounds
 
 ### 4. Client (web)
 

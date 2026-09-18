@@ -60,6 +60,7 @@ resource "aws_s3_bucket_cors_configuration" "assets" {
 }
 
 # Private music uploads (presigned PUT from web app; not served via CloudFront)
+# Room-scoped chat/artwork under media/rooms/ expires; library covers/previews do not.
 resource "aws_s3_bucket_lifecycle_configuration" "assets" {
   bucket = aws_s3_bucket.assets.id
 
@@ -73,6 +74,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "assets" {
 
     expiration {
       days = 30
+    }
+  }
+
+  rule {
+    id     = "expire-media-rooms-after-90-days"
+    status = "Enabled"
+
+    filter {
+      prefix = "media/rooms/"
+    }
+
+    expiration {
+      days = 90
     }
   }
 }
@@ -224,6 +238,18 @@ resource "aws_s3_bucket_policy" "assets" {
           }
         }
       },
+      {
+        Sid       = "AllowCloudFrontServicePrincipalReadMedia"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.assets.arn}/media/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.assets.arn
+          }
+        }
+      },
     ]
   })
 
@@ -264,6 +290,12 @@ resource "aws_iam_user_policy" "sender_s3_put" {
         Effect   = "Allow"
         Action   = ["s3:PutObject"]
         Resource = "${aws_s3_bucket.assets.arn}/*"
+      },
+      {
+        Sid      = "GetMediaObjects"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "${aws_s3_bucket.assets.arn}/media/*"
       },
     ]
   })

@@ -7,6 +7,10 @@ import type {
 } from "@repo/types"
 import { NewsletterBadRequestError } from "./NewsletterService"
 import { getAssetS3Client, sanitizeFilename } from "../lib/s3Presign"
+import {
+  getAssetBucket as readAssetBucket,
+  getAssetCdnBaseUrl as readAssetCdnBaseUrl,
+} from "../lib/assetEnv"
 
 const PRESIGN_EXPIRES_SECONDS = 15 * 60
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -16,20 +20,20 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/webp",
 ])
 
-function getAssetBucket(): string {
-  const bucket = process.env.ASSET_S3_BUCKET?.trim()
-  if (!bucket) {
+function requireAssetBucket(): string {
+  try {
+    return readAssetBucket()
+  } catch {
     throw new NewsletterBadRequestError("ASSET_S3_BUCKET is not configured")
   }
-  return bucket
 }
 
-function getAssetCdnBaseUrl(): string {
-  const base = process.env.ASSET_CDN_BASE_URL?.trim()
-  if (!base) {
+function requireAssetCdnBaseUrl(): string {
+  try {
+    return readAssetCdnBaseUrl()
+  } catch {
     throw new NewsletterBadRequestError("ASSET_CDN_BASE_URL is not configured")
   }
-  return base.replace(/\/$/, "")
 }
 
 function assertImageContentType(contentType: string): void {
@@ -60,8 +64,8 @@ export async function createPresignedUpload(
   }
   assertImageContentType(contentType)
 
-  const bucket = getAssetBucket()
-  const cdnBase = getAssetCdnBaseUrl()
+  const bucket = requireAssetBucket()
+  const cdnBase = requireAssetCdnBaseUrl()
   const key = `newsletter/${randomUUID()}/${randomUUID()}-${sanitizeFilename(filename, "image")}`
 
   const command = new PutObjectCommand({

@@ -1,6 +1,4 @@
-import { createHash } from "node:crypto"
 import type { AppContext, MetadataSourceTrack, MetadataSourceUrl } from "@repo/types"
-import { storeImage } from "../data"
 
 function parseDataUri(dataUri: string): { mimeType: string; base64Data: string } | null {
   const match = /^data:([^;,]+);base64,(.+)$/.exec(dataUri)
@@ -12,11 +10,6 @@ function isDataImageUrl(url: string): boolean {
   return url.startsWith("data:image")
 }
 
-function contentImageId(base64Data: string): string {
-  const hash = createHash("md5").update(base64Data).digest("hex").slice(0, 12)
-  return `qimg-${hash}`
-}
-
 async function rewriteImageUrl(params: {
   context: AppContext
   roomId: string
@@ -25,20 +18,26 @@ async function rewriteImageUrl(params: {
   if (!isDataImageUrl(params.image.url)) return params.image
   const parsed = parseDataUri(params.image.url)
   if (!parsed) return null
-  const apiUrl = params.context.apiUrl || ""
   try {
-    const imageId = contentImageId(parsed.base64Data)
-    const stored = await storeImage({
+    const { resolveMediaLibraryId } = await import("../bridge/bridgeDaemonId")
+    const { hashCoverBytes } = await import("../../services/mediaFingerprint")
+    const { ensureCoverObject } = await import("../../services/MediaObjectCache")
+    const libraryId = await resolveMediaLibraryId({
+      context: params.context,
       roomId: params.roomId,
-      imageId,
+    })
+    const contentHash = hashCoverBytes(parsed.base64Data)
+    const { url } = await ensureCoverObject({
+      context: params.context,
+      libraryId,
+      identityHash: contentHash,
+      variant: "sm",
       base64Data: parsed.base64Data,
       mimeType: parsed.mimeType,
-      context: params.context,
     })
-    if (!stored.success) return null
     return {
       ...params.image,
-      url: `${apiUrl}/api/rooms/${params.roomId}/images/${imageId}`,
+      url,
     }
   } catch {
     return null
@@ -59,9 +58,9 @@ async function rewriteImageList(params: {
 }
 
 /**
- * Re-host Local `data:` cover URIs onto the room image store before queue persist
- * so Redis blobs and QUEUE_CHANGED stay comparable to Spotify HTTPS thumbs.
- * Fail open: drop images that cannot be stored rather than blocking the queue.
+ * Re-host Local `data:` cover URIs onto content-addressed S3 (ADR 0186)
+ * so queue items never carry Redis blobs. Fail open: drop images that cannot
+ * be stored rather than blocking the queue.
  */
 export async function rewriteLocalTrackImages(params: {
   context: AppContext

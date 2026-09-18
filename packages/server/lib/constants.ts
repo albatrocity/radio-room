@@ -12,6 +12,8 @@ export const THREE_HOURS = 1000 * 60 * 60 * 3;
 export const ONE_DAY = 1000 * 60 * 60 * 24;
 export const THREE_DAYS = 1000 * 60 * 60 * 24 * 3;
 export const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
+/** Express/connect-redis session cookie + Redis TTL (ADR 0186). */
+export const SESSION_MAX_AGE = ONE_DAY * 90;
 
 export const FIFTEEN_MINUTES = 1000 * 60 * 15;
 

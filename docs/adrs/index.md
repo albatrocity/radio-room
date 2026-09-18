@@ -104,11 +104,11 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0096](0096-playlist-bingo-per-user-cards.md) | Playlist Bingo per-user cards via GET_MY_GAME_STATE | Partially superseded by [0097](0097-plugin-contribute-to-user-game-state.md) |
 | [0097](0097-plugin-contribute-to-user-game-state.md) | Plugin `contributeToUserGameState` for private per-user payloads | Partially superseded by [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) |
 | [0098](0098-inventory-scoped-local-library-catalog-filters.md) | Inventory-scoped Local library catalog filters (playlist shelves) | Partially superseded by [0099](0099-physical-media-personal-libraries.md) |
-| [0099](0099-physical-media-personal-libraries.md) | Physical Media personal libraries (derived items, Record Store, myMedia) | Partially superseded by [0155](0155-physical-media-condition-wear-and-conversion.md) (§3 wear, §11 resolved frames) |
+| [0099](0099-physical-media-personal-libraries.md) | Physical Media personal libraries (derived items, Record Store, myMedia) | Partially superseded by [0155](0155-physical-media-condition-wear-and-conversion.md) (§3 wear, §11 resolved frames); §8 storage by [0186](0186-redis-coordination-s3-media.md) |
 | [0100](0100-dual-inventory-slot-pools.md) | Dual inventory slot pools (`inventory` vs `collection`) | Accepted (amended by [0160](0160-playback-device-gating.md) — third `"playback"` pool) |
 | [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) | Queue-add undo: cancel held picks and restore Round Robin turns | Accepted |
 | [0102](0102-handwritten-disc-label-for-coverless-jewel-cases.md) | Handwritten disc label for coverless jewel cases | Accepted |
-| [0103](0103-physical-media-track-previews.md) | Physical Media track previews (ffmpeg RPC, Redis cache, client ducking) | Accepted |
+| [0103](0103-physical-media-track-previews.md) | Physical Media track previews (ffmpeg RPC, Redis cache, client ducking) | Partially superseded by [0186](0186-redis-coordination-s3-media.md) (S3 storage) |
 | [0104](0104-game-state-item-detail-subroute.md) | Game State item detail subroute (`detailView`, per-tab stack) | Accepted (point 1 superseded by [0106](0106-game-state-nav-machine.md); list Details chrome superseded by [0126](0126-collection-row-opens-item-detail.md) / [0127](0127-shared-item-detail-list-row.md)) |
 | [0105](0105-add-to-queue-ui-session-persistence.md) | Add to Queue UI session persistence (mode, source, browse location) | Accepted |
 | [0106](0106-game-state-nav-machine.md) | Game State nav stack in a machine (tab + detail frames, preview teardown) | Partially superseded by [0130](0130-game-state-overlay-lifecycle-in-machines.md) |
@@ -139,7 +139,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0131](0131-trade-complete-inventory-toast.md) | Completed-trade toast; Inventory nav only if viewing the session | Partially superseded by [0144](0144-client-notification-center.md) |
 | [0132](0132-spotify-sdk-playback-error-lease-renewal.md) | Spotify SDK `playback_error` reconnects the device and reattaches playback | Accepted |
 | [0133](0133-stored-artifacts-once-per-session.md) | Stored artifacts fetched once per game session (`userGameStateMachine`) | Accepted |
-| [0134](0134-chat-image-server-processing.md) | Chat image server-side resize, compress, and EXIF strip | Accepted |
+| [0134](0134-chat-image-server-processing.md) | Chat image server-side resize, compress, and EXIF strip | Partially superseded by [0186](0186-redis-coordination-s3-media.md) (S3 storage) |
 | [0135](0135-quick-access-read-only-status.md) | Quick Access read-only status fields (`quickAccessStatus`) | Accepted |
 | [0136](0136-inventory-owned-client-visuals.md) | Inventory-owned client visuals (lazy web FX + room-type shop SKUs) | Accepted (radio Web Audio analysis superseded by [0140](0140-radio-element-playback-oscilloscope-tabled.md); MSE analysis tap in [0141](0141-radio-mse-transport-and-oscilloscope.md)) |
 | [0137](0137-radio-stream-player-web-audio.md) | Radio stream player: Web Audio MPEG decode (no Howler) | Superseded by [0140](0140-radio-element-playback-oscilloscope-tabled.md) |
@@ -191,6 +191,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0183](0183-item-use-cross-shop-state-access.md) | Item-use handlers reach shop state through `shopAccess` | Accepted |
 | [0184](0184-short-lived-stash-access-grants.md) | Short-lived stash access grants (password-free retrieve) | Accepted |
 | [0185](0185-lock-picking-items-and-crack-resolution.md) | Lock-picking items and the crack-resolution seam | Accepted |
+| [0186](0186-redis-coordination-s3-media.md) | Redis coordination and content-addressed S3 media | Accepted |
 
 ## Creating a New ADR
 

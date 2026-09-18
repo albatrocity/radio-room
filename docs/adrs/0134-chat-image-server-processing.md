@@ -1,7 +1,7 @@
 # 0134. Chat image server-side resize, compress, and EXIF strip
 
 **Date:** 2026-08-31
-**Status:** Accepted
+**Status:** Partially superseded by [0186](0186-redis-coordination-s3-media.md) (processed bytes are stored in S3 under `media/rooms/`; Redis is not the blob store)
 
 ## Context
 

@@ -1,11 +1,10 @@
-import type { AppContext, TaggedMetadataSourceTrack } from "@repo/types"
+import type { AppContext, MetadataSourceTrack, TaggedMetadataSourceTrack } from "@repo/types"
 import generateId from "../../lib/generateId"
 import {
-  getCachedTrackPreview,
   getInFlightPreviewGeneration,
   getInFlightPreviewKey,
   setInFlightPreviewGeneration,
-  storeTrackPreview,
+  storePreviewIdRedirect,
   type TrackPreviewGenerationResult,
 } from "../data/trackPreviews"
 import { BRIDGE_UNREACHABLE_MESSAGE, fetchResolvedMediaItemTracks } from "./mediaItemTracks"
@@ -117,7 +116,7 @@ async function authorizeMediaItemTrackPreview(params: {
   userId: string
   mediaKey: string
   trackId: string
-}): Promise<{ ok: true } | BrowseFailure> {
+}): Promise<{ ok: true; track: MetadataSourceTrack } | BrowseFailure> {
   const { context, roomId, userId, mediaKey, trackId } = params
   const resolved = context.pluginRegistry?.resolvePreviewableMediaItem
     ? await context.pluginRegistry.resolvePreviewableMediaItem({ roomId, userId, mediaKey })
@@ -137,11 +136,47 @@ async function authorizeMediaItemTrackPreview(params: {
   })
   if (!listed.ok) return listed
 
-  const onItem = listed.tracks.some((t) => t.id === trackId)
-  if (!onItem) {
+  const track = listed.tracks.find((t) => t.id === trackId)
+  if (!track) {
     return { ok: false, message: "You can't preview that track" }
   }
-  return { ok: true }
+  return { ok: true, track }
+}
+
+function trackFromPreviewMeta(meta: {
+  title?: string
+  artist?: string
+  album?: string
+  discNumber?: number
+  trackNumber?: number
+  trackDurationMs?: number
+}): MetadataSourceTrack | null {
+  if (!meta.title) return null
+  return {
+    id: "",
+    title: meta.title,
+    urls: [],
+    artists: meta.artist
+      ? [{ id: "", title: meta.artist, urls: [] }]
+      : [],
+    album: {
+      id: "",
+      title: meta.album ?? "",
+      urls: [],
+      artists: [],
+      releaseDate: "",
+      releaseDatePrecision: "year",
+      totalTracks: 0,
+      label: "",
+      images: [],
+    },
+    duration: meta.trackDurationMs ?? 0,
+    explicit: false,
+    trackNumber: meta.trackNumber ?? 0,
+    discNumber: meta.discNumber ?? 0,
+    popularity: 0,
+    images: [],
+  }
 }
 
 export async function getTrackPreview(params: {
@@ -161,6 +196,7 @@ export async function getTrackPreview(params: {
     return { ok: false, message: "trackId is required" }
   }
 
+  let knownTrack: MetadataSourceTrack | undefined
   const mediaKey = params.mediaKey?.trim()
   if (mediaKey) {
     const auth = await authorizeMediaItemTrackPreview({
@@ -171,6 +207,7 @@ export async function getTrackPreview(params: {
       trackId: id,
     })
     if (!auth.ok) return auth
+    knownTrack = auth.track
   } else if (params.source === "local" || !params.source) {
     const auth = await authorizeLocalCatalogPreview({ context, roomId, userId, trackId: id })
     if (!auth.ok) return auth
@@ -178,20 +215,48 @@ export async function getTrackPreview(params: {
     return { ok: false, message: "Previews are only available for Local tracks" }
   }
 
-  const cached = await getCachedTrackPreview({ context, roomId, trackId: id })
-  if (cached) {
+  const { fingerprintTrack } = await import("../../services/mediaFingerprint")
+  const { resolveMediaLibraryId } = await import("../bridge/bridgeDaemonId")
+  const {
+    getPreviewPointer,
+    headPreviewByFingerprint,
+    ensurePreviewObject,
+  } = await import("../../services/MediaObjectCache")
+
+  const libraryId = await resolveMediaLibraryId({ context, roomId })
+  const fingerprintHash = knownTrack ? fingerprintTrack(knownTrack) : null
+
+  const pointerHit = await getPreviewPointer({
+    context,
+    fingerprintHash,
+    libraryId,
+    trackId: id,
+  })
+  if (pointerHit) {
     return {
       ok: true,
-      url: `/api/rooms/${roomId}/track-previews/${cached.previewId}`,
-      durationMs: 15000,
+      url: pointerHit.url,
+      durationMs: pointerHit.durationMs,
       cached: true,
+    }
+  }
+
+  if (fingerprintHash) {
+    const s3Hit = await headPreviewByFingerprint({ context, fingerprintHash })
+    if (s3Hit) {
+      return {
+        ok: true,
+        url: s3Hit.url,
+        durationMs: s3Hit.durationMs,
+        cached: true,
+      }
     }
   }
 
   const inflightKey = getInFlightPreviewKey(roomId, id)
   const inflight = getInFlightPreviewGeneration(inflightKey)
   if (inflight) {
-    return await previewResultFromGeneration(roomId, inflight, true)
+    return await previewResultFromGeneration(inflight, true)
   }
 
   const generation = (async (): Promise<TrackPreviewGenerationResult> => {
@@ -205,19 +270,34 @@ export async function getTrackPreview(params: {
       if (!clip.ok) {
         return { ok: false, message: clip.error || BRIDGE_UNREACHABLE_MESSAGE }
       }
-      const previewId = generateId()
-      const stored = await storeTrackPreview({
+
+      let fp = fingerprintHash
+      if (!fp && clip.meta) {
+        const fromMeta = trackFromPreviewMeta(clip.meta)
+        if (fromMeta) fp = fingerprintTrack(fromMeta)
+      }
+
+      const stored = await ensurePreviewObject({
         context,
-        roomId,
+        fingerprintHash: fp,
+        libraryId,
         trackId: id,
-        previewId,
         base64Data: clip.data,
         mimeType: clip.mimeType,
+        durationMs: clip.durationMs,
       })
-      if (!stored.success) {
-        return { ok: false, message: "Failed to store track preview" }
-      }
-      return { ok: true, previewId, durationMs: clip.durationMs }
+
+      const previewId = generateId()
+      await storePreviewIdRedirect({
+        context,
+        roomId,
+        previewId,
+        trackId: id,
+        url: stored.url,
+        mimeType: clip.mimeType,
+      })
+
+      return { ok: true, url: stored.url, durationMs: clip.durationMs, previewId }
     } catch (error: unknown) {
       const message =
         error instanceof Error && error.message
@@ -228,11 +308,10 @@ export async function getTrackPreview(params: {
   })()
 
   setInFlightPreviewGeneration(inflightKey, generation)
-  return await previewResultFromGeneration(roomId, generation, false)
+  return await previewResultFromGeneration(generation, false)
 }
 
 async function previewResultFromGeneration(
-  roomId: string,
   generation: Promise<TrackPreviewGenerationResult>,
   cached: boolean,
 ): Promise<
@@ -244,7 +323,7 @@ async function previewResultFromGeneration(
     if (!result.ok) return result
     return {
       ok: true,
-      url: `/api/rooms/${roomId}/track-previews/${result.previewId}`,
+      url: result.url,
       durationMs: result.durationMs,
       cached,
     }

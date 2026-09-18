@@ -18,6 +18,7 @@ import { createAppContext, initializeRedisContext } from "./lib/context"
 import { createContextMiddleware } from "./lib/contextMiddleware"
 import { createRedisSimpleCache } from "./lib/redisSimpleCache"
 import { JobService } from "./services/JobService"
+import { SESSION_MAX_AGE } from "./lib/constants"
 
 import { bindPubSubHandlers } from "./pubSub/handlers"
 import {
@@ -146,7 +147,7 @@ export class RadioRoomServer {
       saveUninitialized: false, // recommended: only save session when data exists
       proxy: true,
       cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 365, // 1 year
+        maxAge: SESSION_MAX_AGE, // 90 days — Redis memory; guest userId lives in localStorage (ADR 0058)
         secure: config.ENVIRONMENT === "production",
         httpOnly: false,
         // Don't set domain for loopback addresses (127.0.0.1) - let browser handle it
@@ -253,14 +254,20 @@ export class RadioRoomServer {
           return res.status(404).json({ error: "Image not found" })
         }
 
-        // Convert base64 to buffer
+        // ADR 0186: prefer CDN redirect; serve legacy Redis blobs during cutover
+        if (imageData.url) {
+          return res.redirect(302, imageData.url)
+        }
+        if (!imageData.data) {
+          return res.status(404).json({ error: "Image not found" })
+        }
+
         const buffer = Buffer.from(imageData.data, "base64")
 
-        // Set appropriate headers
         res.set({
           "Content-Type": imageData.mimeType,
           "Content-Length": buffer.length,
-          "Cache-Control": "public, max-age=31536000", // Cache for 1 year
+          "Cache-Control": "public, max-age=31536000",
         })
 
         return res.send(buffer)
@@ -272,6 +279,13 @@ export class RadioRoomServer {
         const previewData = await getTrackPreviewByPreviewId({ roomId, previewId, context })
 
         if (!previewData) {
+          return res.status(404).json({ error: "Preview not found" })
+        }
+
+        if (previewData.url) {
+          return res.redirect(302, previewData.url)
+        }
+        if (!previewData.data) {
           return res.status(404).json({ error: "Preview not found" })
         }
 
@@ -477,6 +491,18 @@ export class RadioRoomServer {
     }
     this.context.jobs.push(newsletterJob)
     console.log("Registered system job: newsletter-scheduled")
+
+    const redisMemoryJobHandler = (await import("./jobs/redisMemory/index")).default
+    const redisMemoryJob = {
+      name: "redis-memory",
+      description: "Warns when Redis used_memory approaches maxmemory",
+      cron: "0 */5 * * * *", // Every 5 minutes
+      enabled: true,
+      runAt: Date.now(),
+      handler: redisMemoryJobHandler,
+    }
+    this.context.jobs.push(redisMemoryJob)
+    console.log("Registered system job: redis-memory")
   }
 
   /**

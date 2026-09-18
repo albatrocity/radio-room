@@ -10,17 +10,56 @@ vi.mock("../data/trackPreviews", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../data/trackPreviews")>()
   return {
     ...actual,
-    getCachedTrackPreview: vi.fn(async () => null),
-    storeTrackPreview: vi.fn(async () => ({ success: true })),
+    storePreviewIdRedirect: vi.fn(async () => undefined),
   }
 })
+
+const mediaCacheMocks = vi.hoisted(() => ({
+  getPreviewPointer: vi.fn(async () => null),
+  headPreviewByFingerprint: vi.fn(async () => null),
+  ensurePreviewObject: vi.fn(async () => ({
+    url: "https://cdn.example/media/previews/v1/fp.mp3",
+    uploaded: true,
+  })),
+}))
+
+vi.mock("../../services/MediaObjectCache", () => mediaCacheMocks)
+
+vi.mock("../bridge/bridgeDaemonId", () => ({
+  resolveMediaLibraryId: vi.fn(async () => "daemon-1"),
+}))
 
 vi.mock("@repo/adapter-bridge", () => ({
   getBridgeRpcClient: vi.fn(() => ({})),
   fetchLocalPlaylistTracks: vi.fn(async () => ({
     ok: true,
-    tracks: [{ id: "t1", title: "Track 1", urls: [], artists: [], album: { id: "a", title: "A", urls: [], artists: [], releaseDate: "", releaseDatePrecision: "year", totalTracks: 1, label: "", images: [] }, duration: 180000, explicit: false, trackNumber: 1, discNumber: 1, popularity: 0, images: [] }],
+    tracks: [
+      {
+        id: "t1",
+        title: "Track 1",
+        urls: [],
+        artists: [{ id: "ar", title: "Artist", urls: [] }],
+        album: {
+          id: "a",
+          title: "A",
+          urls: [],
+          artists: [],
+          releaseDate: "",
+          releaseDatePrecision: "year",
+          totalTracks: 1,
+          label: "",
+          images: [],
+        },
+        duration: 180000,
+        explicit: false,
+        trackNumber: 1,
+        discNumber: 1,
+        popularity: 0,
+        images: [],
+      },
+    ],
   })),
+  fetchLocalAlbumResult: vi.fn(async () => null),
   fetchTrackPreview: vi.fn(async () => ({
     ok: true,
     mimeType: "audio/mpeg",
@@ -33,10 +72,7 @@ vi.mock("@repo/adapter-bridge", () => ({
   })),
 }))
 
-import {
-  getCachedTrackPreview,
-  storeTrackPreview,
-} from "../data/trackPreviews"
+import { storePreviewIdRedirect } from "../data/trackPreviews"
 import { fetchTrackPreview } from "@repo/adapter-bridge"
 
 describe("trackPreview operations", () => {
@@ -60,7 +96,12 @@ describe("trackPreview operations", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getCachedTrackPreview).mockResolvedValue(null)
+    mediaCacheMocks.getPreviewPointer.mockResolvedValue(null)
+    mediaCacheMocks.headPreviewByFingerprint.mockResolvedValue(null)
+    mediaCacheMocks.ensurePreviewObject.mockResolvedValue({
+      url: "https://cdn.example/media/previews/v1/fp.mp3",
+      uploaded: true,
+    })
   })
 
   test("listMediaItemTracks returns tracks for previewable item", async () => {
@@ -99,18 +140,18 @@ describe("trackPreview operations", () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.cached).toBe(false)
-      expect(result.url).toMatch(/^\/api\/rooms\/room1\/track-previews\//)
+      expect(result.url).toBe("https://cdn.example/media/previews/v1/fp.mp3")
     }
     expect(fetchTrackPreview).toHaveBeenCalled()
-    expect(storeTrackPreview).toHaveBeenCalled()
+    expect(mediaCacheMocks.ensurePreviewObject).toHaveBeenCalled()
+    expect(storePreviewIdRedirect).toHaveBeenCalled()
   })
 
   test("getTrackPreview returns cached url without RPC", async () => {
-    vi.mocked(getCachedTrackPreview).mockResolvedValueOnce({
-      trackId: "t1",
-      data: "abc",
+    mediaCacheMocks.getPreviewPointer.mockResolvedValueOnce({
+      url: "https://cdn.example/cached.mp3",
       mimeType: "audio/mpeg",
-      previewId: "cached-id",
+      durationMs: 15000,
     })
     const result = await getTrackPreview({
       context: mockContext,
@@ -122,7 +163,7 @@ describe("trackPreview operations", () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.cached).toBe(true)
-      expect(result.url).toBe("/api/rooms/room1/track-previews/cached-id")
+      expect(result.url).toBe("https://cdn.example/cached.mp3")
     }
     expect(fetchTrackPreview).not.toHaveBeenCalled()
   })
@@ -131,7 +172,31 @@ describe("trackPreview operations", () => {
     const { fetchLocalPlaylistTracks } = await import("@repo/adapter-bridge")
     vi.mocked(fetchLocalPlaylistTracks).mockResolvedValueOnce({
       ok: true,
-      tracks: [{ id: "other", title: "Other", urls: [], artists: [], album: { id: "a", title: "A", urls: [], artists: [], releaseDate: "", releaseDatePrecision: "year", totalTracks: 1, label: "", images: [] }, duration: 0, explicit: false, trackNumber: 1, discNumber: 1, popularity: 0, images: [] }],
+      tracks: [
+        {
+          id: "other",
+          title: "Other",
+          urls: [],
+          artists: [],
+          album: {
+            id: "a",
+            title: "A",
+            urls: [],
+            artists: [],
+            releaseDate: "",
+            releaseDatePrecision: "year",
+            totalTracks: 1,
+            label: "",
+            images: [],
+          },
+          duration: 0,
+          explicit: false,
+          trackNumber: 1,
+          discNumber: 1,
+          popularity: 0,
+          images: [],
+        },
+      ],
     })
     const result = await getTrackPreview({
       context: mockContext,

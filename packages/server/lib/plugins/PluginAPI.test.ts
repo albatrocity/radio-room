@@ -32,8 +32,21 @@ const bridgeMocks = vi.hoisted(() => ({
   getBridgeRpcClient: vi.fn(),
   getLocalPlaylistCoverArt: vi.fn(),
   getLocalAlbumCoverArt: vi.fn(),
+  listLocalPlaylists: vi.fn(async () => []),
+  listLibraryAlbums: vi.fn(async () => []),
   listSayVoices: vi.fn(),
   speakOnBridge: vi.fn(),
+}))
+
+const mediaCacheMocks = vi.hoisted(() => ({
+  getCoverPointer: vi.fn(async () => null),
+  ensureCoverObject: vi.fn(async () => ({
+    url: "https://cdn.example/media/covers/v1/hash/sm.jpg",
+    contentHash: "hash",
+    uploaded: true,
+  })),
+  setCoverPointer: vi.fn(async () => undefined),
+  invalidateCoverPointersForLibrary: vi.fn(async () => undefined),
 }))
 
 vi.mock("../../operations/data", () => ({
@@ -56,10 +69,18 @@ vi.mock("../../services/AdapterService", () => ({
   AdapterService: adapterApiMocks.MockAdapterService,
 }))
 
+vi.mock("../../services/MediaObjectCache", () => mediaCacheMocks)
+
+vi.mock("../../operations/bridge/bridgeDaemonId", () => ({
+  resolveMediaLibraryId: vi.fn(async () => "daemon-1"),
+}))
+
 vi.mock("@repo/adapter-bridge", () => ({
   getBridgeRpcClient: bridgeMocks.getBridgeRpcClient,
   getLocalPlaylistCoverArt: bridgeMocks.getLocalPlaylistCoverArt,
   getLocalAlbumCoverArt: bridgeMocks.getLocalAlbumCoverArt,
+  listLocalPlaylists: bridgeMocks.listLocalPlaylists,
+  listLibraryAlbums: bridgeMocks.listLibraryAlbums,
   listSayVoices: bridgeMocks.listSayVoices,
   speakOnBridge: bridgeMocks.speakOnBridge,
 }))
@@ -71,7 +92,6 @@ import {
   setDispatchedTrack,
   buildQueueChangedData,
   clearDispatchedTrack,
-  storeImage,
   getRoomUsers,
   getOnlineUserSocketId,
   getOnlineUserIds,
@@ -380,15 +400,26 @@ describe("PluginAPIImpl metadata source access queries", () => {
 })
 
 describe("PluginAPIImpl.getLocalPlaylistArtwork", () => {
-  test("stores sm and lg variants and returns both URLs", async () => {
+  test("stores sm and lg variants on S3 and returns CDN URLs", async () => {
     bridgeMocks.getBridgeRpcClient.mockReturnValue({})
+    bridgeMocks.listLocalPlaylists.mockResolvedValue([{ id: "nd-lp", name: "[LP] Artist - Album" }])
     bridgeMocks.getLocalPlaylistCoverArt.mockResolvedValue({
       "nd-lp": {
         sm: "data:image/jpeg;base64,aaa",
         lg: "data:image/jpeg;base64,bbb",
       },
     })
-    vi.mocked(storeImage).mockResolvedValue({ success: true })
+    mediaCacheMocks.ensureCoverObject
+      .mockResolvedValueOnce({
+        url: "https://cdn.example/media/covers/v1/aaa/sm.jpg",
+        contentHash: "aaa",
+        uploaded: true,
+      })
+      .mockResolvedValueOnce({
+        url: "https://cdn.example/media/covers/v1/bbb/lg.jpg",
+        contentHash: "bbb",
+        uploaded: true,
+      })
 
     const mockContext = appContextFactory.build()
     mockContext.apiUrl = "https://api.example"
@@ -396,23 +427,31 @@ describe("PluginAPIImpl.getLocalPlaylistArtwork", () => {
 
     await expect(api.getLocalPlaylistArtwork("room-1", ["nd-lp"])).resolves.toEqual({
       "nd-lp": {
-        imageUrl: expect.stringMatching(
-          /^https:\/\/api\.example\/api\/rooms\/room-1\/images\/pl-cover-nd-lp-[0-9a-f]{8}$/,
-        ),
-        imageUrlLarge: expect.stringMatching(
-          /^https:\/\/api\.example\/api\/rooms\/room-1\/images\/pl-cover-nd-lp-[0-9a-f]{8}-lg$/,
-        ),
+        imageUrl: "https://cdn.example/media/covers/v1/aaa/sm.jpg",
+        imageUrlLarge: "https://cdn.example/media/covers/v1/bbb/lg.jpg",
       },
     })
-    expect(storeImage).toHaveBeenCalledTimes(2)
-    expect(vi.mocked(storeImage).mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ imageId: expect.stringMatching(/^pl-cover-nd-lp-[0-9a-f]{8}$/) }),
-    )
-    expect(vi.mocked(storeImage).mock.calls[1]?.[0]).toEqual(
-      expect.objectContaining({
-        imageId: expect.stringMatching(/^pl-cover-nd-lp-[0-9a-f]{8}-lg$/),
-      }),
-    )
+    expect(mediaCacheMocks.ensureCoverObject).toHaveBeenCalledTimes(2)
+    expect(bridgeMocks.getLocalPlaylistCoverArt).toHaveBeenCalled()
+  })
+
+  test("skips RPC when cover pointers are warm", async () => {
+    bridgeMocks.getBridgeRpcClient.mockReturnValue({})
+    bridgeMocks.listLocalPlaylists.mockResolvedValue([{ id: "nd-lp", name: "[LP] Artist - Album" }])
+    mediaCacheMocks.getCoverPointer
+      .mockResolvedValueOnce({ url: "https://cdn.example/sm.jpg" })
+      .mockResolvedValueOnce({ url: "https://cdn.example/lg.jpg" })
+
+    const mockContext = appContextFactory.build()
+    const api = new PluginAPIImpl(mockContext, {} as Server)
+
+    await expect(api.getLocalPlaylistArtwork("room-1", ["nd-lp"])).resolves.toEqual({
+      "nd-lp": {
+        imageUrl: "https://cdn.example/sm.jpg",
+        imageUrlLarge: "https://cdn.example/lg.jpg",
+      },
+    })
+    expect(bridgeMocks.getLocalPlaylistCoverArt).not.toHaveBeenCalled()
   })
 })
 

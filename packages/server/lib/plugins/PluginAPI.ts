@@ -15,7 +15,6 @@ import {
   type LocalPlaylistArtwork,
 } from "@repo/types"
 import { Server } from "socket.io"
-import { createHash } from "node:crypto"
 import { getRoomPath } from "../getRoomPath"
 
 function parseDataUri(dataUri: string): { mimeType: string; base64Data: string } | null {
@@ -24,124 +23,100 @@ function parseDataUri(dataUri: string): { mimeType: string; base64Data: string }
   return { mimeType: match[1], base64Data: match[2] }
 }
 
-/** Stable per-playlist image id, versioned by artwork content. */
-function playlistArtworkImageId(
-  playlistId: string,
-  base64Data: string,
-  variant: "sm" | "lg" = "sm",
-): string {
-  const safeId = playlistId.replace(/[^a-zA-Z0-9_-]/g, "-")
-  const hash = createHash("md5").update(base64Data).digest("hex").slice(0, 8)
-  const base = `pl-cover-${safeId}-${hash}`
-  return variant === "lg" ? `${base}-lg` : base
-}
-
-/** Stable per-album image id, versioned by artwork content. */
-function albumArtworkImageId(
-  albumId: string,
-  base64Data: string,
-  variant: "sm" | "lg" = "sm",
-): string {
-  const safeId = albumId.replace(/[^a-zA-Z0-9_-]/g, "-")
-  const hash = createHash("md5").update(base64Data).digest("hex").slice(0, 8)
-  const base = `al-cover-${safeId}-${hash}`
-  return variant === "lg" ? `${base}-lg` : base
-}
-
-async function storePlaylistCover(params: {
-  roomId: string
-  playlistId: string
-  dataUri: string
-  variant: "sm" | "lg"
-  apiUrl: string
-  storeImage: (args: {
-    roomId: string
-    imageId: string
-    base64Data: string
-    mimeType: string
-    context: AppContext
-  }) => Promise<{ success: boolean }>
-  context: AppContext
-}): Promise<string | undefined> {
-  const parsed = parseDataUri(params.dataUri)
-  if (!parsed) return undefined
-  const imageId = playlistArtworkImageId(params.playlistId, parsed.base64Data, params.variant)
-  const stored = await params.storeImage({
-    roomId: params.roomId,
-    imageId,
-    base64Data: parsed.base64Data,
-    mimeType: parsed.mimeType,
-    context: params.context,
-  })
-  if (!stored.success) return undefined
-  return `${params.apiUrl}/api/rooms/${params.roomId}/images/${imageId}`
-}
-
-async function storeAlbumCover(params: {
-  roomId: string
-  albumId: string
-  dataUri: string
-  variant: "sm" | "lg"
-  apiUrl: string
-  storeImage: (args: {
-    roomId: string
-    imageId: string
-    base64Data: string
-    mimeType: string
-    context: AppContext
-  }) => Promise<{ success: boolean }>
-  context: AppContext
-}): Promise<string | undefined> {
-  const parsed = parseDataUri(params.dataUri)
-  if (!parsed) return undefined
-  const imageId = albumArtworkImageId(params.albumId, parsed.base64Data, params.variant)
-  const stored = await params.storeImage({
-    roomId: params.roomId,
-    imageId,
-    base64Data: parsed.base64Data,
-    mimeType: parsed.mimeType,
-    context: params.context,
-  })
-  if (!stored.success) return undefined
-  return `${params.apiUrl}/api/rooms/${params.roomId}/images/${imageId}`
-}
-
 const LOCAL_COVER_STORE_BATCH = 8
+
+async function storeCoverVariantToS3(params: {
+  roomId: string
+  identityHash: string
+  dataUri: string
+  variant: "sm" | "lg"
+  context: AppContext
+}): Promise<string | undefined> {
+  const parsed = parseDataUri(params.dataUri)
+  if (!parsed) return undefined
+  try {
+    const { resolveMediaLibraryId } = await import("../../operations/bridge/bridgeDaemonId")
+    const { getCoverPointer, ensureCoverObject } = await import(
+      "../../services/MediaObjectCache"
+    )
+    const libraryId = await resolveMediaLibraryId({
+      context: params.context,
+      roomId: params.roomId,
+    })
+    const existing = await getCoverPointer({
+      context: params.context,
+      libraryId,
+      identityHash: params.identityHash,
+      variant: params.variant,
+    })
+    if (existing && "url" in existing) return existing.url
+    if (existing && "none" in existing && existing.none) return undefined
+
+    const result = await ensureCoverObject({
+      context: params.context,
+      libraryId,
+      identityHash: params.identityHash,
+      variant: params.variant,
+      base64Data: parsed.base64Data,
+      mimeType: parsed.mimeType,
+    })
+    return result.url
+  } catch (e) {
+    console.warn("[PluginAPI] storeCoverVariantToS3 failed:", e)
+    return undefined
+  }
+}
 
 async function storePlaylistArtworkVariants(params: {
   roomId: string
   playlistId: string
+  playlistName?: string
   variants: { sm?: string; lg?: string }
-  apiUrl: string
-  storeImage: (args: {
-    roomId: string
-    imageId: string
-    base64Data: string
-    mimeType: string
-    context: AppContext
-  }) => Promise<{ success: boolean }>
   context: AppContext
 }): Promise<LocalPlaylistArtwork | null> {
+  const { coverIdentityHash } = await import("../../services/mediaFingerprint")
+  const identityHash = coverIdentityHash({
+    kind: "playlist",
+    playlistName: params.playlistName || params.playlistId,
+  })
+  const hasAnyVariant = Boolean(params.variants.sm || params.variants.lg)
+  if (!hasAnyVariant) {
+    try {
+      const { resolveMediaLibraryId } = await import("../../operations/bridge/bridgeDaemonId")
+      const { setCoverPointer } = await import("../../services/MediaObjectCache")
+      const libraryId = await resolveMediaLibraryId({
+        context: params.context,
+        roomId: params.roomId,
+      })
+      await setCoverPointer({
+        context: params.context,
+        libraryId,
+        identityHash,
+        variant: "sm",
+        pointer: { none: true },
+      })
+    } catch {
+      /* optional */
+    }
+    return null
+  }
+
   const [imageUrl, imageUrlLarge] = await Promise.all([
     params.variants.sm
-      ? storePlaylistCover({
+      ? storeCoverVariantToS3({
           roomId: params.roomId,
-          playlistId: params.playlistId,
+          identityHash,
           dataUri: params.variants.sm,
           variant: "sm",
-          apiUrl: params.apiUrl,
-          storeImage: params.storeImage,
           context: params.context,
         })
       : Promise.resolve(undefined),
     params.variants.lg
-      ? storePlaylistCover({
+      ? storeCoverVariantToS3({
           roomId: params.roomId,
-          playlistId: params.playlistId,
+          identityHash,
           dataUri: params.variants.lg,
           variant: "lg",
-          apiUrl: params.apiUrl,
-          storeImage: params.storeImage,
           context: params.context,
         })
       : Promise.resolve(undefined),
@@ -156,37 +131,55 @@ async function storePlaylistArtworkVariants(params: {
 async function storeAlbumArtworkVariants(params: {
   roomId: string
   albumId: string
+  artist?: string
+  name?: string
   variants: { sm?: string; lg?: string }
-  apiUrl: string
-  storeImage: (args: {
-    roomId: string
-    imageId: string
-    base64Data: string
-    mimeType: string
-    context: AppContext
-  }) => Promise<{ success: boolean }>
   context: AppContext
 }): Promise<LocalPlaylistArtwork | null> {
+  const { coverIdentityHash } = await import("../../services/mediaFingerprint")
+  const identityHash = coverIdentityHash({
+    kind: "album",
+    artist: params.artist,
+    album: params.name || params.albumId,
+  })
+  const hasAnyVariant = Boolean(params.variants.sm || params.variants.lg)
+  if (!hasAnyVariant) {
+    try {
+      const { resolveMediaLibraryId } = await import("../../operations/bridge/bridgeDaemonId")
+      const { setCoverPointer } = await import("../../services/MediaObjectCache")
+      const libraryId = await resolveMediaLibraryId({
+        context: params.context,
+        roomId: params.roomId,
+      })
+      await setCoverPointer({
+        context: params.context,
+        libraryId,
+        identityHash,
+        variant: "sm",
+        pointer: { none: true },
+      })
+    } catch {
+      /* optional */
+    }
+    return null
+  }
+
   const [imageUrl, imageUrlLarge] = await Promise.all([
     params.variants.sm
-      ? storeAlbumCover({
+      ? storeCoverVariantToS3({
           roomId: params.roomId,
-          albumId: params.albumId,
+          identityHash,
           dataUri: params.variants.sm,
           variant: "sm",
-          apiUrl: params.apiUrl,
-          storeImage: params.storeImage,
           context: params.context,
         })
       : Promise.resolve(undefined),
     params.variants.lg
-      ? storeAlbumCover({
+      ? storeCoverVariantToS3({
           roomId: params.roomId,
-          albumId: params.albumId,
+          identityHash,
           dataUri: params.variants.lg,
           variant: "lg",
-          apiUrl: params.apiUrl,
-          storeImage: params.storeImage,
           context: params.context,
         })
       : Promise.resolve(undefined),
@@ -872,28 +865,75 @@ export class PluginAPIImpl implements PluginAPI {
     const ids = [...new Set(playlistIds.map((id) => id.trim()).filter(Boolean))]
     if (ids.length === 0) return {}
     try {
-      const { getBridgeRpcClient, getLocalPlaylistCoverArt } = await import("@repo/adapter-bridge")
+      const { getBridgeRpcClient, getLocalPlaylistCoverArt, listLocalPlaylists } = await import(
+        "@repo/adapter-bridge"
+      )
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return {}
-      const { storeImage } = await import("../../operations/data")
-      const apiUrl = this.context.apiUrl || ""
+
+      // Warm cover pointers before RPC (ADR 0186)
+      const { coverIdentityHash } = await import("../../services/mediaFingerprint")
+      const { resolveMediaLibraryId } = await import("../../operations/bridge/bridgeDaemonId")
+      const { getCoverPointer } = await import("../../services/MediaObjectCache")
+      const libraryId = await resolveMediaLibraryId({ context: this.context, roomId })
+      const playlists = await listLocalPlaylists({ rpc }).catch(() => [])
+      const nameById = new Map(playlists.map((p) => [p.id, p.name] as const))
+
       const urls: Record<string, LocalPlaylistArtwork> = {}
-      for (let i = 0; i < ids.length; i += LOCAL_COVER_STORE_BATCH) {
-        const chunk = ids.slice(i, i + LOCAL_COVER_STORE_BATCH)
+      const needRpc: string[] = []
+      for (const playlistId of ids) {
+        const identityHash = coverIdentityHash({
+          kind: "playlist",
+          playlistName: nameById.get(playlistId) || playlistId,
+        })
+        const sm = await getCoverPointer({
+          context: this.context,
+          libraryId,
+          identityHash,
+          variant: "sm",
+        })
+        const lg = await getCoverPointer({
+          context: this.context,
+          libraryId,
+          identityHash,
+          variant: "lg",
+        })
+        if (sm && "none" in sm && sm.none) continue
+        if (sm && "url" in sm) {
+          const art: LocalPlaylistArtwork = { imageUrl: sm.url }
+          if (lg && "url" in lg) art.imageUrlLarge = lg.url
+          urls[playlistId] = art
+          continue
+        }
+        needRpc.push(playlistId)
+      }
+
+      for (let i = 0; i < needRpc.length; i += LOCAL_COVER_STORE_BATCH) {
+        const chunk = needRpc.slice(i, i + LOCAL_COVER_STORE_BATCH)
         const covers = await getLocalPlaylistCoverArt({ rpc, playlistIds: chunk })
         await Promise.all(
           Object.entries(covers).map(async ([playlistId, variants]) => {
             const art = await storePlaylistArtworkVariants({
               roomId,
               playlistId,
+              playlistName: nameById.get(playlistId),
               variants,
-              apiUrl,
-              storeImage,
               context: this.context,
             })
             if (art) urls[playlistId] = art
           }),
         )
+        // Ids requested but missing from daemon response → negative pointer
+        for (const playlistId of chunk) {
+          if (urls[playlistId] || covers[playlistId]) continue
+          await storePlaylistArtworkVariants({
+            roomId,
+            playlistId,
+            playlistName: nameById.get(playlistId),
+            variants: {},
+            context: this.context,
+          })
+        }
       }
       return urls
     } catch (e) {
@@ -940,28 +980,81 @@ export class PluginAPIImpl implements PluginAPI {
     const ids = [...new Set(albumIds.map((id) => id.trim()).filter(Boolean))]
     if (ids.length === 0) return {}
     try {
-      const { getBridgeRpcClient, getLocalAlbumCoverArt } = await import("@repo/adapter-bridge")
+      const { getBridgeRpcClient, getLocalAlbumCoverArt, listLibraryAlbums } = await import(
+        "@repo/adapter-bridge"
+      )
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return {}
-      const { storeImage } = await import("../../operations/data")
-      const apiUrl = this.context.apiUrl || ""
+
+      const { coverIdentityHash } = await import("../../services/mediaFingerprint")
+      const { resolveMediaLibraryId } = await import("../../operations/bridge/bridgeDaemonId")
+      const { getCoverPointer } = await import("../../services/MediaObjectCache")
+      const libraryId = await resolveMediaLibraryId({ context: this.context, roomId })
+      const albums = await listLibraryAlbums({ rpc }).catch(() => [])
+      const metaById = new Map(
+        albums.map((a) => [a.id, { name: a.name, artist: a.artist }] as const),
+      )
+
       const urls: Record<string, LocalPlaylistArtwork> = {}
-      for (let i = 0; i < ids.length; i += LOCAL_COVER_STORE_BATCH) {
-        const chunk = ids.slice(i, i + LOCAL_COVER_STORE_BATCH)
+      const needRpc: string[] = []
+      for (const albumId of ids) {
+        const meta = metaById.get(albumId)
+        const identityHash = coverIdentityHash({
+          kind: "album",
+          artist: meta?.artist,
+          album: meta?.name || albumId,
+        })
+        const sm = await getCoverPointer({
+          context: this.context,
+          libraryId,
+          identityHash,
+          variant: "sm",
+        })
+        const lg = await getCoverPointer({
+          context: this.context,
+          libraryId,
+          identityHash,
+          variant: "lg",
+        })
+        if (sm && "none" in sm && sm.none) continue
+        if (sm && "url" in sm) {
+          const art: LocalPlaylistArtwork = { imageUrl: sm.url }
+          if (lg && "url" in lg) art.imageUrlLarge = lg.url
+          urls[albumId] = art
+          continue
+        }
+        needRpc.push(albumId)
+      }
+
+      for (let i = 0; i < needRpc.length; i += LOCAL_COVER_STORE_BATCH) {
+        const chunk = needRpc.slice(i, i + LOCAL_COVER_STORE_BATCH)
         const covers = await getLocalAlbumCoverArt({ rpc, albumIds: chunk })
         await Promise.all(
           Object.entries(covers).map(async ([albumId, variants]) => {
+            const meta = metaById.get(albumId)
             const art = await storeAlbumArtworkVariants({
               roomId,
               albumId,
+              artist: meta?.artist,
+              name: meta?.name,
               variants,
-              apiUrl,
-              storeImage,
               context: this.context,
             })
             if (art) urls[albumId] = art
           }),
         )
+        for (const albumId of chunk) {
+          if (urls[albumId] || covers[albumId]) continue
+          const meta = metaById.get(albumId)
+          await storeAlbumArtworkVariants({
+            roomId,
+            albumId,
+            artist: meta?.artist,
+            name: meta?.name,
+            variants: {},
+            context: this.context,
+          })
+        }
       }
       return urls
     } catch (e) {
@@ -992,6 +1085,13 @@ export class PluginAPIImpl implements PluginAPI {
     try {
       const { metadataBrowseRoomPrefix } = await import("@repo/utils")
       await this.context.cache?.deleteByPrefix(metadataBrowseRoomPrefix(roomId))
+
+      const { resolveMediaLibraryId } = await import("../../operations/bridge/bridgeDaemonId")
+      const { invalidateCoverPointersForLibrary } = await import(
+        "../../services/MediaObjectCache"
+      )
+      const libraryId = await resolveMediaLibraryId({ context: this.context, roomId })
+      await invalidateCoverPointersForLibrary(this.context, libraryId)
 
       const { getBridgeRpcClient, invalidateLocalLibraryCache } = await import(
         "@repo/adapter-bridge"

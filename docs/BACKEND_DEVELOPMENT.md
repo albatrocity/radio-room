@@ -195,3 +195,52 @@ interface LobbyRoomUpdate {
 ## Plugin System
 
 See [PLUGIN_DEVELOPMENT.md](./PLUGIN_DEVELOPMENT.md) for plugin documentation.
+
+---
+
+## Redis (memory and sessions)
+
+Redis holds show-critical room state (queues, presence, Socket.IO adapter, SystemEvents). Binary media must **not** live in Redis as base64 — see [ADR 0186](adrs/0186-redis-coordination-s3-media.md).
+
+### Eviction policy (production)
+
+Heroku Redis defaults to `noeviction`, which rejects every write once `maxmemory` is hit and can take down a show. Prefer **`volatile-lru`** so only keys that already have a TTL (sessions, media URL pointers) are evicted:
+
+```bash
+heroku redis:maxmemory -a rb-radio-listener -p volatile-lru
+heroku redis:info -a rb-radio-listener
+# Confirm Maxmemory policy: volatile-lru
+```
+
+`volatile-lru` never deletes keys without an expiry. Room state hashes without TTL stay. Idle rooms that `expireRoomIn` has TTL'd are eviction candidates — they are already scheduled for deletion.
+
+### Express sessions (`s:`)
+
+Cookie `maxAge` / connect-redis TTL is **90 days** (`SESSION_MAX_AGE` in `packages/server/lib/constants.ts`). Guest `userId` identity lives in browser `localStorage` ([ADR 0058](adrs/0058-client-session-localstorage.md)); shortening the cookie does not wipe inventory/game attribution.
+
+Sessions created or touched after deploy get the new TTL (`resave: true` refreshes returning visitors). Sessions that never return keep their prior TTL until they expire.
+
+### Reclaiming legacy image blobs
+
+After media cutover (CDN URLs in payloads), run **off-show**:
+
+```bash
+# Dry-run first
+REDIS_URL="$REDIS_URL" npx tsx packages/server/scripts/reclaimLegacyMediaBlobs.ts --dry-run
+
+# One room, then all rooms
+REDIS_URL="$REDIS_URL" npx tsx packages/server/scripts/reclaimLegacyMediaBlobs.ts --room <roomId>
+REDIS_URL="$REDIS_URL" npx tsx packages/server/scripts/reclaimLegacyMediaBlobs.ts
+```
+
+The script `SCAN`s `room:*:images:*` and `room:*:track-previews:*`, and `UNLINK`s hashes that still have a `data` field (legacy base64). URL-only pointer hashes are left alone. Record `used_memory` before/after (printed by the script) in the deploy notes.
+
+Manual equivalent via Heroku Redis CLI:
+
+```bash
+heroku redis:cli -a rb-radio-listener
+# SCAN 0 MATCH room:{roomId}:images:al-cover-* COUNT 100
+# UNLINK <keys...>
+INFO memory
+```
+

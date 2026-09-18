@@ -452,6 +452,16 @@ type GetAllRoomDataKeysParams = {
   roomId: string
 }
 
+/**
+ * Room-scoped cache / blob key suffixes that must keep their TTLs.
+ * `persistRoom` / `expireRoomIn` skip these so volatile-lru and preview TTLs work (ADR 0186).
+ */
+export const ROOM_CACHE_KEY_SUFFIXES = [":images:", ":track-previews:", ":track-preview-id:"] as const
+
+export function isRoomCacheKey(key: string): boolean {
+  return ROOM_CACHE_KEY_SUFFIXES.some((suffix) => key.includes(suffix))
+}
+
 async function getAllRoomDataKeys({ context, roomId }: GetAllRoomDataKeysParams) {
   const keys = []
   for await (const key of context.redis.pubClient.scanIterator({
@@ -460,6 +470,11 @@ async function getAllRoomDataKeys({ context, roomId }: GetAllRoomDataKeysParams)
     keys.push(key)
   }
   return keys
+}
+
+async function getDurableRoomDataKeys({ context, roomId }: GetAllRoomDataKeysParams) {
+  const keys = await getAllRoomDataKeys({ context, roomId })
+  return keys.filter((k) => !isRoomCacheKey(k))
 }
 
 type DeleteRoomParams = {
@@ -557,7 +572,7 @@ export async function expireRoomIn({ context, roomId, ms }: ExpireRoomInParams) 
     if (!room) {
       return
     }
-    const keys = await getAllRoomDataKeys({ context, roomId })
+    const keys = await getDurableRoomDataKeys({ context, roomId })
     await Promise.all(keys.map((k) => context.redis.pubClient.pExpire(k, ms)))
   } catch (e) {
     console.log("ERROR FROM data/rooms/expireRoomIn", roomId)
@@ -576,7 +591,7 @@ export async function persistRoom({ context, roomId }: PersistRoomParams) {
     if (!room) {
       return
     }
-    const keys = await getAllRoomDataKeys({ context, roomId })
+    const keys = await getDurableRoomDataKeys({ context, roomId })
     await Promise.all(keys.map((k) => context.redis.pubClient.persist(k)))
   } catch (e) {
     console.log("ERROR FROM data/rooms/persistRoomKeys", roomId)

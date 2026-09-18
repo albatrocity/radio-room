@@ -2,9 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { AppContext } from "@repo/types"
 
 const mockGenerateId = vi.hoisted(() => vi.fn())
+const ensureRoomImageObject = vi.hoisted(() =>
+  vi.fn(async ({ buffer }: { buffer: Buffer }) => ({
+    url: `https://cdn.example/media/rooms/room-1/images/v1/${buffer.toString("hex").slice(0, 8)}.jpg`,
+    contentHash: "hash",
+    uploaded: true,
+  })),
+)
 
 vi.mock("../../lib/generateId", () => ({
   default: mockGenerateId,
+}))
+
+vi.mock("../../services/MediaObjectCache", () => ({
+  ensureRoomImageObject,
 }))
 
 import {
@@ -56,6 +67,11 @@ describe("room image storage", () => {
     redis = createRedisMock()
     context = { redis: { pubClient: redis as any, subClient: redis as any } } as AppContext
     mockGenerateId.mockReturnValueOnce("img-1").mockReturnValueOnce("img-2")
+    ensureRoomImageObject.mockImplementation(async ({ buffer }: { buffer: Buffer }) => ({
+      url: `https://cdn.example/img-${buffer.length}.jpg`,
+      contentHash: hashRoomImageContent(buffer),
+      uploaded: true,
+    }))
   })
 
   it("hashRoomImageContent is stable for identical buffers", () => {
@@ -63,7 +79,7 @@ describe("room image storage", () => {
     expect(hashRoomImageContent(buf)).toBe(hashRoomImageContent(Buffer.from("same-bytes")))
   })
 
-  it("storeDedupedRoomImage returns cached id for identical processed content", async () => {
+  it("storeDedupedRoomImage uploads to S3 and returns cached id for identical content", async () => {
     const buffer = Buffer.from("processed-jpeg")
 
     const first = await storeDedupedRoomImage({
@@ -72,7 +88,15 @@ describe("room image storage", () => {
       mimeType: "image/jpeg",
       context,
     })
-    expect(first).toEqual({ success: true, imageId: "img-1", cached: false })
+    expect(first.success).toBe(true)
+    if (first.success) {
+      expect(first).toMatchObject({
+        imageId: "img-1",
+        cached: false,
+        url: "https://cdn.example/img-14.jpg",
+      })
+    }
+    expect(ensureRoomImageObject).toHaveBeenCalledTimes(1)
 
     const second = await storeDedupedRoomImage({
       roomId: "room-1",
@@ -80,8 +104,17 @@ describe("room image storage", () => {
       mimeType: "image/jpeg",
       context,
     })
-    expect(second).toEqual({ success: true, imageId: "img-1", cached: true })
+    expect(second).toMatchObject({
+      success: true,
+      imageId: "img-1",
+      cached: true,
+      url: "https://cdn.example/img-14.jpg",
+    })
+    expect(ensureRoomImageObject).toHaveBeenCalledTimes(1)
     expect(redis.hSet).toHaveBeenCalledTimes(1)
+    const stored = await getImage({ roomId: "room-1", imageId: "img-1", context })
+    expect(stored?.url).toBe("https://cdn.example/img-14.jpg")
+    expect(stored?.data).toBeUndefined()
   })
 
   it("storeDedupedRoomImage scopes dedup by room", async () => {
@@ -95,7 +128,7 @@ describe("room image storage", () => {
       context,
     })
 
-    expect(otherRoom).toEqual({ success: true, imageId: "img-2", cached: false })
+    expect(otherRoom).toMatchObject({ success: true, imageId: "img-2", cached: false })
   })
 
   it("deleteRoomImages removes content-hash index keys", async () => {
@@ -104,7 +137,7 @@ describe("room image storage", () => {
     await storeImage({
       roomId: "room-1",
       imageId: "img-1",
-      base64Data: buffer.toString("base64"),
+      url: "https://cdn.example/x.jpg",
       mimeType: "image/jpeg",
       contentHash: hash,
       context,
