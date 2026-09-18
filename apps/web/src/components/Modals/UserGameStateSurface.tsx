@@ -150,8 +150,20 @@ function GameStateTabsBody({
       </Tabs.Content>
 
       {showStoredTab ? (
-        <Tabs.Content value={STORAGE_TAB}>
-          <StorageTab />
+        <Tabs.Content
+          value={STORAGE_TAB}
+          {...(fillHeight && gameStateTab === STORAGE_TAB
+            ? {
+                flex: "1",
+                minH: 0,
+                h: "full",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }
+            : {})}
+        >
+          <StorageTab fillHeight={fillHeight} />
         </Tabs.Content>
       ) : null}
 
@@ -316,7 +328,13 @@ function GameStateTabsBody({
             </Box>
           </Stack>
         ) : fillHeight ? (
-          <Box flex="1" minH={0} overflowY="auto">
+          <Box
+            flex="1"
+            minH={0}
+            {...(gameStateTab === STORAGE_TAB
+              ? { display: "flex", flexDirection: "column", overflow: "hidden" }
+              : { overflowY: "auto" })}
+          >
             {tabContents}
           </Box>
         ) : (

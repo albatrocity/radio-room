@@ -25,6 +25,7 @@ import { RetrieveStashDialog } from "./RetrieveStashDialog"
 import { containerDisplayName, formatStashLastTouched } from "./stashUi"
 
 const ROW_ESTIMATE_PX = 104
+/** Cap when the Game surface is not filling leftover drawer/panel height. */
 const LIST_MAX_H = "min(60vh, 28rem)"
 
 /** Hidden tab panels report 0px; recording that collapses the virtual list. */
@@ -40,7 +41,7 @@ function measureVisibleRowHeight(
   return instance.itemSizeCache.get(instance.options.getItemKey(index)) ?? ROW_ESTIMATE_PX
 }
 
-export default function StorageTab() {
+export default function StorageTab({ fillHeight = false }: { fillHeight?: boolean }) {
   const artifacts = useStoredArtifacts()
   const isActive = useGameStateActiveTab() === STORAGE_TAB
   const pendingPickId = usePendingPickArtifactId()
@@ -103,13 +104,25 @@ export default function StorageTab() {
 
   return (
     <>
-      <Stack gap={2}>
-        <Text fontSize="sm" color="fg.muted">
+      <Stack
+        gap={2}
+        {...(fillHeight ? { flex: "1", minH: 0, h: "full", overflow: "hidden" } : {})}
+      >
+        <Text fontSize="sm" color="fg.muted" flexShrink={0}>
           Password-protected containers to store items in. Accessible during and across shows.
           Anyone can access these with the right password.
         </Text>
-        <ScrollArea.Root size="sm" variant="hover" w="100%" maxH={LIST_MAX_H}>
-          <ScrollShadowViewport ref={scrollRef} maxH={LIST_MAX_H} css={virtualizerViewportCss}>
+        <ScrollArea.Root
+          size="sm"
+          variant="hover"
+          w="100%"
+          {...(fillHeight ? { flex: "1 1 auto", minH: 0, height: "100%" } : { maxH: LIST_MAX_H })}
+        >
+          <ScrollShadowViewport
+            ref={scrollRef}
+            {...(fillHeight ? { height: "100%" } : { maxH: LIST_MAX_H })}
+            css={virtualizerViewportCss}
+          >
             <ScrollArea.Content>
               <VirtualizerContent totalSize={virtualizer.getTotalSize()}>
                 {virtualItems.map((virtualRow) => {
