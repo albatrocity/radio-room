@@ -51,10 +51,11 @@ const COVER_ART_CONCURRENCY = 4
 /** Max artists/albums per CatalogBrowse page (client infinite-scroll). */
 export const LOCAL_BROWSE_PAGE_SIZE = 50
 /**
- * List/search thumbs. CatalogBrowse track rows hide artwork; search uses
- * `album.images`. 640px covers used to ride every `mapSong` over Redis RPC.
+ * Per-track / search thumbs on `album.images` (`mapSong`).
+ * Was briefly tied to browse size (128) to shrink Redis RPC payloads; restored
+ * now that covers live on S3 (ADR 0186) and only URL pointers hit Redis.
  */
-export const COVER_ART_TRACK_SIZE = COVER_ART_BROWSE_SIZE
+export const COVER_ART_TRACK_SIZE = 640
 export type CoverArtVariant = "sm" | "lg"
 /** Playlist-sleeve sizes requested from Navidrome when the server asks for variants. */
 export const COVER_ART_VARIANTS: Record<CoverArtVariant, number> = { sm: 384, lg: 1200 }

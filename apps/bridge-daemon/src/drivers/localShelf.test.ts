@@ -489,7 +489,7 @@ describe("LocalDriver shelf browsing", () => {
     expect(tracks[0]?.images).toEqual([])
     expect(tracks[0]?.album.images[0]?.url).toMatch(/^data:image\/jpeg;base64,/)
     expect(String(fetchMock.mock.calls.find((c) => String(c[0]).includes("getCoverArt"))?.[0])).toContain(
-      "size=128",
+      "size=640",
     )
   })
 
