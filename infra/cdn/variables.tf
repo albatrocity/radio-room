@@ -41,6 +41,7 @@ variable "cors_allowed_origins" {
     "http://127.0.0.1:8001",
     "http://localhost:8001",
     "https://listeningroom.club",
+    "https://www.listeningroom.club",
     "https://scheduler.listeningroom.club",
   ]
 }
