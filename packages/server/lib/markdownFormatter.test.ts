@@ -142,3 +142,44 @@ describe("formatRoomExportAsMarkdown frontmatter", () => {
     expect(md).toContain("1 poll")
   })
 })
+
+describe("formatRoomExportAsMarkdown Chicago timestamps", () => {
+  // 2026-09-19T00:54:00.000Z === 7:54 PM CDT on Sep 18
+  const chicagoEveningUtc = "2026-09-19T00:54:00.000Z"
+  const chicagoEveningMs = Date.parse(chicagoEveningUtc)
+
+  it("formats playlist, chat, and export times in America/Chicago", () => {
+    const md = formatRoomExportAsMarkdown(
+      minimalExport({
+        exportedAt: chicagoEveningUtc,
+        playlist: [
+          {
+            track: {
+              title: "In CD",
+              artists: [{ title: "Art Feynman" }],
+              album: { title: "Be Good The Crazy Boys" },
+            },
+            addedAt: chicagoEveningMs,
+            addedBy: { userId: "u1", username: "Ross", status: "participant" },
+          },
+        ] as any,
+        chat: [
+          {
+            timestamp: chicagoEveningUtc,
+            content: "howdy",
+            user: { userId: "u1", username: "Ross", status: "participant" },
+          },
+        ] as any,
+      }),
+      [],
+      undefined,
+      "room_1",
+    )
+
+    expect(md).toContain("7:54 PM")
+    expect(md).not.toContain("12:54 AM")
+    expect(md).toContain("| Ross | 07:54 PM |")
+    expect(md).toContain("**[07:54 PM] Ross:** howdy")
+    expect(md).toContain("*Exported on Friday, September 18, 2026 at 07:54 PM*")
+  })
+})

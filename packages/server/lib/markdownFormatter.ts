@@ -423,9 +423,14 @@ function formatFooter(data: RoomExportData): string {
 
 // Helper functions
 
+/** Archive/show times are always shown in Listening Room local time. */
+const ARCHIVE_TIME_ZONE = "America/Chicago"
+
 function formatDate(isoString: string): string {
   const date = new Date(isoString)
   return date.toLocaleDateString("en-US", {
+    timeZone: ARCHIVE_TIME_ZONE,
+    hour12: true,
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -438,6 +443,8 @@ function formatDate(isoString: string): string {
 function formatTime(timestamp: number): string {
   const date = new Date(timestamp)
   return date.toLocaleTimeString("en-US", {
+    timeZone: ARCHIVE_TIME_ZONE,
+    hour12: true,
     hour: "2-digit",
     minute: "2-digit",
   })
