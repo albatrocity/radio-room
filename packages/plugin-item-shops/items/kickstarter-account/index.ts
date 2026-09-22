@@ -62,9 +62,9 @@ export const kickstarterAccount = createItem({
     tradeable: true,
     consumable: true,
     requiresTarget: "self",
-    coinValue: 40,
+    coinValue: 20,
     icon: "Rocket",
-    rarity: "rare",
+    rarity: "uncommon",
     useForm: [
       {
         name: "title",
@@ -80,7 +80,7 @@ export const kickstarterAccount = createItem({
         required: true,
         integer: true,
         min: 1,
-        placeholder: "50",
+        placeholder: "100",
       },
       {
         name: "rewards",
