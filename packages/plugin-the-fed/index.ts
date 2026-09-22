@@ -42,14 +42,6 @@ function roundMetric(value: number, digits = 2): number {
   return Math.round(value * f) / f
 }
 
-function parseJson<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    return fallback
-  }
-}
 
 export class TheFedPlugin extends BasePlugin<TheFedConfig> {
   name = PLUGIN_NAME
@@ -65,6 +57,10 @@ export class TheFedPlugin extends BasePlugin<TheFedConfig> {
 
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
+    this.onScheduled("tick", async () => {
+      await this.onTick()
+      await this.restartTickSchedule()
+    })
     this.on("GAME_STATE_CHANGED", (data) => {
       void this.onGameStateChanged(data)
     })
@@ -109,17 +105,11 @@ export class TheFedPlugin extends BasePlugin<TheFedConfig> {
   }
 
   private async restartTickSchedule(): Promise<void> {
-    this.clearTimer(TICK_ID)
+    await this.cancelSchedule(TICK_ID)
     const config = await this.getConfig()
     if (!this.context || !config?.enabled) return
     const duration = Math.max(15, config.tickSeconds) * 1000
-    this.startTimer(TICK_ID, {
-      duration,
-      callback: async () => {
-        await this.onTick()
-        await this.restartTickSchedule()
-      },
-    })
+    await this.schedule({ id: TICK_ID, kind: "tick", durationMs: duration })
   }
 
   private async onSessionStarted(sessionId: string): Promise<void> {
@@ -343,41 +333,42 @@ export class TheFedPlugin extends BasePlugin<TheFedConfig> {
   }
 
   private async readFlow(): Promise<FedFlowState> {
-    const raw = this.context ? await this.context.storage.get(FLOW_KEY) : null
-    return parseJson<FedFlowState>(raw, {
-      netCoinFlow: 0,
-      lastTickAt: null,
-      sessionId: null,
-    })
+    if (!this.context) return { netCoinFlow: 0, lastTickAt: null, sessionId: null }
+    const { value } = await this.context.storage.getJson<FedFlowState>(FLOW_KEY)
+    return value ?? { netCoinFlow: 0, lastTickAt: null, sessionId: null }
   }
 
   private async writeFlow(state: FedFlowState): Promise<void> {
     if (!this.context) return
-    await this.context.storage.set(FLOW_KEY, JSON.stringify(state))
+    await this.context.storage.setJson(FLOW_KEY, state)
   }
 
   private async readController(): Promise<FedControllerState> {
-    const raw = this.context ? await this.context.storage.get(CONTROLLER_KEY) : null
-    return parseJson<FedControllerState>(raw, { emaWealth: null, sessionId: null })
+    if (!this.context) return { emaWealth: null, sessionId: null }
+    const { value } = await this.context.storage.getJson<FedControllerState>(CONTROLLER_KEY)
+    return value ?? { emaWealth: null, sessionId: null }
   }
 
   private async writeController(state: FedControllerState): Promise<void> {
     if (!this.context) return
-    await this.context.storage.set(CONTROLLER_KEY, JSON.stringify(state))
+    await this.context.storage.setJson(CONTROLLER_KEY, state)
   }
 
   private async readTicks(): Promise<FedTickRecord[]> {
-    const raw = this.context ? await this.context.storage.get(TICKS_KEY) : null
-    const ticks = parseJson<FedTickRecord[]>(raw, [])
-    return Array.isArray(ticks) ? ticks : []
+    if (!this.context) return []
+    const items = await this.context.storage.lrange(TICKS_KEY, 0, -1)
+    return items.map((raw) => {
+      try {
+        return JSON.parse(raw) as FedTickRecord
+      } catch {
+        return null
+      }
+    }).filter((t): t is FedTickRecord => t != null)
   }
 
   private async appendTick(tick: FedTickRecord): Promise<void> {
-    const ticks = await this.readTicks()
-    ticks.push(tick)
-    const trimmed = ticks.slice(-MAX_TICKS)
     if (!this.context) return
-    await this.context.storage.set(TICKS_KEY, JSON.stringify(trimmed))
+    await this.context.storage.appendCapped(TICKS_KEY, tick, MAX_TICKS)
   }
 }
 

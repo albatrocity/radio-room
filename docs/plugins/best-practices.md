@@ -39,20 +39,26 @@ this.onConfigChange(async (data) => {
 })
 ```
 
-### 4. Use Built-in Timer API
+### 4. Use Durable Schedules (or Built-in Timers)
 
-Use the built-in timer methods instead of managing `setTimeout` manually:
+For anything that must survive restarts or multi-dyno deploys, use `schedule` / `onScheduled` ([ADR 0190](../adrs/0190-durable-plugin-scheduler.md)). Reserve `startTimer` for short in-memory UI timing only — see [Timer API](timers.md).
 
 ```typescript
-// Good - uses built-in timer API (auto-cleanup)
-this.startTimer("countdown", {
-  duration: 30000,
+// Good - durable, restart-safe
+this.onScheduled("timeout", async () => {
+  await this.handleTimeout()
+})
+await this.schedule({ id: "countdown", kind: "timeout", durationMs: 30_000 })
+
+// OK - short disposable UI timing only
+this.startTimer("ui-debounce", {
+  duration: 500,
   callback: async () => {
-    await this.handleTimeout()
+    await this.emitUiHint()
   },
 })
 
-// Avoid - manual timer management
+// Avoid - manual setTimeout / setInterval
 private readonly activeTimers = new Map<string, NodeJS.Timeout>()
 const timeout = setTimeout(() => { ... }, 30000)
 this.activeTimers.set("countdown", timeout)

@@ -125,7 +125,7 @@ protected async onCleanup(): Promise<void> {
 
 #### Timer Management
 
-See [Timer API](timers.md#timer-api) for full documentation on the built-in timer management system.
+See [Timer API](timers.md) for durable `schedule` / `onScheduled` and short in-memory `startTimer`.
 
 #### Game sessions & inventory (`this.game` / `this.inventory`)
 

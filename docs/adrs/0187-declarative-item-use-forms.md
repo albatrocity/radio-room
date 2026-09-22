@@ -1,7 +1,7 @@
 # 0187. Declarative item-use forms (`useForm`)
 
 **Date:** 2026-09-22
-**Status:** Accepted
+**Status:** Partially superseded by [0193](0193-item-use-forms-composed-with-target-pickers.md) (decision point 4: `useForm` vs `requiresTarget` composition)
 
 ## Context
 
@@ -27,7 +27,9 @@ Kickstarter Account needs title + goal + rewards in one form. Adding a third one
    when required fields are missing or invalid. Never trust client-shaped values alone.
 
 4. **UI:** shared `PluginFormFields` renderer; `ItemUseFormPopover` when `useForm` is set;
-   `useForm` takes precedence over `requiresTarget` in `InventoryUseButton`.
+   `useForm` takes precedence over `requiresTarget` in `InventoryUseButton`
+   (**partially superseded by [0193](0193-item-use-forms-composed-with-target-pickers.md)** —
+   entity targets now compose with the form).
 
 5. **`requiresTarget` stays for entity pickers** (`user`, `queueItem`, `mediaItem`, etc.).
    Forms are for authored values, not live-room entity selection.
@@ -40,18 +42,13 @@ Kickstarter Account needs title + goal + rewards in one form. Adding a third one
 
 ## Path forward
 
-Migrate existing input-collecting items onto `useForm` in follow-up work (not required for
-Kickstarter). Candidates and missing capabilities:
-
-- **burner-phone** (`spokenMessage`) — needs `maxLength` and dynamic option sources
-  (Media Bridge voice list / offline empty state).
-- **merch-cash-box** (`coinAmount`) — needs `password` field type and viewer-derived max
-  (live coin balance).
-- **road-case / van-cubby / trailer** (`inventoryItems`) — only password/label/note can
-  move; multi-select stacks need picker-plus-form composition.
+**Done (2026-09-22):** burner-phone, merch-cash-box, and road-case / van-cubby / trailer
+migrated onto `useForm` (+ picker composition for containers). Legacy
+`requiresTarget` values `coinAmount` and `spokenMessage` removed. Field capabilities
+and composition are documented in [ADR 0193](0193-item-use-forms-composed-with-target-pickers.md).
 
 Leave on `requiresTarget`: `self`, `user`, `queueItem`, `mediaItem`, `userInventoryItem`,
-`storedArtifact`.
+`inventoryItems`, `storedArtifact`.
 
 ## See also
 

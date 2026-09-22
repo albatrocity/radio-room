@@ -76,7 +76,7 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     getReactions: vi.fn().mockResolvedValue([]),
     getUsers: vi.fn().mockResolvedValue([]),
     getUsersByIds: vi.fn().mockResolvedValue([]),
-    isRoomAdmin: vi.fn().mockResolvedValue(true),
+    isRoomAdmin: vi.fn().mockResolvedValue(false),
     getQueue: vi.fn().mockResolvedValue([]),
     skipTrack: vi.fn().mockResolvedValue(undefined),
     sendSystemMessage: vi.fn().mockResolvedValue(undefined),
@@ -199,9 +199,7 @@ describe("QueueHygienePlugin", () => {
     })
 
     test("should allow when user is admin and exemptAdmins is true", async () => {
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([
-        createMockUser("user1", { isAdmin: true }),
-      ])
+      vi.mocked(mockContext.api.isRoomAdmin).mockResolvedValue(true)
       // Last track was from same user (would be consecutive)
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),

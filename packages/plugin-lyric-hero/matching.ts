@@ -5,13 +5,10 @@
  * No fuzzy matching.
  */
 
-/** Normalize a guess or token for comparison. Empty string if nothing left. */
-export function normalizeWord(value: string): string {
-  const trimmed = value.trim().toLowerCase()
-  if (!trimmed) return ""
-  // Strip surrounding non-word characters; keep internal apostrophes.
-  return trimmed.replace(/^[^a-z0-9']+|[^a-z0-9']+$/gi, "")
-}
+import { normalizeToken } from "@repo/plugin-base"
+
+/** Alias of {@link normalizeToken} for Lyric Hero call sites and exports. */
+export const normalizeWord = normalizeToken
 
 /**
  * True when `guess` has more than one whitespace-separated token

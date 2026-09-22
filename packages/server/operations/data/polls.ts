@@ -6,6 +6,7 @@ import {
   type PollOption,
   type PollResults,
 } from "@repo/types"
+import { claimDueMembers } from "./claimDueMembers"
 
 // =============================================================================
 // Key helpers
@@ -252,23 +253,6 @@ export async function deletePollKeys({
 // Auto-close schedule (ADR 0189)
 // =============================================================================
 
-/**
- * Claim due auto-close members in one Redis round-trip.
- * Marker: CLAIM_DUE_AUTO_CLOSES — MemoryRedisClient.eval recognizes this script.
- * ARGV[1] = now (score upper bound). Returns members successfully ZREM'd (claim won).
- */
-const CLAIM_DUE_AUTO_CLOSES_LUA = `
--- CLAIM_DUE_AUTO_CLOSES
-local members = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
-local claimed = {}
-for _, member in ipairs(members) do
-  if redis.call('ZREM', KEYS[1], member) == 1 then
-    table.insert(claimed, member)
-  end
-end
-return claimed
-`
-
 export async function scheduleAutoClose({
   context,
   roomId,
@@ -309,17 +293,10 @@ export async function claimDueAutoCloses({
   context: AppContext
   now?: number
 }): Promise<{ roomId: string; pollId: string }[]> {
-  const client = context.redis.pubClient
-  const dueCount = await client.zCount(POLLS_CLOSING_KEY, "-inf", now)
-  if (dueCount === 0) return []
-
-  const raw = (await client.eval(CLAIM_DUE_AUTO_CLOSES_LUA, {
-    keys: [POLLS_CLOSING_KEY],
-    arguments: [String(now)],
-  })) as string[]
-
+  // Shared with plugin schedules + modifier expiry (ADR 0190 / 0191).
+  const raw = await claimDueMembers({ context, key: POLLS_CLOSING_KEY, now })
   const claimed: { roomId: string; pollId: string }[] = []
-  for (const member of raw ?? []) {
+  for (const member of raw) {
     const parsed = parseAutoCloseMember(member)
     if (parsed) claimed.push(parsed)
   }

@@ -1,3 +1,5 @@
+import { interpolateTemplate } from "@repo/utils"
+
 /**
  * Random follow-up lines from a Sweetwater sales rep after a purchase.
  * Placeholders: `{{username}}`, `{{purchasedItemName}}` (use `@{{username}}` in copy for @-style display).
@@ -35,7 +37,5 @@ export function formatSweetwaterMessage(
   username: string,
   purchasedItemName: string,
 ): string {
-  return template
-    .replace(/\{\{username\}\}/g, username)
-    .replace(/\{\{purchasedItemName\}\}/g, purchasedItemName)
+  return interpolateTemplate(template, { username, purchasedItemName })
 }

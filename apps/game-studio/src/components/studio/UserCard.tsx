@@ -22,11 +22,9 @@ import { useMemo, useState } from "react"
 import { requestStudioBridgeViewAs } from "../../studio/bridgeClient"
 import * as studioActions from "../../studio/studioActions"
 import type { StudioRoom } from "../../studio/studioRoom"
-import { StudioCoinAmountStoragePopover } from "./StudioCoinAmountStoragePopover"
 import { StudioInventoryItemStoragePopover } from "./StudioInventoryItemStoragePopover"
 import { StudioUserInventoryItemPopover } from "./StudioUserInventoryItemPopover"
 import { StudioUseTargetPopover } from "./StudioUseTargetPopover"
-import { StudioSpokenMessagePopover } from "./StudioSpokenMessagePopover"
 import { toaster } from "../ui/toaster"
 import { LinkifiedText } from "./LinkifiedText"
 
@@ -362,7 +360,6 @@ export function UserCard({
               const mediaItemBlocked =
                 rt === "mediaItem" &&
                 inventoryRows.filter((invItem) => invItem.itemId !== row.itemId).length === 0
-              const coinBlocked = rt === "coinAmount" && coin < 1
               const otherUsers = [...room.users.keys()].filter((id) => id !== userId)
               const burgleBlocked = rt === "userInventoryItem" && otherUsers.length === 0
 
@@ -377,9 +374,11 @@ export function UserCard({
                       void run(`Use ${label}`, async () =>
                         studioActions.useInventoryItem(userId, row.itemId, {
                           targetInventoryItemIds,
-                          password,
-                          label: stashLabel,
-                          note,
+                          formValues: {
+                            password,
+                            ...(stashLabel ? { label: stashLabel } : {}),
+                            ...(note ? { note } : {}),
+                          },
                         }),
                       )
                     }
@@ -423,39 +422,6 @@ export function UserCard({
                       Use
                     </Button>
                   </StudioUserInventoryItemPopover>
-                ) : rt === "coinAmount" ? (
-                  <StudioCoinAmountStoragePopover
-                    maxCoins={coin}
-                    onConfirm={(coinAmount, password, stashLabel, note) =>
-                      void run(`Use ${label}`, async () =>
-                        studioActions.useInventoryItem(userId, row.itemId, {
-                          coinAmount,
-                          password,
-                          label: stashLabel,
-                          note,
-                        }),
-                      )
-                    }
-                  >
-                    <Button size="xs" variant="surface" disabled={coinBlocked}>
-                      Use
-                    </Button>
-                  </StudioCoinAmountStoragePopover>
-                ) : rt === "spokenMessage" ? (
-                  <StudioSpokenMessagePopover
-                    onConfirm={(message, voice) =>
-                      void run(`Use ${label}`, async () =>
-                        studioActions.useInventoryItem(userId, row.itemId, {
-                          message,
-                          voice,
-                        }),
-                      )
-                    }
-                  >
-                    <Button size="xs" variant="surface">
-                      Use
-                    </Button>
-                  </StudioSpokenMessagePopover>
                 ) : (
                   <Button
                     size="xs"

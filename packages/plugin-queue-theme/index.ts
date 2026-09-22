@@ -10,14 +10,14 @@ import type {
   SystemEventPayload,
 } from "@repo/types"
 import { canonicalQueueTrackKey, isPluginAttributedUserId } from "@repo/types"
-import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
+import { BasePlugin, createLeaderboard, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
   computeDjPayout,
+  decoyVoterIds,
   parseNonNegInt,
   parseTruthyParam,
   sampleUserIds,
-  tallyThemeVotes,
 } from "./payout"
 import { getComponentSchema, getConfigSchema } from "./schema"
 import {
@@ -34,7 +34,7 @@ import {
 
 export type { QueueThemeConfig, QueueThemeUserBrief, QueueThemeRound } from "./types"
 export { queueThemeConfigSchema, defaultQueueThemeConfig, QUEUE_THEME_PLUGIN_NAME } from "./types"
-export { computeDjPayout, tallyThemeVotes } from "./payout"
+export { computeDjPayout, decoyVoterIds } from "./payout"
 
 const KEYS = QUEUE_THEME_STORAGE_KEYS
 const PLUGIN_NAME = QUEUE_THEME_PLUGIN_NAME
@@ -494,15 +494,10 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
     const config = await this.getConfig()
     if (!config) return false
 
-    const votes = await this.context.api.getPollVotes(this.context.roomId, round.pollId)
-    const tallied = tallyThemeVotes({
-      votes,
-      optionIds: round.optionIds,
-      excludeUserId: round.pollDjUserId,
-    })
-
-    const yesCount = tallied.yesCount
-    const noCount = tallied.noCount
+    const excludeUserIds = round.pollDjUserId ? [round.pollDjUserId] : undefined
+    const counts = await this.context.api.tallyPoll(round.pollId, { excludeUserIds })
+    const yesCount = counts[round.optionIds.yes] ?? 0
+    const noCount = counts[round.optionIds.no] ?? 0
 
     const payout = computeDjPayout({
       yesCount,
@@ -531,7 +526,8 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
       round.decoyUserIds.includes(round.pollDjUserId) &&
       config.accusationReward > 0
     ) {
-      const rewarded = tallied.decoyVoterIds.filter((voterId) => voterId !== round.pollDjUserId)
+      const votes = await this.context.api.getPollVotes(this.context.roomId, round.pollId)
+      const rewarded = decoyVoterIds(votes, round.optionIds.decoy, round.pollDjUserId)
       await Promise.all(rewarded.map((voterId) => this.awardPayout(voterId, config.accusationReward)))
     }
     return true
@@ -576,18 +572,13 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
 
   private async loadRound(): Promise<QueueThemeRound | null> {
     if (!this.context) return null
-    const raw = await this.context.storage.get(KEYS.ROUND)
-    if (!raw) return null
-    try {
-      return JSON.parse(raw) as QueueThemeRound
-    } catch {
-      return null
-    }
+    const { value } = await this.context.storage.getJson<QueueThemeRound>(KEYS.ROUND)
+    return value
   }
 
   private async saveRound(round: QueueThemeRound): Promise<void> {
     if (!this.context) return
-    await this.context.storage.set(KEYS.ROUND, JSON.stringify(round))
+    await this.context.storage.setJson(KEYS.ROUND, round)
   }
 
   private async loadBrief(userId: string): Promise<QueueThemeUserBrief | null> {
@@ -627,23 +618,19 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
     }
   }
 
+  private get standingsLb() {
+    return createLeaderboard({
+      storage: this.context!.storage,
+      api: this.context!.api,
+      key: KEYS.STANDINGS,
+    })
+  }
+
   private async buildStandings(): Promise<
     { score: number; value: string; username: string }[]
   > {
     if (!this.context) return []
-    const entries = await fetchTopZsetEntries(
-      this.context.storage,
-      KEYS.STANDINGS,
-      HOT_LEADERBOARD_TOP_N,
-    )
-    if (entries.length === 0) return []
-    const users = await this.context.api.getUsersByIds(entries.map((e) => e.value))
-    const byId = new Map(users.map((u) => [u.userId, u]))
-    return entries.map((e) => ({
-      score: e.score,
-      value: e.value,
-      username: byId.get(e.value)?.username?.trim() || e.value,
-    }))
+    return this.standingsLb.top({ topN: HOT_LEADERBOARD_TOP_N })
   }
 }
 

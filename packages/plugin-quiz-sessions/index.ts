@@ -10,7 +10,7 @@ import type {
   SystemEventPayload,
 } from "@repo/types"
 import { isInclusiveMode, type ParticipationMode } from "@repo/game-logic"
-import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
+import { BasePlugin, createLeaderboard, HOT_LEADERBOARD_TOP_N, isSystemChatMessage } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
   quizSessionsConfigSchema,
@@ -94,6 +94,10 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
 
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
+    this.onScheduled("auto-advance", async (payload) => {
+      const { fromQuestionIndex } = payload as { fromQuestionIndex: number }
+      await this.autoAdvance(fromQuestionIndex)
+    })
     // PvP (competitive): observe chat post-broadcast; the winning guess stays visible.
     // PvG (inclusive) matching runs in transformChatMessage so correct guesses drop.
     this.on("MESSAGE_RECEIVED", (data) => this.onMessageReceived(data))
@@ -215,7 +219,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
    * config field). Advances directly to the first question.
    */
   private async startSession(initiator?: PluginActionInitiator): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
+    const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) return notInitialized()
 
@@ -271,8 +275,8 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       autoAdvanceDeadline: null,
     }
 
-    this.clearTimer(AUTO_ADVANCE_TIMER)
-    await this.context.storage.del(LEADERBOARD_KEY)
+    await this.cancelSchedule(AUTO_ADVANCE_TIMER)
+    await this.lb.reset()
     await this.context.storage.del(WINNERS_KEY)
     await this.context.storage.del(ANSWERED_KEY)
     await this.saveSession(session)
@@ -294,7 +298,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
 
   /** Advance to the next question, or end the session if the current one is last. */
   private async advanceQuestion(initiator?: PluginActionInitiator): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
+    const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) return notInitialized()
 
@@ -315,7 +319,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     questions: QuizConfigQuestion[],
   ): Promise<ActionResult> {
     if (!this.context) return notInitialized()
-    this.clearTimer(AUTO_ADVANCE_TIMER)
+    await this.cancelSchedule(AUTO_ADVANCE_TIMER)
     session.autoAdvanceDeadline = null
 
     if (session.activeQuestionIndex >= questions.length - 1) {
@@ -349,7 +353,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
 
   /** Post the leaderboard to chat, clear state, and emit SESSION_ENDED. */
   private async endSession(initiator?: PluginActionInitiator): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
+    const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) return notInitialized()
 
@@ -367,7 +371,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
    */
   private async finishSession(session: QuizSession): Promise<ActionResult> {
     if (!this.context) return notInitialized()
-    this.clearTimer(AUTO_ADVANCE_TIMER)
+    await this.cancelSchedule(AUTO_ADVANCE_TIMER)
     session.autoAdvanceDeadline = null
 
     const leaderboard = await this.buildLeaderboard()
@@ -393,7 +397,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
   ): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
+    const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) return notInitialized()
 
@@ -427,7 +431,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     if (!this.context) return null
     const config = await this.getConfig()
     if (!config?.enabled || !isInclusiveMode(config.mode)) return null
-    if (this.isSystemMessage(message)) return null
+    if (isSystemChatMessage(message)) return null
 
     const session = await this.loadSession()
     const questions = config.questions ?? []
@@ -466,7 +470,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     const config = await this.getConfig()
     if (!config?.enabled || isInclusiveMode(config.mode)) return
     const { message } = data
-    if (this.isSystemMessage(message)) return
+    if (isSystemChatMessage(message)) return
 
     const session = await this.loadSession()
     const questions = config.questions ?? []
@@ -510,10 +514,6 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     return { index: session.activeQuestionIndex, question }
   }
 
-  private isSystemMessage(message: ChatMessage): boolean {
-    return message.user.userId === "system"
-  }
-
   /**
    * Award a correct answer: bump the session leaderboard (+1), grant coins via
    * the game session (no-op without an active session), record the winner, and
@@ -544,7 +544,7 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
       await this.context.game.addScore(userId, "score", coins, this.name)
     }
 
-    await this.context.storage.zincrby(LEADERBOARD_KEY, 1, userId)
+    await this.lb.increment(userId)
     ;(session.winnersPerQuestion[String(index)] ??= []).push(userId)
 
     await this.context.api.sendSystemMessage(
@@ -607,24 +607,27 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
   }
 
   /**
-   * Start the auto-advance timer if enabled and not already counting down.
-   * Mutates `session.autoAdvanceDeadline` when a new timer starts.
+   * Start the auto-advance schedule if enabled and not already counting down.
+   * Mutates `session.autoAdvanceDeadline` when a new schedule starts.
    */
   private beginAutoAdvance(session: QuizSession): QuizAutoAdvanceDeadline | null {
     if (!session.autoAdvance || session.autoAdvanceDelayMs <= 0) {
       session.autoAdvanceDeadline = null
       return null
     }
-    if (this.getTimer(AUTO_ADVANCE_TIMER)) {
-      return this.activeAutoAdvanceDeadline(session)
+    // If a deadline is already set and in the future, don't re-schedule
+    if (session.autoAdvanceDeadline && session.autoAdvanceDeadline.endAt > Date.now()) {
+      return session.autoAdvanceDeadline
     }
     const startAt = Date.now()
     const endAt = startAt + session.autoAdvanceDelayMs
     session.autoAdvanceDeadline = { startAt, endAt }
     const fromQuestionIndex = session.activeQuestionIndex
-    this.startTimer(AUTO_ADVANCE_TIMER, {
-      duration: session.autoAdvanceDelayMs,
-      callback: () => this.autoAdvance(fromQuestionIndex),
+    void this.schedule({
+      id: AUTO_ADVANCE_TIMER,
+      kind: "auto-advance",
+      durationMs: session.autoAdvanceDelayMs,
+      payload: { fromQuestionIndex },
     })
     return session.autoAdvanceDeadline
   }
@@ -674,24 +677,19 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
 
   private async loadSession(): Promise<QuizSession | null> {
     if (!this.context) return null
-    const raw = await this.context.storage.get(SESSION_KEY)
-    if (!raw) return null
-    try {
-      return JSON.parse(raw) as QuizSession
-    } catch {
-      return null
-    }
+    const { value } = await this.context.storage.getJson<QuizSession>(SESSION_KEY)
+    return value
   }
 
   private async saveSession(session: QuizSession): Promise<void> {
     if (!this.context) return
-    await this.context.storage.set(SESSION_KEY, JSON.stringify(session))
+    await this.context.storage.setJson(SESSION_KEY, session)
   }
 
   private async clearSession(): Promise<void> {
     if (!this.context) return
     await this.context.storage.del(SESSION_KEY)
-    await this.context.storage.del(LEADERBOARD_KEY)
+    await this.lb.reset()
     await this.context.storage.del(WINNERS_KEY)
     await this.context.storage.del(ANSWERED_KEY)
   }
@@ -732,41 +730,20 @@ export class QuizSessionsPlugin extends BasePlugin<QuizSessionsConfig> {
     }
   }
 
+  private get lb() {
+    return createLeaderboard({
+      storage: this.context!.storage,
+      api: this.context!.api,
+      key: LEADERBOARD_KEY,
+    })
+  }
+
   /**
    * @param topN - When set, only the top N scores (hot award path). Omit for full board.
    */
   private async buildLeaderboard(topN?: number): Promise<QuizLeaderboardEntry[]> {
     if (!this.context) return []
-    const sorted =
-      topN != null && topN > 0
-        ? await fetchTopZsetEntries(this.context.storage, LEADERBOARD_KEY, topN)
-        : [...(await this.context.storage.zrangeWithScores(LEADERBOARD_KEY, 0, -1))].sort(
-            (a, b) => b.score - a.score,
-          )
-    const users = await this.context.api.getUsersByIds(sorted.map((e) => e.value))
-    const nameById = new Map(users.map((u) => [u.userId, u.username]))
-    return sorted.map((entry) => ({
-      score: entry.score,
-      value: entry.value,
-      username: nameById.get(entry.value) ?? entry.value,
-    }))
-  }
-
-  private async requireRoomAdmin(
-    initiator?: PluginActionInitiator,
-  ): Promise<{ ok: true } | { ok: false; result: ActionResult }> {
-    if (!this.context) {
-      return { ok: false, result: notInitialized() }
-    }
-    const userId = initiator?.userId?.trim()
-    if (!userId) {
-      return { ok: false, result: { success: false, message: "Admin required" } }
-    }
-    const isAdmin = await this.context.api.isRoomAdmin(this.context.roomId, userId)
-    if (!isAdmin) {
-      return { ok: false, result: { success: false, message: "Admin required" } }
-    }
-    return { ok: true }
+    return this.lb.top({ topN })
   }
 }
 

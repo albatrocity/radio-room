@@ -506,26 +506,20 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   private async loadState(): Promise<RoundRobinState | null> {
     if (!this.context) return null
     if (this.stateCache !== undefined) return this.stateCache
-    const raw = await this.context.storage.get(STATE_KEY)
-    if (!raw) {
+    const { value } = await this.context.storage.getJson<RoundRobinState>(STATE_KEY)
+    if (!value) {
       this.stateCache = null
       return null
     }
-    try {
-      const parsed = JSON.parse(raw) as RoundRobinState
-      parsed.direction = parsed.direction === -1 ? -1 : 1
-      this.stateCache = parsed
-      return this.stateCache
-    } catch {
-      this.stateCache = null
-      return null
-    }
+    value.direction = value.direction === -1 ? -1 : 1
+    this.stateCache = value
+    return this.stateCache
   }
 
   private async saveState(state: RoundRobinState): Promise<void> {
     if (!this.context) return
     this.stateCache = state
-    await this.context.storage.set(STATE_KEY, JSON.stringify(state))
+    await this.context.storage.setJson(STATE_KEY, state)
   }
 
   /**

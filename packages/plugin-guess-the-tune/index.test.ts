@@ -109,6 +109,12 @@ function createInMemoryStorage(): PluginStorage & {
       hashes.set(key, h)
       return true
     }),
+    compareAndSet: vi.fn().mockResolvedValue(true),
+    getJson: vi.fn().mockResolvedValue({ raw: null, value: null }),
+    setJson: vi.fn().mockResolvedValue(undefined),
+    updateJson: vi.fn().mockResolvedValue(null),
+    lrange: vi.fn().mockResolvedValue([]),
+    appendCapped: vi.fn().mockResolvedValue(undefined),
   }
 }
 

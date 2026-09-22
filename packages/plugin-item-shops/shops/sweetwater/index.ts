@@ -2,7 +2,6 @@ import type { ItemShopsShopCatalogEntry, ShopBuyContext } from "@repo/plugin-bas
 import type { ChatMessage } from "@repo/types"
 import { items } from "../../items"
 import { isSweetwaterDoNotCall, SWEETWATER_SHOP_ID, sweetwaterTimerId } from "./followUps"
-import { formatSweetwaterMessage, pickRandomSweetwaterMessage } from "./messages"
 
 /** 10 minutes between Sweetwater sales rep follow-ups */
 const SWEETWATER_FOLLOWUP_MS = 10 * 60 * 1000
@@ -14,44 +13,6 @@ const SWEETWATER_REP_ALERT_META: ChatMessage["meta"] = {
 }
 
 type SweetwaterUserState = { username: string; lastPurchasedItemName: string }
-
-async function deliverSweetwaterFollowUpAndReschedule(
-  ctx: ShopBuyContext,
-  userId: string,
-): Promise<void> {
-  const state = ctx.getState<SweetwaterUserState>(userId)
-  if (!state) return
-
-  // Call Screener (ADR 0183) — screened users get no more rep DMs this session.
-  if (isSweetwaterDoNotCall(ctx.getState, userId)) {
-    ctx.clearTimer(sweetwaterTimerId(userId))
-    return
-  }
-
-  if (!(await ctx.isGameSessionActive())) {
-    ctx.clearTimer(sweetwaterTimerId(userId))
-    ctx.deleteState(userId)
-    return
-  }
-
-  if (!(await ctx.isUserInRoom(userId))) {
-    ctx.clearTimer(sweetwaterTimerId(userId))
-    ctx.deleteState(userId)
-    return
-  }
-
-  const template = pickRandomSweetwaterMessage()
-  const content = formatSweetwaterMessage(template, state.username, state.lastPurchasedItemName)
-  await ctx.sendUserSystemMessage(userId, content, SWEETWATER_REP_ALERT_META)
-
-  ctx.startTimer(sweetwaterTimerId(userId), {
-    duration: SWEETWATER_FOLLOWUP_MS,
-    data: { userId },
-    callback: async () => {
-      await deliverSweetwaterFollowUpAndReschedule(ctx, userId)
-    },
-  })
-}
 
 function sweetwaterOnBuy(ctx: ShopBuyContext): void {
   ctx.setState<SweetwaterUserState>(ctx.userId, {
@@ -68,12 +29,11 @@ function sweetwaterOnBuy(ctx: ShopBuyContext): void {
     return
   }
 
-  ctx.startTimer(timerId, {
-    duration: SWEETWATER_FOLLOWUP_MS,
-    data: { userId: ctx.userId },
-    callback: async () => {
-      await deliverSweetwaterFollowUpAndReschedule(ctx, ctx.userId)
-    },
+  void ctx.schedule({
+    id: timerId,
+    kind: "sweetwater-followup",
+    durationMs: SWEETWATER_FOLLOWUP_MS,
+    payload: { userId: ctx.userId },
   })
 }
 

@@ -398,8 +398,77 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   // Timer Management
   // ============================================================================
 
+  /** Durable schedule handlers keyed by kind (ADR 0190). */
+  private scheduledHandlers: Map<
+    string,
+    (payload: unknown, scheduleId: string) => Promise<void> | void
+  > = new Map()
+
   /**
-   * Start a timer with the given ID and configuration.
+   * Register a handler for durable schedules of a given kind (ADR 0190).
+   * Prefer this over `startTimer` for anything that must survive restarts.
+   *
+   * @example
+   * ```typescript
+   * this.onScheduled("auto-advance", async (payload) => {
+   *   await this.advanceRound()
+   * })
+   * await this.schedule({ id: "round-advance", kind: "auto-advance", durationMs: 30_000 })
+   * ```
+   */
+  protected onScheduled(
+    kind: string,
+    handler: (payload: unknown, scheduleId: string) => Promise<void> | void,
+  ): void {
+    this.scheduledHandlers.set(kind, handler)
+  }
+
+  /**
+   * Schedule a durable callback via PluginAPI (ADR 0190).
+   * Survives process restarts; only one dyno claims each firing.
+   */
+  protected async schedule(params: {
+    id: string
+    kind: string
+    at?: number | null
+    durationMs?: number | null
+    payload?: unknown
+  }): Promise<{ ok: true; fireAt: number } | { ok: false; message: string }> {
+    if (!this.context) {
+      return { ok: false, message: "Plugin context is not available" }
+    }
+    return this.context.api.schedule(params)
+  }
+
+  /**
+   * Cancel a durable schedule (ADR 0190).
+   */
+  protected async cancelSchedule(id: string): Promise<boolean> {
+    if (!this.context) return false
+    return this.context.api.cancelSchedule(id)
+  }
+
+  /**
+   * Invoked by PluginRegistry when a claimed schedule fires (ADR 0190).
+   */
+  async handleScheduled(kind: string, payload: unknown, scheduleId: string): Promise<void> {
+    const handler = this.scheduledHandlers.get(kind)
+    if (!handler) {
+      console.warn(`[${this.name}] No onScheduled handler for kind "${kind}"`)
+      return
+    }
+    try {
+      await handler(payload, scheduleId)
+    } catch (error) {
+      console.error(`[${this.name}] Scheduled handler error for "${kind}":`, error)
+    }
+  }
+
+  /**
+   * Start an **in-memory** timer. Prefer {@link schedule} for anything longer
+   * than a few seconds or that must survive restarts / multi-dyno (ADR 0190).
+   * `startTimer` is appropriate only for short, disposable UI timing.
+   *
    * If a timer with the same ID already exists, it will be cleared first.
    *
    * @param id - Unique identifier for this timer
@@ -407,7 +476,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    *
    * @example
    * ```typescript
-   * // Simple timer
+   * // Simple timer (prefer this.schedule for durable work)
    * this.startTimer("skip-countdown", {
    *   duration: 30000,
    *   callback: async () => {
@@ -790,9 +859,13 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * @example
    * ```typescript
    * async augmentPlaylistBatch(items: QueueItem[]): Promise<PluginAugmentationData[]> {
-   *   const trackIds = items.map(item => item.mediaSource.trackId)
-   *   const skipData = await this.context?.storage.mget(trackIds.map(id => `skipped:${id}`))
-   *   return (skipData || []).map(data => data ? { skipped: true } : {})
+   *   if (!this.context) return items.map(() => ({}))
+   *   return new TrackAnnotations({
+   *     storage: this.context.storage,
+   *     api: this.context.api,
+   *     roomId: this.context.roomId,
+   *     pluginName: this.name,
+   *   }).enrichQueueItems(items)
    * }
    * ```
    */
@@ -813,15 +886,18 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    * @example
    * ```typescript
    * async augmentNowPlaying(item: QueueItem): Promise<PluginAugmentationData> {
-   *   const skipData = await this.context?.storage.get(`skipped:${item.mediaSource.trackId}`)
-   *   if (skipData) {
-   *     return {
-   *       skipped: true,
-   *       skipData: JSON.parse(skipData),
-   *       styles: { title: { textDecoration: 'line-through', opacity: 0.7 } }
-   *     }
+   *   if (!this.context) return {}
+   *   const [data] = await new TrackAnnotations({
+   *     storage: this.context.storage,
+   *     api: this.context.api,
+   *     roomId: this.context.roomId,
+   *     pluginName: this.name,
+   *   }).enrichQueueItems([item])
+   *   if (!data.skipped) return {}
+   *   return {
+   *     ...data,
+   *     styles: { title: { textDecoration: 'line-through', opacity: 0.7 } },
    *   }
-   *   return {}
    * }
    * ```
    */

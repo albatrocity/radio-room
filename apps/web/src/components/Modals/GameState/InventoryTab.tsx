@@ -90,12 +90,6 @@ function InventoryRow({
     targetArtifactId?: string
     targetInventoryItemId?: string
     targetInventoryItemIds?: string[]
-    password?: string
-    coinAmount?: number
-    message?: string
-    voice?: string
-    label?: string
-    note?: string
     formValues?: Record<string, string | number>
   }) => {
     setPendingUse({ itemId: item.itemId })
@@ -123,15 +117,9 @@ function InventoryRow({
       ...(extra?.targetInventoryItemIds != null
         ? { targetInventoryItemIds: extra.targetInventoryItemIds }
         : {}),
-      ...(extra?.password != null ? { password: extra.password } : {}),
-      ...(extra?.coinAmount != null ? { coinAmount: extra.coinAmount } : {}),
-      ...(extra?.message != null ? { message: extra.message } : {}),
-      ...(extra?.voice != null ? { voice: extra.voice } : {}),
-      ...(extra?.label != null ? { label: extra.label } : {}),
-      ...(extra?.note != null ? { note: extra.note } : {}),
       ...(extra?.formValues != null ? { formValues: extra.formValues } : {}),
     })
-    if (extra?.password != null) {
+    if (typeof extra?.formValues?.password === "string") {
       refreshStoredArtifacts()
     }
   }

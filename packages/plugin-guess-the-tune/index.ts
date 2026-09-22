@@ -19,7 +19,12 @@ import type {
 } from "@repo/types"
 import { queueItemStableKey } from "@repo/types"
 import { isInclusiveMode, type ParticipationMode } from "@repo/game-logic"
-import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
+import {
+  BasePlugin,
+  createLeaderboard,
+  HOT_LEADERBOARD_TOP_N,
+  isSystemChatMessage,
+} from "@repo/plugin-base"
 import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
 import {
@@ -133,25 +138,19 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   /**
    * @param topN - When set, only the top N scores (hot award path). Omit for full board.
    */
+  private get scoresLb() {
+    return createLeaderboard({
+      storage: this.context!.storage,
+      api: this.context!.api,
+      key: USER_SCORES_KEY,
+    })
+  }
+
   private async buildUsersLeaderboard(
     topN?: number,
   ): Promise<{ score: number; value: string; username: string }[]> {
     if (!this.context) return []
-
-    const sorted =
-      topN != null && topN > 0
-        ? await fetchTopZsetEntries(this.context.storage, USER_SCORES_KEY, topN)
-        : [...(await this.context.storage.zrangeWithScores(USER_SCORES_KEY, 0, -1))].sort(
-            (a, b) => b.score - a.score,
-          )
-    const userIds = sorted.map((e) => e.value)
-    const users = await this.context.api.getUsersByIds(userIds)
-    const userMap = new Map(users.map((u) => [u.userId, u.username]))
-
-    return sorted.map((entry) => ({
-      ...entry,
-      username: userMap.get(entry.value) ?? entry.value,
-    }))
+    return this.scoresLb.top({ topN })
   }
 
   async register(context: PluginContext): Promise<void> {
@@ -196,7 +195,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     if (isInclusiveMode(config.mode)) return
 
     const { message } = data
-    if (this.isSystemMessage(message)) return
+    if (isSystemChatMessage(message)) return
 
     await this.handleCompetitiveGuess(message, config)
   }
@@ -274,7 +273,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     config: GuessTheTuneConfig,
   ): Promise<boolean> {
     if (!this.context) return false
-    if (this.isSystemMessage(message)) return false
+    if (isSystemChatMessage(message)) return false
 
     const np = await this.context.api.getNowPlaying(this.context.roomId)
     if (!np?.track) return false
@@ -374,7 +373,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     const mult = elapsed <= config.speedMultiplierWindowSec * 1000 ? config.speedMultiplier : 1
     const points = Math.floor(basePoints[prop] * mult)
 
-    await this.context.storage.zincrby(USER_SCORES_KEY, points, userId)
+    await this.scoresLb.increment(userId, points)
     await this.context.game.addScore(userId, "score", points, "guess-the-tune")
     await this.context.game.addScore(userId, "coin", points, "guess-the-tune")
 
@@ -536,31 +535,11 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     }
   }
 
-  private async requireRoomAdmin(
-    initiator?: PluginActionInitiator,
-  ): Promise<
-    | { ok: true }
-    | { ok: false; result: { success: false; message: string } }
-  > {
-    if (!this.context) {
-      return { ok: false, result: { success: false, message: "Plugin not initialized" } }
-    }
-    const userId = initiator?.userId?.trim()
-    if (!userId) {
-      return { ok: false, result: { success: false, message: "Admin required" } }
-    }
-    const isAdmin = await this.context.api.isRoomAdmin(this.context.roomId, userId)
-    if (!isAdmin) {
-      return { ok: false, result: { success: false, message: "Admin required" } }
-    }
-    return { ok: true }
-  }
-
   private async adminRevealProperty(
     prop: GuessProperty,
     initiator?: PluginActionInitiator,
   ): Promise<{ success: boolean; message?: string }> {
-    const adminCheck = await this.requireRoomAdmin(initiator)
+    const adminCheck = await this.requireRoomAdminForAction(initiator)
     if (!adminCheck.ok) return adminCheck.result
 
     if (!this.context) {
@@ -621,7 +600,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   private async adminRevealAll(
     initiator?: PluginActionInitiator,
   ): Promise<{ success: boolean; message?: string }> {
-    const adminCheck = await this.requireRoomAdmin(initiator)
+    const adminCheck = await this.requireRoomAdminForAction(initiator)
     if (!adminCheck.ok) return adminCheck.result
 
     if (!this.context) {
@@ -696,10 +675,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     }
 
     try {
-      const entries = await this.context.storage.zrangeWithScores(USER_SCORES_KEY, 0, -1)
-      for (const e of entries) {
-        await this.context.storage.zrem(USER_SCORES_KEY, e.value)
-      }
+      await this.scoresLb.reset()
 
       await this.emit<GuessTheTuneEvents["LEADERBOARD_RESET"]>("LEADERBOARD_RESET", {
         usersLeaderboard: [],
@@ -710,10 +686,6 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       console.error(`[${this.name}] resetLeaderboard`, e)
       return { success: false, message: String(e) }
     }
-  }
-
-  private isSystemMessage(message: ChatMessage): boolean {
-    return message.user.userId === "system"
   }
 
   private async buildElementPropsAugmentation(

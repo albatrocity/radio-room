@@ -128,7 +128,7 @@ export class VolumeManagerPlugin extends BasePlugin<VolumeManagerConfig> {
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
   ): Promise<{ success: boolean; message?: string }> {
-    const adminCheck = await this.requireRoomAdmin(initiator)
+    const adminCheck = await this.requireRoomAdminForAction(initiator)
     if (!adminCheck.ok) {
       return adminCheck.result
     }
@@ -186,25 +186,6 @@ export class VolumeManagerPlugin extends BasePlugin<VolumeManagerConfig> {
       return false
     }
     return true
-  }
-
-  private async requireRoomAdmin(
-    initiator?: PluginActionInitiator,
-  ): Promise<
-    | { ok: true }
-    | { ok: false; result: { success: false; message: string } }
-  > {
-    const userId = initiator?.userId?.trim()
-    if (!userId) {
-      return { ok: false, result: { success: false, message: "Admin required" } }
-    }
-
-    const isAdmin = await this.context!.api.isRoomAdmin(this.context!.roomId, userId)
-    if (!isAdmin) {
-      return { ok: false, result: { success: false, message: "Admin required" } }
-    }
-
-    return { ok: true }
   }
 }
 

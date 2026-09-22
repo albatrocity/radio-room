@@ -11,7 +11,13 @@ import { burnerPhone } from "./index"
 describe("burner-phone", () => {
   it("registers the expected catalog fields", () => {
     expect(burnerPhone.shortId).toBe("burner-phone")
-    expect(burnerPhone.catalogEntry.definition.requiresTarget).toBe("spokenMessage")
+    expect(burnerPhone.catalogEntry.definition.requiresTarget).toBeUndefined()
+    expect(burnerPhone.catalogEntry.definition.useForm).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "message", type: "textarea", maxLength: 100 }),
+        expect.objectContaining({ name: "voice", optionsSource: "mediaBridgeVoices" }),
+      ]),
+    )
     expect(burnerPhone.catalogEntry.availableInRoomTypes).toEqual(["radio", "live"])
   })
 
@@ -21,7 +27,9 @@ describe("burner-phone", () => {
     stubRoomUsers(deps, [actor])
     const def = createMockDefinition(burnerPhone.shortId)
 
-    const result = await invokeUse(burnerPhone, deps, actor.userId, def, { voice: "Samantha" })
+    const result = await invokeUse(burnerPhone, deps, actor.userId, def, {
+      formValues: { voice: "Samantha" },
+    })
     expect(result).toEqual({
       success: false,
       consumed: false,
@@ -38,8 +46,7 @@ describe("burner-phone", () => {
     const message = "x".repeat(101)
 
     const result = await invokeUse(burnerPhone, deps, actor.userId, def, {
-      message,
-      voice: "Samantha",
+      formValues: { message, voice: "Samantha" },
     })
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
@@ -57,8 +64,7 @@ describe("burner-phone", () => {
     })
 
     const result = await invokeUse(burnerPhone, deps, actor.userId, def, {
-      message: "Hello DJ",
-      voice: "Zarvox",
+      formValues: { message: "Hello DJ", voice: "Zarvox" },
     })
     expect(result).toEqual({
       success: false,
@@ -76,8 +82,7 @@ describe("burner-phone", () => {
     vi.mocked(deps.context.api.speakOnMediaBridge).mockResolvedValue({ ok: true })
 
     const result = await invokeUse(burnerPhone, deps, actor.userId, def, {
-      message: "  Hello DJ  ",
-      voice: "Samantha",
+      formValues: { message: "  Hello DJ  ", voice: "Samantha" },
     })
 
     expect(result).toEqual({

@@ -71,6 +71,12 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     hset: vi.fn().mockResolvedValue(undefined),
     hgetall: vi.fn().mockResolvedValue({}),
     hsetnx: vi.fn().mockResolvedValue(true),
+    compareAndSet: vi.fn().mockResolvedValue(true),
+    getJson: vi.fn().mockResolvedValue({ raw: null, value: null }),
+    setJson: vi.fn().mockResolvedValue(undefined),
+    updateJson: vi.fn().mockResolvedValue(null),
+    lrange: vi.fn().mockResolvedValue([]),
+    appendCapped: vi.fn().mockResolvedValue(undefined),
     cleanup: vi.fn().mockResolvedValue(undefined),
   }
 
@@ -96,6 +102,9 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     moveToTrackQueueBottom: vi.fn().mockResolvedValue({ success: true }),
     moveTrackByPosition: vi.fn().mockResolvedValue({ success: true }),
     shuffleTrackQueue: vi.fn().mockResolvedValue({ success: true }),
+    schedule: vi.fn().mockResolvedValue({ ok: true, fireAt: Date.now() + 30_000 }),
+    cancelSchedule: vi.fn().mockResolvedValue(true),
+    getSchedule: vi.fn().mockResolvedValue(null),
   }
 
   const mockLifecycle: PluginLifecycle = {
@@ -547,7 +556,8 @@ describe("QueuePacerPlugin", () => {
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })
 
-      await vi.runAllTimersAsync()
+      // Simulate the durable schedule firing
+      await plugin.handleScheduled("track-deadline", { trackId: "track1" }, "track:track1")
 
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
       expect(mockContext.api.emit).toHaveBeenCalledWith("TRACK_SKIPPED", expect.any(Object))
@@ -581,9 +591,8 @@ describe("QueuePacerPlugin", () => {
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })
 
-      // With the in-flight guard, QUEUE_CHANGED during skip must not schedule another timer,
-      // so runAllTimersAsync completes after the single skip.
-      await vi.runAllTimersAsync()
+      // Simulate the durable schedule firing (which triggers the skip)
+      await plugin.handleScheduled("track-deadline", { trackId: "track1" }, "track:track1")
 
       expect(mockContext.api.skipTrack).toHaveBeenCalledTimes(1)
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
@@ -639,7 +648,8 @@ describe("QueuePacerPlugin", () => {
         previousConfig: { enabled: false, endTime: null, minPlaybackMs: 30000, warnOnOverrun: true },
       })
 
-      await vi.runAllTimersAsync()
+      // Simulate the durable schedule firing
+      await plugin.handleScheduled("track-deadline", { trackId: "track1" }, "track:track1")
 
       expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
       expect(mockContext.api.emit).toHaveBeenCalledWith("LET_IT_FINISH", expect.objectContaining({ reason: "last_track" }))
@@ -726,7 +736,7 @@ describe("QueuePacerPlugin", () => {
     })
 
     test("rejects non-admin users", async () => {
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1", { isAdmin: false })])
+      vi.mocked(mockContext.api.isRoomAdmin).mockResolvedValue(false)
 
       const result = await plugin.executeAction("cancelCurrentTrackSkip", { userId: "user1" })
 
@@ -735,7 +745,7 @@ describe("QueuePacerPlugin", () => {
     })
 
     test("succeeds for admin users", async () => {
-      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("admin1", { isAdmin: true })])
+      vi.mocked(mockContext.api.isRoomAdmin).mockResolvedValue(true)
 
       const result = await plugin.executeAction("cancelCurrentTrackSkip", { userId: "admin1" })
 

@@ -40,6 +40,16 @@ export type ShopBuyContext = {
   /** Clear a timer by id (auto-prefixed with shopId). */
   clearTimer: (id: string) => boolean
 
+  /** Schedule a durable callback (ADR 0190). Id is auto-prefixed with shopId. */
+  schedule: (params: {
+    id: string
+    kind: string
+    durationMs: number
+    payload?: unknown
+  }) => Promise<{ ok: true; fireAt: number } | { ok: false; message: string }>
+  /** Cancel a durable schedule (ADR 0190). Id is auto-prefixed with shopId. */
+  cancelSchedule: (id: string) => Promise<boolean>
+
   /** Send a system message to the room. */
   sendSystemMessage: (
     message: string,
@@ -82,6 +92,8 @@ export type ShopSessionContext = {
   startTimer: ShopBuyContext["startTimer"]
   getTimer: ShopBuyContext["getTimer"]
   clearTimer: ShopBuyContext["clearTimer"]
+  schedule: ShopBuyContext["schedule"]
+  cancelSchedule: ShopBuyContext["cancelSchedule"]
 
   sendSystemMessage: ShopBuyContext["sendSystemMessage"]
   sendUserSystemMessage: ShopBuyContext["sendUserSystemMessage"]

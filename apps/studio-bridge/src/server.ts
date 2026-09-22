@@ -705,12 +705,7 @@ function wireSocketHandlers(io: IOServer): void {
         targetInventoryItemId?: string
         targetInventoryItemIds?: string[]
         targetArtifactId?: string
-        password?: string
-        coinAmount?: number
-        message?: string
-        voice?: string
-        label?: string
-        note?: string
+        formValues?: Record<string, unknown>
       }) => {
         const roomId = socket.data.roomId as string | undefined
         const userId = socket.data.userId as string | undefined
@@ -735,12 +730,7 @@ function wireSocketHandlers(io: IOServer): void {
             ? { targetInventoryItemIds: data.targetInventoryItemIds }
             : {}),
           ...(data.targetArtifactId != null ? { targetArtifactId: data.targetArtifactId } : {}),
-          ...(data.password != null ? { password: data.password } : {}),
-          ...(data.coinAmount != null ? { coinAmount: data.coinAmount } : {}),
-          ...(data.message != null ? { message: data.message } : {}),
-          ...(data.voice != null ? { voice: data.voice } : {}),
-          ...(data.label != null ? { label: data.label } : {}),
-          ...(data.note != null ? { note: data.note } : {}),
+          ...(data.formValues != null ? { formValues: data.formValues } : {}),
         })
         socket.emit("event", {
           type: "INVENTORY_ACTION_RESULT",

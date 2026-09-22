@@ -3,6 +3,7 @@ import type {
   InventoryItem,
   ItemDefinition,
   ItemUseResult,
+  PluginActionFormField,
 } from "@repo/types"
 import { isStorageContainerDefinition } from "@repo/types"
 import {
@@ -16,29 +17,50 @@ import {
 } from "./resolveItemUseActorDisplayName"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
-type PluginInventory = ItemShopsBehaviorDeps["context"]["inventory"]
-
-async function fetchDefinitions(
-  inventory: PluginInventory,
-  ids: readonly string[],
-): Promise<ItemDefinition[]> {
-  if (ids.length === 0) return []
-  if (typeof inventory.getItemDefinitions === "function") {
-    return inventory.getItemDefinitions(ids)
-  }
-  const rows = await Promise.all(ids.map((id) => inventory.getItemDefinition(id)))
-  return rows.filter((d): d is ItemDefinition => d != null)
-}
-
 function stashTextError(kind: "label" | "note"): string {
   return kind === "label"
     ? "Stash name must be 32 characters or fewer."
     : "Stash note must be 140 characters or fewer."
 }
 
+/** Shared password / optional label+note fields for stash containers (ADR 0187 / 0193). */
+export const stashLockFormFields: PluginActionFormField[] = [
+  {
+    name: "password",
+    label: "Password",
+    type: "password",
+    required: true,
+    placeholder: "Password",
+  },
+  {
+    name: "label",
+    label: "Stash name",
+    type: "string",
+    required: false,
+    maxLength: 32,
+    placeholder: "Optional name",
+  },
+  {
+    name: "note",
+    label: "Note",
+    type: "string",
+    required: false,
+    maxLength: 140,
+    placeholder: "Typically a password hint",
+  },
+]
+
+function readFormValues(callContext: unknown): Record<string, string | number> {
+  if (!callContext || typeof callContext !== "object" || Array.isArray(callContext)) {
+    return {}
+  }
+  return (callContext as { formValues?: Record<string, string | number> }).formValues ?? {}
+}
+
 /**
  * Shared `use` handler for passworded stash containers (Van Cubby, Road Case, Trailer).
  * The container is consumed (leaves the bag and becomes `containerDefinitionId` on the stash).
+ * Password / label / note come from `callContext.formValues` (ADR 0187 / 0193).
  */
 export function storeInContainer(): ItemUseHandler {
   return async (deps, userId, definition, callContext): Promise<ItemUseResult> => {
@@ -46,17 +68,15 @@ export function storeInContainer(): ItemUseHandler {
       | {
           targetInventoryItemId?: string
           targetInventoryItemIds?: string[]
-          password?: string
-          label?: string
-          note?: string
         }
       | undefined
+    const formValues = readFormValues(callContext)
     const fromArray = (ctx?.targetInventoryItemIds ?? [])
       .map((id) => (typeof id === "string" ? id.trim() : ""))
       .filter(Boolean)
     const fromSingular = ctx?.targetInventoryItemId?.trim()
     const targetIds = fromArray.length > 0 ? fromArray : fromSingular ? [fromSingular] : []
-    const password = typeof ctx?.password === "string" ? ctx.password : ""
+    const password = typeof formValues.password === "string" ? formValues.password : ""
     const capacity =
       typeof definition.storageCapacity === "number" && definition.storageCapacity > 0
         ? definition.storageCapacity
@@ -69,11 +89,15 @@ export function storeInContainer(): ItemUseHandler {
       return { success: false, consumed: false, message: "Enter a password to lock storage." }
     }
 
-    const labelResult = sanitizeStashLabel(ctx?.label)
+    const labelResult = sanitizeStashLabel(
+      typeof formValues.label === "string" ? formValues.label : undefined,
+    )
     if (labelResult.status === "too_long") {
       return { success: false, consumed: false, message: stashTextError("label") }
     }
-    const noteResult = sanitizeStashNote(ctx?.note)
+    const noteResult = sanitizeStashNote(
+      typeof formValues.note === "string" ? formValues.note : undefined,
+    )
     if (noteResult.status === "too_long") {
       return { success: false, consumed: false, message: stashTextError("note") }
     }
@@ -90,12 +114,17 @@ export function storeInContainer(): ItemUseHandler {
     }
 
     const uniqueDefIds = [...new Set(targets.map((t) => t.definitionId).filter(Boolean))]
-    const targetDefs = await fetchDefinitions(context.inventory, uniqueDefIds)
-    const targetDefById = new Map(targetDefs.map((d) => [d.id, d]))
+    const targetDefByLookup = new Map<string, ItemDefinition>()
+    await Promise.all(
+      uniqueDefIds.map(async (id) => {
+        const def = await context.inventory.resolveDefinition(id, { pluginName })
+        if (def) targetDefByLookup.set(id, def)
+      }),
+    )
 
     const incoming: ArtifactContentInput[] = []
     for (const target of targets) {
-      const targetDef = targetDefById.get(target.definitionId)
+      const targetDef = targetDefByLookup.get(target.definitionId)
       if (isStorageContainerDefinition(targetDef)) {
         return { success: false, consumed: false, message: "You can't store that item." }
       }
@@ -171,13 +200,11 @@ export function storeInContainer(): ItemUseHandler {
 
 export function storeCoinsInContainer(): ItemUseHandler {
   return async (deps, userId, definition, callContext): Promise<ItemUseResult> => {
-    const ctx = callContext as
-      | { coinAmount?: number; password?: string; label?: string; note?: string }
-      | undefined
-    const rawAmount = ctx?.coinAmount
+    const formValues = readFormValues(callContext)
+    const rawAmount = formValues.coinAmount
     const coinAmount =
       typeof rawAmount === "number" && Number.isFinite(rawAmount) ? Math.floor(rawAmount) : NaN
-    const password = typeof ctx?.password === "string" ? ctx.password : ""
+    const password = typeof formValues.password === "string" ? formValues.password : ""
 
     if (!Number.isFinite(coinAmount) || coinAmount < 1) {
       return { success: false, consumed: false, message: "Enter a positive coin amount to store." }
@@ -186,11 +213,15 @@ export function storeCoinsInContainer(): ItemUseHandler {
       return { success: false, consumed: false, message: "Enter a password to lock storage." }
     }
 
-    const labelResult = sanitizeStashLabel(ctx?.label)
+    const labelResult = sanitizeStashLabel(
+      typeof formValues.label === "string" ? formValues.label : undefined,
+    )
     if (labelResult.status === "too_long") {
       return { success: false, consumed: false, message: stashTextError("label") }
     }
-    const noteResult = sanitizeStashNote(ctx?.note)
+    const noteResult = sanitizeStashNote(
+      typeof formValues.note === "string" ? formValues.note : undefined,
+    )
     if (noteResult.status === "too_long") {
       return { success: false, consumed: false, message: stashTextError("note") }
     }

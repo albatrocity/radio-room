@@ -9,8 +9,6 @@ export type RequiresTarget =
   | "inventoryItems"
   | "userInventoryItem"
   | "mediaItem"
-  | "coinAmount"
-  | "spokenMessage"
   | "storedArtifact"
 export type BehaviorKind = "timedModifier" | "passiveDefense" | "customHandler" | "none"
 
@@ -156,8 +154,6 @@ export async function promptForItemConfig(context: PromptContext): Promise<ItemW
       { value: "inventoryItems", name: "inventoryItems" },
       { value: "userInventoryItem", name: "userInventoryItem" },
       { value: "mediaItem", name: "mediaItem" },
-      { value: "coinAmount", name: "coinAmount" },
-      { value: "spokenMessage", name: "spokenMessage" },
       { value: "storedArtifact", name: "storedArtifact" },
     ],
   })

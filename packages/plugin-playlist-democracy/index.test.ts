@@ -80,6 +80,28 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     dec: vi.fn().mockResolvedValue(0),
     del: vi.fn().mockResolvedValue(undefined),
     exists: vi.fn().mockResolvedValue(false),
+    mget: vi.fn().mockResolvedValue([]),
+    pipeline: vi.fn().mockResolvedValue([]),
+    zadd: vi.fn().mockResolvedValue(undefined),
+    zrem: vi.fn().mockResolvedValue(undefined),
+    zrank: vi.fn().mockResolvedValue(null),
+    zrevrank: vi.fn().mockResolvedValue(null),
+    zrange: vi.fn().mockResolvedValue([]),
+    zrangeWithScores: vi.fn().mockResolvedValue([]),
+    zrangebyscore: vi.fn().mockResolvedValue([]),
+    zremrangebyscore: vi.fn().mockResolvedValue(undefined),
+    zscore: vi.fn().mockResolvedValue(null),
+    zincrby: vi.fn().mockResolvedValue(0),
+    hget: vi.fn().mockResolvedValue(null),
+    hset: vi.fn().mockResolvedValue(undefined),
+    hgetall: vi.fn().mockResolvedValue({}),
+    hsetnx: vi.fn().mockResolvedValue(false),
+    compareAndSet: vi.fn().mockResolvedValue(true),
+    getJson: vi.fn().mockResolvedValue({ raw: null, value: null }),
+    setJson: vi.fn().mockResolvedValue(undefined),
+    updateJson: vi.fn().mockResolvedValue(null),
+    lrange: vi.fn().mockResolvedValue([]),
+    appendCapped: vi.fn().mockResolvedValue(undefined),
     cleanup: vi.fn().mockResolvedValue(undefined),
   }
 
@@ -99,6 +121,9 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     emit: vi.fn().mockResolvedValue(undefined),
     queueSoundEffect: vi.fn().mockResolvedValue(undefined),
     queueScreenEffect: vi.fn().mockResolvedValue(undefined),
+    schedule: vi.fn().mockResolvedValue({ ok: true, fireAt: Date.now() + 30_000 }),
+    cancelSchedule: vi.fn().mockResolvedValue(true),
+    getSchedule: vi.fn().mockResolvedValue(null),
   }
 
   const mockLifecycle: PluginLifecycle = {
@@ -400,8 +425,7 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.mocked(mockContext.storage.get).mockResolvedValue("1")
 
       await trackChangedHandler({ roomId: "test-room", track })
-      vi.advanceTimersByTime(60000)
-      await vi.runAllTimersAsync()
+      await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
       expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
@@ -458,8 +482,7 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.mocked(mockContext.storage.get).mockResolvedValue("2")
 
       await trackChangedHandler({ roomId: "test-room", track })
-      vi.advanceTimersByTime(60000)
-      await vi.runAllTimersAsync()
+      await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
       // Should show raw count in message for static threshold (not percentage)
@@ -480,8 +503,7 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.mocked(mockContext.api.getReactions).mockResolvedValue([])
 
       await trackChangedHandler({ roomId: "test-room", track })
-      vi.advanceTimersByTime(60000)
-      await vi.runAllTimersAsync()
+      await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
       expect(mockContext.storage.set).toHaveBeenCalledWith(
         expect.stringContaining("skipped:track1"),
@@ -667,8 +689,7 @@ describe("PlaylistDemocracyPlugin", () => {
       ])
 
       await trackChangedHandler({ roomId: "test-room", track })
-      vi.advanceTimersByTime(60000)
-      await vi.runAllTimersAsync()
+      await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
       // Should skip because queue has enough tracks
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
@@ -700,8 +721,7 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.mocked(mockContext.api.getQueue).mockResolvedValue([])
 
       await trackChangedHandler({ roomId: "test-room", track })
-      vi.advanceTimersByTime(60000)
-      await vi.runAllTimersAsync()
+      await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
       // Should skip because skipRequiresQueue is disabled
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")

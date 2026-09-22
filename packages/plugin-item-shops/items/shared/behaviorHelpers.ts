@@ -3,6 +3,8 @@ import {
   sendAttributedSystemMessage,
   resolveItemUseActorDisplayName,
 } from "./resolveItemUseActorDisplayName"
+import { resolveTargetUser } from "./resolveTargetUser"
+import { toDefenseBlockedUseResult } from "./toDefenseBlockedUseResult"
 import type { ItemShopsBehaviorDeps, ItemUseHandler } from "./types"
 
 export type TargetedTimedModifierSpec = {
@@ -12,6 +14,11 @@ export type TargetedTimedModifierSpec = {
   describe: (p: { isSelf: boolean; actor: string; target: string }) => string
   /** UI visibility scope. Defaults to public (omit). */
   visibility?: "public" | "self"
+  /**
+   * When `false`, skip the room system announce after a successful apply.
+   * Defaults to announcing.
+   */
+  announce?: boolean
 }
 
 export type ApplyTargetedTimedModifierParams = {
@@ -29,10 +36,8 @@ export async function applyTargetedTimedModifier(
   const { context, game } = deps
   const targetUserId =
     (callContext as { targetUserId?: string } | undefined)?.targetUserId ?? userId
-  const roomUsers = await context.api.getUsers(context.roomId)
-  if (!roomUsers.some((u) => u.userId === targetUserId)) {
-    return { success: false, consumed: false, message: "That user is not in this room." }
-  }
+  const resolved = await resolveTargetUser(context, userId, { targetUserId })
+  if (!resolved.ok) return resolved.result
 
   const groups = groupEffectsByResolvedDurationMs(spec.effects, {
     modifierName: spec.modifierName,
@@ -40,7 +45,7 @@ export async function applyTargetedTimedModifier(
 
   for (const group of groups) {
     const applied = await game.applyTimedModifier(
-      targetUserId,
+      resolved.targetUserId,
       group.durationMs,
       {
         name: group.modifierName,
@@ -54,36 +59,32 @@ export async function applyTargetedTimedModifier(
 
     if (!applied.ok) {
       if (applied.reason === "defense_blocked") {
-        return {
-          success: false,
-          consumed: true,
-          title: "Intercepted",
-          message:
-            applied.attackerMessage ??
-            `Blocked by ${applied.blockingItemName}. Your item was lost with use.`,
-        }
+        return toDefenseBlockedUseResult(applied)
       }
       return { success: false, consumed: false, message: "Could not apply effect." }
     }
   }
 
-  const [actorName, targetName] = await Promise.all([
-    resolveItemUseActorDisplayName(deps, userId),
-    resolveItemUseActorDisplayName(deps, targetUserId),
-  ])
-  const isSelf = targetUserId === userId
-  const who = spec.describe({
-    isSelf,
-    actor: actorName.label,
-    target: targetName.label,
-  })
-  const durationSummary = formatDurationSummary(groups.map((g) => g.durationMs))
-  await sendAttributedSystemMessage(
-    deps,
-    `${who} (${definition.name} — ${durationSummary}).`,
-    actorName,
-    targetName,
-  )
+  if (spec.announce !== false) {
+    const [actorName, targetName] = await Promise.all([
+      resolveItemUseActorDisplayName(deps, userId),
+      resolveItemUseActorDisplayName(deps, resolved.targetUserId),
+    ])
+    const isSelf = resolved.targetUserId === userId
+    const who = spec.describe({
+      isSelf,
+      actor: actorName.label,
+      target: targetName.label,
+    })
+    const durationSummary = formatDurationSummary(groups.map((g) => g.durationMs))
+    await sendAttributedSystemMessage(
+      deps,
+      `${who} (${definition.name} — ${durationSummary}).`,
+      actorName,
+      targetName,
+    )
+  }
+
   return { success: true, consumed: true, message: spec.successMessage }
 }
 
@@ -106,10 +107,15 @@ export type TimedModifierEffectConfig = {
   effects: GameStateEffectWithMeta[]
   /** Message shown to the user who activated the item. */
   successMessage: string
-  /** Generates the system message describing who is affected. */
-  describe: (p: { isSelf: boolean; actor: string; target: string }) => string
+  /** Generates the system message describing who is affected. Ignored when `announce: false`. */
+  describe?: (p: { isSelf: boolean; actor: string; target: string }) => string
   /** UI visibility scope. Defaults to public when omitted. */
   visibility?: "public" | "self"
+  /**
+   * When `false`, skip the room system announce after a successful apply.
+   * Defaults to announcing (`describe` required when announcing).
+   */
+  announce?: boolean
 }
 
 /**
@@ -130,6 +136,12 @@ export type TimedModifierEffectConfig = {
  * ```
  */
 export function timedModifierEffect(config: TimedModifierEffectConfig): ItemUseHandler {
+  const announce = config.announce !== false
+  if (announce && !config.describe) {
+    throw new Error(
+      `[timedModifierEffect] \`describe\` is required when announce is enabled (modifier "${config.modifierName}").`,
+    )
+  }
   return (deps, userId, definition, callContext) =>
     applyTargetedTimedModifier({
       deps,
@@ -143,8 +155,9 @@ export function timedModifierEffect(config: TimedModifierEffectConfig): ItemUseH
           return resolvedIcon == null ? effect : { ...effect, icon: resolvedIcon }
         }),
         successMessage: config.successMessage,
-        describe: config.describe,
+        describe: config.describe ?? (() => ""),
         visibility: config.visibility,
+        announce: config.announce,
       },
     })
 }

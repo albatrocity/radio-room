@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { Button, Popover, Stack } from "@chakra-ui/react"
 import type { PluginActionFormField } from "@repo/types/Plugin"
 import {
@@ -9,35 +9,57 @@ import {
 import { toaster } from "../../ui/toaster"
 
 /**
- * Collects declarative `ItemDefinition.useForm` fields before `USE_INVENTORY_ITEM` (ADR 0187).
+ * Collects declarative `ItemDefinition.useForm` fields before `USE_INVENTORY_ITEM` (ADR 0187 / 0193).
  */
 export function ItemUseFormPopover({
   fields,
   children,
   onConfirm,
   confirmLabel = "Use",
+  coinBalance,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
   fields: PluginActionFormField[]
   children: React.ReactNode
   onConfirm: (formValues: Record<string, string | number>) => void
   /** Primary button label (default "Use"). */
   confirmLabel?: string
+  /** Viewer coin balance for `maxFrom: "coinBalance"`. */
+  coinBalance?: number
+  /** Controlled open (e.g. after a `requiresTarget` picker — ADR 0193). */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const isControlled = openProp !== undefined
+  const open = isControlled ? openProp : uncontrolledOpen
   const [formValues, setFormValues] = useState<Record<string, string>>(() =>
     emptyPluginFormState(fields),
   )
+  const [submitBlocked, setSubmitBlocked] = useState(false)
+  const handleSubmitBlockedChange = useCallback((blocked: boolean) => {
+    setSubmitBlocked(blocked)
+  }, [])
 
-  const reset = () => setFormValues(emptyPluginFormState(fields))
+  const reset = () => {
+    setFormValues(emptyPluginFormState(fields))
+    setSubmitBlocked(false)
+  }
+
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setUncontrolledOpen(next)
+    onOpenChangeProp?.(next)
+  }
 
   const handleOpenChange = (e: { open: boolean }) => {
     setOpen(e.open)
-    if (e.open) reset()
-    else reset()
+    reset()
   }
 
   const submit = () => {
-    const collected = collectPluginFormValues(fields, formValues)
+    if (submitBlocked) return
+    const collected = collectPluginFormValues(fields, formValues, { coinBalance })
     if (!collected.ok) {
       toaster.create({
         title: collected.error.title,
@@ -66,9 +88,16 @@ export function ItemUseFormPopover({
             <PluginFormFields
               fields={fields}
               values={formValues}
+              coinBalance={coinBalance}
+              onSubmitBlockedChange={handleSubmitBlockedChange}
               onChange={(name, value) => setFormValues((prev) => ({ ...prev, [name]: value }))}
             />
-            <Button size="xs" colorPalette="action" onClick={submit}>
+            <Button
+              size="xs"
+              colorPalette="action"
+              onClick={submit}
+              disabled={submitBlocked}
+            >
               {confirmLabel}
             </Button>
           </Stack>

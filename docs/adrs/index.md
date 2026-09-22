@@ -47,7 +47,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0039](0039-plugin-element-properties-for-now-playing.md) | Plugin `elementProps` for Now Playing (obscure / bypass roles) | Accepted |
 | [0040](0040-app-controlled-playback-and-ordered-queue.md) | App-Controlled Spotify Playback and Ordered Redis Queue | Accepted |
 | [0041](0041-queue-drag-reorder-authorization.md) | App-controlled queue reorder authorization and UX | Accepted |
-| [0042](0042-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Partially superseded by [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) |
+| [0042](0042-game-sessions-and-inventory.md) | Game Sessions and Inventory as Core Infrastructure | Partially superseded by [0107](0107-game-sessions-independent-of-segment-plugin-activation.md), [0191](0191-modifier-expiry-sweep.md) |
 | [0043](0043-game-state-tabs-and-composable-shop-helper.md) | Game State Tabs and Composable Shop Helper | Partially superseded by [0047](0047-shop-plugin-base-class.md) |
 | [0044](0044-plugin-chat-message-transform-and-text-segments.md) | Plugin Chat Message Transform + Structured Text Segments | Accepted |
 | [0045](0045-inventory-item-targeting.md) | Inventory Item Targeting via `requiresTarget` | Accepted |
@@ -192,9 +192,13 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0184](0184-short-lived-stash-access-grants.md) | Short-lived stash access grants (password-free retrieve) | Accepted |
 | [0185](0185-lock-picking-items-and-crack-resolution.md) | Lock-picking items and the crack-resolution seam | Accepted |
 | [0186](0186-redis-coordination-s3-media.md) | Redis coordination and content-addressed S3 media | Accepted |
-| [0187](0187-declarative-item-use-forms.md) | Declarative item-use forms (`useForm`) | Accepted |
+| [0187](0187-declarative-item-use-forms.md) | Declarative item-use forms (`useForm`) | Partially superseded by [0193](0193-item-use-forms-composed-with-target-pickers.md) (point 4) |
 | [0188](0188-kickstarter-campaigns-coin-escrow.md) | Kickstarter campaigns and coin escrow | Accepted |
 | [0189](0189-poll-closes-at-auto-close.md) | Poll `closesAt` auto-close | Accepted |
+| [0190](0190-durable-plugin-scheduler.md) | Durable plugin scheduler | Accepted |
+| [0191](0191-modifier-expiry-sweep.md) | Claimed modifier expiry sweep | Accepted |
+| [0192](0192-plugin-storage-and-leaderboard-helpers.md) | Plugin storage helpers (`getJson`/`updateJson`/`appendCapped`) and `createLeaderboard` | Accepted |
+| [0193](0193-item-use-forms-composed-with-target-pickers.md) | Item-use forms composed with target pickers (+ field capabilities) | Accepted |
 
 ## Creating a New ADR
 

@@ -9,7 +9,7 @@ import type {
   ChatMessage,
   User,
 } from "@repo/types"
-import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
+import { BasePlugin, createLeaderboard, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N, isSystemChatMessage, normalizeToken } from "@repo/plugin-base"
 import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
 import {
@@ -114,25 +114,23 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   // Component State
   // ============================================================================
 
+  private get usersLb() {
+    return createLeaderboard({
+      storage: this.context!.storage,
+      api: this.context!.api,
+      key: USER_WORD_COUNT_KEY,
+    })
+  }
+
   async getComponentState(): Promise<SpecialWordsComponentState> {
     if (!this.context) {
       return { usersLeaderboard: [], allWordsLeaderboard: [] }
     }
 
-    const [rawUsersLeaderboard, allWordsLeaderboard] = await Promise.all([
-      this.context.storage.zrangeWithScores(USER_WORD_COUNT_KEY, 0, -1),
+    const [usersLeaderboard, allWordsLeaderboard] = await Promise.all([
+      this.usersLb.all(),
       this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1),
     ])
-
-    // Hydrate user leaderboard with usernames (includes users who have left)
-    const userIds = rawUsersLeaderboard.map((entry) => entry.value)
-    const users = await this.context.api.getUsersByIds(userIds)
-    const userMap = new Map(users.map((u) => [u.userId, u.username]))
-
-    const usersLeaderboard = rawUsersLeaderboard.map((entry) => ({
-      ...entry,
-      username: userMap.get(entry.value) ?? entry.value, // Fallback to userId if user not found
-    }))
 
     return {
       usersLeaderboard,
@@ -160,7 +158,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     if (!config?.enabled) return
 
     const { message } = data
-    if (this.isSystemMessage(message)) return
+    if (isSystemChatMessage(message)) return
 
     const detectedWords = this.detectSpecialWords(message.content, config.words)
     for (const word of detectedWords) {
@@ -230,10 +228,10 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
 
   private detectSpecialWords(content: string, configWords: string[]): string[] {
     const words = content.toLowerCase().split(/\s+/)
-    const configWordsSet = new Set(configWords.map((w) => this.normalizeWord(w)))
+    const configWordsSet = new Set(configWords.map((w) => normalizeToken(w)))
 
     return words
-      .map((word) => this.normalizeWord(word))
+      .map((word) => normalizeToken(word))
       .filter((word) => word && configWordsSet.has(word))
   }
 
@@ -244,7 +242,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
   private async updateWordStatistics(userId: string, word: string): Promise<void> {
     if (!this.context) return
 
-    const normalizedWord = this.normalizeWord(word)
+    const normalizedWord = normalizeToken(word)
     // Backfill before first inc so pre-existing zset scores are not lost
     await this.ensureTotalWordsCounter()
 
@@ -260,19 +258,6 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
     ])
   }
 
-  private async hydrateUsersLeaderboard(
-    raw: { score: number; value: string }[],
-  ): Promise<{ score: number; value: string; username: string }[]> {
-    if (!this.context || raw.length === 0) {
-      return raw.map((entry) => ({ ...entry, username: entry.value }))
-    }
-    const users = await this.context.api.getUsersByIds(raw.map((entry) => entry.value))
-    const userMap = new Map(users.map((u) => [u.userId, u.username]))
-    return raw.map((entry) => ({
-      ...entry,
-      username: userMap.get(entry.value) ?? entry.value,
-    }))
-  }
 
   private async ensureTotalWordsCounter(): Promise<void> {
     if (!this.context) return
@@ -317,13 +302,13 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       }
     }
 
-    const normalizedWord = this.normalizeWord(word)
+    const normalizedWord = normalizeToken(word)
 
     const [
       userAllWordsCount,
       userRank,
       userThisWordCount,
-      rawUsersLeaderboard,
+      usersLeaderboard,
       allWordsLeaderboard,
       thisWordCount,
       thisWordRank,
@@ -332,14 +317,12 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       this.context.storage.zscore(USER_WORD_COUNT_KEY, userId),
       this.context.storage.zrevrank(USER_WORD_COUNT_KEY, userId),
       this.context.storage.zscore(`${WORDS_PER_USER_KEY}:${userId}`, normalizedWord),
-      fetchTopZsetEntries(this.context.storage, USER_WORD_COUNT_KEY, HOT_LEADERBOARD_TOP_N),
+      this.usersLb.top({ topN: HOT_LEADERBOARD_TOP_N }),
       fetchTopZsetEntries(this.context.storage, WORD_RANK_KEY, HOT_LEADERBOARD_TOP_N),
       this.context.storage.zscore(WORD_RANK_KEY, normalizedWord),
       this.context.storage.zrevrank(WORD_RANK_KEY, normalizedWord),
       this.getTotalWordsUsed(),
     ])
-
-    const usersLeaderboard = await this.hydrateUsersLeaderboard(rawUsersLeaderboard)
 
     return {
       userAllWordsCount: userAllWordsCount ?? 0,
@@ -497,18 +480,9 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
         await this.context.storage.del(`${WORDS_PER_USER_KEY}:${entry.value}`)
       }
 
-      // Delete the main leaderboard keys by removing all entries
-      const allUserIds = usersLeaderboard.map((e) => e.value)
-      for (const userId of allUserIds) {
-        await this.context.storage.zrem(USER_WORD_COUNT_KEY, userId)
-      }
+      await this.usersLb.reset()
 
-      const allWordsLeaderboard = await this.context.storage.zrangeWithScores(WORD_RANK_KEY, 0, -1)
-      const allWords = allWordsLeaderboard.map((e) => e.value)
-      for (const word of allWords) {
-        await this.context.storage.zrem(WORD_RANK_KEY, word)
-      }
-
+      await this.context.storage.del(WORD_RANK_KEY)
       await this.context.storage.del(TOTAL_WORDS_KEY)
 
       console.log(`[${this.name}] Leaderboards reset for room ${this.context.roomId}`)
@@ -526,24 +500,7 @@ export class SpecialWordsPlugin extends BasePlugin<SpecialWordsConfig> {
       return { success: false, message: `Error resetting leaderboards: ${error}` }
     }
   }
-
-  // ============================================================================
-  // Helpers
-  // ============================================================================
-
-  private normalizeWord(word: string): string {
-    // Remove leading/trailing punctuation, then lowercase and trim
-    return word
-      .toLowerCase()
-      .trim()
-      .replace(/^[^\w]+|[^\w]+$/g, "")
-  }
-
-  private isSystemMessage(message: ChatMessage): boolean {
-    return message.user.userId === "system"
-  }
 }
-
 // ============================================================================
 // Factory
 // ============================================================================

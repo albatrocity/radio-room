@@ -9,29 +9,22 @@ import {
 export async function loadCampaignRaw(
   context: PluginContext,
 ): Promise<{ raw: string | null; campaign: KickstarterCampaign | null }> {
-  const raw = await context.storage.get(KICKSTARTER_STORAGE_KEY)
-  if (!raw || typeof raw !== "string") {
-    return { raw: null, campaign: null }
-  }
-  try {
-    return { raw, campaign: JSON.parse(raw) as KickstarterCampaign }
-  } catch {
-    return { raw: null, campaign: null }
-  }
+  return context.storage.getJson<KickstarterCampaign>(KICKSTARTER_STORAGE_KEY)
+    .then(({ raw, value }) => ({ raw, campaign: value }))
 }
 
 export async function loadCampaign(
   context: PluginContext,
 ): Promise<KickstarterCampaign | null> {
-  const { campaign } = await loadCampaignRaw(context)
-  return campaign
+  const { value } = await context.storage.getJson<KickstarterCampaign>(KICKSTARTER_STORAGE_KEY)
+  return value
 }
 
 export async function saveCampaign(
   context: PluginContext,
   campaign: KickstarterCampaign,
 ): Promise<void> {
-  await context.storage.set(KICKSTARTER_STORAGE_KEY, JSON.stringify(campaign))
+  await context.storage.setJson(KICKSTARTER_STORAGE_KEY, campaign)
 }
 
 /**
@@ -47,6 +40,22 @@ export async function saveCampaignCas(
     KICKSTARTER_STORAGE_KEY,
     expectedRaw,
     JSON.stringify(campaign),
+  )
+}
+
+/**
+ * Atomic read-modify-write for campaign state (ADR 0192 reference example).
+ * Replaces the manual loadCampaignRaw + saveCampaignCas retry pattern.
+ */
+export async function updateCampaign(
+  context: PluginContext,
+  fn: (prev: KickstarterCampaign | null) => KickstarterCampaign,
+  options?: { retries?: number },
+): Promise<KickstarterCampaign> {
+  return context.storage.updateJson<KickstarterCampaign>(
+    KICKSTARTER_STORAGE_KEY,
+    fn,
+    options,
   )
 }
 

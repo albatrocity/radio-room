@@ -15,6 +15,7 @@ import {
 } from "@repo/types"
 import { isInclusiveMode } from "@repo/game-logic"
 import { BasePlugin } from "@repo/plugin-base"
+import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
 import { buildCriterionPool, dealBingoCard, validatePoolForCategory } from "./card"
 import { fillCriteriaWithYears } from "./fillCriteria"
@@ -59,12 +60,6 @@ type ActionResult = {
 
 function notInitialized(): ActionResult {
   return { success: false, message: "Plugin not initialized" }
-}
-
-function interpolate(template: string, vars: { username: string; coins: number }): string {
-  return template
-    .replace(/\{\{username\}\}/g, vars.username)
-    .replace(/\{\{coins\}\}/g, String(vars.coins))
 }
 
 export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
@@ -129,7 +124,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
   // ==========================================================================
 
   private async startRound(initiator?: PluginActionInitiator): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
+    const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) return notInitialized()
 
@@ -186,7 +181,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
   }
 
   private async endRound(initiator?: PluginActionInitiator): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
+    const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) return notInitialized()
 
@@ -217,7 +212,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
   ): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
+    const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) return notInitialized()
 
@@ -249,7 +244,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
   }
 
   private async fillMissingWithYears(initiator?: PluginActionInitiator): Promise<ActionResult> {
-    const admin = await this.requireRoomAdmin(initiator)
+    const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) return notInitialized()
 
@@ -456,7 +451,7 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
 
     await this.context.api.sendSystemMessage(
       this.context.roomId,
-      interpolate(config.bingoMessageTemplate, { username, coins }),
+      interpolateTemplate(config.bingoMessageTemplate, { username, coins }),
     )
 
     await this.emit<PlaylistBingoEvents["BINGO"]>("BINGO", { userId, username, mode })
@@ -536,18 +531,13 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
 
   private async loadRound(): Promise<BingoRound | null> {
     if (!this.context) return null
-    const raw = await this.context.storage.get(KEYS.ROUND)
-    if (!raw) return null
-    try {
-      return JSON.parse(raw) as BingoRound
-    } catch {
-      return null
-    }
+    const { value } = await this.context.storage.getJson<BingoRound>(KEYS.ROUND)
+    return value
   }
 
   private async saveRound(round: BingoRound): Promise<void> {
     if (!this.context) return
-    await this.context.storage.set(KEYS.ROUND, JSON.stringify(round))
+    await this.context.storage.setJson(KEYS.ROUND, round)
   }
 
   private async loadCard(userId: string): Promise<BingoCard | null> {
@@ -581,23 +571,6 @@ export class PlaylistBingoPlugin extends BasePlugin<PlaylistBingoConfig> {
       statusMessage:
         statusMessage ?? (round?.active ? `Bingo round active (${category ?? "—"})` : null),
     }
-  }
-
-  private async requireRoomAdmin(
-    initiator?: PluginActionInitiator,
-  ): Promise<{ ok: true } | { ok: false; result: ActionResult }> {
-    if (!this.context) {
-      return { ok: false, result: notInitialized() }
-    }
-    const userId = initiator?.userId?.trim()
-    if (!userId) {
-      return { ok: false, result: { success: false, message: "Admin required" } }
-    }
-    const isAdmin = await this.context.api.isRoomAdmin(this.context.roomId, userId)
-    if (!isAdmin) {
-      return { ok: false, result: { success: false, message: "Admin required" } }
-    }
-    return { ok: true }
   }
 }
 

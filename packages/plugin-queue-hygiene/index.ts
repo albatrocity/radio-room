@@ -159,9 +159,8 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
 
     // Check if user is exempt (admin)
     if (config.exemptAdmins) {
-      const users = await this.context.api.getUsers(this.context.roomId)
-      const user = users.find((u) => u.userId === userId)
-      if (user?.isAdmin) {
+      const isAdmin = await this.context.api.isRoomAdmin(this.context.roomId, userId)
+      if (isAdmin) {
         return allowQueueRequest()
       }
     }

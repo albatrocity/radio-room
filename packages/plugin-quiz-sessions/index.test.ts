@@ -65,6 +65,16 @@ function createInMemoryStorage() {
       h.set(f, v)
       return true
     }),
+    compareAndSet: vi.fn(async () => true),
+    getJson: vi.fn(async (k: string) => {
+      const raw = strings.get(k) ?? null
+      if (!raw) return { raw: null, value: null }
+      try { return { raw, value: JSON.parse(raw) } } catch { return { raw, value: null } }
+    }),
+    setJson: vi.fn(async (k: string, v: unknown) => { strings.set(k, JSON.stringify(v)) }),
+    updateJson: vi.fn(),
+    lrange: vi.fn(async () => []),
+    appendCapped: vi.fn(),
     cleanup: vi.fn(async () => {}),
   }
 }
@@ -84,6 +94,9 @@ function setup(configOverrides: Partial<QuizSessionsConfig> = {}) {
     emit: vi.fn(async () => {}),
     queueSoundEffect: vi.fn(async () => {}),
     queueScreenEffect: vi.fn(async () => {}),
+    schedule: vi.fn(async () => ({ ok: true as const, fireAt: Date.now() + 30_000 })),
+    cancelSchedule: vi.fn(async () => true),
+    getSchedule: vi.fn(async () => null),
   }
 
   const game = {
@@ -916,7 +929,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
 
       ctx.api.emit.mockClear()
 
-      expect(ctx.plugin.fireAllTimers()).toBe(1)
+      await ctx.plugin.handleScheduled("auto-advance", { fromQuestionIndex: 0 }, "auto-advance-timer")
       await flush()
       expect(readSession(ctx.storage).activeQuestionIndex).toBe(1)
       expect(readSession(ctx.storage).autoAdvanceDeadline).toBeNull()
@@ -935,7 +948,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       await ctx.plugin.executeAction("startSession", ADMIN)
       await emitMessage(ctx.lifecycleHandlers, "Blue Monday", { userId: "u1" })
       expect(emittedEvent(ctx.api, "CORRECT_ANSWER")!.autoAdvanceDeadline).toBeNull()
-      expect(ctx.plugin.fireAllTimers()).toBe(0)
+      expect(ctx.api.schedule).not.toHaveBeenCalled()
       expect(readSession(ctx.storage).activeQuestionIndex).toBe(0)
     })
 
@@ -952,7 +965,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       await emitMessage(ctx.lifecycleHandlers, "Blue Monday", { userId: "u1" })
       await ctx.plugin.executeAction("advanceQuestion", ADMIN)
 
-      expect(ctx.plugin.fireAllTimers()).toBe(0)
+      expect(ctx.api.cancelSchedule).toHaveBeenCalled()
       expect(readSession(ctx.storage).activeQuestionIndex).toBe(1)
     })
 
@@ -969,7 +982,8 @@ describe("QuizSessionsPlugin lifecycle", () => {
       await ctx.plugin.transformChatMessage(ROOM, chatMessage("blue monday", { userId: "u1" }))
       await ctx.plugin.transformChatMessage(ROOM, chatMessage("blue monday", { userId: "u2" }))
 
-      expect(ctx.plugin.fireAllTimers()).toBe(1)
+      expect(ctx.api.schedule).toHaveBeenCalledTimes(1)
+      await ctx.plugin.handleScheduled("auto-advance", { fromQuestionIndex: 0 }, "auto-advance-timer")
       await flush()
       expect(readSession(ctx.storage).activeQuestionIndex).toBe(1)
     })
@@ -988,7 +1002,7 @@ describe("QuizSessionsPlugin lifecycle", () => {
       await emitMessage(ctx.lifecycleHandlers, "New Order", { userId: "u1" })
       ctx.api.emit.mockClear()
 
-      expect(ctx.plugin.fireAllTimers()).toBe(1)
+      await ctx.plugin.handleScheduled("auto-advance", { fromQuestionIndex: 1 }, "auto-advance-timer")
       await flush()
       expect(ctx.storage.strings.has("session")).toBe(false)
       expect(emittedEvent(ctx.api, "SESSION_ENDED")).toBeTruthy()

@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useCallback, useState } from "react"
 import {
   Button,
   CloseButton,
@@ -73,6 +73,10 @@ function ActionButton({
   const [formPopoverOpen, setFormPopoverOpen] = useState(false)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [confirmReplace, setConfirmReplace] = useState(false)
+  const [submitBlocked, setSubmitBlocked] = useState(false)
+  const handleSubmitBlockedChange = useCallback((blocked: boolean) => {
+    setSubmitBlocked(blocked)
+  }, [])
   const subscriptionIdRef = React.useRef<string | null>(null)
   const onConfigPatchRef = React.useRef(onConfigPatch)
   onConfigPatchRef.current = onConfigPatch
@@ -144,6 +148,7 @@ function ActionButton({
   }
 
   const submitForm = (mode?: ConfigImportMode) => {
+    if (submitBlocked) return
     const params = collectFormParams()
     if (!params) return
 
@@ -174,6 +179,7 @@ function ActionButton({
       fields={formFields ?? []}
       values={formValues}
       users={users}
+      onSubmitBlockedChange={handleSubmitBlockedChange}
       onChange={(name, value) => {
         setFormValues((prev) => ({ ...prev, [name]: value }))
         setConfirmReplace(false)
@@ -243,6 +249,7 @@ function ActionButton({
                             variant={mode === "replace" ? "outline" : "solid"}
                             colorPalette={mode === "replace" ? "red" : undefined}
                             loading={isLoading}
+                            disabled={submitBlocked}
                             onClick={() => submitForm(mode)}
                           >
                             {confirmReplace && mode === "replace"
@@ -255,6 +262,7 @@ function ActionButton({
                             colorPalette={element.variant === "destructive" ? "red" : undefined}
                             onClick={() => submitForm()}
                             loading={isLoading}
+                            disabled={submitBlocked}
                           >
                             {element.confirmText || "Run"}
                           </Button>
@@ -303,6 +311,7 @@ function ActionButton({
                 colorPalette={element.variant === "destructive" ? "red" : undefined}
                 onClick={() => submitForm()}
                 loading={isLoading}
+                disabled={submitBlocked}
               >
                 {element.confirmText || "Run"}
               </Button>

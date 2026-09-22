@@ -63,6 +63,16 @@ function createInMemoryStorage() {
       h.set(f, v)
       return true
     }),
+    compareAndSet: vi.fn(async () => true),
+    getJson: vi.fn(async (k: string) => {
+      const raw = strings.get(k) ?? null
+      if (!raw) return { raw: null, value: null }
+      try { return { raw, value: JSON.parse(raw) } } catch { return { raw, value: null } }
+    }),
+    setJson: vi.fn(async (k: string, v: unknown) => { strings.set(k, JSON.stringify(v)) }),
+    updateJson: vi.fn(),
+    lrange: vi.fn(async () => []),
+    appendCapped: vi.fn(),
     cleanup: vi.fn(async () => {}),
   }
 }
@@ -87,6 +97,9 @@ function setup(configOverrides: Partial<LyricHeroConfig> = {}) {
     setPluginConfig: vi.fn(async () => {}),
     emit: vi.fn(async () => {}),
     emitToUser: vi.fn(async () => {}),
+    schedule: vi.fn(async () => ({ ok: true as const, fireAt: Date.now() + 30_000 })),
+    cancelSchedule: vi.fn(async () => true),
+    getSchedule: vi.fn(async () => null),
   }
 
   const game = {
@@ -345,7 +358,7 @@ describe("LyricHeroPlugin", () => {
     )
 
     api.emit.mockClear()
-    expect(plugin.fireAllTimers()).toBe(1)
+    await plugin.handleScheduled("auto-advance", { fromPhraseIndex: 0 }, "auto-advance-timer")
     await flush()
 
     const advanced = readSession((context as any).storage)
@@ -371,7 +384,8 @@ describe("LyricHeroPlugin", () => {
     await start(plugin, context)
     await plugin.executeAction("submitGuess", { userId: "u1", username: "A" }, { word: "one" })
     expect(readSession((context as any).storage).autoAdvanceDeadline).toBeNull()
-    expect(plugin.fireAllTimers()).toBe(0)
+    // schedule was called zero times (cancelSchedule may have been called during session start)
+    expect(api.schedule).not.toHaveBeenCalled()
     expect(api.emit).toHaveBeenCalledWith(
       "PUZZLE_UPDATED",
       expect.objectContaining({ autoAdvanceDeadline: null }),

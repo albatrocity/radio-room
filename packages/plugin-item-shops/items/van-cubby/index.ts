@@ -1,5 +1,5 @@
 import { createItem } from "../shared/types"
-import { storeInContainer } from "../shared/storeInContainer"
+import { stashLockFormFields, storeInContainer } from "../shared/storeInContainer"
 
 export const vanCubby = createItem({
   shortId: "van-cubby",
@@ -16,6 +16,7 @@ export const vanCubby = createItem({
     coinValue: 50,
     icon: "Archive",
     rarity: "rare",
+    useForm: [...stashLockFormFields],
   },
   use: storeInContainer(),
 })

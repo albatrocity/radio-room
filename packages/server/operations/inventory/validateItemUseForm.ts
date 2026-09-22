@@ -4,9 +4,22 @@ const MAX_STRING_LENGTH = 2000
 
 export type ValidatedFormValues = Record<string, string | number>
 
+function isStringLikeField(type: PluginActionFormField["type"]): boolean {
+  return (
+    type === "string" ||
+    type === "textarea" ||
+    type === "password" ||
+    type === "select" ||
+    type === "user-select" ||
+    type === "combobox"
+  )
+}
+
 /**
  * Validate and coerce client `formValues` against an item's `useForm` schema (ADR 0187).
  * Drops unknown keys; fails on missing required fields or invalid numbers.
+ * Does not validate `optionsSource` membership or enforce `maxFrom` (client-only).
+ * Password values are accepted as strings and never echoed in error messages.
  */
 export function validateItemUseFormValues(
   fields: PluginActionFormField[] | undefined,
@@ -70,6 +83,7 @@ export function validateItemUseFormValues(
           },
         }
       }
+      // `maxFrom` is client-only — do not enforce here.
       if (field.max != null && n > field.max) {
         return {
           ok: false,
@@ -81,6 +95,10 @@ export function validateItemUseFormValues(
         }
       }
       formValues[field.name] = n
+      continue
+    }
+
+    if (!isStringLikeField(field.type)) {
       continue
     }
 
@@ -102,6 +120,25 @@ export function validateItemUseFormValues(
       }
     }
     if (!trimmed && !field.required) continue
+
+    // Declared maxLength: reject over-limit (do not trim/slice). Password values are never
+    // included in the error message — only the field label.
+    if (
+      field.maxLength != null &&
+      (field.type === "string" || field.type === "textarea" || field.type === "password") &&
+      asString.length > field.maxLength
+    ) {
+      return {
+        ok: false,
+        result: {
+          success: false,
+          consumed: false,
+          message: `"${field.label}" must be at most ${field.maxLength} characters.`,
+        },
+      }
+    }
+
+    // Fallback clamp when no field maxLength is declared.
     formValues[field.name] =
       asString.length > MAX_STRING_LENGTH ? asString.slice(0, MAX_STRING_LENGTH) : asString
   }

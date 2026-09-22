@@ -37,6 +37,14 @@ function createMockContext() {
       if (key === "winners") return Object.fromEntries(winners)
       return {}
     }),
+    getJson: vi.fn(async (key: string) => {
+      const raw = key === "round" ? round : null
+      if (!raw) return { raw: null, value: null }
+      try { return { raw, value: JSON.parse(raw) } } catch { return { raw, value: null } }
+    }),
+    setJson: vi.fn(async (key: string, v: unknown) => {
+      if (key === "round") round = JSON.stringify(v)
+    }),
   }
 
   const api = {

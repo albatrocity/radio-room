@@ -3,6 +3,7 @@ import {
   sendAttributedSystemMessage,
   resolveItemUseActorDisplayName,
 } from "../shared/resolveItemUseActorDisplayName"
+import { resolveTargetUser } from "../shared/resolveTargetUser"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
 function modifierHasDebuff(modifier: GameStateModifier): boolean {
@@ -33,12 +34,10 @@ export const privateBathroom = createItem({
     const targetUserId =
       (callContext as { targetUserId?: string } | undefined)?.targetUserId ?? userId
 
-    const roomUsers = await context.api.getUsers(context.roomId)
-    if (!roomUsers.some((u) => u.userId === targetUserId)) {
-      return { success: false, consumed: false, message: "That user is not in this room." }
-    }
+    const resolved = await resolveTargetUser(context, userId, { targetUserId })
+    if (!resolved.ok) return resolved.result
 
-    const state = await game.getUserState(targetUserId)
+    const state = await game.getUserState(resolved.targetUserId)
     const debuffModifiers = (state?.modifiers ?? []).filter(modifierHasDebuff)
 
     if (debuffModifiers.length === 0) {
@@ -50,12 +49,12 @@ export const privateBathroom = createItem({
     }
 
     for (const modifier of debuffModifiers) {
-      await game.removeModifier(targetUserId, modifier.id)
+      await game.removeModifier(resolved.targetUserId, modifier.id)
     }
 
     const actorName = await resolveItemUseActorDisplayName(deps, userId)
-    const targetName = await resolveItemUseActorDisplayName(deps, targetUserId)
-    const isSelf = targetUserId === userId
+    const targetName = await resolveItemUseActorDisplayName(deps, resolved.targetUserId)
+    const isSelf = resolved.targetUserId === userId
     const message = isSelf
       ? `${actorName.label} escaped to the oasis of a ${definition.name} to clear all negative effects.`
       : `${actorName.label} directed ${targetName.label} to the ${definition.name} so they could clear all negative effects.`

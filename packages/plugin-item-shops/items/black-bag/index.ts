@@ -4,6 +4,8 @@ import {
   sendAttributedSystemMessage,
   resolveItemUseActorDisplayName,
 } from "../shared/resolveItemUseActorDisplayName"
+import { resolveTargetUser } from "../shared/resolveTargetUser"
+import { toDefenseBlockedUseResult } from "../shared/toDefenseBlockedUseResult"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
 /** Probe flag so Warranty (`intents: ["negative"]`) still matches — never applied. */
@@ -11,41 +13,20 @@ const BURGLE_PROBE_FLAG = "burgled"
 
 type PluginInventory = ItemShopsBehaviorDeps["context"]["inventory"]
 
-async function fetchDefinitions(
-  inventory: PluginInventory,
-  ids: readonly string[],
-): Promise<ItemDefinition[]> {
-  if (ids.length === 0) return []
-  if (typeof inventory.getItemDefinitions === "function") {
-    return inventory.getItemDefinitions(ids)
-  }
-  const rows = await Promise.all(ids.map((id) => inventory.getItemDefinition(id)))
-  return rows.filter((d): d is ItemDefinition => d != null)
-}
-
-/** Resolve catalog defs for victim stacks in one (or two) batched reads. */
+/** Resolve catalog defs for victim stacks (bare shortId or plugin:shortId). */
 async function definitionsByLookupId(
   inventory: PluginInventory,
   pluginName: string,
   definitionIds: readonly string[],
 ): Promise<Map<string, ItemDefinition>> {
   const unique = [...new Set(definitionIds.filter(Boolean))]
-  const byId = new Map<string, ItemDefinition>()
-  const first = await fetchDefinitions(inventory, unique)
-  for (const def of first) byId.set(def.id, def)
-
-  const missing = unique.filter((id) => !byId.has(id))
-  const prefixed = missing.filter((id) => !id.includes(":")).map((id) => `${pluginName}:${id}`)
-  if (prefixed.length > 0) {
-    const extra = await fetchDefinitions(inventory, prefixed)
-    for (const def of extra) byId.set(def.id, def)
-  }
-
   const byLookup = new Map<string, ItemDefinition>()
-  for (const id of unique) {
-    const def = byId.get(id) ?? byId.get(`${pluginName}:${id}`)
-    if (def) byLookup.set(id, def)
-  }
+  await Promise.all(
+    unique.map(async (id) => {
+      const def = await inventory.resolveDefinition(id, { pluginName })
+      if (def) byLookup.set(id, def)
+    }),
+  )
   return byLookup
 }
 
@@ -57,19 +38,17 @@ async function useBlackBag(
 ): Promise<ItemUseResult> {
   const { context, game, pluginName } = deps
   const ctx = callContext as { targetUserId?: string; targetInventoryItemId?: string } | undefined
-  const targetUserId = ctx?.targetUserId?.trim()
   const targetInventoryItemId = ctx?.targetInventoryItemId?.trim()
 
-  if (!targetUserId) {
-    return { success: false, consumed: false, message: "Select a user to burgle." }
-  }
-  if (targetUserId === userId) {
-    return { success: false, consumed: false, message: "You can't burgle yourself." }
-  }
-
-  if (!(await context.api.isUserInRoom(context.roomId, targetUserId))) {
-    return { success: false, consumed: false, message: "That user is not in this room." }
-  }
+  const resolved = await resolveTargetUser(context, userId, {
+    targetUserId: ctx?.targetUserId,
+    allowSelf: false,
+    requireExplicitTarget: true,
+    missingTargetMessage: "Select a user to burgle.",
+    selfDeniedMessage: "You can't burgle yourself.",
+  })
+  if (!resolved.ok) return resolved.result
+  const { targetUserId } = resolved
 
   const victimInv = await context.inventory.getInventory(targetUserId)
   const byDef = await definitionsByLookupId(
@@ -133,14 +112,7 @@ async function useBlackBag(
 
   if (!defense.ok) {
     if (defense.reason === "defense_blocked") {
-      return {
-        success: false,
-        consumed: true,
-        title: "Intercepted",
-        message:
-          defense.attackerMessage ??
-          `Blocked by ${defense.blockingItemName}. Your item was lost with use.`,
-      }
+      return toDefenseBlockedUseResult(defense)
     }
     return { success: false, consumed: false, message: "Could not apply effect." }
   }

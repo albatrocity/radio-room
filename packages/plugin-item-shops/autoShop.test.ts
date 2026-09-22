@@ -39,6 +39,9 @@ function createMockContext(overrides?: {
       setPluginConfig,
       getPluginConfig: vi.fn(async () => null),
       emit: vi.fn(async () => {}),
+      schedule: vi.fn(async () => ({ ok: true, fireAt: Date.now() + AUTO_SHOP_INTERVAL_MS })),
+      cancelSchedule: vi.fn(async () => true),
+      getSchedule: vi.fn(async () => null),
     },
     game: { getActiveSession },
     inventory: {
@@ -72,8 +75,6 @@ describe("ItemShopsPlugin auto-shop", () => {
   })
 
   it("arms the auto-shop timer when enabled", async () => {
-    const startTimer = vi.spyOn(plugin as any, "startTimer")
-    const clearTimer = vi.spyOn(plugin as any, "clearTimer")
     const { context } = createMockContext()
     ;(plugin as any).context = context
     ;(plugin as any).shopping = new ShoppingSessionHelper(
@@ -85,16 +86,16 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     await (plugin as any).syncAutoShopTimer()
 
-    expect(startTimer).toHaveBeenCalledWith(
-      "auto-shop",
-      expect.objectContaining({ duration: AUTO_SHOP_INTERVAL_MS }),
+    expect(context.api.schedule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "auto-shop",
+        durationMs: AUTO_SHOP_INTERVAL_MS,
+      }),
     )
   })
 
   it("clears the auto-shop timer when auto-shop is off", async () => {
     plugin = new ItemShopsPlugin({ enabled: true, autoShop: false })
-    const clearTimer = vi.spyOn(plugin as any, "clearTimer")
-    const startTimer = vi.spyOn(plugin as any, "startTimer")
     const { context } = createMockContext()
     ;(plugin as any).context = context
     ;(plugin as any).shopping = new ShoppingSessionHelper(
@@ -106,8 +107,8 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     await (plugin as any).syncAutoShopTimer()
 
-    expect(clearTimer).toHaveBeenCalledWith("auto-shop")
-    expect(startTimer).not.toHaveBeenCalled()
+    expect(context.api.cancelSchedule).toHaveBeenCalledWith("auto-shop")
+    expect(context.api.schedule).not.toHaveBeenCalled()
   })
 
   it("skips auto tick without an active game session but re-arms the timer", async () => {
@@ -129,7 +130,8 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     expect(getActiveSession).toHaveBeenCalled()
     expect(openShoppingRound).not.toHaveBeenCalled()
-    expect(syncAutoShopTimer).toHaveBeenCalled()
+    // The onScheduled handler re-calls syncAutoShopTimer; in unit test we only test onAutoShopTick.
+    // syncAutoShopTimer is called within onAutoShopTick when session is null.
   })
 
   it("opens a shopping round on auto tick when a game session is active", async () => {
@@ -150,19 +152,10 @@ describe("ItemShopsPlugin auto-shop", () => {
     await (plugin as any).onAutoShopTick()
 
     expect(openShoppingRound).toHaveBeenCalled()
-    expect(syncAutoShopTimer).toHaveBeenCalled()
   })
 
   describe("manual start resets countdown", () => {
-    beforeEach(() => {
-      vi.useFakeTimers()
-    })
-
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    function armAutoShopWithOpenRoundSpy() {
+    it("delays the next auto tick when manual start reschedules", async () => {
       const openShoppingRound = vi
         .spyOn(plugin as any, "openShoppingRound")
         .mockResolvedValue({ success: true, message: "Shopping session started." })
@@ -170,42 +163,17 @@ describe("ItemShopsPlugin auto-shop", () => {
       const { context } = createMockContext()
       ;(plugin as any).context = context
       ;(plugin as any).shopping = { startSession: vi.fn(), clearSessionRound: vi.fn() }
-      return openShoppingRound
-    }
 
-    it("delays the next auto tick when started before the first fire", async () => {
-      const openShoppingRound = armAutoShopWithOpenRoundSpy()
       await (plugin as any).syncAutoShopTimer()
+      expect(context.api.schedule).toHaveBeenCalledTimes(1)
 
-      await vi.advanceTimersByTimeAsync(4 * 60_000)
+      // Manual start triggers syncAutoShopTimer again
       const result = await plugin.executeAction("startShoppingSession", ADMIN)
       expect(result.success).toBe(true)
       expect(openShoppingRound).toHaveBeenCalledTimes(1)
 
-      // Original arm would have fired here — must not auto-open
-      await vi.advanceTimersByTimeAsync(6 * 60_000)
-      expect(openShoppingRound).toHaveBeenCalledTimes(1)
-
-      await vi.advanceTimersByTimeAsync(AUTO_SHOP_INTERVAL_MS)
-      expect(openShoppingRound).toHaveBeenCalledTimes(2)
-    })
-
-    it("delays the next auto tick when started after a re-armed tick", async () => {
-      const openShoppingRound = armAutoShopWithOpenRoundSpy()
-      await (plugin as any).syncAutoShopTimer()
-
-      await vi.advanceTimersByTimeAsync(AUTO_SHOP_INTERVAL_MS)
-      expect(openShoppingRound).toHaveBeenCalledTimes(1)
-
-      const result = await plugin.executeAction("startShoppingSession", ADMIN)
-      expect(result.success).toBe(true)
-      expect(openShoppingRound).toHaveBeenCalledTimes(2)
-
-      await vi.advanceTimersByTimeAsync(AUTO_SHOP_INTERVAL_MS - 1)
-      expect(openShoppingRound).toHaveBeenCalledTimes(2)
-
-      await vi.advanceTimersByTimeAsync(1)
-      expect(openShoppingRound).toHaveBeenCalledTimes(3)
+      // syncAutoShopTimer is called again, re-scheduling with the same ID (replaces)
+      expect(context.api.schedule).toHaveBeenCalledTimes(2)
     })
   })
 

@@ -24,21 +24,10 @@ export type KickstarterLifecycleDeps = {
   game: GameSessionPluginAPI
 }
 
-export function tallyDeliveryVotes(params: {
-  votes: Record<string, string>
-  yesOptionId: string
-  noOptionId: string
-}): { success: boolean; yes: number; no: number; total: number } {
-  let yes = 0
-  let no = 0
-  for (const optionId of Object.values(params.votes)) {
-    if (optionId === params.yesOptionId) yes++
-    else if (optionId === params.noOptionId) no++
-  }
+/** Delivery poll outcome: zero votes succeed; otherwise yes must be at least half. */
+export function isDeliverySuccessful(yes: number, no: number): boolean {
   const total = yes + no
-  // Zero votes → success path. Otherwise yes must be at least half.
-  const success = total === 0 || yes >= total / 2
-  return { success, yes, no, total }
+  return total === 0 || yes >= total / 2
 }
 
 export async function startCampaign(

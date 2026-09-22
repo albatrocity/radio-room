@@ -6,6 +6,7 @@ import {
   sendAttributedSystemMessage,
   resolveItemUseActorDisplayName,
 } from "../shared/resolveItemUseActorDisplayName"
+import { toDefenseBlockedUseResult } from "../shared/toDefenseBlockedUseResult"
 
 const FIVE_MIN_MS = 5 * 60 * 1000
 
@@ -14,7 +15,7 @@ async function useDisguise(
   userId: string,
   definition: ItemDefinition,
 ): Promise<ItemUseResult> {
-  const { context, game } = deps
+  const { game } = deps
 
   const applied = await game.applyTimedModifier(
     userId,
@@ -39,14 +40,7 @@ async function useDisguise(
 
   if (!applied.ok) {
     if (applied.reason === "defense_blocked") {
-      return {
-        success: false,
-        consumed: true,
-        title: "Intercepted",
-        message:
-          applied.attackerMessage ??
-          `Blocked by ${applied.blockingItemName}. Your item was lost with use.`,
-      }
+      return toDefenseBlockedUseResult(applied)
     }
     return { success: false, consumed: false, message: "Could not apply effect." }
   }

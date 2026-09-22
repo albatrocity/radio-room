@@ -41,23 +41,11 @@ async function greenRoomOnSessionEnd(ctx: ShopSessionContext): Promise<void> {
     )
 
     const definitionId = stack.definitionId
-    ctx.startTimer(`return:${userId}:${Date.now()}`, {
-      duration: GREEN_ROOM_RETURN_MS,
-      callback: async () => {
-        const returned = await ctx.inventory.giveItem(
-          userId,
-          definitionId,
-          1,
-          undefined,
-          "purchase",
-        )
-        if (!returned) return
-        await ctx.sendUserSystemMessage(userId, `hey here's your ${itemName} back`, {
-          type: "alert",
-          status: "info",
-          title: "Message from the Green Room",
-        })
-      },
+    void ctx.schedule({
+      id: `return:${userId}`,
+      kind: "green-room-return",
+      durationMs: GREEN_ROOM_RETURN_MS,
+      payload: { userId, definitionId, itemName },
     })
 
     ctx.deleteState(userId)

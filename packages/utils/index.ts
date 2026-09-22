@@ -5,6 +5,7 @@
 
 export * from "./json"
 export * from "./templateInterpolation"
+export * from "./parseDurationInputToMs"
 export * from "./pluginUtils"
 export * from "./pluginPresetValidation"
 export * from "./findBestMatch"

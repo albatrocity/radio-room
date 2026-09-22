@@ -397,7 +397,7 @@ For **Queue Theme**, `getPluginState("queue-theme")` yields `{ theme, isDecoy }`
 
 The built-in Inventory tab exposes per-item buttons:
 
-- **Use** – emitted as `USE_INVENTORY_ITEM { itemId, targetUserId? }`. Optional **`targetUserId`** is sent when the item’s definition has **`requiresTarget: "user"`** (target picker in the inventory tab). Passed through as **`callContext`** to `onItemUsed`. See [ADR 0045](../adrs/0045-inventory-item-targeting.md).
+- **Use** – emitted as `USE_INVENTORY_ITEM { itemId, targetUserId?, …, formValues? }`. Entity targets (`requiresTarget`: `user`, `queueItem`, `inventoryItems`, etc.) add the matching target fields. Authored fields from **`useForm`** arrive as **`formValues`**. When both apply, the picker runs first, then the form ([ADR 0193](../adrs/0193-item-use-forms-composed-with-target-pickers.md)). Passed through as **`callContext`** to `onItemUsed`. See [ADR 0045](../adrs/0045-inventory-item-targeting.md), [ADR 0187](../adrs/0187-declarative-item-use-forms.md).
 - **Sell** – emitted as `SELL_INVENTORY_ITEM { itemId }`. Routes to the source plugin's `onItemSold` (typically `ShopHelper.sell`).
 
 The buttons render automatically based on the `ItemDefinition` flags: **Use** appears for `consumable` items, **Sell** appears for `tradeable` items with a positive `coinValue`. For **item-shops** items, the built-in tab only shows **Sell** while a shop visit is open (`getPluginState("item-shops")?.currentShopInstance`); the button label can include the quoted coin refund using instance listing fields above. The server responds with `INVENTORY_ACTION_RESULT { success, message, refund? }`.

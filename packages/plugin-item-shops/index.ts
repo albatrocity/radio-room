@@ -186,12 +186,48 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     })
     await this.syncAutoShopTimer()
 
+    this.onScheduled("ks-funding-timeout", async (payload) => {
+      const { campaignId } = payload as { campaignId: string }
+      await this.kickstarter.handleFundingTimeout(campaignId)
+    })
+    this.onScheduled("ks-delivery-delay", async (payload) => {
+      const { campaignId } = payload as { campaignId: string }
+      await this.kickstarter.handleDeliveryDelay(campaignId)
+    })
+    this.onScheduled("ks-poll-retry", async (payload) => {
+      const { campaignId } = payload as { campaignId: string }
+      await this.kickstarter.handlePollRetry(campaignId)
+    })
+    this.onScheduled("auto-shop", async () => {
+      await this.onAutoShopTick()
+      await this.syncAutoShopTimer()
+    })
+    this.onScheduled("green-room-return", async (payload) => {
+      const { userId, definitionId, itemName } = payload as {
+        userId: string
+        definitionId: string
+        itemName: string
+      }
+      const returned = await this.inventory.giveItem(userId, definitionId, 1, undefined, "purchase")
+      if (!returned) return
+      await this.context!.api.sendUserSystemMessage(
+        this.context!.roomId,
+        userId,
+        `hey here's your ${itemName} back`,
+        { type: "alert", status: "info", title: "Message from the Green Room" },
+      )
+    })
+    this.onScheduled("sweetwater-followup", async (payload) => {
+      const { userId } = payload as { userId: string }
+      await this.deliverSweetwaterFollowUp(userId)
+    })
+
     this.kickstarter.bind({
       context,
       game: this.game,
-      timers: {
-        startTimer: (id, config) => this.startTimer(id, config),
-        clearTimer: (id) => this.clearTimer(id),
+      scheduleApi: {
+        schedule: (params) => this.schedule(params),
+        cancelSchedule: (id) => this.cancelSchedule(id),
       },
       emitPublic: async (state) => {
         await this.emit("KICKSTARTER_CAMPAIGN_UPDATED", state, { invalidatesUserState: false })
@@ -475,6 +511,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         return timer ? { id: timer.id, data: timer.data as T | undefined } : null
       },
       clearTimer: (id) => this.clearTimer(timerPrefix + id),
+      schedule: (params) =>
+        this.schedule({ ...params, id: timerPrefix + params.id }),
+      cancelSchedule: (id) => this.cancelSchedule(timerPrefix + id),
 
       sendSystemMessage: async (message, meta, mentions) => {
         await this.context!.api.sendSystemMessage(this.context!.roomId, message, meta, mentions)
@@ -494,10 +533,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         const session = await this.context!.game.getActiveSession()
         return session != null
       },
-      isUserInRoom: async (uid) => {
-        const users = await this.context!.api.getUsers(this.context!.roomId)
-        return users.some((u) => u.userId === uid)
-      },
+      isUserInRoom: async (uid) =>
+        this.context!.api.isUserInRoom(this.context!.roomId, uid),
 
       getState: <T>(key: string) => stateStore.get(key) as T | undefined,
       setState: <T>(key: string, value: T) => {
@@ -527,6 +564,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         return timer ? { id: timer.id, data: timer.data as T | undefined } : null
       },
       clearTimer: (id) => this.clearTimer(timerPrefix + id),
+      schedule: (params) =>
+        this.schedule({ ...params, id: timerPrefix + params.id }),
+      cancelSchedule: (id) => this.cancelSchedule(timerPrefix + id),
 
       sendSystemMessage: async (message, meta, mentions) => {
         await this.context!.api.sendSystemMessage(this.context!.roomId, message, meta, mentions)
@@ -606,15 +646,14 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   private async syncAutoShopTimer(): Promise<void> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
     if (!this.context || !config.enabled || !config.autoShop) {
-      this.clearTimer(AUTO_SHOP_TIMER_ID)
+      await this.cancelSchedule(AUTO_SHOP_TIMER_ID)
       return
     }
     const duration = this.resolveAutoShopIntervalMs(config)
-    this.startTimer(AUTO_SHOP_TIMER_ID, {
-      duration,
-      callback: async () => {
-        await this.onAutoShopTick()
-      },
+    await this.schedule({
+      id: AUTO_SHOP_TIMER_ID,
+      kind: "auto-shop",
+      durationMs: duration,
     })
   }
 
@@ -625,16 +664,13 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     }
     const gameSession = await this.context.game.getActiveSession()
     if (!gameSession) {
-      await this.syncAutoShopTimer()
       return
     }
     const eligible = await this.resolveEligibleShops(config)
     if (eligible.length === 0) {
-      await this.syncAutoShopTimer()
       return
     }
     await this.openShoppingRound(config)
-    await this.syncAutoShopTimer()
   }
 
   private async openShoppingRound(
@@ -659,6 +695,51 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       await this.requestShopTabAttention(u.userId)
     }
     return { success: true, message: "Shopping session started." }
+  }
+
+  /** Sweetwater follow-up handler dispatched by onScheduled("sweetwater-followup"). */
+  private async deliverSweetwaterFollowUp(userId: string): Promise<void> {
+    if (!this.context) return
+    const { SWEETWATER_SHOP_ID, isSweetwaterDoNotCall, sweetwaterTimerId } = await import(
+      "./shops/sweetwater/followUps"
+    )
+    const { formatSweetwaterMessage, pickRandomSweetwaterMessage } = await import(
+      "./shops/sweetwater/messages"
+    )
+    const stateStore = this.getShopStateStore(SWEETWATER_SHOP_ID)
+    const state = stateStore.get(userId) as { username: string; lastPurchasedItemName: string } | undefined
+    if (!state) return
+
+    if (isSweetwaterDoNotCall(<T,>(k: string) => stateStore.get(k) as T | undefined, userId)) return
+
+    const session = await this.context.game.getActiveSession()
+    if (!session) {
+      stateStore.delete(userId)
+      return
+    }
+
+    if (!(await this.context.api.isUserInRoom(this.context.roomId, userId))) {
+      stateStore.delete(userId)
+      return
+    }
+
+    const template = pickRandomSweetwaterMessage()
+    const content = formatSweetwaterMessage(template, state.username, state.lastPurchasedItemName)
+    await this.context.api.sendUserSystemMessage(this.context.roomId, userId, content, {
+      type: "alert",
+      status: "info",
+      title: "Message from your Sweetwater Rep",
+    })
+
+    // Re-schedule
+    const SWEETWATER_FOLLOWUP_MS = 10 * 60 * 1000
+    const timerPrefix = this.shopTimerPrefix(SWEETWATER_SHOP_ID)
+    await this.schedule({
+      id: timerPrefix + sweetwaterTimerId(userId),
+      kind: "sweetwater-followup",
+      durationMs: SWEETWATER_FOLLOWUP_MS,
+      payload: { userId },
+    })
   }
 
   private async persistConfigPatch(

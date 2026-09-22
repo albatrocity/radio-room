@@ -1,12 +1,68 @@
 # Timer API
 
+Plugins have two timing tools. Prefer the **durable scheduler** for anything that must survive restarts or multi-dyno deploys. Use **`startTimer`** only for short, in-memory UI timing.
 
-BasePlugin provides a built-in timer management system for scheduling delayed operations. Timers are automatically cleaned up when the plugin is cleaned up or when a room is deleted.
+See [ADR 0190](../adrs/0190-durable-plugin-scheduler.md).
+
+## Durable schedules (`schedule` / `onScheduled`)
+
+Core stores deadlines in Redis (`plugin:schedules`), sweeps every second, and claims with `ZREM` so only one process fires each schedule. Bounds: **1 second–7 days**.
+
+Register handlers in `register()` (or equivalent setup), then schedule by `id` + `kind`. Re-scheduling the same `id` replaces the pending entry.
+
+```typescript
+// In register / setup
+this.onScheduled("auto-advance", async (payload, scheduleId) => {
+  await this.advanceRound()
+  // Self-reschedule if the loop continues
+  await this.schedule({
+    id: "round-advance",
+    kind: "auto-advance",
+    durationMs: 30_000,
+  })
+})
+
+// Arm a deadline
+await this.schedule({
+  id: "round-advance",
+  kind: "auto-advance",
+  durationMs: 30_000,
+  payload: { roundId: "abc" }, // optional; passed to the handler
+})
+
+// Or absolute time
+await this.schedule({
+  id: "funding-close",
+  kind: "funding-close",
+  at: Date.now() + 60_000,
+})
+
+await this.cancelSchedule("round-advance")
+const pending = await this.context.api.getSchedule("round-advance")
+// { id, kind, fireAt, payload } | null
+```
+
+| Method | Description |
+| ------ | ----------- |
+| `onScheduled(kind, handler)` | Register handler `(payload, scheduleId) => …` for a kind |
+| `schedule({ id, kind, at?, durationMs?, payload? })` | Arm or replace a durable schedule |
+| `cancelSchedule(id)` | Cancel a pending schedule |
+| `api.getSchedule(id)` | Read pending schedule metadata |
+
+**When to use:** game/economy deadlines, auto-advance, item return timers, recurring ticks (self-reschedule from the handler), anything that must fire after a process restart.
+
+**Do not** use `startTimer` for those cases — in-memory timers are lost on restart and can double-fire across dynos.
+
+## In-memory timers (`startTimer`)
+
+`startTimer` is a plain `setTimeout` on the plugin instance. Timers are cleared on plugin cleanup / room deletion. They do **not** survive restarts.
+
+Use only for short, disposable UI timing (e.g. debounce a local emit). Prefer `schedule` for multi-second game logic.
 
 ### Starting Timers
 
 ```typescript
-// Simple timer
+// Simple timer (prefer this.schedule for durable work)
 this.startTimer("countdown", {
   duration: 30000, // 30 seconds
   callback: async () => {

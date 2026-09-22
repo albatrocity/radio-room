@@ -1,8 +1,9 @@
 import type { BingoCriterion, QueueItem } from "@repo/types"
+import { normalizeToken } from "@repo/plugin-base"
 
 /** Case-insensitive substring; empty needle never matches. */
 export function containsNormalized(haystack: string | null | undefined, needle: string): boolean {
-  const n = needle.trim().toLowerCase()
+  const n = normalizeToken(needle)
   if (!n) return false
   return (haystack ?? "").toLowerCase().includes(n)
 }

@@ -18,15 +18,24 @@ function sanitizeMessage(raw: unknown): string | null {
   return cleaned.length > 0 ? cleaned : null
 }
 
+function readFormValues(
+  callContext: unknown,
+): Record<string, string | number> {
+  if (!callContext || typeof callContext !== "object" || Array.isArray(callContext)) {
+    return {}
+  }
+  return (callContext as { formValues?: Record<string, string | number> }).formValues ?? {}
+}
+
 async function useBurnerPhone(
   deps: ItemShopsBehaviorDeps,
   userId: string,
   _definition: ItemDefinition,
   callContext?: unknown,
 ): Promise<ItemUseResult> {
-  const ctx = callContext as { message?: string; voice?: string } | undefined
-  const text = sanitizeMessage(ctx?.message)
-  const voice = typeof ctx?.voice === "string" ? ctx.voice.trim() : ""
+  const formValues = readFormValues(callContext)
+  const text = sanitizeMessage(formValues.message)
+  const voice = typeof formValues.voice === "string" ? formValues.voice.trim() : ""
 
   if (!text) {
     return { success: false, consumed: false, message: "Enter a message to send." }
@@ -79,10 +88,27 @@ export const burnerPhone = createItem({
     maxStack: 3,
     tradeable: true,
     consumable: true,
-    requiresTarget: "spokenMessage",
     coinValue: 50,
     icon: "Phone",
     rarity: "rare",
+    useForm: [
+      {
+        name: "message",
+        label: "Message",
+        type: "textarea",
+        required: true,
+        maxLength: SAY_MAX_CHARS,
+        rows: 3,
+        placeholder: "What should the DJ Mac say?",
+      },
+      {
+        name: "voice",
+        label: "Voice",
+        type: "select",
+        required: true,
+        optionsSource: "mediaBridgeVoices",
+      },
+    ],
   },
   availableInRoomTypes: ["radio", "live"],
   use: useBurnerPhone,

@@ -1,5 +1,5 @@
 import { createItem } from "../shared/types"
-import { storeInContainer } from "../shared/storeInContainer"
+import { stashLockFormFields, storeInContainer } from "../shared/storeInContainer"
 
 export const roadCase = createItem({
   shortId: "road-case",
@@ -16,6 +16,7 @@ export const roadCase = createItem({
     coinValue: 100,
     icon: "Package",
     rarity: "legendary",
+    useForm: [...stashLockFormFields],
   },
   use: storeInContainer(),
 })

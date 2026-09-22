@@ -516,6 +516,34 @@ export class RadioRoomServer {
     }
     this.context.jobs.push(pollAutoCloseJob)
     console.log("Registered system job: poll-autoclose")
+
+    const pluginScheduleSweepJobHandler = (await import("./jobs/pluginScheduleSweep/index"))
+      .default
+    const pluginScheduleSweepJob = {
+      name: "plugin-schedule-sweep",
+      description: "Fires due durable plugin schedules (ADR 0190)",
+      cron: "* * * * * *", // Every second
+      enabled: true,
+      runAt: Date.now(),
+      quiet: true,
+      handler: pluginScheduleSweepJobHandler,
+    }
+    this.context.jobs.push(pluginScheduleSweepJob)
+    console.log("Registered system job: plugin-schedule-sweep")
+
+    const modifierExpirySweepJobHandler = (await import("./jobs/modifierExpirySweep/index"))
+      .default
+    const modifierExpirySweepJob = {
+      name: "modifier-expiry-sweep",
+      description: "Removes expired game modifiers and emits GAME_MODIFIER_REMOVED (ADR 0191)",
+      cron: "* * * * * *", // Every second
+      enabled: true,
+      runAt: Date.now(),
+      quiet: true,
+      handler: modifierExpirySweepJobHandler,
+    }
+    this.context.jobs.push(modifierExpirySweepJob)
+    console.log("Registered system job: modifier-expiry-sweep")
   }
 
   /**

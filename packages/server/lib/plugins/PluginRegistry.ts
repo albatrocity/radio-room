@@ -256,6 +256,52 @@ export class PluginRegistry {
   }
 
   /**
+   * Dispatch a durable schedule callback to a room plugin (ADR 0190).
+   * Ensures the plugin instance exists in this process; skips when disabled.
+   */
+  async dispatchScheduled(params: {
+    roomId: string
+    pluginName: string
+    kind: string
+    payload: unknown
+    scheduleId: string
+  }): Promise<void> {
+    const { roomId, pluginName, kind, payload, scheduleId } = params
+
+    if (!this.pluginFactories.has(pluginName)) {
+      console.warn(`[PluginRegistry] Unknown plugin for schedule: ${pluginName}`)
+      return
+    }
+
+    try {
+      const config = await this.api.getPluginConfig(roomId, pluginName)
+      if (config && config.enabled === false) {
+        console.log(
+          `[PluginRegistry] Skipping schedule ${scheduleId} — plugin ${pluginName} disabled in ${roomId}`,
+        )
+        return
+      }
+    } catch (error) {
+      console.warn(
+        `[PluginRegistry] Could not read config for ${pluginName} in ${roomId}:`,
+        error,
+      )
+    }
+
+    await this.initializePluginForRoom(pluginName, roomId)
+
+    const instance = this.roomPlugins.get(roomId)?.get(pluginName)
+    if (!instance?.plugin.handleScheduled) {
+      console.warn(
+        `[PluginRegistry] Plugin ${pluginName} has no handleScheduled for kind ${kind}`,
+      )
+      return
+    }
+
+    await instance.plugin.handleScheduled(kind, payload, scheduleId)
+  }
+
+  /**
    * Cleanup all plugins for a room
    */
   async cleanupRoom(roomId: string): Promise<void> {

@@ -126,6 +126,12 @@ export interface PluginSchemaElement {
   showWhen?: ShowWhenCondition | ShowWhenCondition[]
 }
 
+/** Dynamic option lists resolved by the client at render time (not validated by core). */
+export type PluginActionFormOptionsSource = "mediaBridgeVoices"
+
+/** Viewer-derived number caps applied by the client only (not enforced by core). */
+export type PluginActionFormMaxFrom = "coinBalance"
+
 /**
  * Optional form fields collected before running a plugin action (admin UI) or
  * before using an inventory item (`ItemDefinition.useForm`, ADR 0187).
@@ -134,20 +140,35 @@ export interface PluginSchemaElement {
 export interface PluginActionFormField {
   name: string
   label: string
-  type: "select" | "user-select" | "string" | "textarea" | "combobox" | "number"
+  type: "select" | "user-select" | "string" | "textarea" | "combobox" | "number" | "password"
   required?: boolean
   /** Static options. For `user-select`, prepended before room users. For `combobox`, datalist suggestions. */
   options?: { value: string; label: string }[]
-  /** Placeholder for `string` / `textarea` / `combobox` / `number` fields. */
+  /**
+   * Client fills `select` options from a live source (e.g. Media Bridge voices).
+   * Core does not validate membership — the item/plugin handler must.
+   */
+  optionsSource?: PluginActionFormOptionsSource
+  /** Placeholder for `string` / `textarea` / `combobox` / `number` / `password` fields. */
   placeholder?: string
   /** Optional helper text shown below the control. */
   helperText?: string
   /** Preferred rows for `textarea` (host may clamp). */
   rows?: number
+  /**
+   * Max character length for `string` / `textarea` / `password`.
+   * Core rejects over-limit values (does not trim). Without this, a 2000-char clamp applies.
+   */
+  maxLength?: number
   /** Minimum value for `number` fields (inclusive). */
   min?: number
   /** Maximum value for `number` fields (inclusive). */
   max?: number
+  /**
+   * Client caps `number` fields using a live viewer value (e.g. coin balance).
+   * Combined with `max` via `Math.min` when both are set. Core does not enforce.
+   */
+  maxFrom?: PluginActionFormMaxFrom
   /** When true, `number` fields must be integers. */
   integer?: boolean
   /**
@@ -389,6 +410,30 @@ export interface PluginStorage {
   hgetall(key: string): Promise<Record<string, string>>
   /** Redis hash: set field only if it does not exist. Returns true if set. */
   hsetnx(key: string, field: string, value: string): Promise<boolean>
+
+  // ---------- JSON helpers (ADR 0192) ------------------------------------
+
+  /** Parse a JSON string value. Returns `{ raw, value }` (both null when key absent). */
+  getJson<T>(key: string): Promise<{ raw: string | null; value: T | null }>
+  /** Serialize `value` as JSON and store it. */
+  setJson(key: string, value: unknown, ttl?: number): Promise<void>
+  /**
+   * Atomic read-modify-write with optimistic concurrency (compareAndSet retry loop).
+   * `fn` receives the current parsed value (or null) and must return the next value.
+   * Retries up to `options.retries` times (default 5) on CAS conflict.
+   */
+  updateJson<T>(
+    key: string,
+    fn: (prev: T | null) => T,
+    options?: { retries?: number },
+  ): Promise<T>
+
+  // ---------- List / capped log helpers (ADR 0192) -----------------------
+
+  /** Read a range from a Redis list (LRANGE). */
+  lrange(key: string, start: number, stop: number): Promise<string[]>
+  /** LPUSH `JSON.stringify(entry)` then LTRIM to `max` elements. */
+  appendCapped(key: string, entry: unknown, max: number): Promise<void>
 }
 
 /**
@@ -527,6 +572,44 @@ export interface PluginAPI {
    * Votes are retained after close; not broadcast to clients.
    */
   getPollVotes(roomId: string, pollId: string): Promise<Record<string, string>>
+
+  /**
+   * Tally a poll's votes into optionId → count.
+   * Uses the scoped room. Optionally exclude voter user ids (e.g. the track DJ).
+   */
+  tallyPoll(
+    pollId: string,
+    options?: { excludeUserIds?: string[] },
+  ): Promise<Record<string, number>>
+
+  /**
+   * Schedule a durable plugin callback (ADR 0190). Survives restarts; multi-dyno safe.
+   * Replaces an existing schedule with the same `id`. Requires scoped plugin identity.
+   * Pass `at` (absolute epoch ms) or `durationMs` (relative from server now).
+   */
+  schedule(params: {
+    id: string
+    kind: string
+    at?: number | null
+    durationMs?: number | null
+    payload?: unknown
+  }): Promise<{ ok: true; fireAt: number } | { ok: false; message: string }>
+
+  /**
+   * Cancel a previously scheduled callback (ADR 0190).
+   * @returns true if a schedule was removed
+   */
+  cancelSchedule(id: string): Promise<boolean>
+
+  /**
+   * Look up a pending schedule for this plugin (ADR 0190).
+   */
+  getSchedule(id: string): Promise<{
+    id: string
+    kind: string
+    fireAt: number
+    payload: unknown
+  } | null>
 
   /**
    * Set the queue split anchor (ADR 0067, plugin source ADR 0153). App-controlled rooms only.
@@ -1182,6 +1265,14 @@ export interface InventoryPluginAPI {
   getInventory(userId: string): Promise<UserInventory>
   hasItem(userId: string, definitionId: string, minQuantity?: number): Promise<boolean>
   getItemDefinition(definitionId: string): Promise<ItemDefinition | null>
+  /**
+   * Resolve a catalog definition for a bare `shortId` or a `plugin:shortId` id.
+   * Tries `id` first, then `${pluginName}:${id}` when `id` has no colon.
+   */
+  resolveDefinition(
+    definitionId: string,
+    options: { pluginName: string },
+  ): Promise<ItemDefinition | null>
   /** Subset of registered definitions by id (prefer for USER_GAME_STATE). */
   getItemDefinitions?(definitionIds: readonly string[]): Promise<ItemDefinition[]>
   getAllItemDefinitions(): Promise<ItemDefinition[]>
@@ -1476,6 +1567,12 @@ export interface Plugin {
 
   register(context: PluginContext): Promise<void>
   cleanup(): Promise<void>
+
+  /**
+   * Execute a durable scheduled callback (ADR 0190).
+   * Registered via BasePlugin.onScheduled(kind, handler).
+   */
+  handleScheduled?(kind: string, payload: unknown, scheduleId: string): Promise<void>
 
   /**
    * Execute a plugin action.

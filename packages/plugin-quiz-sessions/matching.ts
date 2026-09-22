@@ -1,13 +1,16 @@
 /**
  * Answer matching for quiz sessions.
  *
- * Matching is intentionally EXACT — no fuzzy matching — but case-insensitive and
- * whitespace-trimmed. See the quiz-sessions plan.
+ * Matching is intentionally EXACT — no fuzzy matching — but case-insensitive,
+ * whitespace-trimmed, and surrounding punctuation stripped via {@link normalizeToken}.
+ * See the quiz-sessions plan.
  */
 
-/** Normalize an answer or guess for comparison: trim + lowercase. */
+import { normalizeToken } from "@repo/plugin-base"
+
+/** Normalize an answer or guess for comparison. */
 export function normalizeAnswer(value: string): string {
-  return value.trim().toLowerCase()
+  return normalizeToken(value)
 }
 
 /**

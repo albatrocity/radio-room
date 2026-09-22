@@ -324,6 +324,58 @@ export class PluginStorageImpl implements PluginStorage {
     }
   }
 
+  // ---------- JSON helpers (ADR 0192) ------------------------------------
+
+  async getJson<T>(key: string): Promise<{ raw: string | null; value: T | null }> {
+    const raw = await this.get(key)
+    if (raw == null) return { raw: null, value: null }
+    try {
+      return { raw, value: JSON.parse(raw) as T }
+    } catch {
+      return { raw, value: null }
+    }
+  }
+
+  async setJson(key: string, value: unknown, ttl?: number): Promise<void> {
+    await this.set(key, JSON.stringify(value), ttl)
+  }
+
+  async updateJson<T>(
+    key: string,
+    fn: (prev: T | null) => T,
+    options?: { retries?: number },
+  ): Promise<T> {
+    const maxRetries = options?.retries ?? 5
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const { raw, value } = await this.getJson<T>(key)
+      const next = fn(value)
+      const ok = await this.compareAndSet(key, raw, JSON.stringify(next))
+      if (ok) return next
+    }
+    throw new Error(`[PluginStorage] updateJson failed after ${maxRetries + 1} attempts for key ${key}`)
+  }
+
+  // ---------- List / capped log helpers (ADR 0192) -----------------------
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    try {
+      return await this.context.redis.pubClient.lRange(this.makeKey(key), start, stop)
+    } catch (error) {
+      console.error(`[PluginStorage] Error lrange ${key}:`, error)
+      return []
+    }
+  }
+
+  async appendCapped(key: string, entry: unknown, max: number): Promise<void> {
+    try {
+      const namespacedKey = this.makeKey(key)
+      await this.context.redis.pubClient.lPush(namespacedKey, JSON.stringify(entry))
+      await this.context.redis.pubClient.lTrim(namespacedKey, 0, max - 1)
+    } catch (error) {
+      console.error(`[PluginStorage] Error appendCapped ${key}:`, error)
+    }
+  }
+
   /**
    * Cleanup all keys for this plugin in this room
    */

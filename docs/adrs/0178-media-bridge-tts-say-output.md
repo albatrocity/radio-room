@@ -16,7 +16,13 @@ macOS `say` cannot target a CoreAudio device; live `say` always plays to the sys
 3. **Config:** Daemon `tts.audioDevice` (mpv CoreAudio name). Unset/empty ⇒ `speak` fails closed; item is not consumed. Device listing for the control UI is local HTTP only (`GET /api/audio-devices`), not Redis RPC. The daemon does **not** create virtual devices — the DJ installs Loopback/BlackHole and selects it.
    The operator-facing surface is the consolidated local-remote UI on `:9876`, which reaches the list through the `/api/bridge/audio-devices` → child `/api/audio-devices` proxy ([0084](0084-dj-mac-single-zip-supervised-bridge.md)); the child UI on `:18766` stays a dev/escape-hatch copy. Any bridge-config form must round-trip `tts.audioDevice`, since both forms PUT a whole config object.
 4. **Plugin surface:** `PluginAPI.listMediaBridgeSayVoices` / `speakOnMediaBridge`. Socket request/reply `GET_MEDIA_BRIDGE_SAY_VOICES` → `MEDIA_BRIDGE_SAY_VOICES_RESULT` (same-socket; not a system event).
-5. **Inventory targeting:** New `requiresTarget: "spokenMessage"` with wire fields `message` and `voice` on `USE_INVENTORY_ITEM`. Consume only after a successful `speak` RPC. Spoken text stays off-chat; room line uses attributed system message ([0149](0149-inventory-peek-flag-and-identity-pierce.md) / [0150](0150-presented-identity-grant.md)).
+5. **Inventory targeting:** Originally `requiresTarget: "spokenMessage"` with top-level
+   `message` / `voice` on `USE_INVENTORY_ITEM`. **Superseded by [0187](0187-declarative-item-use-forms.md) /
+   [0193](0193-item-use-forms-composed-with-target-pickers.md):** Burner Phone now uses
+   `useForm` (`message` textarea + `voice` select with `optionsSource: "mediaBridgeVoices"`).
+   Consume only after a successful `speak` RPC. Spoken text stays off-chat; room line uses
+   attributed system message ([0149](0149-inventory-peek-flag-and-identity-pierce.md) /
+   [0150](0150-presented-identity-grant.md)).
 6. **Serial queue:** One TTS mpv at a time on the daemon; overlapping uses FIFO.
 
 ## Consequences
@@ -25,7 +31,7 @@ macOS `say` cannot target a CoreAudio device; live `say` always plays to the sys
 - New bridge settings need the local-remote form updated too, or the pack ships a setting the DJ cannot see (and a save from `:9876` would drop it).
 - Installed `say` voices differ per Mac — clients fetch the live list; do not hardcode.
 - Physical Media keeps playing unless the DJ points TTS at the same CoreAudio device as programme audio (streams mix; music process does not stop).
-- Studio-bridge must forward `message` / `voice` and stub voice listing for Game Studio preview.
+- Studio-bridge must forward `formValues` on item use (and stub voice listing) for Game Studio preview.
 
 ## See also
 

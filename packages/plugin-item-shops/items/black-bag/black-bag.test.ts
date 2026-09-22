@@ -94,7 +94,7 @@ describe("blackBag", () => {
       { omitBlockedModifier: true },
     )
     expect(deps.context.inventory.removeItem).toHaveBeenCalledWith(victim.userId, "potion-1", 1)
-    expect(deps.context.inventory.getItemDefinitions).toHaveBeenCalledTimes(1)
+    expect(deps.context.inventory.resolveDefinition).toHaveBeenCalled()
     expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(
       actor.userId,
       potion.id,

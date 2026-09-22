@@ -1,7 +1,7 @@
 # 0042. Game Sessions and Inventory as Core Infrastructure
 
 **Date:** 2026-05-01
-**Status:** Partially superseded by [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) (segment integration / auto-end on every activation only)
+**Status:** Partially superseded by [0107](0107-game-sessions-independent-of-segment-plugin-activation.md) (segment integration / auto-end on every activation only) and [0191](0191-modifier-expiry-sweep.md) (in-process modifier ticker)
 
 ## Context
 
@@ -29,7 +29,7 @@ We chose (3): expose two new core services on `AppContext` (`gameSessions`, `inv
 
 - **Attribute namespacing:** core attributes are `score` and `coin` (cross-plugin readable AND writable). Plugins may also write attributes namespaced as `<pluginName>:<key>` (e.g. `"guess-the-tune:streak"`). Reads are unrestricted across all attributes. Plugin-defined attribute *definitions* are registered via `context.game.registerAttributes()` for UI discoverability.
 - **One active session per room.** Starting a new session ends any active one and emits `GAME_SESSION_ENDED` with results.
-- **Modifier expiry:** option (1) + (2) from the design plan — a periodic ticker (1s) scans active sessions and emits `GAME_MODIFIER_REMOVED` for expired modifiers; reads also lazy-prune expired modifiers for accuracy if a tick is missed.
+- **Modifier expiry:** ~~a periodic in-process ticker (1s) scans active sessions and emits `GAME_MODIFIER_REMOVED`~~ — **superseded by [0191](0191-modifier-expiry-sweep.md):** claimed Redis ZSET sweep + lazy prune on read.
 - **Leaderboards:** stored as Redis ZSETs keyed by `LeaderboardConfig.id`. Hydrated with usernames on read.
 - **Segment integration:** `SegmentDTO.gameSessionPreset` (optional). On segment activation, a new session is started if the new segment has a preset (and preset apply mode is not `"skip"`). ~~Any previously-active session is ended on every activation~~ — **superseded by [0107](0107-game-sessions-independent-of-segment-plugin-activation.md):** plugin preset merge/replace does not end sessions; only an explicit `gameSessionPreset` start (via `startSession`) may replace an active session.
 
@@ -70,14 +70,14 @@ Plugins receive two new typed APIs alongside the existing `api`, `storage`, and 
 - **Unified frontend rendering.** One `inventory-grid`, one `game-leaderboard` — no plugin-specific React.
 - **Segment-started games are declarative.** Adding `gameSessionPreset` to a segment is enough to spawn a session on activation. Session end is no longer tied to the next segment activation ([0107](0107-game-sessions-independent-of-segment-plugin-activation.md)).
 - **Modifier mechanics are uniform.** Multipliers and additives compose predictably; locks prevent score changes; flags expose plugin-specific booleans.
-- **Stateless across restarts.** All session/inventory state lives in Redis; the modifier ticker is the only in-memory thing and it just scans Redis on each tick.
+- **Stateless across restarts.** All session/inventory state lives in Redis. Modifier expiry deadlines live in `game:modifiers:expiring` ([ADR 0191](0191-modifier-expiry-sweep.md)).
 
 ### Negative / trade-offs
 
 - **More core surface area.** `AppContext` grows two services and `PluginContext` grows two API objects. Mitigated by both being optional at runtime (services are nullable and APIs no-op cleanly).
 - **Coin/score economy invariants live in plugins.** The core does not police coin spending; if a plugin awards 1000 coins for one event, that's a plugin-level decision. Acceptable given the existing trust model for in-process plugins.
 - **Cross-plugin item definitions need agreement on shape.** `ItemDefinition.metadata` is opaque, but plugins consuming items defined elsewhere need to know what fields to expect. Documented per-item in plugin READMEs.
-- **Modifier ticker overhead.** O(rooms × users × modifiers) per tick. With a 1s interval and small-to-medium rooms, this is negligible; can be moved to a per-session expiry index if profiling shows otherwise.
+- **Modifier expiry sweep.** O(due modifiers) per second via the claimed ZSET ([ADR 0191](0191-modifier-expiry-sweep.md)); no longer O(rooms × users × modifiers) full scans.
 
 ### Migration path for existing plugins
 

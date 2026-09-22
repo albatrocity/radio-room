@@ -13,7 +13,12 @@ import type {
   PluginMarkdownContext,
   RoomExportData,
 } from "@repo/types/RoomExport"
-import { BasePlugin } from "@repo/plugin-base"
+import {
+  BasePlugin,
+  TrackAnnotations,
+  shouldSkipGivenQueue,
+} from "@repo/plugin-base"
+import { interpolateTemplate } from "@repo/utils"
 import packageJson from "./package.json"
 import { absentDjConfigSchema, defaultAbsentDjConfig, type AbsentDjConfig } from "./types"
 import { getComponentSchema, getConfigSchema } from "./schema"
@@ -48,13 +53,16 @@ export interface AbsentDjComponentState extends PluginComponentState {
 // ============================================================================
 
 const COUNTDOWN_TIMER_ID = "absent-dj-countdown"
+const COUNTDOWN_STATE_KEY = "countdown-state"
 
-/** Metadata stored with the countdown timer */
-interface CountdownTimerData {
+/** Persisted countdown state for schedule-based UI (ADR 0190). */
+interface CountdownState {
   trackId: string
   absentUserId: string
   absentUsername: string
   trackTitle: string
+  startTime: number
+  deadline: number
 }
 
 // ============================================================================
@@ -114,15 +122,20 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
       }
     }
 
-    // If we have an active timer, show the countdown
-    const timer = this.getTimer<CountdownTimerData>(COUNTDOWN_TIMER_ID)
-    if (timer) {
-      return {
-        showCountdown: true,
-        countdownStartTime: timer.startTime,
-        absentUsername: timer.data?.absentUsername ?? null,
-        isSkipped: false,
-      }
+    // Check for a persisted countdown state
+    const stateRaw = await this.context.storage.get(COUNTDOWN_STATE_KEY)
+    if (stateRaw) {
+      try {
+        const state = JSON.parse(stateRaw) as CountdownState
+        if (state.deadline > Date.now()) {
+          return {
+            showCountdown: true,
+            countdownStartTime: state.startTime,
+            absentUsername: state.absentUsername,
+            isSkipped: false,
+          }
+        }
+      } catch { /* stale data, ignore */ }
     }
 
     return {
@@ -140,6 +153,11 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
 
+    this.onScheduled("countdown", async (payload) => {
+      const data = payload as CountdownState
+      await this.skipTrack(data.trackId, data.trackTitle, data.absentUsername, await this.getConfig() as AbsentDjConfig)
+    })
+
     this.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
     this.on("USER_JOINED", this.onUserJoined.bind(this))
     this.on("ROOM_DELETED", this.onRoomDeleted.bind(this))
@@ -153,8 +171,9 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   private async onTrackChanged(data: { roomId: string; track: QueueItem }): Promise<void> {
     if (!this.context) return
 
-    // Clear any existing timer from previous track
-    this.clearTimer(COUNTDOWN_TIMER_ID)
+    // Clear any existing countdown from previous track
+    await this.cancelSchedule(COUNTDOWN_TIMER_ID)
+    await this.context.storage.del(COUNTDOWN_STATE_KEY)
 
     // Reset isSkipped state when a new track starts
     await this.emit("TRACK_CHANGED", {
@@ -191,7 +210,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     if (config.skipRequiresQueue) {
       const queue = await this.context.api.getQueue(this.context.roomId)
       const queueLength = queue?.length ?? 0
-      if (queueLength <= config.skipRequiresQueueMin) {
+      if (!shouldSkipGivenQueue(queueLength, config)) {
         console.log(
           `[${this.name}] Queue has ${queueLength} tracks (minimum required: ${config.skipRequiresQueueMin + 1}), not skipping`,
         )
@@ -213,25 +232,34 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     }
 
     // Start the countdown timer
-    this.startCountdownTimer(track, addedByUserId, addedByUsername, config)
+    await this.startCountdownTimer(track, addedByUserId, addedByUsername, config)
   }
 
   private async onUserJoined(data: { roomId: string; user: User }): Promise<void> {
     if (!this.context) return
 
-    const timer = this.getTimer<CountdownTimerData>(COUNTDOWN_TIMER_ID)
-    if (!timer) return
+    // Check if there's a pending countdown for an absent DJ
+    const stateRaw = await this.context.storage.get(COUNTDOWN_STATE_KEY)
+    if (!stateRaw) return
 
     const config = await this.getConfig()
     if (!config?.enabled) return
 
+    let countdownState: CountdownState
+    try {
+      countdownState = JSON.parse(stateRaw) as CountdownState
+    } catch {
+      return
+    }
+
     // Check if the joining user is the absent DJ we're waiting for
-    if (data.user.userId === timer.data?.absentUserId) {
+    if (data.user.userId === countdownState.absentUserId) {
       console.log(
-        `[${this.name}] DJ ${timer.data.absentUsername} returned! Cancelling skip countdown`,
+        `[${this.name}] DJ ${countdownState.absentUsername} returned! Cancelling skip countdown`,
       )
 
-      this.clearTimer(COUNTDOWN_TIMER_ID)
+      await this.cancelSchedule(COUNTDOWN_TIMER_ID)
+      await this.context.storage.del(COUNTDOWN_STATE_KEY)
 
       // Emit event to hide countdown on frontend
       await this.emit("COUNTDOWN_CANCELLED", {
@@ -292,7 +320,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
       if (config.skipRequiresQueue) {
         const queue = await this.context!.api.getQueue(this.context!.roomId)
         const queueLength = queue?.length ?? 0
-        if (queueLength <= config.skipRequiresQueueMin) {
+        if (!shouldSkipGivenQueue(queueLength, config)) {
           console.log(
             `[${this.name}] Queue has ${queueLength} tracks (minimum required: ${config.skipRequiresQueueMin + 1}), not starting countdown`,
           )
@@ -318,12 +346,13 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
         })
       }
 
-      this.startCountdownTimer(nowPlaying, nowPlaying.addedBy.userId, addedByUsername, config)
+      await this.startCountdownTimer(nowPlaying, nowPlaying.addedBy.userId, addedByUsername, config)
     }
   }
 
   private async onPluginDisabled(): Promise<void> {
-    this.clearTimer(COUNTDOWN_TIMER_ID)
+    await this.cancelSchedule(COUNTDOWN_TIMER_ID)
+    if (this.context) await this.context.storage.del(COUNTDOWN_STATE_KEY)
     await this.emit("PLUGIN_DISABLED", {
       showCountdown: false,
       countdownStartTime: null,
@@ -339,33 +368,41 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   // Timer Management
   // ============================================================================
 
-  private startCountdownTimer(
+  private async startCountdownTimer(
     track: QueueItem,
     absentUserId: string,
     absentUsername: string,
     config: AbsentDjConfig,
-  ): void {
+  ): Promise<void> {
+    if (!this.context) return
     const trackId = track.mediaSource.trackId
     const trackTitle = track.title
+    const startTime = Date.now()
+    const deadline = startTime + config.skipDelay
 
-    this.startTimer<CountdownTimerData>(COUNTDOWN_TIMER_ID, {
-      duration: config.skipDelay,
-      callback: async () => {
-        await this.skipTrack(trackId, trackTitle, absentUsername, config)
-      },
-      data: {
-        trackId,
-        absentUserId,
-        absentUsername,
-        trackTitle,
-      },
+    const countdownState: CountdownState = {
+      trackId,
+      absentUserId,
+      absentUsername,
+      trackTitle,
+      startTime,
+      deadline,
+    }
+
+    // Persist countdown state for UI hydration
+    await this.context.storage.set(COUNTDOWN_STATE_KEY, JSON.stringify(countdownState))
+
+    await this.schedule({
+      id: COUNTDOWN_TIMER_ID,
+      kind: "countdown",
+      durationMs: config.skipDelay,
+      payload: countdownState,
     })
 
     // Emit event to show countdown on frontend
-    const timer = this.getTimer(COUNTDOWN_TIMER_ID)
     this.emit("COUNTDOWN_STARTED", {
       showCountdown: true,
-      countdownStartTime: timer?.startTime ?? Date.now(),
+      countdownStartTime: startTime,
       absentUsername,
     })
   }
@@ -386,7 +423,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     if (config.skipRequiresQueue) {
       const queue = await this.context.api.getQueue(this.context.roomId)
       const queueLength = queue?.length ?? 0
-      if (queueLength <= config.skipRequiresQueueMin) {
+      if (!shouldSkipGivenQueue(queueLength, config)) {
         console.log(
           `[${this.name}] Queue has ${queueLength} tracks (minimum required: ${config.skipRequiresQueueMin + 1}), cancelling skip`,
         )
@@ -403,24 +440,14 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
 
     console.log(`[${this.name}] Skipping track ${trackId} - DJ ${absentUsername} is absent`)
 
-    // Store skip data for export
+    // Store skip data for export (before skipTrack so now-playing is still this track)
     const skipData: SkipData = {
       trackId,
       trackTitle,
       timestamp: Date.now(),
       absentUsername,
     }
-    await this.context.storage.set(`skipped:${trackId}`, JSON.stringify(skipData))
-
-    // Update the playlist track with plugin data for export
-    const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
-    if (nowPlaying) {
-      const existingPluginData = nowPlaying.pluginData ?? {}
-      await this.context.api.updatePlaylistTrack(this.context.roomId, {
-        ...nowPlaying,
-        pluginData: { ...existingPluginData, [this.name]: { skipped: true, skipData } },
-      })
-    }
+    await this.trackAnnotations.markSkipped(trackId, skipData)
 
     // Skip the track
     await this.context.api.skipTrack(this.context.roomId, trackId)
@@ -453,17 +480,17 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   // Helpers
   // ============================================================================
 
-  private interpolateMessage(template: string, username: string, title: string): string {
-    return template.replace(/\{\{username\}\}/g, username).replace(/\{\{title\}\}/g, title)
+  private get trackAnnotations(): TrackAnnotations {
+    return new TrackAnnotations({
+      storage: this.context!.storage,
+      api: this.context!.api,
+      roomId: this.context!.roomId,
+      pluginName: this.name,
+    })
   }
 
-  private parseSkipData(dataStr: string | null): SkipData | null {
-    if (!dataStr) return null
-    try {
-      return JSON.parse(dataStr) as SkipData
-    } catch {
-      return null
-    }
+  private interpolateMessage(template: string, username: string, title: string): string {
+    return interpolateTemplate(template, { username, title })
   }
 
   // ============================================================================
@@ -476,14 +503,11 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     const config = await this.getConfig()
     if (!config?.enabled) return {}
 
-    const skipData = this.parseSkipData(
-      await this.context.storage.get(`skipped:${item.mediaSource.trackId}`),
-    )
-    if (!skipData) return {}
+    const [data] = await this.trackAnnotations.enrichQueueItems([item])
+    if (!data.skipped) return {}
 
     return {
-      skipped: true,
-      skipData,
+      ...data,
       styles: { title: { textDecoration: "line-through", opacity: 0.7 } },
     }
   }
@@ -493,13 +517,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
       return items.map(() => ({}))
     }
 
-    const skipKeys = items.map((item) => `skipped:${item.mediaSource.trackId}`)
-    const skipDataStrings = await this.context.storage.mget(skipKeys)
-
-    return skipDataStrings.map((dataStr) => {
-      const skipData = this.parseSkipData(dataStr)
-      return skipData ? { skipped: true, skipData } : {}
-    })
+    return this.trackAnnotations.enrichQueueItems(items)
   }
 
   // ============================================================================

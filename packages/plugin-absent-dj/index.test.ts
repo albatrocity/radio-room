@@ -46,12 +46,19 @@ function createMockUser(userId: string, username?: string): User {
 function createMockContext(roomId: string = "test-room"): PluginContext {
   const lifecycleHandlers = new Map<string, Function[]>()
 
+  // Simple in-memory store for storage mock
+  const storageMap = new Map<string, string>()
+
   const mockStorage: PluginStorage & { cleanup: () => Promise<void> } = {
-    get: vi.fn().mockResolvedValue(null),
-    set: vi.fn().mockResolvedValue(undefined),
+    get: vi.fn(async (key: string) => storageMap.get(key) ?? null),
+    set: vi.fn(async (key: string, value: string) => {
+      storageMap.set(key, value)
+    }),
     inc: vi.fn().mockResolvedValue(1),
     dec: vi.fn().mockResolvedValue(0),
-    del: vi.fn().mockResolvedValue(undefined),
+    del: vi.fn(async (key: string) => {
+      storageMap.delete(key)
+    }),
     exists: vi.fn().mockResolvedValue(false),
     cleanup: vi.fn().mockResolvedValue(undefined),
     mget: vi.fn().mockResolvedValue([]),
@@ -83,6 +90,9 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
     emit: vi.fn().mockResolvedValue(undefined),
     queueSoundEffect: vi.fn().mockResolvedValue(undefined),
     queueScreenEffect: vi.fn().mockResolvedValue(undefined),
+    schedule: vi.fn().mockResolvedValue({ ok: true, fireAt: Date.now() + 30_000 }),
+    cancelSchedule: vi.fn().mockResolvedValue(true),
+    getSchedule: vi.fn().mockResolvedValue(null),
   }
 
   const mockLifecycle: PluginLifecycle = {
@@ -121,6 +131,13 @@ async function emitConfigChanged(
   }
 }
 
+/** Helper: extract the payload from the last `schedule` call so we can feed it to `handleScheduled`. */
+function lastSchedulePayload(api: { schedule: ReturnType<typeof vi.fn> }): unknown {
+  const calls = api.schedule.mock.calls
+  if (calls.length === 0) return undefined
+  return calls[calls.length - 1]?.[0]?.payload
+}
+
 describe("AbsentDjPlugin", () => {
   let plugin: AbsentDjPlugin
   let mockContext: PluginContext
@@ -128,12 +145,10 @@ describe("AbsentDjPlugin", () => {
   beforeEach(() => {
     plugin = new AbsentDjPlugin()
     mockContext = createMockContext()
-    vi.useFakeTimers()
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    vi.useRealTimers()
   })
 
   describe("registration", () => {
@@ -156,6 +171,8 @@ describe("AbsentDjPlugin", () => {
     const mockConfig: AbsentDjConfig = {
       enabled: true,
       skipDelay: 30000,
+      skipRequiresQueue: false,
+      skipRequiresQueueMin: 1,
       messageOnPlay: undefined,
       messageOnSkip: undefined,
       soundEffectOnSkip: false,
@@ -186,11 +203,8 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      // Fast-forward time
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
-
-      // Should not have skipped
+      // Schedule should not have been called (only cancelSchedule for clearing previous)
+      expect(mockContext.api.schedule).not.toHaveBeenCalled()
       expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
     })
 
@@ -203,9 +217,7 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
-
+      expect(mockContext.api.schedule).not.toHaveBeenCalled()
       expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
     })
 
@@ -226,9 +238,7 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
-
+      expect(mockContext.api.schedule).not.toHaveBeenCalled()
       expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
     })
 
@@ -249,16 +259,20 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
+      // Schedule should have been called with correct delay
+      expect(mockContext.api.schedule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "countdown",
+          durationMs: 30000,
+        }),
+      )
+
       // Timer should not have fired yet
       expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
 
-      // Advance just before timeout
-      vi.advanceTimersByTime(29999)
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
-
-      // Complete the timeout
-      vi.advanceTimersByTime(1)
-      await vi.runAllTimersAsync()
+      // Simulate the schedule firing
+      const payload = lastSchedulePayload(mockContext.api)
+      await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
     })
@@ -303,8 +317,8 @@ describe("AbsentDjPlugin", () => {
       })
       await trackChangedHandler({ roomId: "test-room", track: track1 })
 
-      // Advance part way through timer
-      vi.advanceTimersByTime(15000)
+      // cancelSchedule was called at start of onTrackChanged
+      expect(mockContext.api.cancelSchedule).toHaveBeenCalled()
 
       // Second track starts (should clear first timer)
       const track2 = createMockQueueItem("track2", "Song 2", {
@@ -313,19 +327,13 @@ describe("AbsentDjPlugin", () => {
       })
       await trackChangedHandler({ roomId: "test-room", track: track2 })
 
-      // Advance another 15s - first timer would have fired at 30s total
-      vi.advanceTimersByTime(15000)
-      await vi.runAllTimersAsync()
+      // Simulate the second timer firing
+      const payload = lastSchedulePayload(mockContext.api)
+      await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
-      // First track should NOT have been skipped
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalledWith("test-room", "track1")
-
-      // Complete the second timer
-      vi.advanceTimersByTime(15000)
-      await vi.runAllTimersAsync()
-
-      // Second track SHOULD be skipped
+      // Second track SHOULD be skipped (first was replaced)
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track2")
+      expect(mockContext.api.skipTrack).not.toHaveBeenCalledWith("test-room", "track1")
     })
   })
 
@@ -333,6 +341,8 @@ describe("AbsentDjPlugin", () => {
     const mockConfig: AbsentDjConfig = {
       enabled: true,
       skipDelay: 30000,
+      skipRequiresQueue: false,
+      skipRequiresQueueMin: 1,
       messageOnPlay: undefined,
       messageOnSkip: undefined,
       soundEffectOnSkip: false,
@@ -358,18 +368,14 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      // Advance part way through timer
-      vi.advanceTimersByTime(15000)
-
       // DJ returns!
       await userJoinedHandler({
         roomId: "test-room",
         user: createMockUser("dj1", "DJ One"),
       })
 
-      // Complete what would have been the timer
-      vi.advanceTimersByTime(15000)
-      await vi.runAllTimersAsync()
+      // cancelSchedule should have been called for the countdown
+      expect(mockContext.api.cancelSchedule).toHaveBeenCalled()
 
       // Track should NOT have been skipped
       expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
@@ -389,17 +395,21 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
+      // Clear the cancelSchedule calls from onTrackChanged
+      vi.mocked(mockContext.api.cancelSchedule).mockClear()
+
       // A different user joins
       await userJoinedHandler({
         roomId: "test-room",
         user: createMockUser("user3", "User Three"),
       })
 
-      // Complete the timer
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
+      // cancelSchedule should NOT have been called again
+      expect(mockContext.api.cancelSchedule).not.toHaveBeenCalled()
 
-      // Track SHOULD be skipped because the DJ didn't return
+      // Simulate the timer firing — track SHOULD still be skipped
+      const payload = lastSchedulePayload(mockContext.api)
+      await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
     })
 
@@ -421,6 +431,8 @@ describe("AbsentDjPlugin", () => {
     const mockConfig: AbsentDjConfig = {
       enabled: true,
       skipDelay: 30000,
+      skipRequiresQueue: false,
+      skipRequiresQueueMin: 1,
       messageOnPlay: undefined,
       messageOnSkip: undefined,
       soundEffectOnSkip: false,
@@ -475,9 +487,6 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      // Advance part way through timer
-      vi.advanceTimersByTime(15000)
-
       // Disable the plugin
       await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
@@ -486,9 +495,8 @@ describe("AbsentDjPlugin", () => {
         previousConfig: mockConfig,
       })
 
-      // Complete what would have been the timer
-      vi.advanceTimersByTime(15000)
-      await vi.runAllTimersAsync()
+      // cancelSchedule should have been called when disabling
+      expect(mockContext.api.cancelSchedule).toHaveBeenCalled()
 
       // Track should NOT have been skipped
       expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
@@ -511,9 +519,9 @@ describe("AbsentDjPlugin", () => {
         previousConfig: { ...mockConfig, enabled: false },
       })
 
-      // Complete the timer
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
+      // Simulate the schedule firing
+      const payload = lastSchedulePayload(mockContext.api)
+      await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
       expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
     })
@@ -523,6 +531,8 @@ describe("AbsentDjPlugin", () => {
     const mockConfig: AbsentDjConfig = {
       enabled: true,
       skipDelay: 30000,
+      skipRequiresQueue: false,
+      skipRequiresQueueMin: 1,
       messageOnPlay: undefined,
       messageOnSkip: "Skipped '{{title}}' - {{username}} left the room",
       soundEffectOnSkip: true,
@@ -547,9 +557,9 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      // Complete the timer
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
+      // Simulate the schedule firing
+      const payload = lastSchedulePayload(mockContext.api)
+      await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
       expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
         "test-room",
@@ -570,9 +580,9 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      // Complete the timer
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
+      // Simulate the schedule firing
+      const payload = lastSchedulePayload(mockContext.api)
+      await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
       expect(mockContext.api.queueSoundEffect).toHaveBeenCalledWith({
         url: "https://example.com/skip.mp3",
@@ -599,9 +609,9 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      // Complete the timer
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
+      // Simulate the schedule firing
+      const payload = lastSchedulePayload(mockContext.api)
+      await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
       expect(mockContext.api.queueSoundEffect).not.toHaveBeenCalled()
     })
@@ -611,6 +621,8 @@ describe("AbsentDjPlugin", () => {
     const mockConfig: AbsentDjConfig = {
       enabled: true,
       skipDelay: 30000,
+      skipRequiresQueue: false,
+      skipRequiresQueueMin: 1,
       messageOnPlay: undefined,
       messageOnSkip: undefined,
       soundEffectOnSkip: false,
@@ -638,10 +650,6 @@ describe("AbsentDjPlugin", () => {
       // Cleanup
       await plugin.cleanup()
 
-      // Advance time - timer should not fire
-      vi.advanceTimersByTime(30000)
-      await vi.runAllTimersAsync()
-
       expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
     })
 
@@ -658,6 +666,8 @@ describe("AbsentDjPlugin", () => {
     const mockConfig: AbsentDjConfig = {
       enabled: true,
       skipDelay: 30000,
+      skipRequiresQueue: false,
+      skipRequiresQueueMin: 1,
       messageOnPlay: undefined,
       messageOnSkip: undefined,
       soundEffectOnSkip: false,
@@ -724,6 +734,8 @@ describe("AbsentDjPlugin", () => {
       const mockConfig: AbsentDjConfig = {
         enabled: true,
         skipDelay: 30000,
+        skipRequiresQueue: false,
+        skipRequiresQueueMin: 1,
         messageOnPlay: "Now playing {{title}} by {{username}}",
         messageOnSkip: undefined,
         soundEffectOnSkip: false,
@@ -755,6 +767,8 @@ describe("AbsentDjPlugin", () => {
       const mockConfig: AbsentDjConfig = {
         enabled: true,
         skipDelay: 30000,
+        skipRequiresQueue: false,
+        skipRequiresQueueMin: 1,
         messageOnPlay: "{{username}} added {{title}}. {{username}} is not here!",
         messageOnSkip: undefined,
         soundEffectOnSkip: false,

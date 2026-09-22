@@ -57,6 +57,16 @@ function createInMemoryStorage() {
     }),
     hgetall: vi.fn(async (k: string) => Object.fromEntries(hashes.get(k) ?? new Map())),
     hsetnx: vi.fn(),
+    compareAndSet: vi.fn(async () => true),
+    getJson: vi.fn(async (k: string) => {
+      const raw = strings.get(k) ?? null
+      if (!raw) return { raw: null, value: null }
+      try { return { raw, value: JSON.parse(raw) } } catch { return { raw, value: null } }
+    }),
+    setJson: vi.fn(async (k: string, v: unknown) => { strings.set(k, JSON.stringify(v)) }),
+    updateJson: vi.fn(),
+    lrange: vi.fn(async () => []),
+    appendCapped: vi.fn(),
     cleanup: vi.fn(async () => {}),
   }
 }
@@ -180,6 +190,18 @@ function setup(configOverrides: Partial<QueueThemeConfig> = {}) {
       Object.keys(votes[pollId] ?? {}),
     ),
     getPollVotes: vi.fn(async (_room: string, pollId: string) => votes[pollId] ?? {}),
+    tallyPoll: vi.fn(async (pollId: string, options?: { excludeUserIds?: string[] }) => {
+      const pollVotes = votes[pollId] ?? {}
+      const exclude = options?.excludeUserIds?.length
+        ? new Set(options.excludeUserIds)
+        : null
+      const counts: Record<string, number> = {}
+      for (const [userId, optionId] of Object.entries(pollVotes)) {
+        if (exclude?.has(userId)) continue
+        counts[optionId] = (counts[optionId] ?? 0) + 1
+      }
+      return counts
+    }),
   }
 
   const game = {

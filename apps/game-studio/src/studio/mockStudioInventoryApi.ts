@@ -244,6 +244,18 @@ export class MockStudioInventoryApi implements InventoryPluginAPI {
     return this.room.getDefinition(definitionId)
   }
 
+  async resolveDefinition(
+    definitionId: string,
+    options: { pluginName: string },
+  ): Promise<ItemDefinition | null> {
+    const direct = await this.getItemDefinition(definitionId)
+    if (direct) return direct
+    if (!definitionId.includes(":")) {
+      return this.getItemDefinition(`${options.pluginName}:${definitionId}`)
+    }
+    return null
+  }
+
   async getItemDefinitions(definitionIds: readonly string[]): Promise<ItemDefinition[]> {
     const out: ItemDefinition[] = []
     for (const id of definitionIds) {

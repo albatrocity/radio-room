@@ -31,6 +31,10 @@ import {
 } from "@repo/game-logic"
 import generateId from "../lib/generateId"
 import systemMessage from "../lib/systemMessage"
+import {
+  cancelModifierExpiry,
+  scheduleModifierExpiry,
+} from "../operations/data/gameModifiers"
 import { DefenseService } from "./DefenseService"
 
 // ============================================================================
@@ -87,10 +91,11 @@ export function buildSessionConfig(
 // ============================================================================
 
 /**
- * Key namespace overview (see ADR 0042):
+ * Key namespace overview (see ADR 0042 / 0191):
  *
  *   room:{roomId}:game:active                        -> sessionId of active session
  *   game:active_rooms                                -> SET of roomIds with an active session
+ *   game:modifiers:expiring                          -> ZSET score=endAt, member=room:session:user:modifierId
  *   room:{roomId}:game:session:{sessionId}           -> JSON GameSession
  *   room:{roomId}:game:session:{sessionId}:user:{userId}:state -> JSON UserGameState
  *   room:{roomId}:game:session:{sessionId}:user:{userId}:modifiers -> JSON GameStateModifier[]
@@ -98,7 +103,7 @@ export function buildSessionConfig(
  *   room:{roomId}:game:session:{sessionId}:participants -> SET of userIds
  *   room:{roomId}:game:attribute-defs                 -> HASH "<plugin>:<name>" -> JSON
  */
-/** Global index of rooms with an active game session (avoids KEYS in the 1s ticker). */
+/** Global index of rooms with an active game session. */
 const ACTIVE_GAME_ROOMS_KEY = "game:active_rooms"
 
 function activeSessionKey(roomId: string): string {
@@ -133,43 +138,26 @@ export { pruneExpiredModifiers } from "@repo/game-logic"
  * One instance is created per server (held on `AppContext.gameSessions`).
  * Per-room state lives in Redis so the service is stateless across restarts.
  *
- * Modifier expiry follows option (1) from the plan: a single periodic ticker
- * scans active sessions and emits `GAME_MODIFIER_REMOVED` events for expiring
- * modifiers. Lazy expiry (option 2) is also enforced inside `evaluateModifiers`
- * for accuracy when reads outpace ticks.
+ * Modifier expiry (ADR 0191): applying a timed modifier `ZADD`s it into
+ * `game:modifiers:expiring`; the `modifier-expiry-sweep` job claims due members
+ * and emits `GAME_MODIFIER_REMOVED` once. Lazy pruning on read remains for
+ * accuracy when a sweep has not run yet.
  */
 export class GameSessionService {
   private readonly context: AppContext
-  /** Periodic ticker handle for modifier expiry; `null` until `start()` is called. */
-  private tickHandle: NodeJS.Timeout | null = null
-  /** How often to scan for expired modifiers (ms). */
-  private readonly tickIntervalMs: number
 
-  constructor(context: AppContext, options?: { tickIntervalMs?: number }) {
+  constructor(context: AppContext) {
     this.context = context
-    this.tickIntervalMs = options?.tickIntervalMs ?? 1000
   }
 
-  /** Start the modifier expiry ticker. Idempotent. */
-  start(): void {
-    if (this.tickHandle) return
-    this.tickHandle = setInterval(() => {
-      this.tick().catch((err) => {
-        console.error("[GameSessionService] tick failed:", err)
-      })
-    }, this.tickIntervalMs)
-    if (typeof this.tickHandle === "object" && "unref" in this.tickHandle) {
-      this.tickHandle.unref()
-    }
-  }
+  /**
+   * No-op retained for callers that previously started the in-process ticker.
+   * Expiry is owned by the `modifier-expiry-sweep` job (ADR 0191).
+   */
+  start(): void {}
 
-  /** Stop the modifier expiry ticker. */
-  stop(): void {
-    if (this.tickHandle) {
-      clearInterval(this.tickHandle)
-      this.tickHandle = null
-    }
-  }
+  /** No-op; see `start()`. */
+  stop(): void {}
 
   // ==========================================================================
   // Session lifecycle
@@ -669,10 +657,18 @@ export class GameSessionService {
     const modifier: GameStateModifier = { ...incoming, id, source: sourcePlugin }
 
     let modifiers = state.modifiers
+    /** Ids removed by replace / maxStacks eviction — drop from the expiry ZSET. */
+    const cancelledIds: string[] = []
+    /** Modifier whose endAt should be (re)scheduled after persist. */
+    let scheduled: { modifierId: string; endAt: number } | null = null
 
     if (incoming.stackBehavior === "replace") {
+      for (const m of modifiers) {
+        if (m.name === incoming.name) cancelledIds.push(m.id)
+      }
       modifiers = modifiers.filter((m) => m.name !== incoming.name)
       modifiers.push(modifier)
+      scheduled = { modifierId: id, endAt: modifier.endAt }
     } else if (incoming.stackBehavior === "extend") {
       const existing = modifiers.find((m) => m.name === incoming.name)
       if (existing) {
@@ -689,6 +685,7 @@ export class GameSessionService {
         // Don't push the new modifier - we extended the existing one
         await this.persistModifiers(roomId, session.id, userId, modifiers, session)
         await this.touchParticipant(roomId, session.id, userId)
+        await this.scheduleExpiry(roomId, session.id, userId, existing.id, existing.endAt)
         if (this.context.systemEvents) {
           await this.context.systemEvents.emit(roomId, "GAME_MODIFIER_APPLIED", {
             roomId,
@@ -700,23 +697,35 @@ export class GameSessionService {
         return { ok: true, modifierId: existing.id }
       }
       modifiers.push(modifier)
+      scheduled = { modifierId: id, endAt: modifier.endAt }
     } else {
       // stack
       const sameName = modifiers.filter((m) => m.name === incoming.name)
       if (incoming.maxStacks && sameName.length >= incoming.maxStacks) {
         // Remove oldest of same name to make room
         const toRemove = sameName.length - incoming.maxStacks + 1
-        const toRemoveIds = new Set(
-          [...sameName].sort((a, b) => a.startAt - b.startAt).slice(0, toRemove).map((m) => m.id),
-        )
-        modifiers = modifiers.filter((m) => !toRemoveIds.has(m.id))
+        const toRemoveIds = [...sameName]
+          .sort((a, b) => a.startAt - b.startAt)
+          .slice(0, toRemove)
+          .map((m) => m.id)
+        cancelledIds.push(...toRemoveIds)
+        const removeSet = new Set(toRemoveIds)
+        modifiers = modifiers.filter((m) => !removeSet.has(m.id))
       }
       modifiers.push(modifier)
+      scheduled = { modifierId: id, endAt: modifier.endAt }
     }
 
     state.modifiers = modifiers
     await this.persistUserState(roomId, session.id, state)
     await this.touchParticipant(roomId, session.id, userId)
+
+    for (const cancelledId of cancelledIds) {
+      await this.cancelExpiry(roomId, session.id, userId, cancelledId)
+    }
+    if (scheduled) {
+      await this.scheduleExpiry(roomId, session.id, userId, scheduled.modifierId, scheduled.endAt)
+    }
 
     if (this.context.systemEvents) {
       await this.context.systemEvents.emit(roomId, "GAME_MODIFIER_APPLIED", {
@@ -766,6 +775,7 @@ export class GameSessionService {
 
     state.modifiers = next
     await this.persistUserState(roomId, session.id, state)
+    await this.cancelExpiry(roomId, session.id, userId, modifierId)
 
     if (this.context.systemEvents) {
       await this.context.systemEvents.emit(roomId, "GAME_MODIFIER_REMOVED", {
@@ -781,6 +791,50 @@ export class GameSessionService {
       await this.clearGrantBoundToModifier(roomId, userId, removed.id)
     }
 
+    return true
+  }
+
+  /**
+   * Remove a modifier claimed from `game:modifiers:expiring` (ADR 0191).
+   * Idempotent when the modifier was already pruned or the session ended.
+   * Emits `GAME_MODIFIER_REMOVED` with `reason: "expired"` when removed.
+   */
+  async expireClaimedModifier(
+    roomId: string,
+    sessionId: string,
+    userId: string,
+    modifierId: string,
+  ): Promise<boolean> {
+    const session = await this.getSession(roomId, sessionId)
+    if (!session) return false
+
+    const raw = await this.context.redis.pubClient.get(userStateKey(roomId, sessionId, userId))
+    if (!raw) return false
+
+    let state: UserGameState
+    try {
+      state = JSON.parse(raw) as UserGameState
+    } catch {
+      return false
+    }
+
+    const removed = (state.modifiers ?? []).find((m) => m.id === modifierId)
+    if (!removed) return false
+
+    state.modifiers = (state.modifiers ?? []).filter((m) => m.id !== modifierId)
+    await this.persistUserState(roomId, sessionId, state)
+
+    if (this.context.systemEvents) {
+      await this.context.systemEvents.emit(roomId, "GAME_MODIFIER_REMOVED", {
+        roomId,
+        sessionId,
+        userId,
+        modifierId,
+        reason: "expired",
+      })
+    }
+
+    await this.clearGrantBoundToModifier(roomId, userId, modifierId)
     return true
   }
 
@@ -958,6 +1012,46 @@ export class GameSessionService {
     await this.context.redis.pubClient.sAdd(participantsKey(roomId, sessionId), userId)
   }
 
+  private async scheduleExpiry(
+    roomId: string,
+    sessionId: string,
+    userId: string,
+    modifierId: string,
+    endAt: number,
+  ): Promise<void> {
+    try {
+      await scheduleModifierExpiry({
+        context: this.context,
+        roomId,
+        sessionId,
+        userId,
+        modifierId,
+        endAt,
+      })
+    } catch (err) {
+      console.error("[GameSessionService] scheduleModifierExpiry failed:", err)
+    }
+  }
+
+  private async cancelExpiry(
+    roomId: string,
+    sessionId: string,
+    userId: string,
+    modifierId: string,
+  ): Promise<void> {
+    try {
+      await cancelModifierExpiry({
+        context: this.context,
+        roomId,
+        sessionId,
+        userId,
+        modifierId,
+      })
+    } catch (err) {
+      console.error("[GameSessionService] cancelModifierExpiry failed:", err)
+    }
+  }
+
   private async updateLeaderboards(
     roomId: string,
     session: GameSession,
@@ -1063,74 +1157,6 @@ export class GameSessionService {
     const svc = new InventoryService(this.context)
     const inv = await svc.getInventory(roomId, userId)
     return inv.items
-  }
-
-  // ==========================================================================
-  // Modifier expiry ticker
-  // ==========================================================================
-
-  /**
-   * Scan rooms with active sessions (via `game:active_rooms` SET), remove expired
-   * modifiers, and emit `GAME_MODIFIER_REMOVED` for each. Errors per-room are
-   * logged and skipped so one bad room can't stall the whole tick.
-   */
-  private async tick(): Promise<void> {
-    const roomIds = await this.context.redis.pubClient.sMembers(ACTIVE_GAME_ROOMS_KEY)
-    if (roomIds.length === 0) return
-
-    const now = Date.now()
-
-    for (const roomId of roomIds) {
-      try {
-        const session = await this.getActiveSession(roomId)
-        if (!session) {
-          // Index drift: room listed but no active pointer — drop from SET.
-          await this.context.redis.pubClient.sRem(ACTIVE_GAME_ROOMS_KEY, roomId)
-          continue
-        }
-
-        const userIds = await this.context.redis.pubClient.sMembers(
-          participantsKey(roomId, session.id),
-        )
-        if (userIds.length === 0) continue
-
-        const stateKeys = userIds.map((userId) => userStateKey(roomId, session.id, userId))
-        const stateRaws = await this.context.redis.pubClient.mGet(stateKeys)
-
-        for (let i = 0; i < userIds.length; i++) {
-          const userId = userIds[i]!
-          const stateRaw = stateRaws[i]
-          if (!stateRaw) continue
-          let state: UserGameState
-          try {
-            state = JSON.parse(stateRaw)
-          } catch {
-            continue
-          }
-
-          const { active, expired } = pruneExpiredModifiers(state.modifiers ?? [], now)
-          if (expired.length === 0) continue
-
-          state.modifiers = active
-          await this.persistUserState(roomId, session.id, state)
-
-          for (const m of expired) {
-            if (this.context.systemEvents) {
-              await this.context.systemEvents.emit(roomId, "GAME_MODIFIER_REMOVED", {
-                roomId,
-                sessionId: session.id,
-                userId,
-                modifierId: m.id,
-                reason: "expired",
-              })
-            }
-            await this.clearGrantBoundToModifier(roomId, userId, m.id)
-          }
-        }
-      } catch (err) {
-        console.error("[GameSessionService] tick error for room", roomId, err)
-      }
-    }
   }
 
   // ==========================================================================

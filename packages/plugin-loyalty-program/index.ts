@@ -41,18 +41,15 @@ export class LoyaltyProgramPlugin extends BasePlugin<LoyaltyProgramConfig> {
 
   private async loadRecord(userId: string): Promise<LoyaltySessionRecord | null> {
     if (!this.context) return null
-    const raw = await this.context.storage.get(this.storageKey(userId))
-    if (!raw) return null
-    try {
-      return JSON.parse(raw) as LoyaltySessionRecord
-    } catch {
-      return null
-    }
+    const { value } = await this.context.storage.getJson<LoyaltySessionRecord>(
+      this.storageKey(userId),
+    )
+    return value
   }
 
   private async saveRecord(userId: string, record: LoyaltySessionRecord): Promise<void> {
     if (!this.context) return
-    await this.context.storage.set(this.storageKey(userId), JSON.stringify(record))
+    await this.context.storage.setJson(this.storageKey(userId), record)
   }
 
   private buildRecord(
@@ -91,6 +88,10 @@ export class LoyaltyProgramPlugin extends BasePlugin<LoyaltyProgramConfig> {
 
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
+    this.onScheduled("tick", async () => {
+      await this.onTick()
+      await this.restartTickSchedule()
+    })
     this.on("USER_JOINED", (data) => {
       void this.onUserJoined(data)
     })
@@ -101,7 +102,7 @@ export class LoyaltyProgramPlugin extends BasePlugin<LoyaltyProgramConfig> {
   }
 
   private async handlePluginConfigChange(): Promise<void> {
-    this.clearTimer(TICK_ID)
+    await this.cancelSchedule(TICK_ID)
     await this.restartTickSchedule()
   }
 
@@ -109,13 +110,7 @@ export class LoyaltyProgramPlugin extends BasePlugin<LoyaltyProgramConfig> {
     const config = await this.getConfig()
     if (!this.context || !config?.enabled) return
     const duration = config.intervalMinutes * 60_000
-    this.startTimer(TICK_ID, {
-      duration,
-      callback: async () => {
-        await this.onTick()
-        await this.restartTickSchedule()
-      },
-    })
+    await this.schedule({ id: TICK_ID, kind: "tick", durationMs: duration })
   }
 
   private async onUserJoined(data: { user: User }): Promise<void> {

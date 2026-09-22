@@ -4,14 +4,12 @@ import {
   Button,
   Combobox,
   createListCollection,
-  Input,
   Popover,
   Stack,
   Text,
 } from "@chakra-ui/react"
 import type { InventoryItem, ItemDefinition } from "@repo/types"
 import { isStorageContainerDefinition } from "@repo/types"
-import { StashPublicFields } from "./StashPublicFields"
 
 type ItemOption = { label: string; value: string }
 
@@ -25,7 +23,8 @@ const popoverPositioning = {
 }
 
 /**
- * Multi-select stacks to store in a passworded container, then enter a password.
+ * Multi-select stacks to store in a passworded container.
+ * Password / label / note are collected via `useForm` after this picker (ADR 0193).
  */
 export function InventoryItemStoragePopover({
   children,
@@ -40,20 +39,11 @@ export function InventoryItemStoragePopover({
   items: InventoryItem[]
   definitionMap: Map<string, ItemDefinition>
   capacity?: number
-  onConfirm: (
-    targetInventoryItemIds: string[],
-    password: string,
-    label?: string,
-    note?: string,
-  ) => void
+  onConfirm: (targetInventoryItemIds: string[]) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [step, setStep] = useState<"pick" | "lock">("pick")
   const [pickedIds, setPickedIds] = useState<string[]>([])
   const [query, setQuery] = useState("")
-  const [password, setPassword] = useState("")
-  const [label, setLabel] = useState("")
-  const [note, setNote] = useState("")
 
   const selectable = items.filter((invItem) => {
     if (invItem.itemId === excludingItemId) return false
@@ -88,12 +78,8 @@ export function InventoryItemStoragePopover({
   )
 
   const reset = () => {
-    setStep("pick")
     setPickedIds([])
     setQuery("")
-    setPassword("")
-    setLabel("")
-    setNote("")
   }
 
   const handleOpenChange = (details: { open: boolean }) => {
@@ -101,20 +87,13 @@ export function InventoryItemStoragePopover({
     if (!details.open) reset()
   }
 
-  const submit = () => {
-    if (pickedIds.length === 0 || !password.trim()) return
+  const confirm = () => {
+    if (pickedIds.length === 0) return
     const ids = pickedIds
-    const pw = password
-    const name = label.trim() || undefined
-    const hint = note.trim() || undefined
     setOpen(false)
     reset()
-    onConfirm(ids, pw, name, hint)
+    onConfirm(ids)
   }
-
-  const pickedLabels = pickedIds
-    .map((id) => allOptions.find((o) => o.value === id)?.label ?? "Item")
-    .join(", ")
 
   return (
     <Popover.Root
@@ -140,98 +119,66 @@ export function InventoryItemStoragePopover({
             <Popover.ArrowTip />
           </Popover.Arrow>
           <Box flex="1" minH={0} overflowY="auto">
-            {step === "pick" ? (
-              <Stack gap={2}>
-                <Text fontSize="sm" fontWeight="semibold">
-                  Store which items? ({pickedIds.length}/{capacity})
+            <Stack gap={2}>
+              <Text fontSize="sm" fontWeight="semibold">
+                Store which items? ({pickedIds.length}/{capacity})
+              </Text>
+              {selectable.length === 0 ? (
+                <Text fontSize="xs" color="fg.muted">
+                  No other items to store.
                 </Text>
-                {selectable.length === 0 ? (
-                  <Text fontSize="xs" color="fg.muted">
-                    No other items to store.
-                  </Text>
-                ) : (
-                  <Combobox.Root
-                    multiple
-                    closeOnSelect={false}
-                    open
-                    disableLayer
-                    selectionBehavior="preserve"
-                    collection={collection}
-                    value={pickedIds}
-                    onValueChange={(details) => {
-                      if (details.value.length > capacity) return
-                      setPickedIds(details.value)
-                    }}
-                    inputValue={query}
-                    onInputValueChange={(e) => setQuery(e.inputValue)}
-                    size="sm"
+              ) : (
+                <Combobox.Root
+                  multiple
+                  closeOnSelect={false}
+                  open
+                  disableLayer
+                  selectionBehavior="preserve"
+                  collection={collection}
+                  value={pickedIds}
+                  onValueChange={(details) => {
+                    if (details.value.length > capacity) return
+                    setPickedIds(details.value)
+                  }}
+                  inputValue={query}
+                  onInputValueChange={(e) => setQuery(e.inputValue)}
+                  size="sm"
+                >
+                  <Combobox.Control>
+                    <Combobox.Input placeholder="Search items…" />
+                  </Combobox.Control>
+                  <Combobox.Content
+                    position="relative"
+                    shadow="none"
+                    borderWidth={0}
+                    p={0}
+                    mt={1}
+                    width="100%"
+                    maxH="none"
                   >
-                    <Combobox.Control>
-                      <Combobox.Input placeholder="Search items…" />
-                    </Combobox.Control>
-                    <Combobox.Content
-                      position="relative"
-                      shadow="none"
-                      borderWidth={0}
-                      p={0}
-                      mt={1}
-                      width="100%"
-                      maxH="none"
-                    >
-                      <Combobox.Empty py={2} fontSize="sm">
-                        No items match
-                      </Combobox.Empty>
-                      <Combobox.ItemGroup>
-                        {collection.items.map((item) => (
-                          <Combobox.Item key={item.value} item={item} minH="40px" px={2} py={2}>
-                            <Combobox.ItemText truncate>{item.label}</Combobox.ItemText>
-                            <Combobox.ItemIndicator />
-                          </Combobox.Item>
-                        ))}
-                      </Combobox.ItemGroup>
-                    </Combobox.Content>
-                  </Combobox.Root>
-                )}
-                <Button
-                  size="xs"
-                  colorPalette="action"
-                  disabled={pickedIds.length === 0}
-                  onClick={() => setStep("lock")}
-                >
-                  Next
-                </Button>
-              </Stack>
-            ) : (
-              <Stack gap={2}>
-                <Text fontSize="sm">
-                  Locking: <strong>{pickedLabels}</strong>
-                </Text>
-                <StashPublicFields
-                  label={label}
-                  note={note}
-                  onLabelChange={setLabel}
-                  onNoteChange={setNote}
-                />
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
-                />
-                <Button
-                  size="xs"
-                  colorPalette="action"
-                  onClick={submit}
-                  disabled={!password.trim()}
-                >
-                  Store
-                </Button>
-                <Button size="xs" variant="ghost" onClick={() => setStep("pick")}>
-                  Back
-                </Button>
-              </Stack>
-            )}
+                    <Combobox.Empty py={2} fontSize="sm">
+                      No items match
+                    </Combobox.Empty>
+                    <Combobox.ItemGroup>
+                      {collection.items.map((item) => (
+                        <Combobox.Item key={item.value} item={item} minH="40px" px={2} py={2}>
+                          <Combobox.ItemText truncate>{item.label}</Combobox.ItemText>
+                          <Combobox.ItemIndicator />
+                        </Combobox.Item>
+                      ))}
+                    </Combobox.ItemGroup>
+                  </Combobox.Content>
+                </Combobox.Root>
+              )}
+              <Button
+                size="xs"
+                colorPalette="action"
+                disabled={pickedIds.length === 0}
+                onClick={confirm}
+              >
+                Next
+              </Button>
+            </Stack>
           </Box>
         </Popover.Content>
       </Popover.Positioner>

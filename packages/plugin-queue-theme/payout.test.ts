@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
   computeDjPayout,
+  decoyVoterIds,
   parseNonNegInt,
   parseTruthyParam,
   sampleUserIds,
-  tallyThemeVotes,
 } from "./payout"
 
 describe("computeDjPayout", () => {
@@ -15,24 +15,20 @@ describe("computeDjPayout", () => {
   })
 })
 
-describe("tallyThemeVotes", () => {
-  it("excludes the DJ and counts decoy voters", () => {
-    const result = tallyThemeVotes({
-      votes: {
-        dj: "yes-id",
-        a: "yes-id",
-        b: "no-id",
-        c: "decoy-id",
-      },
-      optionIds: { yes: "yes-id", no: "no-id", decoy: "decoy-id" },
-      excludeUserId: "dj",
-    })
-    expect(result).toEqual({
-      yesCount: 1,
-      noCount: 1,
-      decoyCount: 1,
-      decoyVoterIds: ["c"],
-    })
+describe("decoyVoterIds", () => {
+  it("returns decoy voters excluding the DJ", () => {
+    expect(
+      decoyVoterIds(
+        {
+          dj: "decoy-id",
+          a: "yes-id",
+          b: "decoy-id",
+          c: "decoy-id",
+        },
+        "decoy-id",
+        "dj",
+      ),
+    ).toEqual(["b", "c"])
   })
 })
 

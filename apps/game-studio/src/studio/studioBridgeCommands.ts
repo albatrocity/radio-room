@@ -31,12 +31,7 @@ export type StudioBridgeCommand =
       targetInventoryItemId?: string
       targetInventoryItemIds?: string[]
       targetArtifactId?: string
-      password?: string
-      coinAmount?: number
-      message?: string
-      voice?: string
-      label?: string
-      note?: string
+      formValues?: Record<string, unknown>
     }
   | { kind: "SELL_INVENTORY_ITEM"; roomId: string; userId: string; itemId: string }
   | {
@@ -172,12 +167,7 @@ export async function dispatchStudioBridgeCommand(
       if (cmd.targetInventoryItemId != null) ctx.targetInventoryItemId = cmd.targetInventoryItemId
       if (cmd.targetInventoryItemIds != null) ctx.targetInventoryItemIds = cmd.targetInventoryItemIds
       if (cmd.targetArtifactId != null) ctx.targetArtifactId = cmd.targetArtifactId
-      if (cmd.password != null) ctx.password = cmd.password
-      if (cmd.coinAmount != null) ctx.coinAmount = cmd.coinAmount
-      if (cmd.message != null) ctx.message = cmd.message
-      if (cmd.voice != null) ctx.voice = cmd.voice
-      if (cmd.label != null) ctx.label = cmd.label
-      if (cmd.note != null) ctx.note = cmd.note
+      if (cmd.formValues != null) ctx.formValues = cmd.formValues
       await studioActions.useInventoryItem(
         cmd.userId,
         cmd.itemId,

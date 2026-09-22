@@ -128,6 +128,11 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
 
+    this.onScheduled("track-deadline", async (payload) => {
+      const { trackId } = payload as { trackId: string }
+      await this.handleTimerFire(trackId)
+    })
+
     this.on("TRACK_CHANGED", this.handleTrackChanged.bind(this))
     this.on("QUEUE_CHANGED", this.handleQueueChanged.bind(this))
     this.on("PLAYBACK_STATE_CHANGED", this.handlePlaybackStateChanged.bind(this))
@@ -170,13 +175,9 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
   }
 
   private async rehydrateState(): Promise<void> {
-    const storedState = await this.context!.storage.get(STATE_KEY)
-    if (storedState) {
-      try {
-        this.state = { ...defaultQueuePacerState, ...JSON.parse(storedState) }
-      } catch {
-        this.state = { ...defaultQueuePacerState }
-      }
+    const { value } = await this.context!.storage.getJson<typeof this.state>(STATE_KEY)
+    if (value) {
+      this.state = { ...defaultQueuePacerState, ...value }
     }
 
     const config = await this.getConfig()
@@ -186,7 +187,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
   }
 
   private async persistState(): Promise<void> {
-    await this.context!.storage.set(STATE_KEY, JSON.stringify(this.state))
+    await this.context!.storage.setJson(STATE_KEY, this.state)
   }
 
   private async computeWindow(config: QueuePacerConfig): Promise<number | null> {
@@ -267,8 +268,8 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       deadline = now + MIN_TIMER_MS
     }
 
-    this.clearTimer(`track:${this.state.currentTrackId}`)
-    this.clearTimer(`track:${trackId}`)
+    await this.cancelSchedule(`track:${this.state.currentTrackId}`)
+    await this.cancelSchedule(`track:${trackId}`)
     this.state.currentTrackId = trackId
     this.state.currentDeadline = deadline
 
@@ -277,9 +278,11 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
     } else {
       this.state.pausedRemainingMs = null
       const duration = deadline - now
-      this.startTimer(`track:${trackId}`, {
-        duration,
-        callback: () => this.handleTimerFire(trackId),
+      await this.schedule({
+        id: `track:${trackId}`,
+        kind: "track-deadline",
+        durationMs: duration,
+        payload: { trackId },
       })
     }
 
@@ -358,7 +361,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
 
     // Block QUEUE_CHANGED re-arm / duplicate timer fires while nowPlaying metadata lags.
     this.skipInFlightTrackId = trackId
-    this.clearTimer(`track:${trackId}`)
+    await this.cancelSchedule(`track:${trackId}`)
 
     try {
       await this.context!.api.skipTrack(this.context!.roomId, trackId)
@@ -417,7 +420,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
     if (data.state === "paused" || data.state === "stopped") {
       if (!this.state.isPaused && this.state.currentDeadline) {
         this.state.pausedRemainingMs = Math.max(0, this.state.currentDeadline - now)
-        this.clearTimer(`track:${this.state.currentTrackId}`)
+        await this.cancelSchedule(`track:${this.state.currentTrackId}`)
         this.state.isPaused = true
 
         await this.persistState()
@@ -434,9 +437,11 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
         this.state.currentDeadline = newDeadline
         this.state.isPaused = false
 
-        this.startTimer(`track:${this.state.currentTrackId}`, {
-          duration: this.state.pausedRemainingMs,
-          callback: () => this.handleTimerFire(this.state.currentTrackId!),
+        await this.schedule({
+          id: `track:${this.state.currentTrackId}`,
+          kind: "track-deadline",
+          durationMs: this.state.pausedRemainingMs,
+          payload: { trackId: this.state.currentTrackId },
         })
 
         const trackStartTime = newDeadline - (this.state.pausedRemainingMs || 0)
@@ -564,6 +569,9 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
   private async onDeactivation(): Promise<void> {
     console.log(`[${this.name}] Deactivated for room ${this.context!.roomId}`)
 
+    if (this.state.currentTrackId) {
+      await this.cancelSchedule(`track:${this.state.currentTrackId}`)
+    }
     this.clearAllTimers()
     this.skipInFlightTrackId = null
     this.state = { ...defaultQueuePacerState }
@@ -584,10 +592,8 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       return { success: false, message: "No initiator provided" }
     }
 
-    const users = await this.context!.api.getUsers(this.context!.roomId)
-    const user = users.find((u) => u.userId === initiator.userId)
-
-    if (!user?.isAdmin) {
+    const isAdmin = await this.context!.api.isRoomAdmin(this.context!.roomId, initiator.userId)
+    if (!isAdmin) {
       return { success: false, message: "Only admins can cancel track skips" }
     }
 
@@ -600,7 +606,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       return { success: false, message: "No track is currently being timed" }
     }
 
-    this.clearTimer(`track:${this.state.currentTrackId}`)
+    await this.cancelSchedule(`track:${this.state.currentTrackId}`)
     this.state.currentTrackSkipCanceled = true
     await this.persistState()
 

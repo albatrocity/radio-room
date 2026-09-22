@@ -9,7 +9,7 @@ import type {
   ReactionPayload,
   PluginAugmentationData,
 } from "@repo/types"
-import { BasePlugin } from "@repo/plugin-base"
+import { BasePlugin, createLeaderboard, TrackAnnotations, parseSkipData, shouldSkipGivenQueue, skipStorageKey } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import {
   playlistDemocracyConfigSchema,
@@ -155,13 +155,13 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
     // Fetch skip data and vote count in parallel
     const [skipDataStr, voteCountStr] = (await this.context!.storage.pipeline([
-      { op: "get", key: `skipped:${trackId}` },
+      { op: "get", key: skipStorageKey(trackId) },
       { op: "get", key: this.makeVoteKey(trackId) },
     ])) as [string | null, string | null]
 
     const competitiveLeaderboard = await this.getCompetitiveLeaderboard()
 
-    const skipData = this.parseSkipData(skipDataStr)
+    const skipData = parseSkipData<{ voteCount: number; requiredCount: number }>(skipDataStr)
     if (skipData) {
       return {
         showCountdown: false,
@@ -191,24 +191,26 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     }
   }
 
+  private get competitiveLb() {
+    return createLeaderboard({
+      storage: this.context!.storage,
+      api: this.context!.api,
+      key: COMPETITIVE_LEADERBOARD_KEY,
+    })
+  }
+
+  private get trackAnnotations(): TrackAnnotations {
+    return new TrackAnnotations({
+      storage: this.context!.storage,
+      api: this.context!.api,
+      roomId: this.context!.roomId,
+      pluginName: this.name,
+    })
+  }
+
   private async getCompetitiveLeaderboard(): Promise<UserLeaderboardEntry[]> {
     if (!this.context) return []
-
-    const rawLeaderboard = await this.context.storage.zrangeWithScores(
-      COMPETITIVE_LEADERBOARD_KEY,
-      0,
-      -1,
-    )
-
-    // Hydrate with usernames
-    const userIds = rawLeaderboard.map((entry) => entry.value)
-    const users = await this.context.api.getUsersByIds(userIds)
-    const userMap = new Map(users.map((u) => [u.userId, u.username]))
-
-    return rawLeaderboard.map((entry) => ({
-      ...entry,
-      username: userMap.get(entry.value) ?? entry.value,
-    }))
+    return this.competitiveLb.all()
   }
 
   // ============================================================================
@@ -217,6 +219,25 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
+
+    this.onScheduled("track-limit", async (payload) => {
+      const { trackId, trackTitle } = payload as { trackId: string; trackTitle: string }
+      const config = await this.getConfig()
+      if (config?.enabled) {
+        await this.checkThresholdAndSkip(trackId, trackTitle, config)
+      }
+    })
+    this.onScheduled("no-admin-check", async () => {
+      if (!this.context) return
+      const users = await this.context.api.getUsers(this.context.roomId)
+      const hasAdmins = users.some((u) => u.isAdmin)
+      if (!hasAdmins) {
+        console.log(`[${this.name}] Still no admins after 30 seconds, disabling plugin`)
+        await this.disablePluginNoAdmins()
+      } else {
+        console.log(`[${this.name}] Admin returned, keeping plugin enabled`)
+      }
+    })
 
     this.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
     this.on("ROOM_DELETED", this.onRoomDeleted.bind(this))
@@ -292,41 +313,29 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
     if (!hasAdmins) {
       // Delay before disabling to allow for browser refresh
-      this.scheduleNoAdminCheck()
+      await this.scheduleNoAdminCheck()
     }
   }
 
   private async onUserJoin(): Promise<void> {
     // Cancel any pending no-admin check when a user joins
-    this.cancelNoAdminCheck()
+    await this.cancelNoAdminCheck()
   }
 
-  private scheduleNoAdminCheck(): void {
+  private async scheduleNoAdminCheck(): Promise<void> {
     const NO_ADMIN_DELAY_MS = 30000 // 30 seconds
 
     console.log(`[${this.name}] No admins detected, scheduling disable check in 30 seconds`)
 
-    this.startTimer(NO_ADMIN_CHECK_TIMER_ID, {
-      duration: NO_ADMIN_DELAY_MS,
-      callback: async () => {
-        if (!this.context) return
-
-        // Re-check if there are still no admins
-        const users = await this.context.api.getUsers(this.context.roomId)
-        const hasAdmins = users.some((u) => u.isAdmin)
-
-        if (!hasAdmins) {
-          console.log(`[${this.name}] Still no admins after 30 seconds, disabling plugin`)
-          await this.disablePluginNoAdmins()
-        } else {
-          console.log(`[${this.name}] Admin returned, keeping plugin enabled`)
-        }
-      },
+    await this.schedule({
+      id: NO_ADMIN_CHECK_TIMER_ID,
+      kind: "no-admin-check",
+      durationMs: NO_ADMIN_DELAY_MS,
     })
   }
 
-  private cancelNoAdminCheck(): void {
-    if (this.clearTimer(NO_ADMIN_CHECK_TIMER_ID)) {
+  private async cancelNoAdminCheck(): Promise<void> {
+    if (await this.cancelSchedule(NO_ADMIN_CHECK_TIMER_ID)) {
       console.log(`[${this.name}] Cancelled pending no-admin check`)
     }
   }
@@ -381,6 +390,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
   private async onPluginDisabled(): Promise<void> {
     this.clearAllTimers()
+    await this.cancelNoAdminCheck()
     await this.emit("PLUGIN_DISABLED", { showCountdown: false, trackStartTime: null })
     await this.context!.api.sendSystemMessage(
       this.context!.roomId,
@@ -427,11 +437,11 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     config: PlaylistDemocracyConfig,
     duration: number,
   ): void {
-    this.startTimer(this.makeTrackTimerId(trackId), {
-      duration,
-      callback: async () => {
-        await this.checkThresholdAndSkip(trackId, trackTitle, config)
-      },
+    void this.schedule({
+      id: this.makeTrackTimerId(trackId),
+      kind: "track-limit",
+      durationMs: duration,
+      payload: { trackId, trackTitle },
     })
   }
 
@@ -477,7 +487,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
           const queue = await this.context!.api.getQueue(this.context!.roomId)
           const queueLength = queue.length
 
-          if (queueLength <= config.skipRequiresQueueMin) {
+          if (!shouldSkipGivenQueue(queueLength, config)) {
             console.log(
               `[${this.name}] Threshold not met, but queue too short (${queueLength} <= ${config.skipRequiresQueueMin}), not skipping`,
             )
@@ -529,7 +539,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     )
 
     // Increment the user's score in the leaderboard
-    await this.context.storage.zincrby(COMPETITIVE_LEADERBOARD_KEY, 1, userId)
+    await this.competitiveLb.increment(userId)
 
     // Get updated leaderboard and emit to frontend
     const competitiveLeaderboard = await this.getCompetitiveLeaderboard()
@@ -559,9 +569,6 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
 
     console.log(`[${this.name}] Skipping track ${trackId}`)
 
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
-    await this.context!.api.skipTrack(this.context!.roomId, trackId)
-
     const skipData = {
       trackId,
       trackTitle,
@@ -570,15 +577,9 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       requiredCount,
       totalListeners,
     }
-    await this.context!.storage.set(`skipped:${trackId}`, JSON.stringify(skipData))
-
-    if (nowPlaying) {
-      const existingPluginData = nowPlaying.pluginData ?? {}
-      await this.context!.api.updatePlaylistTrack(this.context!.roomId, {
-        ...nowPlaying,
-        pluginData: { ...existingPluginData, [this.name]: { skipped: true, skipData } },
-      })
-    }
+    // Mark before skipTrack so now-playing still resolves to this track
+    await this.trackAnnotations.markSkipped(trackId, skipData)
+    await this.context.api.skipTrack(this.context.roomId, trackId)
 
     await this.emit("TRACK_SKIPPED", { isSkipped: true, voteCount, requiredCount })
 
@@ -608,14 +609,11 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     const config = await this.getConfig()
     if (!config?.enabled) return {}
 
-    const skipData = this.parseSkipData(
-      await this.context.storage.get(`skipped:${item.mediaSource.trackId}`),
-    )
-    if (!skipData) return {}
+    const [data] = await this.trackAnnotations.enrichQueueItems([item])
+    if (!data.skipped) return {}
 
     return {
-      skipped: true,
-      skipData,
+      ...data,
       styles: { title: { textDecoration: "line-through", opacity: 0.7 } },
     }
   }
@@ -625,13 +623,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       return items.map(() => ({}))
     }
 
-    const skipKeys = items.map((item) => `skipped:${item.mediaSource.trackId}`)
-    const skipDataStrings = await this.context.storage.mget(skipKeys)
-
-    return skipDataStrings.map((dataStr) => {
-      const skipData = this.parseSkipData(dataStr)
-      return skipData ? { skipped: true, skipData } : {}
-    })
+    return this.trackAnnotations.enrichQueueItems(items)
   }
 
   async augmentRoomExport(exportData: RoomExportData): Promise<PluginExportAugmentation> {
@@ -701,16 +693,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     }
 
     try {
-      // Get all entries and remove them
-      const leaderboard = await this.context.storage.zrangeWithScores(
-        COMPETITIVE_LEADERBOARD_KEY,
-        0,
-        -1,
-      )
-
-      for (const entry of leaderboard) {
-        await this.context.storage.zrem(COMPETITIVE_LEADERBOARD_KEY, entry.value)
-      }
+      await this.competitiveLb.reset()
 
       console.log(`[${this.name}] Competitive leaderboard reset for room ${this.context.roomId}`)
 
@@ -742,17 +725,6 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     const isCorrectEmoji = reaction.emoji.shortcodes === `:${config.reactionType}:`
 
     return { isVote: isCurrentTrack && isCorrectEmoji, trackId }
-  }
-
-  private parseSkipData(
-    dataStr: string | null,
-  ): { voteCount: number; requiredCount: number } | null {
-    if (!dataStr) return null
-    try {
-      return JSON.parse(dataStr)
-    } catch {
-      return null
-    }
   }
 
   private makeVoteKey(trackId: string): string {

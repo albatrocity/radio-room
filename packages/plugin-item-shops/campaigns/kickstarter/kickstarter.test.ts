@@ -5,7 +5,7 @@ import {
   settleFundingSuccess,
   settleFundingFailure,
   startCampaign,
-  tallyDeliveryVotes,
+  isDeliverySuccessful,
 } from "./index"
 import type { KickstarterCampaign } from "./types"
 import type { GameSessionPluginAPI, PluginContext, UserGameState } from "@repo/types"
@@ -44,6 +44,14 @@ function makeDeps(opts?: {
     get: vi.fn(async () => (stored ? JSON.stringify(stored) : null)),
     set: vi.fn(async (_k: string, v: string) => {
       stored = JSON.parse(v) as KickstarterCampaign
+    }),
+    getJson: vi.fn(async <T>() => {
+      const raw = stored ? JSON.stringify(stored) : null
+      if (!raw) return { raw: null, value: null }
+      try { return { raw, value: JSON.parse(raw) as T } } catch { return { raw, value: null } }
+    }),
+    setJson: vi.fn(async (_k: string, v: unknown) => {
+      stored = v as KickstarterCampaign
     }),
     compareAndSet: vi.fn(async (_k: string, expected: string | null, v: string) => {
       const current = stored ? JSON.stringify(stored) : null
@@ -100,31 +108,17 @@ function makeDeps(opts?: {
   }
 }
 
-describe("tallyDeliveryVotes", () => {
+describe("isDeliverySuccessful", () => {
   it("treats zero votes as success", () => {
-    expect(
-      tallyDeliveryVotes({ votes: {}, yesOptionId: "y", noOptionId: "n" }).success,
-    ).toBe(true)
+    expect(isDeliverySuccessful(0, 0)).toBe(true)
   })
 
   it("succeeds when yes is at least half", () => {
-    expect(
-      tallyDeliveryVotes({
-        votes: { a: "y", b: "y", c: "n", d: "n" },
-        yesOptionId: "y",
-        noOptionId: "n",
-      }).success,
-    ).toBe(true)
+    expect(isDeliverySuccessful(2, 2)).toBe(true)
   })
 
   it("fails when yes is strictly less than half", () => {
-    expect(
-      tallyDeliveryVotes({
-        votes: { a: "y", b: "n", c: "n" },
-        yesOptionId: "y",
-        noOptionId: "n",
-      }).success,
-    ).toBe(false)
+    expect(isDeliverySuccessful(1, 2)).toBe(false)
   })
 })
 

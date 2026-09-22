@@ -6,19 +6,6 @@ import {
 } from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
-async function resolveItemDefinition(
-  inventory: ItemShopsBehaviorDeps["context"]["inventory"],
-  pluginName: string,
-  definitionId: string,
-): Promise<ItemDefinition | null> {
-  const direct = await inventory.getItemDefinition(definitionId)
-  if (direct) return direct
-  if (!definitionId.includes(":")) {
-    return inventory.getItemDefinition(`${pluginName}:${definitionId}`)
-  }
-  return null
-}
-
 async function useBuyout(
   deps: ItemShopsBehaviorDeps,
   userId: string,
@@ -31,7 +18,7 @@ async function useBuyout(
   /** Resolve definitions here so we match persisted rows that omit `sourcePlugin` or use bare shortIds. */
   const targets: { stack: InventoryItem; def: ItemDefinition }[] = []
   for (const stack of inv.items) {
-    const def = await resolveItemDefinition(context.inventory, pluginName, stack.definitionId)
+    const def = await context.inventory.resolveDefinition(stack.definitionId, { pluginName })
     if (def?.sourcePlugin !== pluginName) continue
     if (def.shortId === definition.shortId) continue
     targets.push({ stack, def })

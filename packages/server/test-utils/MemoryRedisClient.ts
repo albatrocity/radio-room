@@ -7,6 +7,7 @@ export class MemoryRedisClient {
   private hashes = new Map<string, Map<string, string>>()
   private sets = new Map<string, Set<string>>()
   private zsets = new Map<string, Map<string, number>>()
+  private lists = new Map<string, string[]>()
 
   async get(key: string): Promise<string | null> {
     return this.strings.get(key) ?? null
@@ -33,11 +34,18 @@ export class MemoryRedisClient {
       this.hashes.delete(k)
       this.sets.delete(k)
       this.zsets.delete(k)
+      this.lists.delete(k)
     }
   }
 
   async exists(key: string): Promise<number> {
-    if (this.strings.has(key) || this.hashes.has(key) || this.sets.has(key) || this.zsets.has(key)) {
+    if (
+      this.strings.has(key) ||
+      this.hashes.has(key) ||
+      this.sets.has(key) ||
+      this.zsets.has(key) ||
+      this.lists.has(key)
+    ) {
       return 1
     }
     return 0
@@ -53,6 +61,7 @@ export class MemoryRedisClient {
       ...this.hashes.keys(),
       ...this.sets.keys(),
       ...this.zsets.keys(),
+      ...this.lists.keys(),
     ])
     return [...all].filter((k) => regex.test(k))
   }
@@ -62,6 +71,44 @@ export class MemoryRedisClient {
     this.hashes.delete(key)
     this.sets.delete(key)
     this.zsets.delete(key)
+    this.lists.delete(key)
+  }
+
+  // ---------- List operations --------------------------------------------
+
+  async lPush(key: string, ...values: string[]): Promise<number> {
+    if (!this.lists.has(key)) this.lists.set(key, [])
+    const list = this.lists.get(key)!
+    list.unshift(...values)
+    return list.length
+  }
+
+  async lTrim(key: string, start: number, stop: number): Promise<void> {
+    const list = this.lists.get(key)
+    if (!list) return
+    const len = list.length
+    let from = start < 0 ? Math.max(len + start, 0) : start
+    let to = stop < 0 ? len + stop : stop
+    if (from > to || from >= len) {
+      this.lists.delete(key)
+      return
+    }
+    from = Math.max(0, from)
+    to = Math.min(to, len - 1)
+    const trimmed = list.slice(from, to + 1)
+    this.lists.set(key, trimmed)
+  }
+
+  async lRange(key: string, start: number, stop: number): Promise<string[]> {
+    const list = this.lists.get(key)
+    if (!list || list.length === 0) return []
+    const len = list.length
+    let from = start < 0 ? Math.max(len + start, 0) : start
+    let to = stop < 0 ? len + stop : stop
+    if (from >= len || from > to) return []
+    from = Math.max(0, from)
+    to = Math.min(to, len - 1)
+    return list.slice(from, to + 1)
   }
 
   async hGet(key: string, field: string): Promise<string | undefined> {
@@ -268,7 +315,7 @@ export class MemoryRedisClient {
 
   /**
    * Minimal EVAL support for scripts used in unit tests.
-   * Recognizes CLAIM_DUE_AUTO_CLOSES (poll auto-close) and generic GET/SET CAS.
+   * Recognizes CLAIM_DUE_MEMBERS / CLAIM_DUE_AUTO_CLOSES and generic GET/SET CAS.
    */
   async eval(
     script: string,
@@ -278,7 +325,7 @@ export class MemoryRedisClient {
     const args = (opts.arguments ?? []).map(String)
     if (!key) return null
 
-    if (script.includes("CLAIM_DUE_AUTO_CLOSES")) {
+    if (script.includes("CLAIM_DUE_MEMBERS") || script.includes("CLAIM_DUE_AUTO_CLOSES")) {
       const now = Number(args[0])
       const members = await this.zRange(key, "-inf", now, { BY: "SCORE" })
       const claimed: string[] = []

@@ -1,8 +1,8 @@
 import type { PluginContext, GameSessionPluginAPI } from "@repo/types"
-import type { TimerConfig } from "@repo/plugin-base"
 import {
   applyFrozenAssets,
   finishCampaign,
+  isDeliverySuccessful,
   loadCampaign,
   markPollAttempt,
   markPollOpen,
@@ -10,7 +10,6 @@ import {
   settleFundingFailure,
   settleFundingSuccess,
   startCampaign,
-  tallyDeliveryVotes,
   toPublicState,
   DELIVERY_DELAY_MS,
   FUNDING_DURATION_MS,
@@ -24,9 +23,14 @@ import {
   type KickstarterPublicState,
 } from "./index"
 
-type TimerApi = {
-  startTimer: (id: string, config: TimerConfig) => void
-  clearTimer: (id: string) => boolean
+type ScheduleApi = {
+  schedule: (params: {
+    id: string
+    kind: string
+    durationMs: number
+    payload?: unknown
+  }) => Promise<{ ok: true; fireAt: number } | { ok: false; message: string }>
+  cancelSchedule: (id: string) => Promise<boolean>
 }
 
 type EmitPublic = (state: KickstarterPublicState) => Promise<void>
@@ -38,7 +42,7 @@ type EmitPublic = (state: KickstarterPublicState) => Promise<void>
 export class KickstarterModule {
   private context: PluginContext | null = null
   private game: GameSessionPluginAPI | null = null
-  private timers: TimerApi | null = null
+  private scheduleApi: ScheduleApi | null = null
   private emitPublic: EmitPublic | null = null
   /** Prevents double-resolve when POLL_CLOSED and reconcile both fire. */
   private resolvingPollId: string | null = null
@@ -46,12 +50,12 @@ export class KickstarterModule {
   bind(params: {
     context: PluginContext
     game: GameSessionPluginAPI
-    timers: TimerApi
+    scheduleApi: ScheduleApi
     emitPublic: EmitPublic
   }): void {
     this.context = params.context
     this.game = params.game
-    this.timers = params.timers
+    this.scheduleApi = params.scheduleApi
     this.emitPublic = params.emitPublic
   }
 
@@ -74,7 +78,7 @@ export class KickstarterModule {
   }) {
     const result = await startCampaign(this.deps(), params)
     if (!result.ok) return result
-    this.armFundingTimer(result.campaign)
+    await this.armFundingTimer(result.campaign)
     await this.emitPublic?.(result.publicState)
     return result
   }
@@ -89,45 +93,27 @@ export class KickstarterModule {
     return result
   }
 
-  /** Re-arm or settle after process restart. */
+  /** Recover missed poll events after restart. Timer re-arming is handled by ZSET (ADR 0190). */
   async reconcileOnRegister(): Promise<void> {
     if (!this.context) return
     const campaign = await loadCampaign(this.context)
     if (!campaign) return
-    const now = Date.now()
-    if (campaign.phase === "funding") {
-      if (now >= campaign.phaseEndsAt) {
-        await this.onFundingTimeout(campaign)
-      } else {
-        this.armFundingTimer(campaign, campaign.phaseEndsAt - now)
-      }
-      return
-    }
-    if (campaign.phase === "deliveryWait") {
-      if (now >= campaign.phaseEndsAt) {
-        await this.tryOpenDeliveryPoll(campaign)
-      } else {
-        this.armDeliveryDelayTimer(campaign, campaign.phaseEndsAt - now)
-      }
-      return
-    }
     if (campaign.phase === "poll") {
       if (!campaign.pollId) {
-        await this.tryOpenDeliveryPoll(campaign)
+        // No poll created yet — the delivery-delay / poll-retry schedule will fire.
         return
       }
       const active = await this.context.api.getActivePoll(this.context.roomId)
       if (!active || active.id !== campaign.pollId) {
         // Core already closed (or never open) — settle from votes.
         await this.resolveDeliveryPoll(campaign)
-        return
       }
       // Still open — wait for POLL_CLOSED (closesAt handled by core).
     }
   }
 
   async onGameSessionEnded(): Promise<void> {
-    this.clearAllKickstarterTimers()
+    await this.cancelAllKickstarterSchedules()
     if (!this.context) return
     const campaign = await loadCampaign(this.context)
     if (!campaign) return
@@ -154,41 +140,59 @@ export class KickstarterModule {
     await this.resolveDeliveryPoll(campaign)
   }
 
-  private armFundingTimer(campaign: KickstarterCampaign, duration = FUNDING_DURATION_MS): void {
-    this.timers?.clearTimer(TIMER_FUNDING)
-    this.timers?.startTimer(TIMER_FUNDING, {
-      duration: Math.max(1, duration),
-      callback: async () => {
-        const current = await loadCampaign(this.deps().context)
-        if (!current || current.id !== campaign.id || current.phase !== "funding") return
-        await this.onFundingTimeout(current)
-      },
+  /** Called by parent onScheduled("ks-funding-timeout"). */
+  async handleFundingTimeout(campaignId: string): Promise<void> {
+    if (!this.context) return
+    const current = await loadCampaign(this.context)
+    if (!current || current.id !== campaignId || current.phase !== "funding") return
+    await this.onFundingTimeout(current)
+  }
+
+  /** Called by parent onScheduled("ks-delivery-delay"). */
+  async handleDeliveryDelay(campaignId: string): Promise<void> {
+    if (!this.context) return
+    const current = await loadCampaign(this.context)
+    if (!current || current.id !== campaignId || current.phase !== "deliveryWait") return
+    await this.tryOpenDeliveryPoll(current)
+  }
+
+  /** Called by parent onScheduled("ks-poll-retry"). */
+  async handlePollRetry(campaignId: string): Promise<void> {
+    if (!this.context) return
+    const current = await loadCampaign(this.context)
+    if (!current || current.id !== campaignId) return
+    await this.tryOpenDeliveryPoll(current)
+  }
+
+  private async armFundingTimer(campaign: KickstarterCampaign, duration = FUNDING_DURATION_MS): Promise<void> {
+    await this.scheduleApi?.schedule({
+      id: TIMER_FUNDING,
+      kind: "ks-funding-timeout",
+      durationMs: Math.max(1000, duration),
+      payload: { campaignId: campaign.id },
     })
   }
 
-  private armDeliveryDelayTimer(
+  private async armDeliveryDelayTimer(
     campaign: KickstarterCampaign,
     duration = DELIVERY_DELAY_MS,
-  ): void {
-    this.timers?.clearTimer(TIMER_DELIVERY_DELAY)
-    this.timers?.startTimer(TIMER_DELIVERY_DELAY, {
-      duration: Math.max(1, duration),
-      callback: async () => {
-        const current = await loadCampaign(this.deps().context)
-        if (!current || current.id !== campaign.id || current.phase !== "deliveryWait") return
-        await this.tryOpenDeliveryPoll(current)
-      },
+  ): Promise<void> {
+    await this.scheduleApi?.schedule({
+      id: TIMER_DELIVERY_DELAY,
+      kind: "ks-delivery-delay",
+      durationMs: Math.max(1000, duration),
+      payload: { campaignId: campaign.id },
     })
   }
 
-  private clearAllKickstarterTimers(): void {
-    this.timers?.clearTimer(TIMER_FUNDING)
-    this.timers?.clearTimer(TIMER_DELIVERY_DELAY)
-    this.timers?.clearTimer(TIMER_POLL_RETRY)
+  private async cancelAllKickstarterSchedules(): Promise<void> {
+    await this.scheduleApi?.cancelSchedule(TIMER_FUNDING)
+    await this.scheduleApi?.cancelSchedule(TIMER_DELIVERY_DELAY)
+    await this.scheduleApi?.cancelSchedule(TIMER_POLL_RETRY)
   }
 
   private async onFundingTimeout(campaign: KickstarterCampaign): Promise<void> {
-    this.timers?.clearTimer(TIMER_FUNDING)
+    await this.scheduleApi?.cancelSchedule(TIMER_FUNDING)
     if (campaign.pledged >= campaign.goal) {
       await this.onFundingSuccess(campaign)
       return
@@ -212,7 +216,7 @@ export class KickstarterModule {
   }
 
   private async onFundingSuccess(campaign: KickstarterCampaign): Promise<void> {
-    this.timers?.clearTimer(TIMER_FUNDING)
+    await this.scheduleApi?.cancelSchedule(TIMER_FUNDING)
     const { campaign: next, publicState } = await settleFundingSuccess(this.deps(), campaign)
     const deps = this.deps()
     await deps.context.api.sendSystemMessage(
@@ -228,12 +232,12 @@ export class KickstarterModule {
       { type: "alert", status: "warning" },
     )
     await this.emitPublic?.(publicState)
-    this.armDeliveryDelayTimer(next)
+    await this.armDeliveryDelayTimer(next)
   }
 
   private async tryOpenDeliveryPoll(campaign: KickstarterCampaign): Promise<void> {
-    this.timers?.clearTimer(TIMER_DELIVERY_DELAY)
-    this.timers?.clearTimer(TIMER_POLL_RETRY)
+    await this.scheduleApi?.cancelSchedule(TIMER_DELIVERY_DELAY)
+    await this.scheduleApi?.cancelSchedule(TIMER_POLL_RETRY)
     const deps = this.deps()
     const withAttempt = await markPollAttempt(deps, campaign)
 
@@ -251,13 +255,11 @@ export class KickstarterModule {
     if (!created.ok) {
       const started = withAttempt.pollAttemptStartedAt ?? Date.now()
       if (Date.now() - started < POLL_BUSY_RETRY_WINDOW_MS) {
-        this.timers?.startTimer(TIMER_POLL_RETRY, {
-          duration: POLL_BUSY_RETRY_INTERVAL_MS,
-          callback: async () => {
-            const current = await loadCampaign(deps.context)
-            if (!current || current.id !== withAttempt.id) return
-            await this.tryOpenDeliveryPoll(current)
-          },
+        await this.scheduleApi?.schedule({
+          id: TIMER_POLL_RETRY,
+          kind: "ks-poll-retry",
+          durationMs: POLL_BUSY_RETRY_INTERVAL_MS,
+          payload: { campaignId: withAttempt.id },
         })
         return
       }
@@ -297,12 +299,10 @@ export class KickstarterModule {
 
     try {
       const deps = this.deps()
-      const votes = await deps.context.api.getPollVotes(deps.context.roomId, campaign.pollId)
-      const tally = tallyDeliveryVotes({
-        votes,
-        yesOptionId: campaign.pollYesOptionId,
-        noOptionId: campaign.pollNoOptionId,
-      })
+      const counts = await deps.context.api.tallyPoll(campaign.pollId)
+      const yes = counts[campaign.pollYesOptionId] ?? 0
+      const no = counts[campaign.pollNoOptionId] ?? 0
+      const success = isDeliverySuccessful(yes, no)
 
       const active = await deps.context.api.getActivePoll(deps.context.roomId)
       if (active?.id === campaign.pollId) {
@@ -314,7 +314,7 @@ export class KickstarterModule {
         })
       }
 
-      if (!tally.success) {
+      if (!success) {
         await applyFrozenAssets(deps, campaign.ownerUserId)
         await deps.context.api.sendSystemMessage(
           deps.context.roomId,

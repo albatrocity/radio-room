@@ -7,7 +7,7 @@ import type {
   PluginConfigSchema,
   PluginContext,
 } from "@repo/types"
-import { BasePlugin, fetchTopZsetEntries, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
+import { BasePlugin, createLeaderboard, HOT_LEADERBOARD_TOP_N } from "@repo/plugin-base"
 import packageJson from "./package.json"
 import { applyGuess, createBoard, revealAll, toPublicPuzzleView } from "./board"
 import { crowdMoodFeedback, type CrowdMoodKind } from "./crowdMood"
@@ -84,6 +84,10 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
 
   async register(context: PluginContext): Promise<void> {
     await super.register(context)
+    this.onScheduled("auto-advance", async (payload) => {
+      const { fromPhraseIndex } = payload as { fromPhraseIndex: number }
+      await this.autoAdvance(fromPhraseIndex)
+    })
     this.onConfigChange(async (data) => {
       const config = await this.getConfig()
       await this.maybeSelfStart(config, data.previousConfig)
@@ -213,7 +217,7 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
       }
     }
 
-    await this.context.storage.del(LEADERBOARD_KEY)
+    await this.lb.reset()
     await this.context.storage.del(BOARDS_KEY)
     await this.context.storage.del(WINNER_KEY)
 
@@ -232,7 +236,7 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
       sharedBoard: config.mode === "cooperative" ? createBoard(phrases[0]!.text, config.missMax) : null,
       inclusiveSolvers: [],
     }
-    this.clearTimer(AUTO_ADVANCE_TIMER)
+    await this.cancelSchedule(AUTO_ADVANCE_TIMER)
     await this.saveSession(session)
 
     const modeLabel =
@@ -283,7 +287,7 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
     phrases: LyricHeroPhrase[],
   ): Promise<ActionResult> {
     if (!this.context) return notInitialized()
-    this.clearTimer(AUTO_ADVANCE_TIMER)
+    await this.cancelSchedule(AUTO_ADVANCE_TIMER)
     session.autoAdvanceDeadline = null
 
     if (session.activePhraseIndex >= phrases.length - 1) {
@@ -334,24 +338,27 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
   }
 
   /**
-   * Start the auto-advance timer if enabled and not already counting down.
-   * Mutates `session.autoAdvanceDeadline` when a new timer starts.
+   * Start the auto-advance schedule if enabled and not already counting down.
+   * Mutates `session.autoAdvanceDeadline` when a new schedule starts.
    */
   private beginAutoAdvance(session: LyricHeroSession): LyricHeroAutoAdvanceDeadline | null {
     if (!session.autoAdvance || session.autoAdvanceDelayMs <= 0) {
       session.autoAdvanceDeadline = null
       return null
     }
-    if (this.getTimer(AUTO_ADVANCE_TIMER)) {
-      return this.activeAutoAdvanceDeadline(session)
+    // If a deadline is already set and in the future, don't re-schedule
+    if (session.autoAdvanceDeadline && session.autoAdvanceDeadline.endAt > Date.now()) {
+      return session.autoAdvanceDeadline
     }
     const startAt = Date.now()
     const endAt = startAt + session.autoAdvanceDelayMs
     session.autoAdvanceDeadline = { startAt, endAt }
     const fromPhraseIndex = session.activePhraseIndex
-    this.startTimer(AUTO_ADVANCE_TIMER, {
-      duration: session.autoAdvanceDelayMs,
-      callback: () => this.autoAdvance(fromPhraseIndex),
+    void this.schedule({
+      id: AUTO_ADVANCE_TIMER,
+      kind: "auto-advance",
+      durationMs: session.autoAdvanceDelayMs,
+      payload: { fromPhraseIndex },
     })
     return session.autoAdvanceDeadline
   }
@@ -377,7 +384,7 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
   private async finishSession(session: LyricHeroSession): Promise<ActionResult> {
     if (!this.context) return notInitialized()
 
-    this.clearTimer(AUTO_ADVANCE_TIMER)
+    await this.cancelSchedule(AUTO_ADVANCE_TIMER)
     session.autoAdvanceDeadline = null
 
     const leaderboard = await this.buildLeaderboard()
@@ -741,7 +748,7 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
         total += extra
       }
       if (total > 0) {
-        await this.context.storage.zincrby(LEADERBOARD_KEY, total, uid)
+        await this.lb.increment(uid, total)
       }
     }
   }
@@ -842,30 +849,25 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
 
   private async loadSession(): Promise<LyricHeroSession | null> {
     if (!this.context) return null
-    const raw = await this.context.storage.get(SESSION_KEY)
-    if (!raw) return null
-    try {
-      const session = JSON.parse(raw) as LyricHeroSession
-      // Backfill fields added after early session writes.
-      if (typeof session.autoAdvance !== "boolean") session.autoAdvance = false
-      if (typeof session.autoAdvanceDelayMs !== "number") session.autoAdvanceDelayMs = 0
-      if (session.autoAdvanceDeadline === undefined) session.autoAdvanceDeadline = null
-      return session
-    } catch {
-      return null
-    }
+    const { value } = await this.context.storage.getJson<LyricHeroSession>(SESSION_KEY)
+    if (!value) return null
+    // Backfill fields added after early session writes.
+    if (typeof value.autoAdvance !== "boolean") value.autoAdvance = false
+    if (typeof value.autoAdvanceDelayMs !== "number") value.autoAdvanceDelayMs = 0
+    if (value.autoAdvanceDeadline === undefined) value.autoAdvanceDeadline = null
+    return value
   }
 
   private async saveSession(session: LyricHeroSession): Promise<void> {
     if (!this.context) return
-    await this.context.storage.set(SESSION_KEY, JSON.stringify(session))
+    await this.context.storage.setJson(SESSION_KEY, session)
   }
 
   private async clearSession(): Promise<void> {
     if (!this.context) return
-    this.clearTimer(AUTO_ADVANCE_TIMER)
+    await this.cancelSchedule(AUTO_ADVANCE_TIMER)
     await this.context.storage.del(SESSION_KEY)
-    await this.context.storage.del(LEADERBOARD_KEY)
+    await this.lb.reset()
     await this.context.storage.del(BOARDS_KEY)
     await this.context.storage.del(WINNER_KEY)
   }
@@ -932,21 +934,17 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
     return `Phrase ${n} — guess a word`
   }
 
+  private get lb() {
+    return createLeaderboard({
+      storage: this.context!.storage,
+      api: this.context!.api,
+      key: LEADERBOARD_KEY,
+    })
+  }
+
   private async buildLeaderboard(topN?: number): Promise<LyricHeroLeaderboardEntry[]> {
     if (!this.context) return []
-    const sorted =
-      topN != null && topN > 0
-        ? await fetchTopZsetEntries(this.context.storage, LEADERBOARD_KEY, topN)
-        : [...(await this.context.storage.zrangeWithScores(LEADERBOARD_KEY, 0, -1))].sort(
-            (a, b) => b.score - a.score,
-          )
-    const users = await this.context.api.getUsersByIds(sorted.map((e) => e.value))
-    const nameById = new Map(users.map((u) => [u.userId, u.username]))
-    return sorted.map((entry) => ({
-      score: entry.score,
-      value: entry.value,
-      username: nameById.get(entry.value) ?? entry.value,
-    }))
+    return this.lb.top({ topN })
   }
 }
 

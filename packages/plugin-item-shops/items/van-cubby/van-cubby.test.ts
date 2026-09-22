@@ -66,9 +66,7 @@ describe("container store payloads", () => {
 
     const result = await invokeUse(vanCubby, deps, actorId, cubbyDef, {
       targetInventoryItemIds: ["egg-1"],
-      password: "secret",
-      label: "Mine",
-      note: "hint: birds",
+      formValues: { password: "secret", label: "Mine", note: "hint: birds" },
     })
     expect(result.success).toBe(true)
     expect(result.consumed).toBe(true)
@@ -88,8 +86,9 @@ describe("container store payloads", () => {
         ],
       }),
     )
-    expect(deps.context.inventory.getItemDefinitions).toHaveBeenCalledTimes(1)
-    expect(deps.context.inventory.getItemDefinitions).toHaveBeenCalledWith(["item-shops:mars-egg"])
+    expect(deps.context.inventory.resolveDefinition).toHaveBeenCalledWith("item-shops:mars-egg", {
+      pluginName: "item-shops",
+    })
   })
 
   test("merch-cash-box writes a coin content row", async () => {
@@ -100,8 +99,7 @@ describe("container store payloads", () => {
     })
     const { deps } = setupBag({ coins: 400 })
     const result = await invokeUse(merchCashBox, deps, actorId, boxDef, {
-      coinAmount: 329,
-      password: "counting crows",
+      formValues: { coinAmount: 329, password: "counting crows" },
     })
     expect(result.success).toBe(true)
     expect(deps.context.artifacts.store).toHaveBeenCalledWith(
@@ -131,7 +129,7 @@ describe("container store payloads", () => {
     vi.mocked(deps.context.inventory.getItemDefinition).mockResolvedValue(inner)
     const result = await invokeUse(trailer, deps, actorId, outer, {
       targetInventoryItemIds: ["case-1"],
-      password: "pw",
+      formValues: { password: "pw" },
     })
     expect(result).toMatchObject({ success: false, consumed: false })
     expect(deps.context.artifacts.store).not.toHaveBeenCalled()
@@ -151,11 +149,11 @@ describe("container store payloads", () => {
     vi.mocked(deps.context.inventory.getItemDefinition).mockResolvedValue(pedal)
     const result = await invokeUse(roadCase, deps, actorId, caseDef, {
       targetInventoryItemIds: items.map((i) => i.itemId),
-      password: "pw",
+      formValues: { password: "pw" },
     })
     expect(result.success).toBe(false)
     expect(deps.context.artifacts.store).not.toHaveBeenCalled()
-    expect(deps.context.inventory.getItemDefinitions).toHaveBeenCalledTimes(1)
+    expect(deps.context.inventory.resolveDefinition).toHaveBeenCalled()
   })
 
   test("refunds every removed stack with original metadata if store throws", async () => {
@@ -176,7 +174,7 @@ describe("container store payloads", () => {
     vi.mocked(deps.context.inventory.getItemDefinition).mockResolvedValue(targetDef)
     const result = await invokeUse(vanCubby, deps, actorId, cubbyDef, {
       targetInventoryItemIds: ["egg-1"],
-      password: "pw",
+      formValues: { password: "pw" },
     })
     expect(result.success).toBe(false)
     expect(deps.context.inventory.giveItem).toHaveBeenCalledWith(

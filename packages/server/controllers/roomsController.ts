@@ -641,12 +641,6 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       targetInventoryItemId?: string
       targetInventoryItemIds?: string[]
       targetArtifactId?: string
-      password?: string
-      coinAmount?: number
-      message?: string
-      voice?: string
-      label?: string
-      note?: string
       formValues?: Record<string, string | number>
     }) => {
       const callContextRaw: Record<string, unknown> = {}
@@ -657,12 +651,6 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       if (data?.targetInventoryItemIds != null)
         callContextRaw.targetInventoryItemIds = data.targetInventoryItemIds
       if (data?.targetArtifactId != null) callContextRaw.targetArtifactId = data.targetArtifactId
-      if (data?.password != null) callContextRaw.password = data.password
-      if (data?.coinAmount != null) callContextRaw.coinAmount = data.coinAmount
-      if (data?.message != null) callContextRaw.message = data.message
-      if (data?.voice != null) callContextRaw.voice = data.voice
-      if (data?.label != null) callContextRaw.label = data.label
-      if (data?.note != null) callContextRaw.note = data.note
       if (data?.formValues != null) callContextRaw.formValues = data.formValues
       const callContext =
         Object.keys(callContextRaw).length > 0 ? callContextRaw : undefined

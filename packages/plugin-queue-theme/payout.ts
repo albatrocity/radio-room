@@ -13,30 +13,18 @@ export function computeDjPayout(params: {
   return net * Math.max(0, params.coinPerNetVote)
 }
 
-export function tallyThemeVotes(params: {
-  votes: Record<string, string>
-  optionIds: { yes: string; no: string; decoy?: string }
-  /** Exclude this userId from tallies (current-track DJ). */
-  excludeUserId?: string | null
-}): { yesCount: number; noCount: number; decoyCount: number; decoyVoterIds: string[] } {
-  let yesCount = 0
-  let noCount = 0
-  let decoyCount = 0
-  const decoyVoterIds: string[] = []
-
-  for (const [userId, optionId] of Object.entries(params.votes)) {
-    if (params.excludeUserId && userId === params.excludeUserId) continue
-    if (optionId === params.optionIds.yes) {
-      yesCount += 1
-    } else if (optionId === params.optionIds.no) {
-      noCount += 1
-    } else if (params.optionIds.decoy && optionId === params.optionIds.decoy) {
-      decoyCount += 1
-      decoyVoterIds.push(userId)
-    }
+/** User ids that voted for the decoy option, optionally excluding one user (e.g. DJ). */
+export function decoyVoterIds(
+  votes: Record<string, string>,
+  decoyOptionId: string,
+  excludeUserId?: string | null,
+): string[] {
+  const ids: string[] = []
+  for (const [userId, optionId] of Object.entries(votes)) {
+    if (excludeUserId && userId === excludeUserId) continue
+    if (optionId === decoyOptionId) ids.push(userId)
   }
-
-  return { yesCount, noCount, decoyCount, decoyVoterIds }
+  return ids
 }
 
 /** Fisher–Yates sample of up to `count` ids from `pool`. */

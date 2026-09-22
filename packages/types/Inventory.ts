@@ -428,12 +428,11 @@ export interface ItemDefinition {
    * the acting container and other containers) and sends `targetInventoryItemIds`.
    * When `"mediaItem"`, the UI opens a picker over all of the user's own stacks
    * and sends `targetInventoryItemId`; the handler decides whether the target was valid.
-   * When `"spokenMessage"`, the UI collects a short message + macOS voice for Media Bridge
-   * TTS (ADR 0178) and sends `message` + `voice`.
    * When `"storedArtifact"`, the UI opens a stash picker and sends `targetArtifactId`
    * with `USE_INVENTORY_ITEM`. The server re-checks pick eligibility (60-day untouched
    * clock) at use time — client-side filtering is advisory only.
    * When `"self"` or omitted, the effect applies to the inventory owner only.
+   * Authored values (message, coins, password) use `useForm` instead (ADR 0187 / 0193).
    */
   requiresTarget?:
     | "self"
@@ -442,8 +441,6 @@ export interface ItemDefinition {
     | "inventoryItems"
     | "userInventoryItem"
     | "mediaItem"
-    | "coinAmount"
-    | "spokenMessage"
     | "storedArtifact"
   /**
    * When set, the inventory UI collects these fields before use and sends them as

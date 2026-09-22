@@ -1,9 +1,5 @@
-import type { ItemDefinition, ItemUseResult, QueueItem, User } from "@repo/types"
-import {
-  sendAttributedSystemMessage,
-  resolveItemUseActorDisplayName,
-} from "../shared/resolveItemUseActorDisplayName"
-import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
+import { createItem } from "../shared/types"
+import { queueRepositionEffect } from "../shared/queueRepositionEffect"
 
 export const repulsiveSeltzer = createItem({
   shortId: "repulsive-seltzer",
@@ -20,84 +16,20 @@ export const repulsiveSeltzer = createItem({
     icon: "Refrigerator",
     rarity: "uncommon",
   },
-  /**
-   * @param deps - Plugin API and room context.
-   * @param userId - User activating the item.
-   * @param _definition - Resolved item definition (unused).
-   * @param callContext - Must include `targetQueueItemId` when demoting.
-   */
-  use: async (
-    deps: ItemShopsBehaviorDeps,
-    userId: string,
-    _definition: ItemDefinition,
-    callContext?: unknown,
-  ): Promise<ItemUseResult> => {
-    const { context } = deps
-    const targetQueueItemId = (callContext as { targetQueueItemId?: string } | undefined)
-      ?.targetQueueItemId
-
-    if (!targetQueueItemId) {
-      return { success: false, consumed: false, message: "Select a track to demote." }
-    }
-
-    const targetedItem = await context.api
-      .getQueue(context.roomId)
-      .then((queue) => queue.find((item) => item.track.id === targetQueueItemId))
-
-    if (!targetedItem) {
-      return { success: false, consumed: false, message: "Targeted track not found in queue." }
-    }
-
-    const result = await context.api.moveTrackByPosition(
-      context.roomId,
-      targetQueueItemId,
-      1,
-      userId,
-    )
-
-    if (!result.success) {
-      if (result.reason === "defense_blocked") {
-        return {
-          success: false,
-          consumed: true,
-          message:
-            result.attackerMessage ??
-            `Blocked by ${result.blockingItemName}. Your item was lost with use.`,
+  use: queueRepositionEffect({
+    delta: 1,
+    messages: {
+      selectTarget: "Select a track to demote.",
+      success: "Track demoted!",
+      announce: ({ actor, trackTitle, victimUsername, isOwnTrack }) => {
+        if (victimUsername) {
+          if (isOwnTrack) {
+            return `Yuck! ${actor} drank a Repulsive Seltzer to demote their own track, "${trackTitle}"!`
+          }
+          return `Yuck! ${actor} drank a Repulsive Seltzer to demote ${victimUsername}'s track, "${trackTitle}"!`
         }
-      }
-      return { success: false, consumed: false, message: result.message }
-    }
-
-    const [attackedUser] = targetedItem.addedBy
-      ? await deps.context.api.getUsersByIds([targetedItem.addedBy?.userId])
-      : [undefined]
-
-    const displayName = await resolveItemUseActorDisplayName(deps, userId)
-
-    const message = makeMessage(displayName.label, attackedUser, targetedItem, userId)
-    await sendAttributedSystemMessage(deps, message, displayName)
-
-    return {
-      success: true,
-      consumed: true,
-      message: "Track demoted!",
-    }
-  },
+        return `Yuck! ${actor} drank a Repulsive Seltzer to demote a track, "${trackTitle}"!`
+      },
+    },
+  }),
 })
-
-function makeMessage(
-  displayName: string,
-  attackedUser: User | undefined,
-  targetedItem: QueueItem,
-  userId: string,
-): string {
-  if (attackedUser) {
-    if (attackedUser.userId === userId) {
-      return `Yuck! ${displayName} drank a Repulsive Seltzer to demote their own track, "${targetedItem.track.title}"!`
-    }
-
-    return `Yuck! ${displayName} drank a Repulsive Seltzer to demote ${attackedUser.username}'s track, "${targetedItem.track.title}"!`
-  }
-
-  return `Yuck! ${displayName} drank a Repulsive Seltzer to demote a track, "${targetedItem.track.title}"!`
-}

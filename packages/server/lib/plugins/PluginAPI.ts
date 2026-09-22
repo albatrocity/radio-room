@@ -578,6 +578,88 @@ export class PluginAPIImpl implements PluginAPI {
     return getPollVotes({ context: this.context, roomId, pollId })
   }
 
+  async tallyPoll(
+    pollId: string,
+    options?: { excludeUserIds?: string[] },
+  ): Promise<Record<string, number>> {
+    if (!this.roomId) return {}
+    const { tallyPoll } = await import("../../operations/polls")
+    return tallyPoll({
+      context: this.context,
+      roomId: this.roomId,
+      pollId,
+      excludeUserIds: options?.excludeUserIds,
+    })
+  }
+
+  async schedule(params: {
+    id: string
+    kind: string
+    at?: number | null
+    durationMs?: number | null
+    payload?: unknown
+  }): Promise<{ ok: true; fireAt: number } | { ok: false; message: string }> {
+    if (!this.pluginName || !this.roomId) {
+      return { ok: false, message: "Plugin identity is required." }
+    }
+    if (!params.id || !params.kind) {
+      return { ok: false, message: "id and kind are required." }
+    }
+    const {
+      resolveScheduleFireAt,
+      schedulePluginCallback,
+    } = await import("../../operations/data/pluginSchedules")
+    const resolved = resolveScheduleFireAt({
+      at: params.at,
+      durationMs: params.durationMs,
+    })
+    if (!resolved.ok) return resolved
+    await schedulePluginCallback({
+      context: this.context,
+      roomId: this.roomId,
+      pluginName: this.pluginName,
+      scheduleId: params.id,
+      kind: params.kind,
+      fireAt: resolved.fireAt,
+      payload: params.payload,
+    })
+    return { ok: true, fireAt: resolved.fireAt }
+  }
+
+  async cancelSchedule(id: string): Promise<boolean> {
+    if (!this.pluginName || !this.roomId) return false
+    const { cancelPluginSchedule } = await import("../../operations/data/pluginSchedules")
+    return cancelPluginSchedule({
+      context: this.context,
+      roomId: this.roomId,
+      pluginName: this.pluginName,
+      scheduleId: id,
+    })
+  }
+
+  async getSchedule(id: string): Promise<{
+    id: string
+    kind: string
+    fireAt: number
+    payload: unknown
+  } | null> {
+    if (!this.pluginName || !this.roomId) return null
+    const { getPluginSchedule } = await import("../../operations/data/pluginSchedules")
+    const record = await getPluginSchedule({
+      context: this.context,
+      roomId: this.roomId,
+      pluginName: this.pluginName,
+      scheduleId: id,
+    })
+    if (!record) return null
+    return {
+      id: record.scheduleId,
+      kind: record.kind,
+      fireAt: record.fireAt,
+      payload: record.payload,
+    }
+  }
+
   async setQueueSplit(
     roomId: string,
     belowKey: string,

@@ -46,6 +46,12 @@ function createMockContext(roomId: string = "room1"): PluginContext {
     hset: vi.fn().mockResolvedValue(undefined),
     hgetall: vi.fn().mockResolvedValue({}),
     hsetnx: vi.fn().mockResolvedValue(false),
+    compareAndSet: vi.fn().mockResolvedValue(true),
+    getJson: vi.fn().mockResolvedValue({ raw: null, value: null }),
+    setJson: vi.fn().mockResolvedValue(undefined),
+    updateJson: vi.fn().mockResolvedValue(null),
+    lrange: vi.fn().mockResolvedValue([]),
+    appendCapped: vi.fn().mockResolvedValue(undefined),
   }
 
   const mockApi: PluginAPI = {
@@ -64,6 +70,9 @@ function createMockContext(roomId: string = "room1"): PluginContext {
     emit: vi.fn().mockResolvedValue(undefined),
     queueSoundEffect: vi.fn().mockResolvedValue(undefined),
     queueScreenEffect: vi.fn().mockResolvedValue(undefined),
+    schedule: vi.fn().mockResolvedValue({ ok: true, fireAt: Date.now() + 30_000 }),
+    cancelSchedule: vi.fn().mockResolvedValue(true),
+    getSchedule: vi.fn().mockResolvedValue(null),
   }
 
   const mockGame = {
@@ -176,7 +185,8 @@ describe("LoyaltyProgramPlugin", () => {
 
     await plugin.register(mockContext)
 
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000)
+    // Simulate the durable tick schedule firing
+    await plugin.handleScheduled("tick", {}, "loyalty-tick")
 
     expect(mockContext.game.addScore).toHaveBeenCalledWith("u1", "coin", 3, "loyalty-program:loyalty")
     expect(mockContext.api.sendUserSystemMessage).toHaveBeenCalledWith(

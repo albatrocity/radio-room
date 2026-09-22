@@ -13,7 +13,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | [Getting Started](plugins/getting-started.md) | Architecture overview, quick start, package setup, registration, **admin settings `EDIT_*` in `modalsMachine`** (required every new plugin) |
 | [BasePlugin Reference](plugins/base-plugin.md) | Properties, methods, lifecycle hooks, optional overrides |
 | [Event System](plugins/events.md) | System events, game/inventory events, handler examples |
-| [Storage API](plugins/storage.md) | Redis namespacing, batch ops, sorted sets |
+| [Storage API](plugins/storage.md) | Redis namespacing, `getJson` / `updateJson` / `appendCapped`, plugin vs session leaderboards ([ADR 0192](adrs/0192-plugin-storage-and-leaderboard-helpers.md)) |
 
 **Config caching:** `BasePlugin.getConfig()` keeps the merged room config in memory and invalidates it on `CONFIG_CHANGED` for that plugin. Prefer `getConfig()` on chat/track hot paths instead of a subclass-local cache or calling Redis on every event.
 
@@ -31,15 +31,15 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | [Queue Validation](plugins/queue-validation.md) | Intercepting enqueue requests, fail-open semantics |
 | [Metadata Source Access](plugins/metadata-source-access.md) | Restricted sources, plugin grants, `listMetadataSources` / `canAccessMetadataSource` / `getEffectiveMetadataSourceIds`; browse / Search entities use `search` access ([ADR 0089](adrs/0089-metadata-source-content-browse.md), [ADR 0090](adrs/0090-hybrid-metadata-catalog-browse.md)) |
 | [Data & Export](plugins/data-and-export.md) | Playlist/now-playing augmentation, room exports |
-| [Timer API](plugins/timers.md) | Built-in timer management, countdown patterns |
+| [Timer API](plugins/timers.md) | Durable `schedule` / `onScheduled` ([ADR 0190](adrs/0190-durable-plugin-scheduler.md)); `startTimer` for short in-memory UI only |
 
-**Timed polls:** Pass `closesAt` or `durationMs` to `api.createPoll` ([ADR 0189](adrs/0189-poll-closes-at-auto-close.md)). Core schedules auto-close in Redis and emits `POLL_CLOSED` with `reason: "expired"` (or `"manual"`). Listen for `POLL_CLOSED` instead of running your own close timer. Bounds: 5 seconds–24 hours. See [API Reference](plugins/api-reference.md).
+**Timed polls:** Pass `closesAt` or `durationMs` to `api.createPoll` ([ADR 0189](adrs/0189-poll-closes-at-auto-close.md)). Core schedules auto-close in Redis and emits `POLL_CLOSED` with `reason: "expired"` (or `"manual"`). Listen for `POLL_CLOSED` instead of running your own close timer. Bounds: 5 seconds–24 hours. For option counts use `api.tallyPoll(pollId, { excludeUserIds? })` or `results.optionTallies` on close. See [API Reference](plugins/api-reference.md).
 
 ### Game Systems
 
 | Guide | Topics |
 | ----- | ------ |
-| [Game Sessions & Inventory](plugins/game-sessions.md) | Shared score/coin, modifiers, items, defense, `onItemUsed`, declarative **`useForm`** / `formValues` ([ADR 0187](adrs/0187-declarative-item-use-forms.md)); **`context.artifacts`** for cross-room passworded storage ([ADR 0052](adrs/0052-global-artifacts-api.md), [ADR 0179](adrs/0179-reusable-multi-slot-password-stashes.md)) |
+| [Game Sessions & Inventory](plugins/game-sessions.md) | Shared score/coin, modifiers, items, defense, `onItemUsed`, declarative **`useForm`** / `formValues` composed with entity pickers ([ADR 0187](adrs/0187-declarative-item-use-forms.md), [ADR 0193](adrs/0193-item-use-forms-composed-with-target-pickers.md)); **`context.artifacts`** for cross-room passworded storage ([ADR 0052](adrs/0052-global-artifacts-api.md), [ADR 0179](adrs/0179-reusable-multi-slot-password-stashes.md)) |
 | [Per-User State](plugins/per-user-state.md) | `contributeToUserGameState`, `pluginUserState`, invalidation, tab attention; Lyric Hero cooperative mode: [ADR 0172](adrs/0172-cooperative-participation-mode.md) |
 | [User Personas](plugins/user-personas.md) | Identity labels, badges, admin assignment |
 | [Shop Helper](plugins/shop-helper.md) | `ShopHelper`, `ShopPlugin`, coin shops, stock management |

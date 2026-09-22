@@ -16,6 +16,10 @@
 | `getActivePoll(roomId)`                                 | Active poll or `null`                                                                                                             |
 | `getPollVoterIds(roomId, pollId)`                       | User ids that have voted (no option choices)                                                                                      |
 | `getPollVotes(roomId, pollId)`                          | Full `userId → optionId` hash for plugin tallying (retained after close; not broadcast)                                           |
+| `tallyPoll(pollId, { excludeUserIds? })`                | Count votes per `optionId` (optionally excluding voter ids). Prefer this over hand-rolling tallies from `getPollVotes`. Closed polls also expose counts on `results.optionTallies` in `POLL_CLOSED` |
+| `schedule({ id, kind, at?, durationMs?, payload? })`    | Durable Redis schedule (1s–7d); same `id` replaces ([ADR 0190](../adrs/0190-durable-plugin-scheduler.md)). Prefer over `startTimer` for restart-safe work — see [Timer API](timers.md) |
+| `cancelSchedule(id)`                                    | Cancel a pending durable schedule                                                                                                 |
+| `getSchedule(id)`                                       | Pending schedule `{ id, kind, fireAt, payload }` or `null`                                                                        |
 | `setQueueSplit(roomId, belowKey)`                       | Set queue split anchor ([ADR 0067](../adrs/0067-queue-split-reserved-segment.md), [ADR 0153](../adrs/0153-plugin-authored-queue-split.md)); app-controlled only; skips admin reorder gate when scoped |
 | `removeQueueSplit(roomId)`                              | Clear queue split; app-controlled only; requires scoped plugin identity ([ADR 0153](../adrs/0153-plugin-authored-queue-split.md)) |
 | `addToTrackQueue(roomId, trackId, options?)`            | Enqueue a track (see below)                                                                                                       |

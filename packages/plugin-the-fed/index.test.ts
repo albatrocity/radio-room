@@ -37,6 +37,16 @@ function createMockContext(roomId: string = "room1"): PluginContext {
     hset: vi.fn().mockResolvedValue(undefined),
     hgetall: vi.fn().mockResolvedValue({}),
     hsetnx: vi.fn().mockResolvedValue(false),
+    compareAndSet: vi.fn().mockResolvedValue(true),
+    getJson: vi.fn(async (key: string) => {
+      const raw = store.get(key) ?? null
+      if (!raw) return { raw: null, value: null }
+      try { return { raw, value: JSON.parse(raw) } } catch { return { raw, value: null } }
+    }),
+    setJson: vi.fn(async (key: string, v: unknown) => { store.set(key, JSON.stringify(v)) }),
+    updateJson: vi.fn().mockResolvedValue(null),
+    lrange: vi.fn().mockResolvedValue([]),
+    appendCapped: vi.fn().mockResolvedValue(undefined),
   }
 
   const mockApi: PluginAPI = {
@@ -55,6 +65,9 @@ function createMockContext(roomId: string = "room1"): PluginContext {
     emit: vi.fn().mockResolvedValue(undefined),
     queueSoundEffect: vi.fn().mockResolvedValue(undefined),
     queueScreenEffect: vi.fn().mockResolvedValue(undefined),
+    schedule: vi.fn().mockResolvedValue({ ok: true, fireAt: Date.now() + 30_000 }),
+    cancelSchedule: vi.fn().mockResolvedValue(true),
+    getSchedule: vi.fn().mockResolvedValue(null),
   } as unknown as PluginAPI
 
   const mockGame = {

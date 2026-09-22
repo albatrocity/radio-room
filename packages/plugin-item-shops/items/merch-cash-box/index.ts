@@ -1,5 +1,5 @@
 import { createItem } from "../shared/types"
-import { storeCoinsInContainer } from "../shared/storeInContainer"
+import { stashLockFormFields, storeCoinsInContainer } from "../shared/storeInContainer"
 
 export const merchCashBox = createItem({
   shortId: "merch-cash-box",
@@ -11,11 +11,23 @@ export const merchCashBox = createItem({
     maxStack: 1,
     tradeable: true,
     consumable: true,
-    requiresTarget: "coinAmount",
     storageCapacity: 1,
     coinValue: 50,
     icon: "PiggyBank",
     rarity: "rare",
+    useForm: [
+      {
+        name: "coinAmount",
+        label: "Coins to store",
+        type: "number",
+        required: true,
+        min: 1,
+        integer: true,
+        maxFrom: "coinBalance",
+        placeholder: "1",
+      },
+      ...stashLockFormFields,
+    ],
   },
   use: storeCoinsInContainer(),
 })
