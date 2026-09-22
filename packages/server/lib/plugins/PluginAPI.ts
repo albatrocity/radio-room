@@ -505,6 +505,8 @@ export class PluginAPIImpl implements PluginAPI {
     question: string
     options: { label: string }[]
     settings?: { hideRunningTotal?: boolean }
+    closesAt?: number | null
+    durationMs?: number | null
     announce?: boolean
   }) {
     if (!this.pluginName) {
@@ -525,6 +527,8 @@ export class PluginAPIImpl implements PluginAPI {
       question: params.question,
       options: params.options,
       settings: params.settings,
+      closesAt: params.closesAt,
+      durationMs: params.durationMs,
       announce: params.announce,
       source: { pluginName: this.pluginName },
     })

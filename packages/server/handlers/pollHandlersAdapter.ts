@@ -10,6 +10,7 @@ export class PollHandlers {
       question: string
       options: { label: string }[]
       settings?: { hideRunningTotal?: boolean }
+      durationMs?: number
     },
   ) => {
     const { roomId, userId } = socket.data
@@ -32,6 +33,7 @@ export class PollHandlers {
       question: data.question,
       options: data.options,
       settings: data.settings,
+      durationMs: data.durationMs,
     })
 
     if (!result.ok) {

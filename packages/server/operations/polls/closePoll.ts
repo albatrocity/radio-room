@@ -1,8 +1,9 @@
-import type { AppContext, Poll } from "@repo/types"
+import type { AppContext, Poll, PollCloseReason } from "@repo/types"
 import { findRoom, isRoomAdmin } from "../data"
 import {
+  cancelAutoClose,
   clearActivePollId,
-  getPoll,
+  getPollRecord,
   getPollVotes,
   reduceVotesToResults,
   writePoll,
@@ -24,24 +25,31 @@ export async function closePoll({
   pollId,
   source,
   announce = true,
+  reason = "manual",
 }: {
   context: AppContext
   roomId: string
   userId: string
   pollId: string
   /**
-   * When set, skip the room-admin gate (ADR 0152). Socket/admin callers omit this.
+   * When set, skip the room-admin gate (ADR 0152 / ADR 0189).
+   * Socket/admin callers omit this.
    */
-  source?: { pluginName: string }
+  source?: { pluginName: string } | { system: "autoClose" }
   /** When false, skip close/results chat. Defaults to true. */
   announce?: boolean
+  /** How the poll was closed (ADR 0189). */
+  reason?: PollCloseReason
 }): Promise<ClosePollResult> {
   const room = await findRoom({ context, roomId })
   if (!room) {
     return { ok: false, error: { status: 404, error: "Not Found", message: "Room not found." } }
   }
 
-  if (!source?.pluginName) {
+  const isSystem = source && "system" in source && source.system === "autoClose"
+  const isPlugin = source && "pluginName" in source && !!source.pluginName
+
+  if (!isSystem && !isPlugin) {
     const isAdmin = await isRoomAdmin({ context, roomId, userId, roomCreator: room.creator })
     if (!isAdmin) {
       return {
@@ -51,10 +59,12 @@ export async function closePoll({
     }
   }
 
-  const poll = await getPoll({ context, roomId, pollId })
-  if (!poll) {
+  const record = await getPollRecord({ context, roomId, pollId })
+  if (!record) {
     return { ok: false, error: { status: 404, error: "Not Found", message: "Poll not found." } }
   }
+
+  const { announceClose, ...poll } = record
 
   if (poll.status !== "open") {
     return {
@@ -76,8 +86,9 @@ export async function closePoll({
 
   try {
     await writeResultsSnapshot({ context, roomId, pollId, results })
-    await writePoll({ context, poll: closedPoll })
+    await writePoll({ context, poll: closedPoll, announceClose })
     await clearActivePollId({ context, roomId })
+    await cancelAutoClose({ context, roomId, pollId })
   } catch (err) {
     console.error("[closePoll] Failed to persist poll close state:", err)
     return {
@@ -95,6 +106,7 @@ export async function closePoll({
       roomId,
       poll: closedPoll,
       results,
+      reason,
     })
   }
 

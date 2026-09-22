@@ -2,6 +2,7 @@ export { createPoll, type CreatePollInput, type CreatePollResult } from "./creat
 export { castVote, type CastVoteResult } from "./castVote"
 export { closePoll, type ClosePollResult } from "./closePoll"
 export { deletePoll, type DeletePollResult } from "./deletePoll"
+export { sweepExpiredPolls } from "./sweepExpiredPolls"
 export { formatPollResultsForChat } from "./formatResults"
 export { postSystemChatMessage } from "./postSystemChatMessage"
 export { loadPollInitData, loadPollRoomDataSince } from "./loadPollSnapshot"

@@ -1,6 +1,26 @@
 import { AppContext, PluginStorage } from "@repo/types"
 
 /**
+ * Atomic compare-and-set. ARGV[1] = "1" when expected is a concrete string, "" when
+ * the key must be absent; ARGV[2] = expected value; ARGV[3] = next value;
+ * ARGV[4] = optional TTL seconds (empty = no expire).
+ */
+const COMPARE_AND_SET_LUA = `
+local cur = redis.call('GET', KEYS[1])
+local expectPresent = ARGV[1] == '1'
+if expectPresent then
+  if cur ~= ARGV[2] then return 0 end
+else
+  if cur ~= false then return 0 end
+end
+redis.call('SET', KEYS[1], ARGV[3])
+if ARGV[4] ~= '' then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[4]))
+end
+return 1
+`
+
+/**
  * Implementation of plugin storage
  * Automatically namespaces keys to prevent conflicts between plugins
  */
@@ -37,6 +57,29 @@ export class PluginStorageImpl implements PluginStorage {
       }
     } catch (error) {
       console.error(`[PluginStorage] Error setting key ${key}:`, error)
+    }
+  }
+
+  /**
+   * Compare-and-set for optimistic concurrency (e.g. Kickstarter pledge ledger).
+   * Lua keeps get+set atomic across dynos.
+   */
+  async compareAndSet(
+    key: string,
+    expected: string | null,
+    value: string,
+    ttl?: number,
+  ): Promise<boolean> {
+    try {
+      const namespacedKey = this.makeKey(key)
+      const result = (await this.context.redis.pubClient.eval(COMPARE_AND_SET_LUA, {
+        keys: [namespacedKey],
+        arguments: [expected === null ? "" : "1", expected ?? "", value, ttl != null ? String(ttl) : ""],
+      })) as number
+      return result === 1
+    } catch (error) {
+      console.error(`[PluginStorage] Error compareAndSet ${key}:`, error)
+      return false
     }
   }
 

@@ -405,6 +405,15 @@ export interface LyricHeroCardComponentProps {
 }
 
 /**
+ * Props for the kickstarter-campaign-card (Item Shops Kickstarter Account, ADR 0188).
+ * Live campaign data comes from the plugin store (`campaign`, `campaignActive`).
+ */
+export interface KickstarterCampaignCardComponentProps {
+  /** Optional override for the back button label. */
+  backLabel?: string
+}
+
+/**
  * Props for the quiz-question-card template component (Quiz Sessions plugin).
  *
  * The card reads live quiz state from the plugin store; props only tune which
@@ -474,6 +483,7 @@ export interface TemplateComponentPropsMap {
   "bingo-card": BingoCardComponentProps
   "queue-theme-brief-card": QueueThemeBriefCardComponentProps
   "lyric-hero-card": LyricHeroCardComponentProps
+  "kickstarter-campaign-card": KickstarterCampaignCardComponentProps
   slider: SliderComponentProps
 }
 
@@ -561,6 +571,7 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "bingo-card" } & BingoCardComponentProps)
   | (PluginComponentMetadata & { type: "queue-theme-brief-card" } & QueueThemeBriefCardComponentProps)
   | (PluginComponentMetadata & { type: "lyric-hero-card" } & LyricHeroCardComponentProps)
+  | (PluginComponentMetadata & { type: "kickstarter-campaign-card" } & KickstarterCampaignCardComponentProps)
   | (PluginComponentMetadata & { type: "slider" } & SliderComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs

@@ -8,6 +8,7 @@ import { CoinAmountStoragePopover } from "./CoinAmountPicker"
 import { UserInventoryItemPicker } from "./UserInventoryItemPicker"
 import { UseTargetPopover } from "./UseTargetPicker"
 import { SpokenMessagePopover } from "./SpokenMessagePicker"
+import { ItemUseFormPopover } from "./ItemUseFormPopover"
 
 type UseExtra = {
   targetUserId?: string
@@ -21,11 +22,14 @@ type UseExtra = {
   voice?: string
   label?: string
   note?: string
+  formValues?: Record<string, string | number>
 }
 
 interface InventoryUseButtonProps {
   itemId: string
   requiresTarget?: ItemDefinition["requiresTarget"]
+  /** Full definition — used for declarative `useForm` (ADR 0187). */
+  definition?: ItemDefinition
   allItems: InventoryItem[]
   definitionMap: Map<string, ItemDefinition>
   coinBalance: number
@@ -58,6 +62,7 @@ function wrapFullWidth(fullWidth: boolean, node: React.ReactNode) {
 export function InventoryUseButton({
   itemId,
   requiresTarget,
+  definition,
   allItems,
   definitionMap,
   coinBalance,
@@ -65,6 +70,19 @@ export function InventoryUseButton({
   onUse,
   fullWidth = true,
 }: InventoryUseButtonProps) {
+  const useForm = definition?.useForm
+  if (useForm && useForm.length > 0) {
+    return wrapFullWidth(
+      fullWidth,
+      <ItemUseFormPopover
+        fields={useForm}
+        onConfirm={(formValues) => onUse({ formValues })}
+      >
+        {useTriggerButton(useLoading, undefined, fullWidth)}
+      </ItemUseFormPopover>,
+    )
+  }
+
   switch (requiresTarget) {
     case "queueItem":
       return wrapFullWidth(

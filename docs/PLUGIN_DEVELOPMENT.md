@@ -33,11 +33,13 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | [Data & Export](plugins/data-and-export.md) | Playlist/now-playing augmentation, room exports |
 | [Timer API](plugins/timers.md) | Built-in timer management, countdown patterns |
 
+**Timed polls:** Pass `closesAt` or `durationMs` to `api.createPoll` ([ADR 0189](adrs/0189-poll-closes-at-auto-close.md)). Core schedules auto-close in Redis and emits `POLL_CLOSED` with `reason: "expired"` (or `"manual"`). Listen for `POLL_CLOSED` instead of running your own close timer. Bounds: 5 seconds–24 hours. See [API Reference](plugins/api-reference.md).
+
 ### Game Systems
 
 | Guide | Topics |
 | ----- | ------ |
-| [Game Sessions & Inventory](plugins/game-sessions.md) | Shared score/coin, modifiers, items, defense, `onItemUsed`; **`context.artifacts`** for cross-room passworded storage ([ADR 0052](adrs/0052-global-artifacts-api.md), [ADR 0179](adrs/0179-reusable-multi-slot-password-stashes.md)) |
+| [Game Sessions & Inventory](plugins/game-sessions.md) | Shared score/coin, modifiers, items, defense, `onItemUsed`, declarative **`useForm`** / `formValues` ([ADR 0187](adrs/0187-declarative-item-use-forms.md)); **`context.artifacts`** for cross-room passworded storage ([ADR 0052](adrs/0052-global-artifacts-api.md), [ADR 0179](adrs/0179-reusable-multi-slot-password-stashes.md)) |
 | [Per-User State](plugins/per-user-state.md) | `contributeToUserGameState`, `pluginUserState`, invalidation, tab attention; Lyric Hero cooperative mode: [ADR 0172](adrs/0172-cooperative-participation-mode.md) |
 | [User Personas](plugins/user-personas.md) | Identity labels, badges, admin assignment |
 | [Shop Helper](plugins/shop-helper.md) | `ShopHelper`, `ShopPlugin`, coin shops, stock management |

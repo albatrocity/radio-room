@@ -195,15 +195,22 @@ export class MemoryRedisClient {
     }
   }
 
-  async zRem(key: string, member: string): Promise<void> {
-    this.zsets.get(key)?.delete(member)
+  async zRem(key: string, member: string | string[]): Promise<number> {
+    const zset = this.zsets.get(key)
+    if (!zset) return 0
+    const members = Array.isArray(member) ? member : [member]
+    let removed = 0
+    for (const m of members) {
+      if (zset.delete(m)) removed += 1
+    }
+    return removed
   }
 
   async zRange(
     key: string,
-    start: number,
-    stop: number,
-    opts?: { REV?: boolean },
+    start: number | string,
+    stop: number | string,
+    opts?: { REV?: boolean; BY?: "SCORE" | "LEX" },
   ): Promise<string[]> {
     const zset = this.zsets.get(key)
     if (!zset) return []
@@ -214,15 +221,33 @@ export class MemoryRedisClient {
     const len = sorted.length
     if (len === 0) return []
 
+    if (opts?.BY === "SCORE") {
+      const min =
+        start === "-inf" ? Number.NEGATIVE_INFINITY : typeof start === "number" ? start : Number(start)
+      const max =
+        stop === "+inf" ? Number.POSITIVE_INFINITY : typeof stop === "number" ? stop : Number(stop)
+      return sorted.filter(([, score]) => score >= min && score <= max).map(([member]) => member)
+    }
+
     // Redis ZRANGE: start/stop are inclusive; negative stop counts from the end.
-    let from = start < 0 ? len + start : start
-    let to = stop < 0 ? len + stop : stop
+    const startIdx = typeof start === "number" ? start : Number(start)
+    const stopIdx = typeof stop === "number" ? stop : Number(stop)
+    let from = startIdx < 0 ? len + startIdx : startIdx
+    let to = stopIdx < 0 ? len + stopIdx : stopIdx
     if (from >= len || to < 0) return []
     from = Math.max(0, from)
     to = Math.min(to, len - 1)
     if (from > to) return []
 
     return sorted.slice(from, to + 1).map(([member]) => member)
+  }
+
+  async zRangeByScore(
+    key: string,
+    min: number | string,
+    max: number | string,
+  ): Promise<string[]> {
+    return this.zRange(key, min, max, { BY: "SCORE" })
   }
 
   async zRank(key: string, member: string): Promise<number | null> {
@@ -234,5 +259,52 @@ export class MemoryRedisClient {
 
   async zCard(key: string): Promise<number> {
     return this.zsets.get(key)?.size ?? 0
+  }
+
+  async zCount(key: string, min: number | string, max: number | string): Promise<number> {
+    const members = await this.zRange(key, min, max, { BY: "SCORE" })
+    return members.length
+  }
+
+  /**
+   * Minimal EVAL support for scripts used in unit tests.
+   * Recognizes CLAIM_DUE_AUTO_CLOSES (poll auto-close) and generic GET/SET CAS.
+   */
+  async eval(
+    script: string,
+    opts: { keys: string[]; arguments?: (string | number)[] },
+  ): Promise<unknown> {
+    const key = opts.keys[0]
+    const args = (opts.arguments ?? []).map(String)
+    if (!key) return null
+
+    if (script.includes("CLAIM_DUE_AUTO_CLOSES")) {
+      const now = Number(args[0])
+      const members = await this.zRange(key, "-inf", now, { BY: "SCORE" })
+      const claimed: string[] = []
+      for (const member of members) {
+        if ((await this.zRem(key, member)) === 1) claimed.push(member)
+      }
+      return claimed
+    }
+
+    // PluginStorage compareAndSet Lua (expected-present flag, expected, value, ttl)
+    if (script.includes("redis.call('GET'") && script.includes("redis.call('SET'")) {
+      const expectPresent = args[0] === "1"
+      const expected = args[1] ?? ""
+      const value = args[2] ?? ""
+      const ttl = args[3] ?? ""
+      const cur = await this.get(key)
+      if (expectPresent) {
+        if (cur !== expected) return 0
+      } else if (cur != null) {
+        return 0
+      }
+      await this.set(key, value)
+      void ttl
+      return 1
+    }
+
+    throw new Error(`MemoryRedisClient.eval: unsupported script`)
   }
 }

@@ -1,6 +1,7 @@
 import type { GameStateModifier } from "./GameSession"
 import type { ItemRarity } from "./ShoppingSession"
 import type { LucideIconName } from "./LucideIconKey"
+import type { PluginActionFormField } from "./Plugin"
 
 /**
  * Inventory Types
@@ -444,6 +445,12 @@ export interface ItemDefinition {
     | "coinAmount"
     | "spokenMessage"
     | "storedArtifact"
+  /**
+   * When set, the inventory UI collects these fields before use and sends them as
+   * `formValues`; plugins read `callContext.formValues` in `onItemUsed`. Core validates
+   * and coerces values against this schema before dispatch (ADR 0187).
+   */
+  useForm?: PluginActionFormField[]
   /**
    * When set, holding this item passively blocks matching modifiers / queue
    * moves; one block consumes one from stack `quantity`.

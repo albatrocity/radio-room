@@ -1774,6 +1774,7 @@ function wireSocketHandlers(io: IOServer): void {
         question?: string
         options?: { label: string }[]
         settings?: { hideRunningTotal?: boolean }
+        durationMs?: number
       }) => {
         const roomId = socket.data.roomId as string | undefined
         const userId = socket.data.userId as string | undefined
@@ -1814,6 +1815,7 @@ function wireSocketHandlers(io: IOServer): void {
           question,
           options,
           ...(data?.settings !== undefined ? { settings: data.settings } : {}),
+          ...(typeof data?.durationMs === "number" ? { durationMs: data.durationMs } : {}),
         })
 
         if (!ack) {

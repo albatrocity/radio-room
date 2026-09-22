@@ -11,6 +11,7 @@ import {
   resolveSlotPool,
 } from "@repo/types"
 import generateId from "../lib/generateId"
+import { validateItemUseFormValues } from "../operations/inventory/validateItemUseForm"
 import { GameSessionService } from "./GameSessionService"
 
 // ============================================================================
@@ -569,7 +570,22 @@ export class InventoryService {
       return { success: false, consumed: false, message: "Item definition not found" }
     }
 
-    const result = await this.dispatchUseToPlugin(roomId, userId, item, def, callContext)
+    let nextContext = callContext
+    if (def.useForm && def.useForm.length > 0) {
+      const rawForm =
+        callContext && typeof callContext === "object" && !Array.isArray(callContext)
+          ? (callContext as Record<string, unknown>).formValues
+          : undefined
+      const validated = validateItemUseFormValues(def.useForm, rawForm)
+      if (!validated.ok) return validated.result
+      const base =
+        callContext && typeof callContext === "object" && !Array.isArray(callContext)
+          ? { ...(callContext as Record<string, unknown>) }
+          : {}
+      nextContext = { ...base, formValues: validated.formValues }
+    }
+
+    const result = await this.dispatchUseToPlugin(roomId, userId, item, def, nextContext)
 
     if (result.consumed) {
       await this.removeItem(roomId, userId, itemId, 1)

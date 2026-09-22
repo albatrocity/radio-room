@@ -56,6 +56,7 @@ import {
 } from "./items/index"
 import { maybeAccrueTourLaminateOnAcquire } from "./items/tour-laminate"
 import type { ItemShopsShopAccess } from "./items/shared/types"
+import { KickstarterModule } from "./campaigns/kickstarter/KickstarterModule"
 import { SHOP_CATALOG } from "./shops"
 import { buildEffectiveShopCatalog } from "./localLibrary/catalog"
 import { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
@@ -138,6 +139,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     PLUGIN_NAME,
     () => this.context ?? undefined,
   )
+  private readonly kickstarter = new KickstarterModule()
   /** Bumped on each local-library refresh so in-flight artwork hydrates abort. */
   private albumArtworkHydrateGeneration = 0
 
@@ -177,11 +179,30 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
     this.on("MEDIA_BRIDGE_STATUS_CHANGED", this.handleMediaBridgeStatusChanged.bind(this))
     this.on("INVENTORY_ITEM_ACQUIRED", this.handleInventoryItemAcquired.bind(this))
+    this.on("POLL_CLOSED", this.handlePollClosed.bind(this))
     this.onConfigChange(async () => {
       await this.applyLocalLibraryGrantConfig()
       await this.syncAutoShopTimer()
     })
     await this.syncAutoShopTimer()
+
+    this.kickstarter.bind({
+      context,
+      game: this.game,
+      timers: {
+        startTimer: (id, config) => this.startTimer(id, config),
+        clearTimer: (id) => this.clearTimer(id),
+      },
+      emitPublic: async (state) => {
+        await this.emit("KICKSTARTER_CAMPAIGN_UPDATED", state, { invalidatesUserState: false })
+      },
+    })
+    await this.kickstarter.reconcileOnRegister()
+  }
+
+  private async handlePollClosed(data: SystemEventPayload<"POLL_CLOSED">): Promise<void> {
+    if (!this.context || data.roomId !== this.context.roomId) return
+    await this.kickstarter.onPollClosed(data.poll.id)
   }
 
   private async handleInventoryItemAcquired(
@@ -334,6 +355,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   private async handleGameSessionEnded(
     _data: SystemEventPayload<"GAME_SESSION_ENDED">,
   ): Promise<void> {
+    await this.kickstarter.onGameSessionEnded()
     this.clearShopTimersAndStateForGameEnd()
     await this.shopping.clearSessionRound()
     await this.stripOwnedItemsFromAllUsers()
@@ -1071,6 +1093,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     return {
       components: [
         {
+          id: "kickstarter-campaign-card",
+          type: "kickstarter-campaign-card",
+          area: "aboveChat",
+          showWhen: { field: "campaignActive", value: true },
+        },
+        {
           id: ITEM_SHOPS_TAB_ID,
           type: "tab",
           area: "gameStateTab",
@@ -1086,7 +1114,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           ],
         },
       ],
+      storeKeys: ["campaignActive", "campaign"],
     }
+  }
+
+  async getComponentState(): Promise<{
+    campaignActive: boolean
+    campaign: unknown
+  }> {
+    return this.kickstarter.publicState()
   }
 
   async executeAction(
@@ -1098,6 +1134,30 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       return { success: false, message: "Plugin not initialized" }
     }
     const config = await this.getConfig()
+    if (action === "backCampaign") {
+      if (!config?.enabled) {
+        return { success: false, message: "Item Shops are disabled." }
+      }
+      const userId = initiator?.userId
+      if (!userId) {
+        return { success: false, message: "You must be signed in to back a campaign." }
+      }
+      const amountRaw = params?.amount
+      const amount =
+        typeof amountRaw === "number" ? amountRaw : Number(typeof amountRaw === "string" ? amountRaw : NaN)
+      const username =
+        (typeof initiator?.username === "string" && initiator.username.trim()) || userId
+      const result = await this.kickstarter.backCampaign({ userId, username, amount })
+      if (!result.ok) {
+        return { success: false, message: result.message }
+      }
+      return {
+        success: true,
+        message: result.goalMet
+          ? `Campaign funded! You pledged ${Math.floor(amount)} coin.`
+          : `You pledged ${Math.floor(amount)} coin.`,
+      }
+    }
     if (action === "giveItemToUsers") {
       if (!config?.enabled) {
         return { success: false, message: "Item Shops are disabled." }
@@ -1387,6 +1447,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         pickRandomRestoreCandidate: (eligible) =>
           this.localLibrary.pickRandomRestoreCandidate(eligible),
         shopAccess: this.createItemShopAccess(),
+        campaignAccess: {
+          startCampaign: (params) => this.kickstarter.startCampaign(params),
+        },
       },
       userId,
       definition,

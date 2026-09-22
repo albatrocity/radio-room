@@ -82,6 +82,6 @@ Socket handlers:
 
 ### Deferred from v1
 
-- `closesAt` auto-close timer (schema reserved, no job wired).
+- ~~`closesAt` auto-close timer (schema reserved, no job wired).~~ Completed in [ADR 0189](0189-poll-closes-at-auto-close.md).
 - Admin moderation view of per-voter choices (`:votes` hash retained server-side).
 - Per-room poll disable flag (add to `Room` settings if product requires it).

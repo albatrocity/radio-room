@@ -647,6 +647,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       voice?: string
       label?: string
       note?: string
+      formValues?: Record<string, string | number>
     }) => {
       const callContextRaw: Record<string, unknown> = {}
       if (data?.targetUserId != null) callContextRaw.targetUserId = data.targetUserId
@@ -662,6 +663,7 @@ export function createRoomsController(socket: SocketWithContext, io: Server): vo
       if (data?.voice != null) callContextRaw.voice = data.voice
       if (data?.label != null) callContextRaw.label = data.label
       if (data?.note != null) callContextRaw.note = data.note
+      if (data?.formValues != null) callContextRaw.formValues = data.formValues
       const callContext =
         Object.keys(callContextRaw).length > 0 ? callContextRaw : undefined
 

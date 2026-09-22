@@ -11,6 +11,10 @@ const value = await this.context.storage.get("myKey")
 await this.context.storage.set("myKey", "myValue")
 await this.context.storage.set("tempKey", "value", 3600) // TTL in seconds
 
+// Compare-and-set (optimistic concurrency across dynos)
+const ok = await this.context.storage.compareAndSet("ledger", previousRaw, nextRaw)
+// `previousRaw` null means the key must be absent
+
 // Increment/Decrement
 const count = await this.context.storage.inc("counter")
 const count2 = await this.context.storage.dec("counter")

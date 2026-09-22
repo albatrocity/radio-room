@@ -321,6 +321,38 @@ describe("GameSessionService economy scale", () => {
     expect(value).toBe(45)
   })
 
+  test("lock on coin blocks credits and debits", async () => {
+    const { redis, context, service } = makeCtx()
+    ;(context as { systemEvents: { emit: ReturnType<typeof vi.fn> } }).systemEvents = { emit: vi.fn() }
+    await seedSession(redis)
+    const now = Date.now()
+    await redis.set(
+      userStateKey,
+      JSON.stringify({
+        userId,
+        attributes: { coin: 40, score: 0 },
+        modifiers: [
+          {
+            id: "m1",
+            name: "Frozen Assets",
+            source: "item-shops",
+            stackBehavior: "replace",
+            startAt: now - 1000,
+            endAt: now + 60_000,
+            effects: [{ type: "lock", target: "coin" }],
+          },
+        ],
+      } satisfies UserGameState),
+    )
+
+    await expect(service.addScore(roomId, userId, "coin", 10, "earn")).resolves.toBe(40)
+    await expect(
+      service.addScore(roomId, userId, "coin", -5, "spend", { intent: "exact" }),
+    ).resolves.toBe(40)
+    const stored = JSON.parse((await redis.get(userStateKey))!) as UserGameState
+    expect(stored.attributes.coin).toBe(40)
+  })
+
   test("setEconomyScale clamps and emits GAME_ECONOMY_SCALE_CHANGED", async () => {
     const { redis, context, service } = makeCtx()
     const emit = vi.fn()

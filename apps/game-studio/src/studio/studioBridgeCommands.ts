@@ -134,6 +134,7 @@ export type StudioBridgeCommand =
       question: string
       options: { label: string }[]
       settings?: { hideRunningTotal?: boolean }
+      durationMs?: number
     }
   | { kind: "DELETE_POLL"; roomId: string; userId: string; pollId: string }
 
@@ -339,6 +340,7 @@ export async function dispatchStudioBridgeCommand(
         question: cmd.question,
         options: cmd.options,
         hideRunningTotal: cmd.settings?.hideRunningTotal,
+        durationMs: cmd.durationMs,
       })
       if (!result.ok) {
         return { success: false, message: result.message }

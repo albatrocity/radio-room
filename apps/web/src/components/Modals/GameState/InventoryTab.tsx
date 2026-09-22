@@ -96,6 +96,7 @@ function InventoryRow({
     voice?: string
     label?: string
     note?: string
+    formValues?: Record<string, string | number>
   }) => {
     setPendingUse({ itemId: item.itemId })
     track(
@@ -128,6 +129,7 @@ function InventoryRow({
       ...(extra?.voice != null ? { voice: extra.voice } : {}),
       ...(extra?.label != null ? { label: extra.label } : {}),
       ...(extra?.note != null ? { note: extra.note } : {}),
+      ...(extra?.formValues != null ? { formValues: extra.formValues } : {}),
     })
     if (extra?.password != null) {
       refreshStoredArtifacts()
@@ -163,6 +165,7 @@ function InventoryRow({
         <InventoryUseButton
           itemId={item.itemId}
           requiresTarget={definition?.requiresTarget}
+          definition={definition}
           allItems={allItems}
           definitionMap={definitionMap}
           coinBalance={coinBalance}

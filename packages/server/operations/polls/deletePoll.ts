@@ -1,6 +1,7 @@
 import type { AppContext } from "@repo/types"
 import { findRoom, isRoomAdmin } from "../data"
 import {
+  cancelAutoClose,
   deletePollKeys,
   getActivePollId,
   getPoll,
@@ -55,6 +56,7 @@ export async function deletePoll({
   }
 
   await removePollFromIndex({ context, roomId, pollId })
+  await cancelAutoClose({ context, roomId, pollId })
   await deletePollKeys({ context, roomId, pollId })
 
   if (context.systemEvents) {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { LuPlus, LuTrash2 } from "react-icons/lu"
 import { POLL_OPTION_LIMITS } from "@repo/types/Poll"
 import {
@@ -19,6 +19,10 @@ import {
   setPollDraft,
   type PollDraft,
 } from "../../../lib/pollDraftPreference"
+import {
+  formatClosesPreview,
+  parseOptionalPollCloseTime,
+} from "../../../lib/parsePollCloseTime"
 import { toaster } from "../../ui/toaster"
 
 const SUBSCRIPTION_ID = "admin-poll-author"
@@ -40,6 +44,9 @@ function validateDraft(draft: PollDraft): string | null {
   if (labels.some((l) => l.length > 120)) {
     return "Each option must be 120 characters or fewer."
   }
+
+  const closes = parseOptionalPollCloseTime(draft.closesIn)
+  if (!closes.ok) return closes.error
 
   return null
 }
@@ -134,6 +141,18 @@ export default function PollAuthor({ roomId, hasActiveOpenPoll }: Props) {
     setDraft((prev) => ({ ...prev, hideRunningTotal: checked }))
   }, [])
 
+  const updateClosesIn = useCallback((closesIn: string) => {
+    setDraft((prev) => ({ ...prev, closesIn }))
+    setSubmitError(null)
+  }, [])
+
+  const closesPreview = useMemo(() => {
+    const parsed = parseOptionalPollCloseTime(draft.closesIn)
+    if (!parsed.ok) return { kind: "error" as const, text: parsed.error }
+    if (parsed.closesAt == null) return { kind: "idle" as const, text: null }
+    return { kind: "ok" as const, text: formatClosesPreview(parsed.closesAt) }
+  }, [draft.closesIn])
+
   const publish = useCallback(() => {
     if (!roomId || hasActiveOpenPoll) return
 
@@ -144,6 +163,11 @@ export default function PollAuthor({ roomId, hasActiveOpenPoll }: Props) {
     }
 
     const labels = draft.options.map((o) => o.trim()).filter(Boolean)
+    const closes = parseOptionalPollCloseTime(draft.closesIn)
+    if (!closes.ok) {
+      setSubmitError(closes.error)
+      return
+    }
 
     publishPendingRef.current = true
     setPublishing(true)
@@ -153,6 +177,7 @@ export default function PollAuthor({ roomId, hasActiveOpenPoll }: Props) {
       question: draft.question.trim(),
       options: labels.map((label) => ({ label })),
       settings: { hideRunningTotal: draft.hideRunningTotal },
+      ...(closes.durationMs != null ? { durationMs: closes.durationMs } : {}),
     })
   }, [roomId, hasActiveOpenPoll, draft])
 
@@ -213,6 +238,27 @@ export default function PollAuthor({ roomId, hasActiveOpenPoll }: Props) {
         <LuPlus />
         Add option
       </Button>
+
+      <Field.Root invalid={closesPreview.kind === "error" && !!draft.closesIn.trim()}>
+        <Field.Label>Closes</Field.Label>
+        <Input
+          value={draft.closesIn}
+          onChange={(e) => updateClosesIn(e.target.value)}
+          placeholder='e.g. "10m", "20 seconds", or "10:30pm"'
+          disabled={publishing || hasActiveOpenPoll}
+        />
+        {closesPreview.kind === "ok" && closesPreview.text && (
+          <Field.HelperText>{closesPreview.text}</Field.HelperText>
+        )}
+        {closesPreview.kind === "idle" && (
+          <Field.HelperText>
+            Optional. Leave blank for no deadline. Accepts durations or a clock time.
+          </Field.HelperText>
+        )}
+        {closesPreview.kind === "error" && draft.closesIn.trim() && (
+          <Field.ErrorText>{closesPreview.text}</Field.ErrorText>
+        )}
+      </Field.Root>
 
       <Field.Root>
         <HStack justify="space-between" align="center">

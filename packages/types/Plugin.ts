@@ -127,20 +127,29 @@ export interface PluginSchemaElement {
 }
 
 /**
- * Optional form fields collected in the admin UI before running a plugin action.
+ * Optional form fields collected before running a plugin action (admin UI) or
+ * before using an inventory item (`ItemDefinition.useForm`, ADR 0187).
  * For `user-select`, `options` are prepended to the live room user list.
  */
 export interface PluginActionFormField {
   name: string
   label: string
-  type: "select" | "user-select" | "string" | "textarea" | "combobox"
+  type: "select" | "user-select" | "string" | "textarea" | "combobox" | "number"
   required?: boolean
   /** Static options. For `user-select`, prepended before room users. For `combobox`, datalist suggestions. */
   options?: { value: string; label: string }[]
-  /** Placeholder for `string` / `textarea` / `combobox` fields. */
+  /** Placeholder for `string` / `textarea` / `combobox` / `number` fields. */
   placeholder?: string
+  /** Optional helper text shown below the control. */
+  helperText?: string
   /** Preferred rows for `textarea` (host may clamp). */
   rows?: number
+  /** Minimum value for `number` fields (inclusive). */
+  min?: number
+  /** Maximum value for `number` fields (inclusive). */
+  max?: number
+  /** When true, `number` fields must be integers. */
+  integer?: boolean
   /**
    * When the action form opens, seed this field from `seedFromField` in config `values`
    * (e.g. `autoShopIntervalMs` → minutes via `seedDivide: 60000`).
@@ -324,6 +333,16 @@ export interface PluginSchemasResponse {
 export interface PluginStorage {
   get(key: string): Promise<string | null>
   set(key: string, value: string, ttl?: number): Promise<void>
+  /**
+   * Atomically set `key` to `value` only if the current value equals `expected`
+   * (`null` means the key must be absent). Returns true when the write happened.
+   */
+  compareAndSet(
+    key: string,
+    expected: string | null,
+    value: string,
+    ttl?: number,
+  ): Promise<boolean>
   inc(key: string, by?: number): Promise<number>
   dec(key: string, by?: number): Promise<number>
   del(key: string): Promise<void>
@@ -474,6 +493,10 @@ export interface PluginAPI {
     question: string
     options: { label: string }[]
     settings?: { hideRunningTotal?: boolean }
+    /** Absolute epoch ms deadline (same process clock). Prefer durationMs from clients. */
+    closesAt?: number | null
+    /** Relative duration from server now (ADR 0189). */
+    durationMs?: number | null
     announce?: boolean
   }): Promise<
     | { ok: true; poll: Poll }

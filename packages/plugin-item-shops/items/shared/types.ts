@@ -10,6 +10,7 @@ import type {
   PluginContext,
   GameSessionPluginAPI,
 } from "@repo/types"
+import type { KickstarterCampaign, KickstarterPublicState } from "../../campaigns/kickstarter"
 
 /**
  * Dependencies passed into every item-use behavior (room API, game API, config snapshot).
@@ -35,6 +36,10 @@ export type ItemShopsBehaviorDeps = {
    * (ADR 0183). Absent when a handler is called outside the plugin; guard before use.
    */
   shopAccess?: ItemShopsShopAccess
+  /**
+   * Kickstarter campaign lifecycle (ADR 0188). Absent outside the plugin; guard before use.
+   */
+  campaignAccess?: ItemShopsCampaignAccess
 }
 
 /**
@@ -51,6 +56,19 @@ export type ItemShopsShopAccess = {
   deleteState: (shopId: string, key: string) => void
   getTimer: (shopId: string, id: string) => { id: string } | null
   clearTimer: (shopId: string, id: string) => boolean
+}
+
+export type ItemShopsCampaignAccess = {
+  startCampaign: (params: {
+    ownerUserId: string
+    ownerName: string
+    title: string
+    rewards: string
+    goal: number
+  }) => Promise<
+    | { ok: true; campaign: KickstarterCampaign; publicState: KickstarterPublicState }
+    | { ok: false; message: string }
+  >
 }
 
 export type ItemUseHandler = (

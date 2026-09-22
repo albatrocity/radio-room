@@ -31,11 +31,32 @@ function resultsKey(roomId: string, pollId: string) {
   return `room:${roomId}:poll:${pollId}:results`
 }
 
+/** Global sorted set of open polls scheduled to auto-close (ADR 0189). */
+export const POLLS_CLOSING_KEY = "polls:closing"
+
+export function autoCloseMember(roomId: string, pollId: string): string {
+  return `${roomId}:${pollId}`
+}
+
+export function parseAutoCloseMember(
+  member: string,
+): { roomId: string; pollId: string } | null {
+  const idx = member.indexOf(":")
+  if (idx <= 0 || idx === member.length - 1) return null
+  return { roomId: member.slice(0, idx), pollId: member.slice(idx + 1) }
+}
+
 // =============================================================================
 // Poll hash serialization
 // =============================================================================
 
-function pollToHashFields(poll: Poll): Record<string, string> {
+/** Internal poll record: public Poll plus create-time announce flag for auto-close. */
+export type PollRecord = Poll & {
+  /** Whether close (including auto-close) should post chat. Not broadcast to clients. */
+  announceClose: boolean
+}
+
+function pollToHashFields(poll: Poll, announceClose = true): Record<string, string> {
   return {
     id: poll.id,
     roomId: poll.roomId,
@@ -48,10 +69,11 @@ function pollToHashFields(poll: Poll): Record<string, string> {
     publishedAt: String(poll.publishedAt),
     closedAt: poll.closedAt === null ? "" : String(poll.closedAt),
     closesAt: poll.closesAt === null ? "" : String(poll.closesAt),
+    announceClose: announceClose ? "1" : "0",
   }
 }
 
-function hashFieldsToPoll(raw: Record<string, string>): Poll | null {
+function hashFieldsToPollRecord(raw: Record<string, string>): PollRecord | null {
   if (!raw.id || !raw.roomId || !raw.question || !raw.status) {
     return null
   }
@@ -70,7 +92,11 @@ function hashFieldsToPoll(raw: Record<string, string>): Poll | null {
       closedAt: raw.closedAt === "" || raw.closedAt === undefined ? null : Number(raw.closedAt),
       closesAt: raw.closesAt === "" || raw.closesAt === undefined ? null : Number(raw.closesAt),
     })
-    return parsed.success ? parsed.data : null
+    if (!parsed.success) return null
+    return {
+      ...parsed.data,
+      announceClose: raw.announceClose !== "0",
+    }
   } catch {
     return null
   }
@@ -162,11 +188,33 @@ export async function clearActivePollId({
 export async function writePoll({
   context,
   poll,
+  announceClose = true,
 }: {
   context: AppContext
   poll: Poll
+  /** Create-time announce flag reused on auto-close (ADR 0189). */
+  announceClose?: boolean
 }): Promise<void> {
-  await context.redis.pubClient.hSet(pollKey(poll.roomId, poll.id), pollToHashFields(poll))
+  await context.redis.pubClient.hSet(
+    pollKey(poll.roomId, poll.id),
+    pollToHashFields(poll, announceClose),
+  )
+}
+
+export async function getPollRecord({
+  context,
+  roomId,
+  pollId,
+}: {
+  context: AppContext
+  roomId: string
+  pollId: string
+}): Promise<PollRecord | null> {
+  const raw = await context.redis.pubClient.hGetAll(pollKey(roomId, pollId))
+  if (!raw || Object.keys(raw).length === 0) {
+    return null
+  }
+  return hashFieldsToPollRecord(raw)
 }
 
 export async function getPoll({
@@ -178,11 +226,10 @@ export async function getPoll({
   roomId: string
   pollId: string
 }): Promise<Poll | null> {
-  const raw = await context.redis.pubClient.hGetAll(pollKey(roomId, pollId))
-  if (!raw || Object.keys(raw).length === 0) {
-    return null
-  }
-  return hashFieldsToPoll(raw)
+  const record = await getPollRecord({ context, roomId, pollId })
+  if (!record) return null
+  const { announceClose: _announceClose, ...poll } = record
+  return poll
 }
 
 export async function deletePollKeys({
@@ -199,6 +246,84 @@ export async function deletePollKeys({
     context.redis.pubClient.unlink(votesKey(roomId, pollId)),
     context.redis.pubClient.unlink(resultsKey(roomId, pollId)),
   ])
+}
+
+// =============================================================================
+// Auto-close schedule (ADR 0189)
+// =============================================================================
+
+/**
+ * Claim due auto-close members in one Redis round-trip.
+ * Marker: CLAIM_DUE_AUTO_CLOSES — MemoryRedisClient.eval recognizes this script.
+ * ARGV[1] = now (score upper bound). Returns members successfully ZREM'd (claim won).
+ */
+const CLAIM_DUE_AUTO_CLOSES_LUA = `
+-- CLAIM_DUE_AUTO_CLOSES
+local members = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
+local claimed = {}
+for _, member in ipairs(members) do
+  if redis.call('ZREM', KEYS[1], member) == 1 then
+    table.insert(claimed, member)
+  end
+end
+return claimed
+`
+
+export async function scheduleAutoClose({
+  context,
+  roomId,
+  pollId,
+  closesAt,
+}: {
+  context: AppContext
+  roomId: string
+  pollId: string
+  closesAt: number
+}): Promise<void> {
+  await context.redis.pubClient.zAdd(POLLS_CLOSING_KEY, {
+    score: closesAt,
+    value: autoCloseMember(roomId, pollId),
+  })
+}
+
+export async function cancelAutoClose({
+  context,
+  roomId,
+  pollId,
+}: {
+  context: AppContext
+  roomId: string
+  pollId: string
+}): Promise<void> {
+  await context.redis.pubClient.zRem(POLLS_CLOSING_KEY, autoCloseMember(roomId, pollId))
+}
+
+/**
+ * Claim due auto-close members. Empty set short-circuits with ZCOUNT;
+ * non-empty claims via atomic Lua so multi-dyno ZREM races stay one RTT.
+ */
+export async function claimDueAutoCloses({
+  context,
+  now = Date.now(),
+}: {
+  context: AppContext
+  now?: number
+}): Promise<{ roomId: string; pollId: string }[]> {
+  const client = context.redis.pubClient
+  const dueCount = await client.zCount(POLLS_CLOSING_KEY, "-inf", now)
+  if (dueCount === 0) return []
+
+  const raw = (await client.eval(CLAIM_DUE_AUTO_CLOSES_LUA, {
+    keys: [POLLS_CLOSING_KEY],
+    arguments: [String(now)],
+  })) as string[]
+
+  const claimed: { roomId: string; pollId: string }[] = []
+  for (const member of raw ?? []) {
+    const parsed = parseAutoCloseMember(member)
+    if (parsed) claimed.push(parsed)
+  }
+  return claimed
 }
 
 // =============================================================================
@@ -275,6 +400,11 @@ export async function tryCastVote({
   }
 
   if (poll.status !== "open") {
+    return { ok: false, reason: "POLL_CLOSED" }
+  }
+
+  // Cover the gap between closesAt and the auto-close sweep (ADR 0189).
+  if (poll.closesAt != null && Date.now() >= poll.closesAt) {
     return { ok: false, reason: "POLL_CLOSED" }
   }
 

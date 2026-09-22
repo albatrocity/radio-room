@@ -3,6 +3,7 @@ import type {
   Emoji,
   PluginActionInitiator,
   Poll,
+  PollCloseReason,
   ReactionSubject,
   User,
 } from "@repo/types"
@@ -802,16 +803,41 @@ export function resetStudioSandbox(): void {
 
 const STUDIO_POLL_ADMIN_ID = "studio-admin"
 
+/** Clears when the active poll is closed or replaced (ADR 0189 studio parity). */
+let studioPollAutoCloseTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearStudioPollAutoClose(): void {
+  if (studioPollAutoCloseTimer != null) {
+    clearTimeout(studioPollAutoCloseTimer)
+    studioPollAutoCloseTimer = null
+  }
+}
+
+function scheduleStudioPollAutoClose(poll: Poll): void {
+  clearStudioPollAutoClose()
+  if (poll.closesAt == null) return
+  const pollId = poll.id
+  const delay = Math.max(1, poll.closesAt - Date.now())
+  studioPollAutoCloseTimer = setTimeout(() => {
+    studioPollAutoCloseTimer = null
+    const { room } = getStudio()
+    if (room.activePoll?.id !== pollId || room.activePoll.status !== "open") return
+    closeStudioPoll({ reason: "expired" })
+  }, delay)
+}
+
 export type CreateStudioPollInput = {
   question: string
   options: { label: string }[]
   hideRunningTotal?: boolean
+  durationMs?: number
 }
 
 export function createStudioPoll({
   question,
   options,
   hideRunningTotal = false,
+  durationMs,
 }: CreateStudioPollInput): { ok: true; poll: Poll } | { ok: false; message: string } {
   const { room } = getStudio()
   const trimmedQuestion = question.trim()
@@ -841,6 +867,17 @@ export function createStudioPoll({
   }
 
   const now = Date.now()
+  let closesAt: number | null = null
+  if (durationMs != null) {
+    if (!Number.isFinite(durationMs) || durationMs < 5_000) {
+      return { ok: false, message: "Poll duration must be at least 5 seconds." }
+    }
+    if (durationMs > 24 * 60 * 60_000) {
+      return { ok: false, message: "Poll duration must be at most 24 hours." }
+    }
+    closesAt = now + durationMs
+  }
+
   const poll: Poll = {
     id: newId(),
     roomId: room.roomId,
@@ -852,15 +889,19 @@ export function createStudioPoll({
     createdBy: STUDIO_POLL_ADMIN_ID,
     publishedAt: now,
     closedAt: null,
-    closesAt: null,
+    closesAt,
   }
 
   room.setActivePoll(poll)
+  scheduleStudioPollAutoClose(poll)
   room.logEvent("POLL_PUBLISHED", { roomId: room.roomId, poll })
   return { ok: true, poll }
 }
 
-export function closeStudioPoll(): { ok: true; pollId: string } | { ok: false; message: string } {
+export function closeStudioPoll(opts?: {
+  reason?: PollCloseReason
+}): { ok: true; pollId: string } | { ok: false; message: string } {
+  clearStudioPollAutoClose()
   const { room } = getStudio()
   const entry = room.closePoll()
   if (!entry) {
@@ -871,6 +912,7 @@ export function closeStudioPoll(): { ok: true; pollId: string } | { ok: false; m
     roomId: room.roomId,
     poll: entry.poll,
     results: entry.results,
+    reason: opts?.reason ?? "manual",
   })
   return { ok: true, pollId: entry.poll.id }
 }
@@ -881,10 +923,12 @@ export function deleteStudioPoll(pollId: string): { ok: true } | { ok: false; me
     return { ok: false, message: "Poll id is required." }
   }
 
+  const wasActive = room.activePoll?.id === pollId
   const removed = room.deletePoll(pollId)
   if (!removed) {
     return { ok: false, message: "Poll not found." }
   }
+  if (wasActive) clearStudioPollAutoClose()
 
   room.logEvent("POLL_DELETED", { roomId: room.roomId, pollId })
   return { ok: true }
@@ -900,6 +944,11 @@ export function castStudioPollVote(userId: string, optionId: string): CastStudio
 
   if (!poll || poll.status !== "open") {
     return { ok: false, reason: poll ? "POLL_CLOSED" : "POLL_NOT_FOUND" }
+  }
+
+  // Cover the gap between closesAt and the auto-close timer (ADR 0189).
+  if (poll.closesAt != null && Date.now() >= poll.closesAt) {
+    return { ok: false, reason: "POLL_CLOSED" }
   }
 
   if (!poll.options.some((o) => o.id === optionId)) {

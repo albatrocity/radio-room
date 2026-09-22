@@ -21,6 +21,7 @@ import { BingoCardTemplateComponent } from "./BingoCardComponent"
 import { SliderTemplateComponent } from "./SliderComponent"
 import { QueueThemeBriefCardTemplateComponent } from "./QueueThemeBriefCard"
 import { LyricHeroCardTemplateComponent } from "./LyricHeroCard"
+import { KickstarterCampaignCardTemplateComponent } from "./KickstarterCampaignCard"
 
 /**
  * Strongly-typed map of built-in template component names to React components.
@@ -52,6 +53,7 @@ export const TEMPLATE_COMPONENT_MAP: {
   "bingo-card": BingoCardTemplateComponent,
   "queue-theme-brief-card": QueueThemeBriefCardTemplateComponent,
   "lyric-hero-card": LyricHeroCardTemplateComponent,
+  "kickstarter-campaign-card": KickstarterCampaignCardTemplateComponent,
   slider: SliderTemplateComponent,
 }
 

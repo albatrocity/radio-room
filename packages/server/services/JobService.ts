@@ -62,7 +62,9 @@ export class JobService {
         job.cron,
         async () => {
           try {
-            console.log(`Running job: ${job.name}`)
+            if (!job.quiet) {
+              console.log(`Running job: ${job.name}`)
+            }
             await job.handler({ api: this.api, context: this.context })
           } catch (error) {
             console.error(`Error running job ${job.name}:`, error)

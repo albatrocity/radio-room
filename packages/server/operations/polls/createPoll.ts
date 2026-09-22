@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto"
 import type { AppContext, Poll } from "@repo/types"
-import { POLL_OPTION_LIMITS } from "@repo/types"
+import { POLL_CLOSE_DURATION_MS, POLL_OPTION_LIMITS } from "@repo/types"
 import { findRoom, isRoomAdmin } from "../data"
 import {
   addPollToIndex,
   getActivePollId,
+  scheduleAutoClose,
   setActivePollId,
   writePoll,
 } from "../data/polls"
@@ -19,10 +20,17 @@ export type CreatePollInput = {
   options: { label: string }[]
   settings?: { hideRunningTotal?: boolean }
   /**
+   * Absolute epoch ms deadline. Prefer `durationMs` from clients (clock skew).
+   * Plugins on the same process may pass either.
+   */
+  closesAt?: number | null
+  /** Relative duration from server now; preferred for socket/admin callers (ADR 0189). */
+  durationMs?: number | null
+  /**
    * When set, skip the room-admin gate (ADR 0152). Socket/admin callers omit this.
    */
   source?: { pluginName: string }
-  /** When false, skip “New poll started” chat. Defaults to true. */
+  /** When false, skip “New poll started” chat. Defaults to true. Also reused on auto-close. */
   announce?: boolean
 }
 
@@ -31,6 +39,52 @@ export type CreatePollResult =
   | PollOperationFailure
   | { ok: false; error: { status: 409; error: string; message: string } }
 
+function resolveClosesAt(params: {
+  closesAt?: number | null
+  durationMs?: number | null
+  now: number
+}): { ok: true; closesAt: number | null } | { ok: false; message: string } {
+  const { closesAt, durationMs, now } = params
+
+  if (durationMs != null) {
+    if (!Number.isFinite(durationMs) || durationMs < POLL_CLOSE_DURATION_MS.min) {
+      return {
+        ok: false,
+        message: `Poll duration must be at least ${POLL_CLOSE_DURATION_MS.min / 1000} seconds.`,
+      }
+    }
+    if (durationMs > POLL_CLOSE_DURATION_MS.max) {
+      return {
+        ok: false,
+        message: `Poll duration must be at most ${POLL_CLOSE_DURATION_MS.max / 3_600_000} hours.`,
+      }
+    }
+    return { ok: true, closesAt: now + durationMs }
+  }
+
+  if (closesAt != null) {
+    if (!Number.isFinite(closesAt)) {
+      return { ok: false, message: "Invalid closesAt." }
+    }
+    const duration = closesAt - now
+    if (duration < POLL_CLOSE_DURATION_MS.min) {
+      return {
+        ok: false,
+        message: `Poll duration must be at least ${POLL_CLOSE_DURATION_MS.min / 1000} seconds.`,
+      }
+    }
+    if (duration > POLL_CLOSE_DURATION_MS.max) {
+      return {
+        ok: false,
+        message: `Poll duration must be at most ${POLL_CLOSE_DURATION_MS.max / 3_600_000} hours.`,
+      }
+    }
+    return { ok: true, closesAt }
+  }
+
+  return { ok: true, closesAt: null }
+}
+
 export async function createPoll({
   context,
   roomId,
@@ -38,6 +92,8 @@ export async function createPoll({
   question,
   options,
   settings,
+  closesAt: closesAtInput,
+  durationMs,
   source,
   announce = true,
 }: CreatePollInput): Promise<CreatePollResult> {
@@ -67,6 +123,15 @@ export async function createPoll({
     }
   }
 
+  const now = Date.now()
+  const resolved = resolveClosesAt({ closesAt: closesAtInput, durationMs, now })
+  if (!resolved.ok) {
+    return {
+      ok: false,
+      error: { status: 400, error: "Bad Request", message: resolved.message },
+    }
+  }
+
   const activePollId = await getActivePollId({ context, roomId })
   if (activePollId) {
     return {
@@ -79,7 +144,6 @@ export async function createPoll({
     }
   }
 
-  const now = Date.now()
   const poll: Poll = {
     id: randomUUID(),
     roomId,
@@ -91,12 +155,21 @@ export async function createPoll({
     createdBy: userId,
     publishedAt: now,
     closedAt: null,
-    closesAt: null,
+    closesAt: resolved.closesAt,
   }
 
-  await writePoll({ context, poll })
+  await writePoll({ context, poll, announceClose: announce })
   await setActivePollId({ context, roomId, pollId: poll.id })
   await addPollToIndex({ context, roomId, pollId: poll.id, publishedAt: poll.publishedAt })
+
+  if (poll.closesAt != null) {
+    await scheduleAutoClose({
+      context,
+      roomId,
+      pollId: poll.id,
+      closesAt: poll.closesAt,
+    })
+  }
 
   if (context.systemEvents) {
     await context.systemEvents.emit(roomId, "POLL_PUBLISHED", { roomId, poll })

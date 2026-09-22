@@ -32,6 +32,17 @@ export function createMockPluginStorage(
       store().kv.set(key, value)
       touch()
     },
+    async compareAndSet(
+      key: string,
+      expected: string | null,
+      value: string,
+    ): Promise<boolean> {
+      const current = store().kv.get(key) ?? null
+      if (current !== expected) return false
+      store().kv.set(key, value)
+      touch()
+      return true
+    },
     async inc(): Promise<number> {
       throw new Error("MockPluginStorage.inc not implemented")
     },

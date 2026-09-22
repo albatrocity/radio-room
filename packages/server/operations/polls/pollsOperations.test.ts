@@ -141,6 +141,40 @@ describe("poll operations", () => {
       )
       expect(await client.get("room:room-1:polls:active_id")).toBeTruthy()
     })
+
+    it("schedules auto-close when durationMs is set", async () => {
+      const { POLLS_CLOSING_KEY, autoCloseMember } = await import("../data/polls")
+      const before = Date.now()
+      const result = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Timed?",
+        options: [{ label: "A" }, { label: "B" }],
+        durationMs: 60_000,
+      })
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.poll.closesAt).toBeGreaterThanOrEqual(before + 60_000)
+      expect(result.poll.closesAt).toBeLessThanOrEqual(Date.now() + 60_000)
+      const due = await client.zRange(POLLS_CLOSING_KEY, "-inf", "+inf", { BY: "SCORE" })
+      expect(due).toContain(autoCloseMember("room-1", result.poll.id))
+    })
+
+    it("rejects durationMs below the minimum", async () => {
+      const result = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Too short?",
+        options: [{ label: "A" }, { label: "B" }],
+        durationMs: 1000,
+      })
+      expect(result.ok).toBe(false)
+      if (!result.ok && "error" in result) {
+        expect(result.error.status).toBe(400)
+      }
+    })
   })
 
   describe("castVote", () => {
@@ -267,6 +301,148 @@ describe("poll operations", () => {
       expect(emit).toHaveBeenCalledWith("room-1", "POLL_CLOSED", expect.any(Object))
       expect(emit.mock.calls.some((c) => c[1] === "MESSAGE_RECEIVED")).toBe(false)
       expect(m.isRoomAdmin).not.toHaveBeenCalled()
+    })
+
+    it("cancels the auto-close schedule on manual close", async () => {
+      const { POLLS_CLOSING_KEY, autoCloseMember } = await import("../data/polls")
+      const created = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Timed?",
+        options: [{ label: "A" }, { label: "B" }],
+        durationMs: 60_000,
+      })
+      if (!created.ok) throw new Error("setup failed")
+
+      await closePoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        pollId: created.poll.id,
+      })
+
+      const remaining = await client.zRange(POLLS_CLOSING_KEY, "-inf", "+inf", { BY: "SCORE" })
+      expect(remaining).not.toContain(autoCloseMember("room-1", created.poll.id))
+    })
+
+    it("emits reason manual by default", async () => {
+      const created = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Q?",
+        options: [{ label: "A" }, { label: "B" }],
+      })
+      if (!created.ok) throw new Error("setup failed")
+      emit.mockClear()
+
+      await closePoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        pollId: created.poll.id,
+      })
+
+      expect(emit).toHaveBeenCalledWith(
+        "room-1",
+        "POLL_CLOSED",
+        expect.objectContaining({ reason: "manual" }),
+      )
+    })
+  })
+
+  describe("tryCastVote closesAt cutoff", () => {
+    it("rejects votes at or after closesAt", async () => {
+      const { tryCastVote } = await import("../data/polls")
+      const created = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Expiring?",
+        options: [{ label: "A" }, { label: "B" }],
+        durationMs: 5_000,
+      })
+      if (!created.ok) throw new Error("setup failed")
+
+      // Force closesAt into the past without closing
+      const raw = await client.hGetAll(`room:room-1:poll:${created.poll.id}`)
+      await client.hSet(`room:room-1:poll:${created.poll.id}`, {
+        ...raw,
+        closesAt: String(Date.now() - 1),
+      })
+
+      const result = await tryCastVote({
+        context,
+        roomId: "room-1",
+        pollId: created.poll.id,
+        userId: "u1",
+        optionId: created.poll.options[0]!.id,
+      })
+      expect(result).toEqual({ ok: false, reason: "POLL_CLOSED" })
+    })
+  })
+
+  describe("sweepExpiredPolls", () => {
+    it("closes due polls once with reason expired and honors announceClose", async () => {
+      const { sweepExpiredPolls } = await import("./sweepExpiredPolls")
+      const { POLLS_CLOSING_KEY, autoCloseMember } = await import("../data/polls")
+
+      const silent = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Silent timed?",
+        options: [{ label: "A" }, { label: "B" }],
+        durationMs: 5_000,
+        announce: false,
+      })
+      if (!silent.ok) throw new Error("setup failed")
+
+      // Make it due
+      await client.zAdd(POLLS_CLOSING_KEY, {
+        score: Date.now() - 1,
+        value: autoCloseMember("room-1", silent.poll.id),
+      })
+      emit.mockClear()
+
+      const first = await sweepExpiredPolls({ context })
+      expect(first.closed).toBe(1)
+
+      expect(emit).toHaveBeenCalledWith(
+        "room-1",
+        "POLL_CLOSED",
+        expect.objectContaining({ reason: "expired" }),
+      )
+      expect(emit.mock.calls.some((c) => c[1] === "MESSAGE_RECEIVED")).toBe(false)
+
+      const second = await sweepExpiredPolls({ context })
+      expect(second.closed).toBe(0)
+    })
+
+    it("announces when announceClose is true", async () => {
+      const { sweepExpiredPolls } = await import("./sweepExpiredPolls")
+      const { POLLS_CLOSING_KEY, autoCloseMember } = await import("../data/polls")
+
+      const created = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Loud timed?",
+        options: [{ label: "A" }, { label: "B" }],
+        durationMs: 5_000,
+        announce: true,
+      })
+      if (!created.ok) throw new Error("setup failed")
+
+      await client.zAdd(POLLS_CLOSING_KEY, {
+        score: Date.now() - 1,
+        value: autoCloseMember("room-1", created.poll.id),
+      })
+      emit.mockClear()
+
+      await sweepExpiredPolls({ context })
+      expect(emit.mock.calls.some((c) => c[1] === "MESSAGE_RECEIVED")).toBe(true)
     })
   })
 

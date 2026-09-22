@@ -29,7 +29,7 @@ import type { PresentedIdentityGrant } from "./PresentedIdentity"
 import type { InventoryAcquisitionSource, InventoryItem, ItemUseResult } from "./Inventory"
 import type { GiftOffer } from "./Gift"
 import type { TradeInvite, TradeSession } from "./Trade"
-import type { Poll, PollResults } from "./Poll"
+import type { Poll, PollCloseReason, PollResults } from "./Poll"
 import type { FeedbackTopic } from "./Feedback"
 
 /**
@@ -503,7 +503,13 @@ export type SystemEventHandlers = {
     totalVotes: number | null
   }) => Promise<void> | void
 
-  POLL_CLOSED: (data: { roomId: string; poll: Poll; results: PollResults }) => Promise<void> | void
+  POLL_CLOSED: (data: {
+    roomId: string
+    poll: Poll
+    results: PollResults
+    /** How the poll was closed (ADR 0189). Defaults to "manual" for older emitters. */
+    reason?: PollCloseReason
+  }) => Promise<void> | void
 
   POLL_DELETED: (data: { roomId: string; pollId: string }) => Promise<void> | void
 

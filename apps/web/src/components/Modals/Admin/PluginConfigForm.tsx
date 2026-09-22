@@ -3,15 +3,11 @@ import {
   Button,
   CloseButton,
   Dialog,
-  Field,
   HStack,
-  Input,
-  NativeSelect,
   Popover,
   Portal,
   Stack,
   Text,
-  Textarea,
   VStack,
 } from "@chakra-ui/react"
 import { PluginConfigForm as SharedPluginConfigForm } from "@repo/plugin-config-ui"
@@ -19,12 +15,16 @@ import type { PluginConfigFormProps as SharedProps } from "@repo/plugin-config-u
 import type {
   ConfigImportMode,
   PluginActionElement,
-  PluginActionFormField,
 } from "@repo/types/Plugin"
 import { emitToSocket, subscribeById, unsubscribeById } from "../../../actors/socketActor"
 import { popoverInScrollContainer } from "../../../lib/popoverInScrollContainer"
 import { useUsers } from "../../../hooks/useActors"
-import type { User } from "../../../types/User"
+import {
+  buildPluginFormState,
+  collectPluginFormValues,
+  emptyPluginFormState,
+  PluginFormFields,
+} from "../../PluginFormFields"
 import { toaster } from "../../ui/toaster"
 
 interface PluginConfigFormProps {
@@ -34,36 +34,6 @@ interface PluginConfigFormProps {
   allValues?: Record<string, unknown>
   pluginName?: string
   readOnlyFields?: string[]
-}
-
-function emptyPluginActionFormState(fields: PluginActionFormField[]): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const f of fields) out[f.name] = ""
-  return out
-}
-
-function buildActionFormState(
-  fields: PluginActionFormField[],
-  allValues: Record<string, unknown>,
-): Record<string, string> {
-  const out = emptyPluginActionFormState(fields)
-  for (const f of fields) {
-    if (!f.seedFromField) continue
-    const raw = allValues[f.seedFromField]
-    if (typeof raw !== "number" || !Number.isFinite(raw)) continue
-    const divide = f.seedDivide ?? 1
-    out[f.name] = String(Math.round(raw / divide))
-  }
-  return out
-}
-
-function collectSelectOptions(field: PluginActionFormField, users: User[]) {
-  const staticOpts = field.options ?? []
-  const userOpts =
-    field.type === "user-select"
-      ? users.map((u) => ({ value: u.userId, label: u.username ?? u.userId }))
-      : []
-  return [...staticOpts, ...userOpts]
 }
 
 function modeButtonLabel(mode: ConfigImportMode, itemNoun: string): string {
@@ -161,22 +131,16 @@ function ActionButton({
   )
 
   const collectFormParams = (): Record<string, unknown> | null => {
-    const fields = formFields ?? []
-    const params: Record<string, unknown> = {}
-    for (const f of fields) {
-      const raw = formValues[f.name] ?? ""
-      const v = typeof raw === "string" ? raw.trim() : String(raw)
-      if (f.required && !v) {
-        toaster.create({
-          title: "Missing information",
-          description: `Please fill in "${f.label}".`,
-          type: "error",
-        })
-        return null
-      }
-      params[f.name] = typeof raw === "string" ? raw : v
+    const collected = collectPluginFormValues(formFields ?? [], formValues)
+    if (!collected.ok) {
+      toaster.create({
+        title: collected.error.title,
+        description: collected.error.description,
+        type: "error",
+      })
+      return null
     }
-    return params
+    return collected.values
   }
 
   const submitForm = (mode?: ConfigImportMode) => {
@@ -192,7 +156,7 @@ function ActionButton({
     }
 
     runAction(params, () => {
-      setFormValues(emptyPluginActionFormState(formFields ?? []))
+      setFormValues(emptyPluginFormState(formFields ?? []))
       setConfirmReplace(false)
     })
   }
@@ -205,66 +169,17 @@ function ActionButton({
   const itemNoun = element.configImport?.itemNoun?.trim() || "items"
   const importHelpText = element.configImport?.helpText?.trim()
 
-  const renderFormFields = () =>
-    (formFields ?? []).map((field) => (
-      <Field.Root key={field.name}>
-        <Field.Label fontSize="sm">{field.label}</Field.Label>
-        {field.type === "textarea" ? (
-          <Textarea
-            size="sm"
-            rows={field.rows ?? 14}
-            placeholder={field.placeholder}
-            fontFamily="mono"
-            value={formValues[field.name] ?? ""}
-            onChange={(e) => {
-              setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
-              setConfirmReplace(false)
-            }}
-          />
-        ) : field.type === "string" ? (
-          <Input
-            size="sm"
-            placeholder={field.placeholder}
-            value={formValues[field.name] ?? ""}
-            onChange={(e) => setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
-          />
-        ) : field.type === "combobox" ? (
-          <>
-            <Input
-              size="sm"
-              list={`${field.name}-options`}
-              placeholder={field.placeholder}
-              value={formValues[field.name] ?? ""}
-              onChange={(e) =>
-                setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))
-              }
-            />
-            <datalist id={`${field.name}-options`}>
-              {(field.options ?? []).map((o) => (
-                <option key={`${field.name}-${o.value}`} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </datalist>
-          </>
-        ) : (
-          <NativeSelect.Root size="sm">
-            <NativeSelect.Field
-              value={formValues[field.name] ?? ""}
-              onChange={(e) => setFormValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
-            >
-              <option value="">Select…</option>
-              {collectSelectOptions(field, users).map((o) => (
-                <option key={`${field.name}-${o.value}`} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        )}
-      </Field.Root>
-    ))
+  const renderFormFields = () => (
+    <PluginFormFields
+      fields={formFields ?? []}
+      values={formValues}
+      users={users}
+      onChange={(name, value) => {
+        setFormValues((prev) => ({ ...prev, [name]: value }))
+        setConfirmReplace(false)
+      }}
+    />
+  )
 
   if (hasForm && formFields && useDialog) {
     return (
@@ -274,7 +189,7 @@ function ActionButton({
           colorPalette={buttonColorPalette}
           loading={isLoading}
           onClick={() => {
-            setFormValues(buildActionFormState(formFields, allValues))
+            setFormValues(buildPluginFormState(formFields, allValues))
             setConfirmReplace(false)
             setFormPopoverOpen(true)
           }}
@@ -362,7 +277,7 @@ function ActionButton({
         onOpenChange={(e) => {
           setFormPopoverOpen(e.open)
           if (e.open && formFields?.length) {
-            setFormValues(buildActionFormState(formFields, allValues))
+            setFormValues(buildPluginFormState(formFields, allValues))
           }
         }}
       >

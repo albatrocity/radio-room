@@ -19,6 +19,7 @@ export const SPY_WORLD_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.xRay.shortId, coinValue: 60 },
     { shortId: items.burnerPhone.shortId, coinValue: 60 },
     { shortId: items.callScreener.shortId, coinValue: 30 },
+    { shortId: items.kickstarterAccount.shortId, coinValue: 50 },
     { shortId: items.lockPick.shortId, coinValue: 120 },
     { shortId: items.locksmithsKit.shortId, coinValue: 250 },
   ],

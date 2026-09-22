@@ -12,12 +12,15 @@ export type PollDraft = {
   question: string
   options: string[]
   hideRunningTotal: boolean
+  /** Raw "Closes" text; re-parsed at publish so relative durations stay relative. */
+  closesIn: string
 }
 
 export const EMPTY_POLL_DRAFT: PollDraft = {
   question: "",
   options: ["", ""],
   hideRunningTotal: false,
+  closesIn: "",
 }
 
 const PREFIX = "radioroom:poll-draft"
@@ -67,6 +70,7 @@ function normalizeDraft(raw: unknown): PollDraft | null {
     question: d.question,
     options: [...d.options],
     hideRunningTotal: d.hideRunningTotal,
+    closesIn: typeof d.closesIn === "string" ? d.closesIn : "",
   }
 }
 
@@ -84,7 +88,8 @@ export function setPollDraft(roomId: string, draft: PollDraft) {
   const isEmpty =
     !draft.question.trim() &&
     draft.options.every((o) => !o.trim()) &&
-    !draft.hideRunningTotal
+    !draft.hideRunningTotal &&
+    !draft.closesIn.trim()
 
   if (isEmpty) {
     clearPollDraft(roomId)

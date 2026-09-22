@@ -207,131 +207,156 @@ function PollCard() {
   const votedLabel = myVote ? poll.options.find((o) => o.id === myVote.optionId)?.label : undefined
 
   if (displayState === "collapsed") {
+    const showCloseBar = poll.status === "open" && poll.closesAt != null
     return (
-      <Box position="sticky" top={0} zIndex={3} px={2} pt={2}>
-        <HStack
-          px={3}
-          py={2}
+      <Box position="sticky" top={0} zIndex={3} px={3} pt={2}>
+        <Box
           borderWidth="1px"
           borderRadius="lg"
           bg="bg"
           shadow="sm"
-          cursor="pointer"
-          onClick={() => send({ type: "EXPAND" })}
+          overflow="hidden"
           data-poll-card
         >
-          <Text fontSize="sm" flex={1}>
-            Poll: {truncateQuestion(poll.question)}
-            {isRevealing ? " · Results" : ""}
-            {!isRevealing && totalVotes != null ? ` · ${totalVotes} votes` : ""}
-            {!isRevealing && votedLabel ? " · You voted ✓" : ""}
-          </Text>
-          <IconButton
-            aria-label="Expand poll"
-            size="xs"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation()
-              send({ type: "EXPAND" })
-            }}
+          <HStack
+            px={3}
+            py={2}
+            cursor="pointer"
+            onClick={() => send({ type: "EXPAND" })}
           >
-            <LuMaximize2 />
-          </IconButton>
-          <CloseButton
-            size="xs"
-            aria-label="Dismiss poll"
-            onClick={(e) => {
-              e.stopPropagation()
-              send({ type: "DISMISS" })
-            }}
-          />
-        </HStack>
+            <Text fontSize="sm" flex={1}>
+              Poll: {truncateQuestion(poll.question)}
+              {isRevealing ? " · Results" : ""}
+              {!isRevealing && totalVotes != null ? ` · ${totalVotes} votes` : ""}
+              {!isRevealing && votedLabel ? " · You voted ✓" : ""}
+            </Text>
+            <IconButton
+              aria-label="Expand poll"
+              size="xs"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation()
+                send({ type: "EXPAND" })
+              }}
+            >
+              <LuMaximize2 />
+            </IconButton>
+            <CloseButton
+              size="xs"
+              aria-label="Dismiss poll"
+              onClick={(e) => {
+                e.stopPropagation()
+                send({ type: "DISMISS" })
+              }}
+            />
+          </HStack>
+          {showCloseBar && (
+            <ExpiryBar
+              startAt={poll.publishedAt}
+              endAt={poll.closesAt!}
+              color="primary.solid"
+              height="3px"
+            />
+          )}
+        </Box>
       </Box>
     )
   }
 
+  const showCloseBar = poll.status === "open" && poll.closesAt != null
+
   return (
-    <Box position="sticky" top={0} zIndex={3} px={2} pt={2} data-poll-card>
+    <Box position="sticky" top={0} zIndex={3} px={3} pt={2} data-poll-card>
       <Box
         ref={cardRef}
         borderWidth="1px"
         borderRadius="lg"
         bg="bg"
         shadow="md"
-        p={4}
+        overflow="hidden"
         transition={animationsEnabled ? "max-height 180ms ease, opacity 180ms ease" : "none"}
       >
-        <HStack justify="space-between" align="start" mb={3}>
-          <Text fontWeight="semibold" fontSize="md" flex={1}>
-            {poll.question}
-          </Text>
-          <HStack gap={1}>
-            {isAdmin && poll.status === "open" && (
-              <Button size="sm" colorPalette="red" variant="outline" onClick={handleClosePoll}>
-                Close poll
-              </Button>
-            )}
-            <IconButton
-              aria-label="Collapse poll"
-              size="sm"
-              variant="ghost"
-              onClick={() => send({ type: "COLLAPSE" })}
-            >
-              <LuMinus />
-            </IconButton>
-            <CloseButton
-              size="sm"
-              aria-label="Dismiss poll"
-              onClick={() => send({ type: "DISMISS" })}
-            />
-          </HStack>
-        </HStack>
-
-        {showFullResults && revealResults ? (
-          <Stack gap={3}>
-            <VStack
-              align="stretch"
-              gap={3}
-              maxH={scrollable ? "60vh" : undefined}
-              overflowY={scrollable ? "auto" : undefined}
-            >
-              {sortedRevealOptions.map(({ option, count, pct }) => (
-                <PollResultsBar
-                  key={option.id}
-                  label={option.label}
-                  count={count}
-                  pct={pct}
-                  isWinner={winnerIds.has(option.id)}
-                  isTie={isTie}
-                  barRef={(el) => {
-                    if (el) barRefs.current.set(option.id, el)
-                  }}
-                  countRef={(el) => {
-                    if (el) countRefs.current.set(option.id, el)
-                  }}
-                />
-              ))}
-            </VStack>
-            <Text fontSize="sm" color="fg.muted">
-              Total: {revealResults.totalVotes} votes
+        <Box p={4} pb={showCloseBar && !showFullResults ? 3 : 4}>
+          <HStack justify="space-between" align="start" mb={3}>
+            <Text fontWeight="semibold" fontSize="md" flex={1}>
+              {poll.question}
             </Text>
-            {revealStartedAt && (
-              <ExpiryBar
-                startAt={revealStartedAt}
-                endAt={revealStartedAt + REVEAL_DURATION_MS}
-                color="primary.solid"
-                height="3px"
+            <HStack gap={1}>
+              {isAdmin && poll.status === "open" && (
+                <Button size="sm" colorPalette="red" variant="outline" onClick={handleClosePoll}>
+                  Close poll
+                </Button>
+              )}
+              <IconButton
+                aria-label="Collapse poll"
+                size="sm"
+                variant="ghost"
+                onClick={() => send({ type: "COLLAPSE" })}
+              >
+                <LuMinus />
+              </IconButton>
+              <CloseButton
+                size="sm"
+                aria-label="Dismiss poll"
+                onClick={() => send({ type: "DISMISS" })}
               />
-            )}
-          </Stack>
-        ) : (
-          <PollVotingSection
-            poll={poll}
-            myVote={myVote}
-            totalVotes={totalVotes}
-            votePending={votePending}
-            confirmOptionId={confirmOptionId}
-            onVote={handleVote}
+            </HStack>
+          </HStack>
+
+          {showFullResults && revealResults ? (
+            <Stack gap={3}>
+              <VStack
+                align="stretch"
+                gap={3}
+                maxH={scrollable ? "60vh" : undefined}
+                overflowY={scrollable ? "auto" : undefined}
+              >
+                {sortedRevealOptions.map(({ option, count, pct }) => (
+                  <PollResultsBar
+                    key={option.id}
+                    label={option.label}
+                    count={count}
+                    pct={pct}
+                    isWinner={winnerIds.has(option.id)}
+                    isTie={isTie}
+                    barRef={(el) => {
+                      if (el) barRefs.current.set(option.id, el)
+                    }}
+                    countRef={(el) => {
+                      if (el) countRefs.current.set(option.id, el)
+                    }}
+                  />
+                ))}
+              </VStack>
+              <Text fontSize="sm" color="fg.muted">
+                Total: {revealResults.totalVotes} votes
+              </Text>
+              {revealStartedAt && (
+                <ExpiryBar
+                  startAt={revealStartedAt}
+                  endAt={revealStartedAt + REVEAL_DURATION_MS}
+                  color="primary.solid"
+                  height="3px"
+                />
+              )}
+            </Stack>
+          ) : (
+            <PollVotingSection
+              poll={poll}
+              myVote={myVote}
+              totalVotes={totalVotes}
+              votePending={votePending}
+              confirmOptionId={confirmOptionId}
+              onVote={handleVote}
+            />
+          )}
+        </Box>
+        {showCloseBar && !showFullResults && (
+          <ExpiryBar
+            startAt={poll.publishedAt}
+            endAt={poll.closesAt!}
+            color="primary.solid"
+            height="3px"
           />
         )}
       </Box>

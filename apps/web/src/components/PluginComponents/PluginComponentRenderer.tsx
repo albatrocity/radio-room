@@ -99,6 +99,8 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
     component.type === "quiz-question-card" ||
     component.type === "bingo-card" ||
     component.type === "queue-theme-brief-card" ||
+    component.type === "lyric-hero-card" ||
+    component.type === "kickstarter-campaign-card" ||
     component.type === "slider" ||
     (component.type === "text-block" && "status" in component && !!component.status)
 

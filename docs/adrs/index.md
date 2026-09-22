@@ -192,6 +192,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0184](0184-short-lived-stash-access-grants.md) | Short-lived stash access grants (password-free retrieve) | Accepted |
 | [0185](0185-lock-picking-items-and-crack-resolution.md) | Lock-picking items and the crack-resolution seam | Accepted |
 | [0186](0186-redis-coordination-s3-media.md) | Redis coordination and content-addressed S3 media | Accepted |
+| [0187](0187-declarative-item-use-forms.md) | Declarative item-use forms (`useForm`) | Accepted |
+| [0188](0188-kickstarter-campaigns-coin-escrow.md) | Kickstarter campaigns and coin escrow | Accepted |
+| [0189](0189-poll-closes-at-auto-close.md) | Poll `closesAt` auto-close | Accepted |
 
 ## Creating a New ADR
 

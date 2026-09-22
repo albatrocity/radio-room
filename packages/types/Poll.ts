@@ -6,6 +6,14 @@ import { z } from "zod"
 
 export const POLL_OPTION_LIMITS = { min: 2 } as const
 
+/** Bounds for timed poll auto-close (ADR 0189). */
+export const POLL_CLOSE_DURATION_MS = {
+  min: 5_000,
+  max: 24 * 60 * 60_000,
+} as const
+
+export type PollCloseReason = "manual" | "expired"
+
 // =============================================================================
 // PollOption
 // =============================================================================

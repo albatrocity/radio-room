@@ -7,6 +7,7 @@ export async function createPoll(
     question: string
     options: { label: string }[]
     settings?: { hideRunningTotal?: boolean }
+    durationMs?: number
   },
 ) {
   const handlers = createPollHandlers(connections.socket.context)

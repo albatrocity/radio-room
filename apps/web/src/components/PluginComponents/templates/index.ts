@@ -14,6 +14,7 @@ export { CurrentShopOffersTemplateComponent } from "./CurrentShopOffersComponent
 export { QuizQuestionCardTemplateComponent } from "./QuizQuestionCard"
 export { QueueThemeBriefCardTemplateComponent } from "./QueueThemeBriefCard"
 export { LyricHeroCardTemplateComponent } from "./LyricHeroCard"
+export { KickstarterCampaignCardTemplateComponent } from "./KickstarterCampaignCard"
 export { SliderTemplateComponent } from "./SliderComponent"
 
 // Utilities

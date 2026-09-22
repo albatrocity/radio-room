@@ -503,6 +503,19 @@ export class RadioRoomServer {
     }
     this.context.jobs.push(redisMemoryJob)
     console.log("Registered system job: redis-memory")
+
+    const pollAutoCloseJobHandler = (await import("./jobs/pollAutoClose/index")).default
+    const pollAutoCloseJob = {
+      name: "poll-autoclose",
+      description: "Closes polls whose closesAt deadline has elapsed",
+      cron: "* * * * * *", // Every second
+      enabled: true,
+      runAt: Date.now(),
+      quiet: true,
+      handler: pollAutoCloseJobHandler,
+    }
+    this.context.jobs.push(pollAutoCloseJob)
+    console.log("Registered system job: poll-autoclose")
   }
 
   /**
