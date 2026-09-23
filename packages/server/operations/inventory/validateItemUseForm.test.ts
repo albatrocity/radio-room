@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest"
 import { validateItemUseFormValues } from "./validateItemUseForm"
 import type { PluginActionFormField } from "@repo/types"
 
-const kickstarterForm: PluginActionFormField[] = [
+const crowdfundingForm: PluginActionFormField[] = [
   { name: "title", label: "Campaign title", type: "string", required: true },
   { name: "goal", label: "Goal (coin)", type: "number", required: true, integer: true, min: 1 },
   { name: "rewards", label: "Backer rewards", type: "textarea", required: true },
 ]
 
 describe("validateItemUseFormValues", () => {
-  it("accepts and coerces valid kickstarter fields", () => {
-    const result = validateItemUseFormValues(kickstarterForm, {
+  it("accepts and coerces valid crowdfunding fields", () => {
+    const result = validateItemUseFormValues(crowdfundingForm, {
       title: " My project ",
       goal: "50",
       rewards: "A thank-you",
@@ -26,7 +26,7 @@ describe("validateItemUseFormValues", () => {
   })
 
   it("rejects a missing required field", () => {
-    const result = validateItemUseFormValues(kickstarterForm, {
+    const result = validateItemUseFormValues(crowdfundingForm, {
       title: "x",
       goal: 10,
     })
@@ -37,7 +37,7 @@ describe("validateItemUseFormValues", () => {
   })
 
   it("rejects a non-integer when integer is required", () => {
-    const result = validateItemUseFormValues(kickstarterForm, {
+    const result = validateItemUseFormValues(crowdfundingForm, {
       title: "x",
       goal: 1.5,
       rewards: "y",
@@ -48,7 +48,7 @@ describe("validateItemUseFormValues", () => {
   })
 
   it("rejects below min", () => {
-    const result = validateItemUseFormValues(kickstarterForm, {
+    const result = validateItemUseFormValues(crowdfundingForm, {
       title: "x",
       goal: 0,
       rewards: "y",

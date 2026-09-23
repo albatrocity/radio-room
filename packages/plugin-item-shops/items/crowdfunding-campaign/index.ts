@@ -5,7 +5,7 @@ import {
 } from "../shared/resolveItemUseActorDisplayName"
 import { createItem, type ItemShopsBehaviorDeps } from "../shared/types"
 
-async function useKickstarterAccount(
+async function useCrowdfundingCampaign(
   deps: ItemShopsBehaviorDeps,
   userId: string,
   _definition: ItemDefinition,
@@ -40,7 +40,7 @@ async function useKickstarterAccount(
 
   await sendAttributedSystemMessage(
     deps,
-    `${actor.label} launched a Kickstarter: “${result.campaign.title}” (goal ${result.campaign.goal} coin).`,
+    `${actor.label} launched a crowdfunding campaign: “${result.campaign.title}” (goal ${result.campaign.goal} coin).`,
     actor,
   )
 
@@ -51,10 +51,10 @@ async function useKickstarterAccount(
   }
 }
 
-export const kickstarterAccount = createItem({
-  shortId: "kickstarter-account",
+export const crowdfundingCampaign = createItem({
+  shortId: "crowdfunding-campaign",
   definition: {
-    name: "Kickstarter Account",
+    name: "Crowdfunding Campaign",
     description:
       "Raise funds for your project. Set a goal, promise backer rewards, and cross your fingers. Deliver on your campaign promises or face the consequences.",
     stackable: true,
@@ -93,5 +93,5 @@ export const kickstarterAccount = createItem({
       },
     ],
   },
-  use: useKickstarterAccount,
+  use: useCrowdfundingCampaign,
 })

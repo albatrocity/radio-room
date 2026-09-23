@@ -122,8 +122,8 @@ export class KickstarterModule {
       await this.context.api.sendSystemMessage(
         this.context.roomId,
         blocked.length > 0
-          ? `The Kickstarter for “${campaign.title}” ended with the game session. Some refunds could not be completed (frozen assets).`
-          : `The Kickstarter for “${campaign.title}” ended with the game session. Pledges were returned.`,
+          ? `The campaign for “${campaign.title}” ended with the game session. Some refunds could not be completed (frozen assets).`
+          : `The campaign for “${campaign.title}” ended with the game session. Pledges were returned.`,
         { type: "alert", status: "warning" },
       )
     } else {
@@ -202,14 +202,14 @@ export class KickstarterModule {
     await deps.context.api.sendSystemMessage(
       deps.context.roomId,
       blocked.length > 0
-        ? `The Kickstarter for “${campaign.title}” failed to meet its goal. Some refunds could not be completed (frozen assets).`
-        : `The Kickstarter for “${campaign.title}” failed to meet its goal. All pledges have been returned.`,
+        ? `The campaign for “${campaign.title}” failed to meet its goal. Some refunds could not be completed (frozen assets).`
+        : `The campaign for “${campaign.title}” failed to meet its goal. All pledges have been returned.`,
       { type: "alert", status: "warning" },
     )
     await deps.context.api.sendUserSystemMessage(
       deps.context.roomId,
       campaign.ownerUserId,
-      `Your Kickstarter “${campaign.title}” failed — ${campaign.pledged}/${campaign.goal} coin raised. All pledges were returned.`,
+      `Your campaign “${campaign.title}” failed — ${campaign.pledged}/${campaign.goal} coin raised. All pledges were returned.`,
       { type: "alert", status: "error" },
     )
     await this.emitPublic?.(toPublicState(null))

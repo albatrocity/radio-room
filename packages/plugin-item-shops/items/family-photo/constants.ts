@@ -12,5 +12,5 @@ export const SON_MIRROR_SKIP_SHORT_IDS = new Set([
   "merch-cash-box",
   "road-case",
   "trailer",
-  "kickstarter-account",
+  "crowdfunding-campaign",
 ])

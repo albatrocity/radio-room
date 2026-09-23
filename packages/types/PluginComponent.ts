@@ -405,7 +405,7 @@ export interface LyricHeroCardComponentProps {
 }
 
 /**
- * Props for the kickstarter-campaign-card (Item Shops Kickstarter Account, ADR 0188).
+ * Props for the kickstarter-campaign-card (Item Shops Crowdfunding Campaign, ADR 0188).
  * Live campaign data comes from the plugin store (`campaign`, `campaignActive`).
  */
 export interface KickstarterCampaignCardComponentProps {

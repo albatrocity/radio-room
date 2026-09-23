@@ -59,7 +59,7 @@ export async function startCampaign(
 
   const { raw, campaign: existing } = await loadCampaignRaw(deps.context)
   if (existing) {
-    return { ok: false, message: "A Kickstarter campaign is already running in this room." }
+    return { ok: false, message: "A crowdfunding campaign is already running in this room." }
   }
 
   const now = Date.now()
@@ -83,7 +83,7 @@ export async function startCampaign(
 
   const saved = await saveCampaignCas(deps.context, raw, campaign)
   if (!saved) {
-    return { ok: false, message: "A Kickstarter campaign is already running in this room." }
+    return { ok: false, message: "A crowdfunding campaign is already running in this room." }
   }
   return { ok: true, campaign, publicState: toPublicState(campaign) }
 }

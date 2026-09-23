@@ -10,7 +10,7 @@ historically each required a new `ItemDefinition.requiresTarget` enum value and 
 popover in `InventoryUseButton`. Plugin admin actions already had a shared vocabulary —
 `PluginActionFormField` on `PluginActionElement.formFields` — but item use could not reuse it.
 
-Kickstarter Account needs title + goal + rewards in one form. Adding a third one-off
+Crowdfunding Campaign needs title + goal + rewards in one form. Adding a third one-off
 `requiresTarget` would deepen the enum without solving the next item.
 
 ## Decision

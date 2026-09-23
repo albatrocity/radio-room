@@ -27,7 +27,7 @@ import { blackBag } from "./black-bag"
 import { xRay } from "./x-ray"
 import { burnerPhone } from "./burner-phone"
 import { callScreener } from "./call-screener"
-import { kickstarterAccount } from "./kickstarter-account"
+import { crowdfundingCampaign } from "./crowdfunding-campaign"
 import { lockPick } from "./lock-pick"
 import { locksmithsKit } from "./locksmiths-kit"
 import { scratchedCd } from "./scratched-cd"
@@ -117,7 +117,7 @@ export const items = {
   xRay,
   burnerPhone,
   callScreener,
-  kickstarterAccount,
+  crowdfundingCampaign,
   lockPick,
   locksmithsKit,
   nineVoltBattery,

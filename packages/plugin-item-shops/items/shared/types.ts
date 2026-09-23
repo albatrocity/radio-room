@@ -37,7 +37,7 @@ export type ItemShopsBehaviorDeps = {
    */
   shopAccess?: ItemShopsShopAccess
   /**
-   * Kickstarter campaign lifecycle (ADR 0188). Absent outside the plugin; guard before use.
+   * Crowdfunding campaign lifecycle (ADR 0188). Absent outside the plugin; guard before use.
    */
   campaignAccess?: ItemShopsCampaignAccess
   /**

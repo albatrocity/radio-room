@@ -32,8 +32,8 @@ type CampaignView = {
 }
 
 /**
- * aboveChat card for an active Kickstarter campaign (ADR 0188).
- * Collapsible chrome matches Quiz / Lyric Hero cards; ExpiryBar drains the phase timer.
+ * aboveChat card for an active crowdfunding campaign (ADR 0188).
+ * Collapsible chrome matches Poll cards; ExpiryBar drains the phase timer.
  */
 export function KickstarterCampaignCardTemplateComponent({
   backLabel = "Back this campaign",
@@ -113,12 +113,12 @@ export function KickstarterCampaignCardTemplateComponent({
                 </Text>
               ) : (
                 <Text fontSize="xs" color="fg.muted">
-                  Kickstarter · {phaseLabel}
+                  Crowdfunding · {phaseLabel}
                 </Text>
               )}
             </HStack>
             <IconButton
-              aria-label={collapsed ? "Expand Kickstarter" : "Collapse Kickstarter"}
+              aria-label={collapsed ? "Expand campaign" : "Collapse campaign"}
               size="xs"
               variant="ghost"
               onClick={() => setCollapsed((c) => !c)}

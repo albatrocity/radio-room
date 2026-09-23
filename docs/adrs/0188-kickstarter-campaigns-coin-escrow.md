@@ -5,7 +5,7 @@
 
 ## Context
 
-Kickstarter Account (Spy World) lets a user launch a timed coin campaign with a social
+Crowdfunding Campaign (Spy World) lets a user launch a timed coin campaign with a social
 promise (backer rewards). Backers pledge coin; on success the owner is paid; on failure
 pledges are returned. After a successful campaign, a delivery-accountability poll can
 apply a **Frozen Assets** penalty (`lock` on `coin` for 15 minutes).
