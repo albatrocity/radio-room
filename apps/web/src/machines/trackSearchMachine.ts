@@ -27,6 +27,10 @@ export interface TrackSearchContext {
   nextUrl: string | undefined
   prevUrl: string | undefined
   limit: number
+  /** Query currently sent (or about to be sent) over the socket. */
+  inFlightQuery: string | undefined
+  /** Newer query waiting until the in-flight request settles. */
+  queuedQuery: string | undefined
 }
 
 /** SERVER_EVENT allowlist for `useSocketMachine` (ADR 0093) — keep in sync with `TrackSearchEvent`. */
@@ -56,11 +60,39 @@ export const trackSearchMachine = setup({
     context: {} as TrackSearchContext,
     events: {} as TrackSearchEvent,
   },
+  guards: {
+    hasQueuedQuery: ({ context }) => context.queuedQuery !== undefined,
+  },
   actions: {
-    sendQuery: ({ event }) => {
-      if (event.type === "FETCH_RESULTS") {
-        emitToSocket("SEARCH_TRACK", { query: event.value, options: {} })
+    stashInFlightQuery: assign(({ event }) => {
+      if (event.type !== "FETCH_RESULTS") return {}
+      return {
+        inFlightQuery: event.value,
+        queuedQuery: undefined,
+        results: [],
+        artists: [],
+        albums: [],
+        authErrors: [],
+        error: null,
       }
+    }),
+    queueQuery: assign(({ event }) => {
+      if (event.type !== "FETCH_RESULTS") return {}
+      return {
+        queuedQuery: event.value,
+        results: [],
+        artists: [],
+        albums: [],
+        authErrors: [],
+      }
+    }),
+    promoteQueuedQuery: assign(({ context }) => ({
+      inFlightQuery: context.queuedQuery,
+      queuedQuery: undefined,
+    })),
+    sendQuery: ({ context }) => {
+      if (context.inFlightQuery === undefined) return
+      emitToSocket("SEARCH_TRACK", { query: context.inFlightQuery, options: {} })
     },
     setResults: assign(({ event }) => {
       if (event.type !== "TRACK_SEARCH_RESULTS") return {}
@@ -75,6 +107,8 @@ export const trackSearchMachine = setup({
         prevUrl: event.data.previous,
         limit: event.data.limit || 0,
         error: null,
+        inFlightQuery: undefined,
+        queuedQuery: undefined,
       }
     }),
     setError: assign(({ event }) => {
@@ -82,6 +116,8 @@ export const trackSearchMachine = setup({
       return {
         error: event.data,
         authErrors: [],
+        inFlightQuery: undefined,
+        queuedQuery: undefined,
       }
     }),
   },
@@ -99,6 +135,8 @@ export const trackSearchMachine = setup({
     nextUrl: undefined,
     prevUrl: undefined,
     limit: 20,
+    inFlightQuery: undefined,
+    queuedQuery: undefined,
   },
   states: {
     idle: {
@@ -106,26 +144,49 @@ export const trackSearchMachine = setup({
       on: {
         FETCH_RESULTS: {
           target: "loading",
+          actions: ["stashInFlightQuery"],
         },
       },
     },
     failure: {
       id: "failure",
       on: {
-        FETCH_RESULTS: "loading",
+        FETCH_RESULTS: {
+          target: "loading",
+          actions: ["stashInFlightQuery"],
+        },
       },
     },
     loading: {
       entry: ["sendQuery"],
       on: {
-        TRACK_SEARCH_RESULTS: {
-          target: "idle",
-          actions: ["setResults"],
+        FETCH_RESULTS: {
+          actions: ["queueQuery"],
         },
-        TRACK_SEARCH_RESULTS_FAILURE: {
-          target: "failure",
-          actions: ["setError"],
-        },
+        TRACK_SEARCH_RESULTS: [
+          {
+            guard: "hasQueuedQuery",
+            target: "loading",
+            reenter: true,
+            actions: ["promoteQueuedQuery"],
+          },
+          {
+            target: "idle",
+            actions: ["setResults"],
+          },
+        ],
+        TRACK_SEARCH_RESULTS_FAILURE: [
+          {
+            guard: "hasQueuedQuery",
+            target: "loading",
+            reenter: true,
+            actions: ["promoteQueuedQuery"],
+          },
+          {
+            target: "failure",
+            actions: ["setError"],
+          },
+        ],
       },
     },
   },

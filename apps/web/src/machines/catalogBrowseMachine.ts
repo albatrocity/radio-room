@@ -1,4 +1,4 @@
-import { assign, setup } from "xstate"
+import { and, assign, setup } from "xstate"
 import type {
   MetadataBrowseAlbum,
   MetadataBrowseArtist,
@@ -102,13 +102,20 @@ export interface CatalogBrowseContext {
   artists: MetadataBrowseArtist[]
   artistsTotal: number | undefined
   artistsHasMore: boolean
+  /** Query/offset actually sent (or about to be sent). */
   artistsPendingQuery: string | undefined
   artistsPendingOffset: number
+  artistsQueuedQuery: string | undefined
+  artistsQueuedOffset: number | undefined
+  artistsQueuedSource: string | undefined
   rootAlbums: MetadataBrowseAlbum[]
   rootAlbumsTotal: number | undefined
   rootAlbumsHasMore: boolean
   albumsPendingQuery: string | undefined
   albumsPendingOffset: number
+  albumsQueuedQuery: string | undefined
+  albumsQueuedOffset: number | undefined
+  albumsQueuedSource: string | undefined
   artist: MetadataBrowseArtist | null
   albums: MetadataBrowseAlbum[]
   album: MetadataBrowseAlbum | null
@@ -116,6 +123,16 @@ export interface CatalogBrowseContext {
   mediaName: string | null
   tracks: MetadataSourceTrackWithSource[]
   error: RequestError | null
+  artistInFlightSource: string | undefined
+  artistInFlightId: string | undefined
+  artistQueuedSource: string | undefined
+  artistQueuedId: string | undefined
+  albumInFlightSource: string | undefined
+  albumInFlightId: string | undefined
+  albumQueuedSource: string | undefined
+  albumQueuedId: string | undefined
+  mediaInFlightKey: string | undefined
+  mediaQueuedKey: string | undefined
 }
 
 /** SERVER_EVENT allowlist for `useSocketMachine` (ADR 0093) — keep in sync with `CatalogBrowseEvent`. */
@@ -211,6 +228,11 @@ export const catalogBrowseMachine = setup({
     isAlbumsFirstPage: ({ event }) =>
       event.type === "FETCH_ALBUMS" && (event.offset ?? 0) === 0,
     isAlbumsLoadMore: ({ event }) => event.type === "FETCH_ALBUMS" && (event.offset ?? 0) > 0,
+    hasQueuedArtists: ({ context }) => context.artistsQueuedOffset !== undefined,
+    hasQueuedAlbums: ({ context }) => context.albumsQueuedOffset !== undefined,
+    hasQueuedArtist: ({ context }) => context.artistQueuedId !== undefined,
+    hasQueuedAlbum: ({ context }) => context.albumQueuedId !== undefined,
+    hasQueuedMedia: ({ context }) => context.mediaQueuedKey !== undefined,
     artistsResultsMatchRequest: ({ context, event }) => {
       if (event.type !== "BROWSE_ARTISTS_RESULTS") return false
       if (event.data.source !== context.source) return false
@@ -227,67 +249,223 @@ export const catalogBrowseMachine = setup({
       }
       return (event.data.offset ?? 0) === context.albumsPendingOffset
     },
+    artistResultsMatchRequest: ({ context, event }) => {
+      if (event.type !== "BROWSE_ARTIST_RESULTS") return false
+      if (event.data.source !== context.artistInFlightSource) return false
+      return event.data.artist.id === context.artistInFlightId
+    },
+    albumResultsMatchRequest: ({ context, event }) => {
+      if (event.type !== "BROWSE_ALBUM_RESULTS") return false
+      if (event.data.source !== context.albumInFlightSource) return false
+      return event.data.album.id === context.albumInFlightId
+    },
+    mediaResultsMatchRequest: ({ context, event }) => {
+      if (event.type !== "BROWSE_MEDIA_ITEM_RESULTS") return false
+      return event.data.mediaKey === context.mediaInFlightKey
+    },
   },
   actions: {
-    sendListArtists: ({ event }) => {
-      if (event.type === "FETCH_ARTISTS") {
-        emitToSocket("BROWSE_ARTISTS", {
-          source: event.source,
-          query: event.query,
-          offset: event.offset ?? 0,
-          limit: event.limit ?? CATALOG_BROWSE_PAGE_SIZE,
-        })
-      }
+    sendListArtists: ({ context }) => {
+      if (!context.source) return
+      emitToSocket("BROWSE_ARTISTS", {
+        source: context.source,
+        query: context.artistsPendingQuery,
+        offset: context.artistsPendingOffset,
+        limit: CATALOG_BROWSE_PAGE_SIZE,
+      })
     },
-    sendListAlbums: ({ event }) => {
-      if (event.type === "FETCH_ALBUMS") {
-        emitToSocket("BROWSE_ALBUMS", {
-          source: event.source,
-          query: event.query,
-          offset: event.offset ?? 0,
-          limit: event.limit ?? CATALOG_BROWSE_PAGE_SIZE,
-        })
-      }
+    sendListAlbums: ({ context }) => {
+      if (!context.source) return
+      emitToSocket("BROWSE_ALBUMS", {
+        source: context.source,
+        query: context.albumsPendingQuery,
+        offset: context.albumsPendingOffset,
+        limit: CATALOG_BROWSE_PAGE_SIZE,
+      })
     },
     stashArtistsRequest: assign(({ event }) => {
       if (event.type !== "FETCH_ARTISTS") return {}
+      const offset = event.offset ?? 0
       return {
         source: event.source,
         artistsPendingQuery: event.query,
-        artistsPendingOffset: event.offset ?? 0,
+        artistsPendingOffset: offset,
+        artistsQueuedQuery: undefined,
+        artistsQueuedOffset: undefined,
+        artistsQueuedSource: undefined,
+        ...(offset === 0
+          ? { artists: [], artistsTotal: undefined, artistsHasMore: false }
+          : {}),
       }
+    }),
+    queueArtistsRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_ARTISTS") return {}
+      return {
+        artistsQueuedQuery: event.query,
+        artistsQueuedOffset: event.offset ?? 0,
+        artistsQueuedSource: event.source,
+        artists: [],
+        artistsTotal: undefined,
+        artistsHasMore: false,
+      }
+    }),
+    promoteArtistsQueued: assign(({ context }) => ({
+      source: context.artistsQueuedSource ?? context.source,
+      artistsPendingQuery: context.artistsQueuedQuery,
+      artistsPendingOffset: context.artistsQueuedOffset ?? 0,
+      artistsQueuedQuery: undefined,
+      artistsQueuedOffset: undefined,
+      artistsQueuedSource: undefined,
+    })),
+    clearArtistsQueue: assign({
+      artistsQueuedQuery: undefined,
+      artistsQueuedOffset: undefined,
+      artistsQueuedSource: undefined,
     }),
     stashAlbumsRequest: assign(({ event }) => {
       if (event.type !== "FETCH_ALBUMS") return {}
+      const offset = event.offset ?? 0
       return {
         source: event.source,
         albumsPendingQuery: event.query,
-        albumsPendingOffset: event.offset ?? 0,
+        albumsPendingOffset: offset,
+        albumsQueuedQuery: undefined,
+        albumsQueuedOffset: undefined,
+        albumsQueuedSource: undefined,
+        ...(offset === 0
+          ? { rootAlbums: [], rootAlbumsTotal: undefined, rootAlbumsHasMore: false }
+          : {}),
       }
     }),
-    sendGetArtist: ({ event }) => {
-      if (event.type === "FETCH_ARTIST") {
-        emitToSocket("BROWSE_ARTIST", {
-          source: event.source,
-          artistId: event.artistId,
-        })
+    queueAlbumsRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_ALBUMS") return {}
+      return {
+        albumsQueuedQuery: event.query,
+        albumsQueuedOffset: event.offset ?? 0,
+        albumsQueuedSource: event.source,
+        rootAlbums: [],
+        rootAlbumsTotal: undefined,
+        rootAlbumsHasMore: false,
       }
+    }),
+    promoteAlbumsQueued: assign(({ context }) => ({
+      source: context.albumsQueuedSource ?? context.source,
+      albumsPendingQuery: context.albumsQueuedQuery,
+      albumsPendingOffset: context.albumsQueuedOffset ?? 0,
+      albumsQueuedQuery: undefined,
+      albumsQueuedOffset: undefined,
+      albumsQueuedSource: undefined,
+    })),
+    clearAlbumsQueue: assign({
+      albumsQueuedQuery: undefined,
+      albumsQueuedOffset: undefined,
+      albumsQueuedSource: undefined,
+    }),
+    sendGetArtist: ({ context }) => {
+      if (!context.artistInFlightSource || !context.artistInFlightId) return
+      emitToSocket("BROWSE_ARTIST", {
+        source: context.artistInFlightSource,
+        artistId: context.artistInFlightId,
+      })
     },
-    sendGetAlbum: ({ event }) => {
-      if (event.type === "FETCH_ALBUM") {
-        emitToSocket("BROWSE_ALBUM", {
-          source: event.source,
-          albumId: event.albumId,
-        })
+    sendGetAlbum: ({ context }) => {
+      if (!context.albumInFlightSource || !context.albumInFlightId) return
+      emitToSocket("BROWSE_ALBUM", {
+        source: context.albumInFlightSource,
+        albumId: context.albumInFlightId,
+      })
+    },
+    sendGetMedia: ({ context }) => {
+      if (!context.mediaInFlightKey) return
+      emitToSocket("BROWSE_MEDIA_ITEM", {
+        mediaKey: context.mediaInFlightKey,
+      })
+    },
+    stashArtistRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_ARTIST") return {}
+      return {
+        artistInFlightSource: event.source,
+        artistInFlightId: event.artistId,
+        artistQueuedSource: undefined,
+        artistQueuedId: undefined,
+        artist: null,
+        albums: [],
+        album: null,
+        tracks: [],
       }
-    },
-    sendGetMedia: ({ event }) => {
-      if (event.type === "FETCH_MEDIA") {
-        emitToSocket("BROWSE_MEDIA_ITEM", {
-          mediaKey: event.mediaKey,
-        })
+    }),
+    queueArtistRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_ARTIST") return {}
+      return {
+        artistQueuedSource: event.source,
+        artistQueuedId: event.artistId,
+        artist: null,
+        albums: [],
+        album: null,
+        tracks: [],
       }
-    },
+    }),
+    promoteArtistQueued: assign(({ context }) => ({
+      artistInFlightSource: context.artistQueuedSource,
+      artistInFlightId: context.artistQueuedId,
+      artistQueuedSource: undefined,
+      artistQueuedId: undefined,
+    })),
+    stashAlbumRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_ALBUM") return {}
+      return {
+        albumInFlightSource: event.source,
+        albumInFlightId: event.albumId,
+        albumQueuedSource: undefined,
+        albumQueuedId: undefined,
+        album: null,
+        tracks: [],
+        mediaKey: null,
+        mediaName: null,
+      }
+    }),
+    queueAlbumRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_ALBUM") return {}
+      return {
+        albumQueuedSource: event.source,
+        albumQueuedId: event.albumId,
+        album: null,
+        tracks: [],
+        mediaKey: null,
+        mediaName: null,
+      }
+    }),
+    promoteAlbumQueued: assign(({ context }) => ({
+      albumInFlightSource: context.albumQueuedSource,
+      albumInFlightId: context.albumQueuedId,
+      albumQueuedSource: undefined,
+      albumQueuedId: undefined,
+    })),
+    stashMediaRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_MEDIA") return {}
+      return {
+        mediaInFlightKey: event.mediaKey,
+        mediaQueuedKey: undefined,
+        mediaKey: null,
+        mediaName: null,
+        album: null,
+        tracks: [],
+      }
+    }),
+    queueMediaRequest: assign(({ event }) => {
+      if (event.type !== "FETCH_MEDIA") return {}
+      return {
+        mediaQueuedKey: event.mediaKey,
+        mediaKey: null,
+        mediaName: null,
+        album: null,
+        tracks: [],
+      }
+    }),
+    promoteMediaQueued: assign(({ context }) => ({
+      mediaInFlightKey: context.mediaQueuedKey,
+      mediaQueuedKey: undefined,
+    })),
     applyCachedAlbum: assign(({ event }) => {
       if (event.type !== "FETCH_ALBUM") return {}
       const entry = getSessionCache(albumSessionCacheKey(event.source, event.albumId))
@@ -299,6 +477,10 @@ export const catalogBrowseMachine = setup({
         mediaKey: null,
         mediaName: null,
         error: null,
+        albumInFlightSource: undefined,
+        albumInFlightId: undefined,
+        albumQueuedSource: undefined,
+        albumQueuedId: undefined,
       }
     }),
     applyCachedMedia: assign(({ event }) => {
@@ -312,6 +494,8 @@ export const catalogBrowseMachine = setup({
         album: null,
         tracks: entry.tracks,
         error: null,
+        mediaInFlightKey: undefined,
+        mediaQueuedKey: undefined,
       }
     }),
     setArtists: assign(({ context, event }) => {
@@ -332,6 +516,9 @@ export const catalogBrowseMachine = setup({
           pageSize: CATALOG_BROWSE_PAGE_SIZE,
         }),
         error: null,
+        artistsQueuedQuery: undefined,
+        artistsQueuedOffset: undefined,
+        artistsQueuedSource: undefined,
       }
     }),
     setRootAlbums: assign(({ context, event }) => {
@@ -352,6 +539,9 @@ export const catalogBrowseMachine = setup({
           pageSize: CATALOG_BROWSE_PAGE_SIZE,
         }),
         error: null,
+        albumsQueuedQuery: undefined,
+        albumsQueuedOffset: undefined,
+        albumsQueuedSource: undefined,
       }
     }),
     setArtist: assign(({ event }) => {
@@ -363,6 +553,10 @@ export const catalogBrowseMachine = setup({
         album: null,
         tracks: [],
         error: null,
+        artistInFlightSource: undefined,
+        artistInFlightId: undefined,
+        artistQueuedSource: undefined,
+        artistQueuedId: undefined,
       }
     }),
     setAlbum: assign(({ event }) => {
@@ -380,6 +574,10 @@ export const catalogBrowseMachine = setup({
         mediaKey: null,
         mediaName: null,
         error: null,
+        albumInFlightSource: undefined,
+        albumInFlightId: undefined,
+        albumQueuedSource: undefined,
+        albumQueuedId: undefined,
       }
     }),
     setMedia: assign(({ event }) => {
@@ -398,6 +596,8 @@ export const catalogBrowseMachine = setup({
         album: null,
         tracks: event.data.tracks ?? [],
         error: null,
+        mediaInFlightKey: undefined,
+        mediaQueuedKey: undefined,
       }
     }),
     setError: assign(({ event }) => {
@@ -424,11 +624,17 @@ export const catalogBrowseMachine = setup({
     artistsHasMore: false,
     artistsPendingQuery: undefined,
     artistsPendingOffset: 0,
+    artistsQueuedQuery: undefined,
+    artistsQueuedOffset: undefined,
+    artistsQueuedSource: undefined,
     rootAlbums: [],
     rootAlbumsTotal: undefined,
     rootAlbumsHasMore: false,
     albumsPendingQuery: undefined,
     albumsPendingOffset: 0,
+    albumsQueuedQuery: undefined,
+    albumsQueuedOffset: undefined,
+    albumsQueuedSource: undefined,
     artist: null,
     albums: [],
     album: null,
@@ -436,6 +642,16 @@ export const catalogBrowseMachine = setup({
     mediaName: null,
     tracks: [],
     error: null,
+    artistInFlightSource: undefined,
+    artistInFlightId: undefined,
+    artistQueuedSource: undefined,
+    artistQueuedId: undefined,
+    albumInFlightSource: undefined,
+    albumInFlightId: undefined,
+    albumQueuedSource: undefined,
+    albumQueuedId: undefined,
+    mediaInFlightKey: undefined,
+    mediaQueuedKey: undefined,
   },
   on: {
     FETCH_ARTISTS: [
@@ -462,7 +678,7 @@ export const catalogBrowseMachine = setup({
     ],
     FETCH_ARTIST: {
       target: ".loadingArtist",
-      actions: ["clearError"],
+      actions: ["clearError", "stashArtistRequest"],
     },
     FETCH_ALBUM: [
       {
@@ -472,7 +688,7 @@ export const catalogBrowseMachine = setup({
       },
       {
         target: ".loadingAlbum",
-        actions: ["clearError"],
+        actions: ["clearError", "stashAlbumRequest"],
       },
     ],
     FETCH_MEDIA: [
@@ -483,7 +699,7 @@ export const catalogBrowseMachine = setup({
       },
       {
         target: ".loadingMedia",
-        actions: ["clearError"],
+        actions: ["clearError", "stashMediaRequest"],
       },
     ],
   },
@@ -496,8 +712,7 @@ export const catalogBrowseMachine = setup({
         FETCH_ARTISTS: [
           {
             guard: "isArtistsFirstPage",
-            target: "loadingArtists",
-            actions: ["clearError", "stashArtistsRequest"],
+            actions: ["clearError", "queueArtistsRequest"],
           },
           {
             guard: "isArtistsLoadMore",
@@ -507,16 +722,29 @@ export const catalogBrowseMachine = setup({
         ],
         BROWSE_ARTISTS_RESULTS: [
           {
+            guard: and(["hasQueuedArtists", "artistsResultsMatchRequest"]),
+            target: "loadingArtists",
+            reenter: true,
+            actions: ["promoteArtistsQueued"],
+          },
+          {
             guard: "artistsResultsMatchRequest",
             target: "idle",
             actions: ["setArtists"],
           },
-          { target: "idle" },
         ],
-        BROWSE_ARTISTS_FAILURE: {
-          target: "failure",
-          actions: ["setError"],
-        },
+        BROWSE_ARTISTS_FAILURE: [
+          {
+            guard: "hasQueuedArtists",
+            target: "loadingArtists",
+            reenter: true,
+            actions: ["promoteArtistsQueued"],
+          },
+          {
+            target: "failure",
+            actions: ["setError", "clearArtistsQueue"],
+          },
+        ],
       },
     },
     loadingMoreArtists: {
@@ -540,7 +768,6 @@ export const catalogBrowseMachine = setup({
             target: "idle",
             actions: ["setArtists"],
           },
-          { target: "idle" },
         ],
         BROWSE_ARTISTS_FAILURE: {
           target: "failure",
@@ -554,8 +781,7 @@ export const catalogBrowseMachine = setup({
         FETCH_ALBUMS: [
           {
             guard: "isAlbumsFirstPage",
-            target: "loadingAlbums",
-            actions: ["clearError", "stashAlbumsRequest"],
+            actions: ["clearError", "queueAlbumsRequest"],
           },
           {
             guard: "isAlbumsLoadMore",
@@ -565,16 +791,29 @@ export const catalogBrowseMachine = setup({
         ],
         BROWSE_ALBUMS_RESULTS: [
           {
+            guard: and(["hasQueuedAlbums", "albumsResultsMatchRequest"]),
+            target: "loadingAlbums",
+            reenter: true,
+            actions: ["promoteAlbumsQueued"],
+          },
+          {
             guard: "albumsResultsMatchRequest",
             target: "idle",
             actions: ["setRootAlbums"],
           },
-          { target: "idle" },
         ],
-        BROWSE_ALBUMS_FAILURE: {
-          target: "failure",
-          actions: ["setError"],
-        },
+        BROWSE_ALBUMS_FAILURE: [
+          {
+            guard: "hasQueuedAlbums",
+            target: "loadingAlbums",
+            reenter: true,
+            actions: ["promoteAlbumsQueued"],
+          },
+          {
+            target: "failure",
+            actions: ["setError", "clearAlbumsQueue"],
+          },
+        ],
       },
     },
     loadingMoreAlbums: {
@@ -598,7 +837,6 @@ export const catalogBrowseMachine = setup({
             target: "idle",
             actions: ["setRootAlbums"],
           },
-          { target: "idle" },
         ],
         BROWSE_ALBUMS_FAILURE: {
           target: "failure",
@@ -609,40 +847,114 @@ export const catalogBrowseMachine = setup({
     loadingArtist: {
       entry: ["sendGetArtist"],
       on: {
-        BROWSE_ARTIST_RESULTS: {
-          target: "idle",
-          actions: ["setArtist"],
+        FETCH_ARTIST: {
+          actions: ["clearError", "queueArtistRequest"],
         },
-        BROWSE_ARTIST_FAILURE: {
-          target: "failure",
-          actions: ["setError"],
-        },
+        BROWSE_ARTIST_RESULTS: [
+          {
+            guard: and(["hasQueuedArtist", "artistResultsMatchRequest"]),
+            target: "loadingArtist",
+            reenter: true,
+            actions: ["promoteArtistQueued"],
+          },
+          {
+            guard: "artistResultsMatchRequest",
+            target: "idle",
+            actions: ["setArtist"],
+          },
+        ],
+        BROWSE_ARTIST_FAILURE: [
+          {
+            guard: "hasQueuedArtist",
+            target: "loadingArtist",
+            reenter: true,
+            actions: ["promoteArtistQueued"],
+          },
+          {
+            target: "failure",
+            actions: ["setError"],
+          },
+        ],
       },
     },
     loadingAlbum: {
       entry: ["sendGetAlbum"],
       on: {
-        BROWSE_ALBUM_RESULTS: {
-          target: "idle",
-          actions: ["setAlbum"],
-        },
-        BROWSE_ALBUM_FAILURE: {
-          target: "failure",
-          actions: ["setError"],
-        },
+        FETCH_ALBUM: [
+          {
+            guard: "hasCachedAlbum",
+            target: "idle",
+            actions: ["clearError", "applyCachedAlbum"],
+          },
+          {
+            actions: ["clearError", "queueAlbumRequest"],
+          },
+        ],
+        BROWSE_ALBUM_RESULTS: [
+          {
+            guard: and(["hasQueuedAlbum", "albumResultsMatchRequest"]),
+            target: "loadingAlbum",
+            reenter: true,
+            actions: ["promoteAlbumQueued"],
+          },
+          {
+            guard: "albumResultsMatchRequest",
+            target: "idle",
+            actions: ["setAlbum"],
+          },
+        ],
+        BROWSE_ALBUM_FAILURE: [
+          {
+            guard: "hasQueuedAlbum",
+            target: "loadingAlbum",
+            reenter: true,
+            actions: ["promoteAlbumQueued"],
+          },
+          {
+            target: "failure",
+            actions: ["setError"],
+          },
+        ],
       },
     },
     loadingMedia: {
       entry: ["sendGetMedia"],
       on: {
-        BROWSE_MEDIA_ITEM_RESULTS: {
-          target: "idle",
-          actions: ["setMedia"],
-        },
-        BROWSE_MEDIA_ITEM_FAILURE: {
-          target: "failure",
-          actions: ["setError"],
-        },
+        FETCH_MEDIA: [
+          {
+            guard: "hasCachedMedia",
+            target: "idle",
+            actions: ["clearError", "applyCachedMedia"],
+          },
+          {
+            actions: ["clearError", "queueMediaRequest"],
+          },
+        ],
+        BROWSE_MEDIA_ITEM_RESULTS: [
+          {
+            guard: and(["hasQueuedMedia", "mediaResultsMatchRequest"]),
+            target: "loadingMedia",
+            reenter: true,
+            actions: ["promoteMediaQueued"],
+          },
+          {
+            guard: "mediaResultsMatchRequest",
+            target: "idle",
+            actions: ["setMedia"],
+          },
+        ],
+        BROWSE_MEDIA_ITEM_FAILURE: [
+          {
+            guard: "hasQueuedMedia",
+            target: "loadingMedia",
+            reenter: true,
+            actions: ["promoteMediaQueued"],
+          },
+          {
+            target: "failure",
+            actions: ["setError"],
+          },
+        ],
       },
     },
   },
