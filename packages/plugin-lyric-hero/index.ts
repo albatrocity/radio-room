@@ -518,13 +518,16 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
     const phrases = await this.loadPhrases()
     const phraseText = phrases[session.activePhraseIndex]?.text ?? ""
 
-    if (result.kind === "duplicate-hit" || result.kind === "duplicate-miss") {
+    // Already-filled word: silent no-op (concurrent correct guesses must not feel like a miss).
+    if (result.kind === "duplicate-hit") {
+      return { success: true }
+    }
+
+    if (result.kind === "duplicate-miss") {
       await this.context.api.sendUserSystemMessage(
         this.context.roomId,
         userId,
-        result.kind === "duplicate-hit"
-          ? "That word is already on the board."
-          : "That word was already tried.",
+        "That word was already tried.",
       )
       return { success: false, message: "Already guessed." }
     }
@@ -612,13 +615,16 @@ export class LyricHeroPlugin extends BasePlugin<LyricHeroConfig> {
 
     const result = applyGuess(board, normalized, userId, username)
 
-    if (result.kind === "duplicate-hit" || result.kind === "duplicate-miss") {
+    // Already-filled word: silent no-op (concurrent correct guesses must not feel like a miss).
+    if (result.kind === "duplicate-hit") {
+      return { success: true }
+    }
+
+    if (result.kind === "duplicate-miss") {
       await this.context.api.sendUserSystemMessage(
         this.context.roomId,
         userId,
-        result.kind === "duplicate-hit"
-          ? "That word is already on your board."
-          : "You already tried that word.",
+        "You already tried that word.",
       )
       return { success: false, message: "Already guessed." }
     }

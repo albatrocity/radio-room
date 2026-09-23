@@ -56,6 +56,7 @@ export type ApplyGuessResult =
 /**
  * Apply a normalized single-word guess to the board (mutates).
  * Fills every matching unrevealed token; records unique misses.
+ * Callers should treat `duplicate-hit` as a silent no-op (already filled).
  */
 export function applyGuess(
   board: PuzzleBoard,

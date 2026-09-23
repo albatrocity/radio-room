@@ -5,6 +5,14 @@ Headings: ## Month YYYY
 Sections: ### New   ### Fixed
 -->
 
+## October 2026
+
+Recap of what’s landed since the September show.
+
+- Fixed an issue where previewing tracks from the Record Store would cause the entire app to crash.
+- Fixes race condition where multiple correct guesses in Lyric Hero within a short time period would cause a miss. Also makes it more forgiving with punctuation.
+- New items
+
 ## September 2026
 
 Recap of what’s landed since the August 20 show.

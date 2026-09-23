@@ -33,6 +33,20 @@ describe("createBoard / applyGuess", () => {
     expect(applyGuess(board, "hello", "u2", "B")).toEqual({ kind: "duplicate-hit" })
   })
 
+  it("accepts punctuation-free variants of apostrophe words", () => {
+    const board = createBoard("Know when to hold 'em", 6)
+    expect(applyGuess(board, "em", "u1", "A")).toEqual({
+      kind: "hit",
+      filledCount: 1,
+      solved: false,
+    })
+    const emToken = board.tokens.find((t) => t.surface === "'em")
+    expect(emToken?.revealed).toBe(true)
+    expect(emToken?.normalized).toBe("em")
+    // applyGuess takes an already-normalized key (parseSingleGuess("'em") → "em")
+    expect(applyGuess(board, "em", "u2", "B")).toEqual({ kind: "duplicate-hit" })
+  })
+
   it("public view blanks unrevealed letters", () => {
     const board = createBoard("Hi!", 6)
     const view = toPublicPuzzleView(board)

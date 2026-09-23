@@ -1,14 +1,21 @@
 /**
  * Word normalization and phrase tokenization for Lyric Hero.
  *
- * Matching: trim, lowercase, strip surrounding punctuation; keep internal apostrophes.
+ * Matching: trim, lowercase, strip surrounding punctuation via {@link normalizeToken},
+ * then strip remaining non-alphanumeric characters so `'em`/`em` and `don't`/`dont`
+ * share a match key. Display blanks still keep punctuation from the surface form.
  * No fuzzy matching.
  */
 
 import { normalizeToken } from "@repo/plugin-base"
 
-/** Alias of {@link normalizeToken} for Lyric Hero call sites and exports. */
-export const normalizeWord = normalizeToken
+/**
+ * Lyric Hero match key: shared token normalize, then drop leftover punctuation
+ * (apostrophes, etc.) so punctuation-free variants match.
+ */
+export function normalizeWord(value: string): string {
+  return normalizeToken(value).replace(/[^a-z0-9]/gi, "")
+}
 
 /**
  * True when `guess` has more than one whitespace-separated token

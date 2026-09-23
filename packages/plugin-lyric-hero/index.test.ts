@@ -230,6 +230,38 @@ describe("LyricHeroPlugin", () => {
     )
   })
 
+  it("treats a second guess of an already-filled word as a silent no-op", async () => {
+    const { plugin, context, api } = setup({
+      mode: "cooperative",
+      phrases: [{ text: "Know when to hold 'em" }],
+    })
+    await start(plugin, context)
+
+    const first = await plugin.executeAction(
+      "submitGuess",
+      { userId: "u1", username: "A" },
+      { word: "em" },
+    )
+    expect(first.success).toBe(true)
+
+    api.sendUserSystemMessage.mockClear()
+    api.queueSoundEffect.mockClear()
+    api.sendSystemMessage.mockClear()
+
+    const second = await plugin.executeAction(
+      "submitGuess",
+      { userId: "u2", username: "B" },
+      { word: "'em" },
+    )
+    expect(second.success).toBe(true)
+
+    const session = readSession((context as any).storage)
+    expect(session.sharedBoard!.missedWords).toEqual([])
+    expect(api.sendUserSystemMessage).not.toHaveBeenCalled()
+    expect(api.queueSoundEffect).not.toHaveBeenCalled()
+    expect(api.sendSystemMessage).not.toHaveBeenCalled()
+  })
+
   it("walks out after unique misses and reveals without payout", async () => {
     const { plugin, context, api, game } = setup({
       mode: "cooperative",
