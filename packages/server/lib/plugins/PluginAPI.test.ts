@@ -63,6 +63,11 @@ vi.mock("../../operations/data", () => ({
   getQueue: vi.fn(),
   setQueueSplit: vi.fn(),
   clearQueueSplit: vi.fn(),
+  addOnlineUser: vi.fn(),
+  removeOnlineUser: vi.fn(),
+  saveUser: vi.fn(),
+  deleteUser: vi.fn(),
+  getUser: vi.fn(),
 }))
 
 vi.mock("../../services/AdapterService", () => ({
@@ -98,6 +103,11 @@ import {
   getQueue,
   setQueueSplit,
   clearQueueSplit,
+  addOnlineUser,
+  removeOnlineUser,
+  saveUser,
+  deleteUser,
+  getUser,
 } from "../../operations/data"
 
 describe("PluginAPIImpl.skipTrack", () => {
@@ -358,6 +368,81 @@ describe("PluginAPIImpl Media Bridge TTS", () => {
       text: "hi",
       voice: "Samantha",
     })
+  })
+})
+
+describe("PluginAPIImpl ephemeral users (ADR 0194)", () => {
+  let api: PluginAPIImpl
+  let mockContext: AppContext
+  const roomId = "room-1"
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockContext = appContextFactory.build()
+    mockContext.systemEvents = { emit: vi.fn() }
+    api = new PluginAPIImpl(mockContext, {} as Server)
+    vi.mocked(addOnlineUser).mockResolvedValue(1 as any)
+    vi.mocked(saveUser).mockResolvedValue(undefined as any)
+    vi.mocked(removeOnlineUser).mockResolvedValue(1 as any)
+    vi.mocked(deleteUser).mockResolvedValue(1 as any)
+  })
+
+  test("spawnEphemeralUser adds online user and emits USER_JOINED", async () => {
+    const spawned = {
+      userId: "ephem-1",
+      username: "Fritz's son",
+      isDj: false,
+      isDeputyDj: false,
+      isAdmin: false,
+      status: "participating" as const,
+    }
+    vi.mocked(getRoomUsers).mockResolvedValue([spawned])
+    vi.mocked(getUser).mockResolvedValue(spawned)
+
+    const user = await api.spawnEphemeralUser(roomId, {
+      username: "Fritz's son",
+      userId: "ephem-1",
+    })
+
+    expect(addOnlineUser).toHaveBeenCalledWith({
+      context: mockContext,
+      roomId,
+      userId: "ephem-1",
+    })
+    expect(saveUser).toHaveBeenCalled()
+    expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith(
+      roomId,
+      "USER_JOINED",
+      expect.objectContaining({
+        roomId,
+        user: expect.objectContaining({ userId: "ephem-1", username: "Fritz's son" }),
+      }),
+    )
+    expect(user.username).toBe("Fritz's son")
+  })
+
+  test("despawnEphemeralUser removes online user and emits USER_LEFT", async () => {
+    vi.mocked(getUser).mockResolvedValue({
+      userId: "ephem-1",
+      username: "Fritz's son",
+    })
+    vi.mocked(getRoomUsers).mockResolvedValue([])
+
+    await api.despawnEphemeralUser(roomId, "ephem-1")
+
+    expect(removeOnlineUser).toHaveBeenCalledWith({
+      context: mockContext,
+      roomId,
+      userId: "ephem-1",
+    })
+    expect(deleteUser).toHaveBeenCalledWith({ context: mockContext, userId: "ephem-1" })
+    expect(mockContext.systemEvents?.emit).toHaveBeenCalledWith(
+      roomId,
+      "USER_LEFT",
+      expect.objectContaining({
+        user: expect.objectContaining({ userId: "ephem-1" }),
+      }),
+    )
   })
 })
 

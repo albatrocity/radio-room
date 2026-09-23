@@ -33,6 +33,11 @@ export const personaDefinitionSchema = z.object({
   decoratesUser: z.boolean().optional(),
   /** Show icon badge next to username in chat when assigned. */
   decoratesChatMessage: z.boolean().optional(),
+  /**
+   * When true, users holding this persona are omitted from room export user lists
+   * (ADR 0194). Does not affect live `getUsers()` / lobby counts.
+   */
+  excludeFromRoomExport: z.boolean().optional(),
 })
 
 export type PersonaDefinition = z.infer<typeof personaDefinitionSchema>
@@ -53,6 +58,7 @@ export const userPersonaSchema = z.object({
   icon: z.string().optional(),
   decoratesUser: z.boolean().optional(),
   decoratesChatMessage: z.boolean().optional(),
+  excludeFromRoomExport: z.boolean().optional(),
 })
 
 export type UserPersona = z.infer<typeof userPersonaSchema>

@@ -199,6 +199,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0191](0191-modifier-expiry-sweep.md) | Claimed modifier expiry sweep | Accepted |
 | [0192](0192-plugin-storage-and-leaderboard-helpers.md) | Plugin storage helpers (`getJson`/`updateJson`/`appendCapped`) and `createLeaderboard` | Accepted |
 | [0193](0193-item-use-forms-composed-with-target-pickers.md) | Item-use forms composed with target pickers (+ field capabilities) | Accepted |
+| [0194](0194-ephemeral-plugin-users-and-action-mirroring.md) | Ephemeral plugin users and action mirroring (spawn/chat/react APIs) | Accepted |
 
 ## Creating a New ADR
 

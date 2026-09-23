@@ -46,6 +46,7 @@ import type {
 } from "./Artifacts"
 import type { PersonaDefinition, UserPersona, UserPersonaAssignment } from "./Persona"
 import type { PresentedIdentityGrant, PresentedIdentityGrantInput } from "./PresentedIdentity"
+import type { Emoji } from "./Emoji"
 import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
 import type { MetadataSourceTrack, PhysicalMediaItem } from "./MetadataSource"
 import type { Poll, PollResults } from "./Poll"
@@ -519,6 +520,37 @@ export interface PluginAPI {
       /** Notification `source` for ADR 0144 toast-only raises. */
       source?: string
     },
+  ): Promise<void>
+  /**
+   * Spawn an ephemeral online user with no socket (ADR 0194).
+   * Emits `USER_JOINED`. Does not add the user to room export history.
+   */
+  spawnEphemeralUser(
+    roomId: string,
+    params: { username: string; userId?: string },
+  ): Promise<User>
+  /**
+   * Remove an ephemeral user from the room (ADR 0194). Emits `USER_LEFT`.
+   */
+  despawnEphemeralUser(roomId: string, userId: string): Promise<void>
+  /**
+   * Send a chat message as the given user through the normal message pipeline
+   * (parse → `CHAT_MESSAGE_SUBMITTED` → transforms → persist/broadcast). Skips chat-buffer delay.
+   */
+  sendChatMessageAsUser(roomId: string, userId: string, content: string): Promise<void>
+  /** Add a reaction attributed to the given user (ADR 0194). */
+  addReactionAsUser(
+    roomId: string,
+    userId: string,
+    emoji: Emoji,
+    reactTo: ReactionSubject,
+  ): Promise<void>
+  /** Remove a reaction attributed to the given user (ADR 0194). */
+  removeReactionAsUser(
+    roomId: string,
+    userId: string,
+    emoji: Emoji,
+    reactTo: ReactionSubject,
   ): Promise<void>
   getPluginConfig(roomId: string, pluginName: string): Promise<any | null>
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>

@@ -38,7 +38,11 @@ async function useBuyout(
     const qty = Math.max(0, Math.floor(Number(stack.quantity)))
     if (qty <= 0) continue
 
-    const refundPerUnit = scalePrice((def.coinValue ?? 0) * 2, economy.costScale, economy.priceRounding)
+    const refundPerUnit = scalePrice(
+      (def.coinValue ?? 0) * 2,
+      economy.costScale,
+      economy.priceRounding,
+    )
     const stackRefund = refundPerUnit * qty
 
     const removed = await context.inventory.removeItem(userId, stack.itemId, qty)

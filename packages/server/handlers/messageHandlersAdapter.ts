@@ -103,6 +103,16 @@ export class MessageHandlers {
       })
     }
 
+    // Before transforms so plugins can mirror even if a later transform drops (ADR 0194).
+    if (socket.context.systemEvents) {
+      await socket.context.systemEvents.emit(roomId, "CHAT_MESSAGE_SUBMITTED", {
+        roomId,
+        userId,
+        username: username ?? userId,
+        content,
+      })
+    }
+
     const registry = socket.context.pluginRegistry
     const transformResult = registry
       ? await registry.transformChatMessage(roomId, result.message)

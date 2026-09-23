@@ -40,6 +40,10 @@ export type ItemShopsBehaviorDeps = {
    * Kickstarter campaign lifecycle (ADR 0188). Absent outside the plugin; guard before use.
    */
   campaignAccess?: ItemShopsCampaignAccess
+  /**
+   * Family Photo spawn (ADR 0194). Absent outside the plugin; guard before use.
+   */
+  sonAccess?: ItemShopsSonAccess
 }
 
 /**
@@ -69,6 +73,10 @@ export type ItemShopsCampaignAccess = {
     | { ok: true; campaign: KickstarterCampaign; publicState: KickstarterPublicState }
     | { ok: false; message: string }
   >
+}
+
+export type ItemShopsSonAccess = {
+  spawnSonForUser: (userId: string) => Promise<ItemUseResult>
 }
 
 export type ItemUseHandler = (

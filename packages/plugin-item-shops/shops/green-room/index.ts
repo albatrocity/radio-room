@@ -75,6 +75,7 @@ export const GREEN_ROOM_SHOP: ItemShopsShopCatalogEntry = {
     { shortId: items.privateBathroom.shortId, coinValue: 20 },
     { shortId: items.merchCashBox.shortId, coinValue: 50 },
     { shortId: items.marsEgg.shortId, coinValue: 80 },
+    { shortId: items.familyPhoto.shortId, coinValue: 100 },
   ],
   listedBuybackRate: 0.1,
   unlistedBuybackRate: 0,

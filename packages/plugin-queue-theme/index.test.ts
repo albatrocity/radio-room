@@ -228,6 +228,8 @@ function setup(configOverrides: Partial<QueueThemeConfig> = {}) {
     personas: {
       registerPersonas: vi.fn(),
       unregisterPersonas: vi.fn(),
+      getRoomPersonas: vi.fn(async () => [] as { id: string; excludeFromRoomExport?: boolean }[]),
+      getUsersWithPersona: vi.fn(async () => [] as string[]),
     },
     lifecycle,
   } as unknown as PluginContext
@@ -241,6 +243,10 @@ function setup(configOverrides: Partial<QueueThemeConfig> = {}) {
     storage,
     config,
     game,
+    personas: context.personas as {
+      getRoomPersonas: ReturnType<typeof vi.fn>
+      getUsersWithPersona: ReturnType<typeof vi.fn>
+    },
     lifecycleHandlers,
     polls,
     votes,
@@ -388,6 +394,33 @@ describe("QueueThemePlugin", () => {
     await handlers[0]!({ roomId: ROOM, pollId, totalVotes: null })
 
     expect(ctx.api.getOnlineUserIds).toHaveBeenCalled()
+    expect(ctx.api.getUsers).not.toHaveBeenCalled()
+  })
+
+  it("quorum skips excludeFromRoomExport persona holders (ephemeral sons)", async () => {
+    const ctx = setup()
+    await ctx.plugin.register(ctx.context)
+    ctx.api.getNowPlaying.mockResolvedValue(makeTrack({ djId: "dj-1" }))
+    await ctx.plugin.executeAction("startRound", ADMIN, { theme: "Theme" })
+
+    ctx.api.getOnlineUserIds.mockResolvedValue(["admin-1", "dj-1", "u2", "u3", "son-1"])
+    ctx.personas.getRoomPersonas.mockResolvedValue([
+      { id: "plugin:item-shops:son", excludeFromRoomExport: true },
+    ])
+    ctx.personas.getUsersWithPersona.mockResolvedValue(["son-1"])
+
+    const pollId = ctx.getActivePollId()!
+    const yes = ctx.polls.get(pollId)!.options.find((o) => o.label === "Yes")!.id
+    // Real voters only — son never casts
+    ctx.votes[pollId] = { "admin-1": yes, u2: yes, u3: yes }
+    ctx.api.getUsers.mockClear()
+
+    const handlers = ctx.lifecycleHandlers.get("POLL_VOTE_CAST") ?? []
+    await handlers[0]!({ roomId: ROOM, pollId, totalVotes: null })
+
+    expect(ctx.api.closePoll).toHaveBeenCalledWith(
+      expect.objectContaining({ pollId, announce: false }),
+    )
     expect(ctx.api.getUsers).not.toHaveBeenCalled()
   })
 

@@ -122,7 +122,14 @@ export class ExportService {
     }
 
     // Lookup user data for all users in history
-    const userHistory = await getUsersByIds({ context: this.context, userIds: userHistoryIds })
+    const userHistoryRaw = await getUsersByIds({ context: this.context, userIds: userHistoryIds })
+    // ADR 0194: omit users with excludeFromRoomExport personas (e.g. ephemeral sons).
+    const usersForExport = users.filter(
+      (u) => !u.personas?.some((p) => p.excludeFromRoomExport),
+    )
+    const userHistory = userHistoryRaw.filter(
+      (u) => !u.personas?.some((p) => p.excludeFromRoomExport),
+    )
 
     // Build room info (exclude sensitive data)
     const sanitizedRoom = removeSensitiveRoomAttributes(room)
@@ -142,7 +149,7 @@ export class ExportService {
     return {
       exportedAt: new Date().toISOString(),
       room: roomInfo,
-      users,
+      users: usersForExport,
       userHistory,
       playlist,
       chat: messages,

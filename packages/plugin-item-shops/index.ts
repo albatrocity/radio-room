@@ -77,6 +77,8 @@ import {
   type OfferConditionBounds,
 } from "./localLibrary/condition"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
+import { SonRegistry, FAMILY_PHOTO_SON_DESPAWN_KIND } from "./helpers/sonRegistry"
+import { FAMILY_PHOTO_PERSONA_SHORT_ID } from "./items/family-photo/constants"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
 const AUTO_SHOP_TIMER_ID = "auto-shop"
@@ -157,6 +159,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   /** Per-shop state stores for `onBuy` callbacks (keyed by shopId, then by arbitrary key). */
   private shopStateStores = new Map<string, Map<string, unknown>>()
 
+  private sons!: SonRegistry
+
   async register(context: import("@repo/types").PluginContext): Promise<void> {
     await super.register(context)
     const config = await this.getConfig()
@@ -173,12 +177,49 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.commitDefinitionFingerprints(itemCatalog.map((e) => e.definition))
     this.scheduleAlbumArtworkHydrate()
+    this.sons = new SonRegistry(
+      () => this.context ?? undefined,
+      {
+        scheduleDespawn: (sonUserId, durationMs) =>
+          this.schedule({
+            id: SonRegistry.despawnScheduleId(sonUserId),
+            kind: FAMILY_PHOTO_SON_DESPAWN_KIND,
+            durationMs,
+            payload: { sonUserId },
+          }),
+        cancelDespawn: (sonUserId) =>
+          this.cancelSchedule(SonRegistry.despawnScheduleId(sonUserId)),
+      },
+      this.name,
+    )
+    await this.context!.personas.registerPersonas([
+      {
+        id: FAMILY_PHOTO_PERSONA_SHORT_ID,
+        label: "Son",
+        icon: "Users",
+        decoratesUser: true,
+        decoratesChatMessage: true,
+        excludeFromRoomExport: true,
+      },
+    ])
+    this.onScheduled(FAMILY_PHOTO_SON_DESPAWN_KIND, async (payload) => {
+      const { sonUserId } = payload as { sonUserId: string }
+      if (!sonUserId || !this.sons) return
+      await this.sons.despawnSon(sonUserId)
+    })
+    await this.sons.reconcileOnRegister()
     this.on("GAME_SESSION_ENDED", this.handleGameSessionEnded.bind(this))
     this.on("GAME_SESSION_STARTED", this.handleGameSessionStarted.bind(this))
     this.on("GAME_ECONOMY_SCALE_CHANGED", this.handleEconomyScaleChanged.bind(this))
     this.on("USER_JOINED", this.handleUserJoined.bind(this))
+    this.on("USER_LEFT", this.handleUserLeftForSons.bind(this))
+    this.on("CHAT_MESSAGE_SUBMITTED", this.handleChatSubmittedForSons.bind(this))
+    this.on("REACTION_ADDED", this.handleReactionAddedForSons.bind(this))
+    this.on("REACTION_REMOVED", this.handleReactionRemovedForSons.bind(this))
     this.on("MEDIA_BRIDGE_STATUS_CHANGED", this.handleMediaBridgeStatusChanged.bind(this))
     this.on("INVENTORY_ITEM_ACQUIRED", this.handleInventoryItemAcquired.bind(this))
+    this.on("INVENTORY_ITEM_ACQUIRED", this.handleInventoryAcquiredForSons.bind(this))
+    this.on("GAME_STATE_CHANGED", this.handleGameStateChangedForSons.bind(this))
     this.on("POLL_CLOSED", this.handlePollClosed.bind(this))
     this.onConfigChange(async () => {
       await this.applyLocalLibraryGrantConfig()
@@ -234,6 +275,10 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       },
     })
     await this.kickstarter.reconcileOnRegister()
+  }
+
+  protected async onCleanup(): Promise<void> {
+    await this.despawnAllSons()
   }
 
   private async handlePollClosed(data: SystemEventPayload<"POLL_CLOSED">): Promise<void> {
@@ -395,6 +440,84 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     this.clearShopTimersAndStateForGameEnd()
     await this.shopping.clearSessionRound()
     await this.stripOwnedItemsFromAllUsers()
+    await this.despawnAllSons()
+  }
+
+  private async despawnAllSons(): Promise<void> {
+    if (!this.sons) return
+    for (const sonId of [...this.sons.listAllSonIds()]) {
+      await this.sons.despawnSon(sonId)
+    }
+    await this.sons.clearAll()
+  }
+
+  private async handleUserLeftForSons(data: SystemEventPayload<"USER_LEFT">): Promise<void> {
+    if (!this.sons) return
+    await this.sons.onUserLeft(data.user.userId)
+  }
+
+  private async handleChatSubmittedForSons(
+    data: SystemEventPayload<"CHAT_MESSAGE_SUBMITTED">,
+  ): Promise<void> {
+    if (!this.sons) return
+    const config = await this.getConfig()
+    if (!config?.enabled) return
+    // Fire-and-forget so we do not block the submitter's transform pipeline.
+    void this.sons.mirrorChat(data.userId, data.content)
+  }
+
+  private async handleReactionAddedForSons(
+    data: SystemEventPayload<"REACTION_ADDED">,
+  ): Promise<void> {
+    if (!this.sons) return
+    const config = await this.getConfig()
+    if (!config?.enabled) return
+    const userId = data.reaction.user.userId
+    void this.sons.mirrorReactionAdded(userId, data.reaction.emoji, data.reaction.reactTo)
+  }
+
+  private async handleReactionRemovedForSons(
+    data: SystemEventPayload<"REACTION_REMOVED">,
+  ): Promise<void> {
+    if (!this.sons) return
+    const config = await this.getConfig()
+    if (!config?.enabled) return
+    const userId = data.reaction.user.userId
+    void this.sons.mirrorReactionRemoved(userId, data.reaction.emoji, data.reaction.reactTo)
+  }
+
+  private async handleInventoryAcquiredForSons(
+    data: SystemEventPayload<"INVENTORY_ITEM_ACQUIRED">,
+  ): Promise<void> {
+    if (!this.sons || !this.context) return
+    const config = await this.getConfig()
+    if (!config?.enabled) return
+    const def = await this.context.inventory.getItemDefinition(data.item.definitionId)
+    // Each acquire event is one grant operation; mirror a single unit (purchases are qty 1).
+    void this.sons.mirrorInventoryAcquired({
+      parentUserId: data.userId,
+      definitionId: data.item.definitionId,
+      quantity: 1,
+      metadata: data.item.metadata,
+      shortId: def?.shortId,
+    })
+  }
+
+  private async handleGameStateChangedForSons(
+    data: SystemEventPayload<"GAME_STATE_CHANGED">,
+  ): Promise<void> {
+    if (!this.sons) return
+    if (!this.sons.isSon(data.userId)) return
+    for (const change of data.changes) {
+      if (change.attribute !== "coin" && change.attribute !== "score") continue
+      void this.sons.funnelScore({
+        sonUserId: data.userId,
+        attribute: change.attribute,
+        previousValue: change.previousValue ?? 0,
+        value: change.value,
+        reason: change.reason,
+      })
+    }
   }
 
   /**
@@ -1519,7 +1642,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       return { success: false, consumed: false, message: `Unknown item: ${definition.shortId}` }
     }
 
-    return handler(
+    const result = await handler(
       {
         pluginName: this.name,
         context: this.context,
@@ -1531,11 +1654,25 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         campaignAccess: {
           startCampaign: (params) => this.kickstarter.startCampaign(params),
         },
+        sonAccess: {
+          spawnSonForUser: (uid) => this.sons.spawnSonForUser(uid),
+        },
       },
       userId,
       definition,
       callContext,
     )
+
+    // Mirror successful uses to sons (includes nested Family Photo).
+    if (result.success && this.sons) {
+      void this.sons.mirrorInventoryUsed({
+        parentUserId: userId,
+        definitionId: definition.id,
+        callContext,
+      })
+    }
+
+    return result
   }
 
   async grantMetadataSourceAccess(

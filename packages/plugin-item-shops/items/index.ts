@@ -66,6 +66,7 @@ import { oscilloscope } from "./oscilloscope"
 import { beatDetector } from "./beat-detector"
 import { vuMeter } from "./vu-meter"
 import { chromaticTuner } from "./chromatic-tuner"
+import { familyPhoto } from "./family-photo"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -134,6 +135,7 @@ export const items = {
   beatDetector,
   vuMeter,
   chromaticTuner,
+  familyPhoto,
 } as const
 
 /**

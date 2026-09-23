@@ -190,6 +190,17 @@ export type SystemEventHandlers = {
   }) => Promise<void> | void
 
   // Chat events
+  /**
+   * Emitted after parse and before `transformChatMessage` (ADR 0194).
+   * Plugins may fan out / mirror even when a later transform drops the message.
+   */
+  CHAT_MESSAGE_SUBMITTED: (data: {
+    roomId: string
+    userId: string
+    username: string
+    content: string
+  }) => Promise<void> | void
+
   MESSAGE_RECEIVED: (data: { roomId: string; message: ChatMessage }) => Promise<void> | void
 
   MESSAGE_DELETED: (data: { roomId: string; timestamp: string }) => Promise<void> | void

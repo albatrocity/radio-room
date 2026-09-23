@@ -204,6 +204,7 @@ function mapAssignmentsToPersonas(
         icon: def.icon,
         ...(def.decoratesUser ? { decoratesUser: true } : {}),
         ...(def.decoratesChatMessage ? { decoratesChatMessage: true } : {}),
+        ...(def.excludeFromRoomExport ? { excludeFromRoomExport: true } : {}),
       }
     })
     .filter(isTruthy)

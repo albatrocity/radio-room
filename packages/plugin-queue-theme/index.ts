@@ -549,7 +549,24 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
   private async eligibleVoterIds(djUserId: string | null): Promise<string[]> {
     if (!this.context) return []
     const userIds = await this.context.api.getOnlineUserIds(this.context.roomId)
-    return userIds.filter((id): id is string => isBriefEligibleUserId(id) && id !== djUserId)
+    const eligible = userIds.filter(
+      (id): id is string => isBriefEligibleUserId(id) && id !== djUserId,
+    )
+
+    // Synthetic listeners (e.g. Family Photo sons) cannot cast votes — omit them from
+    // the close quorum so they do not block unanimous settle (ADR 0194).
+    const definitions = await this.personas.getRoomPersonas()
+    const exportExcluded = definitions.filter((d) => d.excludeFromRoomExport)
+    if (exportExcluded.length === 0) return eligible
+
+    const syntheticIds = new Set<string>()
+    await Promise.all(
+      exportExcluded.map(async (def) => {
+        const holders = await this.personas.getUsersWithPersona(def.id)
+        for (const id of holders) syntheticIds.add(id)
+      }),
+    )
+    return eligible.filter((id) => !syntheticIds.has(id))
   }
 
   // ==========================================================================

@@ -12,7 +12,9 @@ import {
   ScreenEffectTarget,
   ScreenEffectName,
   isDeferredQueueRequest,
+  isChatMessageTransformDrop,
   type LocalPlaylistArtwork,
+  type Emoji,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { getRoomPath } from "../getRoomPath"
@@ -468,6 +470,136 @@ export class PluginAPIImpl implements PluginAPI {
         roomId,
         ...toast,
       },
+    })
+  }
+
+  async spawnEphemeralUser(
+    roomId: string,
+    params: { username: string; userId?: string },
+  ): Promise<User> {
+    const { addOnlineUser, saveUser, getRoomUsers, getUser } = await import(
+      "../../operations/data"
+    )
+    const generateId = (await import("../../lib/generateId")).default
+
+    const userId = params.userId ?? generateId()
+    const newUser: User = {
+      userId,
+      username: params.username,
+      isDj: false,
+      isDeputyDj: false,
+      isAdmin: false,
+      status: "participating",
+      connectedAt: new Date().toISOString(),
+    }
+
+    await addOnlineUser({ context: this.context, roomId, userId })
+    await saveUser({ context: this.context, userId, attributes: newUser })
+
+    const users = await getRoomUsers({ context: this.context, roomId })
+    const user =
+      users.find((u) => u.userId === userId) ??
+      (await getUser({ context: this.context, userId })) ??
+      newUser
+
+    if (this.context.systemEvents) {
+      await this.context.systemEvents.emit(roomId, "USER_JOINED", {
+        roomId,
+        user,
+        users,
+      })
+    }
+
+    return user
+  }
+
+  async despawnEphemeralUser(roomId: string, userId: string): Promise<void> {
+    const { removeOnlineUser, deleteUser, getUser, getRoomUsers } = await import(
+      "../../operations/data"
+    )
+
+    const user = (await getUser({ context: this.context, userId })) ?? {
+      userId,
+      username: userId,
+    }
+
+    await removeOnlineUser({ context: this.context, roomId, userId })
+    await deleteUser({ context: this.context, userId })
+
+    if (this.context.systemEvents) {
+      const users = await getRoomUsers({ context: this.context, roomId })
+      await this.context.systemEvents.emit(roomId, "USER_LEFT", {
+        roomId,
+        user,
+        users,
+      })
+    }
+  }
+
+  async sendChatMessageAsUser(roomId: string, userId: string, content: string): Promise<void> {
+    const { getUser } = await import("../../operations/data")
+    const { MessageService } = await import("../../services/MessageService")
+    const { default: sendMessage } = await import("../../lib/sendMessage")
+
+    const stored = await getUser({ context: this.context, userId })
+    const username = stored?.username ?? userId
+    const messageService = new MessageService(this.context)
+    const result = await messageService.processNewMessage(roomId, userId, username, content)
+
+    if (this.context.systemEvents) {
+      await this.context.systemEvents.emit(roomId, "CHAT_MESSAGE_SUBMITTED", {
+        roomId,
+        userId,
+        username,
+        content,
+      })
+    }
+
+    const registry = this.context.pluginRegistry
+    const transformResult = registry
+      ? await registry.transformChatMessage(roomId, result.message)
+      : result.message
+
+    if (isChatMessageTransformDrop(transformResult)) {
+      return
+    }
+
+    await sendMessage(this.io, roomId, transformResult, this.context)
+  }
+
+  async addReactionAsUser(
+    roomId: string,
+    userId: string,
+    emoji: Emoji,
+    reactTo: ReactionSubject,
+  ): Promise<void> {
+    const { getUser } = await import("../../operations/data")
+    const { addReaction } = await import("../../operations/reactions")
+    const stored = await getUser({ context: this.context, userId })
+    const user: User = stored ?? { userId, username: userId }
+    await addReaction({
+      context: this.context,
+      roomId,
+      reaction: { emoji, reactTo, user },
+    })
+  }
+
+  async removeReactionAsUser(
+    roomId: string,
+    userId: string,
+    emoji: Emoji,
+    reactTo: ReactionSubject,
+  ): Promise<void> {
+    const { getUser } = await import("../../operations/data")
+    const { removeReaction } = await import("../../operations/reactions")
+    const stored = await getUser({ context: this.context, userId })
+    const user: User = stored ?? { userId, username: userId }
+    await removeReaction({
+      context: this.context,
+      roomId,
+      emoji,
+      reactTo,
+      user,
     })
   }
 
