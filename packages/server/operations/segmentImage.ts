@@ -2,11 +2,8 @@ import type { AppContext } from "@repo/types"
 import * as scheduling from "../services/SchedulingService"
 import { ensureSegmentImageObject } from "../services/MediaObjectCache"
 import { getAssetBucket, getAssetCdnBaseUrl } from "../lib/assetEnv"
-import { isStreamingMode } from "../lib/streamingMode"
 import { prepareRoomImage, PrepareRoomImageError } from "./data/prepareRoomImage"
-import { enterStreamingMode } from "./room/applyFetchMetaTransitionEffects"
-import { refreshRoomScheduleSnapshot } from "./scheduleRedisSnapshot"
-import { findRoomsByShowIds } from "./showPublish"
+import { afterSegmentChanged } from "./segmentChanged"
 
 export class SegmentImageError extends Error {
   constructor(
@@ -24,30 +21,6 @@ function assertAssetStorageConfigured(): void {
     getAssetCdnBaseUrl()
   } catch (e) {
     throw new SegmentImageError(e instanceof Error ? e.message : "Asset storage is not configured", 503)
-  }
-}
-
-/**
- * Refresh schedule snapshots for rooms attached to shows containing the segment,
- * then rebuild the streaming-mode display where that segment is active.
- * Failures are logged; the primary mutation already succeeded (ADR 0028).
- */
-export async function afterSegmentImageChanged(
-  context: AppContext | undefined,
-  segmentId: string,
-): Promise<void> {
-  if (!context) return
-  try {
-    const showIds = await scheduling.findShowIdsBySegmentId(segmentId)
-    const rooms = await findRoomsByShowIds(context, new Set(showIds))
-    for (const { roomId, room } of rooms) {
-      await refreshRoomScheduleSnapshot(context, roomId)
-      if (room.activeSegmentId === segmentId && isStreamingMode(room)) {
-        await enterStreamingMode(context, roomId)
-      }
-    }
-  } catch (e) {
-    console.error("[segmentImage] refresh after image change failed", segmentId, e)
   }
 }
 
@@ -79,7 +52,7 @@ export async function uploadSegmentImage(params: {
   const segment = await scheduling.setSegmentImageUrl(segmentId, url)
   if (!segment) throw new SegmentImageError("Segment not found", 404)
 
-  await afterSegmentImageChanged(context, segmentId)
+  await afterSegmentChanged(context, segmentId, { refreshStreamingDisplay: true })
   return segment
 }
 
@@ -90,6 +63,6 @@ export async function clearSegmentImage(params: {
   const segment = await scheduling.setSegmentImageUrl(params.segmentId, null)
   if (!segment) throw new SegmentImageError("Segment not found", 404)
 
-  await afterSegmentImageChanged(params.context, params.segmentId)
+  await afterSegmentChanged(params.context, params.segmentId, { refreshStreamingDisplay: true })
   return segment
 }

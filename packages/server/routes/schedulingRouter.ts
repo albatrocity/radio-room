@@ -8,6 +8,7 @@ import {
   continuePrepareShowPublish,
 } from "../operations/showPublish"
 import { refreshScheduleSnapshotForShow } from "../operations/scheduleRedisSnapshot"
+import { afterSegmentChanged } from "../operations/segmentChanged"
 import {
   clearSegmentImage,
   SegmentImageError,
@@ -347,16 +348,19 @@ export function createSchedulingRouter(): Router {
 
   router.put("/segments/:id", async (req: Request, res: Response) => {
     try {
+      const requestedTitle = (req.body as { title?: unknown }).title
+      const previous =
+        typeof requestedTitle === "string"
+          ? await scheduling.findSegmentById(req.params.id)
+          : null
       const segment = await scheduling.updateSegment(req.params.id, req.body)
       if (!segment) {
         res.status(404).json({ error: "Segment not found" })
         return
       }
-      const ctx = getAppContext(req)
-      const showIds = await scheduling.findShowIdsBySegmentId(req.params.id)
-      for (const sid of showIds) {
-        await afterShowTimelineChanged(ctx, sid)
-      }
+      await afterSegmentChanged(getAppContext(req), req.params.id, {
+        refreshStreamingDisplay: previous != null && previous.title !== segment.title,
+      })
       res.json({ segment })
     } catch (error) {
       if (error instanceof scheduling.SchedulingBadRequestError) {
@@ -414,16 +418,16 @@ export function createSchedulingRouter(): Router {
 
   router.delete("/segments/:id", async (req: Request, res: Response) => {
     try {
-      const ctx = getAppContext(req)
       const showIds = await scheduling.findShowIdsBySegmentId(req.params.id)
       const segment = await scheduling.deleteSegment(req.params.id)
       if (!segment) {
         res.status(404).json({ error: "Segment not found" })
         return
       }
-      for (const sid of showIds) {
-        await afterShowTimelineChanged(ctx, sid)
-      }
+      await afterSegmentChanged(getAppContext(req), req.params.id, {
+        showIds,
+        refreshStreamingDisplay: true,
+      })
       res.json({ success: true })
     } catch (error) {
       console.error("Error deleting segment:", error)
