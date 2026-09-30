@@ -1,22 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { HTTPError } from "ky"
 import { finalizeShowPublish, syncPublishPlaylist, continuePublish } from "../lib/api"
 import { queryKeys } from "../lib/queryClient"
+import { errorBodyMessage } from "../lib/errorBodyMessage"
 import { toaster } from "../components/ui/toaster"
-
-async function errorBodyMessage(e: unknown): Promise<string> {
-  if (e instanceof HTTPError) {
-    try {
-      const body = (await e.response.json()) as { error?: string }
-      if (body.error) return body.error
-    } catch {
-      /* ignore */
-    }
-    return e.message
-  }
-  if (e instanceof Error) return e.message
-  return "Request failed"
-}
 
 export function useSyncPublishPlaylist(showId: string) {
   const queryClient = useQueryClient()

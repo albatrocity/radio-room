@@ -32,6 +32,7 @@ vi.mock("../lib/assetEnv", () => ({
 import {
   ensureCoverObject,
   ensurePreviewObject,
+  ensureSegmentImageObject,
   getCoverPointer,
   getPreviewPointer,
   headPreviewByFingerprint,
@@ -167,5 +168,15 @@ describe("MediaObjectCache", () => {
     expect(result.url).toBe(`https://cdn.example/${previewObjectKey(fp)}`)
     const cached = await getPreviewPointer({ context, fingerprintHash: fp })
     expect(cached?.url).toBe(result.url)
+  })
+
+  it("ensureSegmentImageObject Puts a content-addressed key under media/segments", async () => {
+    const result = await ensureSegmentImageObject({
+      buffer: Buffer.from("png-bytes"),
+      mimeType: "image/png",
+    })
+    expect(result.uploaded).toBe(true)
+    expect(result.url).toMatch(/^https:\/\/cdn\.example\/media\/segments\/v1\/[0-9a-f]{64}\.png$/)
+    expect(cache.size).toBe(0)
   })
 })

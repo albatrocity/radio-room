@@ -29,6 +29,7 @@ export function buildRoomScheduleSnapshotPayload(show: ShowRowForSnapshot): Room
       segment: {
         title: seg.title,
         pluginPreset,
+        imageUrl: seg.imageUrl ?? null,
       },
     }
   })

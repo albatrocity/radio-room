@@ -87,11 +87,11 @@ describe("enterStreamingMode", () => {
     })
   })
 
-  it("includes segment title as artist when schedule is public", async () => {
-    m.findRoom.mockResolvedValue(
-      baseRoom({ showSchedulePublic: true, activeSegmentId: "seg-1" }),
-    )
-    m.readRoomScheduleSnapshot.mockResolvedValue({
+  function snapshotWithSegment(segment: {
+    title: string
+    imageUrl?: string | null
+  }): RoomScheduleSnapshotDTO {
+    return {
       version: 1,
       showId: "s1",
       showTitle: "Show",
@@ -99,27 +99,63 @@ describe("enterStreamingMode", () => {
       updatedAt: "",
       segments: [
         {
+          showSegmentId: "ss-1",
           segmentId: "seg-1",
           position: 0,
           durationOverride: null,
           durationMinutes: 30,
-          segment: { title: "Intro", pluginPreset: null },
+          segment: { pluginPreset: null, ...segment },
         },
       ],
-    } satisfies RoomScheduleSnapshotDTO)
+    }
+  }
+
+  it.each([true, false])(
+    "shows only the segment title and image with an active segment (showSchedulePublic=%s)",
+    async (showSchedulePublic) => {
+      m.findRoom.mockResolvedValue(
+        baseRoom({ showSchedulePublic, activeSegmentId: "seg-1", artwork: "room.png" }),
+      )
+      m.readRoomScheduleSnapshot.mockResolvedValue(
+        snapshotWithSegment({ title: "Intro", imageUrl: "https://cdn.example/seg.jpg" }),
+      )
+
+      await enterStreamingMode(context, "r1")
+
+      const meta = m.setRoomCurrent.mock.calls[0][0].meta
+      expect(meta).toMatchObject({
+        title: "Intro",
+        track: "Intro",
+        artist: "",
+        artwork: "https://cdn.example/seg.jpg",
+      })
+      expect(meta.nowPlaying.title).toBe("Intro")
+      expect(meta.nowPlaying.track.title).toBe("Intro")
+      expect(meta.nowPlaying.track.artists).toEqual([])
+    },
+  )
+
+  it("falls back to room artwork when the active segment has no image", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ activeSegmentId: "seg-1", artwork: "room.png" }))
+    m.readRoomScheduleSnapshot.mockResolvedValue(
+      snapshotWithSegment({ title: "Intro", imageUrl: null }),
+    )
 
     await enterStreamingMode(context, "r1")
 
-    expect(m.setRoomCurrent).toHaveBeenCalledWith({
-      context,
-      roomId: "r1",
-      meta: expect.objectContaining({ artist: "Intro" }),
-    })
+    const meta = m.setRoomCurrent.mock.calls[0][0].meta
+    expect(meta.artwork).toBe("room.png")
+    expect(meta.track).toBe("Intro")
+  })
+
+  it("falls back to the room title when the active segment is not in the snapshot", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ activeSegmentId: "seg-missing", artwork: "room.png" }))
+    m.readRoomScheduleSnapshot.mockResolvedValue(snapshotWithSegment({ title: "Intro" }))
+
+    await enterStreamingMode(context, "r1")
 
     const meta = m.setRoomCurrent.mock.calls[0][0].meta
-    expect(meta.nowPlaying.track.artists).toEqual([
-      { id: "segment", title: "Intro", urls: [] },
-    ])
+    expect(meta).toMatchObject({ title: "My Room", track: "My Room", artwork: "room.png" })
   })
 
   it("emits TRACK_CHANGED and MEDIA_SOURCE_STATUS_CHANGED", async () => {

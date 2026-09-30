@@ -13,7 +13,7 @@ export function isTrackDetectionEnabled(room: Pick<Room, "fetchMeta"> | null | u
   return !!room?.fetchMeta
 }
 
-type DisplayFields = Pick<Room, "title" | "artwork" | "showSchedulePublic" | "activeSegmentId">
+type DisplayFields = Pick<Room, "title" | "artwork" | "activeSegmentId">
 
 /**
  * Returns true when any field that affects the streaming-mode display
@@ -26,7 +26,6 @@ export function streamingDisplayChanged(
   return (
     previous.title !== next.title ||
     previous.artwork !== next.artwork ||
-    previous.showSchedulePublic !== next.showSchedulePublic ||
     previous.activeSegmentId !== next.activeSegmentId
   )
 }

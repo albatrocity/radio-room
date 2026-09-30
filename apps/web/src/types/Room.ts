@@ -90,6 +90,7 @@ export type RoomMeta = {
   artist?: string
   album?: string
   title?: string
+  artwork?: string | null
   bitrate?: number
   stationMeta: StationMeta
   dj?: User

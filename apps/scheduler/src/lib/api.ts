@@ -202,6 +202,26 @@ export async function deleteSegment(id: string): Promise<void> {
   await api.delete(`api/scheduling/segments/${id}`)
 }
 
+/** Multipart upload; bypasses the shared client so the JSON Content-Type header is not sent. */
+export async function uploadSegmentImage(id: string, file: File): Promise<SegmentDTO> {
+  const formData = new FormData()
+  formData.append("image", file)
+  const data = await ky
+    .post(`${API_URL}/api/scheduling/segments/${id}/image`, {
+      body: formData,
+      credentials: "include",
+      timeout: 60000,
+    })
+    .json<{ segment: SegmentDTO }>()
+  return data.segment
+}
+
+export async function clearSegmentImage(id: string): Promise<SegmentDTO> {
+  const res = await api.delete(`api/scheduling/segments/${id}/image`)
+  const data = await res.json<{ segment: SegmentDTO }>()
+  return data.segment
+}
+
 // ---------------------------------------------------------------------------
 // Plugin schemas (segment plugin-config authoring)
 // ---------------------------------------------------------------------------

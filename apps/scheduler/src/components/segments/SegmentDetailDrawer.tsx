@@ -19,6 +19,7 @@ import { TagCombobox } from "../tags/TagCombobox"
 import { SegmentPluginConfigEditor } from "./SegmentPluginConfigEditor"
 import { SegmentPluginPresetEditor } from "./SegmentPluginPresetEditor"
 import { SegmentRoomSettingsEditor } from "./SegmentRoomSettingsEditor"
+import { SegmentImageField } from "./SegmentImageField"
 
 interface SegmentDetailDrawerProps {
   segmentId: string | undefined
@@ -121,6 +122,8 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
             </Box>
           )}
         </form.Field>
+
+        <SegmentImageField segment={segment} />
 
         <form.Field name="durationMinutes">
           {(field) => (

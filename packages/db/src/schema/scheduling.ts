@@ -64,6 +64,8 @@ export const segment = pgTable("segment", {
   gameSessionPreset: jsonb("game_session_preset"),
   /** Partial room booleans applied on segment activation (see SegmentRoomSettingsOverride in @repo/types). */
   roomSettingsOverride: jsonb("room_settings_override"),
+  /** CDN URL shown as the Now Playing cover while active in streaming mode (ADR 0195). */
+  imageUrl: text("image_url"),
   status: segmentStatusEnum("status").notNull().default("draft"),
   createdBy: text("created_by")
     .notNull()

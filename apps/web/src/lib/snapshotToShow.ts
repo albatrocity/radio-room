@@ -23,6 +23,7 @@ export function snapshotToShowDTO(snapshot: RoomScheduleSnapshotDTO | null): Sho
         duration: durationMinutes,
         pluginPreset,
         roomSettingsOverride: null,
+        imageUrl: inner?.imageUrl ?? null,
         status: "ready",
         createdBy: "",
         assignedTo: null,

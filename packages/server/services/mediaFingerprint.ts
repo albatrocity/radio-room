@@ -71,6 +71,10 @@ export function roomImageObjectKey(roomId: string, contentHash: string, ext = "j
   return `media/rooms/${roomId}/images/${MEDIA_KEY_VERSION}/${contentHash}.${ext}`
 }
 
+export function segmentImageObjectKey(contentHash: string, ext = "jpg"): string {
+  return `media/segments/${MEDIA_KEY_VERSION}/${contentHash}.${ext}`
+}
+
 export function previewPointerKey(fingerprintHash: string): string {
   return `media:ptr:${MEDIA_KEY_VERSION}:preview:${fingerprintHash}`
 }

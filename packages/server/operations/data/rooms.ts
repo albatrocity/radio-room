@@ -341,7 +341,10 @@ export async function makeJukeboxCurrentPayload({
     const currentlyPlaying = await getRoomCurrent({ context, roomId })
     const trackIsCurrent = currentlyPlaying?.nowPlaying?.track?.id === nowPlaying?.track?.id
     const room = await findRoom({ context, roomId })
-    const artwork = (room?.artworkStreamingOnly ? undefined : room?.artwork) ?? nowPlaying?.track?.album?.images?.[0]?.url
+    const artwork =
+      meta.artwork ??
+      (room?.artworkStreamingOnly ? undefined : room?.artwork) ??
+      nowPlaying?.track?.album?.images?.[0]?.url
     const queue = await getQueue({ context, roomId })
     const queuedTrack = queue.find((x) => x.track?.id === nowPlaying?.track?.id)
     const trackDj = trackIsCurrent ? currentlyPlaying?.dj : queuedTrack ? queuedTrack.addedBy : meta.dj ?? null

@@ -8,6 +8,12 @@ import {
   continuePrepareShowPublish,
 } from "../operations/showPublish"
 import { refreshScheduleSnapshotForShow } from "../operations/scheduleRedisSnapshot"
+import {
+  clearSegmentImage,
+  SegmentImageError,
+  uploadSegmentImage,
+} from "../operations/segmentImage"
+import { segmentImageUploadMiddleware } from "../controllers/imageController"
 
 function getAppContext(req: Request): AppContext | undefined {
   return (req as Request & { context?: AppContext }).context
@@ -359,6 +365,50 @@ export function createSchedulingRouter(): Router {
       }
       console.error("Error updating segment:", error)
       res.status(500).json({ error: "Failed to update segment" })
+    }
+  })
+
+  router.post(
+    "/segments/:id/image",
+    segmentImageUploadMiddleware,
+    async (req: Request, res: Response) => {
+      const file = req.file as Express.Multer.File | undefined
+      if (!file) {
+        res.status(400).json({ error: "No file provided" })
+        return
+      }
+      try {
+        const segment = await uploadSegmentImage({
+          context: getAppContext(req),
+          segmentId: req.params.id,
+          file,
+        })
+        res.json({ segment })
+      } catch (error) {
+        if (error instanceof SegmentImageError) {
+          res.status(error.status).json({ error: error.message })
+          return
+        }
+        console.error("Error uploading segment image:", error)
+        res.status(500).json({ error: "Failed to upload segment image" })
+      }
+    },
+  )
+
+  router.delete("/segments/:id/image", async (req: Request, res: Response) => {
+    try {
+      const segment = await clearSegmentImage({
+        context: getAppContext(req),
+        segmentId: req.params.id,
+      })
+      res.json({ segment })
+    } catch (error) {
+      if (error instanceof SegmentImageError) {
+        res.status(error.status).json({ error: error.message })
+        return
+      }
+      console.error("Error clearing segment image:", error)
+      res.status(500).json({ error: "Failed to clear segment image" })
     }
   })
 

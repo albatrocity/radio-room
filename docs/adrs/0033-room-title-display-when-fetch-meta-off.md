@@ -1,7 +1,7 @@
 # 0033. Track Detection Toggle and Streaming Mode
 
 **Date:** 2026-04-06
-**Status:** Accepted (revised)
+**Status:** Accepted (revised). Partially superseded by [0195](0195-segment-image-streaming-cover.md) (streaming-mode title, artist, artwork)
 
 ## Context
 
