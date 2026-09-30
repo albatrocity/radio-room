@@ -6,9 +6,8 @@ const m = vi.hoisted(() => ({
   findShowIdsBySegmentId: vi.fn(),
   findSegmentById: vi.fn(),
   setSegmentImageUrl: vi.fn(),
-  findRoomIdsByShowId: vi.fn(),
+  findRoomsByShowIds: vi.fn(),
   refreshRoomScheduleSnapshot: vi.fn(),
-  findRoom: vi.fn(),
   enterStreamingMode: vi.fn(),
   ensureSegmentImageObject: vi.fn(),
   prepareRoomImage: vi.fn(),
@@ -21,11 +20,10 @@ vi.mock("../services/SchedulingService", () => ({
   findSegmentById: m.findSegmentById,
   setSegmentImageUrl: m.setSegmentImageUrl,
 }))
-vi.mock("./showPublish", () => ({ findRoomIdsByShowId: m.findRoomIdsByShowId }))
+vi.mock("./showPublish", () => ({ findRoomsByShowIds: m.findRoomsByShowIds }))
 vi.mock("./scheduleRedisSnapshot", () => ({
   refreshRoomScheduleSnapshot: m.refreshRoomScheduleSnapshot,
 }))
-vi.mock("./data", () => ({ findRoom: m.findRoom }))
 vi.mock("./room/applyFetchMetaTransitionEffects", () => ({
   enterStreamingMode: m.enterStreamingMode,
 }))
@@ -71,21 +69,34 @@ describe("afterSegmentImageChanged", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     m.findShowIdsBySegmentId.mockResolvedValue(["show-1"])
-    m.findRoomIdsByShowId.mockResolvedValue(["r1", "r2", "r3"])
+    m.findRoomsByShowIds.mockResolvedValue([])
   })
 
   it("refreshes snapshots and rebuilds streaming display only where the segment is active", async () => {
-    m.findRoom.mockImplementation(async ({ roomId }: { roomId: string }) => {
-      if (roomId === "r1") return room({ id: "r1", activeSegmentId: "seg-1" })
-      if (roomId === "r2") return room({ id: "r2", activeSegmentId: "seg-1", fetchMeta: true })
-      return room({ id: "r3", activeSegmentId: "seg-other" })
-    })
+    m.findRoomsByShowIds.mockResolvedValue([
+      { roomId: "r1", room: room({ id: "r1", activeSegmentId: "seg-1" }) },
+      { roomId: "r2", room: room({ id: "r2", activeSegmentId: "seg-1", fetchMeta: true }) },
+      { roomId: "r3", room: room({ id: "r3", activeSegmentId: "seg-other" }) },
+    ])
 
     await afterSegmentImageChanged(context, "seg-1")
 
     expect(m.refreshRoomScheduleSnapshot).toHaveBeenCalledTimes(3)
     expect(m.enterStreamingMode).toHaveBeenCalledTimes(1)
     expect(m.enterStreamingMode).toHaveBeenCalledWith(context, "r1")
+  })
+
+  it("looks up rooms for every show containing the segment in one call", async () => {
+    m.findShowIdsBySegmentId.mockResolvedValue(["show-1", "show-2", "show-3"])
+
+    await afterSegmentImageChanged(context, "seg-1")
+
+    expect(m.findRoomsByShowIds).toHaveBeenCalledTimes(1)
+    expect(m.findRoomsByShowIds).toHaveBeenCalledWith(
+      context,
+      new Set(["show-1", "show-2", "show-3"]),
+    )
+    expect(m.refreshRoomScheduleSnapshot).not.toHaveBeenCalled()
   })
 
   it("no-ops without a context", async () => {

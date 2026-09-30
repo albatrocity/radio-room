@@ -10,6 +10,7 @@ import { eq, and, inArray } from "drizzle-orm"
 import { z } from "zod"
 import type { AppContext, RoomExportMarkdownOptions } from "@repo/types"
 import type { QueueItem } from "@repo/types/Queue"
+import type { Room } from "@repo/types/Room"
 import type { RoomExportDTO, RoomExportPlaylistLinks } from "@repo/types"
 import { queueItemStableKey } from "@repo/types/Queue"
 import * as scheduling from "../services/SchedulingService"
@@ -51,16 +52,26 @@ function resolvePlaylistFromOrderedKeys(orderedKeys: string[], live: QueueItem[]
   return out
 }
 
-export async function findRoomIdsByShowId(context: AppContext, showId: string): Promise<string[]> {
+/** Rooms whose `showId` is in `showIds`, from a single pass over the `rooms` set. */
+export async function findRoomsByShowIds(
+  context: AppContext,
+  showIds: ReadonlySet<string>,
+): Promise<Array<{ roomId: string; room: Room }>> {
+  if (showIds.size === 0) return []
   const roomIds = await context.redis.pubClient.sMembers("rooms")
-  const matches: string[] = []
+  const matches: Array<{ roomId: string; room: Room }> = []
   for (const roomId of roomIds) {
     const room = await findRoom({ context, roomId })
-    if (room?.showId === showId) {
-      matches.push(roomId)
+    if (room?.showId && showIds.has(room.showId)) {
+      matches.push({ roomId, room })
     }
   }
   return matches
+}
+
+export async function findRoomIdsByShowId(context: AppContext, showId: string): Promise<string[]> {
+  const matches = await findRoomsByShowIds(context, new Set([showId]))
+  return matches.map((m) => m.roomId)
 }
 
 function extractServiceTrackId(item: QueueItem, service: "spotify" | "tidal"): string | null {

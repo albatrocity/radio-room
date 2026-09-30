@@ -3,11 +3,10 @@ import * as scheduling from "../services/SchedulingService"
 import { ensureSegmentImageObject } from "../services/MediaObjectCache"
 import { getAssetBucket, getAssetCdnBaseUrl } from "../lib/assetEnv"
 import { isStreamingMode } from "../lib/streamingMode"
-import { findRoom } from "./data"
 import { prepareRoomImage, PrepareRoomImageError } from "./data/prepareRoomImage"
 import { enterStreamingMode } from "./room/applyFetchMetaTransitionEffects"
 import { refreshRoomScheduleSnapshot } from "./scheduleRedisSnapshot"
-import { findRoomIdsByShowId } from "./showPublish"
+import { findRoomsByShowIds } from "./showPublish"
 
 export class SegmentImageError extends Error {
   constructor(
@@ -40,14 +39,11 @@ export async function afterSegmentImageChanged(
   if (!context) return
   try {
     const showIds = await scheduling.findShowIdsBySegmentId(segmentId)
-    for (const showId of showIds) {
-      const roomIds = await findRoomIdsByShowId(context, showId)
-      for (const roomId of roomIds) {
-        await refreshRoomScheduleSnapshot(context, roomId)
-        const room = await findRoom({ context, roomId })
-        if (room?.activeSegmentId === segmentId && isStreamingMode(room)) {
-          await enterStreamingMode(context, roomId)
-        }
+    const rooms = await findRoomsByShowIds(context, new Set(showIds))
+    for (const { roomId, room } of rooms) {
+      await refreshRoomScheduleSnapshot(context, roomId)
+      if (room.activeSegmentId === segmentId && isStreamingMode(room)) {
+        await enterStreamingMode(context, roomId)
       }
     }
   } catch (e) {

@@ -105,7 +105,10 @@ export const showSegment = pgTable(
     /** Per-show override in minutes; effective duration = durationOverride ?? segment.duration */
     durationOverride: integer("duration_override"),
   },
-  (table) => [unique("show_segment_position_unique").on(table.showId, table.position)],
+  (table) => [
+    unique("show_segment_position_unique").on(table.showId, table.position),
+    index("show_segment_segment_id_idx").on(table.segmentId),
+  ],
 )
 
 export const segmentTag = pgTable(
