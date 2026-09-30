@@ -28,6 +28,7 @@ describe("buildRoomScheduleSnapshotPayload", () => {
             title: "First",
             duration: 5,
             pluginPreset: { pluginConfigs: { demo: { foo: 1 } } },
+            imageUrl: "https://cdn.example/media/segments/v1/abc.jpg",
           },
         },
       ],
@@ -46,7 +47,9 @@ describe("buildRoomScheduleSnapshotPayload", () => {
     expect(snap.segments[0].durationOverride).toBe(20)
     expect(snap.segments[0].segment.title).toBe("First")
     expect(snap.segments[0].segment.pluginPreset).toEqual({ pluginConfigs: { demo: { foo: 1 } } })
+    expect(snap.segments[0].segment.imageUrl).toBe("https://cdn.example/media/segments/v1/abc.jpg")
     expect(snap.segments[1].segmentId).toBe("seg-b")
+    expect(snap.segments[1].segment.imageUrl).toBeNull()
     expect(snap.segments[1].durationMinutes).toBe(12)
     expect(snap.segments[1].durationOverride).toBeNull()
   })
@@ -79,7 +82,7 @@ describe("buildRoomScheduleSnapshotPayload", () => {
 
     const segment = snap.segments[0].segment as Record<string, unknown>
     expect(segment).not.toHaveProperty("privatePluginContent")
-    expect(Object.keys(segment)).toEqual(["title", "pluginPreset"])
+    expect(Object.keys(segment)).toEqual(["title", "pluginPreset", "imageUrl"])
     expect(JSON.stringify(snap)).not.toContain("secret answer")
   })
 

@@ -1,4 +1,10 @@
-import type { AppContext, QueueItem, RoomMeta, MediaSourceType } from "@repo/types"
+import type {
+  AppContext,
+  QueueItem,
+  RoomMeta,
+  MediaSourceType,
+  RoomScheduleSnapshotSegmentDTO,
+} from "@repo/types"
 import { clearRoomCurrent, findRoom, getRoomCurrent, setRoomCurrent } from "../data"
 import { readRoomScheduleSnapshot } from "../scheduleRedisSnapshot"
 import handleRoomNowPlayingData from "./handleRoomNowPlayingData"
@@ -51,7 +57,8 @@ export const refreshNowPlayingFromStationMeta = refreshNowPlayingFromCachedMeta
 
 /**
  * Transition into streaming mode: clear track data and set up a minimal
- * room-branding display (room title, optional segment title, room artwork).
+ * branding display. With an active segment: segment title and segment image
+ * (falling back to room artwork). Otherwise: room title and room artwork (ADR 0195).
  */
 export async function enterStreamingMode(
   context: AppContext,
@@ -62,21 +69,18 @@ export async function enterStreamingMode(
   const room = await findRoom({ context, roomId })
   if (!room) return
 
-  let segmentTitle: string | undefined
-  if (room.showSchedulePublic && room.activeSegmentId) {
-    segmentTitle = (await getActiveSegmentTitle(context, roomId, room.activeSegmentId)) ?? undefined
-  }
-
-  const artists: Array<{ id: string; title: string; urls: [] }> = segmentTitle
-    ? [{ id: "segment", title: segmentTitle, urls: [] }]
-    : []
+  const activeSegment = room.activeSegmentId
+    ? await getActiveSnapshotSegment(context, roomId, room.activeSegmentId)
+    : null
+  const displayTitle = activeSegment?.title || room.title
+  const artwork = activeSegment?.imageUrl || room.artwork
 
   const nowPlaying: QueueItem = {
-    title: room.title,
+    title: displayTitle,
     track: {
       id: "streaming-mode",
-      title: room.title,
-      artists,
+      title: displayTitle,
+      artists: [],
       album: {
         id: "streaming-mode",
         title: "",
@@ -103,11 +107,11 @@ export async function enterStreamingMode(
 
   const meta: RoomMeta = {
     nowPlaying,
-    title: room.title,
-    artist: segmentTitle ?? "",
+    title: displayTitle,
+    artist: "",
     album: "",
-    track: room.title,
-    artwork: room.artwork,
+    track: displayTitle,
+    artwork,
     lastUpdatedAt: Date.now().toString(),
   }
 
@@ -150,16 +154,16 @@ export async function applyFetchMetaTransitionEffects(params: {
   }
 }
 
-async function getActiveSegmentTitle(
+async function getActiveSnapshotSegment(
   context: AppContext,
   roomId: string,
   activeSegmentId: string,
-): Promise<string | null> {
+): Promise<RoomScheduleSnapshotSegmentDTO["segment"] | null> {
   try {
     const snapshot = await readRoomScheduleSnapshot(context, roomId)
     if (!snapshot) return null
     const seg = snapshot.segments.find((s) => s.segmentId === activeSegmentId)
-    return seg?.segment.title ?? null
+    return seg?.segment ?? null
   } catch {
     return null
   }

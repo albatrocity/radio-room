@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import type { QueryKey } from "@tanstack/react-query"
 import { queryKeys } from "../lib/queryClient"
 import * as api from "../lib/api"
+import { errorBodyMessage } from "../lib/errorBodyMessage"
 import type {
   SegmentDTO,
   SegmentFilters,
@@ -152,6 +153,24 @@ export function useUpdateSegment() {
           queryKey: queryKeys.segments.detail(variables.id),
         })
       }
+    },
+  })
+}
+
+/** Upload (`file`) or clear (`file: null`) the segment image; writes the returned segment into the detail cache. */
+export function useSetSegmentImage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File | null }) => {
+      try {
+        return file ? await api.uploadSegmentImage(id, file) : await api.clearSegmentImage(id)
+      } catch (e) {
+        throw new Error(await errorBodyMessage(e))
+      }
+    },
+    onSuccess: (segment) => {
+      queryClient.setQueryData(queryKeys.segments.detail(segment.id), segment)
+      queryClient.invalidateQueries({ queryKey: queryKeys.segments.all })
     },
   })
 }

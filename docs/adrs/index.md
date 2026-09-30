@@ -38,7 +38,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0030](0030-local-remote-farrago-soundboard.md) | local-remote: Farrago soundboard (bidirectional OSC) | Accepted |
 | [0031](0031-staleness-aware-refresh-on-visibility.md) | Staleness-Aware Refresh on Tab Visibility | Accepted |
 | [0032](0032-room-public-visibility-flag.md) | Room Public Visibility Flag | Accepted |
-| [0033](0033-room-title-display-when-fetch-meta-off.md) | Track Detection Toggle and Streaming Mode | Accepted |
+| [0033](0033-room-title-display-when-fetch-meta-off.md) | Track Detection Toggle and Streaming Mode | Partially superseded by [0195](0195-segment-image-streaming-cover.md) (streaming-mode title, artist, artwork) |
 | [0034](0034-live-room-type-rtmp-adapter.md) | Live Room Type and RTMP Adapter | Accepted |
 | [0035](0035-caddy-tls-termination-for-mediamtx.md) | Caddy TLS Termination for MediaMTX | Accepted |
 | [0036](0036-stream-health-webhook-for-live-rooms.md) | Stream Health Webhook for Live Rooms | Accepted |
@@ -200,6 +200,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0192](0192-plugin-storage-and-leaderboard-helpers.md) | Plugin storage helpers (`getJson`/`updateJson`/`appendCapped`) and `createLeaderboard` | Accepted |
 | [0193](0193-item-use-forms-composed-with-target-pickers.md) | Item-use forms composed with target pickers (+ field capabilities) | Accepted |
 | [0194](0194-ephemeral-plugin-users-and-action-mirroring.md) | Ephemeral plugin users and action mirroring (spawn/chat/react APIs) | Accepted |
+| [0195](0195-segment-image-streaming-cover.md) | Segment title and image as the streaming-mode Now Playing display | Accepted |
 
 ## Creating a New ADR
 

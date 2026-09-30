@@ -107,6 +107,13 @@ export function artworkUploadMiddleware(req: Request, res: Response, next: NextF
   })
 }
 
+export function segmentImageUploadMiddleware(req: Request, res: Response, next: NextFunction) {
+  upload.single("image")(req, res, (err) => {
+    if (err) return handleImageUploadMulterError(err, req, res, next)
+    next()
+  })
+}
+
 export async function uploadImages(req: Request, res: Response) {
   const { roomId } = req.params
   const context = (req as any).context as AppContext

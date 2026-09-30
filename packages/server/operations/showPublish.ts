@@ -13,7 +13,7 @@ import type { QueueItem } from "@repo/types/Queue"
 import type { RoomExportDTO, RoomExportPlaylistLinks } from "@repo/types"
 import { queueItemStableKey } from "@repo/types/Queue"
 import * as scheduling from "../services/SchedulingService"
-import { findRoom, getRoomPlaylist, deleteRoom } from "./data"
+import { findRoom, findRoomIdsByShowId, getRoomPlaylist, deleteRoom } from "./data"
 import { ExportService } from "../services/ExportService"
 import { AdapterService } from "../services/AdapterService"
 import { DJService } from "../services/DJService"
@@ -49,18 +49,6 @@ function resolvePlaylistFromOrderedKeys(orderedKeys: string[], live: QueueItem[]
     else pool.set(k, list)
   }
   return out
-}
-
-export async function findRoomIdsByShowId(context: AppContext, showId: string): Promise<string[]> {
-  const roomIds = await context.redis.pubClient.sMembers("rooms")
-  const matches: string[] = []
-  for (const roomId of roomIds) {
-    const room = await findRoom({ context, roomId })
-    if (room?.showId === showId) {
-      matches.push(roomId)
-    }
-  }
-  return matches
 }
 
 function extractServiceTrackId(item: QueueItem, service: "spotify" | "tidal"): string | null {

@@ -16,7 +16,7 @@ import {
 import { format } from "date-fns"
 
 import AlbumArtwork from "../AlbumArtwork"
-import { largestImageUrl } from "../../lib/metadataImages"
+import { largestImageUrl, roomBrandingCoverUrl } from "../../lib/metadataImages"
 import safeDate from "../../lib/safeDate"
 import nullifyEmptyString from "../../lib/nullifyEmptyString"
 import { Room, RoomMeta } from "../../types/Room"
@@ -62,10 +62,9 @@ const OBSCURED_ARTWORK_PLACEHOLDER =
     </svg>`,
   )
 
-function getCoverUrl(release: any, room: Partial<Room> | null): string | null {
-  const useRoomArtwork = room?.artwork && (!room.artworkStreamingOnly || !room.fetchMeta)
-  if (useRoomArtwork) {
-    return room.artwork!
+function getCoverUrl(release: any, brandingCoverUrl: string | null): string | null {
+  if (brandingCoverUrl) {
+    return brandingCoverUrl
   }
 
   if (release?.album?.images?.length) {
@@ -125,8 +124,9 @@ export function NowPlayingTrack({ meta, room }: NowPlayingTrackProps) {
   // Use preferred track data if available, otherwise fall back to default
   const release = preferredTrack || nowPlaying?.track
 
-  const coverUrl = getCoverUrl(release, room)
-  const useRoomArtwork = Boolean(room?.artwork && (!room.artworkStreamingOnly || !room.fetchMeta))
+  const brandingCoverUrl = roomBrandingCoverUrl(room, meta.artwork)
+  const coverUrl = getCoverUrl(release, brandingCoverUrl)
+  const useRoomArtwork = Boolean(brandingCoverUrl)
   const externalUrl = getTrackExternalUrl(release)
   const artworkSize = [24, "100%", "100%"]
 

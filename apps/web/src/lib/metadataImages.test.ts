@@ -6,6 +6,7 @@ import {
   largestImageUrl,
   mediaSessionArtwork,
   preferBrowserRenderableImages,
+  roomBrandingCoverUrl,
 } from "./metadataImages"
 
 function image(id: string, url: string): MetadataSourceUrl {
@@ -93,6 +94,48 @@ describe("metadataImages", () => {
 
     it("is empty when there is nothing to show", () => {
       expect(mediaSessionArtwork(undefined, undefined)).toEqual([])
+    })
+  })
+
+  describe("roomBrandingCoverUrl", () => {
+    const segmentImage = "https://cdn/segment.jpg"
+    const roomArt = "https://cdn/room.jpg"
+
+    it("prefers meta artwork (segment image) over room artwork in streaming mode", () => {
+      expect(
+        roomBrandingCoverUrl({ type: "radio", fetchMeta: false, artwork: roomArt }, segmentImage),
+      ).toBe(segmentImage)
+      expect(roomBrandingCoverUrl({ type: "live", fetchMeta: false }, segmentImage)).toBe(
+        segmentImage,
+      )
+    })
+
+    it("falls back to room artwork in streaming mode without meta artwork", () => {
+      expect(
+        roomBrandingCoverUrl({ type: "radio", fetchMeta: false, artwork: roomArt }, null),
+      ).toBe(roomArt)
+      expect(roomBrandingCoverUrl({ type: "radio", fetchMeta: false }, undefined)).toBeNull()
+    })
+
+    it("ignores meta artwork when track detection is on", () => {
+      expect(
+        roomBrandingCoverUrl({ type: "radio", fetchMeta: true, artwork: roomArt }, segmentImage),
+      ).toBe(roomArt)
+      expect(roomBrandingCoverUrl({ type: "radio", fetchMeta: true }, segmentImage)).toBeNull()
+      expect(
+        roomBrandingCoverUrl(
+          { type: "radio", fetchMeta: true, artwork: roomArt, artworkStreamingOnly: true },
+          segmentImage,
+        ),
+      ).toBeNull()
+    })
+
+    it("does not apply the streaming override to jukebox rooms", () => {
+      expect(roomBrandingCoverUrl({ type: "jukebox", fetchMeta: false }, segmentImage)).toBeNull()
+    })
+
+    it("returns null without a room", () => {
+      expect(roomBrandingCoverUrl(null, segmentImage)).toBeNull()
     })
   })
 })

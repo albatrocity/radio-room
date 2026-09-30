@@ -13,6 +13,7 @@ import {
   previewObjectKey,
   previewPointerKey,
   roomImageObjectKey,
+  segmentImageObjectKey,
 } from "./mediaFingerprint"
 
 const COVER_TTL_SEC = 30 * 24 * 60 * 60
@@ -250,6 +251,13 @@ export async function headPreviewByFingerprint(params: {
   return pointer
 }
 
+function imageExtForMimeType(mimeType: string): string {
+  if (mimeType.includes("png")) return "png"
+  if (mimeType.includes("gif")) return "gif"
+  if (mimeType.includes("webp")) return "webp"
+  return "jpg"
+}
+
 export async function ensureRoomImageObject(params: {
   context: AppContext
   roomId: string
@@ -257,13 +265,7 @@ export async function ensureRoomImageObject(params: {
   mimeType: string
 }): Promise<{ url: string; contentHash: string; uploaded: boolean }> {
   const contentHash = hashCoverBytes(params.buffer)
-  const ext = params.mimeType.includes("png")
-    ? "png"
-    : params.mimeType.includes("gif")
-      ? "gif"
-      : params.mimeType.includes("webp")
-        ? "webp"
-        : "jpg"
+  const ext = imageExtForMimeType(params.mimeType)
   const key = roomImageObjectKey(params.roomId, contentHash, ext)
   const bucket = getAssetBucket()
   const exists = await objectExists(bucket, key)
@@ -284,6 +286,29 @@ export async function ensureRoomImageObject(params: {
     ROOM_IMAGE_PTR_TTL_SEC,
   )
   return { url, contentHash, uploaded: !exists }
+}
+
+/**
+ * Segment images are not room-scoped and their URL is persisted in Postgres,
+ * so no Redis pointer is written.
+ */
+export async function ensureSegmentImageObject(params: {
+  buffer: Buffer
+  mimeType: string
+}): Promise<{ url: string; uploaded: boolean }> {
+  const contentHash = hashCoverBytes(params.buffer)
+  const key = segmentImageObjectKey(contentHash, imageExtForMimeType(params.mimeType))
+  const bucket = getAssetBucket()
+  const exists = await objectExists(bucket, key)
+  if (!exists) {
+    await putObject({
+      bucket,
+      key,
+      body: params.buffer,
+      contentType: params.mimeType,
+    })
+  }
+  return { url: cdnUrl(key), uploaded: !exists }
 }
 
 export async function invalidateCoverPointersForLibrary(

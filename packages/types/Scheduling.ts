@@ -136,6 +136,8 @@ export interface SegmentDTO {
    */
   privatePluginContent?: SegmentPrivatePluginContent | null
   roomSettingsOverride: SegmentRoomSettingsOverride | null
+  /** CDN URL used as the Now Playing cover while active in streaming mode (ADR 0195). */
+  imageUrl: string | null
   status: SegmentStatus
   createdBy: string
   assignedTo: string | null
@@ -183,6 +185,7 @@ export interface RoomScheduleSnapshotSegmentDTO {
   segment: {
     title: string
     pluginPreset: PluginPreset | null
+    imageUrl?: string | null
   }
 }
 

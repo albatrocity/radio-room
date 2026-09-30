@@ -1,4 +1,6 @@
 import type { MetadataSourceUrl } from "@repo/types"
+import type { Room } from "../types/Room"
+import { hasListenableStream } from "./roomTypeHelpers"
 
 /** Adapters encode image dimensions in `id` as `WxH` (e.g. Spotify `640x640`). */
 function pixelArea(image: MetadataSourceUrl): number {
@@ -35,6 +37,30 @@ export function featureImageUrl(images?: MetadataSourceUrl[]): string | undefine
     }
   }
   return best.url
+}
+
+type BrandingRoom = Pick<Room, "type" | "fetchMeta" | "artwork" | "artworkStreamingOnly">
+
+/**
+ * Cover that replaces track art, or null when track art should show.
+ *
+ * In streaming mode the server-built `meta.artwork` wins: it is the active
+ * segment image, or room artwork when the segment has none (ADR 0195).
+ * Otherwise room artwork applies unless it is limited to streaming mode while
+ * track detection is on.
+ */
+export function roomBrandingCoverUrl(
+  room: Partial<BrandingRoom> | null | undefined,
+  metaArtwork: string | null | undefined,
+): string | null {
+  if (!room) return null
+  if (!room.fetchMeta && hasListenableStream(room) && metaArtwork) {
+    return metaArtwork
+  }
+  if (room.artwork && (!room.artworkStreamingOnly || !room.fetchMeta)) {
+    return room.artwork
+  }
+  return null
 }
 
 /** WebKit scores candidates against a 512x512 ideal; match it so we agree. */

@@ -64,6 +64,8 @@ export const segment = pgTable("segment", {
   gameSessionPreset: jsonb("game_session_preset"),
   /** Partial room booleans applied on segment activation (see SegmentRoomSettingsOverride in @repo/types). */
   roomSettingsOverride: jsonb("room_settings_override"),
+  /** CDN URL shown as the Now Playing cover while active in streaming mode (ADR 0195). */
+  imageUrl: text("image_url"),
   status: segmentStatusEnum("status").notNull().default("draft"),
   createdBy: text("created_by")
     .notNull()
@@ -103,7 +105,10 @@ export const showSegment = pgTable(
     /** Per-show override in minutes; effective duration = durationOverride ?? segment.duration */
     durationOverride: integer("duration_override"),
   },
-  (table) => [unique("show_segment_position_unique").on(table.showId, table.position)],
+  (table) => [
+    unique("show_segment_position_unique").on(table.showId, table.position),
+    index("show_segment_segment_id_idx").on(table.segmentId),
+  ],
 )
 
 export const segmentTag = pgTable(

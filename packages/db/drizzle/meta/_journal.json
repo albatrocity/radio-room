@@ -78,6 +78,20 @@
       "when": 1783460000000,
       "tag": "0010_track_playlist_stats_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790801354705,
+      "tag": "0011_segment_image_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790803136813,
+      "tag": "0012_show_segment_segment_id_idx",
+      "breakpoints": true
     }
   ]
 }

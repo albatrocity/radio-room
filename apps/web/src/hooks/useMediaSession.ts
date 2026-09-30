@@ -16,7 +16,7 @@ import {
   setMediaSessionHandlers,
   setMediaSessionPlaybackState,
 } from "../lib/mediaSession"
-import { mediaSessionArtwork } from "../lib/metadataImages"
+import { mediaSessionArtwork, roomBrandingCoverUrl } from "../lib/metadataImages"
 
 /**
  * Publish now-playing to the OS lock screen / Control Center while this room
@@ -53,11 +53,9 @@ export function useMediaSession(): void {
 
   // Same precedence the Now Playing panel uses, so the lock screen shows the
   // cover the room is already showing.
-  const useRoomArtwork = Boolean(
-    room?.artwork && (!room.artworkStreamingOnly || !room.fetchMeta),
-  )
-  const artwork = useRoomArtwork
-    ? [{ src: room!.artwork! }]
+  const brandingCoverUrl = roomBrandingCoverUrl(room, stationMeta?.artwork)
+  const artwork = brandingCoverUrl
+    ? [{ src: brandingCoverUrl }]
     : mediaSessionArtwork(preferred?.album?.images, room?.artwork)
   const artworkKey = artwork.map((image) => image.src).join("|")
 

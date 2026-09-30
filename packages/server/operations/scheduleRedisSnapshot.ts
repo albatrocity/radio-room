@@ -1,7 +1,6 @@
 import type { AppContext, PluginPreset, RoomScheduleSnapshotDTO, SegmentDTO } from "@repo/types"
-import { findRoom } from "./data"
+import { findRoom, findRoomIdsByShowId } from "./data"
 import * as scheduling from "../services/SchedulingService"
-import { findRoomIdsByShowId } from "./showPublish"
 
 export type ShowRowForSnapshot = NonNullable<Awaited<ReturnType<typeof scheduling.findShowById>>>
 
@@ -29,6 +28,7 @@ export function buildRoomScheduleSnapshotPayload(show: ShowRowForSnapshot): Room
       segment: {
         title: seg.title,
         pluginPreset,
+        imageUrl: seg.imageUrl ?? null,
       },
     }
   })

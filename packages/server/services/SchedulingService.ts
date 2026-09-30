@@ -592,6 +592,17 @@ export async function updateSegment(id: string, data: UpdateSegmentRequest) {
   return findSegmentById(id)
 }
 
+/** Set or clear the segment image URL (ADR 0195). Not exposed through `updateSegment`. */
+export async function setSegmentImageUrl(id: string, imageUrl: string | null) {
+  const [row] = await db
+    .update(segment)
+    .set({ imageUrl, updatedAt: new Date() })
+    .where(eq(segment.id, id))
+    .returning({ id: segment.id })
+  if (!row) return null
+  return findSegmentById(id)
+}
+
 export async function deleteSegment(id: string) {
   const [row] = await db.delete(segment).where(eq(segment.id, id)).returning()
   return row ?? null

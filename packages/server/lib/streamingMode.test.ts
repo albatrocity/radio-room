@@ -52,10 +52,13 @@ describe("streamingDisplayChanged", () => {
     expect(streamingDisplayChanged({ artwork: "a.png" }, { artwork: "b.png" })).toBe(true)
   })
 
-  it("returns true when showSchedulePublic changes", () => {
+  it("ignores showSchedulePublic (segment title shows regardless)", () => {
     expect(
-      streamingDisplayChanged({ showSchedulePublic: true }, { showSchedulePublic: false }),
-    ).toBe(true)
+      streamingDisplayChanged(
+        { showSchedulePublic: true } as never,
+        { showSchedulePublic: false } as never,
+      ),
+    ).toBe(false)
   })
 
   it("returns true when activeSegmentId changes", () => {
@@ -68,7 +71,6 @@ describe("streamingDisplayChanged", () => {
     const fields = {
       title: "Room",
       artwork: "img.png",
-      showSchedulePublic: true,
       activeSegmentId: "seg-1",
     }
     expect(streamingDisplayChanged(fields, { ...fields })).toBe(false)

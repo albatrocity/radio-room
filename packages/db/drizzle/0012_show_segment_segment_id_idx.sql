@@ -1,0 +1,1 @@
+CREATE INDEX "show_segment_segment_id_idx" ON "show_segment" USING btree ("segment_id");
