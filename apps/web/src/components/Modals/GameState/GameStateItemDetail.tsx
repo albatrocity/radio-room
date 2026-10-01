@@ -21,6 +21,7 @@ import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
 import { MediaConditionTag } from "../../PluginComponents/MediaConditionTag"
 import { TourPunchList } from "../../PluginComponents/TourPunchList"
 import { resolveDisplayArtworkFrame } from "../../../lib/resolveDisplayArtworkFrame"
+import { resolveItemModelUrl } from "../../../lib/itemModelUrls"
 import { stopTrackPreview, toggleTrackPreview } from "../../../actors/trackPreviewActor"
 import { useCanAddToQueue, useIsAdmin } from "../../../hooks/useActors"
 import { useSocketMachine } from "../../../hooks/useSocketMachine"
@@ -92,7 +93,8 @@ function ItemDetailPrimaryActions({
 }
 
 /**
- * Game State item detail body (ADR 0104): lore + optional trackList album view.
+ * Game State item detail body (ADR 0104): artwork or 3D model, description, lore
+ * (ADR 0199), or the trackList album view.
  */
 export default function GameStateItemDetail({ frame, definition, fillHeight = false }: Props) {
   const isAdmin = useIsAdmin()
@@ -237,13 +239,21 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
     )
   }
 
-  // Lore-only (`layout: "default"`): compact artwork + description.
+  const lore = definition?.lore?.trim()
+  // A cover image wins over the model, so only a model-only item gets the wide stage.
+  const showModelStage =
+    !definition?.imageUrl && resolveItemModelUrl(definition?.shortId, definition?.model) != null
+
+  // `default` / `punchCard`: artwork or model stage, description, lore (ADR 0199).
   return (
     <Stack gap={4} pt={2} direction="column" align="center" data-inventory-item-id={itemDomId}>
-      <Box w="28">
+      <Box w={showModelStage ? "full" : "28"} maxW={showModelStage ? "20rem" : undefined}>
         <ItemArtwork
           imageUrl={definition?.imageUrl}
           imageUrlLarge={definition?.imageUrlLarge}
+          shortId={definition?.shortId}
+          model={definition?.model}
+          modelInteractive
           icon={definition?.icon}
           rarity={definition?.rarity}
           artworkFrame={artworkFrame}
@@ -263,6 +273,11 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
         {description ? (
           <LinkifiedText fontSize="sm" color="fg.muted" textAlign="center">
             {description}
+          </LinkifiedText>
+        ) : null}
+        {lore ? (
+          <LinkifiedText fontSize="sm" textAlign="center">
+            {lore}
           </LinkifiedText>
         ) : null}
         {primaryActions}

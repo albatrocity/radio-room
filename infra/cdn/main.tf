@@ -184,11 +184,11 @@ resource "aws_cloudfront_distribution" "assets" {
   }
 
   default_cache_behavior {
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "s3-assets"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "s3-assets"
+    viewer_protocol_policy     = "redirect-to-https"
+    compress                   = true
     cache_policy_id            = data.aws_cloudfront_cache_policy.caching_optimized.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.assets_cors.id
   }
@@ -296,6 +296,22 @@ resource "aws_iam_user_policy" "sender_s3_put" {
         Effect   = "Allow"
         Action   = ["s3:GetObject"]
         Resource = "${aws_s3_bucket.assets.arn}/media/*"
+      },
+      {
+        # `aws s3 sync` of item GLBs from the production web build (ADR 0199).
+        Sid      = "ListItemModels"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = aws_s3_bucket.assets.arn
+        Condition = {
+          StringLike = { "s3:prefix" = ["assets/items/*", "assets/items/"] }
+        }
+      },
+      {
+        Sid      = "InvalidateAssetCdn"
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = aws_cloudfront_distribution.assets.arn
       },
     ]
   })

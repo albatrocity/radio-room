@@ -20,3 +20,4 @@ Physical Media Collection used a secondary “Queue a track” action that left 
 - Plugins stay config-based; Item Shops is the first consumer (derived records use `trackList` + “View record”).
 - CatalogBrowse / Add to Queue Physical Media browse remains available for the Add to Queue modal itself.
 - Extending layouts later (new enum values or section lists) does not require per-plugin routers.
+- The `default` layout also shows an item's 3D model and `lore` — see [ADR 0199](0199-item-models-and-lore.md).

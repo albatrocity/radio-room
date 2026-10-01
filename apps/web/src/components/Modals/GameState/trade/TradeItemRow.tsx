@@ -43,6 +43,8 @@ export function TradeItemRow({
     <Box w={PICKER_ARTWORK_SIZE} flexShrink={0}>
       <ItemArtwork
         imageUrl={def?.imageUrl}
+        shortId={def?.shortId}
+        model={def?.model}
         icon={def?.icon as never}
         artworkFrame={artworkFrame}
         condition={condition}
@@ -55,6 +57,8 @@ export function TradeItemRow({
   ) : (
     <ItemArtwork
       imageUrl={def?.imageUrl}
+      shortId={def?.shortId}
+      model={def?.model}
       icon={def?.icon as never}
       artworkFrame={artworkFrame}
       condition={condition}

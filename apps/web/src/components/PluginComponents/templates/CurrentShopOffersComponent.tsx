@@ -116,6 +116,8 @@ export function CurrentShopOffersTemplateComponent(_props: Props) {
                   <ItemArtwork
                     imageUrl={row.imageUrl}
                     imageUrlLarge={row.imageUrlLarge}
+                    shortId={row.shortId}
+                    model={definition?.model}
                     icon={row.icon}
                     rarity={row.rarity}
                     artworkFrame={resolveDisplayArtworkFrame({
