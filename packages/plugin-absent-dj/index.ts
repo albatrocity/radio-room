@@ -5,6 +5,7 @@ import type {
   PluginComponentSchema,
   PluginComponentState,
   PluginAugmentationData,
+  PluginScheduleRevision,
   QueueItem,
   User,
 } from "@repo/types"
@@ -44,9 +45,18 @@ interface SkipData {
 export interface AbsentDjComponentState extends PluginComponentState {
   showCountdown: boolean
   countdownStartTime: number | null
+  /** Remaining ms while room playback is paused; freezes the countdown (ADR 0196). */
+  countdownPausedRemainingMs: number | null
   absentUsername: string | null
   isSkipped: boolean
 }
+
+const HIDDEN_COUNTDOWN = {
+  showCountdown: false,
+  countdownStartTime: null,
+  countdownPausedRemainingMs: null,
+  absentUsername: null,
+} as const
 
 // ============================================================================
 // Timer Constants and Types
@@ -55,7 +65,11 @@ export interface AbsentDjComponentState extends PluginComponentState {
 const COUNTDOWN_TIMER_ID = "absent-dj-countdown"
 const COUNTDOWN_STATE_KEY = "countdown-state"
 
-/** Persisted countdown state for schedule-based UI (ADR 0190). */
+/**
+ * Persisted countdown state for schedule-based UI (ADR 0190). The skip schedule
+ * counts playback time (ADR 0196): `startTime` / `deadline` are projected from the
+ * latest revision, and `pausedRemainingMs` is set while the room is paused.
+ */
 interface CountdownState {
   trackId: string
   absentUserId: string
@@ -63,6 +77,7 @@ interface CountdownState {
   trackTitle: string
   startTime: number
   deadline: number
+  pausedRemainingMs?: number | null
 }
 
 // ============================================================================
@@ -103,47 +118,26 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   // ============================================================================
 
   async getComponentState(): Promise<AbsentDjComponentState> {
-    if (!this.context) {
-      return {
-        showCountdown: false,
-        countdownStartTime: null,
-        absentUsername: null,
-        isSkipped: false,
-      }
-    }
+    if (!this.context) return { ...HIDDEN_COUNTDOWN, isSkipped: false }
 
     const config = await this.getConfig()
-    if (!config?.enabled) {
-      return {
-        showCountdown: false,
-        countdownStartTime: null,
-        absentUsername: null,
-        isSkipped: false,
+    if (!config?.enabled) return { ...HIDDEN_COUNTDOWN, isSkipped: false }
+
+    const state = await this.readCountdownState()
+    if (state) {
+      const paused = typeof state.pausedRemainingMs === "number"
+      if (paused || state.deadline > Date.now()) {
+        return {
+          showCountdown: true,
+          countdownStartTime: state.startTime,
+          countdownPausedRemainingMs: paused ? (state.pausedRemainingMs as number) : null,
+          absentUsername: state.absentUsername,
+          isSkipped: false,
+        }
       }
     }
 
-    // Check for a persisted countdown state
-    const stateRaw = await this.context.storage.get(COUNTDOWN_STATE_KEY)
-    if (stateRaw) {
-      try {
-        const state = JSON.parse(stateRaw) as CountdownState
-        if (state.deadline > Date.now()) {
-          return {
-            showCountdown: true,
-            countdownStartTime: state.startTime,
-            absentUsername: state.absentUsername,
-            isSkipped: false,
-          }
-        }
-      } catch { /* stale data, ignore */ }
-    }
-
-    return {
-      showCountdown: false,
-      countdownStartTime: null,
-      absentUsername: null,
-      isSkipped: false,
-    }
+    return { ...HIDDEN_COUNTDOWN, isSkipped: false }
   }
 
   // ============================================================================
@@ -157,6 +151,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
       const data = payload as CountdownState
       await this.skipTrack(data.trackId, data.trackTitle, data.absentUsername, await this.getConfig() as AbsentDjConfig)
     })
+    this.onScheduleRevised(this.onCountdownRevised.bind(this))
 
     this.on("TRACK_CHANGED", this.onTrackChanged.bind(this))
     this.on("USER_JOINED", this.onUserJoined.bind(this))
@@ -176,12 +171,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     await this.context.storage.del(COUNTDOWN_STATE_KEY)
 
     // Reset isSkipped state when a new track starts
-    await this.emit("TRACK_CHANGED", {
-      showCountdown: false,
-      countdownStartTime: null,
-      absentUsername: null,
-      isSkipped: false,
-    })
+    await this.emit("TRACK_CHANGED", { ...HIDDEN_COUNTDOWN, isSkipped: false })
 
     const config = await this.getConfig()
     if (!config?.enabled) return
@@ -239,18 +229,11 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     if (!this.context) return
 
     // Check if there's a pending countdown for an absent DJ
-    const stateRaw = await this.context.storage.get(COUNTDOWN_STATE_KEY)
-    if (!stateRaw) return
+    const countdownState = await this.readCountdownState()
+    if (!countdownState) return
 
     const config = await this.getConfig()
     if (!config?.enabled) return
-
-    let countdownState: CountdownState
-    try {
-      countdownState = JSON.parse(stateRaw) as CountdownState
-    } catch {
-      return
-    }
 
     // Check if the joining user is the absent DJ we're waiting for
     if (data.user.userId === countdownState.absentUserId) {
@@ -262,11 +245,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
       await this.context.storage.del(COUNTDOWN_STATE_KEY)
 
       // Emit event to hide countdown on frontend
-      await this.emit("COUNTDOWN_CANCELLED", {
-        showCountdown: false,
-        countdownStartTime: null,
-        absentUsername: null,
-      })
+      await this.emit("COUNTDOWN_CANCELLED", { ...HIDDEN_COUNTDOWN })
     }
   }
 
@@ -353,11 +332,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   private async onPluginDisabled(): Promise<void> {
     await this.cancelSchedule(COUNTDOWN_TIMER_ID)
     if (this.context) await this.context.storage.del(COUNTDOWN_STATE_KEY)
-    await this.emit("PLUGIN_DISABLED", {
-      showCountdown: false,
-      countdownStartTime: null,
-      absentUsername: null,
-    })
+    await this.emit("PLUGIN_DISABLED", { ...HIDDEN_COUNTDOWN })
     await this.context!.api.sendSystemMessage(this.context!.roomId, `👻 Absent DJ disabled`, {
       type: "alert",
       status: "info",
@@ -377,34 +352,83 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     if (!this.context) return
     const trackId = track.mediaSource.trackId
     const trackTitle = track.title
-    const startTime = Date.now()
-    const deadline = startTime + config.skipDelay
+    const now = Date.now()
 
     const countdownState: CountdownState = {
       trackId,
       absentUserId,
       absentUsername,
       trackTitle,
-      startTime,
-      deadline,
+      startTime: now,
+      deadline: now + config.skipDelay,
+      pausedRemainingMs: null,
     }
+
+    const scheduled = await this.schedule({
+      id: COUNTDOWN_TIMER_ID,
+      kind: "countdown",
+      anchor: { trackId, afterPlaybackMs: config.skipDelay },
+      payload: countdownState,
+    })
+    if (!scheduled.ok) {
+      console.warn(`[${this.name}] Could not schedule skip countdown: ${scheduled.message}`)
+      return
+    }
+    countdownState.deadline = scheduled.fireAt
+    countdownState.startTime = scheduled.fireAt - config.skipDelay
+    if (scheduled.paused) countdownState.pausedRemainingMs = config.skipDelay
 
     // Persist countdown state for UI hydration
     await this.context.storage.set(COUNTDOWN_STATE_KEY, JSON.stringify(countdownState))
 
-    await this.schedule({
-      id: COUNTDOWN_TIMER_ID,
-      kind: "countdown",
-      durationMs: config.skipDelay,
-      payload: countdownState,
-    })
-
     // Emit event to show countdown on frontend
     this.emit("COUNTDOWN_STARTED", {
       showCountdown: true,
-      countdownStartTime: startTime,
+      countdownStartTime: countdownState.startTime,
+      countdownPausedRemainingMs: countdownState.pausedRemainingMs,
       absentUsername,
     })
+  }
+
+  /** Keep the countdown UI on the playback clock: freeze on pause, re-project on resume. */
+  private async onCountdownRevised(revision: PluginScheduleRevision): Promise<void> {
+    if (!this.context || revision.scheduleId !== COUNTDOWN_TIMER_ID) return
+
+    const state = await this.readCountdownState()
+    if (!state) return
+
+    if (revision.cancelled) {
+      await this.context.storage.del(COUNTDOWN_STATE_KEY)
+      await this.emit("COUNTDOWN_CANCELLED", { ...HIDDEN_COUNTDOWN })
+      return
+    }
+
+    const durationMs = state.deadline - state.startTime
+    const next: CountdownState = revision.paused
+      ? { ...state, pausedRemainingMs: revision.remainingMs }
+      : {
+          ...state,
+          startTime: revision.fireAt - durationMs,
+          deadline: revision.fireAt,
+          pausedRemainingMs: null,
+        }
+    await this.context.storage.set(COUNTDOWN_STATE_KEY, JSON.stringify(next))
+    await this.emit(revision.paused ? "COUNTDOWN_PAUSED" : "COUNTDOWN_RESUMED", {
+      showCountdown: true,
+      countdownStartTime: next.startTime,
+      countdownPausedRemainingMs: next.pausedRemainingMs ?? null,
+      absentUsername: next.absentUsername,
+    })
+  }
+
+  private async readCountdownState(): Promise<CountdownState | null> {
+    const raw = await this.context?.storage.get(COUNTDOWN_STATE_KEY)
+    if (!raw) return null
+    try {
+      return JSON.parse(raw) as CountdownState
+    } catch {
+      return null
+    }
   }
 
   // ============================================================================
@@ -428,12 +452,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
           `[${this.name}] Queue has ${queueLength} tracks (minimum required: ${config.skipRequiresQueueMin + 1}), cancelling skip`,
         )
         // Reset the UI state
-        await this.emit("SKIP_CANCELLED", {
-          showCountdown: false,
-          countdownStartTime: null,
-          absentUsername: null,
-          isSkipped: false,
-        })
+        await this.emit("SKIP_CANCELLED", { ...HIDDEN_COUNTDOWN, isSkipped: false })
         return
       }
     }
@@ -453,12 +472,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     await this.context.api.skipTrack(this.context.roomId, trackId)
 
     // Emit event to update frontend
-    await this.emit("TRACK_SKIPPED", {
-      showCountdown: false,
-      countdownStartTime: null,
-      absentUsername: null,
-      isSkipped: true,
-    })
+    await this.emit("TRACK_SKIPPED", { ...HIDDEN_COUNTDOWN, isSkipped: true })
 
     // Play sound effect if configured
     if (config.soundEffectOnSkip && config.soundEffectOnSkipUrl) {

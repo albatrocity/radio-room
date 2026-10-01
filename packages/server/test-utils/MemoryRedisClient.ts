@@ -208,6 +208,10 @@ export class MemoryRedisClient {
     return api
   }
 
+  async sCard(key: string): Promise<number> {
+    return this.sets.get(key)?.size ?? 0
+  }
+
   async sMembers(key: string): Promise<string[]> {
     const set = this.sets.get(key)
     if (!set) return []
@@ -231,15 +235,26 @@ export class MemoryRedisClient {
   async zAdd(
     key: string,
     entry: { score: number; value: string } | { score: number; value: string }[],
-  ): Promise<void> {
+    options?: { XX?: true; NX?: true },
+  ): Promise<number> {
     if (!this.zsets.has(key)) {
       this.zsets.set(key, new Map())
     }
     const zset = this.zsets.get(key)!
     const entries = Array.isArray(entry) ? entry : [entry]
+    let added = 0
     for (const { score, value } of entries) {
+      const exists = zset.has(value)
+      if (options?.XX && !exists) continue
+      if (options?.NX && exists) continue
+      if (!exists) added += 1
       zset.set(value, score)
     }
+    return added
+  }
+
+  async zScore(key: string, member: string): Promise<number | null> {
+    return this.zsets.get(key)?.get(member) ?? null
   }
 
   async zRem(key: string, member: string | string[]): Promise<number> {

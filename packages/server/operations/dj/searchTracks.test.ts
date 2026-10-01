@@ -217,4 +217,98 @@ describe("searchTracksAcrossSources", () => {
       albumIds: ["al-1"],
     })
   })
+
+  describe("plugin room scope (ADR 0197)", () => {
+    const localSource = {
+      name: "local",
+      api: {
+        search: vi.fn(),
+        listArtists: vi.fn().mockResolvedValue({ items: [] }),
+        listAlbums: vi.fn().mockResolvedValue({ items: [] }),
+        listPlaylists: vi.fn(),
+      },
+    } as unknown as MetadataSource
+
+    function roomScopeContext() {
+      return {
+        ...mockContext,
+        metadataSourceAccess: {
+          getEnabledSourceIds: vi.fn().mockResolvedValue(["spotify", "local"]),
+          getEffectiveSourceIdsForUser: vi.fn(),
+          getLocalCatalogShelves: vi.fn(),
+        },
+      } as unknown as AppContext & {
+        metadataSourceAccess: Record<string, ReturnType<typeof vi.fn>>
+      }
+    }
+
+    beforeEach(() => {
+      adapterService.getRoomMetadataSources.mockResolvedValue(
+        new Map([
+          ["spotify", spotifySource],
+          ["local", localSource],
+        ]),
+      )
+    })
+
+    test("uses the room's enabled sources and skips listener shelves without userId", async () => {
+      const context = roomScopeContext()
+      const searchSource = vi.fn().mockResolvedValue({ success: true, data: [] })
+      await searchTracksAcrossSources({
+        context,
+        adapterService: adapterService as any,
+        roomId,
+        query: "loveless",
+        searchSource,
+      })
+
+      expect(context.metadataSourceAccess.getEnabledSourceIds).toHaveBeenCalled()
+      expect(context.metadataSourceAccess.getEffectiveSourceIdsForUser).not.toHaveBeenCalled()
+      expect(context.metadataSourceAccess.getLocalCatalogShelves).not.toHaveBeenCalled()
+      expect(searchSource).toHaveBeenCalledWith(localSource, "loveless", undefined)
+    })
+
+    test("sourceId narrows the fan-out", async () => {
+      const searchSource = vi.fn().mockResolvedValue({ success: true, data: [] })
+      await searchTracksAcrossSources({
+        context: roomScopeContext(),
+        adapterService: adapterService as any,
+        roomId,
+        query: "x",
+        sourceId: "spotify",
+        searchSource,
+      })
+      expect(searchSource).toHaveBeenCalledTimes(1)
+      expect(searchSource).toHaveBeenCalledWith(spotifySource, "x", undefined)
+    })
+
+    test("sourceId outside the effective set fails", async () => {
+      const result = await searchTracksAcrossSources({
+        context: roomScopeContext(),
+        adapterService: adapterService as any,
+        roomId,
+        query: "x",
+        sourceId: "tidal",
+        searchSource: vi.fn(),
+      })
+      expect(result).toEqual({
+        success: false,
+        message: 'Metadata source "tidal" is not available for search',
+      })
+    })
+
+    test("includeEntities: false skips artist/album browse calls", async () => {
+      const searchSource = vi.fn().mockResolvedValue({ success: true, data: [] })
+      await searchTracksAcrossSources({
+        context: roomScopeContext(),
+        adapterService: adapterService as any,
+        roomId,
+        query: "loveless",
+        includeEntities: false,
+        searchSource,
+      })
+      expect(localSource.api.listArtists).not.toHaveBeenCalled()
+      expect(localSource.api.listAlbums).not.toHaveBeenCalled()
+    })
+  })
 })

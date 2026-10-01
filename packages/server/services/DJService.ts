@@ -37,6 +37,18 @@ import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 import { canResumeCurrentTrack, shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
 import { publishDeputyDjChanged } from "../operations/dj/publishDeputyDjChanged"
 import { rewriteLocalTrackImages } from "../operations/dj/rewriteLocalTrackImages"
+import {
+  findPinViolation,
+  findPlayOutOfOrderViolation,
+  findRemovalViolation,
+  minInsertIndex,
+} from "../operations/dj/queuePins"
+
+/** Max tracks per `enqueueTracks` call (one metadata lookup each, ADR 0198). */
+export const ENQUEUE_TRACKS_MAX = 50
+
+/** Plugin caller identity for queue pin ownership (ADR 0198). */
+type QueueActorOptions = { actorPluginName?: string }
 
 function isSameMultiset(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false
@@ -104,6 +116,27 @@ type PlaybackStateSuccess = {
 /** Short TTL so admin scrubber polls don't hammer Spotify / bridge RPC. */
 const PLAYBACK_STATE_CACHE_TTL_MS = 2500
 const playbackStateCache = new Map<string, { at: number; value: PlaybackStateSuccess }>()
+
+/** Drop the cached admin playback read after any transport mutation (admin or plugin). */
+export function clearPlaybackStateCache(roomId: string): void {
+  playbackStateCache.delete(roomId)
+}
+
+/** Re-project playback-anchored plugin schedules after an admin transport command (ADR 0196). */
+async function recomputeAnchorsAfterTransport(
+  context: AppContext,
+  roomId: string,
+  observed: { state?: "playing" | "paused" | "stopped"; progressMs?: number },
+): Promise<void> {
+  try {
+    const { recomputeAnchoredSchedules } = await import(
+      "../operations/plugins/anchoredSchedules"
+    )
+    await recomputeAnchoredSchedules({ context, roomId, observed })
+  } catch (error) {
+    console.error("[DJService] recomputeAnchoredSchedules failed:", error)
+  }
+}
 
 /**
  * A service that handles DJ-related operations without Socket.io dependencies
@@ -412,10 +445,11 @@ export class DJService {
         const withoutAdded = updatedQueue.filter(
           (item) => canonicalQueueTrackKey(item) !== addedKey,
         )
-        const belowIndex = withoutAdded.findIndex(
+        const splitIndex = withoutAdded.findIndex(
           (item) => canonicalQueueTrackKey(item) === belowKey,
         )
-        if (belowIndex >= 0) {
+        if (splitIndex >= 0) {
+          const belowIndex = Math.max(splitIndex, minInsertIndex(withoutAdded))
           await setQueue({
             roomId,
             items: [
@@ -448,31 +482,8 @@ export class DJService {
     if (suppressQueueChanged) {
       // Nested add from a QUEUE_CHANGED plugin handler (e.g. round-robin hold flush).
       markQueueMutatedDuringPlugins(roomId)
-    } else if (this.context.systemEvents) {
-      const appControlled = isAppControlledPlayback(room)
-      const payload = await buildQueueChangedData({
-        roomId,
-        context: this.context,
-        appControlled,
-      })
-      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
-
-      // Plugins may enqueue further tracks during QUEUE_CHANGED with
-      // suppressQueueChanged (e.g. round-robin hold flush). Refresh only when
-      // that happened so clients see the final queue without a second Redis
-      // build on every ordinary enqueue.
-      if (takeSuppressedQueueMutation(roomId)) {
-        const refreshed = await buildQueueChangedData({
-          roomId,
-          context: this.context,
-          appControlled,
-        })
-        if (!queueChangedPayloadsEqual(payload, refreshed)) {
-          await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", refreshed, {
-            skipPlugins: true,
-          })
-        }
-      }
+    } else {
+      await this.emitQueueChangedAfterAdd(roomId, isAppControlledPlayback(room))
     }
 
     return {
@@ -480,6 +491,146 @@ export class DJService {
       queuedItem,
       systemMessage: systemMessage(`${addedBy.username || "Someone"} added a song to the queue`),
     }
+  }
+
+  /**
+   * Emit QUEUE_CHANGED after an enqueue. Plugins may enqueue further tracks
+   * during QUEUE_CHANGED with suppressQueueChanged (e.g. round-robin hold flush);
+   * refresh only when that happened so clients see the final queue without a
+   * second Redis build on every ordinary enqueue.
+   */
+  private async emitQueueChangedAfterAdd(roomId: string, appControlled: boolean): Promise<void> {
+    if (!this.context.systemEvents) return
+    const payload = await buildQueueChangedData({ roomId, context: this.context, appControlled })
+    await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
+
+    if (takeSuppressedQueueMutation(roomId)) {
+      const refreshed = await buildQueueChangedData({
+        roomId,
+        context: this.context,
+        appControlled,
+      })
+      if (!queueChangedPayloadsEqual(payload, refreshed)) {
+        await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", refreshed, {
+          skipPlugins: true,
+        })
+      }
+    }
+  }
+
+  /**
+   * Queue several tracks as one block with a single QUEUE_CHANGED (ADR 0198).
+   * Each id resolves through {@link queueSongAs}; failures are reported in
+   * `skipped`. Placement other than "end", and `pin`, are app-controlled only.
+   */
+  async enqueueTracks(
+    roomId: string,
+    attribution: QueueItemAttribution,
+    tracks: { trackId: string; mediaSourceType?: string }[],
+    options: {
+      at?: "next" | "end" | number
+      pin?: { pluginName: string; blockId: string }
+      suppressQueueChanged?: boolean
+    } & QueueActorOptions = {},
+  ): Promise<
+    | {
+        success: true
+        queued: QueueItem[]
+        skipped: { trackId: string; message: string }[]
+      }
+    | { success: false; message: string; skipped?: { trackId: string; message: string }[] }
+  > {
+    if (tracks.length === 0) return { success: false, message: "No tracks to queue" }
+    if (tracks.length > ENQUEUE_TRACKS_MAX) {
+      return { success: false, message: `At most ${ENQUEUE_TRACKS_MAX} tracks per call` }
+    }
+
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) return { success: false, message: "Room not found" }
+    const appControlled = isAppControlledPlayback(room)
+    const at = options.at ?? "end"
+    if (!appControlled && (at !== "end" || options.pin)) {
+      return { success: false, message: APP_CONTROLLED_ONLY_MESSAGE }
+    }
+
+    const wasDirty = roomsWithSuppressedQueueMutation.has(roomId)
+    const queued: QueueItem[] = []
+    const skipped: { trackId: string; message: string }[] = []
+    for (const { trackId, mediaSourceType } of tracks) {
+      const result = await this.queueSongAs(roomId, attribution, trackId, {
+        runPluginValidation: false,
+        suppressQueueChanged: true,
+        mediaSourceType,
+      })
+      if (result.success && "queuedItem" in result && result.queuedItem) {
+        queued.push(result.queuedItem)
+      }
+      else {
+        const message = "message" in result && result.message ? result.message : null
+        skipped.push({ trackId, message: message ?? "Track could not be queued" })
+      }
+    }
+    // Our own nested adds marked the room dirty; only an outer handler's mark should survive.
+    if (!wasDirty) roomsWithSuppressedQueueMutation.delete(roomId)
+
+    if (queued.length === 0) {
+      return { success: false, message: skipped[0]?.message ?? "No tracks were queued", skipped }
+    }
+
+    let block = queued
+    if (appControlled) {
+      const queuedKeys = new Set(queued.map((item) => canonicalQueueTrackKey(item)))
+      const rest = (await getQueue({ context: this.context, roomId })).filter(
+        (item) => !queuedKeys.has(canonicalQueueTrackKey(item)),
+      )
+      let index: number
+      if (at === "next") {
+        index = 0
+      } else if (typeof at === "number") {
+        index = Math.max(0, Math.min(rest.length, Math.floor(at)))
+      } else {
+        const splitKey = await getNormalizedQueueSplit({ context: this.context, roomId })
+        const splitIndex = splitKey
+          ? rest.findIndex((item) => canonicalQueueTrackKey(item) === splitKey)
+          : -1
+        index = splitIndex >= 0 ? splitIndex : rest.length
+      }
+      index = Math.max(index, minInsertIndex(rest, options.actorPluginName))
+      if (options.pin) block = queued.map((item) => ({ ...item, pin: options.pin }))
+      await setQueue({
+        roomId,
+        items: [...rest.slice(0, index), ...block, ...rest.slice(index)],
+        context: this.context,
+      })
+    }
+
+    if (options.suppressQueueChanged) {
+      markQueueMutatedDuringPlugins(roomId)
+    } else {
+      await this.emitQueueChangedAfterAdd(roomId, appControlled)
+    }
+
+    return { success: true, queued: block, skipped }
+  }
+
+  /** Release a pinned block for its owning plugin (ADR 0198). */
+  async unpinQueueBlock(roomId: string, pluginName: string, blockId: string) {
+    const guard = await this.requireAppControlledRoom(roomId)
+    if (!guard.ok) return guard.error
+
+    const queue = await getQueue({ context: this.context, roomId })
+    const owns = (item: QueueItem) =>
+      item.pin?.blockId === blockId && item.pin.pluginName === pluginName
+    if (!queue.some(owns)) {
+      return { success: false as const, message: "Pinned block not found" }
+    }
+    await setQueue({
+      roomId,
+      items: queue.map((item) => (owns(item) ? { ...item, pin: undefined } : item)),
+      context: this.context,
+    })
+    await this.emitQueueChanged(roomId)
+    return { success: true as const }
   }
 
   /**
@@ -575,7 +726,12 @@ export class DJService {
   /**
    * Reorder the Redis-backed queue (app-controlled only). Emits QUEUE_CHANGED via systemEvents.
    */
-  async reorderQueue(roomId: string, userId: string, orderedCanonicalKeys: string[]) {
+  async reorderQueue(
+    roomId: string,
+    userId: string,
+    orderedCanonicalKeys: string[],
+    options: QueueActorOptions = {},
+  ) {
     const room = await findRoom({ context: this.context, roomId })
     if (!room) {
       return { success: false as const, message: "Room not found" }
@@ -607,6 +763,9 @@ export class DJService {
       }
       items.push(item)
     }
+
+    const pinViolation = findPinViolation(current, items, options.actorPluginName)
+    if (pinViolation) return { success: false as const, message: pinViolation }
 
     await setQueue({ roomId, items, context: this.context })
 
@@ -737,7 +896,12 @@ export class DJService {
    * Remove a track from the authoritative Redis queue (app-controlled rooms).
    * Callers must enforce playback mode; verifies ownership or room admin.
    */
-  async removeFromQueueDirect(roomId: string, userId: string, trackId: QueueItem["track"]["id"]) {
+  async removeFromQueueDirect(
+    roomId: string,
+    userId: string,
+    trackId: QueueItem["track"]["id"],
+    options: QueueActorOptions = {},
+  ) {
     const room = await findRoom({ context: this.context, roomId })
 
     if (!room) {
@@ -772,6 +936,9 @@ export class DJService {
       return { success: false as const, message: "Not authorized to remove this track" }
     }
 
+    const pinViolation = findRemovalViolation(queueItem, options.actorPluginName)
+    if (pinViolation) return { success: false as const, message: pinViolation }
+
     const trackKey = `${queueItem.mediaSource.type}:${queueItem.mediaSource.trackId}`
     await removeFromQueue({ context: this.context, roomId, trackId: trackKey })
 
@@ -802,7 +969,12 @@ export class DJService {
   /**
    * App-controlled: start a specific queued track on Spotify (owner of that item or room admin).
    */
-  async playQueuedTrack(roomId: string, userId: string, trackId: QueueItem["track"]["id"]) {
+  async playQueuedTrack(
+    roomId: string,
+    userId: string,
+    trackId: QueueItem["track"]["id"],
+    options: QueueActorOptions = {},
+  ) {
     const room = await findRoom({ context: this.context, roomId })
     if (!room) {
       return { success: false as const, message: "Room not found" }
@@ -815,10 +987,13 @@ export class DJService {
     }
 
     const queue = await getQueue({ context: this.context, roomId })
-    const queueItem = queue.find((item) => item.track.id === trackId)
+    const queueIndex = queue.findIndex((item) => item.track.id === trackId)
+    const queueItem = queue[queueIndex]
     if (!queueItem) {
       return { success: false as const, message: "Track not found in queue" }
     }
+    const pinViolation = findPlayOutOfOrderViolation(queue, queueIndex, options.actorPluginName)
+    if (pinViolation) return { success: false as const, message: pinViolation }
 
     const isOwner = queueItem.addedBy?.userId === userId
     const admin =
@@ -1013,7 +1188,8 @@ export class DJService {
           : Math.round(positionMs)
 
       await playbackController.api.seekTo(clamped)
-      playbackStateCache.delete(roomId)
+      clearPlaybackStateCache(roomId)
+      await recomputeAnchorsAfterTransport(this.context, roomId, { progressMs: clamped })
       return {
         success: true as const,
         positionMs: clamped,
@@ -1081,7 +1257,7 @@ export class DJService {
         roomId,
         volumePercent: clamped,
       })
-      playbackStateCache.delete(roomId)
+      clearPlaybackStateCache(roomId)
       return {
         success: true as const,
         volumePercent: clamped,
@@ -1140,6 +1316,8 @@ export class DJService {
 
       if (playback.state === "playing") {
         await api.pause()
+        clearPlaybackStateCache(roomId)
+        await recomputeAnchorsAfterTransport(this.context, roomId, { state: "paused" })
         return {
           success: true as const,
           state: "paused" as const,
@@ -1171,6 +1349,8 @@ export class DJService {
       }
 
       await api.play()
+      clearPlaybackStateCache(roomId)
+      await recomputeAnchorsAfterTransport(this.context, roomId, { state: "playing" })
       return {
         success: true as const,
         state: "playing" as const,
@@ -1222,7 +1402,11 @@ export class DJService {
    * App-controlled only: remove a track from the Redis-backed queue.
    * Plugins are trusted callers; no per-user authorization check is performed here.
    */
-  async removeTrackFromQueue(roomId: string, metadataTrackId: QueueItem["track"]["id"]) {
+  async removeTrackFromQueue(
+    roomId: string,
+    metadataTrackId: QueueItem["track"]["id"],
+    options: QueueActorOptions = {},
+  ) {
     const guard = await this.requireAppControlledRoom(roomId)
     if (!guard.ok) return guard.error
 
@@ -1231,6 +1415,8 @@ export class DJService {
     if (!item) {
       return { success: false as const, message: "Track not found in queue" }
     }
+    const pinViolation = findRemovalViolation(item, options.actorPluginName)
+    if (pinViolation) return { success: false as const, message: pinViolation }
 
     const queueKey = canonicalQueueTrackKey(item)
     await removeFromQueue({ context: this.context, roomId, trackId: queueKey })
@@ -1241,15 +1427,23 @@ export class DJService {
   /**
    * App-controlled only: move a track to the head of the queue.
    */
-  async moveTrackToQueueTop(roomId: string, metadataTrackId: QueueItem["track"]["id"]) {
-    return this.moveTrackTo(roomId, metadataTrackId, "top")
+  async moveTrackToQueueTop(
+    roomId: string,
+    metadataTrackId: QueueItem["track"]["id"],
+    options: QueueActorOptions = {},
+  ) {
+    return this.moveTrackTo(roomId, metadataTrackId, "top", options)
   }
 
   /**
    * App-controlled only: move a track to the tail of the queue.
    */
-  async moveTrackToQueueBottom(roomId: string, metadataTrackId: QueueItem["track"]["id"]) {
-    return this.moveTrackTo(roomId, metadataTrackId, "bottom")
+  async moveTrackToQueueBottom(
+    roomId: string,
+    metadataTrackId: QueueItem["track"]["id"],
+    options: QueueActorOptions = {},
+  ) {
+    return this.moveTrackTo(roomId, metadataTrackId, "bottom", options)
   }
 
   /**
@@ -1261,6 +1455,7 @@ export class DJService {
     metadataTrackId: QueueItem["track"]["id"],
     delta: number,
     actorUserId?: string,
+    options: QueueActorOptions = {},
   ): Promise<MoveTrackResult> {
     const guard = await this.requireAppControlledRoom(roomId)
     if (!guard.ok) {
@@ -1363,6 +1558,11 @@ export class DJService {
     }
     reordered.splice(finalIndex, 0, target)
 
+    const pinViolation = findPinViolation(queue, reordered, options.actorPluginName)
+    if (pinViolation) {
+      return { success: false as const, reason: "error" as const, message: pinViolation }
+    }
+
     await setQueue({ roomId, items: reordered, context: this.context })
     await this.emitQueueChanged(roomId)
     return { success: true as const }
@@ -1372,6 +1572,7 @@ export class DJService {
     roomId: string,
     metadataTrackId: QueueItem["track"]["id"],
     edge: "top" | "bottom",
+    options: QueueActorOptions,
   ) {
     const guard = await this.requireAppControlledRoom(roomId)
     if (!guard.ok) return guard.error
@@ -1398,6 +1599,9 @@ export class DJService {
       reordered.push(target)
     }
 
+    const pinViolation = findPinViolation(queue, reordered, options.actorPluginName)
+    if (pinViolation) return { success: false as const, message: pinViolation }
+
     await setQueue({ roomId, items: reordered, context: this.context })
     await this.emitQueueChanged(roomId)
     return { success: true as const }
@@ -1405,17 +1609,19 @@ export class DJService {
 
   /**
    * App-controlled only: shuffle the queue (Fisher–Yates). Empty/single-item queues are no-ops.
+   * Rows up to the last foreign pinned row stay put; only the tail below it shuffles (ADR 0198).
    */
-  async shuffleQueue(roomId: string) {
+  async shuffleQueue(roomId: string, options: QueueActorOptions = {}) {
     const guard = await this.requireAppControlledRoom(roomId)
     if (!guard.ok) return guard.error
 
     const queue = await getQueue({ context: this.context, roomId })
-    if (queue.length <= 1) {
+    const fixed = minInsertIndex(queue, options.actorPluginName)
+    if (queue.length - fixed <= 1) {
       return { success: true as const }
     }
 
-    const shuffled = shuffleQueueItems(queue)
+    const shuffled = [...queue.slice(0, fixed), ...shuffleQueueItems(queue.slice(fixed))]
 
     await setQueue({ roomId, items: shuffled, context: this.context })
     await this.emitQueueChanged(roomId)

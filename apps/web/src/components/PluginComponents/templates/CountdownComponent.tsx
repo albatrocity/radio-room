@@ -9,8 +9,21 @@ import type { CountdownComponentProps } from "../../../types/PluginComponent"
  * Countdown component - shows a countdown timer with optional text.
  * Pulls start time from plugin store and manages timer state.
  */
-export function CountdownTemplateComponent({ startKey, duration }: CountdownComponentProps) {
+export function CountdownTemplateComponent({
+  startKey,
+  duration,
+  pausedRemainingKey,
+}: CountdownComponentProps) {
   const { store, config, textColor } = usePluginComponentContext()
+
+  const pausedRemaining = pausedRemainingKey ? store[pausedRemainingKey] : undefined
+  if (typeof pausedRemaining === "number") {
+    return (
+      <Text as="span" fontSize="sm" fontWeight="bold" color={textColor}>
+        {Math.max(0, Math.round(pausedRemaining / 1000))}
+      </Text>
+    )
+  }
 
   // Get start timestamp from store
   const startValue = store[startKey]

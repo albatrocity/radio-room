@@ -27,6 +27,7 @@ import {
   LuSquareSplitVertical,
   LuArrowUpToLine,
   LuArrowUp,
+  LuLock,
 } from "react-icons/lu"
 import { QueueItem } from "../types/Queue"
 import {
@@ -260,26 +261,36 @@ const SortableQueueRow = memo(function SortableQueueRow({
   playbackMode?: Room["playbackMode"]
 }) {
   const id = toCanonicalKey(item)
+  const pinned = !!item.pin
   const { ref, handleRef, isDragging } = useSortable({
     id,
     index,
     group: ROOM_QUEUE_SORTABLE_GROUP,
     data: { type: "queue-item" as const, item },
+    disabled: pinned,
   })
 
   return (
     <Box ref={ref} opacity={isDragging ? 0.5 : 1} w="100%">
       <HStack align="flex-start" gap={2} w="100%">
-        <Box
-          ref={handleRef}
-          cursor="grab"
-          color="fg.muted"
-          pt={1}
-          flexShrink={0}
-          aria-label="Reorder in queue"
-        >
-          <GripVertical size={18} />
-        </Box>
+        {pinned ? (
+          <Tooltip content={`Held by ${item.pin?.pluginName}`}>
+            <Box color="fg.muted" pt={1} flexShrink={0} aria-label="Held in place by a plugin">
+              <LuLock size={18} />
+            </Box>
+          </Tooltip>
+        ) : (
+          <Box
+            ref={handleRef}
+            cursor="grab"
+            color="fg.muted"
+            pt={1}
+            flexShrink={0}
+            aria-label="Reorder in queue"
+          >
+            <GripVertical size={18} />
+          </Box>
+        )}
         <Box flex="1" minW={0}>
           <PlaylistItem item={item} isQueueItem playbackMode={playbackMode} />
         </Box>

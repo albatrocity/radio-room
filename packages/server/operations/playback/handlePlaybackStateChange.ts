@@ -51,6 +51,13 @@ export async function handlePlaybackStateChange(
     trackId,
   })
 
+  try {
+    const { recomputeAnchoredSchedules } = await import("../plugins/anchoredSchedules")
+    await recomputeAnchoredSchedules({ context, roomId, observed: { state } })
+  } catch (error) {
+    console.error("[handlePlaybackStateChange] recomputeAnchoredSchedules failed:", error)
+  }
+
   return { emitted: true }
 }
 

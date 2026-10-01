@@ -14,6 +14,7 @@ import {
   PluginContext,
   PluginLifecycleEvents,
   PluginSchemaInfo,
+  PluginScheduleRevision,
   Room,
   QueueItem,
   RoomExportData,
@@ -302,6 +303,33 @@ export class PluginRegistry {
   }
 
   /**
+   * Deliver a playback-anchored schedule revision (ADR 0196). Mirrors
+   * {@link dispatchScheduled}: initializes the plugin on demand, skips disabled plugins.
+   */
+  async dispatchScheduleRevised(params: {
+    roomId: string
+    pluginName: string
+    revision: PluginScheduleRevision
+  }): Promise<void> {
+    const { roomId, pluginName, revision } = params
+    if (!this.pluginFactories.has(pluginName)) return
+
+    try {
+      const config = await this.api.getPluginConfig(roomId, pluginName)
+      if (config && config.enabled === false) return
+    } catch (error) {
+      console.warn(
+        `[PluginRegistry] Could not read config for ${pluginName} in ${roomId}:`,
+        error,
+      )
+    }
+
+    await this.initializePluginForRoom(pluginName, roomId)
+    const instance = this.roomPlugins.get(roomId)?.get(pluginName)
+    await instance?.plugin.handleScheduleRevised?.(revision)
+  }
+
+  /**
    * Cleanup all plugins for a room
    */
   async cleanupRoom(roomId: string): Promise<void> {
@@ -326,6 +354,13 @@ export class PluginRegistry {
     event: K,
     data: Parameters<PluginLifecycleEvents[K]>[0],
   ): Promise<void> {
+    if (event === "TRACK_CHANGED") {
+      await this.recomputeAnchorsForTrack(
+        roomId,
+        data as Parameters<PluginLifecycleEvents["TRACK_CHANGED"]>[0],
+      )
+    }
+
     const roomPluginMap = this.roomPlugins.get(roomId)
 
     if (!roomPluginMap || roomPluginMap.size === 0) {
@@ -347,6 +382,25 @@ export class PluginRegistry {
     )
 
     await Promise.allSettled(promises)
+  }
+
+  /** Runs before plugin handlers so anchors bound to the old track never fire after it ends. */
+  private async recomputeAnchorsForTrack(
+    roomId: string,
+    data: Parameters<PluginLifecycleEvents["TRACK_CHANGED"]>[0],
+  ): Promise<void> {
+    try {
+      const { recomputeAnchoredSchedules } = await import(
+        "../../operations/plugins/anchoredSchedules"
+      )
+      await recomputeAnchoredSchedules({
+        context: this.context,
+        roomId,
+        currentTrackId: data?.track?.mediaSource?.trackId ?? null,
+      })
+    } catch (error) {
+      console.error(`[PluginRegistry] Anchored schedule recompute failed for ${roomId}:`, error)
+    }
   }
 
   // ============================================================================

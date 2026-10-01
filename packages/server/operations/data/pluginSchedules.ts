@@ -1,4 +1,4 @@
-import type { AppContext } from "@repo/types"
+import type { AppContext, PluginScheduleAnchor } from "@repo/types"
 import { claimDueMembers } from "./claimDueMembers"
 
 /** Global ZSET of plugin schedules: score = fireAt, member = roomId:pluginName:scheduleId */
@@ -11,6 +11,11 @@ export const PLUGIN_SCHEDULE_MIN_MS = 1_000
 /** Seven days — larger than poll auto-close (24h) for recurring / long game timers. */
 export const PLUGIN_SCHEDULE_MAX_MS = 7 * 24 * 60 * 60 * 1000
 
+/** Per-room SET of playback-anchored schedule members (ADR 0196). */
+export function anchoredSchedulesKey(roomId: string): string {
+  return `plugin:schedules:anchored:${roomId}`
+}
+
 export type PluginScheduleRecord = {
   roomId: string
   pluginName: string
@@ -18,6 +23,32 @@ export type PluginScheduleRecord = {
   kind: string
   payload: unknown
   fireAt: number
+  paused?: boolean
+}
+
+/** JSON stored in {@link PLUGIN_SCHEDULES_PAYLOAD_KEY}. Paused anchors live only here (ADR 0196). */
+export type StoredPluginSchedule = {
+  kind: string
+  payload: unknown
+  anchor?: PluginScheduleAnchor
+  paused?: boolean
+  remainingMs?: number
+}
+
+export function parseStoredPluginSchedule(raw: string | null | undefined): StoredPluginSchedule | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredPluginSchedule>
+    return {
+      kind: typeof parsed.kind === "string" ? parsed.kind : "",
+      payload: parsed.payload ?? null,
+      ...(parsed.anchor ? { anchor: parsed.anchor } : {}),
+      ...(parsed.paused ? { paused: true } : {}),
+      ...(typeof parsed.remainingMs === "number" ? { remainingMs: parsed.remainingMs } : {}),
+    }
+  } catch {
+    return null
+  }
 }
 
 export function scheduleMember(roomId: string, pluginName: string, scheduleId: string): string {
@@ -76,6 +107,10 @@ export function resolveScheduleFireAt({
   return { ok: false, message: "at or durationMs is required" }
 }
 
+/**
+ * Write a schedule. A `paused` anchored schedule is kept out of the ZSET so the
+ * sweep cannot claim it; `fireAt` is ignored in that case.
+ */
 export async function schedulePluginCallback({
   context,
   roomId,
@@ -84,6 +119,9 @@ export async function schedulePluginCallback({
   kind,
   fireAt,
   payload,
+  anchor,
+  paused,
+  remainingMs,
 }: {
   context: AppContext
   roomId: string
@@ -92,15 +130,29 @@ export async function schedulePluginCallback({
   kind: string
   fireAt: number
   payload?: unknown
+  anchor?: PluginScheduleAnchor
+  paused?: boolean
+  remainingMs?: number
 }): Promise<void> {
   const member = scheduleMember(roomId, pluginName, scheduleId)
   const client = context.redis.pubClient
-  await client.zAdd(PLUGIN_SCHEDULES_KEY, { score: fireAt, value: member })
-  await client.hSet(
-    PLUGIN_SCHEDULES_PAYLOAD_KEY,
-    member,
-    JSON.stringify({ kind, payload: payload ?? null }),
-  )
+  const stored: StoredPluginSchedule = {
+    kind,
+    payload: payload ?? null,
+    ...(anchor ? { anchor } : {}),
+    ...(anchor && paused ? { paused: true, remainingMs: remainingMs ?? 0 } : {}),
+  }
+  await client.hSet(PLUGIN_SCHEDULES_PAYLOAD_KEY, member, JSON.stringify(stored))
+  if (anchor && paused) {
+    await client.zRem(PLUGIN_SCHEDULES_KEY, member)
+  } else {
+    await client.zAdd(PLUGIN_SCHEDULES_KEY, { score: fireAt, value: member })
+  }
+  if (anchor) {
+    await client.sAdd(anchoredSchedulesKey(roomId), member)
+  } else {
+    await client.sRem(anchoredSchedulesKey(roomId), member)
+  }
 }
 
 export async function cancelPluginSchedule({
@@ -117,8 +169,9 @@ export async function cancelPluginSchedule({
   const member = scheduleMember(roomId, pluginName, scheduleId)
   const client = context.redis.pubClient
   const removed = await client.zRem(PLUGIN_SCHEDULES_KEY, member)
-  await client.hDel(PLUGIN_SCHEDULES_PAYLOAD_KEY, member)
-  return removed === 1
+  const deleted = await client.hDel(PLUGIN_SCHEDULES_PAYLOAD_KEY, member)
+  const unanchored = await client.sRem(anchoredSchedulesKey(roomId), member)
+  return removed === 1 || (deleted === 1 && unanchored === 1)
 }
 
 export async function getPluginSchedule({
@@ -126,34 +179,36 @@ export async function getPluginSchedule({
   roomId,
   pluginName,
   scheduleId,
+  now = Date.now(),
 }: {
   context: AppContext
   roomId: string
   pluginName: string
   scheduleId: string
+  now?: number
 }): Promise<PluginScheduleRecord | null> {
   const member = scheduleMember(roomId, pluginName, scheduleId)
   const client = context.redis.pubClient
   const score = await client.zScore(PLUGIN_SCHEDULES_KEY, member)
-  if (score == null) return null
-  const raw = await client.hGet(PLUGIN_SCHEDULES_PAYLOAD_KEY, member)
-  let kind = ""
-  let payload: unknown = null
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw) as { kind?: string; payload?: unknown }
-      kind = typeof parsed.kind === "string" ? parsed.kind : ""
-      payload = parsed.payload ?? null
-    } catch {
-      // ignore corrupt payload
+  const stored = parseStoredPluginSchedule(await client.hGet(PLUGIN_SCHEDULES_PAYLOAD_KEY, member))
+  if (score == null) {
+    if (!stored?.paused) return null
+    return {
+      roomId,
+      pluginName,
+      scheduleId,
+      kind: stored.kind,
+      payload: stored.payload,
+      fireAt: now + (stored.remainingMs ?? 0),
+      paused: true,
     }
   }
   return {
     roomId,
     pluginName,
     scheduleId,
-    kind,
-    payload,
+    kind: stored?.kind ?? "",
+    payload: stored?.payload ?? null,
     fireAt: score,
   }
 }
@@ -167,7 +222,8 @@ export type ClaimedPluginSchedule = {
 }
 
 /**
- * Claim due schedules and load+delete their payloads.
+ * Claim due schedules and load+delete their payloads. Members whose payload is
+ * gone (cancelled or replaced mid-claim) are dropped rather than dispatched.
  */
 export async function claimDuePluginSchedules({
   context,
@@ -187,18 +243,12 @@ export async function claimDuePluginSchedules({
     if (!parsed) continue
     const raw = await client.hGet(PLUGIN_SCHEDULES_PAYLOAD_KEY, member)
     await client.hDel(PLUGIN_SCHEDULES_PAYLOAD_KEY, member)
-    let kind = ""
-    let payload: unknown = null
-    if (raw) {
-      try {
-        const parsedPayload = JSON.parse(raw) as { kind?: string; payload?: unknown }
-        kind = typeof parsedPayload.kind === "string" ? parsedPayload.kind : ""
-        payload = parsedPayload.payload ?? null
-      } catch {
-        // ignore
-      }
+    const stored = parseStoredPluginSchedule(raw)
+    if (!stored) continue
+    if (stored.anchor) {
+      await client.sRem(anchoredSchedulesKey(parsed.roomId), member)
     }
-    claimed.push({ ...parsed, kind, payload })
+    claimed.push({ ...parsed, kind: stored.kind, payload: stored.payload })
   }
 
   return claimed

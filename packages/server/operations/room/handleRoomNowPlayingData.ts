@@ -197,6 +197,7 @@ export default async function handleRoomNowPlayingData({
     addedBy: trackDj,
     addedDuring: queuedTrack ? "queue" : "nowPlaying",
     playedAt: Date.now(),
+    ...(queuedTrack?.pin ? { pin: queuedTrack.pin } : {}),
   }
 
   // Build complete RoomMeta
@@ -240,10 +241,12 @@ export default async function handleRoomNowPlayingData({
     }
   }
 
-  // Add to playlist
+  // Add to playlist (pins only hold the live queue, ADR 0198)
+  const playlistBase: QueueItem = { ...nowPlaying }
+  delete playlistBase.pin
   const playlistItem: QueueItem = queuedTrack
-    ? { ...nowPlaying, addedAt: queuedTrack.addedAt, playedAt: Date.now() }
-    : nowPlaying
+    ? { ...playlistBase, addedAt: queuedTrack.addedAt, playedAt: Date.now() }
+    : playlistBase
 
   await addTrackToRoomPlaylist({ context, roomId, item: playlistItem })
 

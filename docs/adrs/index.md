@@ -195,12 +195,15 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0187](0187-declarative-item-use-forms.md) | Declarative item-use forms (`useForm`) | Partially superseded by [0193](0193-item-use-forms-composed-with-target-pickers.md) (point 4) |
 | [0188](0188-kickstarter-campaigns-coin-escrow.md) | Kickstarter campaigns and coin escrow | Accepted |
 | [0189](0189-poll-closes-at-auto-close.md) | Poll `closesAt` auto-close | Accepted |
-| [0190](0190-durable-plugin-scheduler.md) | Durable plugin scheduler | Accepted |
+| [0190](0190-durable-plugin-scheduler.md) | Durable plugin scheduler | Accepted. Extended by [0196](0196-plugin-playback-timeline.md) |
 | [0191](0191-modifier-expiry-sweep.md) | Claimed modifier expiry sweep | Accepted |
 | [0192](0192-plugin-storage-and-leaderboard-helpers.md) | Plugin storage helpers (`getJson`/`updateJson`/`appendCapped`) and `createLeaderboard` | Accepted |
 | [0193](0193-item-use-forms-composed-with-target-pickers.md) | Item-use forms composed with target pickers (+ field capabilities) | Accepted |
 | [0194](0194-ephemeral-plugin-users-and-action-mirroring.md) | Ephemeral plugin users and action mirroring (spawn/chat/react APIs) | Accepted |
 | [0195](0195-segment-image-streaming-cover.md) | Segment title and image as the streaming-mode Now Playing display | Accepted |
+| [0196](0196-plugin-playback-timeline.md) | Plugin playback timeline (transport and playback-anchored schedules) | Accepted |
+| [0197](0197-plugin-catalog-search.md) | Plugin catalog search (`searchTracks`) | Accepted |
+| [0198](0198-plugin-queue-blocks.md) | Plugin queue blocks and pins (`enqueueTracks`) | Accepted |
 
 ## Creating a New ADR
 

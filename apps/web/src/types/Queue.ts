@@ -81,6 +81,9 @@ export interface QueueItem {
 
   /** Server-set on socket payloads: row is locked at queue head (not draggable). */
   locked?: boolean
+
+  /** Plugin hold (ADR 0198): row is part of a pinned block and not draggable. */
+  pin?: { pluginName: string; blockId: string }
 }
 
 /**

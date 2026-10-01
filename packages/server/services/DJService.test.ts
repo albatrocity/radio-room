@@ -1697,6 +1697,178 @@ describe("DJService", () => {
           randomSpy.mockRestore()
         }
       })
+
+      test("keeps a foreign pinned prefix in place and shuffles only the tail", async () => {
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        const pin = { pluginName: "quiz", blockId: "block-1" }
+        const pinnedA = { ...itemA, pin }
+        vi.mocked(getQueue).mockResolvedValue([pinnedA, itemB, itemC])
+        const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0)
+
+        try {
+          const result = await djService.shuffleQueue("room123")
+
+          expect(result).toEqual({ success: true })
+          const call = vi.mocked(setQueue).mock.calls[0]?.[0]
+          expect(call?.items).toEqual([pinnedA, itemC, itemB])
+        } finally {
+          randomSpy.mockRestore()
+        }
+      })
+    })
+
+    describe("queue blocks", () => {
+      const plugin = { type: "plugin" as const, pluginName: "quiz", displayName: "Quiz" }
+      let store: QueueItem[]
+
+      const trackFor = (id: string) =>
+        metadataSourceTrackFactory.build({
+          id,
+          title: id,
+          urls: [{ type: "resource", url: `spotify:track:${id}`, id: `url-${id}` }],
+        })
+
+      beforeEach(() => {
+        store = [itemA, itemB]
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+        vi.mocked(isRoomAdmin).mockResolvedValue(true)
+        vi.mocked(getQueue).mockImplementation(async () => [...store])
+        vi.mocked(addToQueue).mockImplementation(async ({ item }) => {
+          store.push(item)
+          return null
+        })
+        vi.mocked(setQueue).mockImplementation(async ({ items }) => {
+          store = [...items]
+          return store
+        })
+        // @ts-ignore — testing private property
+        djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue({
+          api: { findById: vi.fn(async (id: string) => trackFor(id)) },
+        })
+        // @ts-ignore
+        djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+          api: { addToQueue: vi.fn() },
+        })
+      })
+
+      const queueChangedEmits = () =>
+        vi
+          .mocked(mockContext.systemEvents!.emit)
+          .mock.calls.filter(([, event]) => event === "QUEUE_CHANGED")
+
+      test("inserts three pinned tracks at next with one QUEUE_CHANGED", async () => {
+        const pin = { pluginName: "quiz", blockId: "block-1" }
+        const result = await djService.enqueueTracks(
+          "room123",
+          plugin,
+          [{ trackId: "q1" }, { trackId: "q2" }, { trackId: "q3" }],
+          { at: "next", pin, actorPluginName: "quiz" },
+        )
+
+        expect(result.success).toBe(true)
+        expect(store.map((item) => item.track.id)).toEqual(["q1", "q2", "q3", "track-a", "track-b"])
+        expect(store.slice(0, 3).every((item) => item.pin?.blockId === "block-1")).toBe(true)
+        expect(queueChangedEmits()).toHaveLength(1)
+      })
+
+      test("listener reorder of a pinned row fails until the owner unpins the block", async () => {
+        const pin = { pluginName: "quiz", blockId: "block-1" }
+        await djService.enqueueTracks(
+          "room123",
+          plugin,
+          [{ trackId: "q1" }, { trackId: "q2" }, { trackId: "q3" }],
+          { at: "next", pin, actorPluginName: "quiz" },
+        )
+        const keys = store.map((item) => canonicalQueueTrackKey(item))
+        const pinnedToEnd = [...keys.slice(1), keys[0]!]
+
+        const blocked = await djService.reorderQueue("room123", "creator1", pinnedToEnd)
+        expect(blocked).toEqual({ success: false, message: expect.stringContaining("quiz") })
+
+        const unpinned = await djService.unpinQueueBlock("room123", "quiz", "block-1")
+        expect(unpinned).toEqual({ success: true })
+        expect(store.some((item) => item.pin)).toBe(false)
+
+        const allowed = await djService.reorderQueue("room123", "creator1", pinnedToEnd)
+        expect(allowed).toEqual({ success: true })
+        expect(store.at(-1)?.track.id).toBe("q1")
+      })
+
+      test("the owning plugin may reorder its own pinned rows", async () => {
+        const pin = { pluginName: "quiz", blockId: "block-1" }
+        await djService.enqueueTracks("room123", plugin, [{ trackId: "q1" }, { trackId: "q2" }], {
+          at: "next",
+          pin,
+          actorPluginName: "quiz",
+        })
+        const keys = store.map((item) => canonicalQueueTrackKey(item))
+
+        const result = await djService.reorderQueue(
+          "room123",
+          "creator1",
+          [keys[1]!, keys[0]!, ...keys.slice(2)],
+          { actorPluginName: "quiz" },
+        )
+
+        expect(result).toEqual({ success: true })
+      })
+
+      test("another plugin cannot insert ahead of a pinned block", async () => {
+        await djService.enqueueTracks("room123", plugin, [{ trackId: "q1" }], {
+          at: "next",
+          pin: { pluginName: "quiz", blockId: "block-1" },
+          actorPluginName: "quiz",
+        })
+
+        await djService.enqueueTracks(
+          "room123",
+          { type: "plugin", pluginName: "other" },
+          [{ trackId: "o1" }],
+          { at: "next", actorPluginName: "other" },
+        )
+
+        expect(store.map((item) => item.track.id)).toEqual(["q1", "o1", "track-a", "track-b"])
+      })
+
+      test("listener removal of a pinned row fails", async () => {
+        await djService.enqueueTracks("room123", plugin, [{ trackId: "q1" }], {
+          at: "next",
+          pin: { pluginName: "quiz", blockId: "block-1" },
+          actorPluginName: "quiz",
+        })
+
+        const result = await djService.removeFromQueueDirect("room123", "creator1", "q1")
+
+        expect(result).toEqual({ success: false, message: expect.stringContaining("quiz") })
+        expect(store).toHaveLength(3)
+      })
+
+      test("rejects placement and pins outside app-controlled rooms", async () => {
+        vi.mocked(findRoom).mockResolvedValue(spotifyControlledRoom)
+
+        const result = await djService.enqueueTracks("room123", plugin, [{ trackId: "q1" }], {
+          at: "next",
+        })
+
+        expect(result).toEqual({
+          success: false,
+          message: "Operation only available in app-controlled playback mode",
+        })
+        expect(addToQueue).not.toHaveBeenCalled()
+      })
+
+      test("reports duplicates in skipped and still queues the rest", async () => {
+        const result = await djService.enqueueTracks("room123", plugin, [
+          { trackId: "track-a" },
+          { trackId: "q1" },
+        ])
+
+        expect(result).toMatchObject({
+          success: true,
+          skipped: [{ trackId: "track-a" }],
+        })
+        expect(store.map((item) => item.track.id)).toEqual(["track-a", "track-b", "q1"])
+      })
     })
   })
 })
