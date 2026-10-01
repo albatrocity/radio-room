@@ -125,7 +125,11 @@ export type ItemDefinitionInput = Omit<ItemCatalogEntry["definition"], "shortId"
 export function createItem<TShortId extends string>(config: {
   /** Unique identifier used in shops and inventory. */
   shortId: TShortId
-  /** Item properties (name, description, icon, rarity, etc). */
+  /**
+   * Item properties (name, description, icon, rarity, etc). `model` (a GLB filename in this
+   * item's folder) or `lore` opts the item into the default detail view unless `detailView`
+   * is set (ADR 0199).
+   */
   definition: ItemDefinitionInput
   /**
    * Restricted Local library grant (full catalog or playlist-scoped shelf).
@@ -155,10 +159,16 @@ export function createItem<TShortId extends string>(config: {
    */
   textEffect?: TextEffectKind
 }): Item<TShortId> {
+  const { model, lore, detailView } = config.definition
+  const opensDetail = Boolean(model) || Boolean(lore?.trim())
   return {
     shortId: config.shortId,
     catalogEntry: {
-      definition: { shortId: config.shortId, ...config.definition },
+      definition: {
+        shortId: config.shortId,
+        ...config.definition,
+        ...(detailView == null && opensDetail ? { detailView: { layout: "default" } } : {}),
+      },
       ...(config.localLibraryGrant ? { localLibraryGrant: config.localLibraryGrant } : {}),
       ...(config.availableInRoomTypes
         ? { availableInRoomTypes: config.availableInRoomTypes }

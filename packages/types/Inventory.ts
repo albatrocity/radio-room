@@ -304,6 +304,9 @@ export type LocalPlaylistArtwork = {
 
 export const PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY = "physicalMediaFrame" as const
 
+/** `ItemDefinition.model` must be a bare GLB filename — no directories (ADR 0199). */
+export const ITEM_MODEL_FILENAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\.glb$/
+
 /**
  * Opt-in Game State item detail (ADR 0104). Presence shows a Details secondary
  * action; `layout` chooses the built-in detail body.
@@ -367,6 +370,13 @@ export interface ItemDefinition {
   imageUrl?: string
   /** Feature-sized (~1200px) cover for Now Playing; falls back to `imageUrl`. */
   imageUrlLarge?: string
+  /**
+   * GLB filename in the owning item's folder, served from the asset CDN under
+   * `assets/items/<shortId>/` (ADR 0199). Rendered instead of `icon`; `imageUrl` still wins.
+   */
+  model?: string
+  /** Longer prose shown under `description` in the Game State item detail (ADR 0199). */
+  lore?: string
   /** Physical Media presentation overlay when `imageUrl` is present (ADR 0099). */
   artworkFrame?: ArtworkFrame
   /**

@@ -204,6 +204,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0196](0196-plugin-playback-timeline.md) | Plugin playback timeline (transport and playback-anchored schedules) | Accepted |
 | [0197](0197-plugin-catalog-search.md) | Plugin catalog search (`searchTracks`) | Accepted |
 | [0198](0198-plugin-queue-blocks.md) | Plugin queue blocks and pins (`enqueueTracks`) | Accepted |
+| [0199](0199-item-models-and-lore.md) | Item 3D models (CDN GLB, `three` viewer) and lore | Accepted |
 
 ## Creating a New ADR
 

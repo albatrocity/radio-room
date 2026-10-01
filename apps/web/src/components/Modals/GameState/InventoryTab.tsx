@@ -173,6 +173,8 @@ function InventoryRow({
           <ItemArtwork
             imageUrl={definition?.imageUrl}
             imageUrlLarge={definition?.imageUrlLarge}
+            shortId={definition?.shortId}
+            model={definition?.model}
             icon={definition?.icon}
             rarity={definition?.rarity}
             artworkFrame={artworkFrame}

@@ -1,18 +1,29 @@
 import { useState, type ReactNode } from "react"
 import { Box, Image } from "@chakra-ui/react"
 import type { ArtworkFrame, ItemRarity, MediaCondition } from "@repo/types"
+import { resolveItemModelUrl } from "../lib/itemModelUrls"
 import { getItemRarityColorPalette, itemRarityIconColor } from "../lib/itemRarityPalette"
 import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import { ArtworkPreviewDialog } from "./ArtworkPreviewDialog"
+import ItemModelViewer from "./ItemModelViewer"
 import { getIcon } from "./PluginComponents/icons"
 import { SvgIcon } from "./ui/svg-icon"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
 import type { ArtworkSizePreset } from "./artworkFrames/frameStyles"
 
 type Props = {
-  /** Artwork URL (e.g. Physical Media cover art); wins over `icon`. */
+  /** Artwork URL (e.g. Physical Media cover art); wins over `model` and `icon`. */
   imageUrl?: string
   imageUrlLarge?: string
+  /** Item `shortId`; with `model`, locates the GLB on the asset CDN (ADR 0199). */
+  shortId?: string
+  /** GLB filename from `ItemDefinition.model`; wins over `icon`. */
+  model?: string
+  /**
+   * Orbit/zoom stage instead of a spinning thumbnail. Only honored with
+   * `size="feature"` (Game State item detail).
+   */
+  modelInteractive?: boolean
   icon?: string
   rarity?: ItemRarity
   /** Chakra box size token for both the image and the icon glyph. */
@@ -93,13 +104,17 @@ function ArtworkButton({
 }
 
 /**
- * Leading visual for an item row: cover artwork when the item has some,
- * otherwise its Lucide glyph tinted by rarity. Framed covers (and `previewable`
- * plain covers) open a viewport-scaled preview unless `onClick` overrides that.
+ * Leading visual for an item row: cover artwork when the item has some, then its
+ * 3D model, otherwise its Lucide glyph tinted by rarity. Framed covers (and
+ * `previewable` plain covers) open a viewport-scaled preview unless `onClick`
+ * overrides that.
  */
 export default function ItemArtwork({
   imageUrl,
   imageUrlLarge,
+  shortId,
+  model,
+  modelInteractive = false,
   icon,
   rarity,
   boxSize = 7,
@@ -176,19 +191,7 @@ export default function ItemArtwork({
   }
 
   const Glyph = icon ? getIcon(icon) : undefined
-  if (!Glyph) {
-    return (
-      <Box
-        boxSize={fill ? undefined : boxSize}
-        w={fill ? "100%" : undefined}
-        aspectRatio={fill ? "1 / 1" : undefined}
-        flexShrink={0}
-        aria-hidden
-      />
-    )
-  }
-
-  return (
+  const glyph = Glyph ? (
     <Box
       flexShrink={0}
       w={fill ? "100%" : undefined}
@@ -203,5 +206,29 @@ export default function ItemArtwork({
         aria-hidden
       />
     </Box>
+  ) : (
+    <Box
+      boxSize={fill ? undefined : boxSize}
+      w={fill ? "100%" : undefined}
+      aspectRatio={fill ? "1 / 1" : undefined}
+      flexShrink={0}
+      aria-hidden
+    />
   )
+
+  const modelUrl = resolveItemModelUrl(shortId, model)
+  if (modelUrl) {
+    return (
+      <ItemModelViewer
+        key={modelUrl}
+        src={modelUrl}
+        alt={alt}
+        mode={modelInteractive && fill ? "stage" : "thumbnail"}
+        boxSize={fill ? undefined : boxSize}
+        fallback={glyph}
+      />
+    )
+  }
+
+  return glyph
 }

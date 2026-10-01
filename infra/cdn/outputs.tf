@@ -41,5 +41,8 @@ output "heroku_env_snippet" {
     NEWSLETTER_LOGO_URL=https://${local.cdn_hostname}/${local.logo_key}
     # Scheduler preview (Vite build env):
     # VITE_ASSET_CDN_BASE_URL=https://${local.cdn_hostname}
+    # Web (Netlify) item model sync, ADR 0199 — plus ASSET_SYNC_AWS_ACCESS_KEY_ID / ASSET_SYNC_AWS_SECRET_ACCESS_KEY:
+    # ASSET_S3_BUCKET=${aws_s3_bucket.assets.id}
+    # ASSET_CDN_DISTRIBUTION_ID=${aws_cloudfront_distribution.assets.id}
   EOT
 }

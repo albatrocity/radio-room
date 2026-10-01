@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_SOCKET_URL: string
   readonly VITE_VOICEMAIL_NUMBER?: string
   readonly VITE_CONTACT_EMAIL?: string
+  /** Asset CDN origin for item models (ADR 0199). Defaults to https://cdn.listeningroom.club. */
+  readonly VITE_ASSET_CDN_BASE_URL?: string
 }
 
 interface ImportMeta {

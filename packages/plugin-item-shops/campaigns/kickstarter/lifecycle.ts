@@ -1,5 +1,4 @@
 import type { GameSessionPluginAPI, PluginContext } from "@repo/types"
-import { randomUUID } from "node:crypto"
 import { hasActiveCoinLock } from "./coinLock"
 import {
   clearCampaign,
@@ -64,7 +63,7 @@ export async function startCampaign(
 
   const now = Date.now()
   const campaign: KickstarterCampaign = {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     ownerUserId: params.ownerUserId,
     ownerName: params.ownerName,
     title,
@@ -120,7 +119,7 @@ export async function pledge(
       return { ok: false, message: "You don't have enough coin." }
     }
 
-    const pledgeId = randomUUID()
+    const pledgeId = crypto.randomUUID()
     const next: KickstarterCampaign = {
       ...campaign,
       pledges: [

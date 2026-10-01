@@ -3,7 +3,8 @@
 [build]
   # Netlify cwd is the repo root when using a package directory; do not `cd ../..`
   # (that escapes to /opt and npm tries to write /opt/package-lock.json).
-  command = "npm install --include=optional && npm run build --workspace=web"
+  # syncItemModels.sh publishes item GLBs to the asset CDN on production deploys only (ADR 0199).
+  command = "npm install --include=optional && npm run build --workspace=web && bash apps/web/scripts/syncItemModels.sh"
   publish = "apps/web/dist"
 
 [build.environment]
