@@ -45,13 +45,44 @@ const pending = await this.context.api.getSchedule("round-advance")
 | Method | Description |
 | ------ | ----------- |
 | `onScheduled(kind, handler)` | Register handler `(payload, scheduleId) => …` for a kind |
-| `schedule({ id, kind, at?, durationMs?, payload? })` | Arm or replace a durable schedule |
+| `schedule({ id, kind, at?, durationMs?, anchor?, payload? })` | Arm or replace a durable schedule |
 | `cancelSchedule(id)` | Cancel a pending schedule |
-| `api.getSchedule(id)` | Read pending schedule metadata |
+| `api.getSchedule(id)` | Read pending schedule metadata (`paused: true` for a paused anchor) |
+| `onScheduleRevised(handler)` | Observe an anchored schedule pausing, resuming, moving, or being cancelled |
 
 **When to use:** game/economy deadlines, auto-advance, item return timers, recurring ticks (self-reschedule from the handler), anything that must fire after a process restart.
 
 **Do not** use `startTimer` for those cases — in-memory timers are lost on restart and can double-fire across dynos.
+
+### Playback-anchored schedules (`anchor`)
+
+Wall-clock schedules keep counting while the room is paused. When a timer describes the music, pass `anchor` instead of `at` / `durationMs` ([ADR 0196](../adrs/0196-plugin-playback-timeline.md)):
+
+| Anchor | Fires when |
+| ------ | ---------- |
+| `{ afterPlaybackMs }` | that much playback has elapsed |
+| `{ atProgressMs }` | the playhead reaches that position |
+| `{ leadMs }` | `leadMs` before the track ends |
+
+All three pause while the room is not playing. Add `trackId` (`QueueItem.mediaSource.trackId`) to cancel the schedule when a different track starts.
+
+```typescript
+this.onScheduleRevised(async ({ scheduleId, paused, fireAt, remainingMs, cancelled }) => {
+  // Keep countdown UI honest: freeze on pause, restart from fireAt on resume
+})
+
+const result = await this.schedule({
+  id: "skip-countdown",
+  kind: "countdown",
+  anchor: { trackId: track.mediaSource.trackId, afterPlaybackMs: 60_000 },
+})
+// result.anchored === false → playback was unreadable; fell back to wall clock
+// result.paused === true → room is paused; the countdown starts on resume
+```
+
+`afterPlaybackMs` falls back to wall clock when the room has no readable playback controller. `atProgressMs` and `leadMs` fail instead. Game timers that are not about the music (round auto-advance, answer windows) should stay on `durationMs`.
+
+Plugins can also drive transport directly in app-controlled rooms: `api.getPlayback(roomId)` (any room whose controller reports state), `api.pausePlayback`, `api.resumePlayback`, and `api.seekPlayback(roomId, positionMs)`.
 
 ## In-memory timers (`startTimer`)
 

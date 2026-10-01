@@ -458,6 +458,54 @@ export type QueueItemAttribution =
   | { type: "user"; userId: string; username: string }
   | { type: "plugin"; pluginName: string; displayName?: string }
 
+/** Transport snapshot returned by {@link PluginAPI.getPlayback} (ADR 0196). */
+export type PluginPlaybackReadResult =
+  | {
+      success: true
+      state: "playing" | "paused" | "stopped"
+      /** Controller track id (matches `QueueItem.mediaSource.trackId` for the playing source). */
+      trackId: string | null
+      progressMs: number | null
+      durationMs: number | null
+    }
+  | { success: false; message: string }
+
+/** Slim catalog search hit returned by {@link PluginAPI.searchTracks} (ADR 0197). */
+export interface PluginCatalogTrack {
+  /** Metadata track id accepted by `addToTrackQueue`. */
+  id: string
+  title: string
+  artists: string[]
+  durationMs: number | null
+  /** Metadata source id; pass as `mediaSourceType` when queueing. */
+  source: string
+}
+
+/**
+ * Playback-anchored schedule (ADR 0196). Exactly one of `afterPlaybackMs`,
+ * `atProgressMs`, or `leadMs`. `trackId` (`QueueItem.mediaSource.trackId`)
+ * cancels the schedule when `TRACK_CHANGED` names a different track.
+ */
+export type PluginScheduleAnchor = { trackId?: string } & (
+  | { afterPlaybackMs: number; atProgressMs?: never; leadMs?: never }
+  | { atProgressMs: number; afterPlaybackMs?: never; leadMs?: never }
+  | { leadMs: number; afterPlaybackMs?: never; atProgressMs?: never }
+)
+
+/**
+ * Delivered to `Plugin.handleScheduleRevised` when a playback-anchored
+ * schedule pauses, resumes, moves, or is cancelled (ADR 0196).
+ */
+export interface PluginScheduleRevision {
+  scheduleId: string
+  kind: string
+  /** Projected fire time (epoch ms). While paused: `now + remainingMs`. */
+  fireAt: number
+  paused: boolean
+  remainingMs: number
+  cancelled: boolean
+}
+
 /**
  * Plugin API - provides safe methods for plugins to interact with the system
  */
@@ -617,15 +665,22 @@ export interface PluginAPI {
   /**
    * Schedule a durable plugin callback (ADR 0190). Survives restarts; multi-dyno safe.
    * Replaces an existing schedule with the same `id`. Requires scoped plugin identity.
-   * Pass `at` (absolute epoch ms) or `durationMs` (relative from server now).
+   * Pass `at` (absolute epoch ms), `durationMs` (relative from server now), or a
+   * playback `anchor` (ADR 0196). `anchor` requires the room id; it pauses with the
+   * room and `afterPlaybackMs` falls back to wall clock (`anchored: false`) when
+   * playback cannot be read.
    */
   schedule(params: {
     id: string
     kind: string
     at?: number | null
     durationMs?: number | null
+    anchor?: PluginScheduleAnchor | null
     payload?: unknown
-  }): Promise<{ ok: true; fireAt: number } | { ok: false; message: string }>
+  }): Promise<
+    | { ok: true; fireAt: number; anchored?: boolean; paused?: boolean }
+    | { ok: false; message: string }
+  >
 
   /**
    * Cancel a previously scheduled callback (ADR 0190).
@@ -634,13 +689,15 @@ export interface PluginAPI {
   cancelSchedule(id: string): Promise<boolean>
 
   /**
-   * Look up a pending schedule for this plugin (ADR 0190).
+   * Look up a pending schedule for this plugin (ADR 0190). Paused anchored
+   * schedules (ADR 0196) report `paused: true` with `fireAt = now + remainingMs`.
    */
   getSchedule(id: string): Promise<{
     id: string
     kind: string
     fireAt: number
     payload: unknown
+    paused?: boolean
   } | null>
 
   /**
@@ -752,6 +809,41 @@ export interface PluginAPI {
   ): Promise<{ success: true } | { success: false; message: string }>
 
   /**
+   * Queue up to 50 tracks as one block with a single `QUEUE_CHANGED` (ADR 0198).
+   * `at`: "end" (default; above the queue split when set), "next" (head of the
+   * waiting queue), or an index. Placement never lands ahead of or inside another
+   * plugin's pinned block. `pin: true` holds the block so admins, listeners, and
+   * other plugins cannot reorder, remove, or skip through it; release it with
+   * `unpinQueueBlock(roomId, blockId)`. "next", numeric `at`, and `pin` are
+   * app-controlled only. Lookups that fail are reported in `skipped`.
+   */
+  enqueueTracks(
+    roomId: string,
+    tracks: { trackId: string; mediaSourceType?: string }[],
+    options?: {
+      at?: "next" | "end" | number
+      pin?: boolean
+      addedBy?: QueueItemAttribution
+      suppressQueueChanged?: boolean
+    },
+  ): Promise<
+    | {
+        success: true
+        queued: QueueItem[]
+        skipped: { trackId: string; message: string }[]
+        /** Present when `pin` was requested. */
+        blockId?: string
+      }
+    | { success: false; message: string; skipped?: { trackId: string; message: string }[] }
+  >
+
+  /** Release a block this plugin pinned with `enqueueTracks` (ADR 0198). */
+  unpinQueueBlock(
+    roomId: string,
+    blockId: string,
+  ): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
    * Set playback volume on the room's active PlaybackController device (0-100).
    * Returns failure when no controller is configured or volume control is unsupported.
    */
@@ -762,6 +854,30 @@ export interface PluginAPI {
 
   /** Whether the room's PlaybackController supports volume control. */
   supportsVolumeControl(roomId: string): Promise<boolean>
+
+  /**
+   * Read the playback controller transport (ADR 0196). Works in any room
+   * whose controller implements `getPlayback`; no admin gate.
+   */
+  getPlayback(roomId: string): Promise<PluginPlaybackReadResult>
+
+  /** Pause playback (ADR 0196). App-controlled rooms only. */
+  pausePlayback(roomId: string): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Resume the current track (ADR 0196). App-controlled rooms only.
+   * Does not advance the queue when the previous track has finished.
+   */
+  resumePlayback(roomId: string): Promise<{ success: true } | { success: false; message: string }>
+
+  /**
+   * Seek within the current track (ADR 0196). App-controlled rooms only.
+   * Clamped to the track duration when known.
+   */
+  seekPlayback(
+    roomId: string,
+    positionMs: number,
+  ): Promise<{ success: true; positionMs: number } | { success: false; message: string }>
 
   /**
    * List installed macOS `say` voices on the linked Media Bridge (ADR 0178).
@@ -783,6 +899,23 @@ export interface PluginAPI {
    * Not filtered per-user — use for plugin config / grant discovery (ADR 0088).
    */
   listMetadataSources(roomId: string): Promise<{ id: string; label: string }[]>
+
+  /**
+   * Search the room catalog with the same fan-out, dedupe, and ranking users get
+   * (ADR 0197). Without `userId` the room's enabled sources are searched with no
+   * per-user grants; pass `userId` when searching on a listener's behalf. Result
+   * `id` + `source` feed `addToTrackQueue(roomId, id, { mediaSourceType: source })`.
+   * `limit` defaults to 10 (max 25).
+   */
+  searchTracks(params: {
+    roomId: string
+    query: string
+    sourceId?: string
+    userId?: string
+    limit?: number
+  }): Promise<
+    { success: true; tracks: PluginCatalogTrack[] } | { success: false; message: string }
+  >
 
   /**
    * Whether a user may search/queue a metadata source under ADR 0088 rules
@@ -1605,6 +1738,12 @@ export interface Plugin {
    * Registered via BasePlugin.onScheduled(kind, handler).
    */
   handleScheduled?(kind: string, payload: unknown, scheduleId: string): Promise<void>
+
+  /**
+   * Observe a playback-anchored schedule pausing, resuming, moving, or being
+   * cancelled (ADR 0196). Registered via BasePlugin.onScheduleRevised(handler).
+   */
+  handleScheduleRevised?(revision: PluginScheduleRevision): Promise<void>
 
   /**
    * Execute a plugin action.

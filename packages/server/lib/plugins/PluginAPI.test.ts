@@ -76,6 +76,9 @@ vi.mock("../../services/AdapterService", () => ({
 
 vi.mock("../../services/MediaObjectCache", () => mediaCacheMocks)
 
+const searchMocks = vi.hoisted(() => ({ searchTracksAcrossSources: vi.fn() }))
+vi.mock("../../operations/dj/searchTracks", () => searchMocks)
+
 vi.mock("../../operations/bridge/bridgeDaemonId", () => ({
   resolveMediaLibraryId: vi.fn(async () => "daemon-1"),
 }))
@@ -330,6 +333,174 @@ describe("PluginAPIImpl.supportsVolumeControl", () => {
   test("returns false when controller missing", async () => {
     getRoomPlaybackController.mockResolvedValue(null)
     await expect(api.supportsVolumeControl(roomId)).resolves.toBe(false)
+  })
+})
+
+describe("PluginAPIImpl.searchTracks (ADR 0197)", () => {
+  let api: PluginAPIImpl
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api = new PluginAPIImpl(appContextFactory.build(), {} as Server)
+  })
+
+  test("room-scope search maps hits to slim tracks and clamps the limit", async () => {
+    searchMocks.searchTracksAcrossSources.mockResolvedValue({
+      success: true,
+      items: Array.from({ length: 30 }, (_, i) => ({
+        id: `t${i}`,
+        title: `Song ${i}`,
+        artists: [{ title: "Band" }],
+        duration: 200_000,
+        source: "spotify",
+      })),
+      total: 30,
+      offset: 0,
+      limit: 20,
+      artists: [],
+      albums: [],
+    })
+
+    const result = await api.searchTracks({ roomId: "room-1", query: " neon ", limit: 100 })
+
+    expect(searchMocks.searchTracksAcrossSources).toHaveBeenCalledWith(
+      expect.objectContaining({ query: "neon", userId: null, includeEntities: false }),
+    )
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.tracks).toHaveLength(25)
+    expect(result.tracks[0]).toEqual({
+      id: "t0",
+      title: "Song 0",
+      artists: ["Band"],
+      durationMs: 200_000,
+      source: "spotify",
+    })
+  })
+
+  test("passes userId and sourceId through and surfaces failures", async () => {
+    searchMocks.searchTracksAcrossSources.mockResolvedValue({
+      success: false,
+      message: 'Metadata source "tidal" is not available for search',
+    })
+    const result = await api.searchTracks({
+      roomId: "room-1",
+      query: "x",
+      userId: "u1",
+      sourceId: "tidal",
+    })
+    expect(searchMocks.searchTracksAcrossSources).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "u1", sourceId: "tidal" }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  test("rejects an empty query without searching", async () => {
+    await expect(api.searchTracks({ roomId: "room-1", query: "  " })).resolves.toEqual({
+      success: false,
+      message: "query is required",
+    })
+    expect(searchMocks.searchTracksAcrossSources).not.toHaveBeenCalled()
+  })
+})
+
+describe("PluginAPIImpl playback transport (ADR 0196)", () => {
+  let api: PluginAPIImpl
+  const roomId = "room-1"
+  const { getRoomPlaybackController } = adapterApiMocks
+  const getPlayback = vi.fn()
+  const pause = vi.fn()
+  const play = vi.fn()
+  const seekTo = vi.fn()
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    getRoomPlaybackController.mockResolvedValue({ api: { getPlayback, pause, play, seekTo } })
+    getPlayback.mockResolvedValue({
+      state: "playing",
+      track: { id: "t1" },
+      progressMs: 12_000,
+      durationMs: 180_000,
+    })
+    pause.mockResolvedValue(undefined)
+    play.mockResolvedValue(undefined)
+    seekTo.mockResolvedValue(undefined)
+    vi.mocked(findRoom).mockResolvedValue(
+      roomFactory.build({ id: roomId, playbackMode: "app-controlled" }),
+    )
+    api = new PluginAPIImpl(appContextFactory.build(), {} as Server)
+  })
+
+  test("getPlayback returns the controller snapshot without an admin user", async () => {
+    await expect(api.getPlayback(roomId)).resolves.toEqual({
+      success: true,
+      state: "playing",
+      trackId: "t1",
+      progressMs: 12_000,
+      durationMs: 180_000,
+    })
+  })
+
+  test("getPlayback works outside app-controlled mode", async () => {
+    vi.mocked(findRoom).mockResolvedValue(
+      roomFactory.build({ id: roomId, playbackMode: "spotify-controlled" }),
+    )
+    const result = await api.getPlayback(roomId)
+    expect(result.success).toBe(true)
+  })
+
+  test("getPlayback fails when the controller cannot read state", async () => {
+    getRoomPlaybackController.mockResolvedValue({ api: {} })
+    await expect(api.getPlayback(roomId)).resolves.toEqual({
+      success: false,
+      message: "Playback controller does not support reading state",
+    })
+  })
+
+  test("getPlayback fails when transport was not observed", async () => {
+    getPlayback.mockResolvedValue({ state: "stopped", track: null, observed: false })
+    const result = await api.getPlayback(roomId)
+    expect(result.success).toBe(false)
+  })
+
+  test("pause and resume call the controller", async () => {
+    await expect(api.pausePlayback(roomId)).resolves.toEqual({ success: true })
+    expect(pause).toHaveBeenCalledTimes(1)
+    await expect(api.resumePlayback(roomId)).resolves.toEqual({ success: true })
+    expect(play).toHaveBeenCalledTimes(1)
+  })
+
+  test("seek clamps to the track duration", async () => {
+    await expect(api.seekPlayback(roomId, 999_999)).resolves.toEqual({
+      success: true,
+      positionMs: 180_000,
+    })
+    expect(seekTo).toHaveBeenCalledWith(180_000)
+  })
+
+  test("seek rejects invalid positions without touching the controller", async () => {
+    await expect(api.seekPlayback(roomId, -1)).resolves.toEqual({
+      success: false,
+      message: "Invalid seek position",
+    })
+    expect(seekTo).not.toHaveBeenCalled()
+  })
+
+  test("mutations are app-controlled only", async () => {
+    vi.mocked(findRoom).mockResolvedValue(
+      roomFactory.build({ id: roomId, playbackMode: "spotify-controlled" }),
+    )
+    const result = await api.pausePlayback(roomId)
+    expect(result.success).toBe(false)
+    expect(pause).not.toHaveBeenCalled()
+  })
+
+  test("mutations fail when no controller is configured", async () => {
+    getRoomPlaybackController.mockResolvedValue(null)
+    await expect(api.resumePlayback(roomId)).resolves.toEqual({
+      success: false,
+      message: "No playback controller configured for this room",
+    })
   })
 })
 

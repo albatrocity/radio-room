@@ -263,7 +263,7 @@ describe("AbsentDjPlugin", () => {
       expect(mockContext.api.schedule).toHaveBeenCalledWith(
         expect.objectContaining({
           kind: "countdown",
-          durationMs: 30000,
+          anchor: { trackId: "track1", afterPlaybackMs: 30000 },
         }),
       )
 
@@ -686,6 +686,7 @@ describe("AbsentDjPlugin", () => {
       expect(state).toEqual({
         showCountdown: false,
         countdownStartTime: null,
+        countdownPausedRemainingMs: null,
         absentUsername: null,
         isSkipped: false,
       })
@@ -702,6 +703,7 @@ describe("AbsentDjPlugin", () => {
       expect(state).toEqual({
         showCountdown: false,
         countdownStartTime: null,
+        countdownPausedRemainingMs: null,
         absentUsername: null,
         isSkipped: false,
       })
@@ -726,6 +728,59 @@ describe("AbsentDjPlugin", () => {
       expect(state.countdownStartTime).toBeDefined()
       expect(state.absentUsername).toBe("DJ One")
       expect(state.isSkipped).toBe(false)
+    })
+
+    test("freezes the countdown when the room starts paused", async () => {
+      vi.mocked(mockContext.api.schedule).mockResolvedValue({
+        ok: true,
+        fireAt: Date.now() + 30_000,
+        anchored: true,
+        paused: true,
+      })
+      const trackChangedHandler = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")[0]
+      const track = createMockQueueItem("track1", "Test Song", { userId: "dj1", username: "DJ One" })
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user2")])
+
+      await trackChangedHandler({ roomId: "test-room", track })
+
+      const state = await plugin.getComponentState()
+      expect(state.showCountdown).toBe(true)
+      expect(state.countdownPausedRemainingMs).toBe(30_000)
+    })
+
+    test("schedule revisions freeze and re-project the countdown", async () => {
+      const trackChangedHandler = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")[0]
+      const track = createMockQueueItem("track1", "Test Song", { userId: "dj1", username: "DJ One" })
+      vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user2")])
+      await trackChangedHandler({ roomId: "test-room", track })
+
+      await plugin.handleScheduleRevised({
+        scheduleId: "absent-dj-countdown",
+        kind: "countdown",
+        fireAt: Date.now() + 12_000,
+        paused: true,
+        remainingMs: 12_000,
+        cancelled: false,
+      })
+      expect(mockContext.api.emit).toHaveBeenLastCalledWith(
+        "COUNTDOWN_PAUSED",
+        expect.objectContaining({ countdownPausedRemainingMs: 12_000, showCountdown: true }),
+        undefined,
+      )
+      expect((await plugin.getComponentState()).countdownPausedRemainingMs).toBe(12_000)
+
+      const resumedFireAt = Date.now() + 12_000
+      await plugin.handleScheduleRevised({
+        scheduleId: "absent-dj-countdown",
+        kind: "countdown",
+        fireAt: resumedFireAt,
+        paused: false,
+        remainingMs: 12_000,
+        cancelled: false,
+      })
+      const resumed = await plugin.getComponentState()
+      expect(resumed.countdownPausedRemainingMs).toBeNull()
+      expect(resumed.countdownStartTime).toBe(resumedFireAt - 30_000)
     })
   })
 

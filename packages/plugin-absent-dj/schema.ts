@@ -23,6 +23,7 @@ export function getComponentSchema(): PluginComponentSchema {
             props: {
               startKey: "countdownStartTime",
               duration: "config.skipDelay",
+              pausedRemainingKey: "countdownPausedRemainingMs",
             },
           },
         ],
@@ -38,7 +39,13 @@ export function getComponentSchema(): PluginComponentSchema {
         icon: "SkipForward",
       },
     ],
-    storeKeys: ["showCountdown", "countdownStartTime", "absentUsername", "isSkipped"],
+    storeKeys: [
+      "showCountdown",
+      "countdownStartTime",
+      "countdownPausedRemainingMs",
+      "absentUsername",
+      "isSkipped",
+    ],
   }
 }
 

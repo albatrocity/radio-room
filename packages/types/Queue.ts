@@ -14,6 +14,12 @@ export const metadataSourceTrackDataSchema = z.object({
 })
 export type MetadataSourceTrackData = z.infer<typeof metadataSourceTrackDataSchema>
 
+export const queuePinSchema = z.object({
+  pluginName: z.string(),
+  blockId: z.string(),
+})
+export type QueuePin = z.infer<typeof queuePinSchema>
+
 // =============================================================================
 // QueueItem Schema & Type
 // =============================================================================
@@ -33,6 +39,11 @@ export const queueItemSchema = z.object({
   pluginData: z.record(z.string(), z.any()).nullish(), // Plugin-augmented metadata
   /** Wire-only: dispatched-but-not-yet-on-metadata row; not persisted to Redis queue blobs */
   locked: z.boolean().optional(),
+  /**
+   * Persisted plugin hold (ADR 0198). Rows sharing a `blockId` play in order and
+   * cannot be reordered, removed, or skipped by anyone but `pluginName`.
+   */
+  pin: queuePinSchema.optional(),
 })
 
 export type QueueItem = z.infer<typeof queueItemSchema>

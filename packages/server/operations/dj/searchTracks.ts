@@ -32,20 +32,29 @@ export type SearchTracksResult =
 /**
  * Fan-out metadata search across room sources with access/capability filtering,
  * cross-source dedupe, relevance ranking, and hybrid entity enrichment (ADR 0085–0090).
+ *
+ * Without `userId` (plugin room-scope search, ADR 0197) sources are the room's
+ * enabled catalog with no per-user grants and no Local shelf filter.
  */
 export async function searchTracksAcrossSources(params: {
   context: AppContext
   adapterService: AdapterService
   roomId: string
-  userId: string
+  userId?: string | null
   query: string
+  /** Narrow the fan-out to one source; fails if it is not searchable here. */
+  sourceId?: string
+  /** Artist/album enrichment; default true. */
+  includeEntities?: boolean
   searchSource: (
     metadataSource: MetadataSource,
     query: string,
     options?: { playlistIds?: string[]; albumIds?: string[] },
   ) => Promise<SearchSourceResult>
 }): Promise<SearchTracksResult> {
-  const { context, adapterService, roomId, userId, query, searchSource } = params
+  const { context, adapterService, roomId, query, searchSource } = params
+  const userId = params.userId ?? null
+  const includeEntities = params.includeEntities !== false
 
   const room = await findRoom({ context, roomId })
   if (!room) {
@@ -59,13 +68,15 @@ export async function searchTracksAcrossSources(params: {
 
   let sourceEntries = [...sources.entries()]
   if (context.metadataSourceAccess) {
-    const accessible = new Set(
-      await context.metadataSourceAccess.getEffectiveSourceIdsForUser(
-        roomId,
-        userId,
-        "search",
-        room,
-      ),
+    const accessible = new Set<string>(
+      userId
+        ? await context.metadataSourceAccess.getEffectiveSourceIdsForUser(
+            roomId,
+            userId,
+            "search",
+            room,
+          )
+        : await context.metadataSourceAccess.getEnabledSourceIds(roomId, room),
     )
     sourceEntries = sourceEntries.filter(([name]) => accessible.has(name))
   } else if (room.playbackControllerId === "bridge") {
@@ -88,19 +99,30 @@ export async function searchTracksAcrossSources(params: {
     }
   }
 
+  if (params.sourceId) {
+    sourceEntries = sourceEntries.filter(([name]) => name === params.sourceId)
+    if (sourceEntries.length === 0) {
+      return {
+        success: false,
+        message: `Metadata source "${params.sourceId}" is not available for search`,
+      }
+    }
+  }
+
   if (sourceEntries.length === 0) {
     return { success: false, message: "No metadata source available for search" }
   }
 
+  // Local shelves are per-listener; room-scope searches skip them.
   const searchesLocal = sourceEntries.some(([name]) => name === "local")
   let localShelves: { playlistIds: string[]; albumIds: string[] } | undefined
-  if (searchesLocal && context.metadataSourceAccess?.getLocalCatalogShelves) {
+  if (userId && searchesLocal && context.metadataSourceAccess?.getLocalCatalogShelves) {
     localShelves = await context.metadataSourceAccess.getLocalCatalogShelves(
       roomId,
       userId,
       room,
     )
-  } else if (searchesLocal && context.metadataSourceAccess?.getLocalCatalogPlaylistIds) {
+  } else if (userId && searchesLocal && context.metadataSourceAccess?.getLocalCatalogPlaylistIds) {
     const playlistIds = await context.metadataSourceAccess.getLocalCatalogPlaylistIds(
       roomId,
       userId,
@@ -163,7 +185,7 @@ export async function searchTracksAcrossSources(params: {
   let artists: Array<Record<string, unknown>> = []
   let albums: Array<Record<string, unknown>> = []
   const trimmed = query.trim()
-  if (trimmed.length >= 2) {
+  if (includeEntities && trimmed.length >= 2) {
     const entitySettled = await Promise.allSettled(
       sourceEntries.map(async ([name, src]) => {
         if (!metadataSourceSupportsBrowse(src.api)) {

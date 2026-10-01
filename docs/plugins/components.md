@@ -115,7 +115,7 @@ getComponentSchema(): PluginComponentSchema {
 | `button`           | Clickable button           | `label`, `icon`, `opensModal`, `action`                         |
 | `badge`            | Status badge               | `label`, `variant`, `icon`, `tooltip`                           |
 | `leaderboard`      | Ranked list                | `dataKey`, `title`, `rowTemplate`, `maxItems`                   |
-| `countdown`        | Timer display              | `startKey`, `duration`, `text`                                  |
+| `countdown`        | Timer display              | `startKey`, `duration`, `text`, `pausedRemainingKey?`           |
 | `modal`            | Dialog container           | `title`, `size`, `children`                                     |
 | `tab`              | Tab in game state modal    | `label`, `icon?`, `children` (only in `gameStateTab`)           |
 | `game-leaderboard` | Session leaderboard        | `leaderboardId`, `title?`, `maxItems`, `showRank`               |

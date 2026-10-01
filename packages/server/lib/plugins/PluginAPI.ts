@@ -15,9 +15,16 @@ import {
   isChatMessageTransformDrop,
   type LocalPlaylistArtwork,
   type Emoji,
+  type PlaybackController,
+  type PluginCatalogTrack,
+  type PluginPlaybackReadResult,
+  type PluginScheduleAnchor,
 } from "@repo/types"
+import { randomUUID } from "crypto"
 import { Server } from "socket.io"
 import { getRoomPath } from "../getRoomPath"
+import { isForeignPin } from "../../operations/dj/queuePins"
+import type { ObservedPlayback } from "../../operations/plugins/anchoredSchedules"
 
 function parseDataUri(dataUri: string): { mimeType: string; base64Data: string } | null {
   const match = /^data:([^;,]+);base64,(.+)$/.exec(dataUri)
@@ -26,6 +33,30 @@ function parseDataUri(dataUri: string): { mimeType: string; base64Data: string }
 }
 
 const LOCAL_COVER_STORE_BATCH = 8
+
+const PLUGIN_SEARCH_DEFAULT_LIMIT = 10
+const PLUGIN_SEARCH_MAX_LIMIT = 25
+
+function toPluginCatalogTrack(item: unknown): PluginCatalogTrack | null {
+  if (!item || typeof item !== "object") return null
+  const raw = item as {
+    id?: unknown
+    title?: unknown
+    artists?: Array<{ title?: unknown }>
+    duration?: unknown
+    source?: unknown
+  }
+  if (typeof raw.id !== "string" || typeof raw.source !== "string") return null
+  return {
+    id: raw.id,
+    title: typeof raw.title === "string" ? raw.title : "",
+    artists: Array.isArray(raw.artists)
+      ? raw.artists.flatMap((a) => (typeof a?.title === "string" ? [a.title] : []))
+      : [],
+    durationMs: typeof raw.duration === "number" ? raw.duration : null,
+    source: raw.source,
+  }
+}
 
 async function storeCoverVariantToS3(params: {
   roomId: string
@@ -330,6 +361,13 @@ export class PluginAPIImpl implements PluginAPI {
 
     if (!nowPlaying || nowPlaying.mediaSource.trackId !== trackId) {
       console.log(`[PluginAPI] Skip aborted: track ${trackId} is not currently playing`)
+      return
+    }
+
+    if (isForeignPin(nowPlaying, this.pluginName ?? undefined)) {
+      console.log(
+        `[PluginAPI] Skip refused: track ${trackId} is held by ${nowPlaying.pin?.pluginName}`,
+      )
       return
     }
 
@@ -729,13 +767,31 @@ export class PluginAPIImpl implements PluginAPI {
     kind: string
     at?: number | null
     durationMs?: number | null
+    anchor?: PluginScheduleAnchor | null
     payload?: unknown
-  }): Promise<{ ok: true; fireAt: number } | { ok: false; message: string }> {
+  }): Promise<
+    | { ok: true; fireAt: number; anchored?: boolean; paused?: boolean }
+    | { ok: false; message: string }
+  > {
     if (!this.pluginName || !this.roomId) {
       return { ok: false, message: "Plugin identity is required." }
     }
     if (!params.id || !params.kind) {
       return { ok: false, message: "id and kind are required." }
+    }
+    if (params.anchor) {
+      const { scheduleAnchoredPluginCallback } = await import(
+        "../../operations/plugins/anchoredSchedules"
+      )
+      return scheduleAnchoredPluginCallback({
+        context: this.context,
+        roomId: this.roomId,
+        pluginName: this.pluginName,
+        scheduleId: params.id,
+        kind: params.kind,
+        anchor: params.anchor,
+        payload: params.payload,
+      })
     }
     const {
       resolveScheduleFireAt,
@@ -774,6 +830,7 @@ export class PluginAPIImpl implements PluginAPI {
     kind: string
     fireAt: number
     payload: unknown
+    paused?: boolean
   } | null> {
     if (!this.pluginName || !this.roomId) return null
     const { getPluginSchedule } = await import("../../operations/data/pluginSchedules")
@@ -789,6 +846,7 @@ export class PluginAPIImpl implements PluginAPI {
       kind: record.kind,
       fireAt: record.fireAt,
       payload: record.payload,
+      ...(record.paused ? { paused: true } : {}),
     }
   }
 
@@ -857,7 +915,7 @@ export class PluginAPIImpl implements PluginAPI {
   ): Promise<{ success: true } | { success: false; message: string }> {
     const { DJService } = await import("../../services/DJService")
     const djService = new DJService(this.context)
-    return await djService.removeTrackFromQueue(roomId, metadataTrackId)
+    return await djService.removeTrackFromQueue(roomId, metadataTrackId, this.queueActor())
   }
 
   async moveToTrackQueueTop(
@@ -866,7 +924,7 @@ export class PluginAPIImpl implements PluginAPI {
   ): Promise<{ success: true } | { success: false; message: string }> {
     const { DJService } = await import("../../services/DJService")
     const djService = new DJService(this.context)
-    return await djService.moveTrackToQueueTop(roomId, metadataTrackId)
+    return await djService.moveTrackToQueueTop(roomId, metadataTrackId, this.queueActor())
   }
 
   async moveToTrackQueueBottom(
@@ -875,7 +933,7 @@ export class PluginAPIImpl implements PluginAPI {
   ): Promise<{ success: true } | { success: false; message: string }> {
     const { DJService } = await import("../../services/DJService")
     const djService = new DJService(this.context)
-    return await djService.moveTrackToQueueBottom(roomId, metadataTrackId)
+    return await djService.moveTrackToQueueBottom(roomId, metadataTrackId, this.queueActor())
   }
 
   async moveTrackByPosition(
@@ -886,7 +944,13 @@ export class PluginAPIImpl implements PluginAPI {
   ): Promise<MoveTrackResult> {
     const { DJService } = await import("../../services/DJService")
     const djService = new DJService(this.context)
-    return await djService.moveTrackByPosition(roomId, metadataTrackId, delta, actorUserId)
+    return await djService.moveTrackByPosition(
+      roomId,
+      metadataTrackId,
+      delta,
+      actorUserId,
+      this.queueActor(),
+    )
   }
 
   async shuffleTrackQueue(
@@ -894,7 +958,63 @@ export class PluginAPIImpl implements PluginAPI {
   ): Promise<{ success: true } | { success: false; message: string }> {
     const { DJService } = await import("../../services/DJService")
     const djService = new DJService(this.context)
-    return await djService.shuffleQueue(roomId)
+    return await djService.shuffleQueue(roomId, this.queueActor())
+  }
+
+  async enqueueTracks(
+    roomId: string,
+    tracks: { trackId: string; mediaSourceType?: string }[],
+    options?: {
+      at?: "next" | "end" | number
+      pin?: boolean
+      addedBy?: QueueItemAttribution
+      suppressQueueChanged?: boolean
+    },
+  ): Promise<
+    | {
+        success: true
+        queued: QueueItem[]
+        skipped: { trackId: string; message: string }[]
+        blockId?: string
+      }
+    | { success: false; message: string; skipped?: { trackId: string; message: string }[] }
+  > {
+    if (options?.pin && !this.pluginName) {
+      return { success: false, message: "Plugin identity is required to pin a block." }
+    }
+    const attribution: QueueItemAttribution = options?.addedBy ?? {
+      type: "plugin",
+      pluginName: this.pluginName ?? "unknown-plugin",
+    }
+    const pin =
+      options?.pin && this.pluginName
+        ? { pluginName: this.pluginName, blockId: randomUUID() }
+        : undefined
+
+    const { DJService } = await import("../../services/DJService")
+    const result = await new DJService(this.context).enqueueTracks(roomId, attribution, tracks, {
+      at: options?.at,
+      pin,
+      suppressQueueChanged: options?.suppressQueueChanged,
+      ...this.queueActor(),
+    })
+    if (!result.success) return result
+    return pin ? { ...result, blockId: pin.blockId } : result
+  }
+
+  async unpinQueueBlock(
+    roomId: string,
+    blockId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    if (!this.pluginName) {
+      return { success: false, message: "Plugin identity is required." }
+    }
+    const { DJService } = await import("../../services/DJService")
+    return new DJService(this.context).unpinQueueBlock(roomId, this.pluginName, blockId)
+  }
+
+  private queueActor(): { actorPluginName?: string } {
+    return this.pluginName ? { actorPluginName: this.pluginName } : {}
   }
 
   async setPlaybackVolume(
@@ -931,6 +1051,103 @@ export class PluginAPIImpl implements PluginAPI {
     const adapterService = new AdapterService(this.context)
     const playbackController = await adapterService.getRoomPlaybackController(roomId)
     return Boolean(playbackController?.api.setVolume)
+  }
+
+  async getPlayback(roomId: string): Promise<PluginPlaybackReadResult> {
+    const { readRoomPlayback } = await import("../../operations/playback/readRoomPlayback")
+    return readRoomPlayback({ context: this.context, roomId })
+  }
+
+  async pausePlayback(
+    roomId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const resolved = await this.resolveAppControlledController(roomId)
+    if (!resolved.ok) return { success: false, message: resolved.message }
+    try {
+      await resolved.controller.api.pause()
+    } catch (error: unknown) {
+      console.error("[PluginAPI] pausePlayback failed:", error)
+      return { success: false, message: "Failed to pause playback" }
+    }
+    await this.afterTransportMutation(roomId, { state: "paused" })
+    return { success: true }
+  }
+
+  async resumePlayback(
+    roomId: string,
+  ): Promise<{ success: true } | { success: false; message: string }> {
+    const resolved = await this.resolveAppControlledController(roomId)
+    if (!resolved.ok) return { success: false, message: resolved.message }
+    try {
+      await resolved.controller.api.play()
+    } catch (error: unknown) {
+      console.error("[PluginAPI] resumePlayback failed:", error)
+      return { success: false, message: "Failed to resume playback" }
+    }
+    await this.afterTransportMutation(roomId, { state: "playing" })
+    return { success: true }
+  }
+
+  async seekPlayback(
+    roomId: string,
+    positionMs: number,
+  ): Promise<{ success: true; positionMs: number } | { success: false; message: string }> {
+    if (!Number.isFinite(positionMs) || positionMs < 0) {
+      return { success: false, message: "Invalid seek position" }
+    }
+    const resolved = await this.resolveAppControlledController(roomId)
+    if (!resolved.ok) return { success: false, message: resolved.message }
+    const { api } = resolved.controller
+    try {
+      const playback = await api.getPlayback()
+      if (!playback.track) {
+        return { success: false, message: "Nothing is currently playing" }
+      }
+      const clamped =
+        playback.durationMs != null && playback.durationMs > 0
+          ? Math.min(Math.round(positionMs), playback.durationMs)
+          : Math.round(positionMs)
+      await api.seekTo(clamped)
+      await this.afterTransportMutation(roomId, { progressMs: clamped })
+      return { success: true, positionMs: clamped }
+    } catch (error: unknown) {
+      console.error("[PluginAPI] seekPlayback failed:", error)
+      return { success: false, message: "Failed to seek playback" }
+    }
+  }
+
+  private async resolveAppControlledController(
+    roomId: string,
+  ): Promise<{ ok: true; controller: PlaybackController } | { ok: false; message: string }> {
+    const { findRoom } = await import("../../operations/data")
+    const { isAppControlledPlayback } = await import("../roomTypeHelpers")
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) return { ok: false, message: "Room not found" }
+    if (!isAppControlledPlayback(room)) {
+      return { ok: false, message: "This action is only available in app-controlled playback mode" }
+    }
+    const { AdapterService } = await import("../../services/AdapterService")
+    const controller = await new AdapterService(this.context).getRoomPlaybackController(roomId)
+    if (!controller) {
+      return { ok: false, message: "No playback controller configured for this room" }
+    }
+    return { ok: true, controller }
+  }
+
+  private async afterTransportMutation(
+    roomId: string,
+    observed: ObservedPlayback,
+  ): Promise<void> {
+    const { clearPlaybackStateCache } = await import("../../services/DJService")
+    clearPlaybackStateCache(roomId)
+    try {
+      const { recomputeAnchoredSchedules } = await import(
+        "../../operations/plugins/anchoredSchedules"
+      )
+      await recomputeAnchoredSchedules({ context: this.context, roomId, observed })
+    } catch (error) {
+      console.error("[PluginAPI] recomputeAnchoredSchedules failed:", error)
+    }
   }
 
   async listMediaBridgeSayVoices(
@@ -982,6 +1199,49 @@ export class PluginAPIImpl implements PluginAPI {
   async listMetadataSources(roomId: string): Promise<{ id: string; label: string }[]> {
     const access = await this.getMetadataSourceAccess()
     return access.listMetadataSources(roomId)
+  }
+
+  async searchTracks(params: {
+    roomId: string
+    query: string
+    sourceId?: string
+    userId?: string
+    limit?: number
+  }): Promise<
+    { success: true; tracks: PluginCatalogTrack[] } | { success: false; message: string }
+  > {
+    const query = params.query?.trim()
+    if (!query) return { success: false, message: "query is required" }
+    const limit = Math.min(
+      PLUGIN_SEARCH_MAX_LIMIT,
+      Math.max(1, Math.floor(params.limit ?? PLUGIN_SEARCH_DEFAULT_LIMIT)),
+    )
+
+    const [{ searchTracksAcrossSources }, { AdapterService }, { DJService }] = await Promise.all([
+      import("../../operations/dj/searchTracks"),
+      import("../../services/AdapterService"),
+      import("../../services/DJService"),
+    ])
+    const djService = new DJService(this.context)
+    const result = await searchTracksAcrossSources({
+      context: this.context,
+      adapterService: new AdapterService(this.context),
+      roomId: params.roomId,
+      userId: params.userId ?? null,
+      query,
+      sourceId: params.sourceId,
+      includeEntities: false,
+      searchSource: (src, q, options) => djService.searchForTrack(src, q, options),
+    })
+    if (!result.success) return result
+
+    return {
+      success: true,
+      tracks: result.items.slice(0, limit).flatMap((item) => {
+        const track = toPluginCatalogTrack(item)
+        return track ? [track] : []
+      }),
+    }
   }
 
   async canAccessMetadataSource(params: {

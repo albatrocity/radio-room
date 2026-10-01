@@ -19,6 +19,8 @@ import type {
   PluginComponentState,
   ConfigImportMode,
   PluginConfigImportResponse,
+  PluginScheduleAnchor,
+  PluginScheduleRevision,
   QueueItem,
   SystemEventPayload,
 } from "@repo/types"
@@ -423,17 +425,37 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     this.scheduledHandlers.set(kind, handler)
   }
 
+  /** Playback-anchored schedule revision handler (ADR 0196). */
+  private scheduleRevisedHandler:
+    | ((revision: PluginScheduleRevision) => Promise<void> | void)
+    | null = null
+
+  /**
+   * Observe playback-anchored schedules pausing, resuming, moving, or being
+   * cancelled (ADR 0196). Use it to keep countdown UI in step with playback.
+   */
+  protected onScheduleRevised(
+    handler: (revision: PluginScheduleRevision) => Promise<void> | void,
+  ): void {
+    this.scheduleRevisedHandler = handler
+  }
+
   /**
    * Schedule a durable callback via PluginAPI (ADR 0190).
    * Survives process restarts; only one dyno claims each firing.
+   * Pass `anchor` to count playback time instead of wall time (ADR 0196).
    */
   protected async schedule(params: {
     id: string
     kind: string
     at?: number | null
     durationMs?: number | null
+    anchor?: PluginScheduleAnchor | null
     payload?: unknown
-  }): Promise<{ ok: true; fireAt: number } | { ok: false; message: string }> {
+  }): Promise<
+    | { ok: true; fireAt: number; anchored?: boolean; paused?: boolean }
+    | { ok: false; message: string }
+  > {
     if (!this.context) {
       return { ok: false, message: "Plugin context is not available" }
     }
@@ -461,6 +483,18 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
       await handler(payload, scheduleId)
     } catch (error) {
       console.error(`[${this.name}] Scheduled handler error for "${kind}":`, error)
+    }
+  }
+
+  /**
+   * Invoked by PluginRegistry when an anchored schedule is revised (ADR 0196).
+   */
+  async handleScheduleRevised(revision: PluginScheduleRevision): Promise<void> {
+    if (!this.scheduleRevisedHandler) return
+    try {
+      await this.scheduleRevisedHandler(revision)
+    } catch (error) {
+      console.error(`[${this.name}] Schedule revision handler error:`, error)
     }
   }
 

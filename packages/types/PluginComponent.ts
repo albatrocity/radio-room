@@ -224,6 +224,12 @@ export interface CountdownComponentProps {
   /** Duration in milliseconds, or config key like "config.timeLimit" */
   duration: number | string
   /**
+   * Store key holding remaining ms while the countdown is paused (e.g. a
+   * playback-anchored schedule, ADR 0196). A number freezes the display at that
+   * value; null/absent runs from `startKey`.
+   */
+  pausedRemainingKey?: string
+  /**
    * Optional text/instructions to display with the countdown.
    * Can be:
    * - A string with template placeholders like {{config.fieldName}}
