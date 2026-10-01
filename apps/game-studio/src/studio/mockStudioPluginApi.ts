@@ -2,7 +2,13 @@ import { shuffleQueueItems } from "@repo/game-logic"
 import { queueItemFactory } from "@repo/factories/queueItem"
 import type {
   ChatMessage,
+  Emoji,
   LocalPlaylistArtwork,
+  PluginCatalogTrack,
+  PluginPlaybackReadResult,
+  PluginScheduleAnchor,
+  Poll,
+  PollResults,
   MetadataSourceAccessAction,
   MoveTrackResult,
   PluginAPI,
@@ -17,14 +23,216 @@ import { labelForMetadataSource } from "@repo/types"
 import type { ReactionSubject } from "@repo/types"
 import type { MockPluginLifecycle } from "./mockLifecycle"
 import type { StudioRoom } from "./studioRoom"
+import { isoNow } from "./constants"
 import { studioSystemMessage } from "./chatHelpers"
 import { checkQueueDefenseStudio } from "./studioDefense"
+
+type StudioSchedule = {
+  id: string
+  kind: string
+  fireAt: number
+  payload: unknown
+  timer: ReturnType<typeof setTimeout>
+}
+
+const NOT_IMPLEMENTED = { success: false, message: "Not implemented in Game Studio" } as const
+const POLL_NOT_IMPLEMENTED = {
+  ok: false,
+  error: { status: 501, error: "Not Implemented", message: "Polls are not implemented in Game Studio" },
+} as const
+
 export class MockStudioPluginApi implements PluginAPI {
+  private readonly schedules = new Map<string, StudioSchedule>()
+  private scheduleHandler:
+    | ((kind: string, payload: unknown, scheduleId: string) => Promise<void> | void)
+    | null = null
+
   constructor(
     private readonly room: StudioRoom,
     private readonly lifecycle: MockPluginLifecycle,
     private readonly pluginName: string,
   ) {}
+
+  /** Routes fired schedules to the plugin (the server uses PluginScheduler for this). */
+  setScheduleHandler(
+    handler: (kind: string, payload: unknown, scheduleId: string) => Promise<void> | void,
+  ): void {
+    this.scheduleHandler = handler
+  }
+
+  async schedule(params: {
+    id: string
+    kind: string
+    at?: number | null
+    durationMs?: number | null
+    anchor?: PluginScheduleAnchor | null
+    payload?: unknown
+  }): Promise<
+    | { ok: true; fireAt: number; anchored?: boolean; paused?: boolean }
+    | { ok: false; message: string }
+  > {
+    const fireAt = params.at ?? (params.durationMs != null ? Date.now() + params.durationMs : null)
+    if (fireAt == null) return { ok: false, message: "Game Studio needs `at` or `durationMs`" }
+    await this.cancelSchedule(params.id)
+    const timer = setTimeout(
+      () => {
+        this.schedules.delete(params.id)
+        void this.scheduleHandler?.(params.kind, params.payload, params.id)
+      },
+      Math.max(0, fireAt - Date.now()),
+    )
+    this.schedules.set(params.id, {
+      id: params.id,
+      kind: params.kind,
+      fireAt,
+      payload: params.payload,
+      timer,
+    })
+    return { ok: true, fireAt }
+  }
+
+  async cancelSchedule(id: string): Promise<boolean> {
+    const s = this.schedules.get(id)
+    if (!s) return false
+    clearTimeout(s.timer)
+    this.schedules.delete(id)
+    return true
+  }
+
+  async getSchedule(
+    id: string,
+  ): Promise<{ id: string; kind: string; fireAt: number; payload: unknown } | null> {
+    const s = this.schedules.get(id)
+    return s ? { id: s.id, kind: s.kind, fireAt: s.fireAt, payload: s.payload } : null
+  }
+
+  async spawnEphemeralUser(
+    _roomId: string,
+    params: { username: string; userId?: string },
+  ): Promise<User> {
+    const user: User = {
+      userId: params.userId ?? `ephemeral-${crypto.randomUUID()}`,
+      username: params.username,
+      status: "participating",
+    }
+    this.room.addUser(user)
+    return user
+  }
+
+  async despawnEphemeralUser(_roomId: string, userId: string): Promise<void> {
+    this.room.removeUser(userId)
+  }
+
+  async sendChatMessageAsUser(_roomId: string, userId: string, content: string): Promise<void> {
+    const u = this.room.users.get(userId)
+    this.room.appendChat({
+      user: { userId, username: u?.username ?? userId },
+      content,
+      timestamp: isoNow(),
+      mentions: [],
+    })
+  }
+
+  async addReactionAsUser(
+    roomId: string,
+    userId: string,
+    emoji: Emoji,
+    reactTo: ReactionSubject,
+  ): Promise<void> {
+    this.room.addReaction(roomId, reactTo, { emoji: emoji.shortcodes, user: userId })
+  }
+
+  async removeReactionAsUser(
+    roomId: string,
+    userId: string,
+    emoji: Emoji,
+    reactTo: ReactionSubject,
+  ): Promise<void> {
+    this.room.removeReaction(roomId, reactTo, { emoji: emoji.shortcodes, user: userId })
+  }
+
+  async createPoll(): Promise<
+    | { ok: true; poll: Poll }
+    | { ok: false; error: { status: number; error: string; message: string } }
+  > {
+    return POLL_NOT_IMPLEMENTED
+  }
+
+  async closePoll(): Promise<
+    | { ok: true; poll: Poll; results: PollResults }
+    | { ok: false; error: { status: number; error: string; message: string } }
+  > {
+    return POLL_NOT_IMPLEMENTED
+  }
+
+  async getActivePoll(_roomId: string): Promise<Poll | null> {
+    return this.room.activePoll
+  }
+
+  async getPollVoterIds(_roomId: string, pollId: string): Promise<string[]> {
+    return this.room.activePoll?.id === pollId ? [...this.room.pollVotes.keys()] : []
+  }
+
+  async getPollVotes(_roomId: string, pollId: string): Promise<Record<string, string>> {
+    return this.room.activePoll?.id === pollId ? Object.fromEntries(this.room.pollVotes) : {}
+  }
+
+  async tallyPoll(
+    pollId: string,
+    options?: { excludeUserIds?: string[] },
+  ): Promise<Record<string, number>> {
+    if (this.room.activePoll?.id !== pollId) return {}
+    const excluded = new Set(options?.excludeUserIds ?? [])
+    const counts: Record<string, number> = {}
+    for (const [userId, optionId] of this.room.pollVotes) {
+      if (excluded.has(userId)) continue
+      counts[optionId] = (counts[optionId] ?? 0) + 1
+    }
+    return counts
+  }
+
+  async setQueueSplit(): Promise<{ success: true } | { success: false; message: string }> {
+    return NOT_IMPLEMENTED
+  }
+
+  async removeQueueSplit(): Promise<{ success: true } | { success: false; message: string }> {
+    return NOT_IMPLEMENTED
+  }
+
+  async enqueueTracks(): Promise<
+    | { success: true; queued: QueueItem[]; skipped: { trackId: string; message: string }[] }
+    | { success: false; message: string }
+  > {
+    return NOT_IMPLEMENTED
+  }
+
+  async unpinQueueBlock(): Promise<{ success: true } | { success: false; message: string }> {
+    return NOT_IMPLEMENTED
+  }
+
+  async getPlayback(_roomId: string): Promise<PluginPlaybackReadResult> {
+    return NOT_IMPLEMENTED
+  }
+
+  async pausePlayback(): Promise<{ success: true } | { success: false; message: string }> {
+    return NOT_IMPLEMENTED
+  }
+
+  async resumePlayback(): Promise<{ success: true } | { success: false; message: string }> {
+    return NOT_IMPLEMENTED
+  }
+
+  async seekPlayback(): Promise<
+    { success: true; positionMs: number } | { success: false; message: string }
+  > {
+    return NOT_IMPLEMENTED
+  }
+
+  async searchTracks(): Promise<
+    { success: true; tracks: PluginCatalogTrack[] } | { success: false; message: string }
+  > {
+    return NOT_IMPLEMENTED
+  }
 
   async getNowPlaying(): Promise<QueueItem | null> {
     return this.room.queue[0] ?? null
@@ -370,6 +578,15 @@ export class MockStudioPluginApi implements PluginAPI {
   ): Promise<void> {
     const type = `PLUGIN:${this.pluginName}:${eventName}`
     this.room.logEvent(type, data)
+    this.room.notify()
+  }
+
+  async emitToUser<T extends Record<string, unknown>>(
+    userId: string,
+    eventName: string,
+    data: T,
+  ): Promise<void> {
+    this.room.logEvent(`PLUGIN:${this.pluginName}:${eventName}`, { userId, ...data })
     this.room.notify()
   }
 

@@ -11,6 +11,7 @@ import { createMockPluginStorage } from "./mockPluginStorage"
 import { MockPluginLifecycle } from "./mockLifecycle"
 import { MockStudioGameSessionApi } from "./mockStudioGameApi"
 import { MockStudioInventoryApi } from "./mockStudioInventoryApi"
+import { MockStudioPersonasApi } from "./mockStudioPersonasApi"
 import { MockStudioPluginApi } from "./mockStudioPluginApi"
 import { StudioPluginRegistry } from "./studioPluginRegistry"
 import { STUDIO_SESSION_AFTER_RESET_KEY } from "./constants"
@@ -91,6 +92,9 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   const artifactsApi = new MockStudioArtifactsApi(room)
 
   registry.register(room.roomId, pluginName, itemShopsPlugin)
+  pluginApi.setScheduleHandler((kind, payload, scheduleId) =>
+    itemShopsPlugin.handleScheduled?.(kind, payload, scheduleId),
+  )
 
   const storage = createMockPluginStorage(room, pluginName, () => room.notify())
 
@@ -102,6 +106,7 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
     game: gameApi,
     inventory: inventoryApi,
     artifacts: artifactsApi,
+    personas: new MockStudioPersonasApi(pluginName),
     getRoom: async () => ({
       id: room.roomId,
       creator: "studio",

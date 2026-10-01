@@ -10,6 +10,7 @@ import type {
 import {
   ITEM_SHOPS_PLUGIN_NAME,
   POLL_OPTION_LIMITS,
+  isChatMessageTransformDrop,
   isStorageContainerDefinition,
   resolveSlotPool,
   slotPoolFullMessage,
@@ -341,6 +342,7 @@ export async function sendChatAsUser(userId: string, content: string): Promise<v
     user,
   }
   const pluginTransformed = await itemShopsPlugin.transformChatMessage?.(room.roomId, message)
+  if (isChatMessageTransformDrop(pluginTransformed)) return
   if (pluginTransformed) {
     message = pluginTransformed
   }

@@ -232,6 +232,17 @@ export class StudioRoom {
     this.notify()
   }
 
+  removeReaction(roomId: string, reactTo: ReactionSubject, reaction: Reaction): void {
+    const k = this.reactionKey(roomId, reactTo)
+    const list = this.reactions.get(k)
+    if (!list) return
+    this.reactions.set(
+      k,
+      list.filter((r) => r.emoji !== reaction.emoji || r.user !== reaction.user),
+    )
+    this.notify()
+  }
+
   addStoredArtifact(artifact: StoredArtifact): void {
     this.storedArtifacts.push(artifact)
     this.notify()
