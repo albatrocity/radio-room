@@ -49,8 +49,18 @@ import {
   type ScriptedEventDraft,
 } from "../../tripMap/tripMapDraft"
 import { listSavedTripMaps, loadSavedTripMap, saveTripMapFile } from "../../tripMap/tripMapFiles"
+import {
+  fetchSiteAssetStatus,
+  pendingAssetIssues,
+  pendingAssetKey,
+  uploadSiteAsset,
+  type PendingSiteAssets,
+  type SiteAssetKind,
+  type SiteAssetStatus,
+} from "../../tripMap/siteAssets"
 import { TripFuelCurve } from "./TripFuelCurve"
 import { TripRouteTrack } from "./TripRouteTrack"
+import { TripSiteArt } from "./TripSiteArt"
 import { TripSiteInspector } from "./TripSiteInspector"
 
 function toLocalInput(ms: number): string {
@@ -69,9 +79,9 @@ function numberOr(value: string): number | undefined {
 }
 
 /**
- * Trip Map editor v1 (M8, Phases 1–3): route, site pins, inspector, shop and offers
- * picker, projections, fuel curve and gas bill, scripted incidents with cost
- * estimates, trip settings, lint, and Copy JSON /
+ * Trip Map editor v1 (M8): route, site pins, inspector, site art published to the
+ * CDN, shop and offers picker, projections, fuel curve and gas bill, scripted
+ * incidents with cost estimates, trip settings, lint, and Copy JSON /
  * save `maps/<id>.json`. Runs no plugin code;
  * only pure `@repo/road-trip-map` modules.
  */
@@ -86,12 +96,15 @@ export function TripMapEditor() {
   const [savedIds, setSavedIds] = useState<string[]>([])
   const [costScale, setCostScale] = useState(1)
   const [walletsTotal, setWalletsTotal] = useState(DEFAULT_PREVIEW_WALLETS)
+  const [assetStatus, setAssetStatus] = useState<SiteAssetStatus | null>(null)
+  const [pendingAssets, setPendingAssets] = useState<PendingSiteAssets>({})
 
   // Full parse (schema + lint + hash) and the localStorage write wait for typing to pause.
   const settledDraft = useDebouncedValue(draft, LINT_DEBOUNCE_MS)
   useEffect(() => saveDraft(settledDraft), [settledDraft])
   useEffect(() => {
     void listSavedTripMaps().then(setSavedIds)
+    void fetchSiteAssetStatus().then(setAssetStatus)
   }, [])
 
   const miles = draftRouteMiles(draft)
@@ -100,8 +113,52 @@ export function TripMapEditor() {
   const projection = resolved ? projectTrip(resolved, departAt) : null
   const fuel = useMemo(() => (resolved ? projectFuel(resolved, costScale) : null), [resolved, costScale])
   const selected = draft.sites.find((s) => s.id === selectedSiteId)
-  const errors = parsed.issues.filter((i) => i.severity === "error")
-  const warnings = parsed.issues.filter((i) => i.severity === "warning")
+  const assetIssues = pendingAssetIssues(draft, pendingAssets)
+  const issues = [...assetIssues, ...parsed.issues]
+  const errors = issues.filter((i) => i.severity === "error")
+  const warnings = issues.filter((i) => i.severity === "warning")
+  const exportBlocked = assetIssues.length > 0
+
+  const uploadAsset = async (siteId: string, kind: SiteAssetKind, file: File) => {
+    const key = pendingAssetKey(siteId, kind)
+    const previewUrl = URL.createObjectURL(file)
+    setPendingAssets((p) => {
+      if (p[key]) URL.revokeObjectURL(p[key].previewUrl)
+      return { ...p, [key]: { siteId, kind, previewUrl, status: "uploading" } }
+    })
+    const result = await uploadSiteAsset(kind, file)
+    if (result.ok) {
+      setDraft((d) =>
+        updateSite(d, siteId, kind === "image" ? { imageUrl: result.url } : { model: { url: result.url } }),
+      )
+      setPendingAssets((p) => {
+        if (p[key]?.previewUrl !== previewUrl) return p
+        URL.revokeObjectURL(previewUrl)
+        const { [key]: _done, ...rest } = p
+        return rest
+      })
+      toaster.create({
+        title: result.reused ? "Already on the CDN" : "Published to the CDN",
+        type: "success",
+      })
+    } else {
+      setPendingAssets((p) =>
+        p[key]?.previewUrl === previewUrl
+          ? { ...p, [key]: { ...p[key], status: "failed", message: result.message } }
+          : p,
+      )
+    }
+  }
+
+  const discardPending = (siteId: string, kind: SiteAssetKind) => {
+    const key = pendingAssetKey(siteId, kind)
+    setPendingAssets((p) => {
+      if (!p[key]) return p
+      URL.revokeObjectURL(p[key].previewUrl)
+      const { [key]: _gone, ...rest } = p
+      return rest
+    })
+  }
 
   const copyJson = async () => {
     await navigator.clipboard.writeText(mapJson(draft))
@@ -144,10 +201,22 @@ export function TripMapEditor() {
           >
             {errors.length} errors · {warnings.length} warnings
           </Badge>
-          <Button size="xs" variant="outline" onClick={() => void copyJson()}>
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={exportBlocked}
+            title={exportBlocked ? "Finish or discard site art uploads first" : undefined}
+            onClick={() => void copyJson()}
+          >
             Copy JSON
           </Button>
-          <Button size="xs" variant="outline" onClick={() => void saveFile()}>
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={exportBlocked}
+            title={exportBlocked ? "Finish or discard site art uploads first" : undefined}
+            onClick={() => void saveFile()}
+          >
             Save maps/{draft.id}.json
           </Button>
           <Button
@@ -370,6 +439,17 @@ export function TripMapEditor() {
               site={selected}
               resolved={resolved}
               gasStop={fuel?.stops.find((s) => s.siteId === selected.id)}
+              art={
+                <TripSiteArt
+                  site={selected}
+                  assetStatus={assetStatus}
+                  pendingImage={pendingAssets[pendingAssetKey(selected.id, "image")]}
+                  pendingModel={pendingAssets[pendingAssetKey(selected.id, "model")]}
+                  onChange={(patch) => setDraft((d) => updateSite(d, selected.id, patch))}
+                  onUpload={(kind, file) => void uploadAsset(selected.id, kind, file)}
+                  onDiscardPending={(kind) => discardPending(selected.id, kind)}
+                />
+              }
               onChange={(patch) => setDraft((d) => updateSite(d, selected.id, patch))}
               onRemove={() => {
                 setDraft((d) => removeSite(d, selected.id))
@@ -546,13 +626,13 @@ export function TripMapEditor() {
             <Text fontSize="sm" fontWeight="semibold" mb="2">
               Lint
             </Text>
-            {parsed.issues.length === 0 ? (
+            {issues.length === 0 ? (
               <Text fontSize="sm" color="green.fg">
                 No issues. Ready to load.
               </Text>
             ) : (
               <Stack gap="1">
-                {parsed.issues.map((issue, i) => (
+                {issues.map((issue, i) => (
                   <Text
                     key={`${issue.code}-${i}`}
                     fontSize="xs"

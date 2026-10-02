@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Publish Item Shops GLBs to the asset CDN (ADR 0199). Runs after the Netlify
-# web build from the repo root; only production deploys upload, so deploy
-# previews and branch builds can never overwrite live models. No --delete:
-# removing a GLB from git leaves the CDN object in place.
+# Publish item GLBs (Item Shops and Road Trip) to the asset CDN (ADR 0199, 0205).
+# Runs after the Netlify web build from the repo root; only production deploys
+# upload, so deploy previews and branch builds can never overwrite live models.
+# No --delete: removing a GLB from git leaves the CDN object in place. Both
+# plugins share the assets/items/<shortId>/ prefix; shortIds must not collide.
 set -euo pipefail
 
-ITEMS_DIR="packages/plugin-item-shops/items"
+ITEMS_DIRS=("packages/plugin-item-shops/items" "packages/plugin-road-trip/items")
 PREFIX="assets/items"
 
 log() { echo "[item-models] $*"; }
@@ -20,8 +21,8 @@ for var in ASSET_S3_BUCKET ASSET_SYNC_AWS_ACCESS_KEY_ID ASSET_SYNC_AWS_SECRET_AC
     exit 0
   fi
 done
-if ! find "$ITEMS_DIR" -name '*.glb' -print -quit | grep -q .; then
-  log "skip: no .glb files under $ITEMS_DIR"
+if ! find "${ITEMS_DIRS[@]}" -name '*.glb' -print -quit | grep -q .; then
+  log "skip: no .glb files under ${ITEMS_DIRS[*]}"
   exit 0
 fi
 
@@ -39,11 +40,16 @@ export AWS_ACCESS_KEY_ID="$ASSET_SYNC_AWS_ACCESS_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="$ASSET_SYNC_AWS_SECRET_ACCESS_KEY"
 export AWS_REGION="${ASSET_SYNC_AWS_REGION:-us-east-1}"
 
-output="$(aws s3 sync "$ITEMS_DIR" "s3://$ASSET_S3_BUCKET/$PREFIX" \
-  --exclude '*' --include '*.glb' \
-  --content-type model/gltf-binary \
-  --no-progress)"
-if [[ -n "$output" ]]; then echo "$output"; fi
+output=""
+for dir in "${ITEMS_DIRS[@]}"; do
+  [[ -d "$dir" ]] || continue
+  output+="$(aws s3 sync "$dir" "s3://$ASSET_S3_BUCKET/$PREFIX" \
+    --exclude '*' --include '*.glb' \
+    --content-type model/gltf-binary \
+    --no-progress)"$'\n'
+done
+output="${output%$'\n'}"
+if [[ -n "${output//$'\n'/}" ]]; then echo "$output"; fi
 
 if ! grep -q '^upload:' <<<"$output"; then
   log "CDN already up to date"

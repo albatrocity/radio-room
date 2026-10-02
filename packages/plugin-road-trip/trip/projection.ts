@@ -81,6 +81,7 @@ export function buildTripStore(
     if (runtime.visitedAt !== undefined) {
       entry.visitedAt = runtime.visitedAt
       if (site.lore) entry.lore = site.lore
+      if (site.model) entry.modelUrl = site.model.url
     }
     if (runtime.votes) entry.votes = runtime.votes
     if (runtime.defaulted !== undefined) entry.defaulted = runtime.defaulted

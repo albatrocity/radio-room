@@ -33,6 +33,16 @@ output "logo_url" {
   value       = "https://${local.cdn_hostname}/${local.logo_key}"
 }
 
+output "map_designer_policy_arn" {
+  description = "Attach to an SSO permission set (or add users to map_designers_group) so Game Studio can publish site art (ADR 0205)."
+  value       = aws_iam_policy.map_designer.arn
+}
+
+output "map_designers_group" {
+  description = "IAM group carrying the map-designer policy."
+  value       = aws_iam_group.map_designers.name
+}
+
 output "heroku_env_snippet" {
   description = "Copy these into Heroku config vars or .env after apply."
   value       = <<-EOT

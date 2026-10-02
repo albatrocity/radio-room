@@ -49,6 +49,7 @@ listening-room/
 │   ├── adapter-*/    # Media/metadata source adapters (Spotify, Tidal, Shoutcast, RTMP, Bridge)
 │   ├── plugin-*/     # Room plugins (playlist-democracy, special-words, round-robin-dj, music-upload)
 │   ├── plugin-base/  # Base class for plugins
+│   ├── model-viewer/ # GLB viewer for web + Game Studio; the only `three` importer (ADR 0205)
 │   ├── factories/    # Test factories for mocking data
 │   ├── utils/        # Shared utilities
 │   └── eslint-config/

@@ -21,6 +21,9 @@ cors_allowed_origins = [
   "http://localhost:8000",
   "http://127.0.0.1:8001",
   "http://localhost:8001",
+  # Game Studio stage previews of published site GLBs (ADR 0205)
+  "http://127.0.0.1:8005",
+  "http://localhost:8005",
   "https://listeningroom.club",
   "https://scheduler.listeningroom.club",
 ]

@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server"
 import { system } from "../theme/chakraTheme"
 import ItemArtwork from "./ItemArtwork"
 
-vi.mock("./ItemModelViewer", () => ({
+vi.mock("./AppModelViewer", () => ({
   default: ({ src, mode }: { src: string; mode: string }) => (
     <div data-testid="item-model" data-src={src} data-mode={mode} />
   ),

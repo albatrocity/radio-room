@@ -1,7 +1,7 @@
 /**
  * The `trip` store payload road-trip emits to clients (M7). Spoiler-safe:
  * unrevealed sites carry only id / mile / state, secret unrevealed sites are
- * omitted, and lore is present only once a site is visited.
+ * omitted, and lore and the 3D model are present only once a site is visited.
  */
 
 import type { IncidentFundPurpose, IncidentStep } from "./incidents"
@@ -36,6 +36,8 @@ export type TripStoreSite = {
   /** Engine Failure tows here. */
   mechanic?: true
   lore?: string
+  /** GLB URL for the detail stage; visited sites only (D12a). */
+  modelUrl?: string
   visitedAt?: number
   votes?: { stop: number; skip: number }
   defaulted?: boolean

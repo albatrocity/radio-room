@@ -17,6 +17,7 @@ Self-contained Terraform for the Listening Room **newsletter / static asset CDN*
 | `aws_s3_bucket_policy` | Allow CloudFront `GetObject` on `assets/*`, `newsletter/*`, and `media/*` (`uploads/*` is private) |
 | `netlify_dns_record` × N | ACM validation CNAME(s) + `cdn` → CloudFront |
 | `aws_iam_user_policy` | `s3:PutObject` on the SES sender user, plus `s3:ListBucket` on `assets/items/` and `cloudfront:CreateInvalidation` for the item-model sync ([ADR 0199](../../docs/adrs/0199-item-models-and-lore.md)) |
+| `aws_iam_policy` + `aws_iam_group` `listening-room-map-designers` | Game Studio site-art publishing: `s3:PutObject` / `s3:GetObject` on `assets/maps/*` and `s3:ListBucket` on that prefix, no delete ([ADR 0205](../../docs/adrs/0205-shared-model-viewer-and-studio-site-assets.md)) |
 | `aws_s3_object` | Seeds `assets/logo.png` |
 
 Application code (presigned uploads, email `<Img>`) lives outside this module; see the newsletter asset CDN plan / ADR.
@@ -82,7 +83,11 @@ The music-upload plugin stores files under `uploads/{username}/{date}/{userId}/�
 
 ## Item models (`assets/items/`)
 
-Item Shops GLBs live in `packages/plugin-item-shops/items/<shortId>/` and are published by the **production** Netlify web build (`apps/web/scripts/syncItemModels.sh`, [ADR 0199](../../docs/adrs/0199-item-models-and-lore.md)). Set these on the Netlify web site (production context): `ASSET_SYNC_AWS_ACCESS_KEY_ID`, `ASSET_SYNC_AWS_SECRET_ACCESS_KEY` (same sender user's key; Netlify reserves the `AWS_*` names), optional `ASSET_SYNC_AWS_REGION` (defaults to `us-east-1`), `ASSET_S3_BUCKET`, and `ASSET_CDN_DISTRIBUTION_ID` (`terraform output -raw cloudfront_distribution_id`). Without them the sync is skipped and items keep their Lucide icon.
+Item Shops and Road Trip GLBs live in `packages/plugin-item-shops/items/<shortId>/` and `packages/plugin-road-trip/items/<shortId>/` (one shared prefix, so shortIds must not collide) and are published by the **production** Netlify web build (`apps/web/scripts/syncItemModels.sh`, [ADR 0199](../../docs/adrs/0199-item-models-and-lore.md)). Set these on the Netlify web site (production context): `ASSET_SYNC_AWS_ACCESS_KEY_ID`, `ASSET_SYNC_AWS_SECRET_ACCESS_KEY` (same sender user's key; Netlify reserves the `AWS_*` names), optional `ASSET_SYNC_AWS_REGION` (defaults to `us-east-1`), `ASSET_S3_BUCKET`, and `ASSET_CDN_DISTRIBUTION_ID` (`terraform output -raw cloudfront_distribution_id`). Without them the sync is skipped and items keep their Lucide icon.
+
+## Trip Map site art (`assets/maps/`)
+
+Game Studio's Trip Map editor publishes site images (re-encoded to WebP) and GLBs from the designer's machine through a Vite dev-server middleware ([ADR 0205](../../docs/adrs/0205-shared-model-viewer-and-studio-site-assets.md)). It uses the designer's own AWS credentials, never keys in the browser: grant the `map_designer_policy_arn` output to their SSO permission set (or add an IAM user to `listening-room-map-designers`), then run Game Studio with `AWS_PROFILE` set (shell or `apps/game-studio/.env.local`). Keys are content hashes (`assets/maps/sites/<sha256>.<ext>`) served with `immutable` caching, so they never need invalidation; the policy has no delete, and replaced art stays in S3. The `:8005` CORS origins let the editor's 3D stage load published GLBs.
 
 ## Logo asset
 

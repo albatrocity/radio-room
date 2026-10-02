@@ -33,13 +33,15 @@ variable "bucket_name" {
 }
 
 variable "cors_allowed_origins" {
-  description = "Browser origins allowed to PUT objects via presigned URLs (web app, scheduler prod + local dev)."
+  description = "Browser origins allowed to PUT via presigned URLs or fetch CDN assets (web app, scheduler, local Game Studio)."
   type        = list(string)
   default = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",
     "http://127.0.0.1:8001",
     "http://localhost:8001",
+    "http://127.0.0.1:8005",
+    "http://localhost:8005",
     "https://listeningroom.club",
     "https://www.listeningroom.club",
     "https://scheduler.listeningroom.club",

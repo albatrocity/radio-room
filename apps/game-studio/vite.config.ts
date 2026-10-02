@@ -1,7 +1,8 @@
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { defineConfig } from "vite"
+import { defineConfig, loadEnv } from "vite"
 import react from "@vitejs/plugin-react"
+import { siteAssetsPlugin } from "./vite/siteAssetsPlugin"
 import { tripMapFilesPlugin } from "./vite/tripMapFilesPlugin"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -22,33 +23,53 @@ function watchWorkspaceLinkedPackages(): (filePath: string) => boolean {
   }
 }
 
-export default defineConfig(({ mode }) => ({
-  plugins: [react(), tripMapFilesPlugin(path.join(__dirname, "maps"))],
-  /** Linked workspace TS sources — skip pre-bundle cache so edits invalidate the module graph. */
-  optimizeDeps: {
-    exclude: [
-      "@repo/plugin-item-shops",
-      "@repo/plugin-base",
-      "@repo/game-logic",
-      "@repo/types",
-      "@repo/factories",
-      "@repo/road-trip-map",
+export default defineConfig(({ mode }) => {
+  const env = { ...loadEnv(mode, __dirname, ""), ...process.env }
+  return {
+    plugins: [
+      react(),
+      tripMapFilesPlugin(path.join(__dirname, "maps")),
+      siteAssetsPlugin({
+        bucket: env.ASSET_S3_BUCKET || "listening-room-assets",
+        cdnBaseUrl: env.VITE_ASSET_CDN_BASE_URL || "https://cdn.listeningroom.club",
+        region: env.AWS_REGION || "us-east-1",
+        profile: env.AWS_PROFILE || undefined,
+      }),
     ],
-  },
-  server: {
-    port: 8005,
-    host: "0.0.0.0",
-    fs: {
-      allow: [repoRoot],
+    /** Linked workspace TS sources — skip pre-bundle cache so edits invalidate the module graph. */
+    optimizeDeps: {
+      /** `@repo/model-viewer` loads these lazily; discovering them mid-session reloads the page. */
+      include: [
+        "three",
+        "three/addons/controls/OrbitControls.js",
+        "three/addons/environments/RoomEnvironment.js",
+        "three/addons/loaders/GLTFLoader.js",
+      ],
+      exclude: [
+        "@repo/plugin-item-shops",
+        "@repo/plugin-base",
+        "@repo/game-logic",
+        "@repo/types",
+        "@repo/factories",
+        "@repo/road-trip-map",
+        "@repo/model-viewer",
+      ],
     },
-    watch: {
-      ignored: watchWorkspaceLinkedPackages(),
-      ...(process.env.CHOKIDAR_USEPOLLING === "true" ? { usePolling: true, interval: 100 } : {}),
+    server: {
+      port: 8005,
+      host: "0.0.0.0",
+      fs: {
+        allow: [repoRoot],
+      },
+      watch: {
+        ignored: watchWorkspaceLinkedPackages(),
+        ...(process.env.CHOKIDAR_USEPOLLING === "true" ? { usePolling: true, interval: 100 } : {}),
+      },
     },
-  },
-  envPrefix: "VITE_",
-  build: {
-    outDir: "dist",
-    sourcemap: mode !== "production",
-  },
-}))
+    envPrefix: "VITE_",
+    build: {
+      outDir: "dist",
+      sourcemap: mode !== "production",
+    },
+  }
+})

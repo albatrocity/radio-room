@@ -318,6 +318,47 @@ resource "aws_iam_user_policy" "sender_s3_put" {
 }
 
 # ---------------------------------------------------------------------------
+# IAM: Game Studio map designers publish Trip Map site art (ADR 0205)
+# ---------------------------------------------------------------------------
+
+resource "aws_iam_policy" "map_designer" {
+  name        = "listening-room-map-designer"
+  description = "Game Studio uploads content-addressed site art under assets/maps/. No delete."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # HeadObject authorizes as GetObject; keys are content hashes, so a put never replaces other art.
+        Sid      = "PutAndHeadSiteArt"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject"]
+        Resource = "${aws_s3_bucket.assets.arn}/assets/maps/*"
+      },
+      {
+        # Lets HeadObject report a missing key as 404 instead of 403.
+        Sid      = "ListSiteArt"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = aws_s3_bucket.assets.arn
+        Condition = {
+          StringLike = { "s3:prefix" = ["assets/maps/*", "assets/maps/"] }
+        }
+      },
+    ]
+  })
+}
+
+resource "aws_iam_group" "map_designers" {
+  name = "listening-room-map-designers"
+}
+
+resource "aws_iam_group_policy_attachment" "map_designers" {
+  group      = aws_iam_group.map_designers.name
+  policy_arn = aws_iam_policy.map_designer.arn
+}
+
+# ---------------------------------------------------------------------------
 # Seed logo (placeholder until brand PNG replaces assets/logo.png)
 # ---------------------------------------------------------------------------
 

@@ -7,7 +7,7 @@ import { system } from "../../../theme/chakraTheme"
 import type { GameStateItemDetailFrame } from "../../../types/GameStateDetail"
 import GameStateItemDetail from "./GameStateItemDetail"
 
-vi.mock("../../ItemModelViewer", () => ({
+vi.mock("../../AppModelViewer", () => ({
   default: ({ mode }: { mode: string }) => <div data-testid="item-model" data-mode={mode} />,
 }))
 vi.mock("../../../hooks/useActors", () => ({

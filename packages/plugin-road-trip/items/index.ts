@@ -22,6 +22,17 @@ const ICONS: Record<string, LucideIconName> = {
 }
 
 /**
+ * GLB filenames in `items/<shortId>/`, published to `assets/items/<shortId>/` by
+ * `apps/web/scripts/syncItemModels.sh` alongside Item Shops (ADR 0199, 0205).
+ */
+export const ITEM_MODELS: Partial<Record<string, string>> = {}
+
+function modelFields(shortId: string): Pick<RoadTripItemDefinition, "model" | "detailView"> {
+  const model = ITEM_MODELS[shortId]
+  return model ? { model, detailView: { layout: "default" } } : {}
+}
+
+/**
  * Van parts and consumables (M3) as inventory items. Parts are spent when
  * installed (the van keeps them, not the traveler); consumables when they end
  * an incident. Sold through Item Shops' custom offers at trip sites.
@@ -39,6 +50,7 @@ export const ROAD_TRIP_ITEM_DEFINITIONS: RoadTripItemDefinition[] = [
       consumable: true,
       coinValue: part.coinValue,
       rarity: "uncommon",
+      ...modelFields(part.shortId),
     }),
   ),
   ...VAN_CONSUMABLES.map(
@@ -53,6 +65,7 @@ export const ROAD_TRIP_ITEM_DEFINITIONS: RoadTripItemDefinition[] = [
       consumable: true,
       coinValue: item.coinValue,
       rarity: "common",
+      ...modelFields(item.shortId),
     }),
   ),
 ]

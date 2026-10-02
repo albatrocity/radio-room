@@ -5,7 +5,7 @@ import { resolveItemModelUrl } from "../lib/itemModelUrls"
 import { getItemRarityColorPalette, itemRarityIconColor } from "../lib/itemRarityPalette"
 import { toPhysicalMediaArt } from "../lib/physicalMediaArtwork"
 import { ArtworkPreviewDialog } from "./ArtworkPreviewDialog"
-import ItemModelViewer from "./ItemModelViewer"
+import AppModelViewer from "./AppModelViewer"
 import { getIcon } from "./PluginComponents/icons"
 import { SvgIcon } from "./ui/svg-icon"
 import FramedArtwork from "./artworkFrames/FramedArtwork"
@@ -219,7 +219,7 @@ export default function ItemArtwork({
   const modelUrl = resolveItemModelUrl(shortId, model)
   if (modelUrl) {
     return (
-      <ItemModelViewer
+      <AppModelViewer
         key={modelUrl}
         src={modelUrl}
         alt={alt}

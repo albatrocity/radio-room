@@ -387,6 +387,38 @@ describe("van and incidents (Phase 3)", () => {
   })
 })
 
+describe("site art (Phase 4)", () => {
+  const CDN = "https://cdn.listeningroom.club/assets/maps/sites"
+
+  it("accepts a GLB model and rejects other model files", () => {
+    const input = clone()
+    input.sites[0]!.model = { url: `${CDN}/abc.glb` }
+    expect(parseTripMap(input).ok).toBe(true)
+    input.sites[0]!.model = { url: `${CDN}/abc.gltf` }
+    const result = parseTripMap(input)
+    expect(result.ok).toBe(false)
+    expect(result.issues[0]?.path).toBe("sites.0.model.url")
+  })
+
+  it("warns about art that isn't on the asset CDN", () => {
+    const input = clone()
+    input.sites[0]!.imageUrl = "https://example.com/stand.webp"
+    input.sites[0]!.model = { url: `${CDN}/abc.glb` }
+    input.sites[1]!.model = { url: "https://example.com/stand.glb" }
+    const result = parseTripMap(input)
+    expect(result.ok).toBe(true)
+    expect(result.issues.filter((i) => i.code === "non-cdn-asset").map((i) => i.path)).toEqual([
+      "sites.0.imageUrl",
+      "sites.1.model.url",
+    ])
+    expect(
+      codes(parseTripMap(input, { assetBaseUrl: "https://example.com/" })).filter(
+        (c) => c === "non-cdn-asset",
+      ),
+    ).toHaveLength(1)
+  })
+})
+
 describe("site spacing", () => {
   it("rejects sites closer than the minimum spacing", () => {
     const input = clone()

@@ -11,6 +11,7 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react"
+import type { ReactNode } from "react"
 import {
   isDestination,
   resolveSiteSettings,
@@ -31,6 +32,8 @@ type Props = {
   resolved: TripMap | null
   /** This site's row in the no-vote fuel plan, when it sells gas. */
   gasStop?: FuelProjectionStop
+  /** Image and 3D model section (`TripSiteArt`), owned by the editor's upload state. */
+  art: ReactNode
   onChange: (patch: Partial<TripSiteDraft>) => void
   onRemove: () => void
 }
@@ -65,8 +68,8 @@ function Toggle({
   )
 }
 
-/** Site inspector (M8): presentation, stop behavior, reveal, skip poll, services, and shop. */
-export function TripSiteInspector({ site, resolved, gasStop, onChange, onRemove }: Props) {
+/** Site inspector (M8): presentation, art, stop behavior, reveal, skip poll, services, and shop. */
+export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRemove }: Props) {
   const destination = isDestination(site)
   const resolvedSite = resolved?.sites.find((s) => s.id === site.id)
   const settings = resolved && resolvedSite ? resolveSiteSettings(resolved, resolvedSite) : null
@@ -155,15 +158,7 @@ export function TripSiteInspector({ site, resolved, gasStop, onChange, onRemove 
           onChange={(e) => onChange({ description: e.target.value })}
         />
       </Field.Root>
-      <Field.Root>
-        <Field.Label fontSize="xs">Image URL (https)</Field.Label>
-        <Input
-          size="sm"
-          placeholder="https://…"
-          value={site.imageUrl ?? ""}
-          onChange={(e) => onChange({ imageUrl: e.target.value.trim() || undefined })}
-        />
-      </Field.Root>
+      {art}
       <Field.Root>
         <Field.Label fontSize="xs">Lore (Markdown, shown once visited)</Field.Label>
         <Textarea

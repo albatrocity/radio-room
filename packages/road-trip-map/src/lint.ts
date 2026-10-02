@@ -31,11 +31,18 @@ export type LintTripMapDeps = {
   validateShop?: (req: { shopIds?: string[]; offers?: SiteShopOffer[] }) => ShopValidationResult
   /** Planned departure time (ms) for the deadline check. */
   departAt?: number
+  /** Asset CDN origin that published site art should live under. */
+  assetBaseUrl?: string
 }
 
+export const DEFAULT_ASSET_CDN_BASE_URL = "https://cdn.listeningroom.club"
+
+/** Key prefix Game Studio publishes site images and GLBs under (content-addressed). */
+export const SITE_ASSET_KEY_PREFIX = "assets/maps/sites/"
+
 /**
- * Trip map lint (M5), Phases 1–3. Errors block loading and departure; warnings are shown to
- * the host and designer only.
+ * Trip map lint (M5). Errors block loading and departure; warnings are shown to the host and
+ * designer only.
  */
 export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIssue[] {
   const issues: TripMapIssue[] = []
@@ -69,8 +76,25 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
     }
   }
 
+  const assetOrigin = `${(deps.assetBaseUrl ?? DEFAULT_ASSET_CDN_BASE_URL).replace(/\/+$/, "")}/`
   const seen = new Set<string>()
   map.sites.forEach((site, index) => {
+    const assets = [
+      { label: "image", url: site.imageUrl, path: `sites.${index}.imageUrl` },
+      { label: "3D model", url: site.model?.url, path: `sites.${index}.model.url` },
+    ]
+    for (const asset of assets) {
+      if (asset.url && !asset.url.startsWith(assetOrigin)) {
+        issues.push({
+          severity: "warning",
+          code: "non-cdn-asset",
+          message: `${site.name}'s ${asset.label} isn't on the asset CDN; publish it from Game Studio so it can't move or vanish.`,
+          path: asset.path,
+          siteId: site.id,
+        })
+      }
+    }
+
     if (seen.has(site.id)) {
       issues.push({
         severity: "error",

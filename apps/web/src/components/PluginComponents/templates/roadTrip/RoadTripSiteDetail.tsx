@@ -1,5 +1,6 @@
-import { Badge, Box, HStack, Image, Stack, Text } from "@chakra-ui/react"
+import { Badge, Box, HStack, Stack, Text } from "@chakra-ui/react"
 import SegmentNotesMarkdown from "../../../SegmentNotesMarkdown"
+import SiteArtwork from "../../../SiteArtwork"
 import type { RoadTripSiteDetailComponentProps } from "../../../../types/PluginComponent"
 import {
   DEFAULT_TRIP_KEY,
@@ -9,7 +10,7 @@ import {
   useTripStore,
 } from "./tripView"
 
-/** Site detail on the Game State nav stack: art, name, description, lore once visited (D12a). */
+/** Site detail on the Game State nav stack: art, name, description; lore and the 3D model once visited (D12a). */
 export function RoadTripSiteDetailTemplateComponent({
   siteId,
   tripKey = DEFAULT_TRIP_KEY,
@@ -29,16 +30,12 @@ export function RoadTripSiteDetailTemplateComponent({
 
   return (
     <Stack gap={4}>
-      {site.imageUrl ? (
-        <Image
-          src={site.imageUrl}
-          alt=""
-          w="full"
-          maxH="220px"
-          objectFit="cover"
-          borderRadius="md"
-        />
-      ) : null}
+      <SiteArtwork
+        name={site.name ?? ""}
+        icon={site.icon}
+        imageUrl={site.imageUrl}
+        modelUrl={site.modelUrl}
+      />
       <HStack gap={3} align="start">
         {site.icon ? (
           <Text as="span" fontSize="3xl" lineHeight={1} aria-hidden>

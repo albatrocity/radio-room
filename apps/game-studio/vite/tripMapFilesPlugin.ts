@@ -1,6 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import type { Plugin } from "vite"
+import { rejectStudioRequest } from "./studioRequestGuard"
 
 const ROUTE = "/__studio/trip-maps"
 const MAP_ID = /^[a-z0-9][a-z0-9-]*$/
@@ -42,6 +43,13 @@ export function tripMapFilesPlugin(mapsDir: string): Plugin {
               return
             }
             if (req.method === "PUT") {
+              // Writes into the repo: this machine only (reads stay open for other devices).
+              const rejected = rejectStudioRequest(req)
+              if (rejected) {
+                res.statusCode = rejected.status
+                res.end(rejected.message)
+                return
+              }
               const chunks: Buffer[] = []
               let size = 0
               for await (const chunk of req) {

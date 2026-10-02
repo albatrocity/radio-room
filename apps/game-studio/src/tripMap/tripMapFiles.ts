@@ -1,6 +1,9 @@
 /** Client for the dev-server trip map middleware (`vite.config.ts`, `maps/<id>.json`). */
 const BASE = "/__studio/trip-maps"
 
+/** Required on writes by the dev middleware's guard (`vite/studioRequestGuard.ts`). */
+const STUDIO_HEADERS = { "X-Studio-Request": "1" }
+
 export async function listSavedTripMaps(): Promise<string[]> {
   try {
     const res = await fetch(BASE)
@@ -28,7 +31,7 @@ export async function saveTripMapFile(
   try {
     const res = await fetch(`${BASE}/${encodeURIComponent(id)}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...STUDIO_HEADERS },
       body: json,
     })
     if (res.ok) return { ok: true }

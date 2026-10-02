@@ -101,7 +101,11 @@ export function validateCatalogShop(req: { shopIds?: string[]; offers?: { defini
 }
 
 export function parseDraft(draft: TripMapInput, departAt: number): ParseTripMapResult {
-  return parseTripMap(draft, { validateShop: validateCatalogShop, departAt })
+  return parseTripMap(draft, {
+    validateShop: validateCatalogShop,
+    departAt,
+    assetBaseUrl: import.meta.env.VITE_ASSET_CDN_BASE_URL || undefined,
+  })
 }
 
 /** Schema defaults applied, or null while the draft doesn't parse. */

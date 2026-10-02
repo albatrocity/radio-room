@@ -18,18 +18,18 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js"
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js"
 
-export type ItemModelSceneMode = "thumbnail" | "stage"
+export type ModelSceneMode = "thumbnail" | "stage"
 
-export type ItemModelSceneOptions = {
+export type ModelSceneOptions = {
   src: string
-  mode: ItemModelSceneMode
+  mode: ModelSceneMode
   /** Thumbnail auto-rotation; ignored on the stage. */
   spin: boolean
   onLoad: () => void
   onError: () => void
 }
 
-export type ItemModelSceneHandle = {
+export type ModelSceneHandle = {
   setSpin: (spin: boolean) => void
   dispose: () => void
 }
@@ -38,7 +38,7 @@ const FIELD_OF_VIEW = 30
 const SPIN_RADIANS_PER_SECOND = 0.6
 const KEY_ROTATE_RADIANS = MathUtils.degToRad(15)
 const KEY_ZOOM_FACTOR = 0.85
-/** Slightly above the horizon so items read as objects on a table, not a flat profile. */
+/** Slightly above the horizon so models read as objects on a table, not a flat profile. */
 const CAMERA_ELEVATION = 0.25
 const STAGE_MIN_ZOOM = 0.45
 const STAGE_MAX_ZOOM = 2.5
@@ -59,15 +59,15 @@ function disposeObject(root: Object3D): void {
 }
 
 /**
- * Render one GLB into `canvas`, sized to `container` (ADR 0199). Thumbnails spin
+ * Render one GLB into `canvas`, sized to `container` (ADR 0199, 0205). Thumbnails spin
  * with no input; the stage orbits and zooms with pointer, wheel, pinch, arrow keys,
  * and +/-. Returns a handle that tears down the WebGL context.
  */
-export function mountItemModelScene(
+export function mountModelScene(
   canvas: HTMLCanvasElement,
   container: HTMLElement,
-  options: ItemModelSceneOptions,
-): ItemModelSceneHandle {
+  options: ModelSceneOptions,
+): ModelSceneHandle {
   let disposed = false
   let spin = options.spin
   let frame = 0

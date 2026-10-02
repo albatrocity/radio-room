@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 /**
- * Trip Map v1 (ADR 0202). Phases 1–3; Phase 4 adds `model`.
+ * Trip Map v1 (ADR 0202).
  */
 
 export const TRIP_MAP_SCHEMA_VERSION = 1 as const
@@ -25,6 +25,18 @@ const httpsUrlSchema = z
   .string()
   .url()
   .refine((value) => value.startsWith("https://"), "Asset URLs must be absolute https URLs")
+
+const glbUrlSchema = httpsUrlSchema.refine((value) => {
+  try {
+    return new URL(value).pathname.toLowerCase().endsWith(".glb")
+  } catch {
+    return false
+  }
+}, "3D models must be .glb files")
+
+/** A site's 3D model (glTF Binary), shown in site detail once visited (D12a). */
+export const siteModelSchema = z.object({ url: glbUrlSchema })
+export type SiteModel = z.infer<typeof siteModelSchema>
 
 export const siteSkipPollSchema = z.object({
   question: z.string().min(1).max(120).optional(),
@@ -89,6 +101,7 @@ export const siteSchema = z.object({
   icon: z.string().min(1).max(16),
   imageUrl: httpsUrlSchema.optional(),
   lore: z.string().max(4000).optional(),
+  model: siteModelSchema.optional(),
   mile: z.number().min(0),
   role: z.literal("destination").optional(),
   mandatory: z.boolean().optional(),

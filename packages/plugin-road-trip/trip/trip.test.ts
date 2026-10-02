@@ -141,8 +141,14 @@ describe("trip playable (Phase 1)", () => {
     expect(sim.state.sites["farmers-market"]).toMatchObject({ phase: "parked", revealed: true })
   })
 
-  it("omits secret sites until revealed and sends lore only once visited", () => {
-    const sim = new TripSim(noGas((m) => (m.sites[1]!.secret = true)))
+  it("omits secret sites until revealed and sends lore and the model only once visited", () => {
+    const modelUrl = "https://cdn.listeningroom.club/assets/maps/sites/stand.glb"
+    const sim = new TripSim(
+      noGas((m) => {
+        m.sites[1]!.secret = true
+        m.sites[1]!.model = { url: modelUrl }
+      }),
+    )
     sim.votes["record-store"] = { stop: 0, skip: 1 }
     sim.apply(depart)
     let store = buildTripStore(sim.state, sim.map, sim.current, sim.now)
@@ -152,9 +158,13 @@ describe("trip playable (Phase 1)", () => {
     const stand = store.sites.find((s) => s.id === "farmers-market")
     expect(stand?.name).toBe("Farmers Market")
     expect(stand?.lore).toBeUndefined()
+    expect(stand?.modelUrl).toBeUndefined()
     sim.runUntil(T0 + 8 * MIN)
     store = buildTripStore(sim.state, sim.map, sim.current, sim.now)
-    expect(store.sites.find((s) => s.id === "farmers-market")?.lore).toContain("peach wine")
+    expect(store.sites.find((s) => s.id === "farmers-market")).toMatchObject({
+      lore: expect.stringContaining("peach wine"),
+      modelUrl,
+    })
     expect(store.live).toMatchObject({
       kind: "parked",
       label: "Farmers Market",

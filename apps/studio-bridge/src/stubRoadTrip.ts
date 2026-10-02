@@ -130,6 +130,7 @@ function revealed(
       : {}),
     ...(site.services?.gas ? { gasPrice: site.services.gas.pricePerGallon } : {}),
     ...(site.services?.mechanic ? { mechanic: true as const } : {}),
+    ...(state === "visited" && site.model ? { modelUrl: site.model.url } : {}),
     ...extra,
   }
 }

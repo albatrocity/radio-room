@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Box } from "@chakra-ui/react"
-import { useAnimationsEnabled } from "../hooks/useReducedMotion"
-import type { ItemModelSceneHandle, ItemModelSceneMode } from "../lib/itemModelScene"
+import type { ModelSceneHandle, ModelSceneMode } from "./modelScene"
 
 type Props = {
   src: string
   alt: string
   /** `thumbnail` spins with no input; `stage` orbits and zooms (ADR 0199). */
-  mode: ItemModelSceneMode
+  mode: ModelSceneMode
+  /** Thumbnail auto-rotation; pass false for reduced motion. Ignored on the stage. */
+  spin: boolean
   /** Shown while the model loads and in place of it when loading or WebGL fails. */
   fallback: ReactNode
   /** Chakra box size token; omitted when the parent supplies the size (`stage`, feature slots). */
@@ -17,16 +18,15 @@ type Props = {
 const STAGE_LABEL = "Drag to rotate. Scroll or pinch to zoom."
 
 /**
- * GLB viewer for item artwork. `three` lives in `itemModelScene`, loaded on mount
- * so the main bundle never carries it. Key by `src`: a failed viewer stays on the
- * fallback until it remounts.
+ * GLB viewer for item and site artwork (ADR 0205). `three` lives in `modelScene`,
+ * loaded on mount so no app's main bundle carries it. Key by `src`: a failed
+ * viewer stays on the fallback until it remounts.
  */
-export default function ItemModelViewer({ src, alt, mode, fallback, boxSize }: Props) {
+export function ModelViewer({ src, alt, mode, spin, fallback, boxSize }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const handleRef = useRef<ItemModelSceneHandle | null>(null)
+  const handleRef = useRef<ModelSceneHandle | null>(null)
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading")
-  const spin = useAnimationsEnabled()
   const spinRef = useRef(spin)
   spinRef.current = spin
 
@@ -36,10 +36,10 @@ export default function ItemModelViewer({ src, alt, mode, fallback, boxSize }: P
     if (!canvas || !container) return
     let cancelled = false
     setStatus("loading")
-    void import("../lib/itemModelScene")
-      .then(({ mountItemModelScene }) => {
+    void import("./modelScene")
+      .then(({ mountModelScene }) => {
         if (cancelled) return
-        handleRef.current = mountItemModelScene(canvas, container, {
+        handleRef.current = mountModelScene(canvas, container, {
           src,
           mode,
           spin: spinRef.current,
@@ -107,3 +107,5 @@ export default function ItemModelViewer({ src, alt, mode, fallback, boxSize }: P
     </Box>
   )
 }
+
+export default ModelViewer
