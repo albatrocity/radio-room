@@ -67,6 +67,9 @@ export type TemplateComponentName =
   | "queue-theme-brief-card"
   | "lyric-hero-card"
   | "slider"
+  | "road-trip-strip"
+  | "road-trip-trip-panel"
+  | "road-trip-site-detail"
 
 /**
  * Props for the username template component.
@@ -420,6 +423,30 @@ export interface KickstarterCampaignCardComponentProps {
 }
 
 /**
+ * Props for the road-trip-strip (Road Trip, ADR 0200): one line in `aboveChat`
+ * with the route, the van dot interpolated locally, and the next site.
+ */
+export interface RoadTripStripComponentProps {
+  /** Store key holding the `TripStore`. Default `"trip"`. */
+  tripKey?: string
+  /** Plugin tab id (without the plugin prefix) opened on tap. Default `"trip"`. */
+  tabId?: string
+}
+
+/** Props for the road-trip Trip tab body: route, site list, and site detail on the nav stack. */
+export interface RoadTripTripPanelComponentProps {
+  /** Store key holding the `TripStore`. Default `"trip"`. */
+  tripKey?: string
+}
+
+/** Props for a road-trip site detail frame (Game State nav stack, ADR 0104 / 0106). */
+export interface RoadTripSiteDetailComponentProps {
+  siteId: string
+  /** Store key holding the `TripStore`. Default `"trip"`. */
+  tripKey?: string
+}
+
+/**
  * Props for the quiz-question-card template component (Quiz Sessions plugin).
  *
  * The card reads live quiz state from the plugin store; props only tune which
@@ -491,6 +518,9 @@ export interface TemplateComponentPropsMap {
   "lyric-hero-card": LyricHeroCardComponentProps
   "kickstarter-campaign-card": KickstarterCampaignCardComponentProps
   slider: SliderComponentProps
+  "road-trip-strip": RoadTripStripComponentProps
+  "road-trip-trip-panel": RoadTripTripPanelComponentProps
+  "road-trip-site-detail": RoadTripSiteDetailComponentProps
 }
 
 // ============================================================================
@@ -579,6 +609,9 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "lyric-hero-card" } & LyricHeroCardComponentProps)
   | (PluginComponentMetadata & { type: "kickstarter-campaign-card" } & KickstarterCampaignCardComponentProps)
   | (PluginComponentMetadata & { type: "slider" } & SliderComponentProps)
+  | (PluginComponentMetadata & { type: "road-trip-strip" } & RoadTripStripComponentProps)
+  | (PluginComponentMetadata & { type: "road-trip-trip-panel" } & RoadTripTripPanelComponentProps)
+  | (PluginComponentMetadata & { type: "road-trip-site-detail" } & RoadTripSiteDetailComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs
 

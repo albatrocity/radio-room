@@ -169,6 +169,10 @@ export class MockStudioPluginApi implements PluginAPI {
     return this.room.activePoll
   }
 
+  async requestCapability(): Promise<{ ok: false; reason: "unsupported" }> {
+    return { ok: false, reason: "unsupported" }
+  }
+
   async getPollVoterIds(_roomId: string, pollId: string): Promise<string[]> {
     return this.room.activePoll?.id === pollId ? [...this.room.pollVotes.keys()] : []
   }

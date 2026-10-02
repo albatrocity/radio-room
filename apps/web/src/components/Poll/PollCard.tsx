@@ -38,6 +38,7 @@ import {
 import { ExpiryBar } from "../ExpiryBar"
 import { PollResultsBar } from "./PollResultsBar"
 import { PollVotingSection } from "./PollVotingSection"
+import { getPollTheme } from "../PresentationThemes/registry"
 
 const SCROLLABLE_OPTION_THRESHOLD = 8
 
@@ -108,6 +109,12 @@ function PollCard() {
       })
       .sort((a, b) => b.count - a.count || a.option.label.localeCompare(b.option.label))
   }, [poll, revealResults])
+
+  const theme = getPollTheme(poll?.presentation?.theme)
+  const formatOptionLabel = useMemo(
+    () => (theme && poll ? (option: PollOption) => theme.optionLabel(poll, option) : undefined),
+    [theme, poll],
+  )
 
   const winnerIds = useMemo(() => new Set(revealResults?.winners ?? []), [revealResults])
   const isTie = winnerIds.size > 1
@@ -225,7 +232,7 @@ function PollCard() {
             onClick={() => send({ type: "EXPAND" })}
           >
             <Text fontSize="sm" flex={1}>
-              Poll: {truncateQuestion(poll.question)}
+              {theme ? truncateQuestion(theme.collapsedLabel(poll)) : `Poll: ${truncateQuestion(poll.question)}`}
               {isRevealing ? " · Results" : ""}
               {!isRevealing && totalVotes != null ? ` · ${totalVotes} votes` : ""}
               {!isRevealing && votedLabel ? " · You voted ✓" : ""}
@@ -265,6 +272,20 @@ function PollCard() {
 
   const showCloseBar = poll.status === "open" && poll.closesAt != null
 
+  const cardActions = (
+    <>
+      {isAdmin && poll.status === "open" && (
+        <Button size="sm" colorPalette="red" variant="outline" onClick={handleClosePoll}>
+          Close poll
+        </Button>
+      )}
+      <IconButton aria-label="Collapse poll" size="sm" variant="ghost" onClick={() => send({ type: "COLLAPSE" })}>
+        <LuMinus />
+      </IconButton>
+      <CloseButton size="sm" aria-label="Dismiss poll" onClick={() => send({ type: "DISMISS" })} />
+    </>
+  )
+
   return (
     <Box position="sticky" top={0} zIndex={3} px={3} pt={2} data-poll-card>
       <Box
@@ -277,31 +298,16 @@ function PollCard() {
         transition={animationsEnabled ? "max-height 180ms ease, opacity 180ms ease" : "none"}
       >
         <Box p={4} pb={showCloseBar && !showFullResults ? 3 : 4}>
-          <HStack justify="space-between" align="start" mb={3}>
-            <Text fontWeight="semibold" fontSize="md" flex={1}>
-              {poll.question}
-            </Text>
-            <HStack gap={1}>
-              {isAdmin && poll.status === "open" && (
-                <Button size="sm" colorPalette="red" variant="outline" onClick={handleClosePoll}>
-                  Close poll
-                </Button>
-              )}
-              <IconButton
-                aria-label="Collapse poll"
-                size="sm"
-                variant="ghost"
-                onClick={() => send({ type: "COLLAPSE" })}
-              >
-                <LuMinus />
-              </IconButton>
-              <CloseButton
-                size="sm"
-                aria-label="Dismiss poll"
-                onClick={() => send({ type: "DISMISS" })}
-              />
+          {theme ? (
+            <theme.Header poll={poll} actions={cardActions} />
+          ) : (
+            <HStack justify="space-between" align="start" mb={3}>
+              <Text fontWeight="semibold" fontSize="md" flex={1}>
+                {poll.question}
+              </Text>
+              <HStack gap={1}>{cardActions}</HStack>
             </HStack>
-          </HStack>
+          )}
 
           {showFullResults && revealResults ? (
             <Stack gap={3}>
@@ -314,7 +320,7 @@ function PollCard() {
                 {sortedRevealOptions.map(({ option, count, pct }) => (
                   <PollResultsBar
                     key={option.id}
-                    label={option.label}
+                    label={formatOptionLabel ? formatOptionLabel(option) : option.label}
                     count={count}
                     pct={pct}
                     isWinner={winnerIds.has(option.id)}
@@ -348,10 +354,14 @@ function PollCard() {
               votePending={votePending}
               confirmOptionId={confirmOptionId}
               onVote={handleVote}
+              formatOptionLabel={formatOptionLabel}
             />
           )}
         </Box>
-        {showCloseBar && !showFullResults && (
+        {showCloseBar && !showFullResults && theme ? (
+          <theme.CloseBar poll={poll} endAt={poll.closesAt!} />
+        ) : null}
+        {showCloseBar && !showFullResults && !theme && (
           <ExpiryBar
             startAt={poll.publishedAt}
             endAt={poll.closesAt!}
@@ -359,6 +369,7 @@ function PollCard() {
             height="3px"
           />
         )}
+        {theme?.Footer && !showFullResults ? <theme.Footer poll={poll} /> : null}
       </Box>
     </Box>
   )

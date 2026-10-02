@@ -11,6 +11,7 @@
     "@repo/game-logic": "*",
     "@repo/plugin-base": "*",
     "@repo/plugin-item-shops": "*",
+    "@repo/road-trip-map": "*",
     "@repo/types": "*",
     "@repo/utils": "*",
     "@vitejs/plugin-react": "^5.1.1",

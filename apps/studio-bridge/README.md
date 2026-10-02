@@ -8,6 +8,16 @@ Local **Socket.IO + HTTP** server used to drive the real **web** Room UI (`apps/
 
 Started automatically via **`make game-studio`** alongside the Game Studio Vite dev server.
 
+## Road trip preview
+
+Set `STUDIO_BRIDGE_TRIP_PREVIEW=1` when starting the bridge (or connect with the `tripPreview=1` handshake query) to preview road-trip UI ([ADR 0200](../../docs/adrs/0200-road-trips-v1.md)) without the plugin:
+
+- the `road-trip-strip` above chat and the **Trip** Game State tab (with site detail), from a fixture trip on `SAMPLE_TRIP_MAP`
+- a road-sign skip poll and two road-sign system messages on login
+- `EXECUTE_PLUGIN_ACTION` for `road-trip` swaps fixtures: `depart` / `resume` / `leaveNow` → driving, `previewParked` → parked at a site, `previewArrived` → arrived, `endTrip` / `unloadMap` / `newTrip` → no trip. The stub has no config schema, so there is no Quick Access panel; send the event from the browser console when you need another fixture.
+
+Fixtures live in `src/stubRoadTrip.ts`.
+
 ## Out of scope (for now)
 
 - **`QUEUE_SONG` / `SONG_QUEUE_HELD`** — not stubbed. Round Robin DJ held-queue toasts and deputy turn flow are exercised against the real API + `@repo/plugin-round-robin-dj`, not Game Studio. Add a preview flag + ack stub only if Studio needs to polish that client UX without the full backend.

@@ -105,6 +105,18 @@ describe("modalsMachine", () => {
     expect(actor.getSnapshot().matches("modal.settings.overview")).toBe(true)
   })
 
+  it("opens Road Trip plugin settings from overview", () => {
+    const actor = createActor(modalsMachine).start()
+
+    actor.send({ type: "EDIT_SETTINGS" })
+    actor.send({ type: "EDIT_ROAD_TRIP" })
+
+    expect(actor.getSnapshot().matches("modal.settings.road_trip")).toBe(true)
+
+    actor.send({ type: "BACK" })
+    expect(actor.getSnapshot().matches("modal.settings.overview")).toBe(true)
+  })
+
   it("keeps game state open when Feedback opens and closes", () => {
     const actor = createActor(modalsMachine).start()
 

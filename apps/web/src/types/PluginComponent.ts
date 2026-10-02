@@ -56,5 +56,8 @@ export type {
   SliderComponentProps,
   LyricHeroCardComponentProps,
   KickstarterCampaignCardComponentProps,
+  RoadTripStripComponentProps,
+  RoadTripTripPanelComponentProps,
+  RoadTripSiteDetailComponentProps,
   QueueThemeBriefCardComponentProps,
 } from "@repo/types"

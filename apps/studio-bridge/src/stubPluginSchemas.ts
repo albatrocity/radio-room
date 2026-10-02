@@ -308,4 +308,39 @@ export const bridgePluginSchemasForApi = [
       ],
     },
   },
+  {
+    name: "road-trip",
+    version: "0.0.0-bridge",
+    description: "Road Trip (bridge preview stub; fixtures in stubRoadTrip.ts).",
+    defaultConfig: {
+      enabled: true,
+    },
+    componentSchema: {
+      components: [
+        {
+          id: "road-trip-strip",
+          type: "road-trip-strip",
+          area: "aboveChat",
+          showWhen: { field: "tripActive", value: true },
+          tabId: "trip",
+        },
+        {
+          id: "trip",
+          type: "tab",
+          area: "gameStateTab",
+          label: "Trip",
+          icon: "Map",
+          showWhen: { field: "tripActive", value: true },
+          children: [
+            {
+              id: "road-trip-trip-panel",
+              type: "road-trip-trip-panel",
+              area: "gameStateTab",
+            },
+          ],
+        },
+      ],
+      storeKeys: ["tripActive", "trip", "tripProgress", "tripEta", "tripNextSite", "tripWarnings"],
+    },
+  },
 ]

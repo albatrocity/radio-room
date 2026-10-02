@@ -58,7 +58,7 @@ import { maybeAccrueTourLaminateOnAcquire } from "./items/tour-laminate"
 import type { ItemShopsShopAccess } from "./items/shared/types"
 import { KickstarterModule } from "./campaigns/kickstarter/KickstarterModule"
 import { SHOP_CATALOG } from "./shops"
-import { buildEffectiveShopCatalog } from "./localLibrary/catalog"
+import { buildEffectiveShopCatalog, defaultEnabledShopIds } from "./localLibrary/catalog"
 import { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
@@ -78,6 +78,13 @@ import {
 } from "./localLibrary/condition"
 import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
 import { SonRegistry, FAMILY_PHOTO_SON_DESPAWN_KIND } from "./helpers/sonRegistry"
+import { ROOM_SHOP_SCOPE_KEY, validateRoomShopIds, type RoomShopScope } from "./roomShop"
+import type {
+  OpenRoomShopRequest,
+  OpenRoomShopResult,
+  PluginCapabilities,
+  ValidateShopResult,
+} from "@repo/types"
 import { FAMILY_PHOTO_PERSONA_SHORT_ID } from "./items/family-photo/constants"
 
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
@@ -123,6 +130,8 @@ export type { ItemShopsConfig } from "./types"
 export { itemShopsConfigSchema, defaultItemShopsConfig } from "./types"
 export { ITEM_CATALOG, items } from "./items/index"
 export { SHOP_CATALOG } from "./shops"
+export { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
+export { validateRoomShopIds } from "./roomShop"
 
 export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   name = PLUGIN_NAME
@@ -133,6 +142,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   static readonly defaultConfig = defaultItemShopsConfig
 
   private shopping!: ShoppingSessionHelper
+
+  /** Room shop rounds for other plugins, e.g. road-trip site stops (ADR 0201). */
+  readonly capabilities: PluginCapabilities = {
+    shopAccess: {
+      openRoomShop: (req) => this.openRoomShop(req),
+      closeRoomShop: (scopeId) => this.closeRoomShop(scopeId),
+      validateShop: (req) => this.validateRoomShop(req.shopIds),
+    },
+  }
 
   /** Synced from plugin config; `decorateOffer` reads this at instance-build time (ADR 0158). */
   private offerConditionBounds: OfferConditionBounds = { ...DEFAULT_OFFER_CONDITION_BOUNDS }
@@ -439,6 +457,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     await this.kickstarter.onGameSessionEnded()
     this.clearShopTimersAndStateForGameEnd()
     await this.shopping.clearSessionRound()
+    await this.clearRoomShopScope()
     await this.stripOwnedItemsFromAllUsers()
     await this.despawnAllSons()
   }
@@ -734,7 +753,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     // Skip if user already has an assignment (e.g. page refresh during session)
     const existing = await this.shopping.getInstance(data.user.userId)
     if (existing) return
-    const eligible = await this.resolveEligibleShops(config)
+    const eligible = await this.resolveRoundEligibleShops(config)
     if (eligible.length === 0) return
     await this.shopping.assignInstanceForUserId(data.user.userId, Date.now(), eligible)
     await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
@@ -789,6 +808,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     if (!gameSession) {
       return
     }
+    if ((await this.readRoomShopScope()) && (await this.shopping.isActive())) {
+      return
+    }
     const eligible = await this.resolveEligibleShops(config)
     if (eligible.length === 0) {
       return
@@ -809,6 +831,13 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         message: "Select at least one shop in Item Shops settings (Shops in rotation).",
       }
     }
+    await this.clearRoomShopScope()
+    await this.startRoundWith(eligible)
+    return { success: true, message: "Shopping session started." }
+  }
+
+  private async startRoundWith(eligible: ItemShopsShopCatalogEntry[]): Promise<void> {
+    if (!this.context) return
     await this.invokeShoppingRoundSessionEndHooks()
     const users = await this.context.api.getUsers(this.context.roomId)
     await this.shopping.startSession(users, eligible)
@@ -817,7 +846,85 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     for (const u of users) {
       await this.requestShopTabAttention(u.userId)
     }
-    return { success: true, message: "Shopping session started." }
+  }
+
+  /** Shops for the round in progress: the scoped round's shops, else the rotation. */
+  private async resolveRoundEligibleShops(
+    config: ItemShopsConfig,
+  ): Promise<ItemShopsShopCatalogEntry[]> {
+    const scope = await this.readRoomShopScope()
+    if (scope) return this.resolveScopedShops(config, scope.shopIds)
+    return this.resolveEligibleShops(config)
+  }
+
+  /** Named catalog shops regardless of rotation, still filtered by controller and room type. */
+  private async resolveScopedShops(
+    config: ItemShopsConfig,
+    shopIds: string[],
+  ): Promise<ItemShopsShopCatalogEntry[]> {
+    return this.resolveEligibleShops({ ...config, enabledShopIds: shopIds })
+  }
+
+  private async readRoomShopScope(): Promise<RoomShopScope | null> {
+    if (!this.context) return null
+    const { value } = await this.context.storage.getJson<RoomShopScope>(ROOM_SHOP_SCOPE_KEY)
+    return value ?? null
+  }
+
+  private async clearRoomShopScope(): Promise<void> {
+    await this.context?.storage.del(ROOM_SHOP_SCOPE_KEY)
+  }
+
+  private async validateRoomShop(shopIds: string[]): Promise<ValidateShopResult> {
+    const config = (await this.getConfig()) ?? defaultItemShopsConfig
+    const available = await this.resolveScopedShops(config, shopIds)
+    return validateRoomShopIds(
+      shopIds,
+      new Set(defaultEnabledShopIds()),
+      new Set(available.map((shop) => shop.shopId)),
+    )
+  }
+
+  /** `shopAccess.openRoomShop`: a room-wide round limited to the caller's shops. */
+  private async openRoomShop(req: OpenRoomShopRequest): Promise<OpenRoomShopResult> {
+    if (!this.context) return { ok: false, reason: "disabled" }
+    const config = await this.getConfig()
+    if (!config?.enabled) return { ok: false, reason: "disabled" }
+    if (!(await this.context.game.getActiveSession())) return { ok: false, reason: "no-session" }
+    const eligible = await this.resolveScopedShops(config, req.shopIds)
+    if (eligible.length === 0) {
+      const known = new Set(defaultEnabledShopIds())
+      const allKnown = req.shopIds.length > 0 && req.shopIds.every((id) => known.has(id))
+      return { ok: false, reason: allKnown ? "unavailable" : "unknown-shop" }
+    }
+    const scope: RoomShopScope = {
+      scopeId: req.scopeId,
+      shopIds: req.shopIds,
+      openedAt: Date.now(),
+      ...(req.title ? { title: req.title } : {}),
+    }
+    await this.context.storage.setJson(ROOM_SHOP_SCOPE_KEY, scope)
+    await this.startRoundWith(eligible)
+    if (req.openingMessage) {
+      await this.context.api.sendSystemMessage(this.context.roomId, req.openingMessage, {
+        type: "alert",
+        status: "info",
+        ...(req.title ? { title: req.title } : {}),
+      })
+    }
+    return { ok: true }
+  }
+
+  /** `shopAccess.closeRoomShop`: ends the round only if this scope still owns it. */
+  private async closeRoomShop(scopeId: string): Promise<void> {
+    if (!this.context) return
+    const scope = await this.readRoomShopScope()
+    if (scope?.scopeId !== scopeId) return
+    await this.invokeShoppingRoundSessionEndHooks()
+    await this.shopping.clearSessionRound()
+    await this.clearRoomShopScope()
+    await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
+    await this.syncAutoShopTimer()
   }
 
   /** Sweetwater follow-up handler dispatched by onScheduled("sweetwater-followup"). */
@@ -1515,6 +1622,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       }
       await this.invokeShoppingRoundSessionEndHooks()
       await this.shopping.clearSessionRound()
+      await this.clearRoomShopScope()
       await this.emit("SHOPPING_SESSION_ENDED", { roomId: this.context.roomId })
       await this.syncAutoShopTimer()
       return { success: true, message: "All shopping sessions ended." }
@@ -1554,7 +1662,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Start a shopping round first (toolbar → Start shopping).",
         }
       }
-      const eligible = await this.resolveEligibleShops(config)
+      const eligible = await this.resolveRoundEligibleShops(config)
       if (eligible.length === 0) {
         return {
           success: false,

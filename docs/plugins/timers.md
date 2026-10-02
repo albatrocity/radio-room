@@ -54,6 +54,8 @@ const pending = await this.context.api.getSchedule("round-advance")
 
 **Do not** use `startTimer` for those cases — in-memory timers are lost on restart and can double-fire across dynos.
 
+**Schedules and `enabled`:** core skips a plugin's schedules while its room config has `enabled: false`. A plugin whose state outlives `enabled` (road-trip: trip mode means "a map is loaded", so a `replace` segment activation must not stop the van) sets `readonly schedulesIgnoreEnabled = true`. It then decides for itself when a fired schedule is a no-op ([ADR 0200](../adrs/0200-road-trips-v1.md)).
+
 ### Playback-anchored schedules (`anchor`)
 
 Wall-clock schedules keep counting while the room is paused. When a timer describes the music, pass `anchor` instead of `at` / `durationMs` ([ADR 0196](../adrs/0196-plugin-playback-timeline.md)):

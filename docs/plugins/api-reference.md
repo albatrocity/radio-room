@@ -37,6 +37,7 @@
 | `getPluginConfig(roomId, pluginName)`                   | Get plugin config                                                                                                                 |
 | `setPluginConfig(roomId, pluginName, config)`           | Update plugin config                                                                                                              |
 | `updatePlaylistTrack(roomId, track)`                    | Update track with pluginData                                                                                                      |
+| `requestCapability(roomId, capability, method, ...args)` | Call a method another plugin declares in `capabilities` (e.g. Item Shops' `shopAccess.openRoomShop`). Typed from `PluginCapabilities` in `@repo/types`; returns `{ ok: true, value, provider }` or `{ ok: false, reason: "unsupported" \| "error" }` and never throws ([ADR 0201](../adrs/0201-declared-plugin-capabilities.md)) |
 | `emit(eventName, data, options?)`                       | Emit plugin event to frontend. Contributors also invalidate user game state unless `options.invalidatesUserState` is `false` ([ADR 0154](../adrs/0154-plugin-emit-invalidates-user-state-opt-out.md)) |
 | `queueSoundEffect(params)`                              | Play a sound effect in the room                                                                                                   |
 | `queueScreenEffect(params)`                             | Play a CSS animation in the room                                                                                                  |
@@ -84,6 +85,8 @@ await this.context.api.sendSystemMessage(roomId, "Message text", {
   status: "info", // "info" | "success" | "warning" | "error"
 })
 ```
+
+**Themes:** add `theme` (and optionally `title` / `icon`) to render the line through a registered presentation theme, e.g. `{ type: "alert", status: "info", title: "On the road", theme: "road-trip", icon: "🚐" }` renders a road sign. Plugin-authored polls take a matching `presentation` on `createPoll` (`{ theme, variant?, headline?, icon?, imageUrl?, footnote? }`); admin-created polls can't set it. Unknown themes render plain ([ADR 0203](../adrs/0203-presentation-themes.md)).
 
 ### User Toasts
 

@@ -367,6 +367,12 @@ getComponentSchema(): PluginComponentSchema {
 
 Tabs render in **registration order**; the built-in **Inventory** tab is always first.
 
+A tab's `showWhen` checks config fields first, then the plugin's store. So a tab can follow live state, e.g. road-trip's Trip tab uses `showWhen: { field: "tripActive", value: true }` with `tripActive` in `storeKeys` ([ADR 0200](../adrs/0200-road-trips-v1.md)).
+
+### Plugin detail pages
+
+A tab component can push a detail page onto the Game State nav stack with a generic plugin frame: `{ kind: "plugin", pluginName, view, title, params? }`. `view` is any registered template component name; it renders inside the plugin's component provider with `params` as props, and the breadcrumb returns to the tab. Road-trip's site detail (`road-trip-site-detail`, `params: { siteId }`) uses this via `useOpenTabDetail`.
+
 ### `game-attribute` and `UserGameStateContext`
 
 Plugin tab content is rendered inside a `UserGameStateContext`, which exposes the current user's attributes, inventory, and active session. The `game-attribute` template component reads from this context, so `{ type: "game-attribute", attribute: "coin" }` displays the user's live coin balance without any additional wiring.

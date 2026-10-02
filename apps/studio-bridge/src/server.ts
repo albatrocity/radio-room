@@ -59,6 +59,14 @@ import {
   runStubLyricHeroAction,
 } from "./stubLyricHero.js"
 import {
+  ROAD_TRIP_PREVIEW_PLUGIN,
+  buildStubRoadTripComponentState,
+  buildStubRoadTripPoll,
+  buildStubRoadTripSigns,
+  runStubRoadTripAction,
+  startStubRoadTrip,
+} from "./stubRoadTrip.js"
+import {
   buildEffectiveMetadataSourcesEvent,
   requireBrowseableSource,
   stubBrowseAlbum,
@@ -100,6 +108,18 @@ function quizPreviewEnabled(socket: Socket): boolean {
 /** When `lyricPreview=1` on the Socket.IO handshake query, LOGIN emits Lyric Hero SESSION_STARTED. */
 function lyricPreviewEnabled(socket: Socket): boolean {
   const q = socket.handshake.query.lyricPreview ?? socket.handshake.query.lyricHero
+  const raw = Array.isArray(q) ? q[0] : q
+  return raw === "1" || raw === "true"
+}
+
+/**
+ * Road Trip preview: `tripPreview=1` on the handshake, or `STUDIO_BRIDGE_TRIP_PREVIEW=1`
+ * for browser checks (the web client sends no handshake query). LOGIN starts the
+ * driving fixture, adds road-sign messages, and publishes the road-sign skip poll.
+ */
+function tripPreviewEnabled(socket: Socket): boolean {
+  if (process.env.STUDIO_BRIDGE_TRIP_PREVIEW === "1") return true
+  const q = socket.handshake.query.tripPreview
   const raw = Array.isArray(q) ? q[0] : q
   return raw === "1" || raw === "true"
 }
@@ -357,8 +377,13 @@ function wireSocketHandlers(io: IOServer): void {
         socket.join(roomSocketPath(payload.roomId))
 
         const initData = buildInitPayload(snap, user)
+        const tripPreview = tripPreviewEnabled(socket)
         if (pollPreviewEnabled(socket) && !initData.activePoll) {
           initData.activePoll = buildStubActivePoll(payload.roomId)
+        }
+        if (tripPreview) {
+          if (!initData.activePoll) initData.activePoll = buildStubRoadTripPoll(payload.roomId)
+          initData.messages = [...initData.messages, ...buildStubRoadTripSigns()]
         }
 
         socket.emit("event", {
@@ -366,7 +391,7 @@ function wireSocketHandlers(io: IOServer): void {
           data: initData,
         })
 
-        if (initData.activePoll && pollPreviewEnabled(socket)) {
+        if (initData.activePoll && (pollPreviewEnabled(socket) || tripPreview)) {
           socket.emit("event", {
             type: "POLL_PUBLISHED",
             data: { roomId: payload.roomId, poll: initData.activePoll },
@@ -381,6 +406,10 @@ function wireSocketHandlers(io: IOServer): void {
         if (lyricPreviewEnabled(socket)) {
           const started = buildStubLyricHeroSessionStarted(payload.roomId)
           socket.emit("event", started)
+        }
+
+        if (tripPreview) {
+          socket.emit("event", startStubRoadTrip(payload.roomId))
         }
       },
     )
@@ -1435,6 +1464,17 @@ function wireSocketHandlers(io: IOServer): void {
           })
           return
         }
+        if (data.pluginName === ROAD_TRIP_PREVIEW_PLUGIN) {
+          const { success, message, events } = runStubRoadTripAction(roomId, data.action)
+          for (const ev of events) {
+            io.to(roomSocketPath(roomId)).emit("event", ev)
+          }
+          socket.emit("event", {
+            type: "PLUGIN_ACTION_RESULT",
+            data: { success, message },
+          })
+          return
+        }
         if (data.pluginName === VOLUME_MANAGER_PLUGIN) {
           const { success, message, events } = runStubVolumeAction(roomId, data.action, data.params)
           for (const ev of events) {
@@ -2288,6 +2328,7 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
       [VOLUME_MANAGER_PLUGIN]: buildStubVolumeComponentState(roomId),
       [ROUND_ROBIN_PREVIEW_PLUGIN]: buildStubRoundRobinComponentState(roomId),
       [LYRIC_HERO_PREVIEW_PLUGIN]: buildStubLyricHeroComponentState(roomId),
+      [ROAD_TRIP_PREVIEW_PLUGIN]: buildStubRoadTripComponentState(roomId),
     },
   })
 })
@@ -2304,7 +2345,9 @@ app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
           ? buildStubRoundRobinComponentState(roomId)
           : pluginName === LYRIC_HERO_PREVIEW_PLUGIN
             ? buildStubLyricHeroComponentState(roomId)
-            : {}
+            : pluginName === ROAD_TRIP_PREVIEW_PLUGIN
+              ? buildStubRoadTripComponentState(roomId)
+              : {}
   res.status(200).json({ state })
 })
 

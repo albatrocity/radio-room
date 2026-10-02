@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { presentationThemeSchema, presentationVariantSchema } from "./PresentationTheme"
 
 // =============================================================================
 // Poll option limits
@@ -43,6 +44,23 @@ export type PollSettings = z.infer<typeof pollSettingsSchema>
 // Poll
 // =============================================================================
 
+/**
+ * Themed look for a plugin-authored poll (ADR 0203). Only plugins can set it;
+ * the admin poll handler never accepts it. Behavior is unchanged.
+ */
+export const pollPresentationSchema = z.object({
+  theme: presentationThemeSchema,
+  variant: presentationVariantSchema.optional(),
+  /** Small label above the headline, e.g. "EXIT 41". */
+  eyebrow: z.string().max(24).optional(),
+  headline: z.string().max(80).optional(),
+  icon: z.string().max(16).optional(),
+  imageUrl: z.string().url().optional(),
+  footnote: z.string().max(120).optional(),
+})
+
+export type PollPresentation = z.infer<typeof pollPresentationSchema>
+
 export const pollSchema = z.object({
   id: z.string(),
   roomId: z.string(),
@@ -55,6 +73,7 @@ export const pollSchema = z.object({
   publishedAt: z.number(),
   closedAt: z.number().nullable(),
   closesAt: z.number().nullable(),
+  presentation: pollPresentationSchema.optional(),
 })
 
 export type Poll = z.infer<typeof pollSchema>

@@ -34,6 +34,7 @@ import createVolumeManagerPlugin from "@repo/plugin-volume-manager"
 import createQueueThemePlugin from "@repo/plugin-queue-theme"
 import createTheFedPlugin from "@repo/plugin-the-fed"
 import createLyricHeroPlugin from "@repo/plugin-lyric-hero"
+import createRoadTripPlugin from "@repo/plugin-road-trip"
 import { authHandler } from "@repo/auth/server"
 import { requireAdmin } from "@repo/auth/middleware"
 
@@ -104,6 +105,7 @@ async function main() {
       createQueueThemePlugin,
       createTheFedPlugin,
       createLyricHeroPlugin,
+      createRoadTripPlugin,
     ],
   })
 

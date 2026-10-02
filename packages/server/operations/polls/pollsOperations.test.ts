@@ -95,6 +95,33 @@ describe("poll operations", () => {
       expect(emit.mock.calls.some((c) => c[1] === "MESSAGE_RECEIVED")).toBe(false)
     })
 
+    it("keeps a presentation only for plugin-authored polls (ADR 0203)", async () => {
+      const presentation = { theme: "road-trip" as const, eyebrow: "EXIT 8", headline: "FARMERS MARKET" }
+      const admin = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "admin-1",
+        question: "Q?",
+        options: [{ label: "A" }, { label: "B" }],
+        presentation,
+        announce: false,
+      })
+      expect(admin.ok && admin.poll.presentation).toBeUndefined()
+      await client.del("room:room-1:polls:active_id")
+
+      const plugin = await createPoll({
+        context,
+        roomId: "room-1",
+        userId: "plugin-host",
+        question: "Pull off?",
+        options: [{ label: "Pull off" }, { label: "Keep driving" }],
+        source: { pluginName: "road-trip" },
+        presentation,
+        announce: false,
+      })
+      expect(plugin.ok && plugin.poll.presentation).toEqual(presentation)
+    })
+
     it("rejects when another poll is active", async () => {
       await client.set("room:room-1:polls:active_id", "existing")
 

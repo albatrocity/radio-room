@@ -1,0 +1,25 @@
+{
+  "name": "@repo/road-trip-map",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trip Map schema, parser, lint, and site-library presets shared by the road-trip plugin, Game Studio, and web",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=dot",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.4.2"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.10"
+  },
+  "license": "ISC"
+}

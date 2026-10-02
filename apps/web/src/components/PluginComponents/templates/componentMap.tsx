@@ -22,6 +22,9 @@ import { SliderTemplateComponent } from "./SliderComponent"
 import { QueueThemeBriefCardTemplateComponent } from "./QueueThemeBriefCard"
 import { LyricHeroCardTemplateComponent } from "./LyricHeroCard"
 import { KickstarterCampaignCardTemplateComponent } from "./KickstarterCampaignCard"
+import { RoadTripStripTemplateComponent } from "./roadTrip/RoadTripStrip"
+import { RoadTripTripPanelTemplateComponent } from "./roadTrip/RoadTripTripPanel"
+import { RoadTripSiteDetailTemplateComponent } from "./roadTrip/RoadTripSiteDetail"
 
 /**
  * Strongly-typed map of built-in template component names to React components.
@@ -55,6 +58,9 @@ export const TEMPLATE_COMPONENT_MAP: {
   "lyric-hero-card": LyricHeroCardTemplateComponent,
   "kickstarter-campaign-card": KickstarterCampaignCardTemplateComponent,
   slider: SliderTemplateComponent,
+  "road-trip-strip": RoadTripStripTemplateComponent,
+  "road-trip-trip-panel": RoadTripTripPanelTemplateComponent,
+  "road-trip-site-detail": RoadTripSiteDetailTemplateComponent,
 }
 
 /**

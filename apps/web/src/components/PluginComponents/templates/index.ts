@@ -15,6 +15,9 @@ export { QuizQuestionCardTemplateComponent } from "./QuizQuestionCard"
 export { QueueThemeBriefCardTemplateComponent } from "./QueueThemeBriefCard"
 export { LyricHeroCardTemplateComponent } from "./LyricHeroCard"
 export { KickstarterCampaignCardTemplateComponent } from "./KickstarterCampaignCard"
+export { RoadTripStripTemplateComponent } from "./roadTrip/RoadTripStrip"
+export { RoadTripTripPanelTemplateComponent } from "./roadTrip/RoadTripTripPanel"
+export { RoadTripSiteDetailTemplateComponent } from "./roadTrip/RoadTripSiteDetail"
 export { SliderTemplateComponent } from "./SliderComponent"
 
 // Utilities

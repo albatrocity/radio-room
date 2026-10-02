@@ -1,3 +1,5 @@
+import type { TemplateComponentName } from "@repo/types"
+
 /** One frame on a Game State tab stack (ADR 0104 / 0106). */
 export type GameStateItemDetailFrame = {
   kind: "item"
@@ -16,7 +18,22 @@ export type GameStateTradeDetailFrame = {
   title: string
 }
 
-export type GameStateDetailFrame = GameStateItemDetailFrame | GameStateTradeDetailFrame
+/**
+ * Plugin-owned detail view: `view` names a template component rendered inside
+ * the plugin's component context with `params` as props.
+ */
+export type GameStatePluginDetailFrame = {
+  kind: "plugin"
+  pluginName: string
+  view: TemplateComponentName
+  title: string
+  params?: Record<string, string>
+}
+
+export type GameStateDetailFrame =
+  | GameStateItemDetailFrame
+  | GameStateTradeDetailFrame
+  | GameStatePluginDetailFrame
 
 export function detailFrameTitle(frame: GameStateDetailFrame): string {
   return frame.title
@@ -32,4 +49,10 @@ export function isTradeDetailFrame(
   frame: GameStateDetailFrame | null | undefined,
 ): frame is GameStateTradeDetailFrame {
   return frame?.kind === "trade"
+}
+
+export function isPluginDetailFrame(
+  frame: GameStateDetailFrame | null | undefined,
+): frame is GameStatePluginDetailFrame {
+  return frame?.kind === "plugin"
 }

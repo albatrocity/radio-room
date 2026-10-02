@@ -20,12 +20,19 @@ function createMockContext(overrides?: {
     overrides?.getActiveSession ??
     vi.fn(async () => ({ id: "game-1", roomId: "room-1", status: "active" as const, startedAt: 0, config: {} }))
 
+  const json = new Map<string, unknown>()
   const context = {
     roomId: "room-1",
     storage: {
       get: vi.fn(async () => null),
       set: vi.fn(async () => {}),
-      del: vi.fn(async () => {}),
+      del: vi.fn(async (key: string) => {
+        json.delete(key)
+      }),
+      getJson: vi.fn(async (key: string) => ({ raw: null, value: json.get(key) ?? null })),
+      setJson: vi.fn(async (key: string, value: unknown) => {
+        json.set(key, value)
+      }),
       hget: vi.fn(async () => null),
       hset: vi.fn(async () => {}),
     },
@@ -152,6 +159,101 @@ describe("ItemShopsPlugin auto-shop", () => {
     await (plugin as any).onAutoShopTick()
 
     expect(openShoppingRound).toHaveBeenCalled()
+  })
+
+  describe("shopAccess room shops (ADR 0201)", () => {
+    function setup(config = autoShopConfig()) {
+      const created = createMockContext()
+      ;(plugin as any).context = created.context
+      const shopping = {
+        startSession: vi.fn(async () => {}),
+        clearSessionRound: vi.fn(async () => {}),
+        isActive: vi.fn(async () => true),
+      }
+      ;(plugin as any).shopping = shopping
+      vi.spyOn(plugin as any, "getConfig").mockResolvedValue(config)
+      vi.spyOn(plugin as any, "syncAutoShopTimer").mockResolvedValue(undefined)
+      return { ...created, shopping, access: plugin.capabilities.shopAccess! }
+    }
+
+    it("opens a round limited to the named shops, even outside the rotation", async () => {
+      const { access, shopping, context } = setup({ ...autoShopConfig(), enabledShopIds: ["sweetwater"] })
+      const result = await access.openRoomShop({ scopeId: "trip:t1:site:a", shopIds: ["farmers-market"] })
+      expect(result).toEqual({ ok: true })
+      const [, eligible] = shopping.startSession.mock.calls[0] as unknown as [unknown, { shopId: string }[]]
+      expect(eligible.map((s) => s.shopId)).toEqual(["farmers-market"])
+      expect(context.api.emit).toHaveBeenCalledWith(
+        "SHOPPING_SESSION_STARTED",
+        { roomId: "room-1" },
+        undefined,
+      )
+    })
+
+    it("reports disabled, no session, and unknown shops", async () => {
+      let { access } = setup({ ...autoShopConfig(), enabled: false })
+      expect(await access.openRoomShop({ scopeId: "s", shopIds: ["farmers-market"] })).toEqual({
+        ok: false,
+        reason: "disabled",
+      })
+      ;({ access } = setup())
+      expect(await access.openRoomShop({ scopeId: "s", shopIds: ["nope"] })).toEqual({
+        ok: false,
+        reason: "unknown-shop",
+      })
+      ;(plugin as any).context.game.getActiveSession = vi.fn(async () => null)
+      expect(await access.openRoomShop({ scopeId: "s", shopIds: ["farmers-market"] })).toEqual({
+        ok: false,
+        reason: "no-session",
+      })
+    })
+
+    it("closes only the round its scope opened", async () => {
+      const { access, shopping } = setup()
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", shopIds: ["farmers-market"] })
+      await access.closeRoomShop("trip:t1:site:other")
+      expect(shopping.clearSessionRound).not.toHaveBeenCalled()
+      await access.closeRoomShop("trip:t1:site:a")
+      expect(shopping.clearSessionRound).toHaveBeenCalledTimes(1)
+    })
+
+    it("a regular round takes over the scope so the trip can't close it", async () => {
+      const { access, shopping } = setup()
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", shopIds: ["farmers-market"] })
+      await plugin.executeAction("startShoppingSession", ADMIN)
+      await access.closeRoomShop("trip:t1:site:a")
+      expect(shopping.clearSessionRound).not.toHaveBeenCalled()
+    })
+
+    it("auto-shop stands down while a scoped round is open", async () => {
+      const { access } = setup()
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", shopIds: ["farmers-market"] })
+      const openShoppingRound = vi.spyOn(plugin as any, "openShoppingRound")
+      await (plugin as any).onAutoShopTick()
+      expect(openShoppingRound).not.toHaveBeenCalled()
+    })
+
+    it("validates shop ids against the catalog", async () => {
+      const { access } = setup()
+      expect(await access.validateShop({ shopIds: ["farmers-market"] })).toEqual({ ok: true })
+      expect(await access.validateShop({ shopIds: ["farmers-market", "mall"] })).toEqual({
+        ok: false,
+        errors: ['Unknown shop "mall"'],
+      })
+    })
+
+    it("accepts Record Store everywhere, warning when the room can't open it", async () => {
+      const { access } = setup()
+      expect(await access.validateShop({ shopIds: ["record-store"] })).toEqual({
+        ok: true,
+        warnings: [
+          "Record Store only opens in rooms on the Media Bridge with a local library; the van still stops",
+        ],
+      })
+      expect(await access.openRoomShop({ scopeId: "s", shopIds: ["record-store"] })).toEqual({
+        ok: false,
+        reason: "unavailable",
+      })
+    })
   })
 
   describe("manual start resets countdown", () => {

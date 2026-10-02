@@ -35,6 +35,7 @@
     "@repo/plugin-queue-theme": "*",
     "@repo/plugin-the-fed": "*",
     "@repo/plugin-lyric-hero": "*",
+    "@repo/plugin-road-trip": "*",
     "@repo/server": "*",
     "@socket.io/redis-adapter": "^8.3.0",
     "@spotify/web-api-ts-sdk": "^1.2.0",

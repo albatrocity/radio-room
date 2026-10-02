@@ -2,6 +2,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
+import { tripMapFilesPlugin } from "./vite/tripMapFilesPlugin"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 /** Monorepo root (parent of `apps/`). */
@@ -22,7 +23,7 @@ function watchWorkspaceLinkedPackages(): (filePath: string) => boolean {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), tripMapFilesPlugin(path.join(__dirname, "maps"))],
   /** Linked workspace TS sources — skip pre-bundle cache so edits invalidate the module graph. */
   optimizeDeps: {
     exclude: [
@@ -31,6 +32,7 @@ export default defineConfig(({ mode }) => ({
       "@repo/game-logic",
       "@repo/types",
       "@repo/factories",
+      "@repo/road-trip-map",
     ],
   },
   server: {

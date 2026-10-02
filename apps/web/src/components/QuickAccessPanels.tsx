@@ -25,6 +25,7 @@ import {
   useQuickAccessPanelsSend,
 } from "../hooks/useActors"
 import { usePluginSchemas } from "../hooks/usePluginSchemas"
+import { usePluginStore } from "../hooks/usePluginStores"
 import { toPluginDisplayName } from "../lib/pluginDisplayName"
 import { toPluginSettingsEventType } from "../lib/pluginSettingsEvent"
 import { listEnabledQuickAccessPlugins } from "../lib/quickAccessPlugins"
@@ -52,6 +53,7 @@ function useQuickAccessPanelModel(pluginName: string) {
   const pluginConfigs = usePluginConfigs()
   const { schemas } = usePluginSchemas()
   const modalSend = useModalsSend()
+  const pluginStore = usePluginStore(pluginName)
 
   const pluginSchema = schemas.find((schema) => schema.name === pluginName)
   const configSchema =
@@ -73,19 +75,38 @@ function useQuickAccessPanelModel(pluginName: string) {
 
   const readOnlyFields =
     pluginSchema.configSchema && getQuickAccessStatusFields(pluginSchema.configSchema)
+  const statusValues = liveStatusValues(readOnlyFields, pluginStore)
 
-  return { title, values, configSchema, readOnlyFields, openSettings }
+  return { title, values, statusValues, configSchema, readOnlyFields, openSettings }
+}
+
+/**
+ * Status fields are config fields (ADR 0135), but config only reaches clients
+ * on room settings updates. A plugin store key with the same name wins, so
+ * status lines can follow live state.
+ */
+function liveStatusValues(
+  readOnlyFields: string[] | undefined,
+  store: Record<string, unknown>,
+): Record<string, unknown> {
+  const values: Record<string, unknown> = {}
+  for (const field of readOnlyFields ?? []) {
+    if (store[field] !== undefined) values[field] = store[field]
+  }
+  return values
 }
 
 function QuickAccessPanelForm({
   pluginName,
   configSchema,
   baseValues,
+  statusValues,
   readOnlyFields,
 }: {
   pluginName: string
   configSchema: NonNullable<ReturnType<typeof getQuickAccessSchema>>
   baseValues: Record<string, unknown>
+  statusValues: Record<string, unknown>
   readOnlyFields?: string[]
 }) {
   const [localPatch, setLocalPatch] = useState<Record<string, unknown>>({})
@@ -96,7 +117,7 @@ function QuickAccessPanelForm({
     setLocalPatch({})
   }, [baseValuesKey])
 
-  const values = { ...baseValues, ...localPatch }
+  const values = { ...baseValues, ...localPatch, ...statusValues }
 
   return (
     <PluginConfigForm
@@ -121,7 +142,7 @@ function DesktopPanel({
   const model = useQuickAccessPanelModel(pluginName)
   if (!model) return null
 
-  const { title, values, configSchema, readOnlyFields, openSettings } = model
+  const { title, values, statusValues, configSchema, readOnlyFields, openSettings } = model
 
   return (
     <FloatingPanel.Root
@@ -176,6 +197,7 @@ function DesktopPanel({
                 pluginName={pluginName}
                 configSchema={configSchema}
                 baseValues={values}
+                statusValues={statusValues}
                 readOnlyFields={readOnlyFields}
               />
             </FloatingPanel.Body>
@@ -192,7 +214,7 @@ function MobilePanel({ pluginName }: { pluginName: string }) {
   const model = useQuickAccessPanelModel(pluginName)
   if (!model) return null
 
-  const { title, values, configSchema, readOnlyFields, openSettings } = model
+  const { title, values, statusValues, configSchema, readOnlyFields, openSettings } = model
 
   return (
     <DialogRoot
@@ -232,6 +254,7 @@ function MobilePanel({ pluginName }: { pluginName: string }) {
                   pluginName={pluginName}
                   configSchema={configSchema}
                   baseValues={values}
+                  statusValues={statusValues}
                   readOnlyFields={readOnlyFields}
                 />
               </VStack>

@@ -346,6 +346,7 @@ getConfigSchema(): PluginConfigSchema {
 ```
 
 - `quickAccessStatus`: field names rendered **read-only** in the panel (public scalars only; skip `private` and object-array).
+- **Live status from the store:** if a status field's key is also in the plugin's component store (`storeKeys`), the panel shows the live store value instead of the saved config. Compute status lines in `getComponentState` / your store emits, and keep a config field only as the fallback and label (road-trip's `tripProgress`, `tripEta`, …; [ADR 0200](../adrs/0200-road-trips-v1.md)).
 - Config changes from Quick Access: implement `executeAction` handlers that merge `await getConfig()` and call `setPluginConfig` (same as volume-manager).
 
 ### Handling Actions

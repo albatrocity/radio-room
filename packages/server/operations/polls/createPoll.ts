@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
-import type { AppContext, Poll } from "@repo/types"
-import { POLL_CLOSE_DURATION_MS, POLL_OPTION_LIMITS } from "@repo/types"
+import type { AppContext, Poll, PollPresentation } from "@repo/types"
+import { POLL_CLOSE_DURATION_MS, POLL_OPTION_LIMITS, pollPresentationSchema } from "@repo/types"
 import { findRoom, isRoomAdmin } from "../data"
 import {
   addPollToIndex,
@@ -32,6 +32,8 @@ export type CreatePollInput = {
   source?: { pluginName: string }
   /** When false, skip “New poll started” chat. Defaults to true. Also reused on auto-close. */
   announce?: boolean
+  /** Themed look (ADR 0203). Only honored with `source`; admin callers can't set it. */
+  presentation?: PollPresentation
 }
 
 export type CreatePollResult =
@@ -96,6 +98,7 @@ export async function createPoll({
   durationMs,
   source,
   announce = true,
+  presentation,
 }: CreatePollInput): Promise<CreatePollResult> {
   const room = await findRoom({ context, roomId })
   if (!room) {
@@ -156,6 +159,10 @@ export async function createPoll({
     publishedAt: now,
     closedAt: null,
     closesAt: resolved.closesAt,
+  }
+  if (source?.pluginName && presentation) {
+    const parsed = pollPresentationSchema.safeParse(presentation)
+    if (parsed.success) poll.presentation = parsed.data
   }
 
   await writePoll({ context, poll, announceClose: announce })

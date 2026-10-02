@@ -2,7 +2,7 @@ import type {
   NotificationLocation,
   NotificationTarget,
 } from "../types/Notification"
-import { isTradeDetailFrame } from "../types/GameStateDetail"
+import { isPluginDetailFrame, isTradeDetailFrame } from "../types/GameStateDetail"
 
 /** True when the user's current location covers the notification's target. */
 export function locationMatchesTarget(
@@ -31,6 +31,13 @@ export function locationMatchesTarget(
     if (!frame || frame.kind !== target.frame.kind) return false
     if (isTradeDetailFrame(target.frame) && isTradeDetailFrame(frame)) {
       return frame.tradeId === target.frame.tradeId
+    }
+    if (isPluginDetailFrame(target.frame) && isPluginDetailFrame(frame)) {
+      return (
+        frame.pluginName === target.frame.pluginName &&
+        frame.view === target.frame.view &&
+        JSON.stringify(frame.params ?? {}) === JSON.stringify(target.frame.params ?? {})
+      )
     }
     if (frame.kind === "item" && target.frame.kind === "item") {
       return (

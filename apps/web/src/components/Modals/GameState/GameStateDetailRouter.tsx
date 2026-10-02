@@ -1,8 +1,13 @@
 import GameStateItemDetail from "./GameStateItemDetail"
 import TradeDetailPanel from "./TradeDetailPanel"
+import PluginDetailFrame from "./PluginDetailFrame"
 import type { GameStateDetailFrame } from "../../../types/GameStateDetail"
 import type { ItemDefinition } from "@repo/types"
-import { isItemDetailFrame, isTradeDetailFrame } from "../../../types/GameStateDetail"
+import {
+  isItemDetailFrame,
+  isPluginDetailFrame,
+  isTradeDetailFrame,
+} from "../../../types/GameStateDetail"
 
 export default function GameStateDetailRouter({
   frame,
@@ -15,6 +20,9 @@ export default function GameStateDetailRouter({
 }) {
   if (isTradeDetailFrame(frame)) {
     return <TradeDetailPanel tradeId={frame.tradeId} />
+  }
+  if (isPluginDetailFrame(frame)) {
+    return <PluginDetailFrame frame={frame} />
   }
   if (isItemDetailFrame(frame)) {
     return (

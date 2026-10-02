@@ -1,0 +1,34 @@
+{
+  "name": "@repo/plugin-road-trip",
+  "version": "1.0.0",
+  "description": "Road Trip — a van drives a Trip Map's route in real time, polls the room at exits, and parks at sites that open shops",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./trip/ledger": "./trip/ledger.ts",
+    "./trip/projection": "./trip/projection.ts"
+  },
+  "scripts": {
+    "test": "vitest run --reporter=dot",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/road-trip-map": "*",
+    "@repo/types": "*",
+    "@repo/utils": "*",
+    "zod": "^4.4.2"
+  },
+  "peerDependencies": {
+    "zod": "^4.4.2"
+  }
+}

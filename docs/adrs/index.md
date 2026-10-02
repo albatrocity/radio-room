@@ -205,6 +205,11 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0197](0197-plugin-catalog-search.md) | Plugin catalog search (`searchTracks`) | Accepted |
 | [0198](0198-plugin-queue-blocks.md) | Plugin queue blocks and pins (`enqueueTracks`) | Accepted |
 | [0199](0199-item-models-and-lore.md) | Item 3D models (CDN GLB, `three` viewer) and lore | Accepted |
+| [0200](0200-road-trips-v1.md) | Road trips v1: ledger of legs, trip mode as a loaded map, sites as timed stops (+ `schedulesIgnoreEnabled`, store-aware tab `showWhen`, Quick Access live status, plugin detail frame) | Accepted |
+| [0201](0201-declared-plugin-capabilities.md) | Declared plugin capabilities (`requestCapability`); Item Shops `shopAccess` | Accepted |
+| [0202](0202-trip-maps-portable-json.md) | Trip Maps as portable JSON (`@repo/road-trip-map`, `parseTripMap`, Game Studio editor) | Accepted |
+| [0203](0203-presentation-themes.md) | Presentation themes for system messages and plugin-authored polls | Accepted |
+| [0206](0206-trip-timeline-room-export.md) | Trip timeline in the room export | Accepted |
 
 ## Creating a New ADR
 

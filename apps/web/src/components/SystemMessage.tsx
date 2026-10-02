@@ -9,6 +9,7 @@ import { displayNameForUserId } from "../lib/listenerDisplayName"
 import { pierceAnonymousSystemContent } from "../lib/pierceAnonymousSystemContent"
 import { PIERCE_INDICATOR_ICON } from "../lib/pierceIndicator"
 import { getIcon } from "./PluginComponents/icons"
+import { getChatTheme } from "./PresentationThemes/registry"
 
 const SystemMessage = ({ content, timestamp, meta = {}, mentions = [] }: ChatMessage) => {
   const date = new Date(timestamp)
@@ -32,6 +33,19 @@ const SystemMessage = ({ content, timestamp, meta = {}, mentions = [] }: ChatMes
 
   // Check if current user is mentioned (by username)
   const isMention = currentUser?.username ? mentions.includes(currentUser.username) : false
+
+  const ThemedMessage = getChatTheme(meta.theme)
+  if (ThemedMessage) {
+    return (
+      <ThemedMessage
+        content={displayContent}
+        title={title}
+        status={status}
+        icon={meta.icon}
+        time={time}
+      />
+    )
+  }
 
   return type === "alert" ? (
     <Alert.Root

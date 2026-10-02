@@ -14,6 +14,7 @@ type Props = {
   votePending: boolean
   confirmOptionId: string | null
   onVote: (option: PollOption) => void
+  formatOptionLabel?: (option: PollOption) => string
 }
 
 export function PollVotingSection({
@@ -23,6 +24,7 @@ export function PollVotingSection({
   votePending,
   confirmOptionId,
   onVote,
+  formatOptionLabel,
 }: Props) {
   const animationsEnabled = useAnimationsEnabled()
   const totalRef = useRef<HTMLSpanElement>(null)
@@ -69,7 +71,7 @@ export function PollVotingSection({
           return (
             <PollOptionButton
               key={option.id}
-              label={option.label}
+              label={formatOptionLabel ? formatOptionLabel(option) : option.label}
               selected={selected}
               disabled={votePending}
               showConfirmAnimation={confirmOptionId === option.id}

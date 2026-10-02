@@ -1,20 +1,9 @@
 "use client"
 
-import { Button, Heading, HStack, IconButton, Input, Separator, Text } from "@chakra-ui/react"
-import {
-  Moon,
-  Plus,
-  RotateCcw,
-  ShoppingBag,
-  ShoppingCart,
-  Sparkles,
-  Square,
-  Sun,
-  Timer,
-} from "lucide-react"
+import { Button, HStack, Input, Separator, Text } from "@chakra-ui/react"
+import { Plus, RotateCcw, ShoppingBag, ShoppingCart, Square, Timer } from "lucide-react"
 import type { StudioRoom } from "../../studio/studioRoom"
 import { isShoppingRoundActive } from "../../studio/studioShoppingRead"
-import { useColorMode } from "../ui/color-mode"
 
 export type GlobalToolbarProps = {
   room: StudioRoom
@@ -45,7 +34,6 @@ export function GlobalToolbar({
 }: GlobalToolbarProps) {
   const hasSession = !!room.activeSession
   const shoppingActive = isShoppingRoundActive(room)
-  const { colorMode, toggleColorMode } = useColorMode()
 
   return (
     <HStack
@@ -57,25 +45,11 @@ export function GlobalToolbar({
       pb="4"
       mb="4"
     >
-      <HStack gap="3">
-        <Sparkles size={22} />
-        <Heading size="lg">Game Studio</Heading>
-        <Text fontSize="sm" color="fg.muted">
-          Sandbox state persists in this browser
-        </Text>
-      </HStack>
+      <Text fontSize="sm" color="fg.muted">
+        Sandbox state persists in this browser
+      </Text>
 
       <HStack wrap="wrap" gap="2">
-        <IconButton
-          variant="ghost"
-          aria-label="Toggle color mode"
-          onClick={toggleColorMode}
-          title="Toggle theme"
-        >
-          {colorMode === "light" ? <Moon size={18} /> : <Sun size={18} />}
-        </IconButton>
-        <Separator orientation="vertical" height="6" />
-
         <HStack gap="2">
           <Input
             size="sm"

@@ -19,6 +19,12 @@ import {
   type PluginCatalogTrack,
   type PluginPlaybackReadResult,
   type PluginScheduleAnchor,
+  type PollPresentation,
+  type PluginCapabilityName,
+  type CapabilityMethodName,
+  type CapabilityMethodArgs,
+  type CapabilityMethodReturn,
+  type CapabilityRequestResult,
 } from "@repo/types"
 import { randomUUID } from "crypto"
 import { Server } from "socket.io"
@@ -678,6 +684,7 @@ export class PluginAPIImpl implements PluginAPI {
     closesAt?: number | null
     durationMs?: number | null
     announce?: boolean
+    presentation?: PollPresentation
   }) {
     if (!this.pluginName) {
       return {
@@ -701,7 +708,20 @@ export class PluginAPIImpl implements PluginAPI {
       durationMs: params.durationMs,
       announce: params.announce,
       source: { pluginName: this.pluginName },
+      presentation: params.presentation,
     })
+  }
+
+  async requestCapability<C extends PluginCapabilityName, M extends CapabilityMethodName<C>>(
+    roomId: string,
+    capability: C,
+    method: M,
+    ...args: CapabilityMethodArgs<C, M>
+  ): Promise<CapabilityRequestResult<CapabilityMethodReturn<C, M>>> {
+    const registry = this.context.pluginRegistry
+    if (!registry) return { ok: false, reason: "unsupported" }
+    const result = await registry.requestCapability(roomId, capability, String(method), args)
+    return result as CapabilityRequestResult<CapabilityMethodReturn<C, M>>
   }
 
   async closePoll(params: {

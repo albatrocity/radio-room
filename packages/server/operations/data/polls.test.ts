@@ -130,6 +130,21 @@ describe("polls data layer", () => {
     expect(loaded).toEqual(poll)
   })
 
+  it("round-trips a plugin presentation (ADR 0203)", async () => {
+    const poll = makePoll({
+      presentation: { theme: "road-trip", variant: "info", eyebrow: "EXIT 8", headline: "FARMERS MARKET", footnote: "No votes = pull off" },
+    })
+    await writePoll({ context, poll })
+    expect(await getPoll({ context, roomId: "room-1", pollId: "poll-1" })).toEqual(poll)
+  })
+
+  it("drops a malformed presentation without losing the poll", async () => {
+    await writePoll({ context, poll: makePoll() })
+    await client.hSet("room:room-1:poll:poll-1", { presentation: "{not json" })
+    const loaded = await getPoll({ context, roomId: "room-1", pollId: "poll-1" })
+    expect(loaded).toEqual(makePoll())
+  })
+
   it("manages active poll id pointer", async () => {
     await setActivePollId({ context, roomId: "room-1", pollId: "poll-1" })
     expect(await getActivePollId({ context, roomId: "room-1" })).toBe("poll-1")

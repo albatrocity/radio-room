@@ -1,4 +1,4 @@
-import type { TextSegment } from "@repo/types"
+import type { PresentationTheme, TextSegment } from "@repo/types"
 import { Reaction } from "./Reaction"
 import { User } from "./User"
 
@@ -17,6 +17,9 @@ export type ChatMessage = {
     maskedUserIds?: string[]
     /** Label token replaced when piercing `maskedUserIds` (default `"Somebody"`). */
     maskedLabel?: string
+    /** Themed system message renderer (ADR 0203); unknown themes render plain. */
+    theme?: PresentationTheme
+    icon?: string
   }
   /** Unix epoch (ms) when this message should be hidden (ephemeral / sender-only previews). */
   expiresAt?: number

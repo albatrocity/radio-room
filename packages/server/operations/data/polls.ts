@@ -1,6 +1,7 @@
 import {
   AppContext,
   pollSchema,
+  pollPresentationSchema,
   type Poll,
   type PollHistoryEntry,
   type PollOption,
@@ -58,7 +59,7 @@ export type PollRecord = Poll & {
 }
 
 function pollToHashFields(poll: Poll, announceClose = true): Record<string, string> {
-  return {
+  const fields: Record<string, string> = {
     id: poll.id,
     roomId: poll.roomId,
     question: poll.question,
@@ -71,6 +72,19 @@ function pollToHashFields(poll: Poll, announceClose = true): Record<string, stri
     closedAt: poll.closedAt === null ? "" : String(poll.closedAt),
     closesAt: poll.closesAt === null ? "" : String(poll.closesAt),
     announceClose: announceClose ? "1" : "0",
+  }
+  if (poll.presentation) fields.presentation = JSON.stringify(poll.presentation)
+  return fields
+}
+
+/** A malformed presentation drops the theme, never the poll. */
+function presentationField(raw: string | undefined): { presentation?: Poll["presentation"] } {
+  if (!raw) return {}
+  try {
+    const parsed = pollPresentationSchema.safeParse(JSON.parse(raw))
+    return parsed.success ? { presentation: parsed.data } : {}
+  } catch {
+    return {}
   }
 }
 
@@ -92,6 +106,7 @@ function hashFieldsToPollRecord(raw: Record<string, string>): PollRecord | null 
       publishedAt: Number(raw.publishedAt),
       closedAt: raw.closedAt === "" || raw.closedAt === undefined ? null : Number(raw.closedAt),
       closesAt: raw.closesAt === "" || raw.closesAt === undefined ? null : Number(raw.closesAt),
+      ...presentationField(raw.presentation),
     })
     if (!parsed.success) return null
     return {

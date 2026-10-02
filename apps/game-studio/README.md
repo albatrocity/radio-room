@@ -125,6 +125,19 @@ Use a **username / identity that exists in your Game Studio sandbox** (session s
 
 **Override bridge URL from Game Studio:** set `VITE_STUDIO_BRIDGE_URL` if the bridge is not on `http://127.0.0.1:3099`.
 
+**Road trip preview:** start the bridge with `STUDIO_BRIDGE_TRIP_PREVIEW=1` to add a sample trip (strip, Trip tab, a road-sign skip poll, and road-sign messages) to `studio-room`. The web client doesn't send the `tripPreview` handshake query, so the env var is the way to turn it on for the Room UI. See [`apps/studio-bridge/README.md`](../studio-bridge/README.md#road-trip-preview).
+
+---
+
+## Trip map editor
+
+Open **Trip maps** in the header (**http://localhost:8005/#/trip-maps**) to design road-trip maps ([ADR 0202](../../docs/adrs/0202-trip-maps-portable-json.md)). It imports only the pure `@repo/road-trip-map` package; no plugin code runs.
+
+- Set route drive minutes, mph, deadline, and planned departure; add sites from the library (generic presets plus one per Item Shops catalog shop) and drag pins to set their mile. Faint ticks show where each site reveals at base speed.
+- Select a pin to edit it in the inspector, with a live preview of its skip poll.
+- The lint panel uses the same rules as loading a map in a room. Click an issue to select its site.
+- **Copy JSON** and paste it into road-trip's **Load map** action in a room. **Save** writes `apps/game-studio/maps/<id>.json` through a dev-only middleware (`/__studio/trip-maps`); **Files** reopens saved maps or imports pasted JSON. Your working draft is kept in localStorage.
+
 ---
 
 ## Useful commands (from repository root)

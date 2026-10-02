@@ -29,6 +29,8 @@ import {
   isChatMessageTransformDrop,
   isDeferredQueueRequest,
   isMediaCondition,
+  type CapabilityRequestResult,
+  type PluginCapabilityName,
 } from "@repo/types"
 import { Server } from "socket.io"
 import { pluginImplementsChatTransform } from "@repo/plugin-base"
@@ -122,6 +124,12 @@ export class PluginRegistry {
   /** Room-scoped plugin instances: roomId -> pluginName -> instance */
   private roomPlugins: Map<string, Map<string, RoomPluginInstance>> = new Map()
 
+  /** Declared capability → providing plugin name (ADR 0201). */
+  private capabilityProviders: Map<PluginCapabilityName, string> = new Map()
+
+  /** Plugins whose schedules fire regardless of `enabled` (ADR 0200). */
+  private schedulesIgnoreEnabled: Set<string> = new Set()
+
   private api: PluginAPIImpl
 
   constructor(
@@ -139,9 +147,55 @@ export class PluginRegistry {
     // Create a temporary instance to get the name and version
     const tempInstance = factory()
     this.pluginFactories.set(tempInstance.name, factory)
+    for (const capability of Object.keys(tempInstance.capabilities ?? {}) as PluginCapabilityName[]) {
+      const existing = this.capabilityProviders.get(capability)
+      if (existing && existing !== tempInstance.name) {
+        console.warn(
+          `[PluginRegistry] Capability ${capability} already provided by ${existing}; ignoring ${tempInstance.name}`,
+        )
+        continue
+      }
+      this.capabilityProviders.set(capability, tempInstance.name)
+    }
+    if (tempInstance.schedulesIgnoreEnabled) this.schedulesIgnoreEnabled.add(tempInstance.name)
     console.log(
       `[PluginRegistry] Registered plugin factory: ${tempInstance.name} v${tempInstance.version}`,
     )
+  }
+
+  /**
+   * Route a capability call to the room's instance of the declaring plugin
+   * (ADR 0201). Initializes the provider on demand; never throws.
+   */
+  async requestCapability(
+    roomId: string,
+    capability: PluginCapabilityName,
+    method: string,
+    args: unknown[],
+  ): Promise<CapabilityRequestResult<unknown>> {
+    const provider = this.capabilityProviders.get(capability)
+    if (!provider) return { ok: false, reason: "unsupported" }
+    try {
+      // Initialize on demand only; the init path logs on every repeat call.
+      if (!this.roomPlugins.get(roomId)?.has(provider)) {
+        await this.initializePluginForRoom(provider, roomId)
+      }
+      const declared = this.roomPlugins.get(roomId)?.get(provider)?.plugin.capabilities?.[capability]
+      const fn = (declared as Record<string, unknown> | undefined)?.[method]
+      if (typeof fn !== "function") return { ok: false, reason: "unsupported" }
+      const value = await (fn as (...a: unknown[]) => unknown).apply(declared, args)
+      return { ok: true, value, provider }
+    } catch (error) {
+      console.error(
+        `[PluginRegistry] Capability ${capability}.${method} failed in ${provider} for ${roomId}:`,
+        error,
+      )
+      return {
+        ok: false,
+        reason: "error",
+        message: error instanceof Error ? error.message : String(error),
+      }
+    }
   }
 
   /**
@@ -276,7 +330,7 @@ export class PluginRegistry {
 
     try {
       const config = await this.api.getPluginConfig(roomId, pluginName)
-      if (config && config.enabled === false) {
+      if (config && config.enabled === false && !this.schedulesIgnoreEnabled.has(pluginName)) {
         console.log(
           `[PluginRegistry] Skipping schedule ${scheduleId} — plugin ${pluginName} disabled in ${roomId}`,
         )
@@ -316,7 +370,7 @@ export class PluginRegistry {
 
     try {
       const config = await this.api.getPluginConfig(roomId, pluginName)
-      if (config && config.enabled === false) return
+      if (config && config.enabled === false && !this.schedulesIgnoreEnabled.has(pluginName)) return
     } catch (error) {
       console.warn(
         `[PluginRegistry] Could not read config for ${pluginName} in ${roomId}:`,

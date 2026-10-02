@@ -49,7 +49,15 @@ import type { PresentedIdentityGrant, PresentedIdentityGrantInput } from "./Pres
 import type { Emoji } from "./Emoji"
 import type { MetadataSourceAccessAction } from "./MetadataSourceAccess"
 import type { MetadataSourceTrack, PhysicalMediaItem } from "./MetadataSource"
-import type { Poll, PollResults } from "./Poll"
+import type { Poll, PollPresentation, PollResults } from "./Poll"
+import type {
+  CapabilityMethodArgs,
+  CapabilityMethodName,
+  CapabilityMethodReturn,
+  CapabilityRequestResult,
+  PluginCapabilities,
+  PluginCapabilityName,
+} from "./Capabilities"
 
 // ============================================================================
 // Plugin Configuration Schema Types
@@ -623,10 +631,24 @@ export interface PluginAPI {
     /** Relative duration from server now (ADR 0189). */
     durationMs?: number | null
     announce?: boolean
+    /** Themed look for the poll card (ADR 0203). Plugin-only; admins can't set it. */
+    presentation?: PollPresentation
   }): Promise<
     | { ok: true; poll: Poll }
     | { ok: false; error: { status: number; error: string; message: string } }
   >
+
+  /**
+   * Call a capability another plugin declares (ADR 0201). Routed by the
+   * registry to the room's instance of the declaring plugin; there is no
+   * direct plugin lookup. Returns `unsupported` when nothing declares it.
+   */
+  requestCapability<C extends PluginCapabilityName, M extends CapabilityMethodName<C>>(
+    roomId: string,
+    capability: C,
+    method: M,
+    ...args: CapabilityMethodArgs<C, M>
+  ): Promise<CapabilityRequestResult<CapabilityMethodReturn<C, M>>>
 
   /**
    * Close a core room poll authored by this plugin (ADR 0152).
@@ -1729,6 +1751,20 @@ export interface Plugin {
    * Called when a user joins a room to populate component stores.
    */
   getComponentState?(): Promise<PluginComponentState>
+
+  /**
+   * Capabilities this plugin offers to other plugins (ADR 0201). Declared on
+   * the instance; the registry indexes providers by key at registration and
+   * routes `api.requestCapability` calls to the room's instance.
+   */
+  capabilities?: PluginCapabilities
+
+  /**
+   * Deliver durable schedules even when room config has `enabled: false`.
+   * For plugins whose runtime mode is independent of the flag (road-trip's
+   * loaded map, ADR 0200). Read once from the factory instance.
+   */
+  schedulesIgnoreEnabled?: boolean
 
   register(context: PluginContext): Promise<void>
   cleanup(): Promise<void>

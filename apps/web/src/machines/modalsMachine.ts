@@ -60,6 +60,7 @@ export type Event =
   | { type: "EDIT_QUEUE_THEME" }
   | { type: "EDIT_THE_FED" }
   | { type: "EDIT_LYRIC_HERO" }
+  | { type: "EDIT_ROAD_TRIP" }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
@@ -104,6 +105,7 @@ const settingsSectionOn = {
   EDIT_QUEUE_THEME: ".queue_theme",
   EDIT_THE_FED: ".the_fed",
   EDIT_LYRIC_HERO: ".lyric_hero",
+  EDIT_ROAD_TRIP: ".road_trip",
 } as const
 
 export const modalsMachine = setup({
@@ -188,6 +190,7 @@ export const modalsMachine = setup({
         EDIT_QUEUE_THEME: openSettingsSection("queue_theme"),
         EDIT_THE_FED: openSettingsSection("the_fed"),
         EDIT_LYRIC_HERO: openSettingsSection("lyric_hero"),
+        EDIT_ROAD_TRIP: openSettingsSection("road_trip"),
         VIEW_BOOKMARKS: {
           target: ".bookmarks",
           guard: "isAdmin",
@@ -249,6 +252,7 @@ export const modalsMachine = setup({
             queue_theme: { on: { BACK: "overview" } },
             the_fed: { on: { BACK: "overview" } },
             lyric_hero: { on: { BACK: "overview" } },
+            road_trip: { on: { BACK: "overview" } },
           },
         },
         bookmarks: {},

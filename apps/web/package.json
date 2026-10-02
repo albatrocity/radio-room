@@ -21,6 +21,7 @@
     "@repo/auth": "*",
     "@repo/game-logic": "*",
     "@repo/plugin-config-ui": "*",
+    "@repo/road-trip-map": "*",
     "@repo/types": "*",
     "@repo/utils": "*",
     "@tanstack/react-router": "^1.169.1",
