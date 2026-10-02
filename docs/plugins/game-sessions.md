@@ -140,6 +140,19 @@ this.inventory.registerItemDefinitions([
 | `getAllItemDefinitions()`                                       | All definitions registered for the room.                                                                                                    |
 | `updateItemMetadata(userId, itemId, patch)`                     | Shallow-merge `patch` into an existing stack's `metadata`. Returns `null` if `itemId` is missing. Emits `INVENTORY_ITEM_UPDATED`.           |
 
+### Charging the room: levies and pools ([ADR 0204](../adrs/0204-trip-funds-escrow-pool-and-levy.md))
+
+Don't write coin escrow by hand. `@repo/plugin-base` exports two fund helpers:
+
+- **`collectShares(this.game, { cost, reason, payers, isExempt? })`** is a proportional levy. Everyone pays the same share of their balance, so rich players carry most of it and nobody pays more than they hold. Coin-locked users and users without session state are skipped. It returns `{ collected, shortfall, rate, perUser }`. `splitProportional` is the pure split underneath.
+- **`new EscrowPoolHelper({ storage, game }, { key, reason })`** is a voluntary pool.
+  - `open({ id, title, goal, closesAt })` starts it, and `pledge(userId, amount, { username })` debits immediately with CAS and rolls back if the debit fails.
+  - `close(reason)` returns what was raised, but only to the first closer. `refundAll()` returns every pledge.
+  - The pool never pays out, so the caller decides what the money buys.
+  - Pair it with the `pool-card` component ([components](components.md)). Kickstarter and road-trip funds (gas and incidents) both use it.
+
+`hasActiveCoinLock(state)` lives in the same module.
+
 ### Player gifting and trading (ADR 0114 / 0115)
 
 Player-to-player movement is **core inventory**, not a plugin. Both features require `GameSessionConfig.allowTrading` (default `false`; toggle on Start Game Session or mid-session via admin **Allow gifting and trading**).

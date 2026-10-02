@@ -70,6 +70,8 @@ export type TemplateComponentName =
   | "road-trip-strip"
   | "road-trip-trip-panel"
   | "road-trip-site-detail"
+  | "road-trip-van-panel"
+  | "pool-card"
 
 /**
  * Props for the username template component.
@@ -414,12 +416,44 @@ export interface LyricHeroCardComponentProps {
 }
 
 /**
- * Props for the kickstarter-campaign-card (Item Shops Crowdfunding Campaign, ADR 0188).
- * Live campaign data comes from the plugin store (`campaign`, `campaignActive`).
+ * Room-visible slice of an escrow pool (ADR 0204), built by the owning plugin
+ * so `pool-card` stays copy-free. No per-user pledge rows beyond the top few.
  */
-export interface KickstarterCampaignCardComponentProps {
-  /** Optional override for the back button label. */
-  backLabel?: string
+export type PoolCardView = {
+  id: string
+  title: string
+  /** Emoji shown before the eyebrow. */
+  icon?: string
+  /** Small label above the title ("Crowdfunding · Funding", "Gas fund"). */
+  eyebrow?: string
+  subtitle?: string
+  /** Small heading above `body` ("Rewards"). */
+  bodyLabel?: string
+  /** Longer text under the title (emoji parsed). */
+  body?: string
+  goal: number
+  raised: number
+  startedAt: number
+  /** Countdown end; null hides the bar. */
+  endsAt: number | null
+  /** Whether pledges are accepted right now. */
+  open: boolean
+  topContributors?: { name: string; amount: number }[]
+}
+
+/**
+ * Props for the shared pool-card (ADR 0204): Kickstarter campaigns and road-trip
+ * voluntary funds. The view comes from the plugin store at `poolKey`; pledges
+ * call `pledgeAction` with `{ amount }`.
+ */
+export interface PoolCardComponentProps {
+  /** Store key holding a `PoolCardView | null`. Default `"pool"`. */
+  poolKey?: string
+  pledgeAction: string
+  /** Pledge button label. Default "Chip in". */
+  pledgeLabel?: string
+  /** Prefilled pledge amount. Default 5. */
+  defaultAmount?: number
 }
 
 /**
@@ -442,6 +476,12 @@ export interface RoadTripTripPanelComponentProps {
 /** Props for a road-trip site detail frame (Game State nav stack, ADR 0104 / 0106). */
 export interface RoadTripSiteDetailComponentProps {
   siteId: string
+  /** Store key holding the `TripStore`. Default `"trip"`. */
+  tripKey?: string
+}
+
+/** Props for the road-trip Van tab body: gas gauge, range, next gas site, and price (M7). */
+export interface RoadTripVanPanelComponentProps {
   /** Store key holding the `TripStore`. Default `"trip"`. */
   tripKey?: string
 }
@@ -516,11 +556,12 @@ export interface TemplateComponentPropsMap {
   "bingo-card": BingoCardComponentProps
   "queue-theme-brief-card": QueueThemeBriefCardComponentProps
   "lyric-hero-card": LyricHeroCardComponentProps
-  "kickstarter-campaign-card": KickstarterCampaignCardComponentProps
+  "pool-card": PoolCardComponentProps
   slider: SliderComponentProps
   "road-trip-strip": RoadTripStripComponentProps
   "road-trip-trip-panel": RoadTripTripPanelComponentProps
   "road-trip-site-detail": RoadTripSiteDetailComponentProps
+  "road-trip-van-panel": RoadTripVanPanelComponentProps
 }
 
 // ============================================================================
@@ -607,11 +648,12 @@ export type PluginComponentDefinition =
   | (PluginComponentMetadata & { type: "bingo-card" } & BingoCardComponentProps)
   | (PluginComponentMetadata & { type: "queue-theme-brief-card" } & QueueThemeBriefCardComponentProps)
   | (PluginComponentMetadata & { type: "lyric-hero-card" } & LyricHeroCardComponentProps)
-  | (PluginComponentMetadata & { type: "kickstarter-campaign-card" } & KickstarterCampaignCardComponentProps)
+  | (PluginComponentMetadata & { type: "pool-card" } & PoolCardComponentProps)
   | (PluginComponentMetadata & { type: "slider" } & SliderComponentProps)
   | (PluginComponentMetadata & { type: "road-trip-strip" } & RoadTripStripComponentProps)
   | (PluginComponentMetadata & { type: "road-trip-trip-panel" } & RoadTripTripPanelComponentProps)
   | (PluginComponentMetadata & { type: "road-trip-site-detail" } & RoadTripSiteDetailComponentProps)
+  | (PluginComponentMetadata & { type: "road-trip-van-panel" } & RoadTripVanPanelComponentProps)
   | PluginModalComponent // Modal is special - it contains children
   | PluginTabComponent // Tab is a container for game state modal tabs
 

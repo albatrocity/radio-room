@@ -1,13 +1,15 @@
 import {
   MIN_SITE_SPACING_MILES,
   ROUTE_END_TOLERANCE_MILES,
+  fuelPlan,
   isDestination,
   parkPlan,
   resolveSiteSettings,
   routeMiles,
   sortedSites,
 } from "./derive"
-import type { TripMap } from "./schema"
+import { INCIDENTS, nearestMechanicAhead } from "./incidents"
+import type { SiteShopOffer, TripMap } from "./schema"
 
 export type TripMapIssueSeverity = "error" | "warning"
 
@@ -25,14 +27,14 @@ export type ShopValidationResult =
   | { ok: false; errors: string[] }
 
 export type LintTripMapDeps = {
-  /** Validate one site's catalog shop ids (Item Shops `shopAccess.validateShop`). */
-  validateShop?: (req: { shopIds: string[] }) => ShopValidationResult
+  /** Validate one site's shop ids and custom offers (Item Shops `shopAccess.validateShop`). */
+  validateShop?: (req: { shopIds?: string[]; offers?: SiteShopOffer[] }) => ShopValidationResult
   /** Planned departure time (ms) for the deadline check. */
   departAt?: number
 }
 
 /**
- * Phase 1 lint (M5). Errors block loading and departure; warnings are shown to
+ * Trip map lint (M5), Phases 1–3. Errors block loading and departure; warnings are shown to
  * the host and designer only.
  */
 export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIssue[] {
@@ -135,15 +137,20 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
     }
 
     const shopIds = site.shop?.shopIds ?? []
-    if (shopIds.length > 0 && deps.validateShop) {
-      const result = deps.validateShop({ shopIds })
+    const offers = site.shop?.offers ?? []
+    if ((shopIds.length > 0 || offers.length > 0) && deps.validateShop) {
+      const result = deps.validateShop({
+        ...(shopIds.length > 0 ? { shopIds } : {}),
+        ...(offers.length > 0 ? { offers } : {}),
+      })
       if (!result.ok) {
         for (const error of result.errors) {
+          const item = error.startsWith("Unknown item")
           issues.push({
             severity: "error",
-            code: "unknown-shop",
+            code: item ? "unknown-item" : "unknown-shop",
             message: `${site.name}: ${error}`,
-            path: `sites.${index}.shop.shopIds`,
+            path: `sites.${index}.shop.${item ? "offers" : "shopIds"}`,
             siteId: site.id,
           })
         }
@@ -159,13 +166,64 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
         }
       }
     }
-    if (site.shop && shopIds.length === 0) {
+    if (isDestination(site) && site.services?.gas) {
+      issues.push({
+        severity: "warning",
+        code: "gas-at-destination",
+        message: `${site.name} is the destination, so its gas service is ignored.`,
+        path: `sites.${index}.services.gas`,
+        siteId: site.id,
+      })
+    }
+    if (site.shop && shopIds.length === 0 && offers.length === 0) {
       issues.push({
         severity: "warning",
         code: "empty-shop",
-        message: `${site.name} has a shop with no shopIds; no shop will open there.`,
+        message: `${site.name} has a shop with no shops or offers; no shop will open there.`,
         path: `sites.${index}.shop`,
         siteId: site.id,
+      })
+    }
+    if (isDestination(site) && site.services?.mechanic) {
+      issues.push({
+        severity: "warning",
+        code: "mechanic-at-destination",
+        message: `${site.name} is the destination, so Engine Failure never tows there.`,
+        path: `sites.${index}.services.mechanic`,
+        siteId: site.id,
+      })
+    }
+  })
+
+  const destinationMile = destinations[0]?.mile ?? miles
+  const eventIds = new Set<string>()
+  ;(map.scriptedEvents ?? []).forEach((event, index) => {
+    const path = `scriptedEvents.${index}`
+    const label = INCIDENTS[event.incident].name
+    if (eventIds.has(event.id)) {
+      issues.push({
+        severity: "error",
+        code: "duplicate-event-id",
+        message: `Scripted event id "${event.id}" is used more than once.`,
+        path: `${path}.id`,
+      })
+    }
+    eventIds.add(event.id)
+    if (event.atMile >= destinationMile) {
+      issues.push({
+        severity: "error",
+        code: "event-beyond-route",
+        message: `${label} at mile ${fmt(event.atMile)} is at or past the destination, so it never fires.`,
+        path: `${path}.atMile`,
+      })
+      return
+    }
+    if (event.incident === "engine-failure" && !nearestMechanicAhead(map, event.atMile)) {
+      issues.push({
+        severity: "warning",
+        code: "no-mechanic",
+        message: `${label} at mile ${fmt(event.atMile)} has no Mechanic ahead; a mobile mechanic repairs it on the shoulder.`,
+        path: `${path}.atMile`,
       })
     }
   })
@@ -200,6 +258,16 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
         siteId: site.id,
       })
     }
+  }
+
+  const fuel = fuelPlan(map)
+  if (fuel.emptyAtMile !== null) {
+    issues.push({
+      severity: "warning",
+      code: "gas-desert",
+      message: `The tank runs dry around mile ${fmt(fuel.emptyAtMile)} with no gas stop the van takes if nobody votes. Add a gas site before then, or lower tanks per trip.`,
+      path: "route.tanksPerTrip",
+    })
   }
 
   if (map.route.deadlineAt) {

@@ -254,6 +254,82 @@ describe("ItemShopsPlugin auto-shop", () => {
         reason: "unavailable",
       })
     })
+
+    describe("custom offers (D14)", () => {
+      const FLAT = {
+        id: "road-trip:fix-a-flat",
+        sourcePlugin: "road-trip",
+        shortId: "fix-a-flat",
+        name: "Fix-a-Flat",
+        description: "Patch a blown tire.",
+        stackable: true,
+        maxStack: 5,
+        tradeable: true,
+        consumable: true,
+        coinValue: 30,
+      }
+
+      function withDefinitions(definitions: (typeof FLAT)[]) {
+        const created = setup()
+        created.context.inventory.getItemDefinitions = vi.fn(async (ids: string[]) =>
+          definitions.filter((d) => ids.includes(d.id)),
+        )
+        return created
+      }
+
+      it("opens an offers-only round on a synthetic shop with the resolved extras", async () => {
+        const { access, shopping } = withDefinitions([FLAT])
+        const result = await access.openRoomShop({
+          scopeId: "trip:t1:site:gas",
+          title: "Gas 'n' Go",
+          offers: [{ definitionId: FLAT.id, basePrice: 25, stock: 2 }],
+        })
+        expect(result).toEqual({ ok: true })
+        const [, eligible, extras] = shopping.startSession.mock.calls[0] as unknown as [
+          unknown,
+          { shopId: string; name: string }[],
+          { definition: { id: string }; basePrice: number; stock?: number }[],
+        ]
+        expect(eligible).toEqual([
+          expect.objectContaining({ shopId: "room-shop:trip:t1:site:gas", name: "Gas 'n' Go" }),
+        ])
+        expect(extras).toEqual([{ definition: FLAT, basePrice: 25, stock: 2 }])
+      })
+
+      it("adds offers to a catalog shop round and defaults the price to coinValue", async () => {
+        const { access, shopping } = withDefinitions([FLAT])
+        await access.openRoomShop({
+          scopeId: "s",
+          shopIds: ["farmers-market"],
+          offers: [{ definitionId: FLAT.id }],
+        })
+        const [, eligible, extras] = shopping.startSession.mock.calls[0] as unknown as [
+          unknown,
+          { shopId: string }[],
+          { basePrice: number }[],
+        ]
+        expect(eligible.map((s) => s.shopId)).toEqual(["farmers-market"])
+        expect(extras[0]?.basePrice).toBe(30)
+      })
+
+      it("refuses unknown items on open and reports them on validate", async () => {
+        const { access, shopping } = withDefinitions([FLAT])
+        expect(
+          await access.openRoomShop({ scopeId: "s", offers: [{ definitionId: "road-trip:jetpack" }] }),
+        ).toEqual({ ok: false, reason: "unknown-item" })
+        expect(shopping.startSession).not.toHaveBeenCalled()
+        expect(
+          await access.validateShop({
+            offers: [{ definitionId: FLAT.id }, { definitionId: "road-trip:jetpack" }],
+          }),
+        ).toEqual({ ok: false, errors: ['Unknown item "road-trip:jetpack"'] })
+        expect(await access.validateShop({ offers: [{ definitionId: FLAT.id }] })).toEqual({ ok: true })
+        expect(await access.validateShop({})).toEqual({
+          ok: false,
+          errors: ["List at least one shop id or custom offer."],
+        })
+      })
+    })
   })
 
   describe("manual start resets countdown", () => {

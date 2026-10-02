@@ -125,6 +125,7 @@ getComponentSchema(): PluginComponentSchema {
 | `inventory-grid`   | Item grid (often in modal) | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
 | `item-badge`       | Owns-item indicator        | `definitionId`, `showQuantity`                                  |
 | `quiz-question-card` | Quiz above-chat card     | `questionKey?`, `hint?` (input placeholder)                     |
+| `pool-card`        | Coin pool card (`aboveChat`) | `pledgeAction`, `poolKey?` (store key with a `PoolCardView`, default `"pool"`), `pledgeLabel?`, `defaultAmount?`. Pledges call `pledgeAction` with `{ amount }` ([ADR 0204](../adrs/0204-trip-funds-escrow-pool-and-levy.md)) |
 | `lyric-hero-card`  | Lyric Hero above-chat card | `hint?` (guess-input placeholder); per-phrase copy is `store.puzzle.hint` |
 | `queue-theme-brief-card` | Queue Theme brief     | (none — reads `pluginUserState`)                                |
 | `bingo-card`       | Playlist Bingo card        | (none — reads `pluginUserState`)                                |

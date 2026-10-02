@@ -1,6 +1,7 @@
 import type { GameSessionPluginAPI, PluginContext } from "@repo/types"
-import { hasActiveCoinLock } from "./coinLock"
+import type { EscrowPledge, EscrowPoolState } from "@repo/plugin-base"
 import {
+  campaignPool,
   clearCampaign,
   loadCampaign,
   loadCampaignRaw,
@@ -12,7 +13,7 @@ import {
   DELIVERY_DELAY_MS,
   FROZEN_ASSETS_DURATION_MS,
   FUNDING_DURATION_MS,
-  PLEDGE_CAS_MAX_ATTEMPTS,
+  KICKSTARTER_POOL_KEY,
   POLL_DURATION_MS,
   type KickstarterCampaign,
   type KickstarterPublicState,
@@ -21,6 +22,18 @@ import {
 export type KickstarterLifecycleDeps = {
   context: PluginContext
   game: GameSessionPluginAPI
+}
+
+function pool(deps: KickstarterLifecycleDeps) {
+  return campaignPool({ storage: deps.context.storage, game: deps.game })
+}
+
+/** Campaign plus its escrow, as the room sees it. */
+export async function loadPublicState(
+  deps: KickstarterLifecycleDeps,
+): Promise<KickstarterPublicState> {
+  const campaign = await loadCampaign(deps.context)
+  return toPublicState(campaign, campaign ? await pool(deps).read() : null)
 }
 
 /** Delivery poll outcome: zero votes succeed; otherwise yes must be at least half. */
@@ -70,7 +83,6 @@ export async function startCampaign(
     rewards,
     goal,
     pledged: 0,
-    pledges: [],
     phase: "funding",
     phaseStartedAt: now,
     phaseEndsAt: now + FUNDING_DURATION_MS,
@@ -84,7 +96,22 @@ export async function startCampaign(
   if (!saved) {
     return { ok: false, message: "A crowdfunding campaign is already running in this room." }
   }
-  return { ok: true, campaign, publicState: toPublicState(campaign) }
+  // A pool left open by a campaign that never settled is refunded before reuse.
+  // One that was already settled (closed) is not: its coins were paid out.
+  const escrow = pool(deps)
+  const stale = await escrow.read()
+  if (stale) await escrow.refundAll({ poolId: stale.id })
+  const opened = await escrow.open({
+    id: campaign.id,
+    title,
+    goal,
+    closesAt: campaign.phaseEndsAt,
+  })
+  if (!opened.ok) {
+    await clearCampaign(deps.context)
+    return { ok: false, message: "Could not open the campaign — please try again." }
+  }
+  return { ok: true, campaign, publicState: toPublicState(campaign, opened.pool) }
 }
 
 export async function pledge(
@@ -103,123 +130,61 @@ export async function pledge(
   if (!Number.isFinite(amount) || amount < 1) {
     return { ok: false, message: "Pledge at least 1 coin." }
   }
-
-  for (let attempt = 0; attempt < PLEDGE_CAS_MAX_ATTEMPTS; attempt++) {
-    const { raw, campaign } = await loadCampaignRaw(deps.context)
-    if (!campaign || campaign.phase !== "funding") {
-      return { ok: false, message: "No funding campaign is open." }
-    }
-
-    const state = await deps.game.getUserState(params.userId)
-    if (hasActiveCoinLock(state)) {
-      return { ok: false, message: "Your assets are frozen — you can't pledge right now." }
-    }
-    const balance = state?.attributes?.coin ?? 0
-    if (balance < amount) {
-      return { ok: false, message: "You don't have enough coin." }
-    }
-
-    const pledgeId = crypto.randomUUID()
-    const next: KickstarterCampaign = {
-      ...campaign,
-      pledges: [
-        ...campaign.pledges,
-        {
-          id: pledgeId,
-          userId: params.userId,
-          username: params.username,
-          amount,
-        },
-      ],
-      pledged: campaign.pledged + amount,
-    }
-
-    const saved = await saveCampaignCas(deps.context, raw, next)
-    if (!saved) {
-      // Contention — retry against latest snapshot without touching the ledger.
-      continue
-    }
-
-    const before = balance
-    const after = await deps.game.addScore(params.userId, "coin", -amount, "kickstarter:pledge", {
-      intent: "exact",
-    })
-    // Lock / race: debit may silently no-op — roll the pledge back out of Redis.
-    if (after === before || after > before - amount) {
-      await removePledgeById(deps, pledgeId, amount)
-      return { ok: false, message: "Could not deduct coin for this pledge." }
-    }
-
+  const campaign = await loadCampaign(deps.context)
+  if (!campaign || campaign.phase !== "funding") {
+    return { ok: false, message: "No funding campaign is open." }
+  }
+  const result = await pool(deps).pledge(params.userId, amount, {
+    username: params.username,
+    poolId: campaign.id,
+  })
+  if (!result.ok) {
     return {
-      ok: true,
-      campaign: next,
-      publicState: toPublicState(next),
-      goalMet: next.pledged >= next.goal,
+      ok: false,
+      message:
+        result.message === "Nothing is open to pledge to."
+          ? "No funding campaign is open."
+          : result.message,
     }
   }
-
-  return { ok: false, message: "Could not record your pledge — please try again." }
-}
-
-/** Best-effort CAS remove after a debit failure so escrow cannot grow without coin. */
-async function removePledgeById(
-  deps: KickstarterLifecycleDeps,
-  pledgeId: string,
-  amount: number,
-): Promise<void> {
-  for (let attempt = 0; attempt < PLEDGE_CAS_MAX_ATTEMPTS; attempt++) {
-    const { raw, campaign } = await loadCampaignRaw(deps.context)
-    if (!campaign) return
-    const idx = campaign.pledges.findIndex((p) => p.id === pledgeId)
-    if (idx < 0) return
-    const pledges = campaign.pledges.slice()
-    pledges.splice(idx, 1)
-    const next: KickstarterCampaign = {
-      ...campaign,
-      pledges,
-      pledged: Math.max(0, campaign.pledged - amount),
-    }
-    if (await saveCampaignCas(deps.context, raw, next)) return
+  return {
+    ok: true,
+    campaign: { ...campaign, pledged: result.pool.raised },
+    publicState: toPublicState(campaign, result.pool),
+    goalMet: result.goalMet,
   }
 }
 
 export async function refundAll(
   deps: KickstarterLifecycleDeps,
-  campaign: KickstarterCampaign,
 ): Promise<{ refunded: number; blocked: string[] }> {
-  let refunded = 0
-  const blocked: string[] = []
-  for (const p of campaign.pledges) {
-    const state = await deps.game.getUserState(p.userId)
-    if (hasActiveCoinLock(state)) {
-      blocked.push(p.userId)
-      continue
-    }
-    await deps.game.addScore(p.userId, "coin", p.amount, "kickstarter:refund", {
-      intent: "exact",
-    })
-    refunded += p.amount
-  }
-  return { refunded, blocked }
+  return pool(deps).refundAll()
 }
 
+/**
+ * Close the escrow and pay the owner what it raised. Returns null when the
+ * pool was already closed (goal met and deadline racing), so only one caller pays.
+ */
 export async function settleFundingSuccess(
   deps: KickstarterLifecycleDeps,
   campaign: KickstarterCampaign,
-): Promise<{ campaign: KickstarterCampaign; publicState: KickstarterPublicState }> {
-  const total = campaign.pledged
+): Promise<{ campaign: KickstarterCampaign; publicState: KickstarterPublicState } | null> {
+  const escrow = pool(deps)
+  const closed = await escrow.close("funded", { poolId: campaign.id })
+  if (!closed) return null
+  const total = closed.raised
   if (total > 0) {
     await deps.game.addScore(campaign.ownerUserId, "coin", total, "kickstarter:payout", {
       intent: "exact",
     })
   }
+  await escrow.clear(campaign.id)
 
   const next: KickstarterCampaign = {
     ...campaign,
     phase: "deliveryWait",
     phaseStartedAt: Date.now(),
     phaseEndsAt: Date.now() + DELIVERY_DELAY_MS,
-    pledges: [], // escrow cleared into owner balance
     pledged: total,
   }
   await saveCampaign(deps.context, next)
@@ -228,11 +193,51 @@ export async function settleFundingSuccess(
 
 export async function settleFundingFailure(
   deps: KickstarterLifecycleDeps,
-  campaign: KickstarterCampaign,
 ): Promise<{ refunded: number; blocked: string[] }> {
-  const result = await refundAll(deps, campaign)
+  const result = await refundAll(deps)
   await clearCampaign(deps.context)
   return result
+}
+
+/** Live pool total for a funding campaign (0 when the pool is gone). */
+export async function poolRaised(
+  deps: KickstarterLifecycleDeps,
+  campaign: KickstarterCampaign,
+): Promise<number> {
+  const current = await pool(deps).read()
+  return current?.id === campaign.id ? current.raised : 0
+}
+
+type LegacyCampaign = KickstarterCampaign & {
+  pledges?: { id: string; userId: string; username?: string; amount: number }[]
+}
+
+/**
+ * Campaigns started before the escrow moved to `EscrowPoolHelper` kept their
+ * pledges inline. Move them into the pool once, so a deploy mid-campaign
+ * neither loses nor double-counts escrowed coin.
+ */
+export async function adoptLegacyPledges(deps: KickstarterLifecycleDeps): Promise<void> {
+  const campaign = (await loadCampaign(deps.context)) as LegacyCampaign | null
+  if (!campaign?.pledges) return
+  const { pledges, ...rest } = campaign
+  if (campaign.phase === "funding" && !(await pool(deps).read())) {
+    const escrow: EscrowPoolState = {
+      id: campaign.id,
+      title: campaign.title,
+      goal: campaign.goal,
+      openedAt: campaign.phaseStartedAt,
+      closesAt: campaign.phaseEndsAt,
+      status: "open",
+      raised: pledges.reduce((sum, p) => sum + p.amount, 0),
+      pledges: pledges.map((p): EscrowPledge => ({ ...p, at: campaign.phaseStartedAt })),
+    }
+    await deps.context.storage.setJson(KICKSTARTER_POOL_KEY, escrow)
+  }
+  await saveCampaign(deps.context, {
+    ...rest,
+    pledged: campaign.phase === "funding" ? 0 : rest.pledged,
+  })
 }
 
 export async function applyFrozenAssets(
@@ -250,6 +255,7 @@ export async function finishCampaign(
   deps: KickstarterLifecycleDeps,
 ): Promise<KickstarterPublicState> {
   await clearCampaign(deps.context)
+  await pool(deps).clear()
   return toPublicState(null)
 }
 
@@ -290,4 +296,4 @@ export async function markPollAttempt(
   return next
 }
 
-export { loadCampaign, toPublicState }
+export { loadCampaign, loadCampaignRaw, toPublicState }

@@ -1,20 +1,38 @@
 import {
   GENERIC_SITE_PRESETS,
+  INCIDENTS,
   SAMPLE_TRIP_MAP,
+  TRIGGERABLE_INCIDENT_IDS,
+  VAN_CONSUMABLES,
+  VAN_PARTS,
+  fuelPlan,
+  gasCost,
+  formatShare,
+  incidentCostEstimate,
+  levyRate,
   isDestination,
   parkPlan,
   parseTripMap,
+  roadTripItemId,
   routeMiles,
   siteFromPreset,
   sitePresetForShop,
   tripMapSchema,
+  type IncidentCostLine,
   type ParseTripMapResult,
+  type TriggerableIncidentId,
   type SitePreset,
   type TripMap,
   type TripMapInput,
   type TripSite,
 } from "@repo/road-trip-map"
-import { RECORD_STORE_SHOP, SHOP_CATALOG, validateRoomShopIds } from "@repo/plugin-item-shops"
+import {
+  ITEM_CATALOG,
+  RECORD_STORE_SHOP,
+  SHOP_CATALOG,
+  validateRoomShopRequest,
+} from "@repo/plugin-item-shops"
+import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 
 const DRAFT_STORAGE_KEY = "game-studio:trip-map-draft"
 
@@ -59,9 +77,27 @@ export function saveDraft(draft: TripMapInput): void {
   }
 }
 
+/** The offers picker: road-trip parts and consumables (Item Shops items validate too, hand-edited). */
+export const OFFER_OPTIONS: { definitionId: string; name: string; emoji: string; coinValue: number }[] =
+  [...VAN_PARTS, ...VAN_CONSUMABLES].map((item) => ({
+    definitionId: roadTripItemId(item.shortId),
+    name: item.name,
+    emoji: item.emoji,
+    coinValue: item.coinValue,
+  }))
+
+const KNOWN_DEFINITION_IDS = new Set([
+  ...OFFER_OPTIONS.map((o) => o.definitionId),
+  ...ITEM_CATALOG.map((entry) => `${ITEM_SHOPS_PLUGIN_NAME}:${entry.definition.shortId}`),
+])
+
 /** Item Shops' own check, with only Record Store treated as room-dependent. */
-export function validateCatalogShop(req: { shopIds: string[] }) {
-  return validateRoomShopIds(req.shopIds, KNOWN_SHOP_IDS, EVERYWHERE_SHOP_IDS)
+export function validateCatalogShop(req: { shopIds?: string[]; offers?: { definitionId: string }[] }) {
+  return validateRoomShopRequest(req, {
+    shopIds: KNOWN_SHOP_IDS,
+    availableShopIds: EVERYWHERE_SHOP_IDS,
+    definitionIds: KNOWN_DEFINITION_IDS,
+  })
 }
 
 export function parseDraft(draft: TripMapInput, departAt: number): ParseTripMapResult {
@@ -100,6 +136,19 @@ export function updateRoute(
   patch: Partial<TripMapInput["route"]>,
 ): TripMapInput {
   return pinDestination({ ...draft, route: { ...draft.route, ...patch } })
+}
+
+export type TripTuningDraft = NonNullable<TripMapInput["tuning"]>
+
+export function updateTuning(draft: TripMapInput, patch: Partial<TripTuningDraft>): TripMapInput {
+  return { ...draft, tuning: { ...draft.tuning, ...patch } }
+}
+
+export function updateFunds(
+  draft: TripMapInput,
+  patch: Partial<NonNullable<TripTuningDraft["funds"]>>,
+): TripMapInput {
+  return updateTuning(draft, { funds: { ...draft.tuning?.funds, ...patch } })
 }
 
 export function updateSite(
@@ -169,7 +218,135 @@ export type TripProjection = {
   deadlineMinutes: number | null
 }
 
-/** ETA range at base speed from park times (`parkPlan`); no incidents or fuel in Phase 1. */
+export type FuelProjectionStop = {
+  siteId: string
+  name: string
+  icon: string
+  mile: number
+  /** 0–1 share of a tank on arrival. */
+  arrivalPct: number
+  stops: boolean
+  gallons: number
+  /** Coins at the chosen `costScale`. */
+  cost: number
+}
+
+export type FuelProjection = {
+  points: { mile: number; gallons: number }[]
+  tankGallons: number
+  lowPct: number
+  stops: FuelProjectionStop[]
+  totalCost: number
+  lowAtMile: number | null
+  emptyAtMile: number | null
+}
+
+/** No-vote fuel curve and gas bill (`fuelPlan`), with costs scaled for a preview economy. */
+export function projectFuel(map: TripMap, costScale: number): FuelProjection {
+  const plan = fuelPlan(map)
+  const byId = new Map(map.sites.map((s) => [s.id, s]))
+  const stops = plan.gasStops.map((stop) => {
+    const site = byId.get(stop.siteId)!
+    return {
+      siteId: stop.siteId,
+      name: site.name,
+      icon: site.icon,
+      mile: stop.mile,
+      arrivalPct: plan.tankGallons > 0 ? stop.gallonsOnArrival / plan.tankGallons : 0,
+      stops: stop.stops,
+      gallons: stop.gallons,
+      cost: stop.stops
+        ? gasCost(stop.gallons, site.services!.gas!.pricePerGallon, costScale)
+        : 0,
+    }
+  })
+  return {
+    points: plan.points,
+    tankGallons: plan.tankGallons,
+    lowPct: map.tuning.lowFuelPct,
+    stops,
+    totalCost: stops.reduce((sum, s) => sum + s.cost, 0),
+    lowAtMile: plan.lowAtMile,
+    emptyAtMile: plan.emptyAtMile,
+  }
+}
+
+export type ScriptedEventDraft = NonNullable<TripMapInput["scriptedEvents"]>[number]
+
+export function addScriptedEvent(draft: TripMapInput, incident: TriggerableIncidentId): TripMapInput {
+  const events = draft.scriptedEvents ?? []
+  const taken = new Set(events.map((e) => e.id))
+  let id = incident
+  for (let n = 2; taken.has(id); n++) id = `${incident}-${n}` as TriggerableIncidentId
+  const atMile = roundMile(draftRouteMiles(draft) / 2)
+  return { ...draft, scriptedEvents: [...events, { id, atMile, incident }] }
+}
+
+export function updateScriptedEvent(
+  draft: TripMapInput,
+  eventId: string,
+  patch: Partial<ScriptedEventDraft>,
+): TripMapInput {
+  return {
+    ...draft,
+    scriptedEvents: (draft.scriptedEvents ?? []).map((e) =>
+      e.id === eventId ? { ...e, ...patch } : e,
+    ),
+  }
+}
+
+export function removeScriptedEvent(draft: TripMapInput, eventId: string): TripMapInput {
+  const events = (draft.scriptedEvents ?? []).filter((e) => e.id !== eventId)
+  const { scriptedEvents: _drop, ...rest } = draft
+  return events.length > 0 ? { ...rest, scriptedEvents: events } : rest
+}
+
+export type IncidentEstimate = {
+  incident: TriggerableIncidentId
+  name: string
+  emoji: string
+  lines: IncidentCostLine[]
+  total: number
+}
+
+/** What each triggerable incident would charge at `mile`, at the preview economy (no parts). */
+export function estimateIncidents(map: TripMap, mile: number, costScale: number): IncidentEstimate[] {
+  return TRIGGERABLE_INCIDENT_IDS.map((incident) => {
+    const lines = incidentCostEstimate(map, incident, mile, costScale)
+    return {
+      incident,
+      name: INCIDENTS[incident].name,
+      emoji: INCIDENTS[incident].emoji,
+      lines,
+      total: lines.reduce((sum, l) => sum + l.cost, 0),
+    }
+  })
+}
+
+/**
+ * Default "room wallets" estimate for cost previews: 12 travelers × 500 coins.
+ * A guess by design; the designer tunes it to the room they expect.
+ */
+export const DEFAULT_PREVIEW_WALLETS = 12 * 500
+
+/**
+ * How a cost lands under the automatic levy (D16): the same share of every
+ * wallet, as players see it in their notice ("≈ 5.8% of wallets").
+ */
+export function walletShareLabel(cost: number, walletsTotal: number): string {
+  const rate = levyRate(cost, walletsTotal)
+  if (rate >= 1) return "empties every wallet; the room can't cover it"
+  return `≈ ${formatShare(rate)} of wallets`
+}
+
+/** The whole trip's costs against the room's wallets, ignoring what travelers earn on the way. */
+export function tripShareLabel(totalCost: number, walletsTotal: number): string {
+  const rate = levyRate(totalCost, walletsTotal)
+  if (rate >= 1) return "more than the room holds, before earnings"
+  return `≈ ${formatShare(rate)} of wallets over the trip, before earnings`
+}
+
+/** ETA range at base speed from park times (`parkPlan`); incident delays aren't forecast. */
 export function projectTrip(map: TripMap, departAt: number): TripProjection {
   const plan = parkPlan(map)
   const drive = map.route.driveMinutes

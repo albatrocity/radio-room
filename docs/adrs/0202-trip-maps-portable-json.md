@@ -23,7 +23,16 @@ Alternatives considered:
    - a `mystery` poll whose question names the site (warning)
    - a destination that can't be reached before `deadlineAt`
    - unknown shop ids, when the caller passes the catalog
+
+   Phase 2 adds two rules: `gas-desert`, a warning when the tank runs dry on the no-vote fuel plan (an empty tank starts Out of Gas), and `gas-at-destination`, a warning that the destination's gas is ignored.
+
+   Phase 3 adds `duplicate-event-id` and `event-beyond-route` (errors), `no-mechanic` (a warning when a scripted Engine Failure has no Mechanic ahead, so a mobile mechanic repairs on the shoulder), `mechanic-at-destination` (warning), and unknown custom-offer item ids through `validateShop`.
 3. **Authoring is in minutes (D6).** The route sets `driveMinutes` and `baseMph`, and miles are derived. Per-trip defaults live in `tuning` (`parkMinutes`, `revealMiles`, `skipPoll`, `seed`).
+   - **Phase 2 fuel and funds.** The route sets `tanksPerTrip` (default 1.6), the full tanks the route burns at base economy, so mpg is derived and never authored. `tuning` adds `tankGallons` (15), `lowFuelPct` (0.15), and `funds: { mode: "automatic" | "voluntary", windowMinutes }` ([0204](0204-trip-funds-escrow-pool-and-levy.md)).
+   - Sites gain `services.gas.pricePerGallon` (a base price, multiplied by the session's `costScale`).
+   - `fuelPlan(map)` returns the no-vote gauge curve, gas stops, and the low and empty miles. It feeds the departure target, the gas-desert lint, and Studio.
+   - The library adds a Gas station preset.
+   - **Phase 3 van and incidents.** Maps gain `scriptedEvents: { id, atMile, incident }[]` (Traffic Jam, Blown Tire, or Engine Failure; Out of Gas comes only from fuel), `services.mechanic` (tow destination), and site `shop.offers`. The package also holds the van catalog (parts, consumables, `compileVan`), incident step lists, constant costs and timings, and `incidentCostEstimate`, so the plugin, Studio, and web share them. The Gas station preset now sells Fix-a-Flat and the AAA Card, and a Mechanic preset sells parts. Scripted events never reach clients.
 4. **Stored in plugin storage.** An admin loads a map with the `loadMap` action by pasting JSON into Quick Access or plugin settings. Road-trip runs `parseTripMap`, then `shopAccess.validateShop` for every site shop ([0201](0201-declared-plugin-capabilities.md)), and writes `trip:map` as `{ map, hash, loadedAt, loadedBy }`. Errors block loading, and warnings are shown in the result message. The map can be replaced until departure and is locked after that.
 5. **Self-contained.** Asset URLs are absolute, so the same JSON loads in any room. The map never reaches clients. They get the spoiler-safe projection described in 0200.
 6. **Game Studio map editor.** It imports only `@repo/road-trip-map` and lets authors:
@@ -32,6 +41,10 @@ Alternatives considered:
    - edit a site in the inspector, with a live poll preview and a catalog shop picker
    - see reveal ticks, projections (`parkPlan`, shared with the plugin), and the lint panel; the full parse and lint run once typing pauses
    - Copy JSON, import a pasted map, and keep a local draft
+   - (Phase 2) set trip settings: tanks per trip, tank size, low-fuel share, funds mode, and pool window
+   - (Phase 2) see the no-vote fuel curve under the route, with each gas stop's arrival level, gallons, and cost at a preview `costScale`
+   - (Phase 2) toggle and price gas in the inspector
+   - (Phase 3) place scripted incidents as draggable pins below the route, with a cost estimate at each mile; mark a site as a Mechanic; and pick custom offers with optional base prices
 
    A dev-only Vite middleware (`/__studio/trip-maps`) lists, reads, and writes `apps/game-studio/maps/<id>.json`. Ids must match the site-id slug pattern, and the size cap is 800 KB.
 

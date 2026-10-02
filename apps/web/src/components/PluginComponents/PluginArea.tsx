@@ -97,6 +97,7 @@ export function PluginArea({
   return (
     <Wrap
       direction={direction}
+      flexWrap={direction === "column" ? "nowrap" : "wrap"}
       gap={spacing}
       color={color}
       width="100%"

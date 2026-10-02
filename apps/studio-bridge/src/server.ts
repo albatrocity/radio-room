@@ -1465,7 +1465,11 @@ function wireSocketHandlers(io: IOServer): void {
           return
         }
         if (data.pluginName === ROAD_TRIP_PREVIEW_PLUGIN) {
-          const { success, message, events } = runStubRoadTripAction(roomId, data.action)
+          const { success, message, events } = runStubRoadTripAction(
+            roomId,
+            data.action,
+            data.params,
+          )
           for (const ev of events) {
             io.to(roomSocketPath(roomId)).emit("event", ev)
           }

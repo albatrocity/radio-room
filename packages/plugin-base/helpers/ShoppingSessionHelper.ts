@@ -14,6 +14,7 @@ import {
   DEFAULT_RARITY_WEIGHTS,
   type ItemCatalogEntry,
   type ShopCatalogEntry,
+  appendExtraOffers,
   applyLiveCostScale,
   buildItemCatalogMap,
   buildShoppingInstance,
@@ -26,10 +27,13 @@ import {
   isShopListedItem,
   type WeightedCandidate,
 } from "./shoppingSessionCatalog"
-import type { ShopEconomyHooks } from "./shoppingSessionCatalog"
+import type { ShopEconomyHooks, ShoppingExtraOffer } from "./shoppingSessionCatalog"
 import { resolveEconomy, scalePrice } from "@repo/game-logic"
 
 const KEYS = ITEM_SHOPS_SESSION_STORAGE_KEYS
+
+/** Shop id prefix for a room shop built only from custom offers (no catalog shop). */
+export const ROOM_SHOP_ID_PREFIX = "room-shop:"
 
 /**
  * Per-user ephemeral shopping rounds + weighted offers.
@@ -127,17 +131,19 @@ export class ShoppingSessionHelper {
   async startSession(
     users: readonly Pick<User, "userId">[],
     eligibleShops?: readonly ShopCatalogEntry[],
+    extraOffers: readonly ShoppingExtraOffer[] = [],
   ): Promise<void> {
     await this.context.storage.del(KEYS.INSTANCES)
     await this.setActive(true)
     const now = Date.now()
     for (const u of users) {
-      await this.assignInstanceForUserId(u.userId, now, eligibleShops)
+      await this.assignInstanceForUserId(u.userId, now, eligibleShops, extraOffers)
     }
   }
 
   /**
-   * Picks a rarity-weighted shop, 3 weighted offers (duplicates allowed), persists, DMs the user.
+   * Picks a rarity-weighted shop, 3 weighted offers (duplicates allowed), appends
+   * any `extraOffers`, persists, DMs the user.
    *
    * @param eligibleShops - Same semantics as {@link startSession}.
    */
@@ -145,6 +151,7 @@ export class ShoppingSessionHelper {
     userId: string,
     openedAt = Date.now(),
     eligibleShops?: readonly ShopCatalogEntry[],
+    extraOffers: readonly ShoppingExtraOffer[] = [],
   ): Promise<void> {
     const pool = this.resolveAssignmentPool(eligibleShops)
     if (pool.length === 0) {
@@ -156,12 +163,16 @@ export class ShoppingSessionHelper {
     }
     const shortIds = this.sampleOfferShortIds(shop, 3)
     const session = await this.context.game.getActiveSession()
-    const instance = buildShoppingInstance(
-      shop,
-      shortIds,
-      this.catalogMap,
-      openedAt,
-      this.hooks,
+    const instance = appendExtraOffers(
+      buildShoppingInstance(
+        shop,
+        shortIds,
+        this.catalogMap,
+        openedAt,
+        this.hooks,
+        session?.config?.economy,
+      ),
+      extraOffers,
       session?.config?.economy,
     )
     const displayMessage = (
@@ -265,7 +276,7 @@ export class ShoppingSessionHelper {
     })
     const awarded = await this.context.inventory.giveItem(
       userId,
-      this.getDefinitionId(shortId),
+      offer.definitionId ?? this.getDefinitionId(shortId),
       1,
       offer.condition ? { condition: offer.condition } : undefined,
       "purchase",
@@ -274,13 +285,20 @@ export class ShoppingSessionHelper {
       await this.context.game.addScore(userId, "coin", price, `${this.pluginName}:refund`, {
         intent: "exact",
       })
-      const pool = resolveSlotPool(this.catalogMap.get(shortId)?.definition)
+      const definition = offer.definitionId
+        ? await this.context.inventory.getItemDefinition(offer.definitionId)
+        : this.catalogMap.get(shortId)?.definition
       return {
         success: false,
-        message: slotPoolFullMessage(pool, `could not add ${offer.name}.`),
+        message: slotPoolFullMessage(resolveSlotPool(definition ?? undefined), `could not add ${offer.name}.`),
       }
     }
-    offer.available = false
+    if (offer.remaining && offer.remaining > 1) {
+      offer.remaining -= 1
+    } else {
+      offer.available = false
+      if (offer.remaining !== undefined) offer.remaining = 0
+    }
     await this.persistInstance(userId, inst)
     return {
       success: true,
@@ -303,19 +321,24 @@ export class ShoppingSessionHelper {
     if (!inst) {
       return { success: false, message: "You can only sell while your shop visit is open." }
     }
-    const shop = this.getShopById(inst.shopId)
-    if (!shop) {
-      return { success: false, message: "Shop data is out of sync." }
-    }
     const session = await this.context.game.getActiveSession()
     if (!session) {
       return { success: false, message: "No active game session." }
     }
-    const listed = isShopListedItem(shop, definition.shortId)
-    const rate = listed ? shop.listedBuybackRate : shop.unlistedBuybackRate
-    let base = listed
-      ? resolveShopItemPrice(shop, definition.shortId, this.catalogMap)
-      : resolveUnlistedSellBasePrice(this.catalogMap, definition.shortId)
+    // A room shop with only custom offers has no catalog entry; it buys back at the instance's unlisted rate.
+    const shop = this.getShopById(inst.shopId)
+    if (!shop && !inst.shopId.startsWith(ROOM_SHOP_ID_PREFIX)) {
+      return { success: false, message: "Shop data is out of sync." }
+    }
+    const listed = shop ? isShopListedItem(shop, definition.shortId) : false
+    const rate =
+      (listed
+        ? (shop?.listedBuybackRate ?? inst.listedBuybackRate)
+        : (shop?.unlistedBuybackRate ?? inst.unlistedBuybackRate)) ?? 0
+    let base =
+      shop && listed
+        ? resolveShopItemPrice(shop, definition.shortId, this.catalogMap)
+        : resolveUnlistedSellBasePrice(this.catalogMap, definition.shortId)
     if (this.hooks?.adjustSellBase) {
       base = this.hooks.adjustSellBase(item, definition, base)
     }

@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest"
 import { parseTripMap } from "./parseTripMap"
 import { SAMPLE_TRIP_MAP } from "./sampleMap"
 import {
+  baseGallonsPerMile,
+  effectiveSkipDefault,
+  fuelPlan,
+  gasCost,
   parkPlan,
   resolveSiteSettings,
   revealMileAtBaseSpeed,
@@ -37,9 +41,12 @@ describe("parseTripMap", () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.map.tuning).toEqual({
+      tankGallons: 15,
+      lowFuelPct: 0.15,
       parkMinutes: 4,
       revealMiles: 10,
       skipPoll: { leadMinutes: 1.5, durationSec: 45, default: "skip" },
+      funds: { mode: "automatic", windowMinutes: 3 },
     })
   })
 
@@ -64,7 +71,7 @@ describe("parseTripMap", () => {
 
   it("requires exactly one destination at the end of the route", () => {
     const none = clone()
-    delete none.sites[2]!.role
+    delete none.sites[3]!.role
     expect(codes(parseTripMap(none))).toContain("no-destination")
 
     const two = clone()
@@ -72,7 +79,7 @@ describe("parseTripMap", () => {
     expect(codes(parseTripMap(two))).toContain("multiple-destinations")
 
     const short = clone()
-    short.sites[2]!.mile = 11
+    short.sites[3]!.mile = 11
     expect(codes(parseTripMap(short))).toContain("destination-not-at-end")
   })
 
@@ -109,7 +116,7 @@ describe("parseTripMap", () => {
   it("blocks unknown shop ids through validateShop", () => {
     const result = parseTripMap(clone(), {
       validateShop: ({ shopIds }) =>
-        shopIds.includes("farmers-market")
+        shopIds?.includes("farmers-market")
           ? { ok: false, errors: ['Unknown shop "farmers-market"'] }
           : { ok: true },
     })
@@ -156,7 +163,7 @@ describe("derive", () => {
       skipDefault: "skip",
       parkMs: 240_000,
     })
-    expect(resolveSiteSettings(map, map.sites[2]!).optional).toBe(false)
+    expect(resolveSiteSettings(map, map.sites[3]!).optional).toBe(false)
   })
 
   it("defaults mystery sites to reveal on arrival and supports always", () => {
@@ -174,9 +181,9 @@ describe("derive", () => {
   })
 
   it("builds skip-poll questions", () => {
-    expect(skipPollQuestion(map.sites[1]!, 1.5, false)).toBe("Farmers Market in 2 miles: pull off?")
-    expect(skipPollQuestion(map.sites[1]!, 0.4, false)).toBe("Farmers Market in 1 mile: pull off?")
-    expect(skipPollQuestion(map.sites[1]!, 2, true)).toBe("Something's up ahead. Pull off?")
+    expect(skipPollQuestion(map.sites[2]!, 1.5, false)).toBe("Farmers Market in 2 miles: pull off?")
+    expect(skipPollQuestion(map.sites[2]!, 0.4, false)).toBe("Farmers Market in 1 mile: pull off?")
+    expect(skipPollQuestion(map.sites[2]!, 2, true)).toBe("Something's up ahead. Pull off?")
   })
 })
 
@@ -189,7 +196,8 @@ describe("hash and presets", () => {
   })
 
   it("instantiates presets", () => {
-    const venue = siteFromPreset(GENERIC_SITE_PRESETS[0]!, "venue", 12)
+    const venuePreset = GENERIC_SITE_PRESETS.find((p) => p.id === "destination-venue")!
+    const venue = siteFromPreset(venuePreset, "venue", 12)
     expect(venue).toMatchObject({
       id: "venue",
       mile: 12,
@@ -215,12 +223,14 @@ describe("parkPlan", () => {
   }
 
   it("splits mandatory, expected (defaults), and every stop; never the destination", () => {
-    // Sample: record store (skip default) and farmers market (stop default), 4 min each.
-    expect(plan()).toEqual({ mandatoryMs: 0, expectedMs: 4 * 60_000, maxMs: 8 * 60_000 })
+    // Sample: record store (skip default, 4 min), gas (reached low on fuel, so it
+    // stops by default, 2 min), farmers market (stop default, 4 min), and
+    // Hank's Garage (skip default, 4 min).
+    expect(plan()).toEqual({ mandatoryMs: 0, expectedMs: 6 * 60_000, maxMs: 14 * 60_000 })
     expect(plan((m) => (m.sites[0]!.mandatory = true))).toEqual({
       mandatoryMs: 4 * 60_000,
-      expectedMs: 8 * 60_000,
-      maxMs: 8 * 60_000,
+      expectedMs: 10 * 60_000,
+      maxMs: 14 * 60_000,
     })
   })
 
@@ -228,7 +238,152 @@ describe("parkPlan", () => {
     expect(
       plan(undefined, { decisionFor: (site) => (site.id === "record-store" ? "stop" : "skip") }),
     ).toEqual({ mandatoryMs: 4 * 60_000, expectedMs: 4 * 60_000, maxMs: 4 * 60_000 })
-    expect(plan(undefined, { afterMile: 4 }).maxMs).toBe(4 * 60_000)
+    expect(plan(undefined, { afterMile: 4 }).maxMs).toBe(10 * 60_000)
+  })
+})
+
+describe("fuel", () => {
+  function parsed(mutate?: (map: TripMapInput) => void) {
+    const input = clone()
+    mutate?.(input)
+    const result = parseTripMap(input)
+    const { map } = result
+    if (!map) throw new Error("bad map")
+    return { ...result, map }
+  }
+
+  it("derives burn from tanks per trip and plans a fill where fuel runs low", () => {
+    const { map } = parsed()
+    // 1.8 tanks × 15 gal over 12 mi → 2.25 gal/mi; range 6.67 mi.
+    expect(baseGallonsPerMile(map)).toBeCloseTo(2.25, 6)
+    const plan = fuelPlan(map)
+    expect(plan.lowAtMile).toBeCloseTo((15 - 2.25) / 2.25, 6)
+    expect(plan.emptyAtMile).toBeNull()
+    expect(plan.gasStops).toEqual([
+      {
+        siteId: "gas-n-go",
+        mile: 6,
+        gallonsOnArrival: expect.closeTo(1.5, 6),
+        stops: true,
+        gallons: expect.closeTo(13.5, 6),
+        baseCost: 108,
+      },
+    ])
+    expect(plan.points.at(-1)).toEqual({ mile: 12, gallons: expect.closeTo(1.5, 6) })
+  })
+
+  it("only defaults a gas site to stop when the van reaches it low", () => {
+    const { map } = parsed()
+    const gas = map.sites[1]!
+    expect(effectiveSkipDefault(map, gas, 1.5)).toBe("stop")
+    expect(effectiveSkipDefault(map, gas, 9)).toBe("skip")
+    expect(effectiveSkipDefault(map, map.sites[0]!, 0)).toBe("skip")
+  })
+
+  it("warns about a gas desert, including a gas site the van skips by default", () => {
+    const noGas = parsed((m) => void m.sites.splice(1, 1))
+    expect(codes(noGas)).toContain("gas-desert")
+    expect(noGas.ok).toBe(true)
+
+    // 1.2 tanks: 40% left at the gas site, so nobody-votes drives past and runs dry at mile 10.
+    const skipped = parsed((m) => (m.route.tanksPerTrip = 1.2))
+    expect(fuelPlan(skipped.map).gasStops[0]?.stops).toBe(false)
+    expect(fuelPlan(skipped.map).emptyAtMile).toBeCloseTo(10, 6)
+    expect(codes(skipped)).toContain("gas-desert")
+  })
+
+  it("prices gas in whole coins scaled by costScale", () => {
+    expect(gasCost(13.5, 8)).toBe(108)
+    expect(gasCost(13.5, 8, 1.5)).toBe(162)
+    expect(gasCost(0.01, 8)).toBe(1)
+    expect(gasCost(0, 8)).toBe(0)
+  })
+
+  it("warns that gas at the destination is ignored", () => {
+    const result = parsed((m) => (m.sites[3]!.services = { gas: { pricePerGallon: 5 } }))
+    expect(codes(result)).toContain("gas-at-destination")
+  })
+})
+
+describe("van and incidents (Phase 3)", () => {
+  function parsed(mutate?: (map: TripMapInput) => void) {
+    const input = clone()
+    mutate?.(input)
+    return parseTripMap(input)
+  }
+
+  it("checks custom offers through validateShop and counts them as a shop", () => {
+    const seen: unknown[] = []
+    const result = parsed((m) => {
+      m.sites[0]!.shop = { offers: [{ definitionId: "road-trip:jetpack" }] }
+    })
+    expect(codes(result)).not.toContain("empty-shop")
+    const blocked = parseTripMap(clone(), {
+      validateShop: (req) => {
+        seen.push(req)
+        const bad = req.offers?.find((o) => o.definitionId === "road-trip:cb-radio")
+        return bad ? { ok: false, errors: ['Unknown item "road-trip:cb-radio"'] } : { ok: true }
+      },
+    })
+    expect(blocked.issues).toContainEqual(
+      expect.objectContaining({
+        code: "unknown-item",
+        siteId: "hanks-garage",
+        path: "sites.4.shop.offers",
+      }),
+    )
+    expect(seen).toContainEqual({
+      offers: [{ definitionId: "road-trip:fix-a-flat" }, { definitionId: "road-trip:aaa-card" }],
+    })
+    expect(codes(parsed((m) => (m.sites[0]!.shop = {})))).toContain("empty-shop")
+  })
+
+  it("rejects malformed offer ids", () => {
+    expect(
+      parsed((m) => (m.sites[0]!.shop = { offers: [{ definitionId: "fix-a-flat" }] })).ok,
+    ).toBe(false)
+  })
+
+  it("lints scripted events: duplicates, past the destination, no Mechanic ahead", () => {
+    const result = parsed((m) => {
+      m.scriptedEvents = [
+        { id: "a", atMile: 3, incident: "traffic-jam" },
+        { id: "a", atMile: 5, incident: "traffic-jam" },
+        { id: "late", atMile: 12, incident: "blown-tire" },
+        { id: "boom", atMile: 11, incident: "engine-failure" },
+      ]
+    })
+    expect(codes(result)).toEqual(
+      expect.arrayContaining(["duplicate-event-id", "event-beyond-route", "no-mechanic"]),
+    )
+    const covered = parsed((m) => {
+      m.scriptedEvents = [{ id: "boom", atMile: 7, incident: "engine-failure" }]
+    })
+    expect(codes(covered)).not.toContain("no-mechanic")
+  })
+
+  it("won't script Out of Gas", () => {
+    const result = parsed((m) => {
+      m.scriptedEvents = [{ id: "dry", atMile: 3, incident: "out-of-gas" as "traffic-jam" }]
+    })
+    expect(result.ok).toBe(false)
+  })
+
+  it("warns about a Mechanic at the destination", () => {
+    expect(
+      codes(parsed((m) => (m.sites[3]!.services = { mechanic: true }))),
+    ).toContain("mechanic-at-destination")
+  })
+
+  it("ships Gas Station offers and a Mechanic preset", () => {
+    const gas = GENERIC_SITE_PRESETS.find((p) => p.id === "gas-station")!
+    expect(gas.site.shop?.offers?.map((o) => o.definitionId)).toEqual([
+      "road-trip:fix-a-flat",
+      "road-trip:aaa-card",
+    ])
+    const mechanic = GENERIC_SITE_PRESETS.find((p) => p.id === "mechanic")!
+    expect(mechanic.site.services).toEqual({ mechanic: true })
+    expect(mechanic.site.shop?.offers).toHaveLength(6)
   })
 })
 

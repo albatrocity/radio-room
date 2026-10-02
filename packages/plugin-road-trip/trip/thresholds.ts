@@ -1,21 +1,44 @@
 import type { TripMap } from "@repo/road-trip-map"
 import { resolveSiteSettings, sortedSites } from "@repo/road-trip-map"
-import { project, timeToMile, type Leg } from "./ledger"
-import type { TripState } from "./state"
-import { ARRIVAL_MILE_EPSILON } from "./transitions"
+import { project, timeToGallonsUsed, timeToMile, type Leg } from "./ledger"
+import { currentIncidentStep, isTowing, type FuelLevel, type TripState } from "./state"
+import { ARRIVAL_MILE_EPSILON, fuelLine } from "./transitions"
 
-export type ThresholdKind = "reveal" | "skip-poll" | "arrive" | "expire"
+export type ThresholdKind =
+  | "reveal"
+  | "skip-poll"
+  | "arrive"
+  | "expire"
+  | "fuel"
+  | "incident"
+  | "scripted"
+
+export type ThresholdPayload = {
+  tripId: string
+  siteId?: string
+  blockerId?: string
+  level?: FuelLevel
+  incidentId?: string
+  step?: number
+  eventId?: string
+}
 
 export type ThresholdRequest = {
   id: string
   kind: ThresholdKind
   at: number
-  payload: { tripId: string; siteId?: string; blockerId?: string }
+  payload: ThresholdPayload
 }
 
-/** Fixed schedule id for a threshold: one per kind and site (or blocker). */
+/** Fixed schedule id for a threshold: one per kind and site (or blocker, step, event). */
 export function thresholdId(kind: ThresholdKind, target: string): string {
   return `${kind}:${target}`
+}
+
+/** The id target a payload was armed under (the inverse of `solveThresholds`' ids). */
+export function thresholdTarget(payload: ThresholdPayload): string | undefined {
+  if (payload.incidentId !== undefined) return `${payload.incidentId}:${payload.step ?? 0}`
+  return payload.siteId ?? payload.blockerId ?? payload.level ?? payload.eventId
 }
 
 /** Never arm in the past; durable schedules fire "soon" instead. */
@@ -46,9 +69,59 @@ export function solveThresholds(
     })
   }
 
-  if (state.status !== "driving" || current.mph <= 0) return out
+  const incident = state.incident
+  const step = currentIncidentStep(state)
+  if (incident && step && state.status === "driving") {
+    let at: number | null = null
+    if (step.kind === "tow") {
+      const site = map.sites.find((s) => s.id === step.siteId)
+      if (site && current.mph > 0) {
+        at = timeToMile(current, site.mile) ?? soon
+      }
+    } else if (incident.stepEndsAt !== undefined) {
+      at = incident.stepEndsAt
+    }
+    if (at !== null) {
+      out.push({
+        id: thresholdId("incident", `${incident.id}:${incident.step}`),
+        kind: "incident",
+        at: Math.max(at, soon),
+        payload: { tripId, incidentId: incident.id, step: incident.step },
+      })
+    }
+  }
+
+  // A tow carries the van past everything to its Mechanic; only the tow's arrival matters.
+  if (state.status !== "driving" || current.mph <= 0 || isTowing(state)) return out
+
+  for (const level of ["low", "empty"] as const) {
+    if (state.fuelFlags.includes(level)) continue
+    const target = state.lastFill.gallonsUsed + state.lastFill.gallons - fuelLine(state, map, level)
+    const at = timeToGallonsUsed(current, target) ?? (current.gpm > 0 ? soon : null)
+    if (at === null) continue
+    out.push({
+      id: thresholdId("fuel", level),
+      kind: "fuel",
+      at: Math.max(at, soon),
+      payload: { tripId, level },
+    })
+  }
 
   const mile = project(current, now).mile
+
+  for (const event of map.scriptedEvents ?? []) {
+    if (state.scriptedFired.includes(event.id)) continue
+    const at =
+      event.atMile <= mile + ARRIVAL_MILE_EPSILON ? soon : timeToMile(current, event.atMile)
+    if (at === null) continue
+    out.push({
+      id: thresholdId("scripted", event.id),
+      kind: "scripted",
+      at: Math.max(at, soon),
+      payload: { tripId, eventId: event.id },
+    })
+  }
+
   for (const site of sortedSites(map)) {
     const runtime = state.sites[site.id]
     if (!runtime) continue

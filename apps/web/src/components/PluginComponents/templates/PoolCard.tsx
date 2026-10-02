@@ -10,61 +10,43 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import { LuMaximize2, LuMinus, LuRocket } from "react-icons/lu"
+import { LuMaximize2, LuMinus, LuPiggyBank } from "react-icons/lu"
+import type { PoolCardView } from "@repo/types"
 import { emitToSocket } from "../../../actors/socketActor"
 import { subscribeForSocketResult } from "../../../lib/subscribeForSocketResult"
 import { toaster } from "../../ui/toaster"
 import { ExpiryBar } from "../../ExpiryBar"
 import ParsedEmojiMessage from "../../ParsedEmojiMessage"
 import { usePluginComponentContext } from "../context"
-import type { KickstarterCampaignCardComponentProps } from "../../../types/PluginComponent"
-
-/** Public campaign slice from plugin store (no per-backer pledges). */
-type CampaignView = {
-  title: string
-  rewards: string
-  goal: number
-  pledged: number
-  ownerName: string
-  phase: "funding" | "deliveryWait" | "poll"
-  phaseStartedAt: number
-  phaseEndsAt: number
-}
+import type { PoolCardComponentProps } from "../../../types/PluginComponent"
 
 /**
- * aboveChat card for an active crowdfunding campaign (ADR 0188).
- * Collapsible chrome matches Poll cards; ExpiryBar drains the phase timer.
+ * aboveChat card for a voluntary coin pool — Kickstarter campaigns (ADR 0188),
+ * road trip gas funds (ADR 0204). Collapsible chrome matches Poll cards;
+ * ExpiryBar drains the pool's deadline.
  */
-export function KickstarterCampaignCardTemplateComponent({
-  backLabel = "Back this campaign",
-}: KickstarterCampaignCardComponentProps) {
+export function PoolCardTemplateComponent({
+  poolKey = "pool",
+  pledgeAction,
+  pledgeLabel = "Chip in",
+  defaultAmount = 5,
+}: PoolCardComponentProps) {
   const { store, pluginName } = usePluginComponentContext()
-  const campaign = store.campaign as CampaignView | null | undefined
-  const [amount, setAmount] = useState("5")
+  const pool = store[poolKey] as PoolCardView | null | undefined
+  const [amount, setAmount] = useState(String(defaultAmount))
   const [loading, setLoading] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
-  const [subId] = useState(() => `kickstarter-back-${Math.random().toString(36).slice(2)}`)
+  const [subId] = useState(() => `pool-pledge-${Math.random().toString(36).slice(2)}`)
 
-  if (!campaign) return null
+  if (!pool) return null
 
-  const progress =
-    campaign.goal > 0 ? Math.min(100, Math.round((campaign.pledged / campaign.goal) * 100)) : 0
-  const phaseLabel =
-    campaign.phase === "funding"
-      ? "Funding"
-      : campaign.phase === "deliveryWait"
-      ? "Awaiting delivery"
-      : "Delivery review"
-
-  const phaseStartedAt =
-    typeof campaign.phaseStartedAt === "number" && campaign.phaseStartedAt < campaign.phaseEndsAt
-      ? campaign.phaseStartedAt
-      : Date.now()
-  const showExpiryBar =
-    typeof campaign.phaseEndsAt === "number" && campaign.phaseEndsAt > Date.now()
+  const progress = pool.goal > 0 ? Math.min(100, Math.round((pool.raised / pool.goal) * 100)) : 0
+  const startedAt =
+    pool.endsAt !== null && pool.startedAt < pool.endsAt ? pool.startedAt : Date.now()
+  const showExpiryBar = pool.endsAt !== null && pool.endsAt > Date.now()
 
   const submitPledge = () => {
-    if (!pluginName || campaign.phase !== "funding") return
+    if (!pluginName || !pool.open) return
     const n = Math.floor(Number(amount))
     if (!Number.isFinite(n) || n < 1) {
       toaster.create({
@@ -93,7 +75,7 @@ export function KickstarterCampaignCardTemplateComponent({
     })
     emitToSocket("EXECUTE_PLUGIN_ACTION", {
       pluginName,
-      action: "backCampaign",
+      action: pledgeAction,
       params: { amount: n },
     })
   }
@@ -105,20 +87,21 @@ export function KickstarterCampaignCardTemplateComponent({
           <HStack justify="space-between" align="center" gap={2}>
             <HStack gap={2} minW={0} flex={1}>
               <Box color="primary.solid" flexShrink={0}>
-                <LuRocket />
+                {pool.icon ? <Text as="span">{pool.icon}</Text> : <LuPiggyBank />}
               </Box>
               {collapsed ? (
                 <Text fontSize="sm" truncate>
-                  {campaign.title} · {campaign.pledged}/{campaign.goal} · {phaseLabel}
+                  {pool.title} · {pool.raised}/{pool.goal}
+                  {pool.eyebrow ? ` · ${pool.eyebrow}` : ""}
                 </Text>
-              ) : (
+              ) : pool.eyebrow ? (
                 <Text fontSize="xs" color="fg.muted">
-                  Crowdfunding · {phaseLabel}
+                  {pool.eyebrow}
                 </Text>
-              )}
+              ) : null}
             </HStack>
             <IconButton
-              aria-label={collapsed ? "Expand campaign" : "Collapse campaign"}
+              aria-label={collapsed ? "Expand" : "Collapse"}
               size="xs"
               variant="ghost"
               onClick={() => setCollapsed((c) => !c)}
@@ -131,24 +114,30 @@ export function KickstarterCampaignCardTemplateComponent({
             <VStack align="stretch" gap={2} mt={0} minW={0}>
               <Stack gap={0}>
                 <Text fontSize="sm" fontWeight="bold" lineClamp={2}>
-                  {campaign.title}
+                  {pool.title}
                 </Text>
-                <Text fontSize="xs" color="fg.muted">
-                  by {campaign.ownerName}
-                </Text>
+                {pool.subtitle ? (
+                  <Text fontSize="xs" color="fg.muted">
+                    {pool.subtitle}
+                  </Text>
+                ) : null}
               </Stack>
-              <Stack gap={0}>
-                <Text fontSize="xs" fontWeight="bold">
-                  Rewards
-                </Text>
-                <Box fontSize="sm">
-                  <ParsedEmojiMessage content={campaign.rewards} />
-                </Box>
-              </Stack>
+              {pool.body ? (
+                <Stack gap={0}>
+                  {pool.bodyLabel ? (
+                    <Text fontSize="xs" fontWeight="bold">
+                      {pool.bodyLabel}
+                    </Text>
+                  ) : null}
+                  <Box fontSize="sm">
+                    <ParsedEmojiMessage content={pool.body} />
+                  </Box>
+                </Stack>
+              ) : null}
               <Box>
                 <HStack justify="space-between" mb={1}>
                   <Text fontSize="xs">
-                    {campaign.pledged} / {campaign.goal} coin
+                    {pool.raised} / {pool.goal} coin
                   </Text>
                   <Text fontSize="xs">{progress}%</Text>
                 </HStack>
@@ -158,7 +147,12 @@ export function KickstarterCampaignCardTemplateComponent({
                   </Progress.Track>
                 </Progress.Root>
               </Box>
-              {campaign.phase === "funding" ? (
+              {pool.topContributors?.length ? (
+                <Text fontSize="xs" color="fg.muted">
+                  Top: {pool.topContributors.map((c) => `${c.name} (${c.amount})`).join(", ")}
+                </Text>
+              ) : null}
+              {pool.open ? (
                 <HStack gap={2}>
                   <Input
                     size="sm"
@@ -176,7 +170,7 @@ export function KickstarterCampaignCardTemplateComponent({
                     onClick={submitPledge}
                     flex="1"
                   >
-                    {backLabel}
+                    {pledgeLabel}
                   </Button>
                 </HStack>
               ) : null}
@@ -184,13 +178,8 @@ export function KickstarterCampaignCardTemplateComponent({
           )}
         </Box>
 
-        {showExpiryBar && (
-          <ExpiryBar
-            startAt={phaseStartedAt}
-            endAt={campaign.phaseEndsAt}
-            color="primary.solid"
-            height="3px"
-          />
+        {showExpiryBar && pool.endsAt !== null && (
+          <ExpiryBar startAt={startedAt} endAt={pool.endsAt} color="primary.solid" height="3px" />
         )}
       </Box>
     </Box>

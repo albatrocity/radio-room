@@ -1,7 +1,12 @@
 # 0188. Kickstarter campaigns and coin escrow
 
 **Date:** 2026-09-22
-**Status:** Accepted
+**Status:** Accepted (escrow and card amended by [0204](0204-trip-funds-escrow-pool-and-levy.md))
+
+> **Amended by [0204](0204-trip-funds-escrow-pool-and-levy.md):** pledges now live in a shared
+> `EscrowPoolHelper` (`@repo/plugin-base`) at `kickstarter:pool`, not on the campaign record.
+> Legacy `pledges` are moved into the pool on reconcile. The card is the shared `pool-card`
+> template (store key `campaignPool`); `kickstarter-campaign-card` remains the component id.
 
 ## Context
 

@@ -4,8 +4,15 @@ import { LuChevronLeft } from "react-icons/lu"
 import { openGameStateOnTab } from "../../../../actors/modalsActor"
 import type { RoadTripStripComponentProps } from "../../../../types/PluginComponent"
 import { usePluginComponentContext } from "../../context"
+import { FuelGauge } from "./FuelGauge"
 import { TripRouteLine } from "./TripRouteLine"
-import { DEFAULT_TRIP_KEY, stripContext, useInterpolatedVanMile, useTripStore } from "./tripView"
+import {
+  DEFAULT_TRIP_KEY,
+  fuelView,
+  stripContext,
+  useInterpolatedVanMile,
+  useTripStore,
+} from "./tripView"
 
 const COLLAPSED_STORAGE_KEY = "road-trip-strip-collapsed"
 
@@ -32,7 +39,7 @@ export function RoadTripStripTemplateComponent({
 }: RoadTripStripComponentProps) {
   const { pluginName } = usePluginComponentContext()
   const trip = useTripStore(tripKey)
-  const { mile, now } = useInterpolatedVanMile(trip)
+  const { mile, gallons, now } = useInterpolatedVanMile(trip)
   const [collapsed, setCollapsed] = useState(readCollapsed)
 
   if (!trip) return null
@@ -93,6 +100,7 @@ export function RoadTripStripTemplateComponent({
         <Text fontSize="xs" truncate maxW="55%" flexShrink={1} color="fg.muted">
           {context}
         </Text>
+        <FuelGauge fuel={fuelView(trip, gallons)} />
         <IconButton
           aria-label="Collapse road trip strip"
           size="2xs"

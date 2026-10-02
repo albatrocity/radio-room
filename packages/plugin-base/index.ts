@@ -26,6 +26,8 @@ export {
   type ShopTransactionResult,
   type GenerateShopComponentsOptions,
   ShoppingSessionHelper,
+  ROOM_SHOP_ID_PREFIX,
+  type ShoppingExtraOffer,
   type ItemShopsShopCatalogEntry,
   type ShopAvailableItem,
   type ShopEconomyHooks,
@@ -84,6 +86,18 @@ export {
   type TrackAnnotationsOptions,
   isSystemChatMessage,
   normalizeToken,
+  EscrowPoolHelper,
+  collectShares,
+  splitProportional,
+  hasActiveCoinLock,
+  modifierLocksCoin,
+  topContributors,
+  type CoinShare,
+  type CollectSharesResult,
+  type EscrowPledge,
+  type EscrowPoolOptions,
+  type EscrowPoolState,
+  type PledgeResult,
 } from "./helpers"
 
 export {

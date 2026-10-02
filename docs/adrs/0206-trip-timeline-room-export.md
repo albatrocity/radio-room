@@ -26,5 +26,12 @@ A road trip ([0200](0200-road-trips-v1.md)) is part of the show's story: where t
 
 - The published show keeps a readable trip record without new persistence.
 - Hosts should end the trip before publishing, so the timeline has an ending.
-- Phases 2–3 add fund, fuel, incident, and part rows, plus a Travelers table, to the same log and formatter.
+- Phase 2 adds `fund` and `fuel` log events ([0204](0204-trip-funds-escrow-pool-and-levy.md)):
+  - The timeline shows each fund with its fill folded in ("⛽ Gas 'n' Go: 108 coins from 2 travelers, filled 13.5 gal", plus a note when short), and low and empty fuel rows.
+  - The summary gains a Money row.
+  - A Travelers table lists coins paid per listener.
+- Phase 3 adds `incident` and `part-installed` log events:
+  - The timeline shows each incident's start (marked "scripted" when it came from the map), immunity, the item or AAA card that resolved it, tows ("🚚 Towed 3 mi to Hank's Garage"), host skips, and the end. Fund rows name their purpose (roadside, tow, repair, delivery), and a waived fund says so.
+  - The summary's Money row counts incident costs, and a new Incidents row counts incidents and tows.
+  - The Travelers table gains a Parts column listing who installed what.
 - The timezone is a per-room config value. If shows ever carry a timezone, the formatter should prefer it.

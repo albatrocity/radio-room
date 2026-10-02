@@ -1,12 +1,15 @@
 import type { PluginContext, GameSessionPluginAPI } from "@repo/types"
 import {
+  adoptLegacyPledges,
   applyFrozenAssets,
   finishCampaign,
   isDeliverySuccessful,
   loadCampaign,
+  loadPublicState,
   markPollAttempt,
   markPollOpen,
   pledge,
+  poolRaised,
   settleFundingFailure,
   settleFundingSuccess,
   startCampaign,
@@ -65,8 +68,8 @@ export class KickstarterModule {
   }
 
   async publicState(): Promise<KickstarterPublicState> {
-    if (!this.context) return toPublicState(null)
-    return toPublicState(await loadCampaign(this.context))
+    if (!this.context || !this.game) return toPublicState(null)
+    return loadPublicState(this.deps())
   }
 
   async startCampaign(params: {
@@ -95,7 +98,8 @@ export class KickstarterModule {
 
   /** Recover missed poll events after restart. Timer re-arming is handled by ZSET (ADR 0190). */
   async reconcileOnRegister(): Promise<void> {
-    if (!this.context) return
+    if (!this.context || !this.game) return
+    await adoptLegacyPledges(this.deps())
     const campaign = await loadCampaign(this.context)
     if (!campaign) return
     if (campaign.phase === "poll") {
@@ -117,8 +121,8 @@ export class KickstarterModule {
     if (!this.context) return
     const campaign = await loadCampaign(this.context)
     if (!campaign) return
-    if (campaign.phase === "funding" && campaign.pledges.length > 0) {
-      const { blocked } = await settleFundingFailure(this.deps(), campaign)
+    if (campaign.phase === "funding" && (await poolRaised(this.deps(), campaign)) > 0) {
+      const { blocked } = await settleFundingFailure(this.deps())
       await this.context.api.sendSystemMessage(
         this.context.roomId,
         blocked.length > 0
@@ -193,12 +197,13 @@ export class KickstarterModule {
 
   private async onFundingTimeout(campaign: KickstarterCampaign): Promise<void> {
     await this.scheduleApi?.cancelSchedule(TIMER_FUNDING)
-    if (campaign.pledged >= campaign.goal) {
+    const deps = this.deps()
+    const raised = await poolRaised(deps, campaign)
+    if (raised >= campaign.goal) {
       await this.onFundingSuccess(campaign)
       return
     }
-    const deps = this.deps()
-    const { blocked } = await settleFundingFailure(deps, campaign)
+    const { blocked } = await settleFundingFailure(deps)
     await deps.context.api.sendSystemMessage(
       deps.context.roomId,
       blocked.length > 0
@@ -209,7 +214,7 @@ export class KickstarterModule {
     await deps.context.api.sendUserSystemMessage(
       deps.context.roomId,
       campaign.ownerUserId,
-      `Your campaign “${campaign.title}” failed — ${campaign.pledged}/${campaign.goal} coin raised. All pledges were returned.`,
+      `Your campaign “${campaign.title}” failed — ${raised}/${campaign.goal} coin raised. All pledges were returned.`,
       { type: "alert", status: "error" },
     )
     await this.emitPublic?.(toPublicState(null))
@@ -217,7 +222,9 @@ export class KickstarterModule {
 
   private async onFundingSuccess(campaign: KickstarterCampaign): Promise<void> {
     await this.scheduleApi?.cancelSchedule(TIMER_FUNDING)
-    const { campaign: next, publicState } = await settleFundingSuccess(this.deps(), campaign)
+    const settled = await settleFundingSuccess(this.deps(), campaign)
+    if (!settled) return
+    const { campaign: next, publicState } = settled
     const deps = this.deps()
     await deps.context.api.sendSystemMessage(
       deps.context.roomId,

@@ -1,4 +1,5 @@
 import type { TripSite } from "./schema"
+import { VAN_ITEM_IDS, roadTripItemId } from "./van"
 
 /** A site-library entry: everything but the id and mile, which the designer sets. */
 export type SitePreset = {
@@ -7,8 +8,47 @@ export type SitePreset = {
   site: Omit<TripSite, "id" | "mile" | "presetId">
 }
 
-/** Generic site-library presets (Phase 1). Gas Station and Mechanic arrive in Phases 2–3. */
+/** Generic site-library presets. */
 export const GENERIC_SITE_PRESETS: SitePreset[] = [
+  {
+    id: "gas-station",
+    label: "Gas station",
+    site: {
+      name: "Gas 'n' Go",
+      description: "Two pumps, a humming ice machine, and a hand-lettered price sign.",
+      icon: "⛽",
+      parkMinutes: 2,
+      services: { gas: { pricePerGallon: 8 } },
+      shop: {
+        title: "Gas 'n' Go counter",
+        offers: [
+          { definitionId: roadTripItemId(VAN_ITEM_IDS.fixAFlat) },
+          { definitionId: roadTripItemId(VAN_ITEM_IDS.aaa) },
+        ],
+      },
+    },
+  },
+  {
+    id: "mechanic",
+    label: "Mechanic",
+    site: {
+      name: "Hank's Garage",
+      description: "Oil-stained bays, a radio tuned to the ballgame, and parts for days.",
+      icon: "🔧",
+      services: { mechanic: true },
+      shop: {
+        title: "Hank's parts counter",
+        offers: [
+          { definitionId: roadTripItemId(VAN_ITEM_IDS.spoiler) },
+          { definitionId: roadTripItemId(VAN_ITEM_IDS.turbo) },
+          { definitionId: roadTripItemId(VAN_ITEM_IDS.tires) },
+          { definitionId: roadTripItemId(VAN_ITEM_IDS.horn) },
+          { definitionId: roadTripItemId(VAN_ITEM_IDS.fixAFlat) },
+          { definitionId: roadTripItemId(VAN_ITEM_IDS.cbRadio) },
+        ],
+      },
+    },
+  },
   {
     id: "destination-venue",
     label: "Venue (destination)",

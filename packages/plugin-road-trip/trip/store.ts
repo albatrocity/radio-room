@@ -3,6 +3,7 @@ import type { Leg } from "./ledger"
 import {
   MAX_LEGS,
   MAX_LOG_ENTRIES,
+  normalizeTripState,
   TRIP_STORAGE_KEYS as KEYS,
   type ArmedSchedules,
   type StoredTripMap,
@@ -23,7 +24,8 @@ export class TripStorage {
   }
 
   async readState(): Promise<TripState | null> {
-    return (await this.storage.getJson<TripState>(KEYS.STATE)).value
+    const { value } = await this.storage.getJson<TripState>(KEYS.STATE)
+    return value ? normalizeTripState(value) : null
   }
 
   async writeState(state: TripState): Promise<void> {
@@ -31,7 +33,9 @@ export class TripStorage {
   }
 
   updateState(fn: (prev: TripState | null) => TripState): Promise<TripState> {
-    return this.storage.updateJson<TripState>(KEYS.STATE, fn)
+    return this.storage.updateJson<TripState>(KEYS.STATE, (prev) =>
+      fn(prev ? normalizeTripState(prev) : null),
+    )
   }
 
   /** History only; the leg in force is `TripState.leg`. */
@@ -85,6 +89,7 @@ export class TripStorage {
     await this.storage.del(KEYS.LOG)
     await this.storage.del(KEYS.STATE)
     await this.storage.del(KEYS.SHOP_WARNING)
+    await this.storage.del(KEYS.POOL)
   }
 
   async clearAll(): Promise<void> {

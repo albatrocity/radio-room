@@ -100,9 +100,10 @@ export function PluginComponentRenderer({ component }: PluginComponentRendererPr
     component.type === "bingo-card" ||
     component.type === "queue-theme-brief-card" ||
     component.type === "lyric-hero-card" ||
-    component.type === "kickstarter-campaign-card" ||
+    component.type === "pool-card" ||
     component.type === "road-trip-strip" ||
     component.type === "road-trip-trip-panel" ||
+    component.type === "road-trip-van-panel" ||
     component.type === "slider" ||
     (component.type === "text-block" && "status" in component && !!component.status)
 

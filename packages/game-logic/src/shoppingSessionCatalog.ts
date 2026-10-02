@@ -410,6 +410,41 @@ export function applyLiveCostScale(
   return { ...instance, offers }
 }
 
+/** A room shop's custom offer: another plugin's item added to every instance (ADR 0201). */
+export type ShoppingExtraOffer = {
+  definition: ItemDefinition
+  /** Unscaled price. */
+  basePrice: number
+  /** Units each user can buy; 1 when omitted. */
+  stock?: number
+}
+
+/** Append custom offers after the sampled ones, continuing `offerId`. */
+export function appendExtraOffers(
+  instance: ShoppingSessionInstance,
+  extras: readonly ShoppingExtraOffer[],
+  economy?: EconomyScaleState | null,
+): ShoppingSessionInstance {
+  if (extras.length === 0) return instance
+  const resolved = resolveEconomy(economy)
+  const start = instance.offers.length
+  const offers: ShopOffer[] = extras.map(({ definition, basePrice, stock }, i) => ({
+    offerId: start + i,
+    shortId: definition.shortId,
+    definitionId: definition.id,
+    name: definition.name,
+    description: definition.description,
+    icon: definition.icon ?? ("package" as LucideIconName),
+    ...(definition.imageUrl ? { imageUrl: definition.imageUrl } : {}),
+    basePrice,
+    price: scalePrice(basePrice, resolved.costScale, resolved.priceRounding),
+    available: true,
+    ...(stock && stock > 1 ? { remaining: stock } : {}),
+    rarity: definition.rarity ?? "common",
+  }))
+  return { ...instance, offers: [...instance.offers, ...offers] }
+}
+
 export function buildShoppingInstance(
   shop: ShopCatalogEntry,
   shortIds: string[],

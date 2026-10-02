@@ -8,7 +8,7 @@ export {
   type ShopTransactionResult,
   type GenerateShopComponentsOptions,
 } from "./ShopHelper"
-export { ShoppingSessionHelper } from "./ShoppingSessionHelper"
+export { ShoppingSessionHelper, ROOM_SHOP_ID_PREFIX } from "./ShoppingSessionHelper"
 export type {
   ShopCatalogEntry as ItemShopsShopCatalogEntry,
   ShopAvailableItem,
@@ -16,6 +16,7 @@ export type {
   LocalLibraryGrant,
   ShopBuyContext,
   ShopSessionContext,
+  ShoppingExtraOffer,
 } from "./shoppingSessionCatalog"
 export {
   resolveItemRarity,
@@ -82,3 +83,17 @@ export {
   type TrackAnnotationsOptions,
 } from "./TrackAnnotations"
 export { isSystemChatMessage, normalizeToken } from "./chatUtils"
+export {
+  EscrowPoolHelper,
+  collectShares,
+  splitProportional,
+  hasActiveCoinLock,
+  modifierLocksCoin,
+  topContributors,
+  type CoinShare,
+  type CollectSharesResult,
+  type EscrowPledge,
+  type EscrowPoolOptions,
+  type EscrowPoolState,
+  type PledgeResult,
+} from "./funds"

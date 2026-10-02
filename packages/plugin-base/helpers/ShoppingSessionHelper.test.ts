@@ -272,6 +272,80 @@ describe("ShoppingSessionHelper purchase / sell hooks", () => {
   })
 })
 
+describe("ShoppingSessionHelper custom offers", () => {
+  const FLAT: ItemDefinition = {
+    id: "road-trip:fix-a-flat",
+    sourcePlugin: "road-trip",
+    shortId: "fix-a-flat",
+    name: "Fix-a-Flat",
+    description: "Patch a blown tire.",
+    stackable: true,
+    maxStack: 5,
+    tradeable: true,
+    consumable: true,
+    coinValue: 30,
+  }
+
+  it("appends extras after the sampled offers with their own definition id", async () => {
+    const { context } = makeContext()
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    await helper.assignInstanceForUserId("u1", 1, undefined, [{ definition: FLAT, basePrice: 25, stock: 2 }])
+    const [, , raw] = (context.storage.hset as ReturnType<typeof vi.fn>).mock.calls[0] as [string, string, string]
+    const offers = (JSON.parse(raw) as { offers: ShopOffer[] }).offers
+    expect(offers).toHaveLength(4)
+    expect(offers[3]).toMatchObject({
+      offerId: 3,
+      shortId: "fix-a-flat",
+      definitionId: "road-trip:fix-a-flat",
+      basePrice: 25,
+      price: 25,
+      remaining: 2,
+      available: true,
+    })
+  })
+
+  it("gives the foreign definition and sells out after the stocked units", async () => {
+    const offer: ShopOffer = {
+      offerId: 0,
+      shortId: "fix-a-flat",
+      definitionId: "road-trip:fix-a-flat",
+      name: "Fix-a-Flat",
+      description: "Patch",
+      icon: "package",
+      price: 25,
+      basePrice: 25,
+      available: true,
+      remaining: 2,
+      rarity: "common",
+    }
+    const { context, giveItem } = makeContext({ instance: { shopId: "room-shop:trip", offers: [offer] } })
+    const hset = context.storage.hset as ReturnType<typeof vi.fn>
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    await expect(helper.purchase({ userId: "u1", username: "U" }, 0)).resolves.toMatchObject({ success: true })
+    expect(giveItem).toHaveBeenCalledWith("u1", "road-trip:fix-a-flat", 1, undefined, "purchase")
+    const afterOne = JSON.parse(hset.mock.calls[0]![2] as string) as { offers: ShopOffer[] }
+    expect(afterOne.offers[0]).toMatchObject({ available: true, remaining: 1 })
+    context.storage.hget = vi.fn(async () => JSON.stringify(afterOne)) as PluginContext["storage"]["hget"]
+    await helper.purchase({ userId: "u1", username: "U" }, 0)
+    const afterTwo = JSON.parse(hset.mock.calls[1]![2] as string) as { offers: ShopOffer[] }
+    expect(afterTwo.offers[0]).toMatchObject({ available: false, remaining: 0 })
+  })
+
+  it("buys back on an offers-only room shop at the instance's rates", async () => {
+    const { context, removeItem } = makeContext({ instance: { shopId: "room-shop:trip", offers: [] } })
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    const item: InventoryItem = {
+      itemId: "f-1",
+      definitionId: FLAT.id,
+      sourcePlugin: "road-trip",
+      quantity: 1,
+      acquiredAt: 1,
+    }
+    await expect(helper.sell("u1", item, FLAT)).resolves.toMatchObject({ success: true, refund: 0 })
+    expect(removeItem).toHaveBeenCalled()
+  })
+})
+
 describe("ShoppingSessionHelper opening DMs", () => {
   it("forwards openingMessageMeta on the private system message", async () => {
     const { context } = makeContext()

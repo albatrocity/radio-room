@@ -5,29 +5,48 @@
  * plugin-instance lookup.
  */
 
+/**
+ * One custom offer in a room shop: any registered item by full definition id
+ * (e.g. `road-trip:fix-a-flat`), added to every user's instance (D14).
+ */
+export type RoomShopOffer = {
+  definitionId: string
+  /** Unscaled price; defaults to the definition's `coinValue`. Scaled by `costScale`. */
+  basePrice?: number
+  /** Units each user can buy this round (default 1). */
+  stock?: number
+}
+
 /** Open a room-wide shop round for a scope (e.g. a road-trip site stop). */
 export type OpenRoomShopRequest = {
   /** Owner-chosen id; `closeRoomShop` only ends the round this scope opened. */
   scopeId: string
   title?: string
   /** Item Shops catalog shop ids the round is limited to. */
-  shopIds: string[]
+  shopIds?: string[]
+  /** Custom offers merged into the round's shop. At least one of `shopIds` / `offers` is required. */
+  offers?: RoomShopOffer[]
   /** Optional room message when the shop opens. */
   openingMessage?: string
 }
 
 export type OpenRoomShopResult =
   | { ok: true }
-  | { ok: false; reason: "disabled" | "unknown-shop" | "unavailable" | "no-session" }
+  | {
+      ok: false
+      reason: "disabled" | "unknown-shop" | "unknown-item" | "unavailable" | "no-session"
+    }
 
 /** `warnings`: known shops this room can't open right now (e.g. Record Store off the Media Bridge). */
 export type ValidateShopResult = { ok: true; warnings?: string[] } | { ok: false; errors: string[] }
+
+export type ValidateShopRequest = { shopIds?: string[]; offers?: RoomShopOffer[] }
 
 /** Item Shops' room-shop access for other plugins (D13). Distinct from Item Shops' internal per-user `ItemShopsShopAccess`. */
 export interface ShopAccessCapability {
   openRoomShop(req: OpenRoomShopRequest): Promise<OpenRoomShopResult>
   closeRoomShop(scopeId: string): Promise<void>
-  validateShop(req: { shopIds: string[] }): Promise<ValidateShopResult>
+  validateShop(req: ValidateShopRequest): Promise<ValidateShopResult>
 }
 
 /** Every capability a plugin can declare. Add new capabilities here. */

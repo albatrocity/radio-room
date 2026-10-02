@@ -1,26 +1,39 @@
 import { Box, HStack, Text } from "@chakra-ui/react"
 import { useRef, useState } from "react"
-import { isDestination, revealMileAtBaseSpeed, type TripMap } from "@repo/road-trip-map"
-import type { TripSiteDraft } from "../../tripMap/tripMapDraft"
+import {
+  INCIDENTS,
+  isDestination,
+  revealMileAtBaseSpeed,
+  type TripMap,
+} from "@repo/road-trip-map"
+import type { ScriptedEventDraft, TripSiteDraft } from "../../tripMap/tripMapDraft"
 
 type Props = {
   sites: TripSiteDraft[]
+  events: ScriptedEventDraft[]
   routeMiles: number
   /** Resolved map for reveal ticks; null while the draft doesn't parse. */
   resolved: TripMap | null
   selectedSiteId: string | null
+  selectedEventId: string | null
   onSelect: (siteId: string) => void
   onMove: (siteId: string, mile: number) => void
+  onSelectEvent: (eventId: string) => void
+  onMoveEvent: (eventId: string, mile: number) => void
 }
 
-/** Route line with draggable site pins and faint reveal ticks (M8). */
+/** Route line with draggable site pins above, scripted-event pins below, and reveal ticks (M8). */
 export function TripRouteTrack({
   sites,
+  events,
   routeMiles,
   resolved,
   selectedSiteId,
+  selectedEventId,
   onSelect,
   onMove,
+  onSelectEvent,
+  onMoveEvent,
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState<string | null>(null)
@@ -33,9 +46,12 @@ export function TripRouteTrack({
     return ((clientX - rect.left) / rect.width) * routeMiles
   }
 
+  const roundedMile = (clientX: number) =>
+    Math.round(Math.min(Math.max(0.1, mileAt(clientX)), routeMiles - 0.1) * 10) / 10
+
   return (
     <Box>
-      <Box ref={trackRef} position="relative" h="64px" mx="4">
+      <Box ref={trackRef} position="relative" h={events.length > 0 ? "96px" : "64px"} mx="4">
         <Box
           position="absolute"
           top="32px"
@@ -107,6 +123,52 @@ export function TripRouteTrack({
               />
               <Text fontSize="2xs" color="fg.muted" whiteSpace="nowrap">
                 {site.mile.toFixed(1)}
+              </Text>
+            </Box>
+          )
+        })}
+        {events.map((event) => {
+          const key = `event:${event.id}`
+          const selected = event.id === selectedEventId
+          return (
+            <Box
+              key={key}
+              position="absolute"
+              top="36px"
+              left={`${pct(event.atMile)}%`}
+              transform="translateX(-50%)"
+              textAlign="center"
+              cursor="grab"
+              userSelect="none"
+              touchAction="none"
+              title={`${INCIDENTS[event.incident].name} at mile ${event.atMile}`}
+              onPointerDown={(e) => {
+                onSelectEvent(event.id)
+                e.currentTarget.setPointerCapture(e.pointerId)
+                setDragging(key)
+              }}
+              onPointerUp={(e) => {
+                e.currentTarget.releasePointerCapture(e.pointerId)
+                setDragging(null)
+              }}
+              onPointerMove={(e) => {
+                if (dragging === key) onMoveEvent(event.id, roundedMile(e.clientX))
+              }}
+            >
+              <Box mx="auto" h="8px" w="0" borderLeftWidth="2px" borderStyle="dashed" borderColor="orange.solid" />
+              <Text
+                fontSize="md"
+                lineHeight="1"
+                px="1"
+                borderRadius="md"
+                borderWidth={selected ? "2px" : "1px"}
+                borderColor={selected ? "blue.solid" : "orange.muted"}
+                bg="bg"
+              >
+                {INCIDENTS[event.incident].emoji}
+              </Text>
+              <Text fontSize="2xs" color="orange.fg" whiteSpace="nowrap">
+                {event.atMile.toFixed(1)}
               </Text>
             </Box>
           )

@@ -17,11 +17,20 @@ import {
   skipPollQuestion,
   type TripMap,
 } from "@repo/road-trip-map"
-import { SHOP_OPTIONS, type TripSiteDraft } from "../../tripMap/tripMapDraft"
+import {
+  OFFER_OPTIONS,
+  SHOP_OPTIONS,
+  type FuelProjectionStop,
+  type TripSiteDraft,
+} from "../../tripMap/tripMapDraft"
+
+const DEFAULT_GAS_PRICE = 8
 
 type Props = {
   site: TripSiteDraft
   resolved: TripMap | null
+  /** This site's row in the no-vote fuel plan, when it sells gas. */
+  gasStop?: FuelProjectionStop
   onChange: (patch: Partial<TripSiteDraft>) => void
   onRemove: () => void
 }
@@ -56,8 +65,8 @@ function Toggle({
   )
 }
 
-/** Site inspector (M8): presentation, stop behavior, reveal, skip poll, and shop. */
-export function TripSiteInspector({ site, resolved, onChange, onRemove }: Props) {
+/** Site inspector (M8): presentation, stop behavior, reveal, skip poll, services, and shop. */
+export function TripSiteInspector({ site, resolved, gasStop, onChange, onRemove }: Props) {
   const destination = isDestination(site)
   const resolvedSite = resolved?.sites.find((s) => s.id === site.id)
   const settings = resolved && resolvedSite ? resolveSiteSettings(resolved, resolvedSite) : null
@@ -70,13 +79,25 @@ export function TripSiteInspector({ site, resolved, onChange, onRemove }: Props)
         )
       : null
   const shopIds = site.shop?.shopIds ?? []
+  const offers = site.shop?.offers ?? []
 
   const setSkipPoll = (patch: Partial<NonNullable<TripSiteDraft["skipPoll"]>>) =>
     onChange({ skipPoll: { ...site.skipPoll, ...patch } })
   const setShop = (patch: Partial<NonNullable<TripSiteDraft["shop"]>>) => {
     const next = { ...site.shop, ...patch }
-    const empty = !next.shopIds?.length && !next.title && !next.openingMessage
+    if (next.offers?.length === 0) delete next.offers
+    const empty = !next.shopIds?.length && !next.offers && !next.title && !next.openingMessage
     onChange({ shop: empty ? undefined : next })
+  }
+  const setServices = (patch: Partial<NonNullable<TripSiteDraft["services"]>>) => {
+    const next: NonNullable<TripSiteDraft["services"]> = { ...site.services, ...patch }
+    if (!next.gas) delete next.gas
+    if (!next.mechanic) delete next.mechanic
+    onChange({ services: Object.keys(next).length > 0 ? next : undefined })
+  }
+  const setOffer = (definitionId: string, offer: { basePrice?: number } | null) => {
+    const rest = offers.filter((o) => o.definitionId !== definitionId)
+    setShop({ offers: offer ? [...rest, { definitionId, ...offer }] : rest })
   }
 
   return (
@@ -257,6 +278,48 @@ export function TripSiteInspector({ site, resolved, onChange, onRemove }: Props)
         </Box>
       ) : null}
 
+      {!destination ? (
+        <Box borderWidth="1px" borderRadius="md" p="3">
+          <Text fontSize="sm" fontWeight="semibold" mb="2">
+            Services
+          </Text>
+          <HStack gap="4" flexWrap="wrap" align="end">
+            <Toggle
+              label="Sells gas"
+              checked={site.services?.gas !== undefined}
+              onChange={(v) =>
+                setServices({ gas: v ? { pricePerGallon: DEFAULT_GAS_PRICE } : undefined })
+              }
+            />
+            <Toggle
+              label="Mechanic (tow destination)"
+              checked={site.services?.mechanic === true}
+              onChange={(v) => setServices({ mechanic: v ? true : undefined })}
+            />
+            {site.services?.gas ? (
+              <Field.Root maxW="160px">
+                <Field.Label fontSize="xs">Coins per gallon</Field.Label>
+                <Input
+                  size="sm"
+                  type="number"
+                  step="0.5"
+                  value={site.services.gas.pricePerGallon}
+                  onChange={(e) => setServices({ gas: { pricePerGallon: Number(e.target.value) } })}
+                />
+              </Field.Root>
+            ) : null}
+          </HStack>
+          {gasStop ? (
+            <Text fontSize="xs" color="fg.muted" mt="2">
+              If nobody votes, the van arrives at {Math.round(gasStop.arrivalPct * 100)}% and{" "}
+              {gasStop.stops
+                ? `fills ${gasStop.gallons.toFixed(1)} gal for ${gasStop.cost} coins.`
+                : "drives past."}
+            </Text>
+          ) : null}
+        </Box>
+      ) : null}
+
       <Box borderWidth="1px" borderRadius="md" p="3">
         <Text fontSize="sm" fontWeight="semibold" mb="2">
           Shop
@@ -277,6 +340,37 @@ export function TripSiteInspector({ site, resolved, onChange, onRemove }: Props)
             />
           ))}
         </HStack>
+        <Text fontSize="xs" fontWeight="semibold" color="fg.muted" mb="1">
+          Custom offers (always on the shelf)
+        </Text>
+        <Stack gap="1" mb="2">
+          {OFFER_OPTIONS.map((option) => {
+            const offer = offers.find((o) => o.definitionId === option.definitionId)
+            return (
+              <HStack key={option.definitionId} gap="3">
+                <Box flex="1">
+                  <Toggle
+                    label={`${option.emoji} ${option.name}`}
+                    checked={offer !== undefined}
+                    onChange={(checked) => setOffer(option.definitionId, checked ? {} : null)}
+                  />
+                </Box>
+                {offer ? (
+                  <Input
+                    size="xs"
+                    type="number"
+                    maxW="110px"
+                    placeholder={`${option.coinValue} coins`}
+                    value={offer.basePrice ?? ""}
+                    onChange={(e) =>
+                      setOffer(option.definitionId, { basePrice: optionalNumber(e.target.value) })
+                    }
+                  />
+                ) : null}
+              </HStack>
+            )
+          })}
+        </Stack>
         <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
           <Field.Root>
             <Field.Label fontSize="xs">Stand title</Field.Label>

@@ -37,8 +37,15 @@ export interface ShopOffer {
    * fall back to `price` as the base.
    */
   basePrice?: number
-  /** false after the user purchased the single available unit. */
+  /** false after the user purchased the last available unit. */
   available: boolean
+  /**
+   * Full definition id when the item belongs to another plugin (a room shop's
+   * custom offer, e.g. `road-trip:fix-a-flat`). Omitted for the shop owner's own items.
+   */
+  definitionId?: string
+  /** Units left for this user when the offer stocks more than one; omitted means one. */
+  remaining?: number
   /** Item rarity for display styling. */
   rarity: ItemRarity
 }

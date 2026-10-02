@@ -14,6 +14,8 @@ export type CommitResult = {
 function legReason(prev: Leg | null, mph: number, log: TripLogEvent[]): LegReason {
   if (!prev || log.some((e) => e.kind === "departed")) return "start"
   if (log.some((e) => e.kind === "arrived" || e.kind === "late")) return "arrive"
+  // Still moving on both sides: a part or Traffic Jam changed the speed, not a stop.
+  if (prev.mph > 0 && mph > 0) return mph < prev.mph ? "factor-on" : "factor-off"
   return mph < prev.mph ? "blocker-on" : "blocker-off"
 }
 
@@ -58,10 +60,18 @@ export function applyTransition(
   transition: Transition,
   map: TripMap,
   now: number,
+  costScale = 1,
 ): AppliedTransition | null {
   const prevLeg = prev.leg ?? null
-  const mile = Math.min(prev.routeMiles, project(prevLeg ?? PARKED_AT_START, now).mile)
-  const result = transition(prev, { now, mile, map })
+  const projected = project(prevLeg ?? PARKED_AT_START, now)
+  const mile = Math.min(prev.routeMiles, projected.mile)
+  const result = transition(prev, {
+    now,
+    mile,
+    gallonsUsed: projected.gallonsUsed,
+    map,
+    costScale,
+  })
   if (!result) return null
   const next: TripState = { ...result.next, version: prev.version + 1 }
   const committed = commitTransition(next, prevLeg, result.log ?? [], now)

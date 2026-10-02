@@ -2,6 +2,7 @@ import { z } from "zod"
 
 export const PLUGIN_NAME = "road-trip"
 export const ROAD_TRIP_TAB_ID = "trip"
+export const ROAD_TRIP_VAN_TAB_ID = "van"
 
 /**
  * Config is small on purpose: trip mode is "a map is loaded" (D2), not
@@ -16,6 +17,7 @@ export const roadTripConfigSchema = z.object({
   tripProgress: z.string().default("No map loaded"),
   tripEta: z.string().default("—"),
   tripNextSite: z.string().default("—"),
+  tripFuel: z.string().default("—"),
   tripWarnings: z.string().default("None"),
 })
 
@@ -27,15 +29,19 @@ export const defaultRoadTripConfig: RoadTripConfig = {
   tripProgress: "No map loaded",
   tripEta: "—",
   tripNextSite: "—",
+  tripFuel: "—",
   tripWarnings: "None",
 }
 
 export const TRIP_STORE_KEYS = [
   "tripActive",
   "trip",
+  "tripPool",
+  "tripPoolOpen",
   "tripProgress",
   "tripEta",
   "tripNextSite",
+  "tripFuel",
   "tripWarnings",
 ] as const
 

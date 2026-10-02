@@ -125,7 +125,7 @@ Use a **username / identity that exists in your Game Studio sandbox** (session s
 
 **Override bridge URL from Game Studio:** set `VITE_STUDIO_BRIDGE_URL` if the bridge is not on `http://127.0.0.1:3099`.
 
-**Road trip preview:** start the bridge with `STUDIO_BRIDGE_TRIP_PREVIEW=1` to add a sample trip (strip, Trip tab, a road-sign skip poll, and road-sign messages) to `studio-room`. The web client doesn't send the `tripPreview` handshake query, so the env var is the way to turn it on for the Room UI. See [`apps/studio-bridge/README.md`](../studio-bridge/README.md#road-trip-preview).
+**Road trip preview:** start the bridge with `STUDIO_BRIDGE_TRIP_PREVIEW=1` to add a sample trip (strip with gas gauge, Trip and Van tabs with installed parts and the speed breakdown, a road-sign skip poll, and road signs in all four variants) to `studio-room`. The `previewFueling` action shows the voluntary gas pool card, and `previewIncident` shows a blown tire on the Van tab and strip. The web client doesn't send the `tripPreview` handshake query, so the env var is the way to turn it on for the Room UI. See [`apps/studio-bridge/README.md`](../studio-bridge/README.md#road-trip-preview).
 
 ---
 
@@ -134,7 +134,9 @@ Use a **username / identity that exists in your Game Studio sandbox** (session s
 Open **Trip maps** in the header (**http://localhost:8005/#/trip-maps**) to design road-trip maps ([ADR 0202](../../docs/adrs/0202-trip-maps-portable-json.md)). It imports only the pure `@repo/road-trip-map` package; no plugin code runs.
 
 - Set route drive minutes, mph, deadline, and planned departure; add sites from the library (generic presets plus one per Item Shops catalog shop) and drag pins to set their mile. Faint ticks show where each site reveals at base speed.
-- Select a pin to edit it in the inspector, with a live preview of its skip poll.
+- Select a pin to edit it in the inspector, with a live preview of its skip poll. The Services section toggles gas (with its price) and Mechanic (an Engine Failure tow destination). The shop section adds custom offers: pick road-trip items and set an optional base price.
+- The second settings row sets tanks per trip, tank size, the low-fuel share, the funds mode, and the voluntary pool window. Under the route, a fuel curve shows the gauge if nobody votes. **Gas if nobody votes** lists each gas site's arrival level, gallons, and cost at the preview cost scale. A gas desert shows up in the lint panel.
+- **Scripted incidents** places Traffic Jam, Blown Tire, and Engine Failure events as orange pins below the route; drag them or set the mile. Each row shows what the incident would cost at that mile with no parts installed, and marks the fees the AAA Card would cover. A scripted Engine Failure with no Mechanic ahead shows up in the lint panel.
 - The lint panel uses the same rules as loading a map in a room. Click an issue to select its site.
 - **Copy JSON** and paste it into road-trip's **Load map** action in a room. **Save** writes `apps/game-studio/maps/<id>.json` through a dev-only middleware (`/__studio/trip-maps`); **Files** reopens saved maps or imports pasted JSON. Your working draft is kept in localStorage.
 

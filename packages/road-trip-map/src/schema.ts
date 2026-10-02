@@ -1,8 +1,7 @@
 import { z } from "zod"
 
 /**
- * Trip Map v1 (ADR 0202). Phase 1 fields only: later phases add `shop.offers`,
- * `services`, `scriptedEvents`, `model`, and fuel / funds tuning.
+ * Trip Map v1 (ADR 0202). Phases 1–3; Phase 4 adds `model`.
  */
 
 export const TRIP_MAP_SCHEMA_VERSION = 1 as const
@@ -35,12 +34,51 @@ export const siteSkipPollSchema = z.object({
 })
 export type SiteSkipPoll = z.infer<typeof siteSkipPollSchema>
 
+/** Any registered item by full definition id (D14), e.g. `road-trip:fix-a-flat`. */
+export const shopOfferSchema = z.object({
+  definitionId: z
+    .string()
+    .min(3)
+    .max(128)
+    .regex(/^[a-z0-9-]+:[A-Za-z0-9_.-]+$/, "Offers name a full item id like road-trip:fix-a-flat"),
+  /** Unscaled price; defaults to the item's `coinValue`. */
+  basePrice: z.number().int().min(0).max(100_000).optional(),
+  /** Units each traveler can buy per stop (default 1). */
+  stock: z.number().int().min(1).max(99).optional(),
+})
+export type SiteShopOffer = z.infer<typeof shopOfferSchema>
+
 export const siteShopSchema = z.object({
   title: z.string().min(1).max(60).optional(),
   shopIds: z.array(z.string().min(1)).max(8).optional(),
+  offers: z.array(shopOfferSchema).max(12).optional(),
   openingMessage: z.string().min(1).max(200).optional(),
 })
 export type SiteShop = z.infer<typeof siteShopSchema>
+
+export const siteServicesSchema = z.object({
+  /** A gas site: stopping fills the tank at this base price (× the session's `costScale`). */
+  gas: z.object({ pricePerGallon: z.number().positive().max(1000) }).optional(),
+  /** A Mechanic: Engine Failure tows here (M4). */
+  mechanic: z.literal(true).optional(),
+})
+export type SiteServices = z.infer<typeof siteServicesSchema>
+
+export const incidentIdSchema = z.enum(["traffic-jam", "blown-tire", "engine-failure", "out-of-gas"])
+export type IncidentId = z.infer<typeof incidentIdSchema>
+
+/** Out of Gas only follows an empty tank, so it can't be triggered or scripted. */
+export const triggerableIncidentIdSchema = z.enum(["traffic-jam", "blown-tire", "engine-failure"])
+export type TriggerableIncidentId = z.infer<typeof triggerableIncidentIdSchema>
+export const TRIGGERABLE_INCIDENT_IDS = triggerableIncidentIdSchema.options
+
+/** A story beat at a mile marker (D23). Server-only: never sent to clients. */
+export const scriptedEventSchema = z.object({
+  id: siteIdSchema,
+  atMile: z.number().min(0),
+  incident: triggerableIncidentIdSchema,
+})
+export type ScriptedEvent = z.infer<typeof scriptedEventSchema>
 
 export const siteSchema = z.object({
   id: siteIdSchema,
@@ -59,6 +97,7 @@ export const siteSchema = z.object({
   skipPoll: siteSkipPollSchema.optional(),
   parkMinutes: z.number().positive().max(60).optional(),
   shop: siteShopSchema.optional(),
+  services: siteServicesSchema.optional(),
 })
 export type TripSite = z.infer<typeof siteSchema>
 
@@ -68,22 +107,40 @@ export const tripRouteSchema = z.object({
     .positive()
     .max(24 * 60),
   baseMph: z.number().positive().max(200).default(55),
-  /** Authored for Phase 2 fuel; carried through untouched in Phase 1. */
+  /** Full tanks the whole route burns at base economy (D6); mpg is derived from it. */
   tanksPerTrip: z.number().positive().max(20).default(1.6),
   deadlineAt: z.string().datetime({ offset: true }).optional(),
 })
 export type TripRoute = z.infer<typeof tripRouteSchema>
 
+export const fundsModeSchema = z.enum(["automatic", "voluntary"])
+export type FundsMode = z.infer<typeof fundsModeSchema>
+
+const DEFAULT_SKIP_POLL = { leadMinutes: 1.5, durationSec: 45, default: "skip" as const }
+const DEFAULT_FUNDS = { mode: "automatic" as const, windowMinutes: 3 }
+
 export const tripTuningSchema = z.object({
+  /** Cosmetic tank size: the gauge and gas quotes are in gallons. */
+  tankGallons: z.number().positive().max(500).default(15),
+  /** Below this share of a tank, gas sites default to "stop" and the copy turns urgent. */
+  lowFuelPct: z.number().min(0).max(0.9).default(0.15),
   parkMinutes: z.number().positive().max(60).default(4),
   revealMiles: revealMilesSchema.default(10),
   skipPoll: z
     .object({
-      leadMinutes: z.number().positive().max(30).default(1.5),
-      durationSec: z.number().int().min(5).max(600).default(45),
-      default: skipDefaultSchema.default("skip"),
+      leadMinutes: z.number().positive().max(30).default(DEFAULT_SKIP_POLL.leadMinutes),
+      durationSec: z.number().int().min(5).max(600).default(DEFAULT_SKIP_POLL.durationSec),
+      default: skipDefaultSchema.default(DEFAULT_SKIP_POLL.default),
     })
-    .default({ leadMinutes: 1.5, durationSec: 45, default: "skip" }),
+    .default(DEFAULT_SKIP_POLL),
+  /** How trip costs are paid (D15–D17): a proportional levy, or a pool the room chips into. */
+  funds: z
+    .object({
+      mode: fundsModeSchema.default(DEFAULT_FUNDS.mode),
+      /** Voluntary pools stay open this long unless the goal is met first. */
+      windowMinutes: z.number().positive().max(30).default(DEFAULT_FUNDS.windowMinutes),
+    })
+    .default(DEFAULT_FUNDS),
   /** Flavor-copy picks only. */
   seed: z.number().int().optional(),
 })
@@ -96,11 +153,15 @@ export const tripMapSchema = z.object({
   revision: z.number().int().min(1).default(1),
   route: tripRouteSchema,
   tuning: tripTuningSchema.default({
+    tankGallons: 15,
+    lowFuelPct: 0.15,
     parkMinutes: 4,
     revealMiles: 10,
-    skipPoll: { leadMinutes: 1.5, durationSec: 45, default: "skip" },
+    skipPoll: DEFAULT_SKIP_POLL,
+    funds: DEFAULT_FUNDS,
   }),
   sites: z.array(siteSchema).min(1).max(64),
+  scriptedEvents: z.array(scriptedEventSchema).max(32).optional(),
 })
 
 /** A parsed map with defaults applied. */

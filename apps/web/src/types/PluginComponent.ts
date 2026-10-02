@@ -55,9 +55,11 @@ export type {
   BingoCardComponentProps,
   SliderComponentProps,
   LyricHeroCardComponentProps,
-  KickstarterCampaignCardComponentProps,
+  PoolCardComponentProps,
+  PoolCardView,
   RoadTripStripComponentProps,
   RoadTripTripPanelComponentProps,
+  RoadTripVanPanelComponentProps,
   RoadTripSiteDetailComponentProps,
   QueueThemeBriefCardComponentProps,
 } from "@repo/types"
