@@ -12,7 +12,7 @@ import {
 import {
   ARRIVAL_MILE_EPSILON,
   AUTOMATIC_FUND_HOLD_MS,
-  backOnTheRoad,
+  BACK_ON_THE_ROAD,
   exitTitle,
   findSite,
   fundShareCopy,
@@ -155,8 +155,6 @@ export const depart: Transition = (state, { now, map }) => {
     .map((site) => site.id)
   const revealed = revealEvents(next, map, startReveals, 0)
   next = revealed.state
-  const first = nextSiteAhead(next, map, 0)
-  const firstRuntime = first ? next.sites[first.id] : undefined
   return {
     next,
     log: [{ kind: "departed" }, ...revealed.log],
@@ -166,10 +164,7 @@ export const depart: Transition = (state, { now, map }) => {
         variant: "info",
         icon: "🚐",
         title: `On the road · ${map.title}`,
-        body:
-          first && firstRuntime?.revealed
-            ? `Next: ${first.name}, ${milesLabel(first.mile)}`
-            : `${milesLabel(state.routeMiles)} to go.`,
+        body: `${milesLabel(state.routeMiles)} to go.`,
       },
       ...revealed.effects,
     ],
@@ -201,7 +196,7 @@ export const resumeTrip: Transition = (state) => {
   return {
     next: { ...state, blockers: state.blockers.filter((b) => b.kind !== "admin-pause") },
     log: [{ kind: "resume", reason: "admin" }],
-    effects: [{ type: "sign", variant: "info", icon: "🚐", title: "Back on the road" }],
+    effects: [BACK_ON_THE_ROAD],
   }
 }
 
@@ -231,7 +226,7 @@ export const gameSessionStarted: Transition = (state) => {
     log: [{ kind: "resume", reason: "no-session" }],
     effects:
       state.status === "driving"
-        ? [{ type: "sign", variant: "info", icon: "🚐", title: "Back on the road" }]
+        ? [BACK_ON_THE_ROAD]
         : [],
   }
 }
@@ -386,21 +381,45 @@ function applyDecision(
       ...(input.votes ? { votes: input.votes } : {}),
       defaulted,
     })
-    const anyVotes = input.votes && input.votes.stop + input.votes.skip > 0
-    if (anyVotes) {
-      const mystery = resolveSiteSettings(map, site).mystery
-      effects.push({
-        type: "sign",
-        variant: "info",
-        icon: "⬆",
-        title: mystery ? "Kept driving" : `Kept driving past ${site.name}`,
-        body: defaulted
-          ? `Tied ${input.votes!.stop}–${input.votes!.skip}. The van stays on the highway.`
-          : `The room voted ${input.votes!.skip}–${input.votes!.stop} to keep going.`,
-      })
-    }
+  }
+  if (input.votes) {
+    effects.push(pollResultSign(site, resolveSiteSettings(map, site).mystery, decision, input.votes))
   }
   return { next, log, effects }
+}
+
+/** The exit poll's outcome as a road sign; the poll card leaves on close (`resultsInChat`). */
+function pollResultSign(
+  site: TripSite,
+  mystery: boolean,
+  decision: "stop" | "skip",
+  votes: SkipVotes,
+): TripEffect {
+  const stop = decision === "stop"
+  const outcome = stop ? "The van pulls off." : "The van stays on the highway."
+  const tally = stop ? `${votes.stop}–${votes.skip}` : `${votes.skip}–${votes.stop}`
+  const body =
+    votes.stop + votes.skip === 0
+      ? `No votes. ${outcome}`
+      : votes.stop === votes.skip
+        ? `Tied ${tally}. ${outcome}`
+        : `The room voted ${tally} to ${stop ? "stop" : "keep going"}.`
+  if (stop) {
+    return {
+      type: "sign",
+      variant: "info",
+      icon: "↗",
+      title: mystery ? "Taking the exit" : `Taking the exit for ${site.name}`,
+      body,
+    }
+  }
+  return {
+    type: "sign",
+    variant: "info",
+    icon: "⬆",
+    title: mystery ? "Kept driving" : `Kept driving past ${site.name}`,
+    body,
+  }
 }
 
 /** Resolve an optional site's skip decision (poll closed, or no poll could run). */
@@ -611,7 +630,7 @@ export function finishPark(siteId?: string): Transition {
       }
     }
     // A gas fund still holding the van announces the departure when it resolves.
-    if (state.status === "driving" && !next.fund) effects.push(backOnTheRoad(next, ctx.map, site.mile))
+    if (state.status === "driving" && !next.fund) effects.push(BACK_ON_THE_ROAD)
     return { next, log, effects }
   }
 }
@@ -759,7 +778,7 @@ export function resolveFund(fundId: string, outcome: FundOutcome): Transition {
         log.push(...(queued.log ?? []))
         effects.push(...(queued.effects ?? []))
       } else {
-        effects.push(backOnTheRoad(next, ctx.map, site.mile))
+        effects.push(BACK_ON_THE_ROAD)
       }
     }
     return { next, log, effects }

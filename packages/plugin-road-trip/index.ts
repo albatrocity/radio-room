@@ -1221,6 +1221,7 @@ export function skipPollPresentation(
     icon: mystery ? "❓" : site.icon,
     ...(!mystery && site.imageUrl ? { imageUrl: site.imageUrl } : {}),
     footnote: skipDefault === "stop" ? "No votes = pull off" : "No votes = keep driving",
+    resultsInChat: true,
   }
 }
 

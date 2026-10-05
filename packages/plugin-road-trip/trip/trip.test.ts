@@ -82,6 +82,7 @@ describe("trip playable (Phase 1)", () => {
       "Coming up: Dusty Boots Records",
       "Kept driving past Dusty Boots Records",
       "Coming up: Farmers Market",
+      "Taking the exit for Farmers Market",
       "EXIT 8 · FARMERS MARKET",
       "Back on the road",
       "Made it to The Concert",
@@ -132,27 +133,28 @@ describe("trip playable (Phase 1)", () => {
     sim.runUntil(T0 + 7.5 * MIN)
     expect(sim.state.sites["farmers-market"]).toMatchObject({ phase: "stopping", revealed: false })
     const store = buildTripStore(sim.state, sim.map, sim.current, sim.now)
-    expect(store.sites.find((s) => s.id === "farmers-market")).toEqual({
-      id: "farmers-market",
-      mile: 8,
-      state: "unrevealed",
-    })
+    expect(store.sites.find((s) => s.id === "farmers-market")).toBeUndefined()
+    expect(buildStatusLines(sim.state, sim.map, store).tripNextSite).toBe("—")
     sim.runUntil(T0 + 8 * MIN)
     expect(sim.state.sites["farmers-market"]).toMatchObject({ phase: "parked", revealed: true })
   })
 
-  it("omits secret sites until revealed and sends lore and the model only once visited", () => {
+  it("shows a ? marker for an unrevealed site only when it opts out of secret", () => {
+    const sim = new TripSim(noGas((m) => (m.sites[1]!.secret = false)))
+    const store = buildTripStore(sim.state, sim.map, sim.current, sim.now)
+    expect(store.sites).toEqual([{ id: "farmers-market", mile: 8, state: "unrevealed" }])
+    expect(store.siteCount).toBe(1)
+  })
+
+  it("omits sites until revealed and sends lore and the model only once visited", () => {
     const modelUrl = "https://cdn.listeningroom.club/assets/maps/sites/stand.glb"
-    const sim = new TripSim(
-      noGas((m) => {
-        m.sites[1]!.secret = true
-        m.sites[1]!.model = { url: modelUrl }
-      }),
-    )
+    const sim = new TripSim(noGas((m) => (m.sites[1]!.model = { url: modelUrl })))
     sim.votes["record-store"] = { stop: 0, skip: 1 }
     sim.apply(depart)
     let store = buildTripStore(sim.state, sim.map, sim.current, sim.now)
-    expect(store.sites.map((s) => s.id)).toEqual(["record-store", "concert"])
+    expect(store.sites.every((s) => s.state !== "unrevealed")).toBe(true)
+    expect(store.sites.map((s) => s.id)).not.toContain("farmers-market")
+    expect(store.siteCount).toBe(store.sites.length)
     sim.runUntil(T0 + 7 * MIN)
     store = buildTripStore(sim.state, sim.map, sim.current, sim.now)
     const stand = store.sites.find((s) => s.id === "farmers-market")
@@ -187,12 +189,18 @@ describe("trip playable (Phase 1)", () => {
     ).toBe(false)
   })
 
-  it("keeps driving silently when nobody votes", () => {
+  it("keeps driving when nobody votes and posts the result", () => {
     const sim = new TripSim(noGas())
     sim.apply(depart)
     sim.runUntil(T0 + 5 * MIN)
     expect(sim.state.sites["record-store"]).toMatchObject({ phase: "skipped", defaulted: true })
-    expect(sim.signs().some((s) => s.startsWith("Kept driving"))).toBe(false)
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual({
+      type: "sign",
+      variant: "info",
+      icon: "⬆",
+      title: "Kept driving past Dusty Boots Records",
+      body: "No votes. The van stays on the highway.",
+    })
   })
 
   it("pulls off with no votes when the site overrides the map default", () => {
@@ -385,11 +393,14 @@ describe("gas and money (Phase 2)", () => {
       "On the road · Concert Run",
       "Coming up: Dusty Boots Records",
       "Coming up: Gas 'n' Go",
+      "Kept driving past Dusty Boots Records",
       "Coming up: Farmers Market",
+      "Taking the exit for Gas 'n' Go",
       "Low fuel · 15%",
       "EXIT 6 · GAS 'N' GO",
       "Filled up at Gas 'n' Go",
       "Back on the road",
+      "Taking the exit for Farmers Market",
       "EXIT 8 · FARMERS MARKET",
       "Back on the road",
       // The second tank also runs low before the venue (1.5 gal left on arrival).
@@ -496,10 +507,17 @@ describe("gas and money (Phase 2)", () => {
 
     sim.runUntil(emptyAt + 30_000)
     expect(sim.state.fund).toBeUndefined()
-    expect(buildTripStore(sim.state, sim.map, sim.current, sim.now).live).toMatchObject({
+    const refuelling = buildTripStore(sim.state, sim.map, sim.current, sim.now)
+    expect(refuelling.live).toMatchObject({
       kind: "incident",
       incident: "out-of-gas",
+      name: "Refuelling",
+      label: "⛽ Refuelling · Waiting for the fuel truck",
     })
+    expect(refuelling.vanSheet.incident).toMatchObject({ name: "Refuelling", stepKind: "wait" })
+    expect(buildStatusLines(sim.state, sim.map, refuelling).tripWarnings).toBe(
+      "⛽ Refuelling: Waiting for the fuel truck",
+    )
     sim.runUntil(emptyAt + 20_000 + 2 * MIN + 1_000)
     expect(sim.state.incident).toBeUndefined()
     expect(sim.log.filter((e) => e.kind === "fuel").at(-1)).toMatchObject({

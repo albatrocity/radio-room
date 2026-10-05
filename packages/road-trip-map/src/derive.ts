@@ -62,6 +62,10 @@ export function baseGallonsPerMile(map: TripMap): number {
   return miles > 0 ? (map.route.tanksPerTrip * map.tuning.tankGallons) / miles : 0
 }
 
+export function isSecretSite(site: Pick<TripSite, "secret">): boolean {
+  return site.secret !== false
+}
+
 export function isGasSite(site: TripSite): boolean {
   return site.services?.gas !== undefined && !isDestination(site)
 }

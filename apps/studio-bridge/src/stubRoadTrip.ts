@@ -135,24 +135,24 @@ function revealed(
   }
 }
 
-function unrevealed(siteId: string): TripStoreSite {
-  const site = SAMPLE_TRIP_MAP.sites.find((s) => s.id === siteId)!
-  return { id: site.id, mile: site.mile, state: "unrevealed" }
-}
-
 function loreFor(siteId: string): string | undefined {
   return SAMPLE_TRIP_MAP.sites.find((s) => s.id === siteId)?.lore
 }
 
 /** Trip store snapshot for a fixture, anchored at `at` (departure = `at − elapsed`). */
 export function buildRoadTripFixture(entry: FixtureEntry): TripStore {
+  const store = fixtureStore(entry)
+  // Sites are secret until revealed, so the count covers only the ones in sight.
+  return { ...store, siteCount: store.sites.length }
+}
+
+function fixtureStore(entry: FixtureEntry): Omit<TripStore, "siteCount"> {
   const { fixture, at } = entry
   const routeMiles = mapRouteMiles(SAMPLE_TRIP_MAP.route)
   const base = {
     tripId: "trip-studio-preview",
     mapTitle: SAMPLE_TRIP_MAP.title,
     routeMiles,
-    siteCount: SAMPLE_TRIP_MAP.sites.length,
     funds: { mode: fundsMode(fixture) },
     costScale: 1,
     vanSheet: vanSheet(fixture, at),
@@ -169,7 +169,6 @@ export function buildRoadTripFixture(entry: FixtureEntry): TripStore {
         revealed(GAS_SITE_ID, "visited", { visitedAt: at - 9 * MIN }),
         revealed("farmers-market", "visited", { visitedAt: at - 5 * MIN, lore: loreFor("farmers-market") }),
         revealed("hanks-garage", "ahead"),
-        unrevealed("concert"),
       ],
       van: { anchorAt: at, anchorMile: flatMile, mph: 0 },
       fuel: fuel(flatMile, false, at),
@@ -178,6 +177,7 @@ export function buildRoadTripFixture(entry: FixtureEntry): TripStore {
         kind: "incident",
         label: "🛞 Blown tire · Waiting on the shoulder",
         incident: "blown-tire",
+        name: INCIDENTS["blown-tire"].name,
         endsAt: at + INCIDENT_TIMING.flatWindowMs,
         resolvesWith: itemsResolving("blown-tire").map(roadTripItemId),
       },
@@ -194,9 +194,6 @@ export function buildRoadTripFixture(entry: FixtureEntry): TripStore {
       sites: [
         revealed("record-store", "skipped", { votes: { stop: 1, skip: 4 } }),
         revealed(GAS_SITE_ID, "parked", { votes: { stop: 3, skip: 0 } }),
-        unrevealed("farmers-market"),
-        unrevealed("hanks-garage"),
-        unrevealed("concert"),
       ],
       van: { anchorAt: at, anchorMile: GAS_SITE.mile, mph: 0 },
       fuel: fuel(GAS_SITE.mile, false, at),
@@ -226,8 +223,6 @@ export function buildRoadTripFixture(entry: FixtureEntry): TripStore {
         revealed("record-store", "skipped", { votes: { stop: 1, skip: 4 } }),
         revealed(GAS_SITE_ID, "visited", { visitedAt: at - 4 * MIN }),
         revealed("farmers-market", "visited", { visitedAt: at, lore: loreFor("farmers-market") }),
-        unrevealed("hanks-garage"),
-        unrevealed("concert"),
       ],
       van: { anchorAt: at, anchorMile: marketMile, mph: 0 },
       fuel: fuel(marketMile, false, at),
@@ -275,10 +270,6 @@ export function buildRoadTripFixture(entry: FixtureEntry): TripStore {
     status: "driving",
     sites: [
       revealed("record-store", "polling"),
-      unrevealed(GAS_SITE_ID),
-      unrevealed("farmers-market"),
-      unrevealed("hanks-garage"),
-      unrevealed("concert"),
     ],
     van: { anchorAt: at, anchorMile: mile, mph: cruisingMph("driving") },
     fuel: fuel(mile, true, at),
@@ -290,28 +281,28 @@ export function buildRoadTripFixture(entry: FixtureEntry): TripStore {
 
 const STATUS_LINES: Record<RoadTripFixture, Record<string, string>> = {
   driving: {
-    tripProgress: "Driving · Concert Run · 2.5 / 12 mi · 0 / 5 visited",
+    tripProgress: "Driving · Concert Run · 2.5 / 12 mi · 0 / 1 visited",
     tripEta: "1 min behind target",
     tripNextSite: "Dusty Boots Records · mile 4",
     tripFuel: "Gas 63% · Funds: automatic (split by wealth)",
     tripWarnings: "None",
   },
   fueling: {
-    tripProgress: "Driving · Concert Run · 6 / 12 mi · 0 / 5 visited",
+    tripProgress: "Driving · Concert Run · 6 / 12 mi · 0 / 2 visited",
     tripEta: "1 min behind target",
     tripNextSite: "? · mile 8",
     tripFuel: "Gas 10% · Funds: voluntary (chip in)",
     tripWarnings: "Gas pool open",
   },
   parked: {
-    tripProgress: "Driving · Concert Run · 8 / 12 mi · 2 / 5 visited",
+    tripProgress: "Driving · Concert Run · 8 / 12 mi · 2 / 3 visited",
     tripEta: "1 min behind target",
     tripNextSite: "? · mile 12",
     tripFuel: "Gas 70% · Funds: automatic (split by wealth)",
     tripWarnings: "None",
   },
   incident: {
-    tripProgress: "Driving · Concert Run · 9 / 12 mi · 2 / 5 visited",
+    tripProgress: "Driving · Concert Run · 9 / 12 mi · 2 / 4 visited",
     tripEta: "On target",
     tripNextSite: "Hank's Garage · mile 10",
     tripFuel: "Gas 55% · Funds: automatic (split by wealth)",
@@ -406,8 +397,44 @@ export function buildStubRoadTripPoll(roomId: string): Poll {
       headline: "DUSTY BOOTS RECORDS",
       icon: "📀",
       footnote: "No votes = keep driving",
+      resultsInChat: true,
     },
   }
+}
+
+/** `closeExitPoll`: the card leaves and the outcome lands in chat as a road sign. */
+function closeExitPollEvents(roomId: string): Array<{ type: string; data: Record<string, unknown> }> {
+  const now = Date.now()
+  const poll = buildStubRoadTripPoll(roomId)
+  return [
+    {
+      type: "POLL_CLOSED",
+      data: {
+        roomId,
+        poll: { ...poll, status: "closed", closedAt: now },
+        results: {
+          pollId: poll.id,
+          totalVotes: 3,
+          optionTallies: { "trip-opt-stop": 1, "trip-opt-skip": 2 },
+          winners: ["trip-opt-skip"],
+          closedAt: now,
+        },
+      },
+    },
+    {
+      type: "MESSAGE_RECEIVED",
+      data: {
+        roomId,
+        message: sign(
+          "The room voted 2–1 to keep going.",
+          "Kept driving past Dusty Boots Records",
+          "info",
+          "⬆",
+          now,
+        ),
+      },
+    },
+  ]
 }
 
 type SignStatus = "info" | "success" | "warning" | "error"
@@ -481,6 +508,9 @@ export function runStubRoadTripAction(
           : `Thanks! ${entry.raised} / ${FILL_COST} coins.`,
       events: [{ type: "PLUGIN:road-trip:TRIP_UPDATED", data: storePayload(entry) }],
     }
+  }
+  if (action === "closeExitPoll") {
+    return { success: true, message: "Exit poll closed.", events: closeExitPollEvents(roomId) }
   }
   if (action === "endTrip" || action === "unloadMap" || action === "newTrip") {
     fixtures.delete(roomId)

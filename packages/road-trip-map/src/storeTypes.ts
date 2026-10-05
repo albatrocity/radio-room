@@ -1,7 +1,7 @@
 /**
  * The `trip` store payload road-trip emits to clients (M7). Spoiler-safe:
- * unrevealed sites carry only id / mile / state, secret unrevealed sites are
- * omitted, and lore and the 3D model are present only once a site is visited.
+ * unrevealed sites are omitted (a `secret: false` site carries only id / mile /
+ * state), and lore and the 3D model are present only once a site is visited.
  */
 
 import type { IncidentFundPurpose, IncidentStep } from "./incidents"
@@ -52,6 +52,8 @@ export type TripStoreLive =
       kind: "incident"
       label: string
       incident: IncidentId
+      /** Headline for the current step: the incident's name, or the step's own status ("Refuelling"). */
+      name: string
       /** Ends on its own then (D22); absent while towing. */
       endsAt?: number
       /** Full item ids that end the current step ("🛞 Blown tire · Fix-a-Flat?"). */

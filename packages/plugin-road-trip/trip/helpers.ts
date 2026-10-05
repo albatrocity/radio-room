@@ -129,17 +129,10 @@ export function nextSiteAhead(state: TripState, map: TripMap, mile: number): Tri
   })
 }
 
-export function backOnTheRoad(state: TripState, map: TripMap, mile: number): TripEffect {
-  const upcoming = nextSiteAhead(state, map, mile + ARRIVAL_MILE_EPSILON)
-  const upcomingRuntime = upcoming ? state.sites[upcoming.id] : undefined
-  return {
-    type: "sign",
-    variant: "info",
-    icon: "🚐",
-    title: "Back on the road",
-    body:
-      upcoming && upcomingRuntime?.revealed
-        ? `Next: ${upcoming.name}, ${milesLabel(upcoming.mile - mile)}`
-        : undefined,
-  }
+/** The next stop isn't named: its sign and poll arrive when it comes into sight. */
+export const BACK_ON_THE_ROAD: TripEffect = {
+  type: "sign",
+  variant: "info",
+  icon: "🚐",
+  title: "Back on the road",
 }

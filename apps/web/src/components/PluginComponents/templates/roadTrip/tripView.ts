@@ -133,7 +133,7 @@ export function stripContext(trip: TripStore, mile: number, now: number): string
     const spec = INCIDENTS[trip.live.incident]
     const fix = trip.live.resolvesWith?.[0]
     const left = trip.live.endsAt !== undefined ? ` · ${formatCountdown(trip.live.endsAt - now)}` : ""
-    return `${spec.emoji} ${spec.name}${fix ? ` · ${vanItemName(fix)}?` : ""}${left}`
+    return `${spec.emoji} ${trip.live.name}${fix ? ` · ${vanItemName(fix)}?` : ""}${left}`
   }
   if (trip.live?.kind === "parked") {
     const left = formatCountdown(trip.live.endsAt - now)

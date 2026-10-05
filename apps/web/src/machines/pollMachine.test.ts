@@ -236,6 +236,33 @@ describe("pollMachine", () => {
     expect(snap.context.revealResults).toBeNull()
   })
 
+  it("POLL_CLOSED drops a results-in-chat poll without a reveal", () => {
+    const presentation = { theme: "road-trip" as const, resultsInChat: true }
+    actor.send({
+      type: "INIT",
+      data: { activePoll: basePoll({ presentation }), pollHistory: [] },
+    })
+
+    actor.send({
+      type: "POLL_CLOSED",
+      data: {
+        poll: basePoll({ status: "closed", closedAt: 9_000, presentation }),
+        results: {
+          pollId: "poll-1",
+          totalVotes: 1,
+          optionTallies: { "opt-a": 1, "opt-b": 0 },
+          winners: ["opt-a"],
+          closedAt: 9_000,
+        },
+      },
+    })
+
+    const snap = actor.getSnapshot()
+    expect(snap.context.activePoll).toBeNull()
+    expect(snap.context.revealResults).toBeNull()
+    expect(snap.context.history).toHaveLength(1)
+  })
+
   it("POLL_CLOSED for a previous poll does not overwrite a newer active poll", () => {
     actor.send({
       type: "INIT",

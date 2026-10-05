@@ -183,8 +183,8 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
             />
             <Toggle
               label="Secret until revealed"
-              checked={site.secret === true}
-              onChange={(v) => onChange({ secret: v || undefined })}
+              checked={site.secret !== false}
+              onChange={(v) => onChange({ secret: v ? undefined : false })}
             />
             <Toggle
               label="Mystery poll"

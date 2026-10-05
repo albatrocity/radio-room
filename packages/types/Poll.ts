@@ -46,7 +46,7 @@ export type PollSettings = z.infer<typeof pollSettingsSchema>
 
 /**
  * Themed look for a plugin-authored poll (ADR 0203). Only plugins can set it;
- * the admin poll handler never accepts it. Behavior is unchanged.
+ * the admin poll handler never accepts it. Voting is unchanged.
  */
 export const pollPresentationSchema = z.object({
   theme: presentationThemeSchema,
@@ -57,6 +57,8 @@ export const pollPresentationSchema = z.object({
   icon: z.string().max(16).optional(),
   imageUrl: z.string().url().optional(),
   footnote: z.string().max(120).optional(),
+  /** The plugin posts the outcome to chat itself, so the card leaves on close instead of revealing results. */
+  resultsInChat: z.boolean().optional(),
 })
 
 export type PollPresentation = z.infer<typeof pollPresentationSchema>

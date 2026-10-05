@@ -64,6 +64,25 @@ describe("pollCardDisplayMachine", () => {
     expect(actor.getSnapshot().context.revealStartedAt).toBeNull()
   })
 
+  it("stays dismissed when the poll closes and clears it without a reveal", () => {
+    const onRevealTimeout = vi.fn()
+    const actor = createActor(
+      pollCardDisplayMachine.provide({
+        actions: { onRevealTimeout },
+      }),
+      {
+        input: { roomId: "room-1", pollId: "poll-1", initialMode: "expanded" },
+      },
+    )
+    actor.start()
+
+    actor.send({ type: "DISMISS" })
+    actor.send({ type: "POLL_CLOSED" })
+    expect(actor.getSnapshot().value).toBe("dismissed")
+    expect(actor.getSnapshot().context.revealStartedAt).toBeNull()
+    expect(onRevealTimeout).toHaveBeenCalledTimes(1)
+  })
+
   it("cancels reveal and expands when a replacement poll is published", () => {
     vi.useFakeTimers()
     const onRevealTimeout = vi.fn()

@@ -106,6 +106,7 @@ export const siteSchema = z.object({
   role: z.literal("destination").optional(),
   mandatory: z.boolean().optional(),
   revealMiles: revealMilesSchema.optional(),
+  /** Hidden from players until revealed (default). `false` shows a `?` marker for it up ahead. */
   secret: z.boolean().optional(),
   skipPoll: siteSkipPollSchema.optional(),
   parkMinutes: z.number().positive().max(60).optional(),

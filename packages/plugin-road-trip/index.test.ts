@@ -252,12 +252,7 @@ describe("RoadTripPlugin", () => {
       tripFuel: "Gas 100% · Funds: automatic (split by wealth)",
       tripPoolOpen: false,
     })
-    expect(lastTrip(h).sites.map((s) => s.state)).toEqual([
-      "unrevealed",
-      "unrevealed",
-      "unrevealed",
-      "unrevealed",
-    ])
+    expect(lastTrip(h).sites).toEqual([])
   })
 
   it("loads a map whose shop this room can't open, with the warning", async () => {

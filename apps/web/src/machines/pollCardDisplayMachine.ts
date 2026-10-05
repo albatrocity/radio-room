@@ -198,12 +198,9 @@ export const pollCardDisplayMachine = setup({
       on: {
         EXPAND: "expanded",
         COLLAPSE: "collapsed",
+        // A dismissed card never comes back for the reveal; just drop the closed poll.
         POLL_CLOSED: {
-          target: "revealing",
-          actions: assign({
-            previousMode: "dismissed" as const,
-            revealStartedAt: () => Date.now(),
-          }),
+          actions: ["onRevealTimeout"],
         },
       },
     },

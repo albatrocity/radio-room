@@ -214,13 +214,14 @@ export const pollMachine = setup({
       if (!isCurrentPoll) {
         return { history }
       }
+      const resultsInChat = event.data.poll.presentation?.resultsInChat === true
       return {
-        activePoll: event.data.poll,
+        activePoll: resultsInChat ? null : event.data.poll,
         myVote: null,
         rollbackVote: null,
         votePending: false,
         totalVotes: null,
-        revealResults: event.data.results,
+        revealResults: resultsInChat ? null : event.data.results,
         history,
       }
     }),

@@ -14,6 +14,7 @@ import {
   INCIDENTS,
   isDestination,
   isGasSite,
+  isSecretSite,
   itemsResolving,
   PART_SLOTS,
   parkPlan,
@@ -60,7 +61,7 @@ export function buildTripStore(
     if (!runtime) continue
     if (runtime.visitedAt !== undefined) visitedCount++
     if (!runtime.revealed) {
-      if (site.secret) continue
+      if (isSecretSite(site)) continue
       sites.push({ id: site.id, mile: site.mile, state: "unrevealed" })
       continue
     }
@@ -112,7 +113,7 @@ export function buildTripStore(
     },
     vanSheet: buildVanSheet(state, now),
     visitedCount,
-    siteCount: map.sites.filter((s) => !s.secret || state.sites[s.id]?.revealed).length,
+    siteCount: map.sites.filter((s) => !isSecretSite(s) || state.sites[s.id]?.revealed).length,
   }
   const live = liveContext(state, map, now, extras)
   if (live) store.live = live
@@ -163,7 +164,7 @@ function incidentView(state: TripState): TripStoreIncident | undefined {
       : step.label
   return {
     incident: incident.incident,
-    name: spec.name,
+    name: (step.kind === "wait" && step.status) || spec.name,
     emoji: spec.emoji,
     step: label,
     stepKind: step.kind,
@@ -212,6 +213,7 @@ function liveContext(
       kind: "incident",
       label: `${incident.emoji} ${incident.name} · ${incident.step}`,
       incident: incident.incident,
+      name: incident.name,
       ...(incident.endsAt !== undefined ? { endsAt: incident.endsAt } : {}),
       ...(incident.resolvesWith.length > 0 ? { resolvesWith: incident.resolvesWith } : {}),
     }
@@ -328,10 +330,8 @@ export function buildStatusLines(
   const next = state.status === "driving" ? nextSiteAhead(state, map, mile) : undefined
   let nextSite = "—"
   if (next) {
-    const runtime = state.sites[next.id]
-    nextSite = runtime?.revealed
-      ? `${next.name} · mile ${round1(next.mile)}`
-      : `? · mile ${round1(next.mile)}`
+    if (state.sites[next.id]?.revealed) nextSite = `${next.name} · mile ${round1(next.mile)}`
+    else if (!isSecretSite(next)) nextSite = `? · mile ${round1(next.mile)}`
   }
 
   const { anchorGallons, tank } = store.fuel
@@ -353,9 +353,10 @@ export function buildStatusLines(
     warnings.unshift(`${incident.emoji} ${incident.name}: ${incident.step}`)
   }
   if (store.vanSheet.queued > 0) warnings.push(`${store.vanSheet.queued} incident(s) queued`)
-  if (state.status === "driving" && state.fuelFlags.includes("empty") && !incident)
-    warnings.push("Out of gas")
-  else if (state.status === "driving" && state.fuelFlags.includes("low")) warnings.push("Low fuel")
+  if (state.status === "driving" && incident?.incident !== "out-of-gas") {
+    if (state.fuelFlags.includes("empty") && !incident) warnings.push("Out of gas")
+    else if (state.fuelFlags.includes("low")) warnings.push("Low fuel")
+  }
   return {
     tripProgress: progress,
     tripEta: eta,

@@ -12,7 +12,7 @@ import {
 import {
   ARRIVAL_MILE_EPSILON,
   AUTOMATIC_FUND_HOLD_MS,
-  backOnTheRoad,
+  BACK_ON_THE_ROAD,
   findSite,
   fundShareCopy,
   milesLabel,
@@ -514,7 +514,7 @@ function finishIncident(
       effects.push(
         incident.incident === "out-of-gas"
           ? { type: "sign", variant: "success", icon: "⛽", title: "Fuel's in", body: "Full tank. Back on the road." }
-          : backOnTheRoad(state, ctx.map, ctx.mile),
+          : BACK_ON_THE_ROAD,
       )
     }
   }
