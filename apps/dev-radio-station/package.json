@@ -1,0 +1,27 @@
+{
+  "name": "dev-radio-station",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local fake Shoutcast/ICY radio station for Listening Room testing",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check-types": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "redis": "^4.7.0",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "@types/node": "^22.15.21",
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  }
+}

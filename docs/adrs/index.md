@@ -212,6 +212,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0204](0204-trip-funds-escrow-pool-and-levy.md) | Trip funds: shared `EscrowPoolHelper` and proportional levy in plugin-base, `pool-card`, short funds still served, fuel on the ledger (amends 0188) | Accepted |
 | [0205](0205-shared-model-viewer-and-studio-site-assets.md) | Shared `@repo/model-viewer` (sole `three` importer) for items and sites; Game Studio publishes content-addressed site art to the CDN with designer credentials (extends 0199, amends 0202) | Accepted |
 | [0206](0206-trip-timeline-room-export.md) | Trip timeline in the room export | Accepted |
+| [0207](0207-local-dev-radio-station.md) | Local dev radio station (fake Shoutcast/ICY + Media Bridge metadata mirror) | Accepted |
 
 ## Creating a New ADR
 

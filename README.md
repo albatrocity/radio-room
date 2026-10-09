@@ -193,3 +193,13 @@ ffmpeg -re -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=60" \
 **Stream from another machine on your LAN:** replace `localhost` with the host machine's IP (`ipconfig getifaddr en0` on macOS). Configuration lives in [`infra/mediamtx/mediamtx.yml`](infra/mediamtx/mediamtx.yml). For **local WebRTC ICE**, add that LAN IP under `webrtcAdditionalHosts` (the committed default is `[]`; compose still mounts this file for editing).
 
 **Production (e.g. DigitalOcean):** see [`infra/mediamtx/README.md`](infra/mediamtx/README.md) for firewall ports, `/opt/mediamtx/mediamtx.yml`, GitHub Actions deploy, and HTTPS/WebRTC notes.
+
+### Fake radio (`dev-radio`)
+
+For local **radio** rooms without Audio Hijack / a real Shoutcast encoder, use the optional `dev-radio` profile (synthetic MP3 + ICY metadata; can mirror Media Bridge now-playing over Redis):
+
+```bash
+docker compose --profile dev-radio up
+```
+
+See [`docs/RADIO_LOCAL_TESTING.md`](docs/RADIO_LOCAL_TESTING.md) and [ADR 0207](docs/adrs/0207-local-dev-radio-station.md). Media Bridge host setup remains in [`docs/BRIDGE_LOCAL_TESTING.md`](docs/BRIDGE_LOCAL_TESTING.md).

@@ -1,12 +1,15 @@
 import { assign, setup } from "xstate"
 import { DEFAULT_LIVE_HLS_URL, DEFAULT_LIVE_WHEP_URL } from "../../lib/liveStreamDefaults"
 import { RoomSetup } from "../../types/Room"
+import { readDevRadioEnvFromVite, resolveRadioRoomDefaults } from "./radioRoomDefaults"
 
 export type Event =
   | { type: "SELECT_TYPE"; data: { type: RoomSetup["type"] } }
   | { type: "SET_SETTINGS"; data: { settings: Partial<RoomSetup> } }
   | { type: "NEXT"; data: null }
   | { type: "BACK"; data: null }
+
+const radioUrlDefaults = resolveRadioRoomDefaults(readDevRadioEnvFromVite())
 
 export const createRoomFormMachine = setup({
   types: {
@@ -37,9 +40,7 @@ export const createRoomFormMachine = setup({
       if (nextType === "radio") {
         return {
           type: "radio" as const,
-          radioMetaUrl: "http://live.rcast.net:8678",
-          radioListenUrl: "https://stream1.rcast.net/66341",
-          radioProtocol: "shoutcastv2",
+          ...radioUrlDefaults,
           playbackControllerId: "spotify" as const,
         }
       }
@@ -117,9 +118,7 @@ export const createRoomFormMachine = setup({
     type: "jukebox",
     title: "My Room",
     showId: undefined as string | undefined,
-    radioMetaUrl: "http://live.rcast.net:8678",
-    radioListenUrl: "https://stream1.rcast.net/66341",
-    radioProtocol: "shoutcastv2",
+    ...radioUrlDefaults,
     liveIngestEnabled: false,
     liveWhepUrl: undefined as string | undefined,
     liveHlsUrl: undefined as string | undefined,

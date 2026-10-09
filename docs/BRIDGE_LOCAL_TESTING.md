@@ -2,6 +2,8 @@
 
 Steps to run the bridge adapter + Mac daemon against your Docker Listening Room stack.
 
+**Fake Shoutcast without Audio Hijack:** for local radio rooms that need ICY metadata (and optional Media Bridge title mirroring) without a real encoder, see [RADIO_LOCAL_TESTING.md](RADIO_LOCAL_TESTING.md) (`docker compose --profile dev-radio`). That path serves **synthetic** audio; real programme capture still uses Audio Hijack as described below.
+
 ## DJ Mac handoff (production-shaped)
 
 On a **build Mac** with the monorepo, produce one zip — no Rust/npm on the DJ Mac ([ADR 0084](adrs/0084-dj-mac-single-zip-supervised-bridge.md)):

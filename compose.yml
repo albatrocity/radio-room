@@ -24,6 +24,10 @@ services:
       - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3000}
       - VITE_VOICEMAIL_NUMBER=${VITE_VOICEMAIL_NUMBER:-}
       - VITE_CONTACT_EMAIL=${VITE_CONTACT_EMAIL:-}
+      # Opt-in local fake radio (see docs/RADIO_LOCAL_TESTING.md). Use with --profile dev-radio.
+      - VITE_DEV_RADIO_META_URL=${VITE_DEV_RADIO_META_URL:-}
+      - VITE_DEV_RADIO_LISTEN_URL=${VITE_DEV_RADIO_LISTEN_URL:-}
+      - VITE_DEV_RADIO_PROTOCOL=${VITE_DEV_RADIO_PROTOCOL:-}
       # Internal Docker network URL for Vite proxy (server-side)
       - API_INTERNAL_URL=http://api:3000
     restart: unless-stopped
@@ -161,6 +165,36 @@ services:
       - app_network
     profiles:
       - live # Only start with: docker compose --profile live up
+
+  # Fake Shoutcast/ICY station for local radio + Media Bridge metadata testing (ADR 0207).
+  # Start with: docker compose --profile dev-radio up
+  # Prefill create-room by setting in .env:
+  #   VITE_DEV_RADIO_META_URL=http://dev-radio:8010/stream
+  #   VITE_DEV_RADIO_LISTEN_URL=http://127.0.0.1:8010/stream
+  #   VITE_DEV_RADIO_PROTOCOL=raw
+  dev-radio:
+    build:
+      context: .
+      dockerfile: ./apps/dev-radio-station/Dockerfile
+    ports:
+      - "8010:8010"
+    environment:
+      - NODE_ENV=development
+      - PORT=8010
+      - HOST=0.0.0.0
+      - REDIS_URL=redis://redis:6379
+      # Optional: only mirror Media Bridge now-playing for one room
+      - ROOM_ID=${DEV_RADIO_ROOM_ID:-}
+      - FALLBACK_ROTATE_MS=${DEV_RADIO_FALLBACK_ROTATE_MS:-30000}
+    volumes:
+      - ./apps/dev-radio-station:/app/apps/dev-radio-station:delegated
+    networks:
+      - app_network
+    depends_on:
+      - redis
+    profiles:
+      - dev-radio
+    restart: unless-stopped
 
 volumes:
   redis-data:
