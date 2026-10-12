@@ -18,9 +18,7 @@ function sanitizeMessage(raw: unknown): string | null {
   return cleaned.length > 0 ? cleaned : null
 }
 
-function readFormValues(
-  callContext: unknown,
-): Record<string, string | number> {
+function readFormValues(callContext: unknown): Record<string, string | number> {
   if (!callContext || typeof callContext !== "object" || Array.isArray(callContext)) {
     return {}
   }
@@ -56,7 +54,7 @@ async function useBurnerPhone(
     return {
       success: false,
       consumed: false,
-      message: "The line is dead — the DJ Mac isn’t linked.",
+      message: "The line is dead — the server isn’t linked.",
     }
   }
 
@@ -99,7 +97,7 @@ export const burnerPhone = createItem({
         required: true,
         maxLength: SAY_MAX_CHARS,
         rows: 3,
-        placeholder: "What should the DJ Mac say?",
+        placeholder: "What message would you like read aloud?",
       },
       {
         name: "voice",
