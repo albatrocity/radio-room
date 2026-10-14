@@ -1,9 +1,14 @@
 import type { AppContext } from "@repo/types"
+import { deviceRoomPresent, emitToDeviceRoom } from "./deviceSession"
 import type { BridgeEvent } from "./protocol"
 import {
   BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
   spotifyTokenKey,
 } from "./protocol"
+
+/** Avoid re-pushing a socket token on every advance tick. */
+const lastSocketPush = new Map<string, number>()
+const SOCKET_TOKEN_REFRESH_MS = 40 * 60 * 1000
 
 async function announceMissingSpotifyAuth(params: {
   context: AppContext
@@ -88,6 +93,18 @@ export async function provisionSpotifyTokenForRoom(params: {
     return null
   }
 
+  if (deviceRoomPresent(roomId)) {
+    emitToDeviceRoom(roomId, "spotify-token", { accessToken })
+    lastSocketPush.set(roomId, Date.now())
+    try {
+      await context.redis.pubClient.del(spotifyTokenKey(roomId))
+    } catch {
+      // The key may already be absent.
+    }
+    console.log(`[bridge-spotify-token] pushed creator token on device socket for room ${roomId}`)
+    return accessToken
+  }
+
   await context.redis.pubClient.set(spotifyTokenKey(roomId), accessToken, {
     EX: BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
   })
@@ -143,6 +160,13 @@ export async function ensureSpotifyTokenProvisioned(params: {
   roomId: string
 }): Promise<void> {
   const { context, roomId } = params
+  if (deviceRoomPresent(roomId)) {
+    const last = lastSocketPush.get(roomId) ?? 0
+    if (last !== 0 && Date.now() - last < SOCKET_TOKEN_REFRESH_MS) return
+    await provisionSpotifyTokenForRoom({ context, roomId })
+    return
+  }
+
   const ttl = await context.redis.pubClient.ttl(spotifyTokenKey(roomId))
   // -2 = missing, -1 = no expiry; refresh when missing or near expiry
   if (ttl !== -2 && !(ttl >= 0 && ttl < 120)) return

@@ -1,64 +1,37 @@
-import type { RedisClientType } from "redis"
-import {
-  BRIDGE_LAST_ENDED_TTL_SEC,
-  BRIDGE_PRESENCE_TTL_SEC,
-  capabilitiesKey,
-  eventChannel,
-  lastEndedKey,
-  presenceKey,
-  type BridgeEvent,
-} from "@repo/adapter-bridge/protocol"
+import type { BridgeEvent } from "@repo/adapter-bridge/protocol"
 
-type RedisLike = RedisClientType<any, any, any>
-
+/**
+ * Forwards daemon events onto the device socket. The API writes presence keys.
+ */
 export class Presence {
   private timer: NodeJS.Timeout | null = null
   private services: string[] = []
 
   constructor(
-    private readonly redis: RedisLike,
+    private readonly emit: (event: BridgeEvent) => void,
     private readonly roomId: string,
   ) {}
 
   async start(services: string[]): Promise<void> {
     this.services = [...services]
-    await this.refresh()
-    this.timer = setInterval(() => void this.refresh(), 3000)
+    this.timer = setInterval(() => {
+      this.emit({ type: "CAPABILITIES", services: this.services })
+    }, 3000)
     await this.publish({ type: "CAPABILITIES", services: this.services })
   }
 
-  async refresh(): Promise<void> {
-    await this.redis.set(presenceKey(this.roomId), "1", { EX: BRIDGE_PRESENCE_TTL_SEC })
-    await this.redis.set(capabilitiesKey(this.roomId), JSON.stringify(this.services), {
-      EX: BRIDGE_PRESENCE_TTL_SEC,
-    })
-  }
-
   async publish(event: BridgeEvent): Promise<void> {
-    // Durable ENDED for the advance job (pub/sub can miss across process boundaries)
     if (event.type === "ENDED") {
-      await this.redis.set(
-        lastEndedKey(this.roomId),
-        JSON.stringify({
-          trackId: event.trackId,
-          source: event.source,
-          reason: event.reason,
-          at: Date.now(),
-        }),
-        { EX: BRIDGE_LAST_ENDED_TTL_SEC },
-      )
       console.log(
-        `[presence] wrote last_ended source=${event.source} trackId=${event.trackId} reason=${event.reason ?? "none"}`,
+        `[presence] ENDED source=${event.source} trackId=${event.trackId} reason=${event.reason ?? "none"} room=${this.roomId}`,
       )
     }
-    await this.redis.publish(eventChannel(this.roomId), JSON.stringify(event))
+    this.emit(event)
   }
 
   async disconnecting(): Promise<void> {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
     await this.publish({ type: "DISCONNECTING" })
-    await this.redis.del(presenceKey(this.roomId))
-    await this.redis.del(capabilitiesKey(this.roomId))
   }
 }

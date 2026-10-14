@@ -1,7 +1,7 @@
 # 0082. Media Bridge Link via Redis Pub/Sub
 
 **Date:** 2026-07-22
-**Status:** Accepted
+**Status:** Partially superseded by [0203](0203-device-trust-boundary.md) (Redis is no longer the device trust boundary; Redis RPC remains only for a daemon that has not connected on `/device`)
 
 ## Context
 

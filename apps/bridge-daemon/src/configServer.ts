@@ -7,9 +7,8 @@ import {
   saveConfig,
   type BridgeDaemonConfig,
 } from "./config"
-import { listRoomsFromRedis } from "./listRooms"
+import { listRoomsFromApi } from "./listRooms"
 import { uiHtmlPath } from "./paths"
-import { createBridgeRedisClient, type RedisLike } from "./redisClient"
 
 export type ConfigServerHandlers = {
   getStatus: () => {
@@ -42,20 +41,6 @@ function readBody(req: IncomingMessage): Promise<string> {
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")))
     req.on("error", reject)
   })
-}
-
-async function withRedis<T>(
-  redisUrl: string,
-  fn: (redis: RedisLike) => Promise<T>,
-): Promise<T> {
-  const redis = createBridgeRedisClient(redisUrl)
-  redis.on("error", (err) => console.error("[config-server redis]", err))
-  await redis.connect()
-  try {
-    return await fn(redis as RedisLike)
-  } finally {
-    await redis.quit().catch(() => {})
-  }
 }
 
 export function startConfigServer(
@@ -143,8 +128,17 @@ async function handleRequest(
 
   if (method === "GET" && path === "/api/rooms") {
     const config = loadConfig()
+    const bearer = config.deviceToken || config.deviceIngressSecret
+    if (!bearer) {
+      sendJson(res, 401, {
+        ok: false,
+        error: "Set the device ingress secret (or link once so a device token is stored)",
+        rooms: [],
+      })
+      return
+    }
     try {
-      const rooms = await withRedis(config.redisUrl, (redis) => listRoomsFromRedis(redis))
+      const rooms = await listRoomsFromApi(config.apiBaseUrl, bearer)
       sendJson(res, 200, { ok: true, rooms })
     } catch (e) {
       sendJson(res, 502, {

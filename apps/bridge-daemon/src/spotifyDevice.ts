@@ -1,12 +1,6 @@
 import type { CDPSession, Page } from "puppeteer-core"
-import type { RedisClientType } from "redis"
 import { isApproachingEnd, isNaturalFinish, isNearEnd, trackIdsEqual } from "@repo/adapter-bridge/playbackFinish"
-import {
-  BRIDGE_SPOTIFY_DEVICE_NAME,
-  eventChannel,
-  spotifyDeviceKey,
-  spotifyTokenKey,
-} from "@repo/adapter-bridge/protocol"
+import { BRIDGE_SPOTIFY_DEVICE_NAME } from "@repo/adapter-bridge/protocol"
 import type { ChromeManager } from "./chrome"
 import type { DriverState } from "./drivers/Driver"
 import type { Presence } from "./presence"
@@ -14,11 +8,12 @@ import type { StaticHost } from "./staticHost"
 
 const STATE_PULSE_MS = 1000
 
-type RedisLike = RedisClientType<any, any, any>
+export type SpotifyDeviceLink = {
+  requestAccessToken: () => Promise<string>
+  advertiseDeviceId: (deviceId: string | null) => void
+}
 
 const WATCHDOG_MS = 15_000
-const TOKEN_POLL_MS = 250
-const TOKEN_POLL_ATTEMPTS = 40
 /**
  * `getCurrentState()` returns null whenever this player is not Spotify's active
  * device, and a detached player still satisfies the `window.__spotifyPlayer` check,
@@ -104,7 +99,7 @@ export function pickBridgeDevice<T extends { id: string | null; name: string; is
 
 /**
  * Hosts the Spotify Web Playback SDK in bridge Chrome and advertises the
- * Connect device id in Redis. Not a Driver — control stays on the Web API.
+ * Connect device id on the device socket. Not a Driver — control stays on the Web API.
  */
 export class SpotifyDeviceHost {
   private page: Page | null = null
@@ -146,7 +141,7 @@ export class SpotifyDeviceHost {
   constructor(
     private readonly chrome: ChromeManager,
     private readonly host: StaticHost,
-    private readonly redis: RedisLike,
+    private readonly link: SpotifyDeviceLink,
     private readonly roomId: string,
     private readonly presence: Presence,
   ) {}
@@ -196,11 +191,7 @@ export class SpotifyDeviceHost {
     this.statePulse = null
     this.clearSdkReconnecting()
     await this.teardownTrackPlaybackCorsFix()
-    try {
-      await this.redis.del(spotifyDeviceKey(this.roomId))
-    } catch {
-      /* ignore */
-    }
+    this.link.advertiseDeviceId(null)
     this.deviceId = null
     if (this.page && !this.page.isClosed()) {
       await this.page
@@ -347,11 +338,11 @@ export class SpotifyDeviceHost {
     const resolvedId = await this.resolveListedDeviceId(deviceId)
     this.deviceId = resolvedId
     this.leaseFreshAt = Date.now()
-    await this.redis.set(spotifyDeviceKey(this.roomId), resolvedId)
+    this.link.advertiseDeviceId(resolvedId)
     console.log(`[spotify-device] ready device_id=${resolvedId} room=${this.roomId}`)
 
     this.clearSdkReconnecting()
-    // Redis is written before waiters resolve so `prepare()` callers can target
+    // Device id is advertised before waiters resolve so `prepare()` callers can target
     // the new device immediately.
     this.flushReadyWaiters(resolvedId)
 
@@ -479,13 +470,17 @@ export class SpotifyDeviceHost {
    * that id (Spotify frequently assigns a different id than the ready event).
    */
   private async resolveListedDeviceId(readyId: string): Promise<string> {
-    const tokenKey = spotifyTokenKey(this.roomId)
+    let token: string
+    try {
+      token = await this.fetchAccessToken()
+    } catch (e) {
+      console.warn("[spotify-device] token unavailable while resolving device id:", e)
+      return readyId
+    }
     for (let attempt = 0; attempt < 8; attempt++) {
       if (attempt > 0) {
         await new Promise((r) => setTimeout(r, 400))
       }
-      const token = await this.redis.get(tokenKey)
-      if (!token) continue
       try {
         const res = await fetch("https://api.spotify.com/v1/me/player/devices", {
           headers: { Authorization: `Bearer ${token}` },
@@ -642,9 +637,8 @@ export class SpotifyDeviceHost {
 
   /**
    * Ask the API for the room creator's current Spotify access token (same store
-   * search/playback use). Redis is only a short-lived mailbox — never reuse a
-   * cached copy without a fresh TOKEN_REQUEST, or search can refresh while the
-   * SDK keeps a revoked token.
+   * search/playback use). Each call emits TOKEN_REQUEST — never reuse a cached
+   * copy, or search can refresh while the SDK keeps a revoked token.
    */
   private async fetchAccessToken(_opts?: { forceRefresh?: boolean }): Promise<string> {
     if (this.tokenFetchInFlight) return this.tokenFetchInFlight
@@ -656,30 +650,9 @@ export class SpotifyDeviceHost {
   }
 
   private async requestTokenFromApi(): Promise<string> {
-    const key = spotifyTokenKey(this.roomId)
-    // Drop mailbox so we cannot observe a pre-request stale value.
-    await this.redis.del(key).catch(() => {})
-
-    await this.redis.publish(
-      eventChannel(this.roomId),
-      JSON.stringify({ type: "TOKEN_REQUEST", service: "spotify" }),
-    )
-    console.log(`[spotify-device] TOKEN_REQUEST published for room ${this.roomId}`)
-
-    for (let i = 0; i < TOKEN_POLL_ATTEMPTS; i++) {
-      await new Promise((r) => setTimeout(r, TOKEN_POLL_MS))
-      const token = await this.redis.get(key)
-      if (token) {
-        console.log(
-          `[spotify-device] token from API (${token.length} chars) room=${this.roomId}`,
-        )
-        return token
-      }
-    }
-    console.error(
-      `[spotify-device] TOKEN_REQUEST timed out for room ${this.roomId} — is the API running with bridge token provisioning for this room?`,
-    )
-    throw new Error("Spotify access token not available (TOKEN_REQUEST timed out)")
+    const token = await this.link.requestAccessToken()
+    console.log(`[spotify-device] token from API (${token.length} chars) room=${this.roomId}`)
+    return token
   }
 
   private async tickWatchdog(url: string) {
@@ -723,13 +696,13 @@ export class SpotifyDeviceHost {
         this.sdkStateMissingSince = 0
         this.lastGoodPlayback = null
         this.deviceId = null
-        await this.redis.del(spotifyDeviceKey(this.roomId)).catch(() => {})
+        this.link.advertiseDeviceId(null)
         await this.page.goto(url, { waitUntil: "domcontentloaded" })
         return
       }
 
       if (this.deviceId) {
-        await this.redis.set(spotifyDeviceKey(this.roomId), this.deviceId)
+        this.link.advertiseDeviceId(this.deviceId)
       }
     } catch (e) {
       console.warn("[spotify-device] watchdog error:", e)
@@ -843,7 +816,7 @@ export class SpotifyDeviceHost {
         "[spotify-device] authentication_error — re-requesting creator token from API and reloading SDK page",
       )
       this.deviceId = null
-      await this.redis.del(spotifyDeviceKey(this.roomId)).catch(() => {})
+      this.link.advertiseDeviceId(null)
       await this.fetchAccessToken().catch((e) => {
         console.error("[spotify-device] token re-request before reload failed:", e)
       })

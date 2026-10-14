@@ -1,7 +1,7 @@
 # 0025. local-remote: Rust daemon + local control UI
 
 **Date:** 2026-03-31  
-**Status:** Accepted
+**Status:** Partially superseded by [0203](0203-device-trust-boundary.md) (segment cues are an HTTP poll; the Rust binary, localhost UI, and OSC map stay)
 
 ## Context
 

@@ -7,13 +7,13 @@ import {
   ensureDaemonId,
   type BridgeDaemonConfig,
 } from "./config"
-import { createBridgeRedisClient, type BridgeRedisClient } from "./redisClient"
 import { ChromeManager } from "./chrome"
 import { YoutubeDriver } from "./drivers/youtube"
 import { LocalDriver } from "./drivers/local"
 import { TidalDriver } from "./drivers/tidal"
 import type { Driver } from "./drivers/Driver"
-import { NowPlayingPublisher } from "./nowPlaying"
+import { NowPlayingPublisher, postNowPlaying } from "./nowPlaying"
+import { DeviceClient } from "./deviceClient"
 import { Presence } from "./presence"
 import { Router } from "./router"
 import { RpcServer } from "./rpcServer"
@@ -25,9 +25,6 @@ import { TtsService } from "./tts"
 
 type Session = {
   roomId: string
-  redis: BridgeRedisClient
-  /** When true, disconnect must not quit redis (owned by standby). */
-  sharedRedis: boolean
   presence: Presence
   rpc: RpcServer
   drivers: Map<string, Driver>
@@ -39,7 +36,7 @@ type Session = {
 let session: Session | null = null
 /** Latest config used for connect (updated when UI saves). */
 let activeConfig: BridgeDaemonConfig = loadConfig()
-let standbyRedis: BridgeRedisClient | null = null
+let deviceClient: DeviceClient | null = null
 let standby: StandbyControl | null = null
 const ttsService = new TtsService(() => ({
   audioDevice: activeConfig.tts?.audioDevice,
@@ -57,67 +54,66 @@ function getStatus() {
   }
 }
 
-async function startStandby(config: BridgeDaemonConfig = activeConfig) {
-  if (standby) return
+function rememberDeviceToken(token: string, roomId: string) {
+  if (activeConfig.deviceToken === token && activeConfig.defaultRoomId === roomId) return
+  const next = { ...activeConfig, deviceToken: token, defaultRoomId: roomId }
+  saveConfig(next)
+  activeConfig = next
+}
+
+function ensureDevice(config: BridgeDaemonConfig = activeConfig): DeviceClient {
   const withId = ensureDaemonId(config)
   activeConfig = withId
   if (!withId.daemonId) throw new Error("daemonId missing after ensureDaemonId")
+  if (deviceClient) return deviceClient
 
-  const redis = createBridgeRedisClient(withId.redisUrl)
-  redis.on("error", (err) => console.error("[standby redis]", err))
-  await redis.connect()
-  standbyRedis = redis
-
-  standby = new StandbyControl(redis as any, withId.daemonId, {
-    getConnectedRoomId: () => session?.roomId ?? null,
-    connect: async (roomId) => {
-      const cfg = loadConfig()
-      activeConfig = ensureDaemonId(cfg)
-      await connect(roomId, activeConfig)
+  const client = new DeviceClient({
+    apiBaseUrl: withId.apiBaseUrl,
+    daemonId: withId.daemonId,
+    getSecret: () => activeConfig.deviceIngressSecret,
+    getToken: () => activeConfig.deviceToken,
+    onToken: rememberDeviceToken,
+    onLink: (message) => {
+      void standby?.handleMessage(message)
     },
   })
-  await standby.start()
+  deviceClient = client
+  standby = new StandbyControl(
+    withId.daemonId,
+    {
+      getConnectedRoomId: () => session?.roomId ?? null,
+      connect: async (roomId) => {
+        const cfg = loadConfig()
+        activeConfig = ensureDaemonId(cfg)
+        await connect(roomId, activeConfig)
+      },
+    },
+    (msg) => client.emitLink(msg),
+  )
+  client.start()
+  return client
 }
 
-async function stopStandby() {
-  if (standby) {
-    await standby.stop().catch(() => {})
-    standby = null
-  }
-  if (standbyRedis) {
-    // Only quit if no room session is sharing it
-    if (!session || !session.sharedRedis) {
-      await standbyRedis.quit().catch(() => {})
-    }
-    standbyRedis = null
-  }
+function stopDevice() {
+  deviceClient?.stop()
+  deviceClient = null
+  standby = null
 }
 
 async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig) {
   if (session?.roomId === roomId) {
     console.log(`Already connected to room ${roomId}; nothing to do`)
-    await standby?.refreshPresence()
+    ensureDevice(config).join(roomId)
     return
   }
 
   if (session) {
     console.log(`Already connected to room ${session.roomId}; disconnecting first…`)
-    await disconnect({ keepStandbyRedis: true })
+    await disconnect()
   }
 
   activeConfig = ensureDaemonId(config)
-  const sharedRedis = !!standbyRedis
-  const redis =
-    standbyRedis ??
-    (() => {
-      const client = createBridgeRedisClient(activeConfig.redisUrl)
-      client.on("error", (err) => console.error("[redis]", err))
-      return client
-    })()
-
-  if (!sharedRedis) {
-    await redis.connect()
-  }
+  const device = ensureDevice(activeConfig)
 
   const drivers = new Map<string, Driver>()
   let chrome: ChromeManager | null = null
@@ -163,34 +159,58 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
   }
 
   const nowPlaying = new NowPlayingPublisher(
-    redis as any,
+    async (id, meta) => {
+      const bearer = activeConfig.deviceToken || activeConfig.deviceIngressSecret
+      if (!bearer) {
+        console.warn("[now-playing] no device token or ingress secret; skipped platform publish")
+        return
+      }
+      await postNowPlaying(activeConfig.apiBaseUrl, bearer, id, meta)
+    },
     () => activeConfig.nowPlayingPath ?? defaultNowPlayingPath(),
     activeConfig.nowPlayingFormat,
   )
   const nowPlayingPath = nowPlaying.resolvedPath()
-  const presence = new Presence(redis as any, roomId)
+  const presence = new Presence((event) => device.emitEvent(event), roomId)
 
   // Spotify SDK device is opt-in via services; not a Driver / not in CAPABILITIES
   if (activeConfig.services.includes("spotify")) {
     if (!chrome || !staticHost) throw new Error("Chrome/StaticHost required for spotify")
-    spotifyDevice = new SpotifyDeviceHost(chrome, staticHost, redis as any, roomId, presence)
+    spotifyDevice = new SpotifyDeviceHost(
+      chrome,
+      staticHost,
+      {
+        requestAccessToken: () => device.requestAccessToken(),
+        advertiseDeviceId: (id) => device.advertiseDeviceId(id),
+      },
+      roomId,
+      presence,
+    )
+  }
+  const router = new Router(drivers, presence, nowPlaying, roomId, spotifyDevice)
+  const rpc = new RpcServer(
+    (handler) => device.bindRequests(handler),
+    (response) => device.emitResponse(response),
+    router,
+    localDriver,
+    ttsService,
+  )
+
+  await rpc.start()
+  device.join(roomId)
+  await presence.start(Array.from(drivers.keys()))
+  if (spotifyDevice) {
     try {
       await spotifyDevice.start()
     } catch (e) {
       console.warn("[spotify-device] start failed — SDK device unavailable:", e)
+      await spotifyDevice.stop().catch(() => {})
       spotifyDevice = null
     }
   }
-  const router = new Router(drivers, presence, nowPlaying, roomId, spotifyDevice)
-  const rpc = new RpcServer(redis as any, roomId, router, localDriver, ttsService)
-
-  await presence.start(Array.from(drivers.keys()))
-  await rpc.start()
 
   session = {
     roomId,
-    redis: redis as any,
-    sharedRedis,
     presence,
     rpc,
     drivers,
@@ -205,8 +225,6 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
     activeConfig = next
   }
 
-  await standby?.refreshPresence()
-
   console.log(`Connected to room ${roomId}`)
   console.log(`  drivers: ${Array.from(drivers.keys()).join(", ") || "(none)"}`)
   if (spotifyDevice) {
@@ -216,7 +234,7 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
   console.log(`  Config: ${configPath()}`)
 }
 
-async function disconnect(opts?: { keepStandbyRedis?: boolean }) {
+async function disconnect() {
   if (!session) {
     console.log("Not connected")
     return
@@ -233,12 +251,7 @@ async function disconnect(opts?: { keepStandbyRedis?: boolean }) {
   // on keep-alive connections from youtube.html / spotify.html.
   await s.chrome?.close().catch(() => {})
   await s.staticHost?.stop().catch(() => {})
-  if (!s.sharedRedis) {
-    await s.redis.quit().catch(() => {})
-  }
-  await standby?.refreshPresence()
   console.log(`Disconnected from room ${s.roomId}`)
-  void opts
 }
 
 async function status() {
@@ -259,7 +272,7 @@ async function status() {
 function installSignalHandlers() {
   const shutdown = () => {
     void disconnect()
-      .then(() => stopStandby())
+      .then(() => stopDevice())
       .then(() => process.exit(0))
   }
   process.on("SIGINT", shutdown)
@@ -276,7 +289,7 @@ function startUiServer() {
       activeConfig = ensureDaemonId(cfg)
       await connect(roomId, activeConfig)
     },
-    disconnect: () => disconnect({ keepStandbyRedis: true }),
+    disconnect: () => disconnect(),
     onConfigSaved: (cfg) => {
       activeConfig = ensureDaemonId(cfg)
       console.log(`[config-ui] saved ${configPath()}`)
@@ -290,23 +303,23 @@ program.name("bridge-daemon").description("Listening Room media bridge daemon")
 
 program
   .command("serve")
-  .description("Start local config UI + Redis standby (link requests); optionally auto-connect")
+  .description("Start local config UI + device socket standby (link requests); optionally auto-connect")
   .option("-r, --room <roomId>", "Room id to connect on startup")
   .option("--no-open", "Do not print the UI URL prominently")
   .action(async (opts: { room?: string }) => {
     activeConfig = ensureDaemonId(loadConfig())
-    // Bind HTTP first so local-remote health checks succeed even if Redis is slow/failing.
+    // Bind HTTP first so local-remote health checks succeed even if the API is slow.
     startUiServer()
     try {
-      await startStandby(activeConfig)
+      ensureDevice(activeConfig)
     } catch (e) {
       console.error(
-        "[serve] Redis standby failed — UI is up; fix redisUrl (for self-signed TLS use /#insecure) and restart the bridge child:",
+        "[serve] device socket failed to start — UI is up; set apiBaseUrl and deviceIngressSecret:",
         e,
       )
     }
     const roomId = opts.room ?? activeConfig.defaultRoomId
-    if (roomId && standby) {
+    if (roomId && deviceClient) {
       try {
         await connect(roomId, activeConfig)
       } catch (e) {
@@ -321,7 +334,7 @@ program
 program
   .command("connect")
   .option("-r, --room <roomId>", "Room id to connect to")
-  .option("--ui", "Also start the local config UI + Redis standby")
+  .option("--ui", "Also start the local config UI + device socket standby")
   .action(async (opts: { room?: string; ui?: boolean }) => {
     activeConfig = ensureDaemonId(loadConfig())
     const roomId = opts.room ?? activeConfig.defaultRoomId
@@ -330,8 +343,10 @@ program
       process.exit(1)
     }
     if (opts.ui) {
-      await startStandby(activeConfig)
+      ensureDevice(activeConfig)
       startUiServer()
+    } else {
+      ensureDevice(activeConfig)
     }
     await connect(roomId, activeConfig)
     installSignalHandlers()
@@ -347,13 +362,16 @@ program.command("status").action(async () => {
   process.exit(0)
 })
 
-program.command("rooms").description("List rooms from Redis (same discovery as the UI)").action(async () => {
-  const { listRoomsFromRedis } = await import("./listRooms")
+program.command("rooms").description("List rooms from the platform API").action(async () => {
+  const { listRoomsFromApi } = await import("./listRooms")
   const config = loadConfig()
-  const redis = createBridgeRedisClient(config.redisUrl)
-  await redis.connect()
+  const bearer = config.deviceToken || config.deviceIngressSecret
+  if (!bearer) {
+    console.error("Set deviceIngressSecret (or link once so a device token is stored)")
+    process.exit(1)
+  }
   try {
-    const rooms = await listRoomsFromRedis(redis as any)
+    const rooms = await listRoomsFromApi(config.apiBaseUrl, bearer)
     if (!rooms.length) {
       console.log("(no rooms)")
       return
@@ -362,8 +380,9 @@ program.command("rooms").description("List rooms from Redis (same discovery as t
       const mark = r.bridgeReady ? "[bridge]" : `[${r.playbackControllerId || "?"}]`
       console.log(`${mark} ${r.title}  ${r.id}  (${r.type})`)
     }
-  } finally {
-    await redis.quit()
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : e)
+    process.exit(1)
   }
   process.exit(0)
 })

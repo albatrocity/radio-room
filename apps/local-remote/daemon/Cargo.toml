@@ -2,7 +2,7 @@
 name = "local-remote"
 version = "0.1.0"
 edition = "2021"
-description = "Subscribe to Listening Room Redis system events; local control UI + OSC"
+description = "DJ Mac control plane: device HTTP, OSC, supervised Media Bridge"
 
 [[bin]]
 name = "local-remote"
@@ -12,9 +12,7 @@ path = "src/main.rs"
 anyhow = "1"
 axum = { version = "0.8", features = ["ws"] }
 dirs = "6"
-futures-util = "0.3"
 libc = "0.2"
-redis = { version = "0.27.5", features = ["tokio-comp", "tokio-rustls-comp", "tls-rustls-insecure"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rosc = "0.10"
 serde = { version = "1", features = ["derive"] }
