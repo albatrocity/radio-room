@@ -7,17 +7,23 @@ Sections: ### New   ### Fixed
 
 ## October 2026
 
-Recap of what’s landed since the September show.
+Recap of what’s new since the September show.
+
+### New
+
+- New items
+- During segments that aren't queue-driven, the Now Playing area shows that segment's title and image.
+
+### Fixed
 
 - Fixed an issue where previewing tracks from the Record Store would cause the entire app to crash.
 - Fixes race condition where multiple correct guesses in Lyric Hero within a short time period would cause a miss. Also makes it more forgiving with punctuation.
 - Fixes an issue with queue searching where results would differ from search input value
-- During segments that aren't queue-driven, Now Playing shows that segment's title and image.
-- New items
+- Fixes an issue where requesting queued track stats resulted in a 500
 
 ## September 2026
 
-Recap of what’s landed since the August 20 show.
+Recap of what’s new since the August 20 show.
 
 ### New
 
@@ -45,7 +51,7 @@ Recap of what’s landed since the August 20 show.
 
 ## August 2026
 
-Recap of what’s landed since the July 16 show.
+Recap of what’s new since the July 16 show.
 
 ### New
 
