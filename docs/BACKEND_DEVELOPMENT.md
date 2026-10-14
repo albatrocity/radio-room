@@ -122,9 +122,10 @@ Per-user delivery for that event would be a new ADR.
 Emits **selected** events to the lobby channel with simplified payloads. Used by the public lobby for real-time room previews.
 
 ```typescript
-// Listens for: TRACK_CHANGED, USER_JOINED, USER_LEFT
+// Listens for: TRACK_CHANGED, USER_JOINED, USER_LEFT, ROOM_SETTINGS_UPDATED
 // Emits to: lobby
-// Event: LOBBY_ROOM_UPDATE { roomId, userCount?, nowPlaying? }
+// LOBBY_ROOM_UPDATE { roomId, userCount?, nowPlaying? }
+// ROOM_SETTINGS_UPDATED can also emit LOBBY_ROOM_ADDED / removal when visibility changes
 ```
 
 ### Creating a New Broadcaster

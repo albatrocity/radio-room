@@ -5,7 +5,7 @@
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                     Plugin Registry                         │
-│              (Creates instance per room)                    │
+│              (one instance per room)                        │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ├─ Creates PluginContext
@@ -13,8 +13,10 @@
                             │   ├─ storage: PluginStorage
                             │   ├─ game: GameSessionPluginAPI (room-scoped)
                             │   ├─ inventory: InventoryPluginAPI (room-scoped)
+                            │   ├─ artifacts: ArtifactsPluginAPI (cross-room)
                             │   ├─ personas: PersonasPluginAPI (room-scoped)
                             │   ├─ lifecycle: Event handlers
+                            │   ├─ getRoom / appContext
                             │   └─ roomId: string
                             │
                             ▼
@@ -28,7 +30,8 @@
 │  └─────────────┘  └──────────────┘  └───────────────────┘  │
 │                                                             │
 │  ┌────────────────── Composable Helpers ──────────────────┐│
-│  │ ShopHelper / ShopPlugin · (future: RoundsHelper, …)   ││
+│  │ ShopHelper / ShopPlugin                                ││
+│  │ createLeaderboard from @repo/plugin-base               ││
 │  └────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
                             │

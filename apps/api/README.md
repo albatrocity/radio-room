@@ -1,18 +1,16 @@
-# Listening Room Server
+# Listening Room API
 
-Express/Socket.io server for a [Listening Room](https://github.com/albatrocity/listening-room) instance.
-
-```
-# .env
-CLIENT_ID=<SPOTIFY_CLIENT_ID>
-CLIENT_SECRET=<SPOTIFY_CLIENT_SECRET>
-REDIRECT_URI=http://127.0.0.1:3000/callback
-```
+Express + Socket.IO entry point. Room logic lives in `@repo/server`. Adapters and plugins are registered in `src/server.ts`.
 
 ## Development
 
+From the repo root:
+
 ```bash
+cp .env.example .env
 docker compose up
 ```
 
-Runs on port `3000`
+The API listens on port **3000**. Compose sets `DATABASE_URL` to the bundled Postgres and `REDIS_URL` to the bundled Redis. Spotify, Tidal, Google, and YouTube credentials come from `.env`. See [DOCKER_SETUP.md](../../DOCKER_SETUP.md).
+
+Registered media sources: `spotify`, `shoutcast`, `rtmp`. Metadata sources: `spotify`, `tidal`, `youtube`, `local`. Playback controllers: `spotify`, `bridge`.

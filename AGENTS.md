@@ -44,14 +44,25 @@ listening-room/
 │   └── bridge-daemon/    # Node Media Bridge (CDP/mpv, Redis RPC); supervised by local-remote on DJ Mac
 │
 ├── packages/
-│   ├── server/       # Core server logic (handlers, operations, services)
-│   ├── types/        # Shared TypeScript types
-│   ├── adapter-*/    # Media/metadata source adapters (Spotify, Tidal, Shoutcast, RTMP, Bridge)
-│   ├── plugin-*/     # Room plugins (playlist-democracy, special-words, round-robin-dj, music-upload)
-│   ├── plugin-base/  # Base class for plugins
-│   ├── factories/    # Test factories for mocking data
-│   ├── utils/        # Shared utilities
-│   └── eslint-config/
+│   ├── server/            # Core server logic (handlers, operations, services)
+│   ├── types/             # Shared TypeScript types
+│   ├── auth/              # Better-Auth instance, middleware, React client
+│   ├── db/                # Drizzle schema, migrations, database client
+│   ├── email/             # Newsletter send (Amazon SES)
+│   ├── game-logic/        # Shared game/inventory rules (server + Game Studio)
+│   ├── adapter-spotify/   # Media source, metadata source, playback controller
+│   ├── adapter-tidal/     # Metadata source
+│   ├── adapter-shoutcast/ # Media source
+│   ├── adapter-rtmp/      # Media source (MediaMTX)
+│   ├── adapter-bridge/    # Playback controller; YouTube and local metadata
+│   ├── plugin-*/          # Room plugins (registered in apps/api/src/server.ts)
+│   ├── plugin-base/       # Base class for plugins
+│   ├── plugin-config-ui/  # Shared schema-driven config forms (web + scheduler)
+│   ├── factories/         # Test factories
+│   ├── utils/             # Shared utilities
+│   ├── spotify-catalog/   # Client-credentials catalog search for the scheduler
+│   ├── eslint-config/
+│   └── typescript-config/
 │
 └── docs/             # Detailed documentation
 ```
@@ -59,8 +70,8 @@ listening-room/
 ### Package Naming
 
 - Internal packages use `@repo/` prefix (e.g., `@repo/server`, `@repo/types`)
-- Adapters: `@repo/adapter-{name}` (spotify, tidal, shoutcast, rtmp, bridge)
-- Plugins: `@repo/plugin-{name}` (playlist-democracy, special-words, round-robin-dj, music-upload, queue-theme, …). Music Upload: plugin owns persona + UI store; core owns presigned PUT REST ([ADR 0119](docs/adrs/0119-private-music-uploads-presign.md)).
+- Adapters: `@repo/adapter-{name}` — `spotify`, `tidal`, `shoutcast`, `rtmp`, `bridge`. `applemusic` is on the shared source-type enum and has no adapter.
+- Plugins registered in `apps/api/src/server.ts`: `playlist-democracy`, `special-words`, `absent-dj`, `queue-hygiene`, `guess-the-tune`, `item-shops`, `loyalty-program`, `queue-pacer`, `quiz-sessions`, `playlist-bingo`, `round-robin-dj`, `music-upload`, `volume-manager`, `queue-theme`, `the-fed`, `lyric-hero`. Music Upload owns the persona and UI store; core owns presigned PUT REST ([ADR 0119](docs/adrs/0119-private-music-uploads-presign.md)).
 
 ---
 
@@ -101,11 +112,11 @@ listening-room/
 
 ### Room Types
 
-| Type        | MediaSource | Description                                                                        |
-| ----------- | ----------- | ---------------------------------------------------------------------------------- |
-| **jukebox** | `spotify`   | On-demand playback via Spotify Connect                                             |
-| **radio**   | `shoutcast` | Shoutcast/Icecast stream with embedded metadata                                    |
-| **live**    | `rtmp`      | RTMP ingest via MediaMTX, WebRTC/LL-HLS output, metadata via `local-remote` daemon |
+| Type        | Media source | Description                                                                                                                                                          |
+| ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **jukebox** | `spotify`    | On-demand playback through the Spotify playback controller (Web API / Connect devices). Metadata may also come from Tidal.                                          |
+| **radio**   | `shoutcast`  | Shoutcast/Icecast stream. Optional experimental WebRTC (MediaMTX) beside it; Shoutcast stays the Now Playing authority. Playback controller is `spotify` or `bridge`. |
+| **live**    | `rtmp`       | RTMP ingest via MediaMTX, WebRTC/LL-HLS output. Stream health comes from the MediaMTX webhook. `local-remote` can publish macOS Now Playing into Redis.             |
 
 When adding logic that depends on room type, prefer using helper functions from `roomTypeHelpers.ts` rather than direct `room.type` checks. For example, use `hasListenableStream(room)` instead of `room.type === "radio" || room.type === "live"`. This keeps room-type knowledge centralized and makes it easy to add new stream-backed types. See [ADR 0034](docs/adrs/0034-live-room-type-rtmp-adapter.md).
 

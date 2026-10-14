@@ -135,8 +135,7 @@ Because `ShopHelper` is a member rather than a base class, a plugin can hold sev
 ```typescript
 class TriviaPlugin extends BasePlugin<TriviaConfig> {
   private shop!: ShopHelper
-  // Future: private rounds!: RoundsHelper
-  // Future: private leaderboard!: LeaderboardHelper
+  // Sorted scores: createLeaderboard from @repo/plugin-base (ADR 0192)
 
   async register(context: PluginContext) {
     await super.register(context)

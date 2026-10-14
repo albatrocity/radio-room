@@ -11,7 +11,7 @@ Self-contained Terraform for the Listening Room **newsletter / static asset CDN*
 | `aws_s3_bucket` (+ public access block, ownership) | Private object store |
 | `aws_s3_bucket_lifecycle_configuration` | Auto-delete `uploads/` after 30 days; `media/rooms/` after 90 days (covers/previews under `media/covers/` and `media/previews/` do not expire) |
 | `aws_s3_bucket_cors_configuration` | Browser `PUT` (presigned uploads) + `GET`/`HEAD` from web app + scheduler origins |
-| `aws_cloudfront_response_headers_policy` | CORS on CDN responses so browsers can decode assets (Howler / fetch) |
+| `aws_cloudfront_response_headers_policy` | CORS on CDN responses so browsers can `fetch` and decode assets (Web Audio, canvases) |
 | `aws_acm_certificate` + validation | TLS for `cdn.<domain>` (must be **us-east-1**) |
 | `aws_cloudfront_origin_access_control` + `aws_cloudfront_distribution` | CDN in front of S3 |
 | `aws_s3_bucket_policy` | Allow CloudFront `GetObject` on `assets/*`, `newsletter/*`, and `media/*` (`uploads/*` is private) |
@@ -68,7 +68,7 @@ Reuse the same `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from the SES sender
 `cors_allowed_origins` must include every browser origin that:
 
 1. **PUTs** via presigned URLs (newsletter images, music uploads), and/or
-2. **GETs** CDN assets that the web app decodes in-browser (plugin SFX via Howler / fetch — see [ADR 0173](../../docs/adrs/0173-asset-cdn-cors-for-browser-decoded-media.md)).
+2. **GETs** CDN assets that the web app decodes in-browser (`fetch` / Web Audio — see [ADR 0173](../../docs/adrs/0173-asset-cdn-cors-for-browser-decoded-media.md)). Plugin sound effects play through an `HTMLAudioElement` and do not need CORS to be heard.
 
 Defaults include local web app (`http://127.0.0.1:8000`, `http://localhost:8000`), local scheduler (`http://127.0.0.1:8001`, `http://localhost:8001`), and production (`https://listeningroom.club`, `https://scheduler.listeningroom.club`). A missing origin makes the browser OPTIONS preflight return **403** (upload) or omit `Access-Control-Allow-Origin` on CDN GETs (Web Audio decode fails).
 

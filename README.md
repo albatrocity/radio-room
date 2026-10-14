@@ -1,6 +1,6 @@
 # Listening Room
 
-A web app to create chat rooms around Shoutcast servers, or use as a remote control for a Spotify or Tidal account.
+A web app for shared listening rooms: Spotify jukeboxes, Shoutcast/Icecast radio, and live RTMP ingest, with chat, a queue, and room plugins.
 
 ## Quick Start
 
@@ -55,20 +55,34 @@ This is a Turborepo monorepo:
 ```
 listening-room/
 ├── apps/
-│   ├── api/          # Express + Socket.IO server
-│   ├── web/          # React frontend (Vite, XState, Chakra UI)
-│   └── load-tester/  # Load testing CLI
+│   ├── api/              # Express + Socket.IO server
+│   ├── web/              # React client (Vite, XState v5, Chakra UI v3)
+│   ├── scheduler/        # Show scheduling admin (Vite + React)
+│   ├── game-studio/      # Browser sandbox for items and shops
+│   ├── studio-bridge/    # Local stub API so Game Studio can drive the web Room UI
+│   ├── load-tester/      # Load testing CLI (`docker compose --profile testing`)
+│   ├── local-remote/     # Rust daemon: Redis SYSTEM:*, Now Playing, OSC, DJ Mac supervisor
+│   └── bridge-daemon/    # Node Media Bridge (Chrome/mpv, Redis RPC); supervised on the DJ Mac
 │
 ├── packages/
-│   ├── server/       # Core server logic
-│   ├── types/        # Shared TypeScript types
-│   ├── auth/         # Better-Auth instance, middleware, React client
-│   ├── db/           # Drizzle ORM schema, migrations, database client
-│   ├── adapter-*/    # Media source adapters (Spotify, Tidal, Shoutcast)
-│   ├── plugin-*/     # Room plugins
-│   └── ...
+│   ├── server/           # Handlers, operations, services
+│   ├── types/            # Shared TypeScript types
+│   ├── auth/             # Better-Auth instance, middleware, React client
+│   ├── db/               # Drizzle schema, migrations, database client
+│   ├── email/            # Newsletter send (Amazon SES)
+│   ├── game-logic/       # Shared game/inventory rules used by server and Game Studio
+│   ├── adapter-spotify/  # Spotify media source, metadata source, playback controller
+│   ├── adapter-tidal/    # Tidal metadata source
+│   ├── adapter-shoutcast/# Shoutcast/Icecast media source
+│   ├── adapter-rtmp/     # Live RTMP media source (MediaMTX)
+│   ├── adapter-bridge/   # Bridge playback controller; YouTube and local metadata
+│   ├── plugin-*/         # Room plugins registered in apps/api/src/server.ts
+│   ├── plugin-base/      # BasePlugin
+│   ├── plugin-config-ui/ # Shared schema-driven config forms (web + scheduler)
+│   └── …                 # factories, utils, eslint-config, typescript-config, spotify-catalog
 │
-└── docs/             # Documentation
+├── infra/                # MediaMTX, asset CDN, SES
+└── docs/                 # Guides and architectural decision records
 ```
 
 ---
@@ -104,44 +118,42 @@ npm run dev -w game-studio
 
 ## Architecture
 
-### MediaSource → Server Data Flow
+### Now playing data flow
 
-MediaSources submit raw media data via a standard DTO. The server handles enrichment, deduplication, and event emission.
+Media sources report what is audible. They call `submitMediaData` (`packages/server/lib/createJobApi.ts`), which runs `handleRoomNowPlayingData`. Metadata sources enrich that report. Playback controllers start the next queued track; they do not replace the media source.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     MediaSource Adapters                         │
-│                                                                  │
-│  ┌─────────────────────┐     ┌───────────────────────────────┐  │
-│  │ Spotify             │     │ Shoutcast                     │  │
-│  │ - trackId           │     │ - trackId (hashed title)      │  │
-│  │ - title, artist     │     │ - title, artist, album        │  │
-│  │ - enrichedTrack ✓   │     │ - stationMeta                 │  │
-│  │ - metadataSource ✓  │     │ (no enrichment - just raw)    │  │
-│  └──────────┬──────────┘     └───────────────┬───────────────┘  │
-└─────────────┼────────────────────────────────┼──────────────────┘
-              │   MediaSourceSubmission        │
-              v                                v
-┌─────────────────────────────────────────────────────────────────┐
-│              handleRoomNowPlayingData (Server)                   │
-│                                                                  │
-│  1. Check if same track (early exit)                            │
-│  2. resolveTrackData():                                         │
-│     - If enrichedTrack provided → use it (skip enrichment)      │
-│     - Else if room.fetchMeta && room.metadataSourceId →         │
-│       → call MetadataSource.search() to enrich                  │
-│     - Else → use raw data (createRawTrack)                      │
-│  3. Construct QueueItem                                         │
-│  4. Persist to Redis, emit events                               │
-└─────────────────────────────────────────────────────────────────┘
+Media sources (each calls submitMediaData)
+  spotify      jukebox    Web API track; often includes enrichedTrack
+  shoutcast    radio      ICY title/artist plus stationMeta
+  rtmp         live       ingest metadata
+                          dropped on hybrid radio (Shoutcast stays authoritative)
+        |
+        v
+handleRoomNowPlayingData
+  1. Same-track check (early exit)
+  2. Streaming mode (fetchMeta off): status only, no track row
+  3. resolveTrackData()
+       use enrichedTrack when the submission already has one
+       else search metadata sources when fetchMeta and metadataSourceIds
+       are set (spotify, tidal, youtube, local)
+       else build a raw track from the submission
+  4. Match the app-controlled queue or the already-dispatched row
+  5. Persist RoomMeta, emit TRACK_CHANGED, append the playlist
+
+Playback controllers (start the next track; they are not media sources)
+  spotify    Web API / Connect devices
+  bridge     DJ Mac: Spotify in Chrome, YouTube, local files via mpv
 ```
 
-### Key Concepts
+### Key concepts
 
-- **MediaSource**: Fetches raw media data (what's currently playing)
-- **MetadataSource**: Enriches tracks with album art, artist info, etc.
-- **MediaSourceSubmission**: Standard DTO submitted by all MediaSources
-- **enrichedTrack**: Optional pre-enriched data (when MediaSource = MetadataSource, e.g., Spotify)
+- **Media source**: Reports what is currently audible (`spotify`, `shoutcast`, `rtmp`).
+- **Metadata source**: Catalog search and enrichment (`spotify`, `tidal`, `youtube`, `local`). A room may enable several via `metadataSourceIds`.
+- **Playback controller**: Starts, seeks, and sets volume for the queue (`spotify` or `bridge`).
+- **MediaSourceSubmission**: The DTO every media source submits.
+- **enrichedTrack**: Optional catalog row already attached by the media source (typical for Spotify).
+- **Room types**: `jukebox` (Spotify media source), `radio` (Shoutcast, optional experimental WebRTC beside it), `live` (RTMP ingest through MediaMTX). Bridge is a playback controller on a radio room, not a fourth room type.
 
 ---
 

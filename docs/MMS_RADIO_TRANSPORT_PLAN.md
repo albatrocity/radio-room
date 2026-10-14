@@ -1,6 +1,8 @@
 # Plan: Media Source radio transport (and the Oscilloscope it unlocks)
 
-Branch: `explore/mms`. Status: **Complete** — Phases 0–4 shipped; see [ADR 0141](adrs/0141-radio-mse-transport-and-oscilloscope.md).
+**Historical.** Phases 0–4 shipped. Current behavior is [ADR 0141](adrs/0141-radio-mse-transport-and-oscilloscope.md) and the MSE player in `apps/web`. The steps below are the build record, not work left to do.
+
+Branch at the time: `explore/mms`.
 
 ## Read this first
 

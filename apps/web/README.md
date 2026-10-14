@@ -104,31 +104,56 @@ src/
 
 Actors are **singleton XState interpreters** that manage specific domains of state. They are created once at app startup and persist for the app's lifetime.
 
-#### Actor Categories
+#### Actor categories
+
+Every `*Actor.ts` singleton under `apps/web/src/actors/`:
 
 | Actor | Purpose |
 |-------|---------|
-| `socketActor` | Socket.IO connection management and event broadcasting |
-| `authActor` | User authentication and session state |
-| `chatActor` | Chat messages and typing state |
-| `playlistActor` | Room playlist/queue |
-| `usersActor` | Online users in the room |
-| `reactionsActor` | Emoji reactions on messages/tracks |
-| `settingsActor` | Room settings and configuration |
-| `roomActor` | Room metadata and error state |
-| `audioActor` | Audio playback state (play/pause/volume) |
-| `djActor` | DJ session state |
-| `adminActor` | Admin actions (settings, kick, etc.) |
-| `modalsActor` | Modal dialog state |
-| `themeActor` | UI theme selection |
-| `errorsActor` | Error notifications |
-| `bookmarkedChatActor` | User's bookmarked messages |
-| `metadataSourceAuthActor` | Spotify/service authentication |
-| `userGameStateActor` | Current user's game-session payload and stored artifacts |
-| `giftInboxActor` | Gift/trade *source*: raises/resolves notifications from gift/trade socket events + `USER_GAME_STATE` reconcile ([ADR 0144](../../docs/adrs/0144-client-notification-center.md); product rules in [0115](../../docs/adrs/0115-trade-invite-inbox.md), [0129](../../docs/adrs/0129-trade-session-lock-confirm-attention.md)) |
-| `notificationsActor` | Headless attention store + toast side effects; `useSurfaceHasNotifications` / `useTabNotificationIds` ([ADR 0144](../../docs/adrs/0144-client-notification-center.md)) |
-| `tradeActor` | Live trade session (offer, lock, confirm, typing) |
-| `gameStateNavActor` | Game State tab + detail stack; overlay open/close is `modalsMachine` `gameState` entry/exit ([ADR 0130](../../docs/adrs/0130-game-state-overlay-lifecycle-in-machines.md)) |
+| `socketActor` | Socket.IO connection and event hub |
+| `authActor` | Platform authentication and session |
+| `roomActor` | Room metadata and errors |
+| `settingsActor` | Room settings and plugin configs |
+| `audioActor` | Play, pause, and volume for the room |
+| `radioStreamActor` | Radio MSE / element lifecycle |
+| `djActor` | DJ and deputy session |
+| `playlistActor` | Room playlist (tracks that have played) |
+| `queueListActor` | Visible queue |
+| `queueActor` | Queue-add results that outlive the screen that sent them |
+| `addToQueueUiActor` | Add-to-queue mode, source, and browse location |
+| `usersActor` | Listeners in the room |
+| `chatActor` | Messages and typing |
+| `chatScrollTargetActor` | Chat scroll target |
+| `bookmarkedChatActor` | Bookmarked messages |
+| `reactionsActor` | Reactions on messages and tracks |
+| `pollActor` | Core polls |
+| `adminActor` | Admin settings, kick, and room actions |
+| `adminListenerStateActor` | Admin view of a listener |
+| `modalsActor` | Modal and overlay state |
+| `errorsActor` | Error toasts |
+| `themeActor` | UI theme |
+| `reducedMotionActor` | Reduced-motion preference |
+| `lobbyActor` | Public lobby room list |
+| `metadataSourceAuthActor` | Spotify / Tidal link state |
+| `metadataPreferenceActor` | Which metadata source the listener prefers |
+| `effectiveMetadataSourcesActor` | Sources this listener may search or browse |
+| `mediaBridgeActor` | Media Bridge link status |
+| `trackPreviewActor` | Local / physical-media clip preview |
+| `soundEffectsActor` | Plugin sound effects (`HTMLAudioElement`) |
+| `soundEffectsPreferenceActor` | Whether the listener wants sound effects |
+| `screenEffectsActor` | Plugin screen effects |
+| `userGameStateActor` | This listener's game payload and stored artifacts |
+| `roomGameStateActor` | Active modifiers for every listener in the room |
+| `gameSessionActor` | Whether a game session is active |
+| `gameStateNavActor` | Game State tab and detail stack |
+| `giftInboxActor` | Gift and trade events that raise notifications |
+| `notificationsActor` | Notification center and toasts |
+| `tradeActor` | Live trade session |
+| `feedbackActor` | Feedback topics and responses |
+| `whatsNewActor` | Bundled changelog and unread attention |
+| `quickAccessPanelsActor` | Admin quick-access panels |
+| `roomLayoutActor` | Resizable room columns |
+| `sharedTickerActor` | Shared 1 Hz clock for countdowns |
 
 #### Actor Pattern
 
