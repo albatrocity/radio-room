@@ -33,6 +33,7 @@ import {
   isMediaCondition,
 } from "@repo/types"
 import { Server } from "socket.io"
+import { toPluginSchemaInfo } from "@repo/utils"
 import { BasePlugin, pluginImplementsChatTransform } from "@repo/plugin-base"
 import { PluginAPIImpl } from "./PluginAPI"
 import { PluginPollsAPI } from "./PluginPollsAPI"
@@ -1128,22 +1129,7 @@ export class PluginRegistry {
    * Used by the API endpoint to expose plugin schemas to the frontend.
    */
   getPluginSchemas(): PluginSchemaInfo[] {
-    const schemas: PluginSchemaInfo[] = []
-
-    for (const [, factory] of this.pluginFactories) {
-      // Create a temporary instance to get schema info
-      const tempInstance = factory()
-      schemas.push({
-        name: tempInstance.name,
-        version: tempInstance.version,
-        description: tempInstance.description,
-        defaultConfig: tempInstance.getDefaultConfig?.(),
-        configSchema: tempInstance.getConfigSchema?.(),
-        componentSchema: tempInstance.getComponentSchema?.(),
-      })
-    }
-
-    return schemas
+    return Array.from(this.pluginFactories.values(), (factory) => toPluginSchemaInfo(factory()))
   }
 
   /**
@@ -1152,18 +1138,7 @@ export class PluginRegistry {
    */
   getPluginSchema(pluginName: string): PluginSchemaInfo | null {
     const factory = this.pluginFactories.get(pluginName)
-    if (!factory) return null
-
-    // Create a temporary instance to get schema info
-    const tempInstance = factory()
-    return {
-      name: tempInstance.name,
-      version: tempInstance.version,
-      description: tempInstance.description,
-      defaultConfig: tempInstance.getDefaultConfig?.(),
-      configSchema: tempInstance.getConfigSchema?.(),
-      componentSchema: tempInstance.getComponentSchema?.(),
-    }
+    return factory ? toPluginSchemaInfo(factory()) : null
   }
 
   /**

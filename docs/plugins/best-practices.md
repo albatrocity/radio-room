@@ -142,7 +142,7 @@ await this.context.api.queueScreenEffect({
 See the [Playlist Democracy Plugin](../../packages/plugin-playlist-democracy) for a complete reference implementation featuring:
 
 - Zod schema with validation
-- Dynamic admin settings form (`getConfigSchema` plus `EDIT_*` in `modalsMachine` — [Getting Started §6](getting-started.md#6-register-the-admin-settings-view))
+- Dynamic admin settings form (`getConfigSchema`)
 - UI components (countdown, badges)
 - Event handling (track changes, reactions)
 - Storage (vote tracking, skip data)

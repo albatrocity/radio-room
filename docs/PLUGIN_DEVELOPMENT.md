@@ -4,13 +4,19 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 
 Documentation is split into focused guides below. Start with [Getting Started](plugins/getting-started.md) if you are new to plugin development.
 
+## Adding a plugin
+
+A new plugin is a `packages/plugin-{name}` package (with `"type": "module"`) plus one line in `pluginFactories` (`packages/plugins/index.ts`) and its dependency in `packages/plugins/package.json`. The API registers that list, studio-bridge serves the same schemas to Game Studio, and Admin Settings opens any plugin's form through the shared `settings.plugin` state, so no web or studio edit is needed ([ADR 0202](adrs/0202-plugin-registry-package-and-generic-settings-state.md)).
+
+Host code changes only for a new component template, a new `PluginContext` capability, or a plugin event that core UI handles. See [Getting Started §6](plugins/getting-started.md#6-when-a-plugin-needs-a-host-change).
+
 ## Guides
 
 ### Essentials
 
 | Guide | Topics |
 | ----- | ------ |
-| [Getting Started](plugins/getting-started.md) | Architecture overview, quick start, package setup, registration, **admin settings `EDIT_*` in `modalsMachine`** (required every new plugin) |
+| [Getting Started](plugins/getting-started.md) | Architecture overview, quick start, package setup, registration in `@repo/plugins`, when a plugin needs a host change |
 | [BasePlugin Reference](plugins/base-plugin.md) | Properties, methods, lifecycle hooks, optional overrides |
 | [Event System](plugins/events.md) | System events, game/inventory events, handler examples |
 | [Storage API](plugins/storage.md) | Redis namespacing, `getJson` / `updateJson` / `appendCapped`, plugin vs session leaderboards ([ADR 0192](adrs/0192-plugin-storage-and-leaderboard-helpers.md)) |
@@ -59,6 +65,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 - The Fed — `@repo/plugin-the-fed` (optional `costScale` controller; [ADR 0162](adrs/0162-economy-scale-for-game-sessions.md), [ADR 0163](adrs/0163-the-fed-economy-controller.md))
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
 - [ADR 0201: Plugin capability interfaces](adrs/0201-plugin-capability-interfaces.md) — `context.polls`, `schedule`, `queue`, `playback`, `catalog`
+- [ADR 0202: Plugin registry package and generic settings state](adrs/0202-plugin-registry-package-and-generic-settings-state.md) — `@repo/plugins`, `EDIT_PLUGIN_SETTINGS`
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
 - [ADR 0097: Plugin contributeToUserGameState](adrs/0097-plugin-contribute-to-user-game-state.md)
 - [ADR 0154: Plugin emit may skip USER_GAME_STATE_INVALIDATED](adrs/0154-plugin-emit-invalidates-user-state-opt-out.md)

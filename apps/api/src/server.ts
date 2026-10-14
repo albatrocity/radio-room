@@ -18,22 +18,7 @@ import {
 } from "@repo/adapter-bridge"
 import { mediaSource as shoutcastMediaSource } from "@repo/media-source-shoutcast"
 import { mediaSource as rtmpMediaSource } from "@repo/media-source-rtmp"
-import createPlaylistDemocracyPlugin from "@repo/plugin-playlist-democracy"
-import createSpecialWordsPlugin from "@repo/plugin-special-words"
-import createAbsentDjPlugin from "@repo/plugin-absent-dj"
-import createQueueHygienePlugin from "@repo/plugin-queue-hygiene"
-import createGuessTheTunePlugin from "@repo/plugin-guess-the-tune"
-import createItemShopsPlugin from "@repo/plugin-item-shops"
-import createLoyaltyProgramPlugin from "@repo/plugin-loyalty-program"
-import createQueuePacerPlugin from "@repo/plugin-queue-pacer"
-import createQuizSessionsPlugin from "@repo/plugin-quiz-sessions"
-import createPlaylistBingoPlugin from "@repo/plugin-playlist-bingo"
-import createRoundRobinDjPlugin from "@repo/plugin-round-robin-dj"
-import createMusicUploadPlugin from "@repo/plugin-music-upload"
-import createVolumeManagerPlugin from "@repo/plugin-volume-manager"
-import createQueueThemePlugin from "@repo/plugin-queue-theme"
-import createTheFedPlugin from "@repo/plugin-the-fed"
-import createLyricHeroPlugin from "@repo/plugin-lyric-hero"
+import { pluginFactories } from "@repo/plugins"
 import { authHandler } from "@repo/auth/server"
 import { requireAdmin } from "@repo/auth/middleware"
 
@@ -87,24 +72,7 @@ async function main() {
       { path: "/auth/tidal", handler: createTidalAuthRoutes },
     ],
 
-    plugins: [
-      createPlaylistDemocracyPlugin,
-      createSpecialWordsPlugin,
-      createAbsentDjPlugin,
-      createQueueHygienePlugin,
-      createGuessTheTunePlugin,
-      createItemShopsPlugin,
-      createLoyaltyProgramPlugin,
-      createQueuePacerPlugin,
-      createQuizSessionsPlugin,
-      createPlaylistBingoPlugin,
-      createRoundRobinDjPlugin,
-      createMusicUploadPlugin,
-      createVolumeManagerPlugin,
-      createQueueThemePlugin,
-      createTheFedPlugin,
-      createLyricHeroPlugin,
-    ],
+    plugins: pluginFactories,
   })
 
   await server.start()

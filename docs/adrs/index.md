@@ -207,6 +207,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0199](0199-item-models-and-lore.md) | Item 3D models (CDN GLB, `three` viewer) and lore | Accepted |
 | [0200](0200-queue-follow-ups-before-queue-changed.md) | Queue follow-ups commit before `QUEUE_CHANGED` | Accepted |
 | [0201](0201-plugin-capability-interfaces.md) | Plugin capability interfaces (`context.polls`, `schedule`, `queue`, `playback`, `catalog`) | Accepted |
+| [0202](0202-plugin-registry-package-and-generic-settings-state.md) | Plugin registry package (`@repo/plugins`) and generic `settings.plugin` state | Accepted |
 
 ## Creating a New ADR
 

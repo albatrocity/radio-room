@@ -38,7 +38,7 @@ import {
 } from "./snapshotStore.js"
 import { setRoomActivation } from "./activationState.js"
 import { BRIDGE_PRE_SYNC_ISO, stubRoomForRoomData, stubStudioBridgeRoom } from "./stubRoom.js"
-import { bridgePluginSchemasForApi } from "./stubPluginSchemas.js"
+import { buildBridgePluginSchemas } from "./pluginSchemas.js"
 import { buildStubActivePoll } from "./stubPoll.js"
 import {
   buildStubFeedbackTopics,
@@ -2275,8 +2275,10 @@ app.post("/logout", (_req, res) => {
   res.status(200).send("Logged out")
 })
 
+const pluginSchemas = buildBridgePluginSchemas()
+
 app.get("/api/plugins", (_req, res) => {
-  res.status(200).json({ plugins: bridgePluginSchemasForApi })
+  res.status(200).json({ plugins: pluginSchemas })
 })
 
 /** Late-joiner hydration for all plugin component stores (`pluginComponentMachine`). */

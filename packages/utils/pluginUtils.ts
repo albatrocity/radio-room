@@ -3,10 +3,22 @@
  * Used by both server-side rendering and frontend frameworks.
  */
 
-import type { ShowWhenCondition } from "@repo/types"
+import type { Plugin, PluginSchemaInfo, ShowWhenCondition } from "@repo/types"
 import { interpolateTemplate } from "./templateInterpolation"
 
 export type { ShowWhenCondition }
+
+/** `GET /api/plugins` entry for a plugin instance (no room context needed). */
+export function toPluginSchemaInfo(plugin: Plugin): PluginSchemaInfo {
+  return {
+    name: plugin.name,
+    version: plugin.version,
+    description: plugin.description,
+    defaultConfig: plugin.getDefaultConfig?.(),
+    configSchema: plugin.getConfigSchema?.(),
+    componentSchema: plugin.getComponentSchema?.(),
+  }
+}
 
 // ============================================================================
 // Condition Checking

@@ -2,6 +2,7 @@
   "name": "@repo/plugin-the-fed",
   "version": "1.0.0",
   "description": "The Fed — session economy controller that drives costScale toward a target affordability",
+  "type": "module",
   "main": "index.ts",
   "types": "index.ts",
   "scripts": {

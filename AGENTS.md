@@ -55,7 +55,8 @@ listening-room/
 │   ├── adapter-shoutcast/ # Media source
 │   ├── adapter-rtmp/      # Media source (MediaMTX)
 │   ├── adapter-bridge/    # Playback controller; YouTube and local metadata
-│   ├── plugin-*/          # Room plugins (registered in apps/api/src/server.ts)
+│   ├── plugin-*/          # Room plugins (registered in packages/plugins)
+│   ├── plugins/           # `pluginFactories` registry imported by the API and studio-bridge
 │   ├── plugin-base/       # Base class for plugins
 │   ├── plugin-config-ui/  # Shared schema-driven config forms (web + scheduler)
 │   ├── factories/         # Test factories
@@ -71,7 +72,7 @@ listening-room/
 
 - Internal packages use `@repo/` prefix (e.g., `@repo/server`, `@repo/types`)
 - Adapters: `@repo/adapter-{name}` — `spotify`, `tidal`, `shoutcast`, `rtmp`, `bridge`. `applemusic` is on the shared source-type enum and has no adapter.
-- Plugins registered in `apps/api/src/server.ts`: `playlist-democracy`, `special-words`, `absent-dj`, `queue-hygiene`, `guess-the-tune`, `item-shops`, `loyalty-program`, `queue-pacer`, `quiz-sessions`, `playlist-bingo`, `round-robin-dj`, `music-upload`, `volume-manager`, `queue-theme`, `the-fed`, `lyric-hero`. Music Upload owns the persona and UI store; core owns presigned PUT REST ([ADR 0119](docs/adrs/0119-private-music-uploads-presign.md)).
+- Plugins registered in `@repo/plugins` (`packages/plugins/index.ts`): `playlist-democracy`, `special-words`, `absent-dj`, `queue-hygiene`, `guess-the-tune`, `item-shops`, `loyalty-program`, `queue-pacer`, `quiz-sessions`, `playlist-bingo`, `round-robin-dj`, `music-upload`, `volume-manager`, `queue-theme`, `the-fed`, `lyric-hero`. Music Upload owns the persona and UI store; core owns presigned PUT REST ([ADR 0119](docs/adrs/0119-private-music-uploads-presign.md)).
 
 ---
 
@@ -147,11 +148,11 @@ MediaMTX runs locally via `docker compose --profile live up` and is deployed to 
 
 ### Creating a Plugin
 
-1. Create `packages/plugin-{name}/` directory
+1. Create `packages/plugin-{name}/` directory (`"type": "module"` in its `package.json`)
 2. Extend `BasePlugin<TConfig>` from `@repo/plugin-base`
 3. Define Zod schema for configuration
-4. Register in `apps/api/src/server.ts`
-5. **Admin settings view** — add an `EDIT_*` event and `settings.{plugin_name}` child state in `apps/web/src/machines/modalsMachine.ts` (kebab-case `the-fed` → `EDIT_THE_FED` / `the_fed`). Overview and Quick Access already send `toPluginSettingsEventType(pluginName)`; without the machine state the link does nothing. Details in [Getting Started](docs/plugins/getting-started.md#6-register-the-admin-settings-view).
+4. Add the factory to `pluginFactories` in `packages/plugins/index.ts` and the dependency to `packages/plugins/package.json`. The API, Admin Settings (shared `settings.plugin` state via `EDIT_PLUGIN_SETTINGS`), and studio-bridge schemas all follow from that list ([ADR 0202](docs/adrs/0202-plugin-registry-package-and-generic-settings-state.md)). Do not add per-plugin states to `modalsMachine`
+5. Host code changes only for a new component template, a new `PluginContext` capability, or a plugin event handled by core UI — see [Getting Started §6](docs/plugins/getting-started.md#6-when-a-plugin-needs-a-host-change)
 
 See [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md) for full details.
 
@@ -202,6 +203,8 @@ When adding features that affect the web app's room UI (new Socket.IO events, ga
 1. Add any new events to `apps/studio-bridge/src/server.ts`
 2. Update `BridgeSnapshot` in `apps/studio-bridge/src/types.ts` if new data fields are needed
 3. Test with `make game-studio` to verify the preview works
+
+Plugin config and component schemas need no studio change: `GET /api/plugins` is built from `@repo/plugins` (`apps/studio-bridge/src/pluginSchemas.ts`). Plugin *actions* the preview simulates (quiz, lyric-hero, volume) stay hand-written stubs.
 
 This keeps **Game Studio** (`apps/game-studio`) useful for rapid plugin/game feature iteration without running the full backend.
 
