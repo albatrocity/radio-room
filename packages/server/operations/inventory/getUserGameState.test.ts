@@ -2,6 +2,15 @@ import { describe, expect, test, vi } from "vitest"
 import type { AppContext } from "@repo/types"
 import { getUserGameState } from "./getUserGameState"
 
+/** `getUserGameState` reads presented identity from Redis after a session exists. */
+function redisWithNoPresentedIdentity() {
+  return {
+    pubClient: {
+      get: vi.fn().mockResolvedValue(null),
+    },
+  }
+}
+
 describe("getUserGameState", () => {
   test("returns empty payload when there is no active session", async () => {
     const context = {
@@ -44,6 +53,7 @@ describe("getUserGameState", () => {
       },
       gifts,
       trades,
+      redis: redisWithNoPresentedIdentity(),
     } as unknown as AppContext
 
     const data = await getUserGameState({ context, roomId: "room1", userId: "u1" })
@@ -73,6 +83,7 @@ describe("getUserGameState", () => {
         listOutgoingInvites: vi.fn().mockResolvedValue([]),
         getTradeForUser: vi.fn().mockResolvedValue(null),
       },
+      redis: redisWithNoPresentedIdentity(),
     } as unknown as AppContext
 
     await getUserGameState({ context, roomId: "room1", userId: "u1" })
@@ -115,6 +126,7 @@ describe("getUserGameState", () => {
         listOutgoingInvites: vi.fn().mockResolvedValue([]),
         getTradeForUser: vi.fn().mockResolvedValue(trade),
       },
+      redis: redisWithNoPresentedIdentity(),
     } as unknown as AppContext
 
     await getUserGameState({ context, roomId: "room1", userId: "u1" })
@@ -145,6 +157,7 @@ describe("getUserGameState", () => {
       },
       gifts,
       trades,
+      redis: redisWithNoPresentedIdentity(),
     } as unknown as AppContext
 
     const data = await getUserGameState({ context, roomId: "room1", userId: "u1" })
