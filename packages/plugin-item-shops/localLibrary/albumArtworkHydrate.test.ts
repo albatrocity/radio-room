@@ -58,6 +58,7 @@ describe("LocalLibraryModule album artwork hydrate", () => {
     const context = {
       roomId: "room-1",
       api: { getLocalAlbumArtwork },
+      catalog: { getLocalAlbumArtwork },
     } as unknown as PluginContext
     const mod = new LocalLibraryModule("item-shops", () => context)
     const short1 = physicalMediaAlbumShortId("al-1")
@@ -84,6 +85,7 @@ describe("LocalLibraryModule album artwork hydrate", () => {
     const context = {
       roomId: "room-1",
       api: { getLocalAlbumArtwork },
+      catalog: { getLocalAlbumArtwork },
     } as unknown as PluginContext
     const mod = new LocalLibraryModule("item-shops", () => context)
     const albumIds = ["a", "b", "c", "d", "e"]
@@ -104,6 +106,7 @@ describe("LocalLibraryModule album artwork hydrate", () => {
     const context = {
       roomId: "room-1",
       api: { getLocalAlbumArtwork },
+      catalog: { getLocalAlbumArtwork },
     } as unknown as PluginContext
     const mod = new LocalLibraryModule("item-shops", () => context)
     mod.derivedPhysicalMedia = [albumEntry("al-x")]

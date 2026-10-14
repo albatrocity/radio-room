@@ -1,8 +1,8 @@
 import type {
-  PluginAPI,
   PluginAugmentationData,
   PluginStorage,
   QueueItem,
+  QueuePluginAPI,
 } from "@repo/types"
 
 /** Redis key for per-track skip metadata written by skip-capable plugins. */
@@ -22,7 +22,7 @@ export function parseSkipData<T = Record<string, unknown>>(dataStr: string | nul
 
 export type TrackAnnotationsOptions = {
   storage: Pick<PluginStorage, "set" | "get" | "mget">
-  api: Pick<PluginAPI, "getNowPlaying" | "updatePlaylistTrack">
+  api: Pick<QueuePluginAPI, "getNowPlaying" | "updatePlaylistTrack">
   roomId: string
   pluginName: string
 }

@@ -101,6 +101,11 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
   const ctx: PluginContext = {
     roomId: room.roomId,
     api: pluginApi,
+    polls: pluginApi,
+    schedule: pluginApi,
+    queue: pluginApi,
+    playback: pluginApi,
+    catalog: pluginApi,
     storage,
     lifecycle,
     game: gameApi,

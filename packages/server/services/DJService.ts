@@ -57,32 +57,12 @@ function isSameMultiset(a: string[], b: string[]): boolean {
   return sa.every((v, i) => v === sb[i])
 }
 
-function queueChangedPayloadsEqual(
-  a: { queue: QueueItem[]; splitKey: string | null },
-  b: { queue: QueueItem[]; splitKey: string | null },
-): boolean {
-  if (a.splitKey !== b.splitKey) return false
-  if (a.queue.length !== b.queue.length) return false
-  return a.queue.every((item, i) => {
-    const other = b.queue[i]
-    return other != null && canonicalQueueTrackKey(item) === canonicalQueueTrackKey(other)
-  })
-}
-
 /**
- * Rooms where a `suppressQueueChanged` enqueue succeeded during QUEUE_CHANGED
- * plugin handling. Outer `queueSongAs` refreshes the client snapshot only then
- * (dirty flag — not an unconditional rebuild on every enqueue).
+ * How many follow-up rounds `DJService` will apply before emitting `QUEUE_CHANGED`.
+ * A locked round flushes every later deputy's hold, so the cap is the enqueue batch
+ * size rather than a single extra track.
  */
-const roomsWithSuppressedQueueMutation = new Set<string>()
-
-function markQueueMutatedDuringPlugins(roomId: string): void {
-  roomsWithSuppressedQueueMutation.add(roomId)
-}
-
-function takeSuppressedQueueMutation(roomId: string): boolean {
-  return roomsWithSuppressedQueueMutation.delete(roomId)
-}
+const MAX_QUEUE_FOLLOW_UP_ROUNDS = 50
 
 /**
  * Coerce a {@link QueueItemAttribution} into a `QueueItem.addedBy`-shaped value.
@@ -129,9 +109,7 @@ async function recomputeAnchorsAfterTransport(
   observed: { state?: "playing" | "paused" | "stopped"; progressMs?: number },
 ): Promise<void> {
   try {
-    const { recomputeAnchoredSchedules } = await import(
-      "../operations/plugins/anchoredSchedules"
-    )
+    const { recomputeAnchoredSchedules } = await import("../operations/plugins/anchoredSchedules")
     await recomputeAnchoredSchedules({ context, roomId, observed })
   } catch (error) {
     console.error("[DJService] recomputeAnchoredSchedules failed:", error)
@@ -226,16 +204,18 @@ export class DJService {
     metadataTrackId: QueueItem["track"]["id"],
     options?: {
       runPluginValidation?: boolean
-      suppressQueueChanged?: boolean
+      /**
+       * Owner batching only. Skip follow-ups and `QUEUE_CHANGED`; the caller emits once.
+       * Not part of `PluginAPI`.
+       */
+      deferQueueChanged?: boolean
       /** Metadata/media source that owns this track id (spotify, youtube, …). */
       mediaSourceType?: string
     },
   ) {
     let addedBy = attributionToAddedBy(attribution)
     if (attribution.type === "user") {
-      const { resolveActorPresentedIdentity } = await import(
-        "../operations/presentedIdentity"
-      )
+      const { resolveActorPresentedIdentity } = await import("../operations/presentedIdentity")
       const presented = await resolveActorPresentedIdentity({
         context: this.context,
         roomId,
@@ -245,7 +225,7 @@ export class DJService {
       addedBy = { userId: attribution.userId, username: presented.label }
     }
     const runValidation = options?.runPluginValidation ?? false
-    const suppressQueueChanged = options?.suppressQueueChanged ?? false
+    const deferQueueChanged = options?.deferQueueChanged ?? false
     const sourceType = options?.mediaSourceType ?? "spotify"
 
     const queue = await getQueue({ context: this.context, roomId })
@@ -479,11 +459,8 @@ export class DJService {
       }
     }
 
-    if (suppressQueueChanged) {
-      // Nested add from a QUEUE_CHANGED plugin handler (e.g. round-robin hold flush).
-      markQueueMutatedDuringPlugins(roomId)
-    } else {
-      await this.emitQueueChangedAfterAdd(roomId, isAppControlledPlayback(room))
+    if (!deferQueueChanged) {
+      await this.broadcastQueueChanged(roomId, isAppControlledPlayback(room))
     }
 
     return {
@@ -494,27 +471,55 @@ export class DJService {
   }
 
   /**
-   * Emit QUEUE_CHANGED after an enqueue. Plugins may enqueue further tracks
-   * during QUEUE_CHANGED with suppressQueueChanged (e.g. round-robin hold flush);
-   * refresh only when that happened so clients see the final queue without a
-   * second Redis build on every ordinary enqueue.
+   * Apply plugin follow-ups, then emit one `QUEUE_CHANGED` for the queue those writes produced.
+   * Call after a batch of `queueSongAs(..., { deferQueueChanged: true })`.
    */
-  private async emitQueueChangedAfterAdd(roomId: string, appControlled: boolean): Promise<void> {
+  async finishDeferredQueueWrite(roomId: string): Promise<void> {
+    const room = await findRoom({ context: this.context, roomId })
+    await this.broadcastQueueChanged(roomId, room ? isAppControlledPlayback(room) : false)
+  }
+
+  /**
+   * Commit follow-ups, then emit the queue once. Follow-up writes pass `deferQueueChanged`
+   * so they do not emit or collect on their own; this loop does the next round.
+   */
+  private async broadcastQueueChanged(roomId: string, appControlled: boolean): Promise<void> {
+    await this.applyQueueFollowUps(roomId)
     if (!this.context.systemEvents) return
     const payload = await buildQueueChangedData({ roomId, context: this.context, appControlled })
     await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
+  }
 
-    if (takeSuppressedQueueMutation(roomId)) {
-      const refreshed = await buildQueueChangedData({
-        roomId,
-        context: this.context,
-        appControlled,
-      })
-      if (!queueChangedPayloadsEqual(payload, refreshed)) {
-        await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", refreshed, {
-          skipPlugins: true,
+  private async applyQueueFollowUps(roomId: string): Promise<void> {
+    const registry = this.context.pluginRegistry
+    if (!registry?.collectQueueFollowUps) return
+
+    for (let round = 0; round < MAX_QUEUE_FOLLOW_UP_ROUNDS; round++) {
+      const proposals = await registry.collectQueueFollowUps(roomId)
+      if (!proposals?.length) return
+
+      let applied = false
+      for (const proposal of proposals) {
+        const outcome = await this.queueSongAs(
+          roomId,
+          proposal.followUp.addedBy,
+          proposal.followUp.trackId,
+          {
+            runPluginValidation: false,
+            mediaSourceType: proposal.followUp.mediaSourceType,
+            deferQueueChanged: true,
+          },
+        )
+        const success =
+          outcome.success === true && "queuedItem" in outcome && outcome.queuedItem != null
+        if (success) applied = true
+        await registry.deliverQueueFollowUpResult?.(roomId, proposal.pluginName, {
+          followUp: proposal.followUp,
+          success,
+          message: "message" in outcome ? outcome.message : undefined,
         })
       }
+      if (!applied) return
     }
   }
 
@@ -530,7 +535,6 @@ export class DJService {
     options: {
       at?: "next" | "end" | number
       pin?: { pluginName: string; blockId: string }
-      suppressQueueChanged?: boolean
     } & QueueActorOptions = {},
   ): Promise<
     | {
@@ -553,25 +557,21 @@ export class DJService {
       return { success: false, message: APP_CONTROLLED_ONLY_MESSAGE }
     }
 
-    const wasDirty = roomsWithSuppressedQueueMutation.has(roomId)
     const queued: QueueItem[] = []
     const skipped: { trackId: string; message: string }[] = []
     for (const { trackId, mediaSourceType } of tracks) {
       const result = await this.queueSongAs(roomId, attribution, trackId, {
         runPluginValidation: false,
-        suppressQueueChanged: true,
+        deferQueueChanged: true,
         mediaSourceType,
       })
       if (result.success && "queuedItem" in result && result.queuedItem) {
         queued.push(result.queuedItem)
-      }
-      else {
+      } else {
         const message = "message" in result && result.message ? result.message : null
         skipped.push({ trackId, message: message ?? "Track could not be queued" })
       }
     }
-    // Our own nested adds marked the room dirty; only an outer handler's mark should survive.
-    if (!wasDirty) roomsWithSuppressedQueueMutation.delete(roomId)
 
     if (queued.length === 0) {
       return { success: false, message: skipped[0]?.message ?? "No tracks were queued", skipped }
@@ -604,11 +604,7 @@ export class DJService {
       })
     }
 
-    if (options.suppressQueueChanged) {
-      markQueueMutatedDuringPlugins(roomId)
-    } else {
-      await this.emitQueueChangedAfterAdd(roomId, appControlled)
-    }
+    await this.broadcastQueueChanged(roomId, appControlled)
 
     return { success: true, queued: block, skipped }
   }

@@ -1,7 +1,7 @@
 # 0069. Playback Controller Volume and beforePlayQueuedTrack Hook
 
 **Date:** 2026-07-07
-**Status:** Accepted
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (volume and transport are `context.playback`)
 
 ## Context
 

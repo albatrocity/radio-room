@@ -159,7 +159,7 @@ See the [Queue Hygiene Plugin](../../packages/plugin-queue-hygiene) for a queue 
 
 See the [Round Robin DJ Plugin](../../packages/plugin-round-robin-dj) ([ADR 0091](../adrs/0091-round-robin-dj-plugin.md)) for deferred queue / hold flush and personas:
 
-- `deferQueueRequest` + held-track flush via `addToTrackQueue({ suppressQueueChanged: true })` ([Queue Validation](queue-validation.md))
+- `deferQueueRequest` + held-track flush via `collectQueueFollowUps` ([Queue Validation — follow-ups](queue-validation.md#queue-follow-ups-before-queue_changed))
 - Exclusive Robin persona sync ([User Personas](user-personas.md))
 - Deputy eligibility and `DEPUTY_DJ_CHANGED`
 

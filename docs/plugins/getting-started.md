@@ -9,12 +9,17 @@
 └─────────────────────────────────────────────────────────────┘
                             │
                             ├─ Creates PluginContext
-                            │   ├─ api: PluginAPI
+                            │   ├─ api: PluginAPI (chat, presence, effects, config, emit)
                             │   ├─ storage: PluginStorage
                             │   ├─ game: GameSessionPluginAPI (room-scoped)
                             │   ├─ inventory: InventoryPluginAPI (room-scoped)
                             │   ├─ artifacts: ArtifactsPluginAPI (cross-room)
                             │   ├─ personas: PersonasPluginAPI (room-scoped)
+                            │   ├─ polls: PollsPluginAPI
+                            │   ├─ schedule: SchedulePluginAPI
+                            │   ├─ queue: QueuePluginAPI
+                            │   ├─ playback: PlaybackPluginAPI
+                            │   ├─ catalog: CatalogPluginAPI
                             │   ├─ lifecycle: Event handlers
                             │   ├─ getRoom / appContext
                             │   └─ roomId: string
@@ -55,6 +60,7 @@
 5. **Sandboxed Storage**: Redis storage namespaced by plugin and room
 6. **Optional Global Game State**: Core services expose `context.game` (sessions, score/coin, modifiers, leaderboards) and `context.inventory` (cross-plugin items). Use these when you want shared economy or UI across plugins; keep plugin-local sorted sets when scores should stay private to one plugin.
 7. **User Personas**: Core `context.personas` exposes session identity labels (VIP, Judge, etc.) with badges in the listener list and chat. See [User Personas](user-personas.md#user-personas) and [ADR 0057](../adrs/0057-user-personas-system.md).
+8. **Capability fields**: Polls, schedules, the queue, playback, and the catalog are `context.polls`, `context.schedule`, `context.queue`, `context.playback`, and `context.catalog` ([ADR 0201](../adrs/0201-plugin-capability-interfaces.md)). `context.api` is the residual host (chat, presence, effects, config, `emit`). `this.schedule()` / `this.cancelSchedule()` on `BasePlugin` call `context.schedule`.
 
 
 ## Quick Start

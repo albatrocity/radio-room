@@ -7,19 +7,23 @@ import type {
   PluginComponentState,
   PluginConfigSchema,
   PluginContext,
+  QueueFollowUp,
+  QueueFollowUpResult,
   QueueItem,
   QueueValidationParams,
   QueueValidationResult,
   User,
   UserPersonaAssignment,
 } from "@repo/types"
-import { allowQueueRequest, deferQueueRequest, isPluginAttributedUserId, rejectQueueRequest } from "@repo/types"
+import {
+  allowQueueRequest,
+  deferQueueRequest,
+  isPluginAttributedUserId,
+  rejectQueueRequest,
+} from "@repo/types"
 import { BasePlugin } from "@repo/plugin-base"
 import packageJson from "./package.json"
-import {
-  buildQueueStatusStore,
-  EMPTY_QUEUE_STATUS_STORE,
-} from "./componentState"
+import { buildQueueStatusStore, EMPTY_QUEUE_STATUS_STORE } from "./componentState"
 import {
   defaultRoundRobinDjConfig,
   PLUGIN_NAME,
@@ -48,7 +52,7 @@ import {
   removeUser,
   type StateTransition,
 } from "./state"
-import { HoldStore } from "./holds"
+import { HoldStore, recentLiveEnqueue } from "./holds"
 import { RobinPersonaSync } from "./personas"
 import { DeputyRosterLifecycle } from "./roster"
 
@@ -205,6 +209,23 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     return { success: false, message: `Unknown action: ${action}` }
   }
 
+  async collectQueueFollowUps(roomId: string): Promise<QueueFollowUp[]> {
+    if (!this.context) return []
+    const config = await this.getConfig()
+    if (!config?.enabled) return []
+    const state = await this.loadState()
+    if (!state) return []
+    const queue = await this.context.queue.getQueue(roomId)
+    const followUp = await this.holds.proposeFollowUp(state, config, queue)
+    return followUp ? [followUp] : []
+  }
+
+  async onQueueFollowUpResult(result: QueueFollowUpResult): Promise<void> {
+    const config = await this.getConfig()
+    if (!config?.enabled) return
+    await this.holds.completeFollowUp(result, config)
+  }
+
   async validateQueueRequest(params: QueueValidationParams): Promise<QueueValidationResult> {
     const config = await this.getConfig()
     if (!config?.enabled) return allowQueueRequest()
@@ -288,9 +309,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const state = await this.loadState()
     if (!state) return "abstain"
 
-    return canAccessSources(state, params.userId, config.deferOutOfTurnQueues)
-      ? "grant"
-      : "abstain"
+    return canAccessSources(state, params.userId, config.deferOutOfTurnQueues) ? "grant" : "abstain"
   }
 
   // ==========================================================================
@@ -336,18 +355,13 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
         `Round Robin: switched to ${modeLabel(config.mode)} mode`,
         { type: "alert", status: "info" },
       )
-    } else if (
-      previousConfig?.deferOutOfTurnQueues !== config.deferOutOfTurnQueues
-    ) {
+    } else if (previousConfig?.deferOutOfTurnQueues !== config.deferOutOfTurnQueues) {
       // Defer toggle changes hold-for-next eligibility without rewriting turn state.
       const state = await this.loadState()
       await this.publishQueueStatus(state, config)
     }
 
-    if (
-      previousConfig?.deferOutOfTurnQueues === true &&
-      config.deferOutOfTurnQueues === false
-    ) {
+    if (previousConfig?.deferOutOfTurnQueues === true && config.deferOutOfTurnQueues === false) {
       const state = await this.loadState()
       if (state) await this.holds.clearHoldsForUsers(state.participants)
     }
@@ -387,23 +401,16 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   // Event handlers
   // ==========================================================================
 
-  private async onQueueChanged(data: {
-    roomId: string
-    queue: QueueItem[]
-  }): Promise<void> {
+  private async onQueueChanged(data: { roomId: string; queue: QueueItem[] }): Promise<void> {
     if (!this.context) return
     const config = await this.getConfig()
     if (!config?.enabled) return
 
-    // Detect live enqueues via most-recent addedAt within 5s (same heuristic as queue-hygiene).
-    // Hold flush records turns via applySuccessfulQueue — QUEUE_CHANGED may be suppressed.
-    const sorted = [...data.queue].sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0))
-    const mostRecent = sorted[0]
-    if (!mostRecent?.addedBy?.userId || !mostRecent.addedAt) return
-    if (Date.now() - mostRecent.addedAt >= 5000) return
+    // Live enqueues only. Held tracks are committed as follow-ups before this event.
+    const mostRecent = recentLiveEnqueue(data.queue)
+    if (!mostRecent?.addedBy?.userId) return
 
     const userId = mostRecent.addedBy.userId
-    if (isPluginAttributedUserId(userId)) return
 
     const state = await this.loadState()
     if (!state) return
@@ -536,7 +543,8 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     if (state.queuedThisRound.includes(userId)) return
 
     const transition = recordSuccessfulQueue(state, userId, config.autoAdvanceRounds)
-    await this.persistAndSync(transition, config)
+    // Hold flushes on a queue write are follow-ups, applied before this record runs.
+    await this.persistAndSync(transition, config, { flush: false })
     await this.announceRoundTransition(transition)
   }
 
@@ -591,14 +599,16 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   private async persistAndSync(
     transition: StateTransition,
     config: RoundRobinDjConfig,
+    options?: { flush?: boolean },
   ): Promise<void> {
     this.persistDepth += 1
     try {
       await this.saveState(transition.state)
       await this.notifyTurnStarted(transition.turnStartedFor)
-      // Hold flush may re-enter applySuccessfulQueue → persistAndSync. Only the
-      // outermost pass syncs Robin + publishes QUEUE_STATUS against final state.
-      await this.holds.flushHoldForCurrentTurn(transition.state, config)
+      // Queue-write flushes are follow-ups. Leave, roster, advance, and undo still flush here.
+      if (options?.flush !== false) {
+        await this.holds.flushHoldForCurrentTurn(transition.state, config)
+      }
       if (this.persistDepth === 1) {
         await this.syncRobinAndPublish(transition.state, config)
       }
@@ -642,9 +652,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   }
 }
 
-export function createRoundRobinDjPlugin(
-  configOverrides?: Partial<RoundRobinDjConfig>,
-): Plugin {
+export function createRoundRobinDjPlugin(configOverrides?: Partial<RoundRobinDjConfig>): Plugin {
   return new RoundRobinDjPlugin(configOverrides)
 }
 

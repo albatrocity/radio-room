@@ -246,7 +246,7 @@ async getComponentState(): Promise<PluginComponentState> {
     return { showCountdown: false }
   }
 
-  const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+  const nowPlaying = await this.context.queue.getNowPlaying(this.context.roomId)
 
   return {
     showCountdown: true,

@@ -165,7 +165,7 @@ Called after a successful app-controlled `REMOVE_FROM_QUEUE`. Fail-open (500ms).
 
 #### `grantMetadataSourceAccess(params): Promise<"grant" | "abstain">` (optional)
 
-Grant a user access to a **restricted** metadata source on bridge rooms (search/queue). Any `"grant"` wins; errors/timeouts abstain (fail-closed). Discover source ids via `this.context.api.listMetadataSources(roomId)`.
+Grant a user access to a **restricted** metadata source on bridge rooms (search/queue). Any `"grant"` wins; errors/timeouts abstain (fail-closed). Discover source ids via `this.context.catalog.listMetadataSources(roomId)`.
 
 See [Metadata Source Access](metadata-source-access.md).
 

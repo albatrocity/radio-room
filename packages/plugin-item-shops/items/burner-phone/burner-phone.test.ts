@@ -35,7 +35,7 @@ describe("burner-phone", () => {
       consumed: false,
       message: "Enter a message to send.",
     })
-    expect(deps.context.api.speakOnMediaBridge).not.toHaveBeenCalled()
+    expect(deps.context.playback.speakOnMediaBridge).not.toHaveBeenCalled()
   })
 
   it("rejects over-length message without consuming", async () => {
@@ -50,7 +50,7 @@ describe("burner-phone", () => {
     })
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
-    expect(deps.context.api.speakOnMediaBridge).not.toHaveBeenCalled()
+    expect(deps.context.playback.speakOnMediaBridge).not.toHaveBeenCalled()
   })
 
   it("does not consume when bridge speak fails", async () => {
@@ -58,7 +58,7 @@ describe("burner-phone", () => {
     const actor = userFactory.build({ username: "Alice" })
     stubRoomUsers(deps, [actor])
     const def = createMockDefinition(burnerPhone.shortId)
-    vi.mocked(deps.context.api.speakOnMediaBridge).mockResolvedValue({
+    vi.mocked(deps.context.playback.speakOnMediaBridge).mockResolvedValue({
       ok: false,
       message: "No TTS audio device configured.",
     })
@@ -79,7 +79,7 @@ describe("burner-phone", () => {
     const actor = userFactory.build({ username: "Alice" })
     stubRoomUsers(deps, [actor])
     const def = createMockDefinition(burnerPhone.shortId)
-    vi.mocked(deps.context.api.speakOnMediaBridge).mockResolvedValue({ ok: true })
+    vi.mocked(deps.context.playback.speakOnMediaBridge).mockResolvedValue({ ok: true })
 
     const result = await invokeUse(burnerPhone, deps, actor.userId, def, {
       formValues: { message: "  Hello DJ  ", voice: "Samantha" },
@@ -90,7 +90,7 @@ describe("burner-phone", () => {
       consumed: true,
       message: "Your call is going through.",
     })
-    expect(deps.context.api.speakOnMediaBridge).toHaveBeenCalledWith(deps.context.roomId, {
+    expect(deps.context.playback.speakOnMediaBridge).toHaveBeenCalledWith(deps.context.roomId, {
       text: "Hello DJ",
       voice: "Samantha",
     })

@@ -151,7 +151,7 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
       return { success: false, message: "Provide a decoy theme when decoy count is greater than 0." }
     }
 
-    const activePoll = await this.context.api.getActivePoll(this.context.roomId)
+    const activePoll = await this.context.polls.getActivePoll(this.context.roomId)
     if (activePoll) {
       return {
         success: false,
@@ -207,11 +207,11 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
     await this.saveRound(round)
 
     if (parseTruthyParam(params?.reserveQueue)) {
-      const queue = await this.context.api.getQueue(this.context.roomId)
+      const queue = await this.context.queue.getQueue(this.context.roomId)
       const unlocked = queue.filter((item) => !item.locked)
       if (unlocked.length >= 1) {
         const belowKey = canonicalQueueTrackKey(unlocked[0]!)
-        const splitResult = await this.context.api.setQueueSplit(this.context.roomId, belowKey)
+        const splitResult = await this.context.queue.setQueueSplit(this.context.roomId, belowKey)
         if (!splitResult.success) {
           await this.context.api.sendSystemMessage(
             this.context.roomId,
@@ -233,7 +233,7 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
     await this.emit<QueueThemeEvents["ROUND_STARTED"]>("ROUND_STARTED", publicState)
 
     // Open a poll for the current track if one is playing
-    const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+    const nowPlaying = await this.context.queue.getNowPlaying(this.context.roomId)
     if (nowPlaying) {
       await this.serialize(async () => {
         await this.openPollForTrack(nowPlaying, initiator!.userId!)
@@ -269,9 +269,9 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
       }
 
       // Guarantee the core poll slot is clear even if round.pollId was desynced.
-      const active = await this.context!.api.getActivePoll(this.context!.roomId)
+      const active = await this.context!.polls.getActivePoll(this.context!.roomId)
       if (active) {
-        await this.context!.api.closePoll({
+        await this.context!.polls.closePoll({
           roomId: this.context!.roomId,
           userId: closerUserId,
           pollId: active.id,
@@ -342,7 +342,7 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
       const round = await this.loadRound()
       if (!round?.active || !round.pollId || round.pollId !== data.pollId) return
 
-      const voterIds = await this.context!.api.getPollVoterIds(
+      const voterIds = await this.context!.polls.getPollVoterIds(
         this.context!.roomId,
         round.pollId,
       )
@@ -382,7 +382,7 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
 
     let snapshot: (QueueThemeComponentState & { statusMessage: string | null }) | null = null
     if (round.pollId) {
-      const closed = await this.context.api.closePoll({
+      const closed = await this.context.polls.closePoll({
         roomId: this.context.roomId,
         userId: closerUserId,
         pollId: round.pollId,
@@ -432,7 +432,7 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
     if (!round?.active) return
 
     // Do not steal a foreign poll
-    const active = await this.context.api.getActivePoll(this.context.roomId)
+    const active = await this.context.polls.getActivePoll(this.context.roomId)
     if (active) return
 
     const title = track.track?.title?.trim() || track.title?.trim() || "this track"
@@ -441,7 +441,7 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
       ? [{ label: "Yes" }, { label: "No" }, { label: "Decoy" }]
       : [{ label: "Yes" }, { label: "No" }]
 
-    const created = await this.context.api.createPoll({
+    const created = await this.context.polls.createPoll({
       roomId: this.context.roomId,
       userId: hostUserId,
       question: `Does "${title}" fit the theme?`,
@@ -495,7 +495,7 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
     if (!config) return false
 
     const excludeUserIds = round.pollDjUserId ? [round.pollDjUserId] : undefined
-    const counts = await this.context.api.tallyPoll(round.pollId, { excludeUserIds })
+    const counts = await this.context.polls.tallyPoll(round.pollId, { excludeUserIds })
     const yesCount = counts[round.optionIds.yes] ?? 0
     const noCount = counts[round.optionIds.no] ?? 0
 
@@ -526,7 +526,7 @@ export class QueueThemePlugin extends BasePlugin<QueueThemeConfig> {
       round.decoyUserIds.includes(round.pollDjUserId) &&
       config.accusationReward > 0
     ) {
-      const votes = await this.context.api.getPollVotes(this.context.roomId, round.pollId)
+      const votes = await this.context.polls.getPollVotes(this.context.roomId, round.pollId)
       const rewarded = decoyVoterIds(votes, round.optionIds.decoy, round.pollDjUserId)
       await Promise.all(rewarded.map((voterId) => this.awardPayout(voterId, config.accusationReward)))
     }

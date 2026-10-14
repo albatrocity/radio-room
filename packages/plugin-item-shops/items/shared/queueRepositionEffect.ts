@@ -46,7 +46,7 @@ export function queueRepositionEffect(config: QueueRepositionEffectConfig): Item
       return { success: false, consumed: false, message: config.messages.selectTarget }
     }
 
-    const targetedItem = await context.api
+    const targetedItem = await context.queue
       .getQueue(context.roomId)
       .then((queue) => queue.find((item) => item.track.id === targetQueueItemId))
 
@@ -54,7 +54,7 @@ export function queueRepositionEffect(config: QueueRepositionEffectConfig): Item
       return { success: false, consumed: false, message: "Targeted track not found in queue." }
     }
 
-    const result = await context.api.moveTrackByPosition(
+    const result = await context.queue.moveTrackByPosition(
       context.roomId,
       targetQueueItemId,
       config.delta,

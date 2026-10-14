@@ -74,7 +74,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0066](0066-email-newsletter-via-amazon-ses.md) | Email newsletter via Amazon SES (own-list send, SNS suppression, Redis scheduling) | Accepted |
 | [0067](0067-queue-split-reserved-segment.md) | Queue split for reserved lower segment (app-controlled) | Partially superseded by [0153](0153-plugin-authored-queue-split.md) |
 | [0068](0068-private-scoped-plugin-config-fields.md) | Private-scoped plugin config fields and shared schema-driven authoring | Accepted |
-| [0069](0069-playback-controller-volume-and-before-play-hook.md) | Playback Controller volume and beforePlayQueuedTrack hook | Accepted |
+| [0069](0069-playback-controller-volume-and-before-play-hook.md) | Playback Controller volume and beforePlayQueuedTrack hook | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (volume and transport host) |
 | [0070](0070-route-transitions-via-view-transitions-api.md) | Route transitions via View Transitions API | Accepted |
 | [0071](0071-admin-platform-identity-for-room-creation.md) | Admin platform identity for room creation (no Spotify create gate) | Accepted |
 | [0072](0072-plugin-user-targeted-sound-effects.md) | Plugin user-targeted sound effects (optional `userId` on `queueSoundEffect`) | Accepted |
@@ -93,7 +93,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0085](0085-multi-source-search-relevance-ranking.md) | Multi-source DJ search relevance ranking | Accepted |
 | [0086](0086-metadata-search-result-cache.md) | Metadata search result cache (SimpleCache + YouTube first) | Accepted |
 | [0087](0087-room-bridge-media-source-policy.md) | Room-level Media Bridge source policy (metadataSourceIds toggles) | Accepted |
-| [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Accepted |
+| [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog host) |
 | [0089](0089-metadata-source-content-browse.md) | Metadata source content browse (artists → albums → tracks) | Partially superseded by [0090](0090-hybrid-metadata-catalog-browse.md) |
 | [0090](0090-hybrid-metadata-catalog-browse.md) | Hybrid metadata catalog browse (search-entry + Search entity rows) | Accepted |
 | [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Partially superseded by [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) |
@@ -157,8 +157,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0149](0149-inventory-peek-flag-and-identity-pierce.md) | Timed `inventory_peek` flag + viewer identity pierce (X-Ray) | Accepted |
 | [0150](0150-presented-identity-grant.md) | Core presented-identity grant (optional engage toggle) | Accepted |
 | [0151](0151-round-robin-forward-and-back-mode.md) | Round Robin forward-and-back (snake) mode | Accepted |
-| [0152](0152-plugin-authored-core-polls.md) | Plugin-authored core polls (`source.pluginName`, `announce`, `getPollVotes`) | Accepted |
-| [0153](0153-plugin-authored-queue-split.md) | Plugin-authored queue split (`source.pluginName` on `DJService` / `PluginAPI`) | Accepted |
+| [0152](0152-plugin-authored-core-polls.md) | Plugin-authored core polls (`source.pluginName`, `announce`, `getPollVotes`) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (poll host) |
+| [0153](0153-plugin-authored-queue-split.md) | Plugin-authored queue split (`source.pluginName` on `DJService` / `context.queue`) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (queue host) |
 | [0154](0154-plugin-emit-invalidates-user-state-opt-out.md) | Plugin `emit` may skip `USER_GAME_STATE_INVALIDATED` | Accepted |
 | [0155](0155-physical-media-condition-wear-and-conversion.md) | Physical Media condition, wear, and conversion | Partially superseded by [0157](0157-physical-media-condition-artwork.md) (§6 artwork seam). Amended by [0159](0159-physical-media-restoration-items.md), [0160](0160-playback-device-gating.md), and [0170](0170-broken-media-dead-weight.md) |
 | [0156](0156-mutable-inventory-stack-metadata.md) | Mutable inventory stack metadata (`updateItemMetadata`) | Accepted |
@@ -183,7 +183,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0175](0175-item-shop-themes-and-assignment-rarity.md) | Item shop themes and assignment rarity | Accepted |
 | [0176](0176-room-shop-assignment-rarity-overrides.md) | Room shop assignment rarity overrides (admin UI) | Accepted |
 | [0177](0177-listener-whats-new-from-bundled-markdown.md) | Listener What’s new from bundled markdown | Accepted |
-| [0178](0178-media-bridge-tts-say-output.md) | Media Bridge TTS (`say`) to a dedicated CoreAudio output | Accepted |
+| [0178](0178-media-bridge-tts-say-output.md) | Media Bridge TTS (`say`) to a dedicated CoreAudio output | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (speech host) |
 | [0179](0179-reusable-multi-slot-password-stashes.md) | Reusable, multi-slot password stashes (`contents[]`, deposit/withdraw, container return) | Partially superseded by [0181](0181-empty-stash-container-return.md) (points 4 and 8) |
 | [0180](0180-tour-laminate-punch-accrual.md) | Tour Laminate: per-copy punch accrual | Accepted |
 | [0181](0181-empty-stash-container-return.md) | Empty stashes persist; container return is best-effort | Accepted |
@@ -195,16 +195,18 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0187](0187-declarative-item-use-forms.md) | Declarative item-use forms (`useForm`) | Partially superseded by [0193](0193-item-use-forms-composed-with-target-pickers.md) (point 4) |
 | [0188](0188-kickstarter-campaigns-coin-escrow.md) | Kickstarter campaigns and coin escrow | Accepted |
 | [0189](0189-poll-closes-at-auto-close.md) | Poll `closesAt` auto-close | Accepted |
-| [0190](0190-durable-plugin-scheduler.md) | Durable plugin scheduler | Accepted. Extended by [0196](0196-plugin-playback-timeline.md) |
+| [0190](0190-durable-plugin-scheduler.md) | Durable plugin scheduler | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (schedule host). Extended by [0196](0196-plugin-playback-timeline.md) |
 | [0191](0191-modifier-expiry-sweep.md) | Claimed modifier expiry sweep | Accepted |
 | [0192](0192-plugin-storage-and-leaderboard-helpers.md) | Plugin storage helpers (`getJson`/`updateJson`/`appendCapped`) and `createLeaderboard` | Accepted |
 | [0193](0193-item-use-forms-composed-with-target-pickers.md) | Item-use forms composed with target pickers (+ field capabilities) | Accepted |
-| [0194](0194-ephemeral-plugin-users-and-action-mirroring.md) | Ephemeral plugin users and action mirroring (spawn/chat/react APIs) | Accepted |
+| [0194](0194-ephemeral-plugin-users-and-action-mirroring.md) | Ephemeral plugin users and action mirroring (spawn/chat/react APIs) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (schedule host) |
 | [0195](0195-segment-image-streaming-cover.md) | Segment title and image as the streaming-mode Now Playing display | Accepted |
-| [0196](0196-plugin-playback-timeline.md) | Plugin playback timeline (transport and playback-anchored schedules) | Accepted |
-| [0197](0197-plugin-catalog-search.md) | Plugin catalog search (`searchTracks`) | Accepted |
-| [0198](0198-plugin-queue-blocks.md) | Plugin queue blocks and pins (`enqueueTracks`) | Accepted |
+| [0196](0196-plugin-playback-timeline.md) | Plugin playback timeline (transport and playback-anchored schedules) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (playback host) |
+| [0197](0197-plugin-catalog-search.md) | Plugin catalog search (`searchTracks`) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog host) |
+| [0198](0198-plugin-queue-blocks.md) | Plugin queue blocks and pins (`enqueueTracks`) | Partially superseded by [0200](0200-queue-follow-ups-before-queue-changed.md) (public `suppressQueueChanged` only). Queue host is [0201](0201-plugin-capability-interfaces.md) |
 | [0199](0199-item-models-and-lore.md) | Item 3D models (CDN GLB, `three` viewer) and lore | Accepted |
+| [0200](0200-queue-follow-ups-before-queue-changed.md) | Queue follow-ups commit before `QUEUE_CHANGED` | Accepted |
+| [0201](0201-plugin-capability-interfaces.md) | Plugin capability interfaces (`context.polls`, `schedule`, `queue`, `playback`, `catalog`) | Accepted |
 
 ## Creating a New ADR
 

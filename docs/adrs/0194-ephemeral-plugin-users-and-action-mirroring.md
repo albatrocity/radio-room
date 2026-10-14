@@ -1,7 +1,7 @@
 # 0194. Ephemeral Plugin Users and Action Mirroring
 
 **Date:** 2026-08-11
-**Status:** Accepted
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (point 5: schedules are `context.schedule`)
 
 ## Context
 

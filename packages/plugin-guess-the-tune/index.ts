@@ -169,9 +169,9 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     await this.context.storage.del(rk)
     await this.context.storage.hset(rk, "startedAt", String(Date.now()))
 
-    const np = await this.context.api.getNowPlaying(this.context.roomId)
+    const np = await this.context.queue.getNowPlaying(this.context.roomId)
     if (np) {
-      await this.context.api.updatePlaylistTrack(this.context.roomId, np)
+      await this.context.queue.updatePlaylistTrack(this.context.roomId, np)
     }
   }
 
@@ -206,7 +206,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
   ): Promise<void> {
     if (!this.context) return
 
-    const np = await this.context.api.getNowPlaying(this.context.roomId)
+    const np = await this.context.queue.getNowPlaying(this.context.roomId)
     if (!np?.track) return
 
     if (config.ignoreOwnQueueSubmissions && np.addedBy?.userId === message.user.userId) {
@@ -275,7 +275,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
     if (!this.context) return false
     if (isSystemChatMessage(message)) return false
 
-    const np = await this.context.api.getNowPlaying(this.context.roomId)
+    const np = await this.context.queue.getNowPlaying(this.context.roomId)
     if (!np?.track) return false
 
     if (config.ignoreOwnQueueSubmissions && np.addedBy?.userId === message.user.userId) {
@@ -415,9 +415,9 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
 
   private async refreshNowPlayingAugmentation(): Promise<void> {
     if (!this.context) return
-    const fresh = await this.context.api.getNowPlaying(this.context.roomId)
+    const fresh = await this.context.queue.getNowPlaying(this.context.roomId)
     if (fresh) {
-      await this.context.api.updatePlaylistTrack(this.context.roomId, fresh)
+      await this.context.queue.updatePlaylistTrack(this.context.roomId, fresh)
     }
   }
 
@@ -551,7 +551,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       return { success: false, message: "Guess the Tune is disabled." }
     }
 
-    const np = await this.context.api.getNowPlaying(this.context.roomId)
+    const np = await this.context.queue.getNowPlaying(this.context.roomId)
     if (!np?.track) {
       return { success: false, message: "Nothing is playing." }
     }
@@ -589,9 +589,9 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       `${label} revealed the ${propertyLabel(prop)} for everyone.`,
     )
 
-    const fresh = await this.context.api.getNowPlaying(this.context.roomId)
+    const fresh = await this.context.queue.getNowPlaying(this.context.roomId)
     if (fresh) {
-      await this.context.api.updatePlaylistTrack(this.context.roomId, fresh)
+      await this.context.queue.updatePlaylistTrack(this.context.roomId, fresh)
     }
 
     return { success: true, message: `${capitalize(propertyLabel(prop))} revealed for everyone.` }
@@ -612,7 +612,7 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       return { success: false, message: "Guess the Tune is disabled." }
     }
 
-    const np = await this.context.api.getNowPlaying(this.context.roomId)
+    const np = await this.context.queue.getNowPlaying(this.context.roomId)
     if (!np?.track) {
       return { success: false, message: "Nothing is playing." }
     }
@@ -661,9 +661,9 @@ export class GuessTheTunePlugin extends BasePlugin<GuessTheTuneConfig> {
       return { success: true, message: "All obscured fields were already revealed." }
     }
 
-    const fresh = await this.context.api.getNowPlaying(this.context.roomId)
+    const fresh = await this.context.queue.getNowPlaying(this.context.roomId)
     if (fresh) {
-      await this.context.api.updatePlaylistTrack(this.context.roomId, fresh)
+      await this.context.queue.updatePlaylistTrack(this.context.roomId, fresh)
     }
 
     return { success: true, message: "Revealed all obscured fields for everyone." }

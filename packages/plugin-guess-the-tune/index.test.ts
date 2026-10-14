@@ -169,6 +169,11 @@ function createMockContext(roomId = "room1"): PluginContext & {
   return {
     roomId,
     api: mockApi,
+    polls: mockApi,
+    schedule: mockApi,
+    queue: mockApi,
+    playback: mockApi,
+    catalog: mockApi,
     storage,
     lifecycle: mockLifecycle,
     game: mockGame,
@@ -196,7 +201,7 @@ async function setupActiveRound(
 ): Promise<string> {
   const rk = roundKey(queueItemStableKey(np))
   await ctx.storage.hset(rk, "startedAt", String(Date.now()))
-  vi.mocked(ctx.api.getNowPlaying).mockResolvedValue(np)
+  vi.mocked(ctx.queue.getNowPlaying).mockResolvedValue(np)
   return rk
 }
 
