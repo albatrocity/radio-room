@@ -17,7 +17,7 @@ export type TripTimelineInput = {
   timeZone?: string
 }
 
-/** Room-export section for a trip (ADR 0206). Pure; snapshot-tested. */
+/** Room-export section for a trip (ADR 0211). Pure; snapshot-tested. */
 export function formatTripTimelineMarkdown({
   map,
   state,

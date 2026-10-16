@@ -410,7 +410,7 @@ export function applyLiveCostScale(
   return { ...instance, offers }
 }
 
-/** A room shop's custom offer: another plugin's item added to every instance (ADR 0201). */
+/** A room shop's custom offer: another plugin's item added to every instance (ADR 0206). */
 export type ShoppingExtraOffer = {
   definition: ItemDefinition
   /** Unscaled price. */

@@ -658,6 +658,13 @@ export class MockStudioPluginApi implements PluginAPI {
     return {}
   }
 
+  async getLocalAlbumComments(
+    _roomId: string,
+    _albumIds: string[],
+  ): Promise<Record<string, string>> {
+    return {}
+  }
+
   async listLocalAlbumTrackIds(_roomId: string, _albumId: string): Promise<string[]> {
     return []
   }

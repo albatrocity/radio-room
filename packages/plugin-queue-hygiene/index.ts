@@ -254,7 +254,7 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
    * Returns true if the last track in the queue was added by the same user.
    */
   private async wouldBeConsecutive(userId: string): Promise<boolean> {
-    const queue = await this.context!.api.getQueue(this.context!.roomId)
+    const queue = await this.context!.queue.getQueue(this.context!.roomId)
 
     if (queue.length === 0) {
       // Empty queue, can't be consecutive
@@ -311,7 +311,7 @@ export class QueueHygienePlugin extends BasePlugin<QueueHygieneConfig> {
 
     // Queue length scaling
     if (config.cooldownScalesWithQueue) {
-      const queue = await this.context!.api.getQueue(this.context!.roomId)
+      const queue = await this.context!.queue.getQueue(this.context!.roomId)
       const queueRatio = Math.min(queue.length / QUEUE_LENGTH_THRESHOLD, 1)
       ratios.push(queueRatio)
     }

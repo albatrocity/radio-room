@@ -14,7 +14,9 @@
   "dependencies": {
     "@repo/plugin-item-shops": "*",
     "@repo/road-trip-map": "*",
+    "@repo/plugins": "*",
     "@repo/types": "*",
+    "@repo/utils": "*",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "socket.io": "^4.8.1"

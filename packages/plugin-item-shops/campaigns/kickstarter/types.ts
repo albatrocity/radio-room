@@ -1,6 +1,6 @@
 import type { PoolCardView } from "@repo/types"
 
-/** Kickstarter campaign constants and types (ADR 0188; escrow on `EscrowPoolHelper`, ADR 0204). */
+/** Kickstarter campaign constants and types (ADR 0188; escrow on `EscrowPoolHelper`, ADR 0209). */
 
 export const KICKSTARTER_STORAGE_KEY = "kickstarter:campaign"
 /** Escrow pool for the funding phase; its id is the campaign id. */

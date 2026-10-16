@@ -11,13 +11,13 @@ Self-contained Terraform for the Listening Room **newsletter / static asset CDN*
 | `aws_s3_bucket` (+ public access block, ownership) | Private object store |
 | `aws_s3_bucket_lifecycle_configuration` | Auto-delete `uploads/` after 30 days; `media/rooms/` after 90 days (covers/previews under `media/covers/` and `media/previews/` do not expire) |
 | `aws_s3_bucket_cors_configuration` | Browser `PUT` (presigned uploads) + `GET`/`HEAD` from web app + scheduler origins |
-| `aws_cloudfront_response_headers_policy` | CORS on CDN responses so browsers can decode assets (Howler / fetch) |
+| `aws_cloudfront_response_headers_policy` | CORS on CDN responses so browsers can `fetch` and decode assets (Web Audio, canvases) |
 | `aws_acm_certificate` + validation | TLS for `cdn.<domain>` (must be **us-east-1**) |
 | `aws_cloudfront_origin_access_control` + `aws_cloudfront_distribution` | CDN in front of S3 |
 | `aws_s3_bucket_policy` | Allow CloudFront `GetObject` on `assets/*`, `newsletter/*`, and `media/*` (`uploads/*` is private) |
 | `netlify_dns_record` × N | ACM validation CNAME(s) + `cdn` → CloudFront |
 | `aws_iam_user_policy` | `s3:PutObject` on the SES sender user, plus `s3:ListBucket` on `assets/items/` and `cloudfront:CreateInvalidation` for the item-model sync ([ADR 0199](../../docs/adrs/0199-item-models-and-lore.md)) |
-| `aws_iam_policy` + `aws_iam_group` `listening-room-map-designers` | Game Studio site-art publishing: `s3:PutObject` / `s3:GetObject` on `assets/maps/*` and `s3:ListBucket` on that prefix, no delete ([ADR 0205](../../docs/adrs/0205-shared-model-viewer-and-studio-site-assets.md)) |
+| `aws_iam_policy` + `aws_iam_group` `listening-room-map-designers` | Game Studio site-art publishing: `s3:PutObject` / `s3:GetObject` on `assets/maps/*` and `s3:ListBucket` on that prefix, no delete ([ADR 0210](../../docs/adrs/0210-shared-model-viewer-and-studio-site-assets.md)) |
 | `aws_s3_object` | Seeds `assets/logo.png` |
 
 Application code (presigned uploads, email `<Img>`) lives outside this module; see the newsletter asset CDN plan / ADR.
@@ -69,7 +69,7 @@ Reuse the same `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from the SES sender
 `cors_allowed_origins` must include every browser origin that:
 
 1. **PUTs** via presigned URLs (newsletter images, music uploads), and/or
-2. **GETs** CDN assets that the web app decodes in-browser (plugin SFX via Howler / fetch — see [ADR 0173](../../docs/adrs/0173-asset-cdn-cors-for-browser-decoded-media.md)).
+2. **GETs** CDN assets that the web app decodes in-browser (`fetch` / Web Audio — see [ADR 0173](../../docs/adrs/0173-asset-cdn-cors-for-browser-decoded-media.md)). Plugin sound effects play through an `HTMLAudioElement` and do not need CORS to be heard.
 
 Defaults include local web app (`http://127.0.0.1:8000`, `http://localhost:8000`), local scheduler (`http://127.0.0.1:8001`, `http://localhost:8001`), and production (`https://listeningroom.club`, `https://scheduler.listeningroom.club`). A missing origin makes the browser OPTIONS preflight return **403** (upload) or omit `Access-Control-Allow-Origin` on CDN GETs (Web Audio decode fails).
 
@@ -87,7 +87,7 @@ Item Shops and Road Trip GLBs live in `packages/plugin-item-shops/items/<shortId
 
 ## Trip Map site art (`assets/maps/`)
 
-Game Studio's Trip Map editor publishes site images (re-encoded to WebP) and GLBs from the designer's machine through a Vite dev-server middleware ([ADR 0205](../../docs/adrs/0205-shared-model-viewer-and-studio-site-assets.md)). It uses the designer's own AWS credentials, never keys in the browser: grant the `map_designer_policy_arn` output to their SSO permission set (or add an IAM user to `listening-room-map-designers`), then run Game Studio with `AWS_PROFILE` set (shell or `apps/game-studio/.env.local`). Keys are content hashes (`assets/maps/sites/<sha256>.<ext>`) served with `immutable` caching, so they never need invalidation; the policy has no delete, and replaced art stays in S3. The `:8005` CORS origins let the editor's 3D stage load published GLBs.
+Game Studio's Trip Map editor publishes site images (re-encoded to WebP) and GLBs from the designer's machine through a Vite dev-server middleware ([ADR 0210](../../docs/adrs/0210-shared-model-viewer-and-studio-site-assets.md)). It uses the designer's own AWS credentials, never keys in the browser: grant the `map_designer_policy_arn` output to their SSO permission set (or add an IAM user to `listening-room-map-designers`), then run Game Studio with `AWS_PROFILE` set (shell or `apps/game-studio/.env.local`). Keys are content hashes (`assets/maps/sites/<sha256>.<ext>`) served with `immutable` caching, so they never need invalidation; the policy has no delete, and replaced art stays in S3. The `:8005` CORS origins let the editor's 3D stage load published GLBs.
 
 ## Logo asset
 

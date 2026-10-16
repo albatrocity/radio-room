@@ -1,4 +1,4 @@
-# 0200. Road trips v1: a ledger of legs, trip mode as a loaded map, sites as timed stops
+# 0205. Road trips v1: a ledger of legs, trip mode as a loaded map, sites as timed stops
 
 **Date:** 2026-10-02
 **Status:** Accepted
@@ -13,7 +13,7 @@ Constraints:
 - A `replace` segment activation rewrites plugin config and can set `enabled: false`. A trip must survive that.
 - Hosts already run the show through segments. The trip must not compete with them.
 
-The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (drive and stop). Fuel and funds (Phase 2) are in [0204](0204-trip-funds-escrow-pool-and-levy.md) and summarized in Decision 11. Van parts and incidents (Phase 3) are Decision 12. Site art (Phase 4) will amend it or get its own ADR.
+The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (drive and stop). Fuel and funds (Phase 2) are in [0209](0209-trip-funds-escrow-pool-and-levy.md) and summarized in Decision 11. Van parts and incidents (Phase 3) are Decision 12. Site art (Phase 4) will amend it or get its own ADR.
 
 ## Decision
 
@@ -44,13 +44,13 @@ The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (dr
    - Park timers and other durations run on the wall clock (D8).
 7. **Sites (D10–D12c).**
    - Sites are sorted by mile, and the destination is the last one. Sites are optional unless `mandatory`, and the destination is always mandatory. Sites must be at least 0.1 mi apart (a map error), and an arrival waits while the van is parked at another site.
-   - An optional site opens a core skip poll ([0152](0152-plugin-authored-core-polls.md), [0189](0189-poll-closes-at-auto-close.md)) `leadMinutes` before the exit, with `announce: false` and a road-sign presentation ([0203](0203-presentation-themes.md)).
+   - An optional site opens a core skip poll ([0152](0152-plugin-authored-core-polls.md), [0189](0189-poll-closes-at-auto-close.md)) `leadMinutes` before the exit, with `announce: false` and a road-sign presentation ([0208](0208-presentation-themes.md)).
    - The options are always "Pull off" and "Keep driving", in that order. A tie or no votes uses the site's default, which falls back to the map's `tuning.skipPoll.default` ("Keep driving" unless the map says otherwise).
    - If another poll is open, the skip poll retries every 5 s. If it still can't open 15 s before the exit, the default applies.
    - **Reveal (fog of war):** a site reveals at the earlier of being within `revealMiles` of the van or its poll opening. Reveals never undo. Sites are secret by default, hidden entirely until revealed; `secret: false` shows a `?` pin instead. A `mystery` poll names nothing, and its site reveals on arrival. Departure and "Back on the road" signs don't name the next stop.
-   - **Outcome:** a skip poll that ran posts its tally as a road sign ("Taking the exit for …" / "Kept driving past …", ties and no votes included). The poll sets `presentation.resultsInChat` ([0203](0203-presentation-themes.md)), so its card leaves on close without a reveal.
+   - **Outcome:** a skip poll that ran posts its tally as a road sign ("Taking the exit for …" / "Kept driving past …", ties and no votes included). The poll sets `presentation.resultsInChat` ([0208](0208-presentation-themes.md)), so its card leaves on close without a reveal.
    - **Stop:** the van parks for `parkMinutes` with a `parked` blocker and the site becomes `visited`.
-   - **Parking time** is planned in one place, `parkPlan` in `@repo/road-trip-map`: mandatory stops, the stops expected if nobody votes, and every stop. The departure target is drive time plus expected stops (unless `deadlineAt` is set), the live ETA uses the same helper with known decisions, and the deadline lint and Game Studio projections use it too. Road-trip asks Item Shops to open the site's shop ([0201](0201-declared-plugin-capabilities.md)) and closes it when the van leaves.
+   - **Parking time** is planned in one place, `parkPlan` in `@repo/road-trip-map`: mandatory stops, the stops expected if nobody votes, and every stop. The departure target is drive time plus expected stops (unless `deadlineAt` is set), the live ETA uses the same helper with known decisions, and the deadline lint and Game Studio projections use it too. Road-trip asks Item Shops to open the site's shop ([0211](0211-declared-plugin-capabilities.md)) and closes it when the van leaves.
    - Lore reaches clients only once a site is visited. A skipped site stays locked for the rest of the run.
 8. **Spoiler-safe store payload.** The map stays in server-only storage. The `trip` store key carries a projection (`TripStore`, `@repo/road-trip-map`):
    - Unrevealed sites are omitted (a `secret: false` one sends only `{ id, mile, state }`), and `siteCount` counts only the sites sent.
@@ -64,7 +64,7 @@ The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (dr
 10. **Two small generic seams on the web.**
     - **Store-aware tab `showWhen`.** `checkShowWhenConditions` now also reads the plugin store, through the shared plugin component actors ([0093](0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md)). The Trip tab shows only when `tripActive` is true. Config conditions are still checked first, so existing tabs behave as before. The tab list subscribes through `usePluginStoresSelector`, which reduces the stores to the set of visible tab ids, so the room-wide provider re-renders only when that set changes.
     - **Quick Access live status ([0074](0074-quick-access-admin-panels.md)).** A read-only Quick Access field whose key also exists in the plugin's store shows the live store value. Road-trip's `tripProgress`, `tripEta`, `tripNextSite`, and `tripWarnings` are computed on every publish, so status never needs a config write. Unsaved form edits are not reset.
-11. **Phase 2: gas and money ([0204](0204-trip-funds-escrow-pool-and-levy.md)).**
+11. **Phase 2: gas and money ([0209](0209-trip-funds-escrow-pool-and-levy.md)).**
     - Fuel is a ledger prefix sum (`gallonsUsed`), and burn is `baseGpm` while moving. `fuel:low` and `fuel:empty` join the threshold kinds, and filling up resets them. An empty tank starts Out of Gas (Decision 12).
     - A gas site the van would reach low defaults to "stop", and its poll turns urgent with a `warning` sign and a "last gas for N mi" eyebrow. Live defaults come from `skipDefaultsAhead`, and the ETA uses the same defaults.
     - Parking at a gas site opens a fund with a `fund` blocker held alongside the park. The blocker's expiry, a met goal, the game session ending, `leaveNow`, or `endTrip` settles the fund, and the van always fills to full.
@@ -92,9 +92,9 @@ The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (dr
 
 ## See also
 
-- [0201. Declared plugin capabilities](0201-declared-plugin-capabilities.md)
-- [0202. Trip Maps as portable JSON](0202-trip-maps-portable-json.md)
-- [0203. Presentation themes](0203-presentation-themes.md)
-- [0206. Trip timeline in the room export](0206-trip-timeline-room-export.md)
+- [0206. Declared plugin capabilities](0211-declared-plugin-capabilities.md)
+- [0207. Trip Maps as portable JSON](0207-trip-maps-portable-json.md)
+- [0208. Presentation themes](0208-presentation-themes.md)
+- [0211. Trip timeline in the room export](0211-trip-timeline-room-export.md)
 - [0190. Durable plugin scheduler](0190-durable-plugin-scheduler.md)
 - [0192. Plugin storage helpers](0192-plugin-storage-and-leaderboard-helpers.md)

@@ -16,7 +16,7 @@ function request(opts: {
   } as unknown as IncomingMessage
 }
 
-describe("rejectStudioRequest (ADR 0205)", () => {
+describe("rejectStudioRequest (ADR 0210)", () => {
   it("allows the studio page on this machine", () => {
     expect(rejectStudioRequest(request({}))).toBeNull()
     expect(

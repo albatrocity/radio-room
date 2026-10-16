@@ -59,7 +59,7 @@ function disposeObject(root: Object3D): void {
 }
 
 /**
- * Render one GLB into `canvas`, sized to `container` (ADR 0199, 0205). Thumbnails spin
+ * Render one GLB into `canvas`, sized to `container` (ADR 0199, 0210). Thumbnails spin
  * with no input; the stage orbits and zooms with pointer, wheel, pinch, arrow keys,
  * and +/-. Returns a handle that tears down the WebGL context.
  */

@@ -130,6 +130,11 @@ function createMockContext(roomId: string = "room1"): PluginContext {
   return {
     roomId,
     api: mockApi,
+    polls: mockApi,
+    schedule: mockApi,
+    queue: mockApi,
+    playback: mockApi,
+    catalog: mockApi,
     storage: mockStorage,
     lifecycle: mockLifecycle,
     game: mockGame,

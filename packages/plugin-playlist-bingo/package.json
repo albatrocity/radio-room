@@ -2,6 +2,7 @@
   "name": "@repo/plugin-playlist-bingo",
   "version": "1.0.0",
   "description": "Playlist Bingo — private bingo cards marked from playlist tracks (year/decade/mixed criteria)",
+  "type": "module",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {

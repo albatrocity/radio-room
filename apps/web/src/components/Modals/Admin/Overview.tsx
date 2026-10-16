@@ -28,7 +28,7 @@ import ButtonRoomAuthSpotify from "../../ButtonRoomAuthSpotify"
 import ButtonRoomAuthTidal from "../../ButtonRoomAuthTidal"
 import { exportPreset, importPreset } from "../../../lib/pluginPresets"
 import { toPluginDisplayName } from "../../../lib/pluginDisplayName"
-import { toPluginSettingsEventType } from "../../../lib/pluginSettingsEvent"
+import { toPluginSettingsEvent } from "../../../lib/pluginSettingsEvent"
 import { toaster } from "../../ui/toaster"
 
 function Overview() {
@@ -279,7 +279,7 @@ function Overview() {
                     borderBottomRadius={
                       index === configurablePlugins.length - 1 ? undefined : "none"
                     }
-                    onClick={() => send({ type: toPluginSettingsEventType(plugin.name) } as any)}
+                    onClick={() => send(toPluginSettingsEvent(plugin.name))}
                   >
                     {toPluginDisplayName(plugin.name)}
                     <HStack>

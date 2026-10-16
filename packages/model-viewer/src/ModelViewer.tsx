@@ -18,7 +18,7 @@ type Props = {
 const STAGE_LABEL = "Drag to rotate. Scroll or pinch to zoom."
 
 /**
- * GLB viewer for item and site artwork (ADR 0205). `three` lives in `modelScene`,
+ * GLB viewer for item and site artwork (ADR 0210). `three` lives in `modelScene`,
  * loaded on mount so no app's main bundle carries it. Key by `src`: a failed
  * viewer stays on the fallback until it remounts.
  */

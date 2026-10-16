@@ -3,7 +3,7 @@ import ParsedEmojiMessage from "../../ParsedEmojiMessage"
 import { ROAD_SIGN_FONT, roadSignColors } from "../roadSignStyle"
 import type { ChatThemeMessageProps } from "../types"
 
-/** Compact road sign in chat: one headline, one body line (ADR 0203). */
+/** Compact road sign in chat: one headline, one body line (ADR 0208). */
 export function RoadTripSignMessage({ title, content, status, icon, time }: ChatThemeMessageProps) {
   const colors = roadSignColors(status)
   const headline = title?.trim() || content

@@ -9,6 +9,7 @@ import type {
   MetadataListArtistsParams,
   MetadataListArtistsResult,
   MetadataSourceTrack,
+  MetadataSourceUrl,
 } from "@repo/types"
 import type { BridgeDaemonConfig } from "../config"
 import type { Driver, DriverState } from "./Driver"
@@ -98,6 +99,20 @@ function normalizeAlbumUserRating(value: unknown): number | undefined {
   if (n == null) return undefined
   if (n < 1 || n > 5) return undefined
   return Math.round(n)
+}
+
+/**
+ * Navidrome's album comment rule (`allOrNothing` in `model/mediafile.go`): the
+ * comment only counts when every track carries the same one.
+ */
+export function rollupAlbumComment(songs: readonly { comment?: unknown }[]): string | undefined {
+  if (songs.length === 0) return undefined
+  const distinct = new Set(
+    songs.map((s) => (typeof s.comment === "string" ? s.comment.trim() : "")),
+  )
+  if (distinct.size !== 1) return undefined
+  const [only] = distinct
+  return only || undefined
 }
 
 function normalizeIdList(ids?: string[]): string[] {
@@ -317,6 +332,22 @@ export class LocalDriver implements Driver {
       const id = entry.id != null ? String(entry.id).trim() : ""
       if (id) out.push(id)
     }
+    return out
+  }
+
+  /**
+   * Album-level comment per album id, rolled up like Navidrome's `album.comment`
+   * (which `getAlbum` does not return). Albums without one are omitted.
+   */
+  async getAlbumComments(albumIds: string[]): Promise<Record<string, string>> {
+    if (!this.navidrome.username) return {}
+    const ids = normalizeIdList(albumIds)
+    const out: Record<string, string> = {}
+    await mapWithConcurrency(ids, ALBUM_UNION_FETCH_CONCURRENCY, async (id) => {
+      const membership = await this.albumCache.get(id)
+      const comment = rollupAlbumComment(membership.entries)
+      if (comment) out[id] = comment
+    })
     return out
   }
 
@@ -642,13 +673,21 @@ export class LocalDriver implements Driver {
     return pickPublicUrl(candidates, this.navidrome.publicUrlTagPriority)
   }
 
-  private async mapSong(song: NavidromeSong): Promise<MetadataSourceTrack> {
+  private async mapSong(
+    song: NavidromeSong,
+    options?: { albumImages?: MetadataSourceUrl[] },
+  ): Promise<MetadataSourceTrack> {
     const id = String(song.id ?? "")
-    const coverKey = coverCacheKey(song)
-    const coverDataUri = coverKey ? await this.coverCache.get(coverKey, COVER_ART_TRACK_SIZE) : undefined
-    const images = coverDataUri
-      ? [{ type: "image" as const, url: coverDataUri, id }]
-      : []
+    // Album drill-in passes the record's one cover. Repeating a 640px data URI
+    // on every track closes the /device socket (engine.io's 1MB default).
+    let images = options?.albumImages
+    if (!images) {
+      const coverKey = coverCacheKey(song)
+      const coverDataUri = coverKey
+        ? await this.coverCache.get(coverKey, COVER_ART_TRACK_SIZE)
+        : undefined
+      images = coverDataUri ? [{ type: "image" as const, url: coverDataUri, id }] : []
+    }
     const artistTitle = isPlaceholderArtist(song.artist) ? "" : String(song.artist).trim()
     const publicUrl = await this.resolvePublicUrl(song)
 
@@ -1059,8 +1098,9 @@ export class LocalDriver implements Driver {
       const id = String(song.id ?? "")
       return !membership || membership.trackIds.has(id)
     })
+    const albumImages = mappedAlbum.images ?? []
     const tracks = await mapWithConcurrency(filtered, MAP_SONG_CONCURRENCY, (song) =>
-      this.mapSong(song),
+      this.mapSong(song, { albumImages }),
     )
     mappedAlbum.trackCount = tracks.length
     return { album: mappedAlbum, tracks }

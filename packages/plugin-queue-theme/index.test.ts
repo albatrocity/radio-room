@@ -223,6 +223,11 @@ function setup(configOverrides: Partial<QueueThemeConfig> = {}) {
   const context = {
     roomId: ROOM,
     api,
+    polls: api,
+    schedule: api,
+    queue: api,
+    playback: api,
+    catalog: api,
     storage,
     game,
     personas: {

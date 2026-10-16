@@ -37,6 +37,7 @@ import {
   RoomScheduleSnapshotDTO,
 } from "@repo/types"
 import { readRoomScheduleSnapshot, refreshRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
+import { streamingCoverUrl } from "../lib/streamingMode"
 
 /**
  * Baseline metadata sources from the creator's linked services.
@@ -371,6 +372,7 @@ export async function findAllRooms(req: Request, res: Response) {
           creatorName: creatorUser?.username ?? sanitizedRoom.creator,
           userCount: onlineUsers?.length ?? 0,
           nowPlaying: currentMeta?.nowPlaying ?? null,
+          streamingArtwork: streamingCoverUrl(parsedRoom, currentMeta?.artwork),
         }
       } catch {
         // If fetching additional data fails, return room without it
@@ -379,6 +381,7 @@ export async function findAllRooms(req: Request, res: Response) {
           creatorName: sanitizedRoom.creator,
           userCount: 0,
           nowPlaying: null,
+          streamingArtwork: null,
         }
       }
     }),

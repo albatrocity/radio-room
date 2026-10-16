@@ -157,11 +157,17 @@ export function createMockDeps(overrides?: Partial<ItemShopsBehaviorDeps>): Item
       return null
     },
   )
+  const api = createMockPluginAPI()
   return {
     pluginName: "item-shops",
     context: {
       roomId: "room-1",
-      api: createMockPluginAPI(),
+      api,
+      polls: api,
+      schedule: api,
+      queue: api,
+      playback: api,
+      catalog: api,
       artifacts: createMockArtifacts(),
       getRoom: vi.fn().mockResolvedValue(null),
       inventory: {

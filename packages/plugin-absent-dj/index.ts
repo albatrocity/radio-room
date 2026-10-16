@@ -31,7 +31,7 @@ export { absentDjConfigSchema, defaultAbsentDjConfig } from "./types"
 // Skip Data Type
 // ============================================================================
 
-interface SkipData {
+type SkipData = {
   trackId: string
   trackTitle: string
   timestamp: number
@@ -198,7 +198,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
 
     // Check queue length requirement
     if (config.skipRequiresQueue) {
-      const queue = await this.context.api.getQueue(this.context.roomId)
+      const queue = await this.context.queue.getQueue(this.context.roomId)
       const queueLength = queue?.length ?? 0
       if (!shouldSkipGivenQueue(queueLength, config)) {
         console.log(
@@ -288,7 +288,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     )
 
     // Check if current track's DJ is absent
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    const nowPlaying = await this.context!.queue.getNowPlaying(this.context!.roomId)
     if (!nowPlaying?.addedBy?.userId) return
 
     const users = await this.context!.api.getUsers(this.context!.roomId)
@@ -297,7 +297,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     if (!isPresent) {
       // Check queue length requirement
       if (config.skipRequiresQueue) {
-        const queue = await this.context!.api.getQueue(this.context!.roomId)
+        const queue = await this.context!.queue.getQueue(this.context!.roomId)
         const queueLength = queue?.length ?? 0
         if (!shouldSkipGivenQueue(queueLength, config)) {
           console.log(
@@ -445,7 +445,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
 
     // Re-check queue length requirement before skipping (it may have changed during countdown)
     if (config.skipRequiresQueue) {
-      const queue = await this.context.api.getQueue(this.context.roomId)
+      const queue = await this.context.queue.getQueue(this.context.roomId)
       const queueLength = queue?.length ?? 0
       if (!shouldSkipGivenQueue(queueLength, config)) {
         console.log(
@@ -469,7 +469,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
     await this.trackAnnotations.markSkipped(trackId, skipData)
 
     // Skip the track
-    await this.context.api.skipTrack(this.context.roomId, trackId)
+    await this.context.queue.skipTrack(this.context.roomId, trackId)
 
     // Emit event to update frontend
     await this.emit("TRACK_SKIPPED", { ...HIDDEN_COUNTDOWN, isSkipped: true })
@@ -497,7 +497,7 @@ export class AbsentDjPlugin extends BasePlugin<AbsentDjConfig> {
   private get trackAnnotations(): TrackAnnotations {
     return new TrackAnnotations({
       storage: this.context!.storage,
-      api: this.context!.api,
+      api: this.context!.queue,
       roomId: this.context!.roomId,
       pluginName: this.name,
     })

@@ -221,24 +221,30 @@
   <body>
     <h1>Listening Room DJ Mac</h1>
     <p>
-      Single control plane for this Mac: Redis / OSC / Farrago soundboard, plus Media Bridge
+      Single control plane for this Mac: platform API / OSC / Farrago soundboard, plus Media Bridge
       (supervised Node child). Bookmark <code>http://127.0.0.1:9876/</code> only.
       Open the <a href="/soundboard">Farrago soundboard</a> on the same origin.
     </p>
 
     <fieldset>
       <legend>Connection</legend>
-      <label for="redisUrl">Redis URL</label>
+      <label for="redisUrl">Redis URL (unused)</label>
       <input id="redisUrl" type="text" autocomplete="off" />
       <p class="hint">
-        <code>rediss://</code> for TLS. If logs show <code>UnknownIssuer</code> (local-remote) or
-        <code>SELF_SIGNED_CERT_IN_CHAIN</code> (Media Bridge), append
-        <code>/#insecure</code> (e.g. <code>rediss://:pass@host:port/#insecure</code>).
-        Skips cert verification—only on trusted networks. This URL is injected into the bridge child.
+        Kept so older config files still load. This process does not open Redis. Now playing and
+        segment cues use the platform API below.
       </p>
 
-      <label for="roomId">Room ID (empty = all rooms)</label>
+      <label for="deviceIngressSecret">Device ingress secret</label>
+      <input id="deviceIngressSecret" type="password" autocomplete="off" />
+      <p class="hint">
+        Same value as <code>DEVICE_INGRESS_SECRET</code> on the API. Passed to the bridge child
+        with the platform API URL.
+      </p>
+
+      <label for="roomId">Room ID</label>
       <input id="roomId" type="text" autocomplete="off" />
+      <p class="hint">Required. The device socket watches this room for segment activation.</p>
 
       <label for="httpListen">HTTP listen (restart app to apply)</label>
       <input id="httpListen" type="text" autocomplete="off" />
@@ -251,7 +257,7 @@
         placeholder="http://127.0.0.1:3000"
       />
       <p class="hint">
-        Used for <strong>Fetch ready shows</strong> / segment list. The platform exposes read-only
+        Used for <strong>Fetch ready shows</strong>, the segment socket, and now playing. The platform exposes read-only
         <code>/api/public/scheduling/*</code> endpoints (no login). Production API must allow this
         origin in CORS (see <code>LOCAL_REMOTE_URL</code> if you change HTTP listen).
       </p>
@@ -261,8 +267,8 @@
       <legend>Pick segments (ready shows)</legend>
       <p class="hint">
         Fetches <strong>ready</strong> shows via the platform’s public scheduling API (no login), then
-        loads segment names. Click a segment to add an OSC mapping row (segment id matches
-        <code>SEGMENT_ACTIVATED</code> in Redis). Requests use whatever is currently in
+        loads segment names. Click a segment to add an OSC mapping row (the segment id is what the
+        segment socket sends). Requests use whatever is currently in
         <strong>Platform API URL</strong> above.
       </p>
       <div class="row">
@@ -278,7 +284,7 @@
     </fieldset>
 
     <fieldset>
-      <legend>OSC (SEGMENT_ACTIVATED)</legend>
+      <legend>OSC (active segment)</legend>
       <div class="row">
         <input id="oscEnabled" type="checkbox" />
         <label for="oscEnabled" style="margin: 0">Enabled</label>
@@ -365,7 +371,7 @@
       Ableton Live on the DJ Mac. Default map: sidechain <strong>1/2</strong>, programme
       <strong>3/4</strong>, ducked out <strong>5/6</strong> on device <code>Ducking</code>.
       Quit Ableton; keep the Audio Hijack session and Loopback graph unchanged (ADR 0109).
-      <strong>Enable</strong> and <strong>Bypass</strong> apply immediately. Saving Redis, OSC, or
+      <strong>Enable</strong> and <strong>Bypass</strong> apply immediately. Saving connection, OSC, or
       Media Bridge settings does not restart the ducking streams.
     </p>
 
@@ -449,8 +455,9 @@
 
     <h2>Media Bridge</h2>
     <p class="hint">
-      Supervised child process (bundled Node + <code>bridge-daemon</code>). Redis URL for the child is
-      injected from <strong>Connection</strong> above. Bridge-specific settings save to
+      Supervised child process (bundled Node + <code>bridge-daemon</code>). The child gets the
+      platform API URL and device ingress secret from <strong>Connection</strong> above.
+      Bridge-specific settings save to
       <code>~/.config/listening-room-bridge/config.json</code>.
     </p>
 
@@ -486,7 +493,7 @@
       <fieldset>
         <legend>Rooms</legend>
         <p class="hint">
-          Rooms from Redis. Prefer <span class="badge">bridge</span>. Or use Admin →
+          Rooms from the platform API. Prefer <span class="badge">bridge</span>. Or use Admin →
           <strong>Link to Media Bridge</strong> in the web app.
         </p>
         <div class="row">
@@ -839,6 +846,7 @@
 
       function cfgToForm(c) {
         $("redisUrl").value = c.redisUrl || "";
+        $("deviceIngressSecret").value = c.deviceIngressSecret || "";
         $("roomId").value = c.roomId || "";
         $("httpListen").value = c.httpListen || "";
         $("platformApiBaseUrl").value = c.platformApiBaseUrl || "";
@@ -881,6 +889,7 @@
       function formToCfg(base) {
         const c = structuredClone(base);
         c.redisUrl = $("redisUrl").value.trim();
+        c.deviceIngressSecret = $("deviceIngressSecret").value;
         c.roomId = $("roomId").value.trim();
         c.httpListen = $("httpListen").value.trim();
         c.platformApiBaseUrl = $("platformApiBaseUrl").value.trim();
@@ -1089,10 +1098,12 @@
         if ($("svcTidal").checked) services.push("tidal");
         if ($("svcSpotify").checked) services.push("spotify");
         return {
-          redisUrl: $("redisUrl").value.trim(),
+          apiBaseUrl: $("platformApiBaseUrl").value.trim() || "http://127.0.0.1:3000",
+          deviceIngressSecret: $("deviceIngressSecret").value,
           httpListen: $("bridgeHttpListen").value.trim() || "127.0.0.1:18766",
           defaultRoomId: defaultRoom || undefined,
           daemonId: bridgeLoadedConfig && bridgeLoadedConfig.daemonId,
+          deviceToken: bridgeLoadedConfig && bridgeLoadedConfig.deviceToken,
           services,
           chrome: {
             executablePath: $("chromeExe").value.trim(),
@@ -1125,7 +1136,7 @@
           empty.className = "hint";
           empty.textContent = bridgeRoomsCache.length
             ? "No rooms match the filter."
-            : "No rooms found (is Redis reachable and the API running?).";
+            : "No rooms found (is the platform API reachable and the ingress secret set?).";
           list.appendChild(empty);
           return;
         }
@@ -1357,7 +1368,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
           });
-          setBridgeMsg("Bridge config saved. Reconnect if services/Redis changed.", true);
+          setBridgeMsg("Bridge config saved. Reconnect if services changed.", true);
           await refreshBridgeRooms();
         } catch (e) {
           setBridgeMsg(e.message || String(e), false);

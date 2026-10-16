@@ -1,30 +1,36 @@
 # Game plugins
 
-## Loans
+Plugins registered in `@repo/plugins` (`packages/plugins/index.ts`). Item and shop content for the ones that sell things lives in `@repo/plugin-item-shops` — see [Item Shops Development](SHOP_ITEM_DEVELOPMENT.md).
 
-Allows users to take out loans with accumulating interest rates. If user pays off their loan within the terms timeline, everything is cool. If they don't, they steadily accumulate debuffs until they pay it off.
+## Play
 
-## Pay to Play
+| Package | What it does |
+| --- | --- |
+| `@repo/plugin-guess-the-tune` | Hides Now Playing and scores fuzzy chat guesses |
+| `@repo/plugin-quiz-sessions` | Chat-answered quiz rounds (competitive or inclusive) |
+| `@repo/plugin-playlist-bingo` | Private bingo cards marked from playlist tracks |
+| `@repo/plugin-lyric-hero` | Word puzzle with a crowd meter; cooperative, competitive, or inclusive |
+| `@repo/plugin-queue-theme` | Per-track theme polls, coin payouts, optional decoy themes |
+| `@repo/plugin-special-words` | Scores configured words in chat |
 
-Allows users to pay a configured amount to get deputy DJ privleges, or to _de_-deputize a specific user.
+## Economy and items
 
-## Potion Shop
+| Package | What it does |
+| --- | --- |
+| `@repo/plugin-item-shops` | Shops, inventory items, and per-user shopping sessions |
+| `@repo/plugin-the-fed` | Optional session economy controller (`costScale`) |
+| `@repo/plugin-loyalty-program` | Coins for time spent in the room |
 
-Allows users to buy potions that can be used on themselves or others. Also facilitates user inventory UI so potions can be stored until time of use.
+Text-size, font, and scramble effects are inventory items inside Item Shops, not a separate potion plugin.
 
-### Potions
+## Queue and room tools
 
-| Name             | Effect                                                                  | Duration | Cost |
-| ---------------- | ----------------------------------------------------------------------- | -------- | ---- |
-| Shrinking potion | makes user's chat text extremely small                                  | 10min    | $    |
-| Growth potion    | makes user's chat text very large                                       | 10min    | $    |
-| Funny potion     | renders user's chat text in Comic Sans                                  | 10min    | $    |
-| Confusion potion | scrambles user's chat text                                              | 10min    | $$   |
-| Blinding potion  | user cannot see Now Playing info (or it's really blurry)                | 10min    | $$   |
-| Speed potion     | skip all tracks after 30 seconds until reaching a track the user queued | 10min    | $$$  |
-| Lucky potion     | all points and coin acquisitions have a 1 in 4 chance to be doubled     | 10min    | $$$  |
-| Healing potion   | removes all debuffs                                                     | N/A      | $$$  |
-
-## Guess the Tune (existing)
-
-Correct guesses give you points and coin
+| Package | What it does |
+| --- | --- |
+| `@repo/plugin-playlist-democracy` | Skips tracks that miss a reaction threshold |
+| `@repo/plugin-absent-dj` | Skips a track when the person who queued it has left |
+| `@repo/plugin-queue-hygiene` | Rate limits and duplicate detection on queue adds |
+| `@repo/plugin-queue-pacer` | Paces the queue toward a target end time |
+| `@repo/plugin-round-robin-dj` | Turn-based deputy queueing |
+| `@repo/plugin-music-upload` | Admin-designated uploaders send files to private S3 |
+| `@repo/plugin-volume-manager` | Live volume control through the playback controller |

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publish item GLBs (Item Shops and Road Trip) to the asset CDN (ADR 0199, 0205).
+# Publish item GLBs (Item Shops and Road Trip) to the asset CDN (ADR 0199, 0210).
 # Runs after the Netlify web build from the repo root; only production deploys
 # upload, so deploy previews and branch builds can never overwrite live models.
 # No --delete: removing a GLB from git leaves the CDN object in place. Both

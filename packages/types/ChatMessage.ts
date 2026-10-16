@@ -19,7 +19,7 @@ export const chatMessageMetaSchema = z.object({
   maskedUserIds: z.array(z.string()).optional(),
   /** Label token replaced when piercing `maskedUserIds` (default `"Somebody"`). */
   maskedLabel: z.string().optional(),
-  /** Themed rendering for alert messages (ADR 0203); `status` picks the variant. */
+  /** Themed rendering for alert messages (ADR 0208); `status` picks the variant. */
   theme: presentationThemeSchema.optional(),
   /** Short glyph (emoji) shown by themed renderers. */
   icon: z.string().max(16).optional(),

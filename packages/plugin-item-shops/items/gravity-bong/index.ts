@@ -24,7 +24,7 @@ export const gravityBong = createItem({
     definition: ItemDefinition,
     _callContext?: unknown,
   ): Promise<ItemUseResult> => {
-    const result = await deps.context.api.shuffleTrackQueue(deps.context.roomId)
+    const result = await deps.context.queue.shuffleTrackQueue(deps.context.roomId)
     if (!result.success) {
       return {
         success: false,

@@ -104,6 +104,40 @@ describe("LocalDriver shelf browsing", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("getAlbum.view")
   })
 
+  it("getAlbumComments returns the rollup only when every track shares the comment", async () => {
+    const songsByAlbum: Record<string, unknown[]> = {
+      "al-same": [
+        { id: "t1", comment: " Liner notes. " },
+        { id: "t2", comment: "Liner notes." },
+      ],
+      "al-first-only": [{ id: "t3", comment: "Only on track one" }, { id: "t4" }],
+      "al-mixed": [
+        { id: "t5", comment: "A" },
+        { id: "t6", comment: "B" },
+      ],
+    }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const id = new URL(url).searchParams.get("id") ?? ""
+        if (url.includes("getAlbum.view") && songsByAlbum[id]) {
+          return {
+            ok: true,
+            json: async () => ({
+              "subsonic-response": { album: { id, name: id, song: songsByAlbum[id] } },
+            }),
+          } as unknown as Response
+        }
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+
+    const driver = new LocalDriver(navidrome, mpv)
+    await expect(
+      driver.getAlbumComments(["al-same", "al-first-only", "al-mixed"]),
+    ).resolves.toEqual({ "al-same": "Liner notes." })
+  })
+
   it("returns playlist cover art keyed by playlist id", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.includes("getCoverArt.view")) return coverResponse()
@@ -584,5 +618,42 @@ describe("LocalDriver shelf browsing", () => {
     const result = await driver.getArtist("ar-1", [], albumIds)
     expect(result?.albums.map((a) => a.id)).toEqual(["al-1"])
     expect(fetchMock.mock.calls.every((c) => !String(c[0]).includes("getAlbum.view"))).toBe(true)
+  })
+
+  it("getAlbum reuses one browse cover instead of a 640px data URI per track", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getAlbum.view") && url.includes("id=al-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              album: {
+                id: "al-1",
+                name: "Kountry",
+                artist: "Don QuiKoné",
+                coverArt: "al-1",
+                song: [
+                  { id: "t1", title: "One", artist: "Don QuiKoné", albumId: "al-1", album: "Kountry", coverArt: "al-1", duration: 180 },
+                  { id: "t2", title: "Two", artist: "Don QuiKoné", albumId: "al-1", album: "Kountry", coverArt: "al-1", duration: 200 },
+                ],
+              },
+            },
+          }),
+        } as unknown as Response
+      }
+      if (url.includes("getCoverArt.view")) return coverResponse()
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const driver = new LocalDriver(navidrome, mpv)
+    const result = await driver.getAlbum("al-1")
+    expect(result?.tracks.map((t) => t.id)).toEqual(["t1", "t2"])
+    const coverUrls = fetchMock.mock.calls
+      .map((c) => String(c[0]))
+      .filter((url) => url.includes("getCoverArt.view"))
+    expect(coverUrls).toHaveLength(1)
+    expect(coverUrls[0]).toContain("size=128")
+    expect(coverUrls[0]).not.toContain("size=640")
   })
 })

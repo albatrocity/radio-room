@@ -166,9 +166,18 @@ function clampSourceFilter(
   sourceFilter: string,
   browseableSourceIds: string[],
   metadataSourceIds: string[],
+  /** Sources from the previous capabilities payload. A one-refresh gap (bridge blip) must not abandon the catalog the user is in. */
+  previousBrowseableSourceIds: string[] = [],
 ): string {
   if (mode === "browse") {
     if (sourceFilter !== "all" && browseableSourceIds.includes(sourceFilter)) {
+      return sourceFilter
+    }
+    if (
+      sourceFilter !== "all" &&
+      sourceFilter &&
+      previousBrowseableSourceIds.includes(sourceFilter)
+    ) {
       return sourceFilter
     }
     return browseableSourceIds[0] ?? sourceFilter
@@ -237,6 +246,7 @@ export const addToQueueUiMachine = setup({
         context.sourceFilter,
         browseableSourceIds,
         metadataSourceIds,
+        context.browseableSourceIds,
       )
 
       const becameBrowsable = canBrowse && !context.canBrowse

@@ -7,7 +7,7 @@ export type ParseTripMapResult =
   | { ok: false; map?: TripMap; issues: TripMapIssue[] }
 
 /**
- * The one entry point for Trip Map JSON (ADR 0202): size limit, JSON parse,
+ * The one entry point for Trip Map JSON (ADR 0207): size limit, JSON parse,
  * schema, then lint. `ok` is false when there is any error-severity issue.
  */
 export function parseTripMap(

@@ -120,6 +120,11 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   return {
     roomId,
     api: mockApi,
+    polls: mockApi,
+    schedule: mockApi,
+    queue: mockApi,
+    playback: mockApi,
+    catalog: mockApi,
     storage: mockStorage,
     lifecycle: mockLifecycle,
     getRoom: vi.fn().mockResolvedValue({ fetchMeta: true }),
@@ -299,8 +304,8 @@ describe("QueuePacerPlugin", () => {
 
     test("returns active state when plugin is active with now playing", async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
@@ -313,10 +318,10 @@ describe("QueuePacerPlugin", () => {
     test("returns trackExceedsBudget false when track duration fits within window", async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
       // 5 min remaining / 2 tracks = 150s window; track is 60s
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(
         createMockQueueItem("track1", Date.now(), 60_000),
       )
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
@@ -327,10 +332,10 @@ describe("QueuePacerPlugin", () => {
 
     test("returns skipAmountMs 0 when track duration fits within window", async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(
         createMockQueueItem("track1", Date.now(), 60_000),
       )
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
@@ -341,10 +346,10 @@ describe("QueuePacerPlugin", () => {
     test("returns trackExceedsBudget true when track duration exceeds window", async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
       // 5 min remaining / 2 tracks = 150s window; track is 5 min
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(
         createMockQueueItem("track1", Date.now(), 300_000),
       )
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
@@ -357,10 +362,10 @@ describe("QueuePacerPlugin", () => {
 
     test("returns hasQueuedTracksBehind false when queue is empty", async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(
         createMockQueueItem("track1", Date.now(), 300_000),
       )
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([])
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([])
       await plugin.register(mockContext)
 
       const state = await plugin.getComponentState()
@@ -379,8 +384,8 @@ describe("QueuePacerPlugin", () => {
 
     beforeEach(async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([])
       await plugin.register(mockContext)
     })
 
@@ -514,8 +519,8 @@ describe("QueuePacerPlugin", () => {
 
     beforeEach(async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
     })
 
@@ -546,8 +551,8 @@ describe("QueuePacerPlugin", () => {
     })
 
     test("skips track when timer fires and queue has items", async () => {
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([createMockQueueItem("track2")])
 
       await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
@@ -559,7 +564,7 @@ describe("QueuePacerPlugin", () => {
       // Simulate the durable schedule firing
       await plugin.handleScheduled("track-deadline", { trackId: "track1" }, "track:track1")
 
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
       expect(mockContext.api.emit).toHaveBeenCalledWith("TRACK_SKIPPED", expect.any(Object))
     })
 
@@ -571,11 +576,11 @@ describe("QueuePacerPlugin", () => {
       const track2 = createMockQueueItem("track2")
       const track3 = createMockQueueItem("track3")
 
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(track1)
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([track2, track3])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(track1)
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([track2, track3])
 
-      vi.mocked(mockContext.api.skipTrack).mockImplementation(async () => {
-        vi.mocked(mockContext.api.getQueue).mockResolvedValue([track3])
+      vi.mocked(mockContext.queue.skipTrack).mockImplementation(async () => {
+        vi.mocked(mockContext.queue.getQueue).mockResolvedValue([track3])
         const queueHandlers = (mockContext as any)._lifecycleHandlers.get("QUEUE_CHANGED")
         await queueHandlers[0]({
           roomId: "test-room",
@@ -594,21 +599,21 @@ describe("QueuePacerPlugin", () => {
       // Simulate the durable schedule firing (which triggers the skip)
       await plugin.handleScheduled("track-deadline", { trackId: "track1" }, "track:track1")
 
-      expect(mockContext.api.skipTrack).toHaveBeenCalledTimes(1)
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledTimes(1)
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
 
       // Advance past MIN_TIMER_MS — must not re-skip track1 while nowPlaying is stale
       await vi.advanceTimersByTimeAsync(6_000)
 
-      const skipCalls = vi.mocked(mockContext.api.skipTrack).mock.calls.map((c) => c[1])
+      const skipCalls = vi.mocked(mockContext.queue.skipTrack).mock.calls.map((c) => c[1])
 
       expect(skipCalls.filter((id) => id === "track1").length).toBe(1)
-      expect(mockContext.api.skipTrack).toHaveBeenCalledTimes(1)
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledTimes(1)
 
       // TRACK_CHANGED for the dispatched next track should clear the guard and arm track2
       const track2Playing = createMockQueueItem("track2", Date.now(), 180_000)
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(track2Playing)
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([track3])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(track2Playing)
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([track3])
       const trackHandlers = (mockContext as any)._lifecycleHandlers.get("TRACK_CHANGED")
       await trackHandlers[0]({
         roomId: "test-room",
@@ -625,8 +630,8 @@ describe("QueuePacerPlugin", () => {
       const track1 = createMockQueueItem("track1", Date.now(), 180_000)
       const track2 = createMockQueueItem("track2")
 
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(track1)
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([track2])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(track1)
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([track2])
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
 
       await plugin.register(mockContext)
@@ -634,12 +639,12 @@ describe("QueuePacerPlugin", () => {
 
       await (plugin as any).handleTimerFire("track1")
 
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("does not skip last track (emits LET_IT_FINISH)", async () => {
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([]) // Empty queue - last track
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([]) // Empty queue - last track
 
       await emitConfigChanged(mockContext as any, {
         roomId: "test-room",
@@ -651,7 +656,7 @@ describe("QueuePacerPlugin", () => {
       // Simulate the durable schedule firing
       await plugin.handleScheduled("track-deadline", { trackId: "track1" }, "track:track1")
 
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
       expect(mockContext.api.emit).toHaveBeenCalledWith("LET_IT_FINISH", expect.objectContaining({ reason: "last_track" }))
     })
   })
@@ -666,8 +671,8 @@ describe("QueuePacerPlugin", () => {
 
     beforeEach(async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
 
       await emitConfigChanged(mockContext as any, {
@@ -723,8 +728,8 @@ describe("QueuePacerPlugin", () => {
 
     beforeEach(async () => {
       vi.mocked(mockContext.api.getPluginConfig).mockResolvedValue(enabledConfig)
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([createMockQueueItem("track2")])
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(createMockQueueItem("track1", Date.now()))
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([createMockQueueItem("track2")])
       await plugin.register(mockContext)
 
       await emitConfigChanged(mockContext as any, {

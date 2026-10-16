@@ -126,6 +126,8 @@ function createHarness() {
     roomId: "room-1",
     storage,
     api,
+    polls: api,
+    schedule: api,
     lifecycle: {
       on: (event: string, handler: (data: any) => unknown) =>
         handlers.set(`${event}:${handlers.size}`, handler),

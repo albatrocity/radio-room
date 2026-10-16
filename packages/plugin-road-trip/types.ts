@@ -8,7 +8,7 @@ export const ROAD_TRIP_VAN_TAB_ID = "van"
  * Config is small on purpose: trip mode is "a map is loaded" (D2), not
  * `enabled`. `enabled` only shows road-trip in the Quick Access menu. The
  * `trip*` fields are Quick Access status lines; their live values come from
- * the plugin store (ADR 0200), the config copies are only fallbacks.
+ * the plugin store (ADR 0205), the config copies are only fallbacks.
  */
 export const roadTripConfigSchema = z.object({
   enabled: z.boolean().default(false),

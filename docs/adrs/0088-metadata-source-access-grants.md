@@ -1,7 +1,7 @@
 # 0088. Metadata source access grants
 
 **Date:** 2026-08-02
-**Status:** Accepted
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog queries are `context.catalog`)
 
 ## Context
 

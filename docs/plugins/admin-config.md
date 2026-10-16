@@ -1,6 +1,6 @@
 # Admin Configuration
 
-A `getConfigSchema()` is enough to **render** the form (`DynamicPluginSettings`). Opening it from Admin Settings / Quick Access also requires an `EDIT_*` state in `apps/web/src/machines/modalsMachine.ts` — do this for every new plugin. See [Getting Started §6](getting-started.md#6-register-the-admin-settings-view).
+A `getConfigSchema()` is all the admin form needs. Admin Settings and Quick Access open it with `EDIT_PLUGIN_SETTINGS` (`toPluginSettingsEvent(pluginName)`) and render `DynamicPluginSettings` in the shared `settings.plugin` state. No per-plugin web code is required ([ADR 0202](../adrs/0202-plugin-registry-package-and-generic-settings-state.md)).
 
 ## Configuration Schema
 
@@ -346,7 +346,7 @@ getConfigSchema(): PluginConfigSchema {
 ```
 
 - `quickAccessStatus`: field names rendered **read-only** in the panel (public scalars only; skip `private` and object-array).
-- **Live status from the store:** if a status field's key is also in the plugin's component store (`storeKeys`), the panel shows the live store value instead of the saved config. Compute status lines in `getComponentState` / your store emits, and keep a config field only as the fallback and label (road-trip's `tripProgress`, `tripEta`, …; [ADR 0200](../adrs/0200-road-trips-v1.md)).
+- **Live status from the store:** if a status field's key is also in the plugin's component store (`storeKeys`), the panel shows the live store value instead of the saved config. Compute status lines in `getComponentState` / your store emits, and keep a config field only as the fallback and label (road-trip's `tripProgress`, `tripEta`, …; [ADR 0205](../adrs/0205-road-trips-v1.md)).
 - Config changes from Quick Access: implement `executeAction` handlers that merge `await getConfig()` and call `setPluginConfig` (same as volume-manager).
 
 ### Handling Actions

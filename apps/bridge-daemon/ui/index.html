@@ -164,7 +164,7 @@
     <fieldset>
       <legend>Rooms</legend>
       <p class="hint">
-        Rooms discovered from Redis (<code>rooms</code> set). Prefer rooms marked
+        Rooms from the platform API. Prefer rooms marked
         <span class="badge">bridge</span>. Connect switches the active room.
       </p>
       <div class="row">
@@ -184,8 +184,11 @@
 
     <fieldset>
       <legend>Connection</legend>
-      <label for="redisUrl">Redis URL</label>
-      <input type="text" id="redisUrl" autocomplete="off" />
+      <label for="apiBaseUrl">Platform API URL</label>
+      <input type="text" id="apiBaseUrl" autocomplete="off" />
+      <label for="deviceIngressSecret">Device ingress secret</label>
+      <input type="password" id="deviceIngressSecret" autocomplete="off" />
+      <p class="hint">Same value as <code>DEVICE_INGRESS_SECRET</code> on the API. After Link, the daemon stores a device token and uses it on the device socket.</p>
       <label for="httpListen">HTTP listen (this UI)</label>
       <input type="text" id="httpListen" autocomplete="off" />
       <label for="defaultRoomId">Default room id</label>
@@ -310,7 +313,8 @@
 
         function applyConfig(c) {
           loadedConfig = c || null
-          $("redisUrl").value = c.redisUrl || ""
+          $("apiBaseUrl").value = c.apiBaseUrl || ""
+          $("deviceIngressSecret").value = c.deviceIngressSecret || ""
           $("httpListen").value = c.httpListen || ""
           $("defaultRoomId").value = c.defaultRoomId || ""
           var svcs = c.services || []
@@ -359,7 +363,9 @@
           var ttsDevice = $("ttsAudioDevice").value.trim().replace(/^['"]|['"]$/g, "")
           if (ttsDevice.toLowerCase() === "auto") ttsDevice = ""
           return {
-            redisUrl: $("redisUrl").value.trim(),
+            apiBaseUrl: $("apiBaseUrl").value.trim(),
+            deviceIngressSecret: $("deviceIngressSecret").value,
+            deviceToken: loadedConfig && loadedConfig.deviceToken,
             httpListen: $("httpListen").value.trim(),
             defaultRoomId: defaultRoom || undefined,
             daemonId: loadedConfig && loadedConfig.daemonId,
@@ -466,7 +472,7 @@
             empty.className = "hint"
             empty.textContent = roomsCache.length
               ? "No rooms match the filter."
-              : "No rooms found (is Redis reachable and the API running?)."
+              : "No rooms found (is the platform API reachable and the ingress secret set?)."
             list.appendChild(empty)
             return
           }
@@ -552,7 +558,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body),
               })
-              setMsg("Config saved. Reconnect the room if services/Redis changed.", true)
+              setMsg("Config saved. Reconnect the room if services changed.", true)
               await refreshRooms()
             } catch (e) {
               setMsg(e.message || String(e), false)

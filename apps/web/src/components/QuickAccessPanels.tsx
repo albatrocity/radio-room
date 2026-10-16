@@ -27,9 +27,8 @@ import {
 import { usePluginSchemas } from "../hooks/usePluginSchemas"
 import { usePluginStore } from "../hooks/usePluginStores"
 import { toPluginDisplayName } from "../lib/pluginDisplayName"
-import { toPluginSettingsEventType } from "../lib/pluginSettingsEvent"
+import { toPluginSettingsEvent } from "../lib/pluginSettingsEvent"
 import { listEnabledQuickAccessPlugins } from "../lib/quickAccessPlugins"
-import type { Event as ModalsEvent } from "../machines/modalsMachine"
 import PluginConfigForm from "./Modals/Admin/PluginConfigForm"
 
 const PANEL_DEFAULT_SIZE = { width: 320, height: 360 }
@@ -70,7 +69,7 @@ function useQuickAccessPanelModel(pluginName: string) {
     [pluginSchema, pluginConfigs, pluginName],
   )
   const openSettings = () => {
-    modalSend({ type: toPluginSettingsEventType(pluginName) } as ModalsEvent)
+    modalSend(toPluginSettingsEvent(pluginName))
   }
 
   const readOnlyFields =

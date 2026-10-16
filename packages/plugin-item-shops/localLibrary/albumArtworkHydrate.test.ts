@@ -10,7 +10,7 @@ function albumEntry(albumId: string, withArt?: boolean): ItemCatalogEntry {
     definition: {
       shortId,
       name: `CD: ${albumId}`,
-      description: "",
+      description: "A CD from the Record Store.",
       icon: "Disc3",
       artworkFrame: "jewel-case",
       ...(withArt ? { imageUrl: `/img/${albumId}` } : {}),
@@ -30,14 +30,29 @@ function albumEntry(albumId: string, withArt?: boolean): ItemCatalogEntry {
   }
 }
 
+function moduleWithAlbums(
+  albumIds: string[],
+  catalog: Partial<PluginContext["catalog"]> = {},
+  withArt: readonly string[] = [],
+): LocalLibraryModule {
+  const context = {
+    roomId: "room-1",
+    catalog: {
+      getLocalAlbumArtwork: vi.fn(async () => ({})),
+      getLocalAlbumComments: vi.fn(async () => ({})),
+      ...catalog,
+    },
+  } as unknown as PluginContext
+  const mod = new LocalLibraryModule("item-shops", () => context)
+  mod.derivedPhysicalMedia = albumIds.map((id) => albumEntry(id, withArt.includes(id)))
+  ;(mod as unknown as { derivedAlbumMap: Record<string, string> }).derivedAlbumMap =
+    Object.fromEntries(albumIds.map((id) => [physicalMediaAlbumShortId(id), id]))
+  return mod
+}
+
 describe("LocalLibraryModule album artwork hydrate", () => {
   it("applyAlbumArtwork patches missing sleeves", () => {
-    const mod = new LocalLibraryModule("item-shops", () => undefined)
-    mod.derivedPhysicalMedia = [albumEntry("al-1"), albumEntry("al-2", true)]
-    ;(mod as unknown as { derivedAlbumMap: Record<string, string> }).derivedAlbumMap = {
-      [physicalMediaAlbumShortId("al-1")]: "al-1",
-      [physicalMediaAlbumShortId("al-2")]: "al-2",
-    }
+    const mod = moduleWithAlbums(["al-1", "al-2"], {}, ["al-2"])
 
     const changed = mod.applyAlbumArtwork({
       "al-1": { imageUrl: "/new-1", imageUrlLarge: "/new-1-lg" },
@@ -55,18 +70,9 @@ describe("LocalLibraryModule album artwork hydrate", () => {
       for (const id of ids) out[id] = { imageUrl: `/art/${id}` }
       return out
     })
-    const context = {
-      roomId: "room-1",
-      api: { getLocalAlbumArtwork },
-    } as unknown as PluginContext
-    const mod = new LocalLibraryModule("item-shops", () => context)
+    const mod = moduleWithAlbums(["al-1", "al-2"], { getLocalAlbumArtwork }, ["al-2"])
     const short1 = physicalMediaAlbumShortId("al-1")
     const short2 = physicalMediaAlbumShortId("al-2")
-    mod.derivedPhysicalMedia = [albumEntry("al-1"), albumEntry("al-2", true)]
-    ;(mod as unknown as { derivedAlbumMap: Record<string, string> }).derivedAlbumMap = {
-      [short1]: "al-1",
-      [short2]: "al-2",
-    }
 
     await expect(mod.ensureAlbumArtworkForShortIds([short1, short2])).resolves.toEqual([short1])
     expect(getLocalAlbumArtwork).toHaveBeenCalledWith("room-1", ["al-1"])
@@ -81,16 +87,7 @@ describe("LocalLibraryModule album artwork hydrate", () => {
       for (const id of ids) out[id] = { imageUrl: `/art/${id}` }
       return out
     })
-    const context = {
-      roomId: "room-1",
-      api: { getLocalAlbumArtwork },
-    } as unknown as PluginContext
-    const mod = new LocalLibraryModule("item-shops", () => context)
-    const albumIds = ["a", "b", "c", "d", "e"]
-    mod.derivedPhysicalMedia = albumIds.map((id) => albumEntry(id))
-    ;(mod as unknown as { derivedAlbumMap: Record<string, string> }).derivedAlbumMap = Object.fromEntries(
-      albumIds.map((id) => [physicalMediaAlbumShortId(id), id]),
-    )
+    const mod = moduleWithAlbums(["a", "b", "c", "d", "e"], { getLocalAlbumArtwork })
 
     const onBatch = vi.fn()
     await mod.hydrateMissingAlbumArtwork({ batchSize: 2, onBatch })
@@ -101,18 +98,52 @@ describe("LocalLibraryModule album artwork hydrate", () => {
 
   it("hydrate does not spin when covers are missing from the daemon", async () => {
     const getLocalAlbumArtwork = vi.fn(async () => ({}))
-    const context = {
-      roomId: "room-1",
-      api: { getLocalAlbumArtwork },
-    } as unknown as PluginContext
-    const mod = new LocalLibraryModule("item-shops", () => context)
-    mod.derivedPhysicalMedia = [albumEntry("al-x")]
-    ;(mod as unknown as { derivedAlbumMap: Record<string, string> }).derivedAlbumMap = {
-      [physicalMediaAlbumShortId("al-x")]: "al-x",
-    }
+    const mod = moduleWithAlbums(["al-x"], { getLocalAlbumArtwork })
 
     await mod.hydrateMissingAlbumArtwork({ batchSize: 10 })
     expect(getLocalAlbumArtwork).toHaveBeenCalledTimes(1)
     expect(mod.albumIdsMissingArtwork()).toEqual([])
+  })
+})
+
+describe("LocalLibraryModule album lore", () => {
+  it("applyAlbumLore sets lore and keeps the canned description", () => {
+    const mod = moduleWithAlbums(["al-1", "al-2"])
+
+    const changed = mod.applyAlbumLore({ "al-1": "  Recorded in **one** night.  " })
+    expect(changed).toEqual([physicalMediaAlbumShortId("al-1")])
+    expect(mod.derivedPhysicalMedia[0]?.definition.lore).toBe("Recorded in **one** night.")
+    expect(mod.derivedPhysicalMedia[0]?.definition.description).toBe("A CD from the Record Store.")
+    expect(mod.derivedPhysicalMedia[1]?.definition.lore).toBeUndefined()
+  })
+
+  it("applyAlbumLore ignores blank comments and unchanged lore", () => {
+    const mod = moduleWithAlbums(["al-1"])
+    expect(mod.applyAlbumLore({ "al-1": "   " })).toEqual([])
+    expect(mod.applyAlbumLore({ "al-1": "Same" })).toHaveLength(1)
+    expect(mod.applyAlbumLore({ "al-1": "Same" })).toEqual([])
+  })
+
+  it("hydrate fetches lore with sleeves and reports lore-only changes", async () => {
+    const getLocalAlbumComments = vi.fn(
+      async (_roomId: string, ids: string[]): Promise<Record<string, string>> =>
+        ids.includes("al-1") ? { "al-1": "Liner notes." } : {},
+    )
+    const mod = moduleWithAlbums(["al-1", "al-2"], { getLocalAlbumComments })
+
+    const onBatch = vi.fn()
+    await mod.hydrateMissingAlbumArtwork({ batchSize: 10, onBatch })
+    expect(getLocalAlbumComments).toHaveBeenCalledWith("room-1", ["al-1", "al-2"])
+    expect(onBatch).toHaveBeenCalledWith([physicalMediaAlbumShortId("al-1")])
+    expect(mod.derivedPhysicalMedia[0]?.definition.lore).toBe("Liner notes.")
+  })
+
+  it("ensureAlbumArtworkForShortIds also fills lore", async () => {
+    const getLocalAlbumComments = vi.fn(async () => ({ "al-1": "Liner notes." }))
+    const mod = moduleWithAlbums(["al-1"], { getLocalAlbumComments })
+    const short1 = physicalMediaAlbumShortId("al-1")
+
+    await expect(mod.ensureAlbumArtworkForShortIds([short1])).resolves.toEqual([short1])
+    expect(mod.derivedPhysicalMedia[0]?.definition.lore).toBe("Liner notes.")
   })
 })

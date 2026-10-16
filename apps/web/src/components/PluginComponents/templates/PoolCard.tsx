@@ -22,7 +22,7 @@ import type { PoolCardComponentProps } from "../../../types/PluginComponent"
 
 /**
  * aboveChat card for a voluntary coin pool — Kickstarter campaigns (ADR 0188),
- * road trip gas funds (ADR 0204). Collapsible chrome matches Poll cards;
+ * road trip gas funds (ADR 0209). Collapsible chrome matches Poll cards;
  * ExpiryBar drains the pool's deadline.
  */
 export function PoolCardTemplateComponent({

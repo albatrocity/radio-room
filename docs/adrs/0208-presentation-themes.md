@@ -1,11 +1,11 @@
-# 0203. Presentation themes for system messages and plugin-authored polls
+# 0208. Presentation themes for system messages and plugin-authored polls
 
 **Date:** 2026-10-02
 **Status:** Accepted
 
 ## Context
 
-Most listeners follow a road trip ([0200](0200-road-trips-v1.md)) through chat. Plain system alerts look like any other notice, so trip moments blend in. Skip polls look like the host's polls, so listeners can't tell a trip exit from a host question. We wanted trip messages and polls to look like highway signs without forking `SystemMessage` or `PollCard`, and without letting any client choose a look.
+Most listeners follow a road trip ([0210](0210-road-trips-v1.md)) through chat. Plain system alerts look like any other notice, so trip moments blend in. Skip polls look like the host's polls, so listeners can't tell a trip exit from a host question. We wanted trip messages and polls to look like highway signs without forking `SystemMessage` or `PollCard`, and without letting any client choose a look.
 
 ## Decision
 

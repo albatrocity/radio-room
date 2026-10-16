@@ -45,7 +45,7 @@ export type PollSettings = z.infer<typeof pollSettingsSchema>
 // =============================================================================
 
 /**
- * Themed look for a plugin-authored poll (ADR 0203). Only plugins can set it;
+ * Themed look for a plugin-authored poll (ADR 0208). Only plugins can set it;
  * the admin poll handler never accepts it. Voting is unchanged.
  */
 export const pollPresentationSchema = z.object({

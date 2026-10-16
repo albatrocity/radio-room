@@ -9,6 +9,7 @@ import {
   startCampaign,
   isDeliverySuccessful,
 } from "./index"
+import { KickstarterModule } from "./KickstarterModule"
 import { KICKSTARTER_POOL_KEY, KICKSTARTER_STORAGE_KEY, type KickstarterCampaign } from "./types"
 import type { GameSessionPluginAPI, PluginContext, UserGameState } from "@repo/types"
 
@@ -113,10 +114,30 @@ function makeDeps(opts?: {
     applyTimedModifier: vi.fn(async () => ({ ok: true as const, modifierId: "m1" })),
   }
 
+  const polls = {
+    createPoll: vi.fn(async () => ({
+      ok: true as const,
+      poll: {
+        id: "poll-1",
+        options: [
+          { id: "yes", label: "Yes" },
+          { id: "no", label: "No" },
+        ],
+        closesAt: Date.now() + 60_000,
+      },
+    })),
+    closePoll: vi.fn(async () => ({ ok: true as const, poll: { id: "poll-1" }, results: {} })),
+    getActivePoll: vi.fn(async () => null),
+    getPollVoterIds: vi.fn(async () => [] as string[]),
+    getPollVotes: vi.fn(async () => ({})),
+    tallyPoll: vi.fn(async () => ({})),
+  }
+
   const context = {
     roomId: "room-1",
     storage,
     api: {},
+    polls,
   } as unknown as PluginContext
 
   const read = <T>(key: string): T | null => {
@@ -126,6 +147,7 @@ function makeDeps(opts?: {
 
   return {
     deps: { context, game: game as unknown as GameSessionPluginAPI },
+    polls,
     storage,
     game,
     getStored: () => read<KickstarterCampaign>(KICKSTARTER_STORAGE_KEY),
@@ -395,5 +417,33 @@ describe("kickstarter lifecycle", () => {
     expect(getStored()).not.toHaveProperty("pledges")
     expect(getPool()).toMatchObject({ id: "c1", raised: 9, status: "open" })
     expect(getPool()?.pledges[0]).toMatchObject({ userId: "b1", amount: 9 })
+  })
+})
+
+describe("KickstarterModule delivery poll", () => {
+  it("opens the accountability poll through context.polls", async () => {
+    const campaign = makeCampaign({ phase: "deliveryWait" })
+    const { deps, polls } = makeDeps({ campaign })
+    const mod = new KickstarterModule()
+    mod.bind({
+      context: deps.context,
+      game: deps.game,
+      scheduleApi: {
+        schedule: vi.fn(async () => ({ ok: true as const, fireAt: Date.now() })),
+        cancelSchedule: vi.fn(async () => true),
+      },
+      emitPublic: async () => {},
+    })
+
+    await mod.handleDeliveryDelay(campaign.id)
+
+    expect(polls.createPoll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roomId: "room-1",
+        userId: campaign.ownerUserId,
+        announce: true,
+        question: expect.stringContaining(campaign.title),
+      }),
+    )
   })
 })

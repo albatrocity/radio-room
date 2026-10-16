@@ -87,6 +87,48 @@ export class BridgeCapabilityCache {
     return () => this.eventListeners.delete(listener)
   }
 
+  private notifyCapabilities(): void {
+    const services = this.services
+    for (const listener of Array.from(this.capabilityListeners)) listener(services)
+  }
+
+  /**
+   * Apply a bridge event from Redis pub/sub or the /device socket.
+   * Same-process callers (the device namespace) use this so ENDED reaches the advance job
+   * without a pub/sub round trip.
+   */
+  applyEvent(event: BridgeEvent): void {
+    for (const listener of Array.from(this.eventListeners)) listener(event)
+
+    if (event.type === "CAPABILITIES") {
+      const next = new Set(event.services)
+      const changed =
+        !this.connected || !this.capabilitiesKnown || !sameStringSet(this.services, next)
+      this.services = next
+      this.connected = true
+      this.capabilitiesKnown = true
+      if (changed) this.notifyCapabilities()
+    } else if (event.type === "DISCONNECTING") {
+      const changed = this.connected || this.capabilitiesKnown || this.services.size > 0
+      this.connected = false
+      this.services = new Set()
+      this.capabilitiesKnown = false
+      if (changed) this.notifyCapabilities()
+    } else if (event.type === "STATE") {
+      this.lastState = event
+    } else if (event.type === "ENDED") {
+      this.lastEnded = {
+        trackId: event.trackId,
+        source: event.source,
+        reason: event.reason,
+        at: Date.now(),
+      }
+      console.log(
+        `[bridge-capability] ENDED source=${event.source} trackId=${event.trackId} reason=${event.reason ?? "none"} room=${this.roomId}`,
+      )
+    }
+  }
+
   async start(): Promise<void> {
     if (this.sub) return
     this.sub = this.redis.duplicate() as RedisLike
@@ -106,32 +148,7 @@ export class BridgeCapabilityCache {
         )
         return
       }
-      const event = result.data
-      for (const listener of Array.from(this.eventListeners)) listener(event)
-
-      if (event.type === "CAPABILITIES") {
-        this.services = new Set(event.services)
-        this.connected = true
-        this.capabilitiesKnown = true
-        for (const listener of Array.from(this.capabilityListeners)) listener(this.services)
-      } else if (event.type === "DISCONNECTING") {
-        this.connected = false
-        this.services = new Set()
-        this.capabilitiesKnown = false
-        for (const listener of Array.from(this.capabilityListeners)) listener(this.services)
-      } else if (event.type === "STATE") {
-        this.lastState = event
-      } else if (event.type === "ENDED") {
-        this.lastEnded = {
-          trackId: event.trackId,
-          source: event.source,
-          reason: event.reason,
-          at: Date.now(),
-        }
-        console.log(
-          `[bridge-capability] ENDED source=${event.source} trackId=${event.trackId} reason=${event.reason ?? "none"} room=${this.roomId}`,
-        )
-      }
+      this.applyEvent(result.data)
     })
 
     // Seed connected from presence; seed services from durable CAPABILITIES
@@ -174,6 +191,14 @@ export function getOrCreateCapabilityCache(
     caches.set(roomId, cache)
   }
   return cache
+}
+
+function sameStringSet(left: Set<string>, right: Set<string>): boolean {
+  if (left.size !== right.size) return false
+  for (const value of left) {
+    if (!right.has(value)) return false
+  }
+  return true
 }
 
 export function dropCapabilityCache(roomId: string): void {

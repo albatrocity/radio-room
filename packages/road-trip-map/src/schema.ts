@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 /**
- * Trip Map v1 (ADR 0202).
+ * Trip Map v1 (ADR 0207).
  */
 
 export const TRIP_MAP_SCHEMA_VERSION = 1 as const

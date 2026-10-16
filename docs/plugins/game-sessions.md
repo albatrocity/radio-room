@@ -140,7 +140,7 @@ this.inventory.registerItemDefinitions([
 | `getAllItemDefinitions()`                                       | All definitions registered for the room.                                                                                                    |
 | `updateItemMetadata(userId, itemId, patch)`                     | Shallow-merge `patch` into an existing stack's `metadata`. Returns `null` if `itemId` is missing. Emits `INVENTORY_ITEM_UPDATED`.           |
 
-### Charging the room: levies and pools ([ADR 0204](../adrs/0204-trip-funds-escrow-pool-and-levy.md))
+### Charging the room: levies and pools ([ADR 0209](../adrs/0209-trip-funds-escrow-pool-and-levy.md))
 
 Don't write coin escrow by hand. `@repo/plugin-base` exports two fund helpers:
 
@@ -234,7 +234,7 @@ if (!applied.ok) {
 }
 ```
 
-For queue actions, `PluginAPI.moveTrackByPosition(...)` returns `MoveTrackResult`: on success `{ success: true }`; on failure `{ success: false, reason: "error", message }` or, when a passive defense item blocks the move, `{ success: false, reason: "defense_blocked", blockingItemName, attackerMessage? }`. Item handlers should treat `defense_blocked` like modifier defense (typically consume the attacking item and message the user).
+For queue actions, `context.queue.moveTrackByPosition(...)` returns `MoveTrackResult`: on success `{ success: true }`; on failure `{ success: false, reason: "error", message }` or, when a passive defense item blocks the move, `{ success: false, reason: "defense_blocked", blockingItemName, attackerMessage? }`. Item handlers should treat `defense_blocked` like modifier defense (typically consume the attacking item and message the user).
 
 #### Actor attribution
 
@@ -243,7 +243,7 @@ When the initiating user matters (for audits / event payloads), pass the actor:
 - `this.game.applyModifier(userId, modifier, { actorUserId })`
 - `this.game.applyTimedModifier(userId, durationMs, modifier, actorUserId)`
 - `this.game.reboundModifier(attackerUserId, blockedModifier, { actorUserId })` — only inside `onDefenseTriggered`, to redirect an incoming effect to the attacker without re-triggering passive defense.
-- `this.context.api.moveTrackByPosition(roomId, metadataTrackId, delta, actorUserId)`
+- `this.context.queue.moveTrackByPosition(roomId, metadataTrackId, delta, actorUserId)`
 
 For item-triggered effects, this should be the **user using the item** (not the plugin name).
 

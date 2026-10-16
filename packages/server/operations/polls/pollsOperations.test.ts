@@ -95,7 +95,7 @@ describe("poll operations", () => {
       expect(emit.mock.calls.some((c) => c[1] === "MESSAGE_RECEIVED")).toBe(false)
     })
 
-    it("keeps a presentation only for plugin-authored polls (ADR 0203)", async () => {
+    it("keeps a presentation only for plugin-authored polls (ADR 0208)", async () => {
       const presentation = { theme: "road-trip" as const, eyebrow: "EXIT 8", headline: "FARMERS MARKET" }
       const admin = await createPoll({
         context,

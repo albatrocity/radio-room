@@ -108,7 +108,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       return this.createDisabledState(config)
     }
 
-    const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+    const nowPlaying = await this.context.queue.getNowPlaying(this.context.roomId)
     if (!nowPlaying?.playedAt) {
       return this.createWaitingState(config)
     }
@@ -202,7 +202,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   private get trackAnnotations(): TrackAnnotations {
     return new TrackAnnotations({
       storage: this.context!.storage,
-      api: this.context!.api,
+      api: this.context!.queue,
       roomId: this.context!.roomId,
       pluginName: this.name,
     })
@@ -371,7 +371,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
   private async onPluginEnabled(config: PlaylistDemocracyConfig): Promise<void> {
     await this.sendRulesMessage(config, "enabled")
 
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    const nowPlaying = await this.context!.queue.getNowPlaying(this.context!.roomId)
     if (!nowPlaying?.playedAt) return
 
     const trackId = nowPlaying.mediaSource.trackId
@@ -484,7 +484,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
       } else {
         // Check if we should skip based on queue length
         if (config.skipRequiresQueue) {
-          const queue = await this.context!.api.getQueue(this.context!.roomId)
+          const queue = await this.context!.queue.getQueue(this.context!.roomId)
           const queueLength = queue.length
 
           if (!shouldSkipGivenQueue(queueLength, config)) {
@@ -527,7 +527,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     if (!this.context || !config.competitiveModeEnabled) return
 
     // Get the now playing track to find who queued it
-    const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+    const nowPlaying = await this.context.queue.getNowPlaying(this.context.roomId)
     if (!nowPlaying?.addedBy?.userId) {
       console.log(`[${this.name}] No user found for track ${trackId}, skipping competitive point`)
       return
@@ -579,7 +579,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     }
     // Mark before skipTrack so now-playing still resolves to this track
     await this.trackAnnotations.markSkipped(trackId, skipData)
-    await this.context.api.skipTrack(this.context.roomId, trackId)
+    await this.context.queue.skipTrack(this.context.roomId, trackId)
 
     await this.emit("TRACK_SKIPPED", { isSkipped: true, voteCount, requiredCount })
 
@@ -717,7 +717,7 @@ export class PlaylistDemocracyPlugin extends BasePlugin<PlaylistDemocracyConfig>
     reaction: ReactionPayload,
     config: PlaylistDemocracyConfig,
   ): Promise<{ isVote: boolean; trackId: string | null }> {
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    const nowPlaying = await this.context!.queue.getNowPlaying(this.context!.roomId)
     if (!nowPlaying) return { isVote: false, trackId: null }
 
     const trackId = nowPlaying.mediaSource.trackId

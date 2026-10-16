@@ -11,6 +11,7 @@ import type {
   Plugin,
   PluginActionElement,
   PluginActionInitiator,
+  PluginActionResult,
   PluginContext,
   PluginAugmentationData,
   PluginLifecycleEvents,
@@ -21,6 +22,8 @@ import type {
   PluginConfigImportResponse,
   PluginScheduleAnchor,
   PluginScheduleRevision,
+  QueueFollowUp,
+  QueueFollowUpResult,
   QueueItem,
   SystemEventPayload,
 } from "@repo/types"
@@ -396,6 +399,17 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     return null
   }
 
+  /**
+   * Queue writes to commit before `QUEUE_CHANGED`. Default: none.
+   * Override to return enqueues; do not call `addToTrackQueue` from here.
+   */
+  async collectQueueFollowUps(_roomId: string): Promise<QueueFollowUp[]> {
+    return []
+  }
+
+  /** Owner finished applying a follow-up this plugin proposed. Default: no-op. */
+  async onQueueFollowUpResult(_result: QueueFollowUpResult): Promise<void> {}
+
   // ============================================================================
   // Timer Management
   // ============================================================================
@@ -441,7 +455,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
   }
 
   /**
-   * Schedule a durable callback via PluginAPI (ADR 0190).
+   * Schedule a durable callback via `context.schedule` (ADR 0190).
    * Survives process restarts; only one dyno claims each firing.
    * Pass `anchor` to count playback time instead of wall time (ADR 0196).
    */
@@ -459,7 +473,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     if (!this.context) {
       return { ok: false, message: "Plugin context is not available" }
     }
-    return this.context.api.schedule(params)
+    return this.context.schedule.schedule(params)
   }
 
   /**
@@ -467,7 +481,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    */
   protected async cancelSchedule(id: string): Promise<boolean> {
     if (!this.context) return false
-    return this.context.api.cancelSchedule(id)
+    return this.context.schedule.cancelSchedule(id)
   }
 
   /**
@@ -844,6 +858,11 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     return this.configCache
   }
 
+  /** Seed the config cache after a direct `setPluginConfig`, which emits no CONFIG_CHANGED. */
+  protected primeConfigCache(config: TConfig | null): void {
+    this.configCache = config
+  }
+
   /**
    * Cleanup plugin resources and storage.
    * Automatically clears all timers, cleans up plugin storage, and calls onCleanup() if defined.
@@ -896,7 +915,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    *   if (!this.context) return items.map(() => ({}))
    *   return new TrackAnnotations({
    *     storage: this.context.storage,
-   *     api: this.context.api,
+   *     api: this.context.queue,
    *     roomId: this.context.roomId,
    *     pluginName: this.name,
    *   }).enrichQueueItems(items)
@@ -923,7 +942,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
    *   if (!this.context) return {}
    *   const [data] = await new TrackAnnotations({
    *     storage: this.context.storage,
-   *     api: this.context.api,
+   *     api: this.context.queue,
    *     roomId: this.context.roomId,
    *     pluginName: this.name,
    *   }).enrichQueueItems([item])
@@ -1024,7 +1043,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     action: string,
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
-  ): Promise<{ success: boolean; message?: string }> {
+  ): Promise<PluginActionResult> {
     const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) {
@@ -1065,9 +1084,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
 
   protected async requireRoomAdminForAction(
     initiator?: PluginActionInitiator,
-  ): Promise<
-    { ok: true } | { ok: false; result: { success: boolean; message?: string } }
-  > {
+  ): Promise<{ ok: true } | { ok: false; result: { success: false; message: string } }> {
     if (!this.context) {
       return { ok: false, result: { success: false, message: "Plugin not initialized" } }
     }
@@ -1107,7 +1124,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     action: string,
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
-  ): Promise<{ success: boolean; message?: string }> {
+  ): Promise<PluginActionResult> {
     if (this.findConfigImportAction(action)) {
       return this.runConfigImportAction(action, initiator, params)
     }

@@ -30,7 +30,7 @@ import { onListeningUserDisconnected } from "../operations/room/listeningTranspo
 import generateId from "../lib/generateId"
 import generateAnonName from "../lib/generateAnonName"
 import systemMessage from "../lib/systemMessage"
-import { THREE_HOURS } from "../lib/constants"
+import { DEPARTED_USER_RECORD_TTL } from "../lib/constants"
 
 /**
  * A service that handles authentication operations without Socket.io dependencies
@@ -361,7 +361,7 @@ export class AuthService {
     const createdRooms = await getUserRooms({ context: this.context, userId })
 
     if (createdRooms.length === 0) {
-      await expireUserIn({ context: this.context, userId, ms: THREE_HOURS })
+      await expireUserIn({ context: this.context, userId, ms: DEPARTED_USER_RECORD_TTL })
     }
 
     // If the room is now empty, record the timestamp

@@ -21,6 +21,8 @@ import {
   PluginExportAugmentation,
   PluginMarkdownContext,
   BeforePlayQueuedTrackParams,
+  QueueFollowUp,
+  QueueFollowUpResult,
   QueueValidationParams,
   QueueValidationResult,
   PhysicalMediaItem,
@@ -33,8 +35,14 @@ import {
   type PluginCapabilityName,
 } from "@repo/types"
 import { Server } from "socket.io"
-import { pluginImplementsChatTransform } from "@repo/plugin-base"
+import { toPluginSchemaInfo } from "@repo/utils"
+import { BasePlugin, pluginImplementsChatTransform } from "@repo/plugin-base"
 import { PluginAPIImpl } from "./PluginAPI"
+import { PluginPollsAPI } from "./PluginPollsAPI"
+import { PluginScheduleAPI } from "./PluginScheduleAPI"
+import { PluginQueueAPI } from "./PluginQueueAPI"
+import { PluginPlaybackAPI } from "./PluginPlaybackAPI"
+import { PluginCatalogAPI } from "./PluginCatalogAPI"
 import { PluginGameSessionAPI } from "./PluginGameSessionAPI"
 import { PluginInventoryAPI } from "./PluginInventoryAPI"
 import { PluginPersonasAPI } from "./PluginPersonasAPI"
@@ -44,7 +52,9 @@ import { PluginLifecycleImpl } from "./PluginLifecycle"
 const DEBUG_PLUGIN_REGISTRY = process.env.DEBUG_PLUGIN_REGISTRY === "1"
 
 function normalizeResolvedPhysicalMedia(
-  result: ResolvedPhysicalMediaItem | { playlistId?: string; albumId?: string; kind?: string; item?: PhysicalMediaItem },
+  result:
+    | ResolvedPhysicalMediaItem
+    | { playlistId?: string; albumId?: string; kind?: string; item?: PhysicalMediaItem },
   fallbackMediaKey: string,
 ): ResolvedPhysicalMediaItem | null {
   const itemKey =
@@ -124,10 +134,10 @@ export class PluginRegistry {
   /** Room-scoped plugin instances: roomId -> pluginName -> instance */
   private roomPlugins: Map<string, Map<string, RoomPluginInstance>> = new Map()
 
-  /** Declared capability → providing plugin name (ADR 0201). */
+  /** Declared capability → providing plugin name (ADR 0206). */
   private capabilityProviders: Map<PluginCapabilityName, string> = new Map()
 
-  /** Plugins whose schedules fire regardless of `enabled` (ADR 0200). */
+  /** Plugins whose schedules fire regardless of `enabled` (ADR 0205). */
   private schedulesIgnoreEnabled: Set<string> = new Set()
 
   private api: PluginAPIImpl
@@ -165,7 +175,7 @@ export class PluginRegistry {
 
   /**
    * Route a capability call to the room's instance of the declaring plugin
-   * (ADR 0201). Initializes the provider on demand; never throws.
+   * (ADR 0206). Initializes the provider on demand; never throws.
    */
   async requestCapability(
     roomId: string,
@@ -245,6 +255,11 @@ export class PluginRegistry {
       inventory: new PluginInventoryAPI(this.context, pluginName, roomId),
       artifacts,
       personas: new PluginPersonasAPI(this.context, pluginName, roomId),
+      polls: new PluginPollsAPI(scopedApi),
+      schedule: new PluginScheduleAPI(scopedApi),
+      queue: new PluginQueueAPI(scopedApi),
+      playback: new PluginPlaybackAPI(scopedApi),
+      catalog: new PluginCatalogAPI(scopedApi),
       getRoom: async () => {
         const { findRoom } = await import("../../operations/data")
         const room = await findRoom({ context: this.context, roomId })
@@ -337,19 +352,14 @@ export class PluginRegistry {
         return
       }
     } catch (error) {
-      console.warn(
-        `[PluginRegistry] Could not read config for ${pluginName} in ${roomId}:`,
-        error,
-      )
+      console.warn(`[PluginRegistry] Could not read config for ${pluginName} in ${roomId}:`, error)
     }
 
     await this.initializePluginForRoom(pluginName, roomId)
 
     const instance = this.roomPlugins.get(roomId)?.get(pluginName)
     if (!instance?.plugin.handleScheduled) {
-      console.warn(
-        `[PluginRegistry] Plugin ${pluginName} has no handleScheduled for kind ${kind}`,
-      )
+      console.warn(`[PluginRegistry] Plugin ${pluginName} has no handleScheduled for kind ${kind}`)
       return
     }
 
@@ -372,10 +382,7 @@ export class PluginRegistry {
       const config = await this.api.getPluginConfig(roomId, pluginName)
       if (config && config.enabled === false && !this.schedulesIgnoreEnabled.has(pluginName)) return
     } catch (error) {
-      console.warn(
-        `[PluginRegistry] Could not read config for ${pluginName} in ${roomId}:`,
-        error,
-      )
+      console.warn(`[PluginRegistry] Could not read config for ${pluginName} in ${roomId}:`, error)
     }
 
     await this.initializePluginForRoom(pluginName, roomId)
@@ -501,24 +508,17 @@ export class PluginRegistry {
         const result = await Promise.race([
           plugin.validateQueueRequest!(params),
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
 
         if (isDeferredQueueRequest(result)) {
-          console.log(
-            `[PluginRegistry] Queue request deferred by ${pluginName}: ${result.message}`,
-          )
+          console.log(`[PluginRegistry] Queue request deferred by ${pluginName}: ${result.message}`)
           return result
         }
 
         if ("allowed" in result && !result.allowed) {
-          console.log(
-            `[PluginRegistry] Queue request rejected by ${pluginName}: ${result.reason}`,
-          )
+          console.log(`[PluginRegistry] Queue request rejected by ${pluginName}: ${result.reason}`)
           return result
         }
 
@@ -542,6 +542,61 @@ export class PluginRegistry {
     return Object.keys(mergedPluginData).length > 0
       ? { allowed: true, pluginData: mergedPluginData }
       : { allowed: true }
+  }
+
+  /**
+   * Follow-ups to commit before `QUEUE_CHANGED`. One round; the owner may call again
+   * after applying them. Plugins that only inherit the empty default are skipped.
+   */
+  async collectQueueFollowUps(
+    roomId: string,
+  ): Promise<{ pluginName: string; followUp: QueueFollowUp }[]> {
+    const roomPluginMap = this.roomPlugins.get(roomId)
+    if (!roomPluginMap || roomPluginMap.size === 0) return []
+
+    const proposals: { pluginName: string; followUp: QueueFollowUp }[] = []
+    for (const [pluginName, { plugin }] of roomPluginMap) {
+      if (
+        typeof plugin.collectQueueFollowUps !== "function" ||
+        plugin.collectQueueFollowUps === BasePlugin.prototype.collectQueueFollowUps
+      ) {
+        continue
+      }
+      try {
+        const followUps = await plugin.collectQueueFollowUps(roomId)
+        for (const followUp of followUps ?? []) {
+          if (followUp?.type !== "enqueue" || !followUp.trackId || !followUp.addedBy) continue
+          proposals.push({
+            pluginName,
+            followUp: { ...followUp, type: "enqueue", runPluginValidation: false },
+          })
+        }
+      } catch (error) {
+        console.warn(`[PluginRegistry] collectQueueFollowUps ${pluginName} failed:`, error)
+      }
+    }
+    return proposals
+  }
+
+  /** Hand one applied follow-up back to the plugin that proposed it. */
+  async deliverQueueFollowUpResult(
+    roomId: string,
+    pluginName: string,
+    result: QueueFollowUpResult,
+  ): Promise<void> {
+    const plugin = this.roomPlugins.get(roomId)?.get(pluginName)?.plugin
+    if (
+      !plugin ||
+      typeof plugin.onQueueFollowUpResult !== "function" ||
+      plugin.onQueueFollowUpResult === BasePlugin.prototype.onQueueFollowUpResult
+    ) {
+      return
+    }
+    try {
+      await plugin.onQueueFollowUpResult(result)
+    } catch (error) {
+      console.warn(`[PluginRegistry] onQueueFollowUpResult ${pluginName} failed:`, error)
+    }
   }
 
   /**
@@ -573,10 +628,7 @@ export class PluginRegistry {
         const result = await Promise.race([
           plugin.grantMetadataSourceAccess!(params),
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
 
@@ -632,10 +684,7 @@ export class PluginRegistry {
         const result = await Promise.race([
           plugin.resolveLocalLibraryCatalogFilter!(params),
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
 
@@ -694,10 +743,7 @@ export class PluginRegistry {
         const items = await Promise.race([
           plugin.listPhysicalMediaItems!(params),
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
         if (!Array.isArray(items)) continue
@@ -774,10 +820,7 @@ export class PluginRegistry {
         const result = await Promise.race([
           plugin[hook]!({ ...params, mediaKey }),
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
         if (!result) continue
@@ -815,10 +858,7 @@ export class PluginRegistry {
         await Promise.race([
           plugin.beforePlayQueuedTrack!(params),
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
       } catch (error) {
@@ -854,10 +894,7 @@ export class PluginRegistry {
         const result = await Promise.race([
           plugin.cancelHeldQueue!({ ...params, trackId }),
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
         if (result?.cancelled === true) return { cancelled: true }
@@ -889,10 +926,7 @@ export class PluginRegistry {
         await Promise.race([
           plugin.onQueueItemRemoved!(params),
           new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
       } catch (error) {
@@ -939,10 +973,7 @@ export class PluginRegistry {
         const next = await Promise.race([
           plugin.transformChatMessage!(roomId, current),
           new Promise<ChatMessageTransformResult>((_, reject) =>
-            setTimeout(
-              () => reject(new Error("timeout")),
-              PluginRegistry.VALIDATION_TIMEOUT_MS,
-            ),
+            setTimeout(() => reject(new Error("timeout")), PluginRegistry.VALIDATION_TIMEOUT_MS),
           ),
         ])
 
@@ -1152,22 +1183,7 @@ export class PluginRegistry {
    * Used by the API endpoint to expose plugin schemas to the frontend.
    */
   getPluginSchemas(): PluginSchemaInfo[] {
-    const schemas: PluginSchemaInfo[] = []
-
-    for (const [, factory] of this.pluginFactories) {
-      // Create a temporary instance to get schema info
-      const tempInstance = factory()
-      schemas.push({
-        name: tempInstance.name,
-        version: tempInstance.version,
-        description: tempInstance.description,
-        defaultConfig: tempInstance.getDefaultConfig?.(),
-        configSchema: tempInstance.getConfigSchema?.(),
-        componentSchema: tempInstance.getComponentSchema?.(),
-      })
-    }
-
-    return schemas
+    return Array.from(this.pluginFactories.values(), (factory) => toPluginSchemaInfo(factory()))
   }
 
   /**
@@ -1176,18 +1192,7 @@ export class PluginRegistry {
    */
   getPluginSchema(pluginName: string): PluginSchemaInfo | null {
     const factory = this.pluginFactories.get(pluginName)
-    if (!factory) return null
-
-    // Create a temporary instance to get schema info
-    const tempInstance = factory()
-    return {
-      name: tempInstance.name,
-      version: tempInstance.version,
-      description: tempInstance.description,
-      defaultConfig: tempInstance.getDefaultConfig?.(),
-      configSchema: tempInstance.getConfigSchema?.(),
-      componentSchema: tempInstance.getComponentSchema?.(),
-    }
+    return factory ? toPluginSchemaInfo(factory()) : null
   }
 
   /**
@@ -1351,10 +1356,7 @@ export class PluginRegistry {
     try {
       return await plugin.onItemUsed(userId, item, definition, callContext)
     } catch (error) {
-      console.error(
-        `[PluginRegistry] Error in onItemUsed for plugin ${pluginName}:`,
-        error,
-      )
+      console.error(`[PluginRegistry] Error in onItemUsed for plugin ${pluginName}:`, error)
       return { success: false, consumed: false, message: `Error using item: ${error}` }
     }
   }
@@ -1381,10 +1383,7 @@ export class PluginRegistry {
     try {
       return await plugin.onDefenseTriggered(payload)
     } catch (error) {
-      console.error(
-        `[PluginRegistry] Error in onDefenseTriggered for plugin ${pluginName}:`,
-        error,
-      )
+      console.error(`[PluginRegistry] Error in onDefenseTriggered for plugin ${pluginName}:`, error)
       return { attackerMessage: `Error: ${error}` }
     }
   }
@@ -1415,10 +1414,7 @@ export class PluginRegistry {
     try {
       return await plugin.onItemSold(userId, item, definition, callContext)
     } catch (error) {
-      console.error(
-        `[PluginRegistry] Error in onItemSold for plugin ${pluginName}:`,
-        error,
-      )
+      console.error(`[PluginRegistry] Error in onItemSold for plugin ${pluginName}:`, error)
       return { success: false, message: `Error selling item: ${error}` }
     }
   }

@@ -13,6 +13,8 @@ type Context = {
    * the inventory deep-links into a held record.
    */
   queueBrowseMediaKey: string | null
+  /** Plugin whose `DynamicPluginSettings` form `settings.plugin` shows. */
+  pluginSettingsName: string | null
 }
 
 export type Event =
@@ -43,35 +45,13 @@ export type Event =
   | { type: "EDIT_GAME_SESSIONS" }
   | { type: "EDIT_POLLS" }
   | { type: "EDIT_FEEDBACK" }
-  | { type: "EDIT_PLAYLIST_DEMOCRACY" }
-  | { type: "EDIT_SPECIAL_WORDS" }
-  | { type: "EDIT_ABSENT_DJ" }
-  | { type: "EDIT_QUEUE_HYGIENE" }
-  | { type: "EDIT_GUESS_THE_TUNE" }
-  | { type: "EDIT_MUSIC_SHOP" }
-  | { type: "EDIT_LOYALTY_PROGRAM" }
-  | { type: "EDIT_ITEM_SHOPS" }
-  | { type: "EDIT_QUEUE_PACER" }
-  | { type: "EDIT_QUIZ_SESSIONS" }
-  | { type: "EDIT_VOLUME_MANAGER" }
-  | { type: "EDIT_ROUND_ROBIN_DJ" }
-  | { type: "EDIT_PLAYLIST_BINGO" }
-  | { type: "EDIT_MUSIC_UPLOAD" }
-  | { type: "EDIT_QUEUE_THEME" }
-  | { type: "EDIT_THE_FED" }
-  | { type: "EDIT_LYRIC_HERO" }
-  | { type: "EDIT_ROAD_TRIP" }
+  | { type: "EDIT_PLUGIN_SETTINGS"; pluginName: string }
   | { type: "NEXT" }
   | { type: "NUKE_USER" }
 
 /**
  * Jump to a settings section from any modal-region state (admin only).
- *
- * Plugin settings: every plugin with `getConfigSchema()` needs an `EDIT_*` event
- * and a matching `settings.*` child state here, or Overview / Quick Access links
- * no-op. Convention: plugin `the-fed` → `EDIT_THE_FED` → `settings.the_fed`.
- * See `toPluginSettingsEventType` and docs/plugins/getting-started.md
- * ("Register the admin settings view").
+ * Core sections are named states; every plugin shares `settings.plugin`.
  */
 const openSettingsSection = (target: string) => ({
   target: `.settings.${target}`,
@@ -88,24 +68,7 @@ const settingsSectionOn = {
   EDIT_GAME_SESSIONS: ".game_sessions",
   EDIT_POLLS: ".polls",
   EDIT_FEEDBACK: ".feedback",
-  EDIT_PLAYLIST_DEMOCRACY: ".playlist_democracy",
-  EDIT_SPECIAL_WORDS: ".special_words",
-  EDIT_ABSENT_DJ: ".absent_dj",
-  EDIT_QUEUE_HYGIENE: ".queue_hygiene",
-  EDIT_GUESS_THE_TUNE: ".guess_the_tune",
-  EDIT_MUSIC_SHOP: ".music_shop",
-  EDIT_LOYALTY_PROGRAM: ".loyalty_program",
-  EDIT_ITEM_SHOPS: ".item_shops",
-  EDIT_QUEUE_PACER: ".queue_pacer",
-  EDIT_QUIZ_SESSIONS: ".quiz_sessions",
-  EDIT_VOLUME_MANAGER: ".volume_manager",
-  EDIT_ROUND_ROBIN_DJ: ".round_robin_dj",
-  EDIT_PLAYLIST_BINGO: ".playlist_bingo",
-  EDIT_MUSIC_UPLOAD: ".music_upload",
-  EDIT_QUEUE_THEME: ".queue_theme",
-  EDIT_THE_FED: ".the_fed",
-  EDIT_LYRIC_HERO: ".lyric_hero",
-  EDIT_ROAD_TRIP: ".road_trip",
+  EDIT_PLUGIN_SETTINGS: { target: ".plugin", actions: "setPluginSettingsName" },
 } as const
 
 export const modalsMachine = setup({
@@ -131,6 +94,9 @@ export const modalsMachine = setup({
       queueBrowseMediaKey: event.type === "EDIT_QUEUE" ? event.browseMediaKey ?? null : null,
     })),
     clearQueueBrowseMediaKey: assign({ queueBrowseMediaKey: null }),
+    setPluginSettingsName: assign(({ event }) => ({
+      pluginSettingsName: event.type === "EDIT_PLUGIN_SETTINGS" ? event.pluginName : null,
+    })),
     activateGameStateNav: () => {
       gameStateNavActor.send({ type: "ACTIVATE" })
       refreshUserGameState()
@@ -154,7 +120,7 @@ export const modalsMachine = setup({
 }).createMachine({
   id: "modals",
   type: "parallel",
-  context: { queueBrowseMediaKey: null },
+  context: { queueBrowseMediaKey: null, pluginSettingsName: null },
   states: {
     modal: {
       initial: "closed",
@@ -173,24 +139,10 @@ export const modalsMachine = setup({
         EDIT_GAME_SESSIONS: openSettingsSection("game_sessions"),
         EDIT_POLLS: openSettingsSection("polls"),
         EDIT_FEEDBACK: openSettingsSection("feedback"),
-        EDIT_PLAYLIST_DEMOCRACY: openSettingsSection("playlist_democracy"),
-        EDIT_SPECIAL_WORDS: openSettingsSection("special_words"),
-        EDIT_ABSENT_DJ: openSettingsSection("absent_dj"),
-        EDIT_QUEUE_HYGIENE: openSettingsSection("queue_hygiene"),
-        EDIT_GUESS_THE_TUNE: openSettingsSection("guess_the_tune"),
-        EDIT_MUSIC_SHOP: openSettingsSection("music_shop"),
-        EDIT_LOYALTY_PROGRAM: openSettingsSection("loyalty_program"),
-        EDIT_ITEM_SHOPS: openSettingsSection("item_shops"),
-        EDIT_QUEUE_PACER: openSettingsSection("queue_pacer"),
-        EDIT_QUIZ_SESSIONS: openSettingsSection("quiz_sessions"),
-        EDIT_VOLUME_MANAGER: openSettingsSection("volume_manager"),
-        EDIT_ROUND_ROBIN_DJ: openSettingsSection("round_robin_dj"),
-        EDIT_PLAYLIST_BINGO: openSettingsSection("playlist_bingo"),
-        EDIT_MUSIC_UPLOAD: openSettingsSection("music_upload"),
-        EDIT_QUEUE_THEME: openSettingsSection("queue_theme"),
-        EDIT_THE_FED: openSettingsSection("the_fed"),
-        EDIT_LYRIC_HERO: openSettingsSection("lyric_hero"),
-        EDIT_ROAD_TRIP: openSettingsSection("road_trip"),
+        EDIT_PLUGIN_SETTINGS: {
+          ...openSettingsSection("plugin"),
+          actions: "setPluginSettingsName",
+        },
         VIEW_BOOKMARKS: {
           target: ".bookmarks",
           guard: "isAdmin",
@@ -220,15 +172,7 @@ export const modalsMachine = setup({
           on: settingsSectionOn,
           states: {
             overview: {},
-            playlist_democracy: { on: { BACK: "overview" } },
-            special_words: { on: { BACK: "overview" } },
-            absent_dj: { on: { BACK: "overview" } },
-            queue_hygiene: { on: { BACK: "overview" } },
-            guess_the_tune: { on: { BACK: "overview" } },
-            music_shop: { on: { BACK: "overview" } },
-            loyalty_program: { on: { BACK: "overview" } },
-            item_shops: { on: { BACK: "overview" } },
-            queue_pacer: { on: { BACK: "overview" } },
+            plugin: { on: { BACK: "overview" } },
             content: { on: { BACK: "overview" } },
             chat: { on: { BACK: "overview" } },
             dj: { on: { BACK: "overview" } },
@@ -244,15 +188,6 @@ export const modalsMachine = setup({
             },
             reaction_triggers: { on: { BACK: "overview" } },
             message_triggers: { on: { BACK: "overview" } },
-            quiz_sessions: { on: { BACK: "overview" } },
-            volume_manager: { on: { BACK: "overview" } },
-            round_robin_dj: { on: { BACK: "overview" } },
-            playlist_bingo: { on: { BACK: "overview" } },
-            music_upload: { on: { BACK: "overview" } },
-            queue_theme: { on: { BACK: "overview" } },
-            the_fed: { on: { BACK: "overview" } },
-            lyric_hero: { on: { BACK: "overview" } },
-            road_trip: { on: { BACK: "overview" } },
           },
         },
         bookmarks: {},

@@ -22,6 +22,7 @@ import { labelForMetadataSource } from "@repo/types"
 import type { GetTrackPresence } from "../hooks/useTrackRoomPresence"
 import type { TrackRoomPresence } from "../lib/trackRoomPresence"
 import ItemArtwork from "./ItemArtwork"
+import { ItemLoreMarkdown } from "./ItemLoreMarkdown"
 import { LinkifiedText } from "./LinkifiedText"
 import { ItemRarityTag } from "./PluginComponents/ItemRarityTag"
 import { MediaConditionTag } from "./PluginComponents/MediaConditionTag"
@@ -46,6 +47,8 @@ export type AlbumViewHeader = {
   rarity?: ItemRarity
   condition?: MediaCondition
   description?: string
+  /** Item lore (markdown) under the description; Physical Media detail only. */
+  lore?: string
 }
 
 type Props = {
@@ -155,6 +158,11 @@ function AlbumHeader({ header }: { header: AlbumViewHeader }) {
           <LinkifiedText fontSize="sm" color="fg.muted" lineClamp={2}>
             {header.description}
           </LinkifiedText>
+        ) : null}
+        {header.lore ? (
+          <ItemLoreMarkdown fontSize="sm" w="100%" pt={1}>
+            {header.lore}
+          </ItemLoreMarkdown>
         ) : null}
       </VStack>
     </HStack>

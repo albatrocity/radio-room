@@ -126,7 +126,7 @@ export type FuelPlan = {
 }
 
 /**
- * Fuel along the route at base speed when nobody votes (ADR 0200): full at
+ * Fuel along the route at base speed when nobody votes (ADR 0205): full at
  * departure, stopping at gas sites whose default is "stop" once fuel is
  * known. Shared by departure targets, the gas-desert lint, and Game Studio.
  */
@@ -194,7 +194,7 @@ export type ParkPlan = {
 }
 
 /**
- * Planned parking time along the route (ADR 0200). The one place that
+ * Planned parking time along the route (ADR 0205). The one place that
  * decides which stops count, shared by the plugin's ETA and target, the
  * deadline lint, and Game Studio's projections. The destination never parks.
  *

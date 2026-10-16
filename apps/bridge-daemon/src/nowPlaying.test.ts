@@ -45,7 +45,7 @@ describe("NowPlayingPublisher.writeFile", () => {
   })
 
   function publisher(filePath: string | (() => string)) {
-    return new NowPlayingPublisher({ publish: async () => 1 } as never, filePath)
+    return new NowPlayingPublisher(async () => {}, filePath)
   }
 
   it("writes Title/Artist/Album lines", () => {

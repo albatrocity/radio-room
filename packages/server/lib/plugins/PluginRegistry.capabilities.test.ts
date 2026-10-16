@@ -28,7 +28,7 @@ function shopAccessStub(): ShopAccessCapability {
   }
 }
 
-describe("PluginRegistry.requestCapability (ADR 0201)", () => {
+describe("PluginRegistry.requestCapability (ADR 0206)", () => {
   it("routes to the room instance of the declaring plugin", async () => {
     const registry = new PluginRegistry({} as never, {} as never)
     const access = shopAccessStub()

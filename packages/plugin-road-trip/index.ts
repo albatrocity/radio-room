@@ -141,7 +141,7 @@ const COST_SCALE_TTL_MS = 30_000
 const MAX_SETTLE_PASSES = 3
 
 /**
- * Road Trip (ADR 0200): a van drives a Trip Map's route in real time. Progress
+ * Road Trip (ADR 0205): a van drives a Trip Map's route in real time. Progress
  * is a ledger of legs; every change goes through `mutateTrip`, which re-solves
  * and re-arms durable schedules. Nothing ticks.
  */
@@ -172,7 +172,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     return new TripStorage(this.context.storage)
   }
 
-  /** Voluntary-mode escrow (ADR 0204). Only a host-waived incident fund refunds it. */
+  /** Voluntary-mode escrow (ADR 0209). Only a host-waived incident fund refunds it. */
   private get tripPool(): EscrowPoolHelper {
     if (!this.context) throw new Error("[road-trip] context not initialised")
     return new EscrowPoolHelper(
@@ -334,7 +334,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
 
   private async runEffects(effects: TripEffect[], map: TripMap, state: TripState): Promise<void> {
     if (!this.context) return
-    const { api, roomId } = this.context
+    const { api, polls, roomId } = this.context
     for (const effect of effects) {
       try {
         switch (effect.type) {
@@ -350,7 +350,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
           case "close-poll": {
             const creator = await this.roomCreator()
             if (creator)
-              await api.closePoll({
+              await polls.closePoll({
                 roomId,
                 userId: creator,
                 pollId: effect.pollId,
@@ -395,7 +395,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   }
 
   // ---------------------------------------------------------------------------
-  // Funds (ADR 0204): automatic levy or voluntary pool, settled into resolveFund
+  // Funds (ADR 0209): automatic levy or voluntary pool, settled into resolveFund
   // ---------------------------------------------------------------------------
 
   /** Runs once, after the CAS that opened the fund step. */
@@ -855,7 +855,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     const runtime = state?.tripId === tripId ? state.sites[siteId] : undefined
     let votes: SkipVotes | undefined
     if (runtime?.phase === "polling" && runtime.pollId && runtime.pollOptionIds) {
-      const tally = await this.context!.api.tallyPoll(runtime.pollId)
+      const tally = await this.context!.polls.tallyPoll(runtime.pollId)
       votes = {
         stop: tally[runtime.pollOptionIds[0]] ?? 0,
         skip: tally[runtime.pollOptionIds[1]] ?? 0,
@@ -896,7 +896,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     const fuelCtx = { mile: projected.mile, gallonsUsed: projected.gallonsUsed }
     const urgency = gasUrgency(state, stored.map, site, fuelCtx)
     const question = skipPollQuestion(site, milesAway, settings.mystery)
-    const created = await this.context.api.createPoll({
+    const created = await this.context.polls.createPoll({
       roomId: this.context.roomId,
       userId: creator,
       question: urgency ? `${urgency}. ${question}` : question,
@@ -930,7 +930,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
           )
         : null
     if (!marked) {
-      await this.context.api.closePoll({
+      await this.context.polls.closePoll({
         roomId: this.context.roomId,
         userId: creator,
         pollId: created.poll.id,
@@ -1164,7 +1164,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   }
 
   // ---------------------------------------------------------------------------
-  // Room export (ADR 0206)
+  // Room export (ADR 0211)
   // ---------------------------------------------------------------------------
 
   async augmentRoomExport(_exportData: RoomExportData): Promise<PluginExportAugmentation> {

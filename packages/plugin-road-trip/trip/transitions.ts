@@ -42,7 +42,7 @@ import {
 } from "./state"
 
 /**
- * Pure trip transitions (ADR 0200). `mutateTrip` runs them inside a CAS, so
+ * Pure trip transitions (ADR 0205). `mutateTrip` runs them inside a CAS, so
  * they must not touch I/O and may run more than once. Side effects are
  * returned as intents and executed once after the write succeeds. Incidents
  * live in `./incidents`.

@@ -1,0 +1,39 @@
+{
+  "name": "@repo/plugins",
+  "version": "1.0.0",
+  "description": "Room plugin factories registered by the API and previewed by studio-bridge",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "test": "vitest run --reporter=dot",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@repo/plugin-absent-dj": "*",
+    "@repo/plugin-guess-the-tune": "*",
+    "@repo/plugin-item-shops": "*",
+    "@repo/plugin-loyalty-program": "*",
+    "@repo/plugin-lyric-hero": "*",
+    "@repo/plugin-music-upload": "*",
+    "@repo/plugin-playlist-bingo": "*",
+    "@repo/plugin-playlist-democracy": "*",
+    "@repo/plugin-queue-hygiene": "*",
+    "@repo/plugin-queue-pacer": "*",
+    "@repo/plugin-queue-theme": "*",
+    "@repo/plugin-quiz-sessions": "*",
+    "@repo/plugin-road-trip": "*",
+    "@repo/plugin-round-robin-dj": "*",
+    "@repo/plugin-special-words": "*",
+    "@repo/plugin-the-fed": "*",
+    "@repo/plugin-volume-manager": "*",
+    "@repo/types": "*"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.1.10"
+  }
+}

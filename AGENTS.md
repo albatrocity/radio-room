@@ -40,19 +40,32 @@ listening-room/
 │   ├── studio-bridge/    # Local stub API + Socket.IO for Game Studio → web preview (`make game-studio`)
 │   ├── scheduler/        # Show scheduling admin (Vite + React)
 │   ├── load-tester/      # Load testing CLI tool
-│   ├── local-remote/     # Rust daemon: remote Redis SYSTEM:*, macOS Now Playing watcher, local config UI
-│   └── bridge-daemon/    # Node Media Bridge (CDP/mpv, Redis RPC); supervised by local-remote on DJ Mac
+│   ├── local-remote/     # Rust daemon: /device segment socket, macOS Now Playing watcher, local config UI
+│   └── bridge-daemon/    # Node Media Bridge (CDP/mpv, /device socket); supervised by local-remote on DJ Mac
 │
 ├── packages/
-│   ├── server/       # Core server logic (handlers, operations, services)
-│   ├── types/        # Shared TypeScript types
-│   ├── adapter-*/    # Media/metadata source adapters (Spotify, Tidal, Shoutcast, RTMP, Bridge)
-│   ├── plugin-*/     # Room plugins (playlist-democracy, special-words, round-robin-dj, music-upload)
-│   ├── plugin-base/  # Base class for plugins
-│   ├── model-viewer/ # GLB viewer for web + Game Studio; the only `three` importer (ADR 0205)
-│   ├── factories/    # Test factories for mocking data
-│   ├── utils/        # Shared utilities
-│   └── eslint-config/
+│   ├── server/            # Core server logic (handlers, operations, services)
+│   ├── types/             # Shared TypeScript types
+│   ├── auth/              # Better-Auth instance, middleware, React client
+│   ├── db/                # Drizzle schema, migrations, database client
+│   ├── email/             # Newsletter send (Amazon SES)
+│   ├── game-logic/        # Shared game/inventory rules (server + Game Studio)
+│   ├── adapter-spotify/   # Media source, metadata source, playback controller
+│   ├── adapter-tidal/     # Metadata source
+│   ├── adapter-shoutcast/ # Media source
+│   ├── adapter-rtmp/      # Media source (MediaMTX)
+│   ├── adapter-bridge/    # Playback controller; YouTube and local metadata
+│   ├── plugin-*/          # Room plugins (registered in packages/plugins)
+│   ├── plugins/           # `pluginFactories` registry imported by the API and studio-bridge
+│   ├── plugin-base/       # Base class for plugins
+│   ├── plugin-config-ui/  # Shared schema-driven config forms (web + scheduler)
+│   ├── road-trip-map/     # Trip Map schema, lint, store types, van and incident catalog
+│   ├── model-viewer/      # GLB viewer for web + Game Studio; the only `three` importer
+│   ├── factories/         # Test factories
+│   ├── utils/             # Shared utilities
+│   ├── spotify-catalog/   # Client-credentials catalog search for the scheduler
+│   ├── eslint-config/
+│   └── typescript-config/
 │
 └── docs/             # Detailed documentation
 ```
@@ -60,8 +73,8 @@ listening-room/
 ### Package Naming
 
 - Internal packages use `@repo/` prefix (e.g., `@repo/server`, `@repo/types`)
-- Adapters: `@repo/adapter-{name}` (spotify, tidal, shoutcast, rtmp, bridge)
-- Plugins: `@repo/plugin-{name}` (playlist-democracy, special-words, round-robin-dj, music-upload, queue-theme, …). Music Upload: plugin owns persona + UI store; core owns presigned PUT REST ([ADR 0119](docs/adrs/0119-private-music-uploads-presign.md)).
+- Adapters: `@repo/adapter-{name}` — `spotify`, `tidal`, `shoutcast`, `rtmp`, `bridge`. `applemusic` is on the shared source-type enum and has no adapter.
+- Plugins registered in `@repo/plugins` (`packages/plugins/index.ts`): `playlist-democracy`, `special-words`, `absent-dj`, `queue-hygiene`, `guess-the-tune`, `item-shops`, `loyalty-program`, `queue-pacer`, `quiz-sessions`, `playlist-bingo`, `round-robin-dj`, `music-upload`, `volume-manager`, `queue-theme`, `the-fed`, `lyric-hero`. Music Upload owns the persona and UI store; core owns presigned PUT REST ([ADR 0119](docs/adrs/0119-private-music-uploads-presign.md)).
 
 ---
 
@@ -102,11 +115,11 @@ listening-room/
 
 ### Room Types
 
-| Type        | MediaSource | Description                                                                        |
-| ----------- | ----------- | ---------------------------------------------------------------------------------- |
-| **jukebox** | `spotify`   | On-demand playback via Spotify Connect                                             |
-| **radio**   | `shoutcast` | Shoutcast/Icecast stream with embedded metadata                                    |
-| **live**    | `rtmp`      | RTMP ingest via MediaMTX, WebRTC/LL-HLS output, metadata via `local-remote` daemon |
+| Type        | Media source | Description                                                                                                                                                          |
+| ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **jukebox** | `spotify`    | On-demand playback through the Spotify playback controller (Web API / Connect devices). Metadata may also come from Tidal.                                          |
+| **radio**   | `shoutcast`  | Shoutcast/Icecast stream. Optional experimental WebRTC (MediaMTX) beside it; Shoutcast stays the Now Playing authority. Playback controller is `spotify` or `bridge`. |
+| **live**    | `rtmp`       | RTMP ingest via MediaMTX, WebRTC/LL-HLS output. Stream health comes from the MediaMTX webhook. `local-remote` posts macOS Now Playing to `POST /api/device/now-playing`.             |
 
 When adding logic that depends on room type, prefer using helper functions from `roomTypeHelpers.ts` rather than direct `room.type` checks. For example, use `hasListenableStream(room)` instead of `room.type === "radio" || room.type === "live"`. This keeps room-type knowledge centralized and makes it easy to add new stream-backed types. See [ADR 0034](docs/adrs/0034-live-room-type-rtmp-adapter.md).
 
@@ -115,7 +128,7 @@ When adding logic that depends on room type, prefer using helper functions from 
 | Service          | Location                                       | Purpose                                                                                                                                                                                                                                                   |
 | ---------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **MediaMTX**     | `infra/mediamtx/`                              | RTMP ingest, WebRTC (WHEP) + LL-HLS output for live rooms                                                                                                                                                                                                 |
-| **Media Bridge** | `apps/bridge-daemon/` + `@repo/adapter-bridge` | DJ Mac composite playback (`playbackControllerId: "bridge"`); Redis RPC + CAPABILITIES; pack via `npm run pack:dj-mac` ([ADR 0077](docs/adrs/0077-bridge-composite-playback-controller.md)–[0084](docs/adrs/0084-dj-mac-single-zip-supervised-bridge.md)) |
+| **Media Bridge** | `apps/bridge-daemon/` + `@repo/adapter-bridge` | DJ Mac composite playback (`playbackControllerId: "bridge"`); `/device` socket for playback and CAPABILITIES. Redis RPC remains only until a daemon connects on that socket. Pack via `npm run pack:dj-mac` ([ADR 0077](docs/adrs/0077-bridge-composite-playback-controller.md)–[0084](docs/adrs/0084-dj-mac-single-zip-supervised-bridge.md), [ADR 0204](docs/adrs/0204-device-trust-boundary.md)) |
 
 MediaMTX runs locally via `docker compose --profile live up` and is deployed to a VPS via `.github/workflows/deploy-mediamtx.yml`.
 
@@ -137,11 +150,11 @@ MediaMTX runs locally via `docker compose --profile live up` and is deployed to 
 
 ### Creating a Plugin
 
-1. Create `packages/plugin-{name}/` directory
+1. Create `packages/plugin-{name}/` directory (`"type": "module"` in its `package.json`)
 2. Extend `BasePlugin<TConfig>` from `@repo/plugin-base`
 3. Define Zod schema for configuration
-4. Register in `apps/api/src/server.ts`
-5. **Admin settings view** — add an `EDIT_*` event and `settings.{plugin_name}` child state in `apps/web/src/machines/modalsMachine.ts` (kebab-case `the-fed` → `EDIT_THE_FED` / `the_fed`). Overview and Quick Access already send `toPluginSettingsEventType(pluginName)`; without the machine state the link does nothing. Details in [Getting Started](docs/plugins/getting-started.md#6-register-the-admin-settings-view).
+4. Add the factory to `pluginFactories` in `packages/plugins/index.ts` and the dependency to `packages/plugins/package.json`. The API, Admin Settings (shared `settings.plugin` state via `EDIT_PLUGIN_SETTINGS`), and studio-bridge schemas all follow from that list ([ADR 0202](docs/adrs/0202-plugin-registry-package-and-generic-settings-state.md)). Do not add per-plugin states to `modalsMachine`
+5. Host code changes only for a new component template, a new `PluginContext` capability, or a plugin event handled by core UI — see [Getting Started §6](docs/plugins/getting-started.md#6-when-a-plugin-needs-a-host-change)
 
 See [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md) for full details.
 
@@ -155,12 +168,13 @@ See [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md) for full details.
 
 ### Media Bridge (`@repo/adapter-bridge` + `bridge-daemon`)
 
-Bridge is a **playback controller** (and YouTube/local metadata sources), not a new `room.type`. Prefer extending `@repo/adapter-bridge` / daemon drivers over scattering Redis RPC in handlers.
+Bridge is a **playback controller** (and YouTube/local metadata sources), not a new `room.type`. Prefer extending `@repo/adapter-bridge` / daemon drivers. Playback goes through the `/device` socket. Do not add Redis RPC in handlers. `BridgeRpcClient` still falls back to Redis when no device socket is connected ([ADR 0204](docs/adrs/0204-device-trust-boundary.md)).
 
 1. Protocol / RPC: `packages/adapter-bridge/lib/protocol.ts` and daemon `apps/bridge-daemon/`
 2. Server link/status: `packages/server/services/MediaBridgeService.ts` + `operations/bridge/publishMediaBridgeStatus.ts`
 3. Room policy / access: `metadataSourceIds` ([ADR 0087](docs/adrs/0087-room-bridge-media-source-policy.md)), `metadataSourceAccess` + plugin grants ([ADR 0088](docs/adrs/0088-metadata-source-access-grants.md)); plugin guide: [Metadata Source Access](docs/plugins/metadata-source-access.md)
 4. Local / pack testing: [BRIDGE_LOCAL_TESTING.md](docs/BRIDGE_LOCAL_TESTING.md) (`npm run serve -w bridge-daemon`, `npm run pack:dj-mac`). Do not commit `apps/bridge-daemon/dist-bundle/` (generated by `npm run bundle -w bridge-daemon`).
+5. Device channel: `packages/server/lib/deviceNamespace.ts`, `POST /api/device/now-playing`, segment cues via `DeviceSegmentBroadcaster` ([ADR 0204](docs/adrs/0204-device-trust-boundary.md)).
 
 ### Adding a Frontend Actor
 
@@ -192,6 +206,8 @@ When adding features that affect the web app's room UI (new Socket.IO events, ga
 1. Add any new events to `apps/studio-bridge/src/server.ts`
 2. Update `BridgeSnapshot` in `apps/studio-bridge/src/types.ts` if new data fields are needed
 3. Test with `make game-studio` to verify the preview works
+
+Plugin config and component schemas need no studio change: `GET /api/plugins` is built from `@repo/plugins` (`apps/studio-bridge/src/pluginSchemas.ts`). Plugin *actions* the preview simulates (quiz, lyric-hero, volume) stay hand-written stubs.
 
 This keeps **Game Studio** (`apps/game-studio`) useful for rapid plugin/game feature iteration without running the full backend.
 

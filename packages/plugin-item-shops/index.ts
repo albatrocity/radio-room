@@ -156,7 +156,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private shopping!: ShoppingSessionHelper
 
-  /** Room shop rounds for other plugins, e.g. road-trip site stops (ADR 0201). */
+  /** Room shop rounds for other plugins, e.g. road-trip site stops (ADR 0206). */
   readonly capabilities: PluginCapabilities = {
     shopAccess: {
       openRoomShop: (req) => this.openRoomShop(req),
@@ -1029,7 +1029,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     await this.context.api.setPluginConfig(this.context.roomId, this.name, next)
     // Keep in-memory cache aligned with what we just wrote (PluginAPI.setPluginConfig
     // does not emit CONFIG_CHANGED, so getConfig() would otherwise stay stale).
-    ;(this as { configCache?: ItemShopsConfig | null }).configCache = next
+    this.primeConfigCache(next)
     this.syncOfferConditionBounds(next)
     await this.syncAutoShopTimer()
     const keys = Object.keys(patch) as (keyof ItemShopsConfig)[]
@@ -1678,7 +1678,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Refresh local library is only available in Media Bridge rooms.",
         }
       }
-      const ok = await this.context.api.invalidateLocalLibraryCache(this.context.roomId)
+      const ok = await this.context.catalog.invalidateLocalLibraryCache(this.context.roomId)
       await this.applyLocalLibraryGrantConfig()
       return ok
         ? {

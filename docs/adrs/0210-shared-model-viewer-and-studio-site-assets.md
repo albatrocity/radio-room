@@ -1,11 +1,11 @@
-# 0205. Shared ModelViewer and Game Studio–published site art
+# 0210. Shared ModelViewer and Game Studio–published site art
 
 **Date:** 2026-10-02
 **Status:** Accepted
 
 ## Context
 
-Road-trip sites ([0200](0200-road-trips-v1.md), [0202](0202-trip-maps-portable-json.md)) have an image and lore, and the visit is the reward for stopping. A 3D model of the site, revealed once the room stops there, makes that reward feel earned. Items already have GLB models and a `three` viewer ([0199](0199-item-models-and-lore.md)), but the viewer lived in `apps/web`, and Game Studio, where maps are authored, needs the same stage to preview a model.
+Road-trip sites ([0210](0210-road-trips-v1.md), [0207](0207-trip-maps-portable-json.md)) have an image and lore, and the visit is the reward for stopping. A 3D model of the site, revealed once the room stops there, makes that reward feel earned. Items already have GLB models and a `three` viewer ([0199](0199-item-models-and-lore.md)), but the viewer lived in `apps/web`, and Game Studio, where maps are authored, needs the same stage to preview a model.
 
 Site art also needs a home. Item models are committed next to their item and published by the production web deploy. Map art belongs to a map file that lives outside the repo, so a designer has to be able to publish it from Game Studio. Pasted URLs from anywhere else can move or disappear between authoring and the show.
 
@@ -42,5 +42,5 @@ Alternatives considered:
 ## See also
 
 - [0199](0199-item-models-and-lore.md) — item models and lore; the viewer this extracts
-- [0202](0202-trip-maps-portable-json.md) — Trip Map format and lint
+- [0207](0207-trip-maps-portable-json.md) — Trip Map format and lint
 - [infra/cdn/README.md](../../infra/cdn/README.md#trip-map-site-art-assetsmaps)

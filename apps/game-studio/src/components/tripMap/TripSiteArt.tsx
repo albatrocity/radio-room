@@ -107,7 +107,7 @@ function DropZone({
 }
 
 /**
- * Site art (Phase 4, ADR 0205): drop or pick an image / GLB, preview it from a blob
+ * Site art (Phase 4, ADR 0210): drop or pick an image / GLB, preview it from a blob
  * URL while the dev server publishes it to the CDN, then store the CDN URL.
  */
 export function TripSiteArt({

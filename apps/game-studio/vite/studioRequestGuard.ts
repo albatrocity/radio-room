@@ -14,7 +14,7 @@ export type StudioRequestRejection = { status: number; message: string }
 
 /**
  * Guard for dev middleware that acts with the designer's credentials or
- * writes files (ADR 0205). The dev server listens on 0.0.0.0, so:
+ * writes files (ADR 0210). The dev server listens on 0.0.0.0, so:
  * - only this machine may call (loopback socket);
  * - the request must carry `X-Studio-Request: 1` (blocks cross-site simple POSTs);
  * - `Host` must be a local name, and `Origin` (when sent) must match it, so a

@@ -1,11 +1,11 @@
-# 0201. Declared plugin capabilities; `shopAccess`
+# 0206. Declared plugin capabilities; `shopAccess`
 
 **Date:** 2026-10-02
 **Status:** Accepted
 
 ## Context
 
-Road trips ([0200](0200-road-trips-v1.md)) open a shop when the van stops at a site. Item Shops already owns shops, shopping rounds, per-user instances, late joiners, and auto-shop ([0049](0049-item-shops-and-shopping-sessions.md)). Building a second shop in road-trip would split shopping across two tabs and two code paths.
+Road trips ([0210](0210-road-trips-v1.md)) open a shop when the van stops at a site. Item Shops already owns shops, shopping rounds, per-user instances, late joiners, and auto-shop ([0049](0049-item-shops-and-shopping-sessions.md)). Building a second shop in road-trip would split shopping across two tabs and two code paths.
 
 Plugins had no supported way to ask each other for anything. The options were:
 

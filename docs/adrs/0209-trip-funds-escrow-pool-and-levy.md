@@ -1,11 +1,11 @@
-# 0204. Trip funds: shared escrow pool, proportional levy, and short funds still served
+# 0209. Trip funds: shared escrow pool, proportional levy, and short funds still served
 
 **Date:** 2026-10-02
 **Status:** Accepted
 
 ## Context
 
-Road trips ([0200](0200-road-trips-v1.md)) need money. Phase 2 adds gas, and later phases add tows and repairs. Hosts asked for two styles. In the first, the room pays without anyone acting, and rich players carry most of it. In the second, the room chips in by choice. Kickstarter ([0188](0188-kickstarter-campaigns-coin-escrow.md)) already had coin escrow, but it lived inside Item Shops and was tangled with campaign state. A second copy in the road-trip plugin would drift: coin locks, CAS retries, and failed-debit rollbacks are easy to get subtly wrong.
+Road trips ([0210](0210-road-trips-v1.md)) need money. Phase 2 adds gas, and later phases add tows and repairs. Hosts asked for two styles. In the first, the room pays without anyone acting, and rich players carry most of it. In the second, the room chips in by choice. Kickstarter ([0188](0188-kickstarter-campaigns-coin-escrow.md)) already had coin escrow, but it lived inside Item Shops and was tangled with campaign state. A second copy in the road-trip plugin would drift: coin locks, CAS retries, and failed-debit rollbacks are easy to get subtly wrong.
 
 We also needed to decide what happens when the room can't pay. A trip that strands because the room is broke is no fun to watch.
 
@@ -42,8 +42,8 @@ We also needed to decide what happens when the room can't pay. A trip that stran
    - Each leg carries `gallonsUsed`, like `mile`.
    - Low and empty are thresholds (`fuel:low` / `fuel:empty`) solved from the ledger and re-armed on every settle, like reveals. Filling up resets the flags.
    - A gas site the van would reach low on fuel defaults to "stop", and its poll copy turns urgent. The live default walks the sites ahead with `skipDefaultsAhead`, using the projected tank.
-   - An empty tank starts the Out of Gas incident: a `delivery` fund (fuel to full at a delivery price plus a fee), a short wait, then a fill ([0200](0200-road-trips-v1.md) Decision 12). A van that runs dry at the destination coasts in.
-7. **The export records money.** Fund rows (collected, payers, top contributors, with the fill folded in) and a Travelers table of coins paid per listener go into the timeline ([0206](0206-trip-timeline-room-export.md)).
+   - An empty tank starts the Out of Gas incident: a `delivery` fund (fuel to full at a delivery price plus a fee), a short wait, then a fill ([0210](0210-road-trips-v1.md) Decision 12). A van that runs dry at the destination coasts in.
+7. **The export records money.** Fund rows (collected, payers, top contributors, with the fill folded in) and a Travelers table of coins paid per listener go into the timeline ([0211](0211-trip-timeline-room-export.md)).
 8. **Incident funds (Phase 3).** Incident steps reuse the same fund step with a `purpose` (`roadside`, `tow`, `repair`, `delivery`) and a constant base cost scaled by `costScale`. Automatic levies use the reason `road-trip:<purpose>`, and the voluntary pool uses `road-trip:fund`. The AAA Card part waives the next roadside or tow fee before the fund opens. When the host skips a fund step it is waived and refunded: voluntary pledges go back through the pool, and an automatic levy is credited back to each payer. A fund can't be waived while its levy is still being collected. A voluntary waive claims the pool first; if the deadline already settled it, the waive is refused ("Too late").
 
 ## Consequences
@@ -59,4 +59,4 @@ We also needed to decide what happens when the room can't pay. A trip that stran
 
 - [0162](0162-economy-scale-for-game-sessions.md) for `costScale` and `intent: "exact"`
 - [0190](0190-durable-plugin-scheduler.md) for fund blocker expiry on the durable scheduler
-- [0203](0203-presentation-themes.md) for the `success` and `error` road signs
+- [0208](0208-presentation-themes.md) for the `success` and `error` road signs

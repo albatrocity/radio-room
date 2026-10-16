@@ -29,6 +29,7 @@ export const bridgeRequestSchema = z.object({
     "getPlaylistCoverArt",
     "listLibraryAlbums",
     "getAlbumCoverArt",
+    "getAlbumComments",
     "getTrackPreview",
     "invalidatePlaylistCache",
     /** List installed macOS `say` voices (ADR 0178). */
@@ -195,6 +196,8 @@ export const bridgeControlMessageSchema = z.discriminatedUnion("type", [
     requestId: z.string(),
     roomId: z.string(),
     ts: z.number(),
+    /** One-time code for the /device socket. Not written to Redis. */
+    code: z.string().optional(),
   }),
   z.object({
     type: z.literal("LINK_ACK"),
@@ -202,6 +205,8 @@ export const bridgeControlMessageSchema = z.discriminatedUnion("type", [
     roomId: z.string(),
     ok: z.literal(true),
     daemonId: z.string(),
+    /** Echo of LINK_REQUEST.code. Required on the device socket. */
+    code: z.string().optional(),
   }),
   z.object({
     type: z.literal("LINK_NACK"),
@@ -210,6 +215,7 @@ export const bridgeControlMessageSchema = z.discriminatedUnion("type", [
     ok: z.literal(false),
     error: z.string(),
     daemonId: z.string(),
+    code: z.string().optional(),
   }),
 ])
 export type BridgeControlMessage = z.infer<typeof bridgeControlMessageSchema>

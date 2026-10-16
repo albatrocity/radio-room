@@ -96,24 +96,26 @@ If multiple plugins implement `validateQueueRequest`:
 2. The **first rejection or defer wins** — remaining plugins are not called
 3. If all plugins allow, the request proceeds
 
-### Cascading queue adds during `QUEUE_CHANGED`
+### Queue follow-ups before `QUEUE_CHANGED`
 
-Plugins may call `api.addToTrackQueue` from a `QUEUE_CHANGED` handler (e.g. Round Robin flushing a held track when the previous deputy queues). Two APIs keep clients and plugins consistent:
+A plugin that needs another track on the queue after someone else's enqueue proposes that track as data. `DJService` writes it, then emits once. Do not call `addToTrackQueue` from a `QUEUE_CHANGED` handler. That throws `QueueMutationDuringEmitError`.
 
-| API | Where | Role |
-|-----|--------|------|
-| `addToTrackQueue(..., { suppressQueueChanged: true })` | `PluginAPI` | Add to the Redis/playback queue **without** emitting `QUEUE_CHANGED` for that add |
-| `systemEvents.emit(..., { skipPlugins: true })` | Core (`DJService.queueSongAs`) | After plugins finish handling the *original* `QUEUE_CHANGED`, rebroadcast a **fresh** queue snapshot to Redis + Socket.IO without re-entering plugins |
+| Hook | When | Role |
+|------|------|------|
+| `collectQueueFollowUps(roomId)` | After the primary write, before emit | Return `{ type: "enqueue", trackId, mediaSourceType?, addedBy, runPluginValidation: false }[]`. Default is `[]`. |
+| `onQueueFollowUpResult(result)` | After each applied follow-up, still before emit | `result.success` means the track is in Redis. Clear holds, advance turns, or send the error chat here. |
 
 **Contract:**
 
-1. User (or plugin) enqueue builds a `QUEUE_CHANGED` payload and emits it (plugins + broadcasters).
-2. During plugin handlers, cascading adds should use `suppressQueueChanged: true` so each flush does not nest another full emit. A successful suppressed add marks the room “dirty” inside `DJService.queueSongAs`.
-3. When those handlers return, core rebuilds and re-emits `QUEUE_CHANGED` with `{ skipPlugins: true }` **only if** a suppressed add marked the room dirty (and the refreshed snapshot still differs). Ordinary enqueues with no cascading add do **not** pay a second Redis rebuild.
+1. The primary enqueue commits in `DJService`.
+2. The registry asks each room plugin for follow-ups. `runPluginValidation` is forced to `false` — the proposal was already accepted.
+3. `DJService` enqueues each proposal, then delivers the result to the plugin that proposed it.
+4. That repeats until a collect is empty, a round applies nothing, or a follow-up fails. A failure stops the chain. The cap is 50 rounds.
+5. One `QUEUE_CHANGED` goes out with the queue that includes every successful follow-up.
 
-Without (2)+(3), broadcasters can deliver the pre-flush snapshot *after* nested updates, so clients briefly (or lastingly) miss flushed tracks. Batch enqueue (e.g. segment track injection) also uses `suppressQueueChanged` on intermediate adds, then emits once.
+Turn changes that are not themselves queue writes (a deputy leaving, an admin advancing the round) may still call `addToTrackQueue` from outside an emit. If that call happens to run while plugins are being notified, defer it until the emit returns.
 
-Reference implementation: `@repo/plugin-round-robin-dj` hold flush + `DJService.queueSongAs` refresh path. Emit options: [BACKEND_DEVELOPMENT.md — SystemEvents](../BACKEND_DEVELOPMENT.md#systemevents).
+Reference implementation: `@repo/plugin-round-robin-dj` hold flush. Decision: [ADR 0200](../adrs/0200-queue-follow-ups-before-queue-changed.md).
 
 ### Example: Rate Limiting Plugin
 

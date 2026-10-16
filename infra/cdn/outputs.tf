@@ -34,7 +34,7 @@ output "logo_url" {
 }
 
 output "map_designer_policy_arn" {
-  description = "Attach to an SSO permission set (or add users to map_designers_group) so Game Studio can publish site art (ADR 0205)."
+  description = "Attach to an SSO permission set (or add users to map_designers_group) so Game Studio can publish site art (ADR 0210)."
   value       = aws_iam_policy.map_designer.arn
 }
 

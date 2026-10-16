@@ -125,7 +125,7 @@ getComponentSchema(): PluginComponentSchema {
 | `inventory-grid`   | Item grid (often in modal) | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
 | `item-badge`       | Owns-item indicator        | `definitionId`, `showQuantity`                                  |
 | `quiz-question-card` | Quiz above-chat card     | `questionKey?`, `hint?` (input placeholder)                     |
-| `pool-card`        | Coin pool card (`aboveChat`) | `pledgeAction`, `poolKey?` (store key with a `PoolCardView`, default `"pool"`), `pledgeLabel?`, `defaultAmount?`. Pledges call `pledgeAction` with `{ amount }` ([ADR 0204](../adrs/0204-trip-funds-escrow-pool-and-levy.md)) |
+| `pool-card`        | Coin pool card (`aboveChat`) | `pledgeAction`, `poolKey?` (store key with a `PoolCardView`, default `"pool"`), `pledgeLabel?`, `defaultAmount?`. Pledges call `pledgeAction` with `{ amount }` ([ADR 0209](../adrs/0209-trip-funds-escrow-pool-and-levy.md)) |
 | `lyric-hero-card`  | Lyric Hero above-chat card | `hint?` (guess-input placeholder); per-phrase copy is `store.puzzle.hint` |
 | `queue-theme-brief-card` | Queue Theme brief     | (none — reads `pluginUserState`)                                |
 | `bingo-card`       | Playlist Bingo card        | (none — reads `pluginUserState`)                                |
@@ -247,7 +247,7 @@ async getComponentState(): Promise<PluginComponentState> {
     return { showCountdown: false }
   }
 
-  const nowPlaying = await this.context.api.getNowPlaying(this.context.roomId)
+  const nowPlaying = await this.context.queue.getNowPlaying(this.context.roomId)
 
   return {
     showCountdown: true,
@@ -368,7 +368,7 @@ getComponentSchema(): PluginComponentSchema {
 
 Tabs render in **registration order**; the built-in **Inventory** tab is always first.
 
-A tab's `showWhen` checks config fields first, then the plugin's store. So a tab can follow live state, e.g. road-trip's Trip tab uses `showWhen: { field: "tripActive", value: true }` with `tripActive` in `storeKeys` ([ADR 0200](../adrs/0200-road-trips-v1.md)).
+A tab's `showWhen` checks config fields first, then the plugin's store. So a tab can follow live state, e.g. road-trip's Trip tab uses `showWhen: { field: "tripActive", value: true }` with `tripActive` in `storeKeys` ([ADR 0205](../adrs/0205-road-trips-v1.md)).
 
 ### Plugin detail pages
 

@@ -18,7 +18,7 @@ export type PollThemeHeaderProps = {
 }
 
 /**
- * Look-only overrides for `PollCard` (ADR 0203). Voting, results, and
+ * Look-only overrides for `PollCard` (ADR 0208). Voting, results, and
  * countdown behavior stay in `PollCard`; a theme only changes how they read.
  */
 export type PollTheme = {

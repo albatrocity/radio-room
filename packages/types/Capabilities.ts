@@ -1,5 +1,5 @@
 /**
- * Declared plugin capabilities (ADR 0201). A plugin declares what other
+ * Declared plugin capabilities (ADR 0206). A plugin declares what other
  * plugins may ask of it; the registry routes `api.requestCapability` calls to
  * whichever registered plugin declares the capability. There is no direct
  * plugin-instance lookup.

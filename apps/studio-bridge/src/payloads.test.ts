@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildUserGameStatePayload } from "./payloads.js"
+import { buildUserGameStatePayload, loadSellbackBehaviors } from "./payloads.js"
 import type { BridgeSnapshot } from "./types.js"
 
 function minimalSnap(overrides: Partial<BridgeSnapshot> = {}): BridgeSnapshot {
@@ -119,7 +119,8 @@ describe("buildUserGameStatePayload", () => {
     expect(payload.activeTrade).toEqual(trade)
   })
 
-  it("attaches 50% sellbackValue on playback devices", () => {
+  it("attaches 50% sellbackValue on playback devices", async () => {
+    await loadSellbackBehaviors()
     const def = {
       id: "item-shops:cd-player",
       shortId: "cd-player",
@@ -132,7 +133,7 @@ describe("buildUserGameStatePayload", () => {
       consumable: false,
       slotPool: "playback" as const,
       coinValue: 80,
-      icon: "Disc2",
+      icon: "Disc2" as const,
     }
     const item = {
       itemId: "dev-1",

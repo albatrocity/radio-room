@@ -7,7 +7,7 @@ import {
 import { RECORD_STORE_SHOP_ID } from "./localLibrary/catalog"
 
 /**
- * Room shop rounds opened through the `shopAccess` capability (ADR 0201).
+ * Room shop rounds opened through the `shopAccess` capability (ADR 0206).
  * The scope marks the active round as owned by a caller (e.g. a road-trip
  * site stop) so only that caller's close ends it and auto-shop stands down.
  */

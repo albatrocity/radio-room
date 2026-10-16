@@ -33,6 +33,7 @@ describe("pollDraftPreference", () => {
       question: "Favorite genre?",
       options: ["Rock", "Jazz", "Pop"],
       hideRunningTotal: true,
+      closesIn: "1 hour",
     }
     setPollDraft("room-1", draft)
     expect(getPollDraft("room-1")).toEqual(draft)

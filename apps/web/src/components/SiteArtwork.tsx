@@ -15,7 +15,7 @@ function SiteImage({ src }: { src: string }) {
 }
 
 /**
- * Hero art for road-trip site detail (ADR 0205): the 3D stage once visited, otherwise the
+ * Hero art for road-trip site detail (ADR 0210): the 3D stage once visited, otherwise the
  * image, otherwise nothing (the header already shows the icon). While the model loads, or
  * if it fails, the image or a large icon stands in.
  */

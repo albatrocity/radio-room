@@ -45,7 +45,7 @@ export function thresholdTarget(payload: ThresholdPayload): string | undefined {
 const MIN_DELAY_MS = 500
 
 /**
- * Solve every threshold from the current leg (ADR 0200). Re-solved after every
+ * Solve every threshold from the current leg (ADR 0205). Re-solved after every
  * mutation; ids are fixed so re-arming replaces, and ids missing from the new
  * set are cancelled by the caller.
  */

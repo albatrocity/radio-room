@@ -99,7 +99,7 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
 
 /**
  * Dev-only middleware that publishes Trip Map site art to the asset CDN with the
- * designer's own AWS credentials, so no keys ever reach the browser (ADR 0205).
+ * designer's own AWS credentials, so no keys ever reach the browser (ADR 0210).
  * Keys are content-addressed (`assets/maps/sites/<sha256>.<ext>`), so identical
  * bytes are a no-op and objects can be cached forever without invalidation.
  *

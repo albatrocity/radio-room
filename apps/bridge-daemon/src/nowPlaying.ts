@@ -1,9 +1,6 @@
 import { writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { dirname } from "node:path"
-import type { RedisClientType } from "redis"
 import { resolveNowPlayingPath } from "./config"
-
-type RedisLike = RedisClientType<any, any, any>
 
 export type NowPlayingMeta = {
   title?: string
@@ -32,12 +29,40 @@ export function formatAudioHijackNowPlaying(meta: {
   ].join("\n")
 }
 
+export type NowPlayingPoster = (roomId: string, meta: NowPlayingMeta) => Promise<void>
+
+export async function postNowPlaying(
+  apiBaseUrl: string,
+  bearer: string,
+  roomId: string,
+  meta: NowPlayingMeta,
+): Promise<void> {
+  const base = apiBaseUrl.replace(/\/$/, "")
+  const res = await fetch(`${base}/api/device/now-playing`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bearer}`,
+    },
+    body: JSON.stringify({
+      roomId,
+      title: meta.title ?? "",
+      artist: meta.artist ?? "",
+      album: meta.album ?? "",
+    }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`now-playing ${res.status} ${text.slice(0, 200)}`)
+  }
+}
+
 export class NowPlayingPublisher {
   private lastContent = ""
   private lastPath = ""
 
   constructor(
-    private readonly redis: RedisLike,
+    private readonly post: NowPlayingPoster,
     /** Absolute, `~/…`, or getter so a UI save takes effect without reconnect. */
     private readonly filePath: string | (() => string),
     /** @deprecated Ignored — AH requires Title:/Artist:/Album: lines. Kept for config compat. */
@@ -78,15 +103,6 @@ export class NowPlayingPublisher {
 
   async publish(roomId: string, meta: NowPlayingMeta): Promise<void> {
     this.writeFile(meta)
-    await this.redis.publish(
-      "SYSTEM:NOW_PLAYING_CHANGED",
-      JSON.stringify({
-        roomId,
-        title: meta.title ?? "",
-        artist: meta.artist ?? "",
-        album: meta.album ?? "",
-        mediaSource: meta.mediaSource,
-      }),
-    )
+    await this.post(roomId, meta)
   }
 }

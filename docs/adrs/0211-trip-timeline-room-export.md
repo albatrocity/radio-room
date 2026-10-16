@@ -1,11 +1,11 @@
-# 0206. Trip timeline in the room export
+# 0211. Trip timeline in the room export
 
 **Date:** 2026-10-02
 **Status:** Accepted
 
 ## Context
 
-A road trip ([0200](0200-road-trips-v1.md)) is part of the show's story: where the van went, which exits the room took or skipped, and when it arrived. The room export ([data and export guide](../plugins/data-and-export.md)) is how a show is kept after publish. Only its Markdown is persisted, and plugin storage is deleted with the room. If the trip isn't in the export, it's lost.
+A road trip ([0210](0210-road-trips-v1.md)) is part of the show's story: where the van went, which exits the room took or skipped, and when it arrived. The room export ([data and export guide](../plugins/data-and-export.md)) is how a show is kept after publish. Only its Markdown is persisted, and plugin storage is deleted with the room. If the trip isn't in the export, it's lost.
 
 ## Decision
 
@@ -26,7 +26,7 @@ A road trip ([0200](0200-road-trips-v1.md)) is part of the show's story: where t
 
 - The published show keeps a readable trip record without new persistence.
 - Hosts should end the trip before publishing, so the timeline has an ending.
-- Phase 2 adds `fund` and `fuel` log events ([0204](0204-trip-funds-escrow-pool-and-levy.md)):
+- Phase 2 adds `fund` and `fuel` log events ([0209](0209-trip-funds-escrow-pool-and-levy.md)):
   - The timeline shows each fund with its fill folded in ("⛽ Gas 'n' Go: 108 coins from 2 travelers, filled 13.5 gal", plus a note when short), and low and empty fuel rows.
   - The summary gains a Money row.
   - A Travelers table lists coins paid per listener.

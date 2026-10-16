@@ -1,9 +1,14 @@
 import type { AppContext } from "@repo/types"
+import { deviceRoomPresent, emitToDeviceRoom } from "./deviceSession"
 import type { BridgeEvent } from "./protocol"
 import {
   BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
   spotifyTokenKey,
 } from "./protocol"
+
+/** Avoid re-pushing a socket token on every advance tick. */
+const lastSocketPush = new Map<string, number>()
+const SOCKET_TOKEN_REFRESH_MS = 40 * 60 * 1000
 
 async function announceMissingSpotifyAuth(params: {
   context: AppContext
@@ -88,6 +93,18 @@ export async function provisionSpotifyTokenForRoom(params: {
     return null
   }
 
+  if (deviceRoomPresent(roomId)) {
+    emitToDeviceRoom(roomId, "spotify-token", { accessToken })
+    lastSocketPush.set(roomId, Date.now())
+    try {
+      await context.redis.pubClient.del(spotifyTokenKey(roomId))
+    } catch {
+      // The key may already be absent.
+    }
+    console.log(`[bridge-spotify-token] pushed creator token on device socket for room ${roomId}`)
+    return accessToken
+  }
+
   await context.redis.pubClient.set(spotifyTokenKey(roomId), accessToken, {
     EX: BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
   })
@@ -136,6 +153,16 @@ export function dropSpotifyTokenProvisioning(roomId: string): void {
 }
 
 const lastEnsureAttempt = new Map<string, number>()
+const ENSURE_ATTEMPT_MS = 15_000
+
+/** One provision attempt per room per window. Covers a missing socket push and the Redis fallback. */
+function claimEnsureAttempt(roomId: string): boolean {
+  const now = Date.now()
+  const last = lastEnsureAttempt.get(roomId) ?? 0
+  if (now - last < ENSURE_ATTEMPT_MS) return false
+  lastEnsureAttempt.set(roomId, now)
+  return true
+}
 
 /** Ensure a token key exists (used by the advance job as a pub/sub backup). */
 export async function ensureSpotifyTokenProvisioned(params: {
@@ -143,14 +170,19 @@ export async function ensureSpotifyTokenProvisioned(params: {
   roomId: string
 }): Promise<void> {
   const { context, roomId } = params
+  if (deviceRoomPresent(roomId)) {
+    const last = lastSocketPush.get(roomId) ?? 0
+    if (last !== 0 && Date.now() - last < SOCKET_TOKEN_REFRESH_MS) return
+    if (!claimEnsureAttempt(roomId)) return
+    await provisionSpotifyTokenForRoom({ context, roomId })
+    return
+  }
+
   const ttl = await context.redis.pubClient.ttl(spotifyTokenKey(roomId))
   // -2 = missing, -1 = no expiry; refresh when missing or near expiry
   if (ttl !== -2 && !(ttl >= 0 && ttl < 120)) return
 
-  const now = Date.now()
-  const last = lastEnsureAttempt.get(roomId) ?? 0
-  if (now - last < 15_000) return
-  lastEnsureAttempt.set(roomId, now)
+  if (!claimEnsureAttempt(roomId)) return
 
   await provisionSpotifyTokenForRoom({ context, roomId })
 }

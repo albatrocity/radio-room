@@ -8,6 +8,7 @@ function bridgeContext(api: Record<string, unknown>): PluginContext {
     roomId: "room-1",
     getRoom: async () => ({ playbackControllerId: "bridge" }),
     api,
+    catalog: api,
   } as unknown as PluginContext
 }
 

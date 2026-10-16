@@ -65,7 +65,7 @@ export async function clearCampaign(context: PluginContext): Promise<void> {
   await context.storage.del(KICKSTARTER_STORAGE_KEY)
 }
 
-/** The funding-phase escrow (ADR 0204). */
+/** The funding-phase escrow (ADR 0209). */
 export function campaignPool(
   deps: ConstructorParameters<typeof EscrowPoolHelper>[0],
 ): EscrowPoolHelper {

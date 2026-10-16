@@ -6,7 +6,7 @@ import type {
 } from "@repo/types"
 
 /**
- * Shared coin funds (ADR 0204): a proportional levy (`collectShares`) and a
+ * Shared coin funds (ADR 0209): a proportional levy (`collectShares`) and a
  * voluntary escrow pool (`EscrowPoolHelper`). Neither pays anyone out; callers
  * decide what a raised or collected amount buys.
  */
@@ -190,7 +190,7 @@ export type PledgeResult =
 const PLEDGE_CAS_MAX_ATTEMPTS = 8
 
 /**
- * Voluntary escrow (ADR 0204, extracted from Kickstarter / ADR 0188). Pledges
+ * Voluntary escrow (ADR 0209, extracted from Kickstarter / ADR 0188). Pledges
  * debit immediately with `intent: "exact"`, are recorded with CAS, and are
  * rolled back if the debit didn't land (coin lock, race). The pool never pays
  * out: `close` reports what was raised, `refundAll` returns it.

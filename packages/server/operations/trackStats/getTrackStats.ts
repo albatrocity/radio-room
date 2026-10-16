@@ -13,7 +13,7 @@ export class TrackStatsBadRequestError extends Error {
 
 const UNKNOWN_DJ = "Unknown DJ"
 
-const coalescedTimestamp = sql<Date>`COALESCE(${roomPlaylistTrack.addedAt}, ${roomPlaylistTrack.playedAt}, ${show.startTime})`
+const coalescedTimestamp = sql<Date | string>`COALESCE(${roomPlaylistTrack.addedAt}, ${roomPlaylistTrack.playedAt}, ${show.startTime})`
 
 const addedByUsernameExpr = sql<string | null>`NULLIF(TRIM(${roomPlaylistTrack.trackPayload} #>> '{addedBy,username}'), '')`
 
@@ -42,8 +42,16 @@ function publishedIdentityWhere(identity: TrackStatsIdentityQuery) {
   return and(eq(show.status, "published"), buildIdentityMatch(identity))
 }
 
-function toIso(ts: Date): string {
-  return ts.toISOString()
+/**
+ * Drizzle's node-pg driver returns timestamptz as text for `sql` expressions
+ * and `db.execute`. Schema columns are mapped to Date; these queries are not.
+ */
+export function trackStatsTimestampToIso(ts: Date | string): string {
+  const date = ts instanceof Date ? ts : new Date(ts)
+  if (Number.isNaN(date.getTime())) {
+    throw new TypeError(`Invalid track stats timestamp: ${String(ts)}`)
+  }
+  return date.toISOString()
 }
 
 async function fetchTrackStatsDto(identity: TrackStatsIdentityQuery): Promise<TrackStatsDTO> {
@@ -72,7 +80,7 @@ async function fetchTrackStatsDto(identity: TrackStatsIdentityQuery): Promise<Tr
 
     db.execute<{
       show_title: string
-      added_at: Date
+      added_at: Date | string
       added_by_username: string
     }>(sql`
       SELECT show_title, added_at, added_by_username
@@ -119,7 +127,7 @@ async function fetchTrackStatsDto(identity: TrackStatsIdentityQuery): Promise<Tr
 
   const earliest = firstRow[0]
   const recentResult = recentRows as unknown as {
-    rows: Array<{ show_title: string; added_at: Date; added_by_username: string }>
+    rows: Array<{ show_title: string; added_at: Date | string; added_by_username: string }>
   }
   const recent = recentResult.rows ?? recentRows
 
@@ -130,13 +138,13 @@ async function fetchTrackStatsDto(identity: TrackStatsIdentityQuery): Promise<Tr
     firstAppearance: earliest
       ? {
           showTitle: earliest.showTitle,
-          addedAt: toIso(earliest.timestamp),
+          addedAt: trackStatsTimestampToIso(earliest.timestamp),
         }
       : null,
     recentAppearances: recent.map((row) => ({
       showTitle: row.show_title,
       addedByUsername: djLabel(row.added_by_username),
-      addedAt: toIso(row.added_at),
+      addedAt: trackStatsTimestampToIso(row.added_at),
     })),
     topDjs: topDjRows.map((row) => ({
       username: djLabel(row.username),

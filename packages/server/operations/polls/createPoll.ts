@@ -32,7 +32,7 @@ export type CreatePollInput = {
   source?: { pluginName: string }
   /** When false, skip “New poll started” chat. Defaults to true. Also reused on auto-close. */
   announce?: boolean
-  /** Themed look (ADR 0203). Only honored with `source`; admin callers can't set it. */
+  /** Themed look (ADR 0208). Only honored with `source`; admin callers can't set it. */
   presentation?: PollPresentation
 }
 

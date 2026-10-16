@@ -1,5 +1,5 @@
 /**
- * Ledger of piecewise-constant legs (ADR 0200). Each leg stores prefix sums
+ * Ledger of piecewise-constant legs (ADR 0205). Each leg stores prefix sums
  * (`mile`, `gallonsUsed`) at its start, so position and fuel need only the
  * latest leg and truncating old legs is safe. Pure; imported by Game Studio.
  */

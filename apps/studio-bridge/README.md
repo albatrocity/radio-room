@@ -10,7 +10,7 @@ Started automatically via **`make game-studio`** alongside the Game Studio Vite 
 
 ## Road trip preview
 
-Set `STUDIO_BRIDGE_TRIP_PREVIEW=1` when starting the bridge (or connect with the `tripPreview=1` handshake query) to preview road-trip UI ([ADR 0200](../../docs/adrs/0200-road-trips-v1.md)) without the plugin:
+Set `STUDIO_BRIDGE_TRIP_PREVIEW=1` when starting the bridge (or connect with the `tripPreview=1` handshake query) to preview road-trip UI ([ADR 0205](../../docs/adrs/0205-road-trips-v1.md)) without the plugin:
 
 - the `road-trip-strip` above chat and the **Trip** Game State tab (with site detail), from a fixture trip on `SAMPLE_TRIP_MAP`
 - a road-sign skip poll and two road-sign system messages on login

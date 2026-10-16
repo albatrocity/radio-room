@@ -82,9 +82,75 @@ describe("GameStateItemDetail lore and model", () => {
   })
 
   it("omits the lore block when lore is blank", () => {
-    const html = render(
+    const withLore = render(
+      <GameStateItemDetail frame={frame} definition={definition({ lore: "Cold." })} />,
+    )
+    const blank = render(
       <GameStateItemDetail frame={frame} definition={definition({ lore: "   " })} />,
     )
-    expect(html.match(/white-space:pre-wrap/g)?.length ?? 0).toBe(1)
+    expect(withLore).toContain("data-item-lore")
+    expect(blank).not.toContain("data-item-lore")
+  })
+
+  it("renders lore as markdown", () => {
+    const html = render(
+      <GameStateItemDetail
+        frame={frame}
+        definition={definition({
+          lore: "**Bold** and _quiet_.\nSee https://example.com/notes\n\n<b>raw</b>",
+        })}
+      />,
+    )
+    expect(html).toMatch(/<strong[^>]*>Bold<\/strong>/)
+    expect(html).toMatch(/<em[^>]*>quiet<\/em>/)
+    expect(html).toContain("<br")
+    expect(html).toContain('href="https://example.com/notes"')
+    expect(html).not.toContain("<b>raw</b>")
+  })
+})
+
+describe("GameStateItemDetail track list lore", () => {
+  const trackListFrame: GameStateItemDetailFrame = {
+    kind: "item",
+    shortId: "pm-al-1",
+    title: "CD: Loveless",
+    source: "shop",
+    mediaKey: "pm-al-1",
+  }
+
+  it("renders lore under the description in the album header", () => {
+    const html = render(
+      <GameStateItemDetail
+        frame={trackListFrame}
+        definition={definition({
+          shortId: "pm-al-1",
+          name: "CD: Loveless",
+          description: "A CD from the Record Store.",
+          lore: "Recorded in *one* night.",
+          detailView: { layout: "trackList" },
+        })}
+      />,
+    )
+    const descriptionAt = html.indexOf("A CD from the Record Store.")
+    const loreAt = html.indexOf("Recorded in")
+    expect(descriptionAt).toBeGreaterThan(-1)
+    expect(loreAt).toBeGreaterThan(descriptionAt)
+    expect(html).toMatch(/<em[^>]*>one<\/em>/)
+  })
+
+  it("omits the lore block when the record has none", () => {
+    const html = render(
+      <GameStateItemDetail
+        frame={trackListFrame}
+        definition={definition({
+          shortId: "pm-al-1",
+          name: "CD: Loveless",
+          description: "A CD from the Record Store.",
+          detailView: { layout: "trackList" },
+        })}
+      />,
+    )
+    expect(html).toContain("A CD from the Record Store.")
+    expect(html).not.toContain("data-item-lore")
   })
 })

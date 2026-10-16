@@ -318,7 +318,7 @@ resource "aws_iam_user_policy" "sender_s3_put" {
 }
 
 # ---------------------------------------------------------------------------
-# IAM: Game Studio map designers publish Trip Map site art (ADR 0205)
+# IAM: Game Studio map designers publish Trip Map site art (ADR 0210)
 # ---------------------------------------------------------------------------
 
 resource "aws_iam_policy" "map_designer" {

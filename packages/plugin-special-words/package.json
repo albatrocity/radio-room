@@ -2,6 +2,7 @@
   "name": "@repo/plugin-special-words",
   "version": "1.0.0",
   "description": "Special Words plugin for Listening Room - detect special words in messages",
+  "type": "module",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {

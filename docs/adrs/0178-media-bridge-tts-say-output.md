@@ -1,7 +1,7 @@
 # 0178. Media Bridge TTS (`say`) to a dedicated CoreAudio output
 
 **Date:** 2026-09-15
-**Status:** Accepted
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (point 4: speech is `context.playback`)
 
 ## Context
 

@@ -4,7 +4,7 @@ import { RoadTripSignMessage } from "./chatThemes/roadTrip"
 import { roadTripPollTheme } from "./pollThemes/roadTrip"
 import type { ChatThemeMessageProps, PollTheme } from "./types"
 
-/** One registry for themed system messages and plugin polls (ADR 0203). */
+/** One registry for themed system messages and plugin polls (ADR 0208). */
 const CHAT_THEMES: Record<PresentationTheme, ComponentType<ChatThemeMessageProps>> = {
   "road-trip": RoadTripSignMessage,
 }

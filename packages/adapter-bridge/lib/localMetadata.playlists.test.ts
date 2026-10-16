@@ -1,5 +1,45 @@
-import { describe, expect, it } from "vitest"
-import { mapLocalPlaylistRow, mapLocalLibraryAlbumRow } from "./localMetadata"
+import { describe, expect, it, vi } from "vitest"
+import {
+  getLocalAlbumComments,
+  mapLocalPlaylistRow,
+  mapLocalLibraryAlbumRow,
+  normalizeAlbumCommentsResult,
+} from "./localMetadata"
+import type { BridgeRpcClient } from "./rpcClient"
+
+describe("normalizeAlbumCommentsResult", () => {
+  it("keeps trimmed non-empty strings and drops everything else", () => {
+    expect(
+      normalizeAlbumCommentsResult({ a: "  Notes  ", b: "   ", c: 3, d: null }),
+    ).toEqual({ a: "Notes" })
+    expect(normalizeAlbumCommentsResult([])).toEqual({})
+    expect(normalizeAlbumCommentsResult(null)).toEqual({})
+  })
+})
+
+describe("getLocalAlbumComments", () => {
+  it("returns {} when the daemon does not know the method (old DJ Mac pack)", async () => {
+    const rpc = {
+      isPresent: vi.fn(async () => true),
+      call: vi.fn(async () => {
+        throw new Error("Unknown method: getAlbumComments")
+      }),
+    } as unknown as BridgeRpcClient
+    await expect(getLocalAlbumComments({ rpc, albumIds: ["al-1"] })).resolves.toEqual({})
+  })
+
+  it("batches album ids and merges results", async () => {
+    const call = vi.fn(async (_method: string, params: Record<string, unknown>) => {
+      const ids = params.albumIds as string[]
+      return Object.fromEntries(ids.map((id) => [id, `notes ${id}`]))
+    })
+    const rpc = { isPresent: vi.fn(async () => true), call } as unknown as BridgeRpcClient
+    const ids = Array.from({ length: 10 }, (_, i) => `al-${i}`)
+    const out = await getLocalAlbumComments({ rpc, albumIds: ids })
+    expect(call).toHaveBeenCalledTimes(2)
+    expect(Object.keys(out)).toHaveLength(10)
+  })
+})
 
 describe("mapLocalPlaylistRow", () => {
   it("maps id, name, songCount, and trimmed comment", () => {

@@ -1,7 +1,3 @@
-import type { RedisClientType } from "redis"
-
-type RedisLike = RedisClientType<any, any, any>
-
 export type DiscoveredRoom = {
   id: string
   title: string
@@ -13,33 +9,25 @@ export type DiscoveredRoom = {
   bridgeReady: boolean
 }
 
-/**
- * List rooms known to the API via the Redis `rooms` set + `room:{id}:details` hashes.
- */
-export async function listRoomsFromRedis(redis: RedisLike): Promise<DiscoveredRoom[]> {
-  const ids = await redis.sMembers("rooms")
-  const rooms: DiscoveredRoom[] = []
-
-  for (const id of ids) {
-    const details = await redis.hGetAll(`room:${id}:details`)
-    if (!details || Object.keys(details).length === 0) continue
-
-    const playbackControllerId = details.playbackControllerId ?? ""
-    rooms.push({
-      id,
-      title: details.title || id,
-      type: details.type || "unknown",
-      playbackControllerId,
-      playbackMode: details.playbackMode || "",
-      public: details.public !== "false",
-      bridgeReady: playbackControllerId === "bridge",
-    })
-  }
-
-  rooms.sort((a, b) => {
+export function sortDiscoveredRooms(rooms: DiscoveredRoom[]): DiscoveredRoom[] {
+  return [...rooms].sort((a, b) => {
     if (a.bridgeReady !== b.bridgeReady) return a.bridgeReady ? -1 : 1
     return a.title.localeCompare(b.title)
   })
+}
 
-  return rooms
+/**
+ * Rooms from GET /api/device/rooms. The daemon does not read Redis.
+ */
+export async function listRoomsFromApi(apiBaseUrl: string, bearer: string): Promise<DiscoveredRoom[]> {
+  const base = apiBaseUrl.replace(/\/$/, "")
+  const res = await fetch(`${base}/api/device/rooms`, {
+    headers: { Authorization: `Bearer ${bearer}` },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => "")
+    throw new Error(`rooms ${res.status} ${text.slice(0, 200)}`)
+  }
+  const body = (await res.json()) as { rooms?: DiscoveredRoom[] }
+  return sortDiscoveredRooms(body.rooms ?? [])
 }

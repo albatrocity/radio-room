@@ -139,6 +139,11 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   return {
     roomId,
     api: mockApi,
+    polls: mockApi,
+    schedule: mockApi,
+    queue: mockApi,
+    playback: mockApi,
+    catalog: mockApi,
     storage: mockStorage,
     lifecycle: mockLifecycle,
     getRoom: vi.fn().mockResolvedValue(null),
@@ -427,7 +432,7 @@ describe("PlaylistDemocracyPlugin", () => {
       await trackChangedHandler({ roomId: "test-room", track })
       await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
       expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
         "test-room",
         expect.stringContaining("didn't receive enough"),
@@ -459,7 +464,7 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.advanceTimersByTime(60000)
       await vi.runAllTimersAsync()
 
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should handle static threshold type", async () => {
@@ -484,7 +489,7 @@ describe("PlaylistDemocracyPlugin", () => {
       await trackChangedHandler({ roomId: "test-room", track })
       await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
       // Should show raw count in message for static threshold (not percentage)
       expect(mockContext.api.sendSystemMessage).toHaveBeenCalledWith(
         "test-room",
@@ -530,7 +535,7 @@ describe("PlaylistDemocracyPlugin", () => {
       await vi.runAllTimersAsync()
 
       // With 50% threshold and 2 users, need 1 vote. Should pass.
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should handle errors gracefully", async () => {
@@ -553,7 +558,7 @@ describe("PlaylistDemocracyPlugin", () => {
       await vi.runAllTimersAsync()
 
       // Should not skip when there's an error
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
   })
 
@@ -575,7 +580,7 @@ describe("PlaylistDemocracyPlugin", () => {
 
     test("should handle reaction added for current track", async () => {
       const nowPlaying = createMockQueueItem("track1", "Test Song")
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(nowPlaying)
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(nowPlaying)
 
       const handlers = (mockContext as any)._lifecycleHandlers.get("REACTION_ADDED")
       const reactionAddedHandler = handlers[0]
@@ -593,7 +598,7 @@ describe("PlaylistDemocracyPlugin", () => {
       })
 
       const nowPlaying = createMockQueueItem("track1", "Test Song")
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(nowPlaying)
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(nowPlaying)
 
       const handlers = (mockContext as any)._lifecycleHandlers.get("REACTION_ADDED")
       const reactionAddedHandler = handlers[0]
@@ -645,7 +650,7 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.mocked(mockContext.storage.get).mockResolvedValue("1")
 
       // Queue has 2 items (2 <= 3), so skip should be prevented
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track2"),
         createMockQueueItem("track3"),
       ])
@@ -655,7 +660,7 @@ describe("PlaylistDemocracyPlugin", () => {
       await vi.runAllTimersAsync()
 
       // Should NOT skip because queue is too short
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should skip when skipRequiresQueue is enabled and queue length > skipRequiresQueueMin", async () => {
@@ -681,7 +686,7 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.mocked(mockContext.storage.get).mockResolvedValue("1")
 
       // Queue has 4 items (4 > 3), so skip should proceed
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track2"),
         createMockQueueItem("track3"),
         createMockQueueItem("track4"),
@@ -692,7 +697,7 @@ describe("PlaylistDemocracyPlugin", () => {
       await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
       // Should skip because queue has enough tracks
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
     })
 
     test("should skip normally when skipRequiresQueue is disabled", async () => {
@@ -718,15 +723,15 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.mocked(mockContext.storage.get).mockResolvedValue("1")
 
       // Queue is empty, but skipRequiresQueue is disabled so it shouldn't matter
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([])
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([])
 
       await trackChangedHandler({ roomId: "test-room", track })
       await plugin.handleScheduled("track-limit", { trackId: "track1", trackTitle: "Test Song" }, "track-limit:track1")
 
       // Should skip because skipRequiresQueue is disabled
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
       // Should not have checked the queue
-      expect(mockContext.api.getQueue).not.toHaveBeenCalled()
+      expect(mockContext.queue.getQueue).not.toHaveBeenCalled()
     })
 
     test("should not skip when queue length equals skipRequiresQueueMin exactly", async () => {
@@ -750,7 +755,7 @@ describe("PlaylistDemocracyPlugin", () => {
       vi.mocked(mockContext.storage.get).mockResolvedValue("0")
 
       // Queue has exactly 2 items (2 <= 2), so skip should be prevented
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track2"),
         createMockQueueItem("track3"),
       ])
@@ -760,7 +765,7 @@ describe("PlaylistDemocracyPlugin", () => {
       await vi.runAllTimersAsync()
 
       // Should NOT skip because queue length equals skipRequiresQueueMin
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
   })
 

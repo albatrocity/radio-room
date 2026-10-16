@@ -2,6 +2,7 @@
   "name": "@repo/plugin-guess-the-tune",
   "version": "1.0.0",
   "description": "Guess the Tune — obscure now playing, fuzzy chat matches, leaderboard",
+  "type": "module",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {

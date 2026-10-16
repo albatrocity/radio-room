@@ -1,44 +1,46 @@
-import { describe, expect, it, vi } from "vitest"
-import { listRoomsFromRedis } from "./listRooms"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { listRoomsFromApi, sortDiscoveredRooms, type DiscoveredRoom } from "./listRooms"
 
-describe("listRoomsFromRedis", () => {
-  it("maps room hashes and sorts bridge rooms first", async () => {
-    const redis = {
-      sMembers: vi.fn().mockResolvedValue(["a", "b"]),
-      hGetAll: vi.fn(async (key: string) => {
-        if (key.includes(":a:")) {
-          return {
-            title: "Spotify Room",
-            type: "radio",
-            playbackControllerId: "spotify",
-            playbackMode: "app-controlled",
-            public: "true",
-          }
-        }
-        return {
-          title: "Bridge Room",
-          type: "radio",
-          playbackControllerId: "bridge",
-          playbackMode: "app-controlled",
-          public: "false",
-        }
-      }),
-    }
+const room = (partial: Partial<DiscoveredRoom> & Pick<DiscoveredRoom, "id" | "title">): DiscoveredRoom => ({
+  type: "radio",
+  playbackControllerId: "spotify",
+  playbackMode: "app-controlled",
+  public: true,
+  bridgeReady: false,
+  ...partial,
+})
 
-    const rooms = await listRoomsFromRedis(redis as any)
-    expect(rooms).toHaveLength(2)
-    expect(rooms[0].id).toBe("b")
-    expect(rooms[0].bridgeReady).toBe(true)
-    expect(rooms[0].public).toBe(false)
-    expect(rooms[1].bridgeReady).toBe(false)
+describe("listRoomsFromApi", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
-  it("skips empty hashes", async () => {
-    const redis = {
-      sMembers: vi.fn().mockResolvedValue(["gone"]),
-      hGetAll: vi.fn().mockResolvedValue({}),
-    }
-    const rooms = await listRoomsFromRedis(redis as any)
-    expect(rooms).toEqual([])
+  it("loads the authenticated room list", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        rooms: [
+          room({ id: "b", title: "Bridge Room", playbackControllerId: "bridge", bridgeReady: true, public: false }),
+          room({ id: "a", title: "Spotify Room" }),
+        ],
+      }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const rooms = await listRoomsFromApi("http://127.0.0.1:3000/", "secret")
+    expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:3000/api/device/rooms", {
+      headers: { Authorization: "Bearer secret" },
+    })
+    expect(rooms[0].id).toBe("b")
+    expect(rooms[0].bridgeReady).toBe(true)
+    expect(rooms[1].id).toBe("a")
+  })
+
+  it("sorts bridge rooms first when the payload is unsorted", () => {
+    const rooms = sortDiscoveredRooms([
+      room({ id: "a", title: "Spotify Room" }),
+      room({ id: "b", title: "Bridge Room", playbackControllerId: "bridge", bridgeReady: true }),
+    ])
+    expect(rooms.map((r) => r.id)).toEqual(["b", "a"])
   })
 })
