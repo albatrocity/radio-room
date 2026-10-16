@@ -134,6 +134,34 @@ describe("device socket RPC", () => {
     })
   })
 
+  it("does not ask a segment watcher to link", () => {
+    const watcherEvents: unknown[] = []
+    const bridgeEvents: unknown[] = []
+    registerDeviceSocket({
+      id: "watcher",
+      daemonId: "local-remote",
+      roomId: null,
+      emit: (_event, payload) => {
+        watcherEvents.push(payload)
+      },
+    })
+    registerDeviceSocket({
+      id: "bridge",
+      daemonId: "daemon-1",
+      roomId: null,
+      emit: (_event, payload) => {
+        bridgeEvents.push(payload)
+      },
+    })
+    watchDeviceRoom("watcher", "room-1")
+
+    const pending = beginDeviceLink("room-1", 1000)
+    expect(pending).not.toBeNull()
+    expect(watcherEvents).toEqual([])
+    expect(bridgeEvents).toHaveLength(1)
+    expect((bridgeEvents[0] as { type: string }).type).toBe("LINK_REQUEST")
+  })
+
   it("delivers a segment cue to a watcher without treating it as a bridge", () => {
     const events: unknown[] = []
     registerDeviceSocket({

@@ -66,6 +66,10 @@ export function bindDeviceRoom(id: string, roomId: string | null): void {
   if (roomId) socket.role = "bridge"
 }
 
+export function deviceSocketRole(id: string): "bridge" | "segment" | undefined {
+  return sockets.get(id)?.role
+}
+
 /** Room subscription for Farrago cues. Does not mark the room as having a bridge. */
 export function watchDeviceRoom(id: string, roomId: string): void {
   const socket = sockets.get(id)
@@ -146,15 +150,15 @@ export function settleDeviceResponse(message: unknown): void {
 }
 
 /**
- * Ask every connected device socket to link. Returns null when none are connected
- * so the Redis control channel can still serve an older pack.
- * The one-time `code` lives only in this process.
+ * Ask connected bridge sockets to link. Segment watchers are skipped.
+ * Returns null when no bridge socket is connected so the Redis control channel
+ * can still serve an older pack. The one-time `code` lives only in this process.
  */
 export function beginDeviceLink(
   roomId: string,
   timeoutMs: number = BRIDGE_RPC_TIMEOUT_MS,
 ): Promise<{ ok: true; daemonId: string; roomId: string } | { ok: false; error: string }> | null {
-  const targets = Array.from(sockets.values())
+  const targets = Array.from(sockets.values()).filter((socket) => socket.role !== "segment")
   if (targets.length === 0) return null
 
   if (linkWait) {

@@ -32,16 +32,16 @@ pub async fn run_segment_socket(state: SharedState) {
         };
 
         if cfg.room_id.trim().is_empty() {
-            state.set_redis_connected(false);
-            state.set_redis_error(Some(
+            state.set_segment_socket_connected(false);
+            state.set_segment_socket_error(Some(
                 "room id is required to watch the active segment".to_string(),
             ));
             sleep(Duration::from_secs(backoff_secs.min(30))).await;
             continue;
         }
         if cfg.device_ingress_secret.is_empty() {
-            state.set_redis_connected(false);
-            state.set_redis_error(Some(
+            state.set_segment_socket_connected(false);
+            state.set_segment_socket_error(Some(
                 "deviceIngressSecret is empty; set the same bearer as DEVICE_INGRESS_SECRET"
                     .to_string(),
             ));
@@ -54,8 +54,8 @@ pub async fn run_segment_socket(state: SharedState) {
                 backoff_secs = 1;
             }
             Err(e) => {
-                state.set_redis_connected(false);
-                state.set_redis_error(Some(e.clone()));
+                state.set_segment_socket_connected(false);
+                state.set_segment_socket_error(Some(e.clone()));
                 warn!(error = %e, "segment socket failed; retrying");
                 sleep(Duration::from_secs(backoff_secs.min(30))).await;
                 backoff_secs = (backoff_secs * 2).min(30);
@@ -94,8 +94,8 @@ async fn watch_once(
                     .await
                     .is_ok()
                 {
-                    state.set_redis_connected(true);
-                    state.set_redis_error(None);
+                    state.set_segment_socket_connected(true);
+                    state.set_segment_socket_error(None);
                     info!(room_id = %room_id, "segment socket watching");
                 }
             }
@@ -104,8 +104,8 @@ async fn watch_once(
         .on("close", move |_payload, _socket| {
             let state = state_for_close.clone();
             async move {
-                state.set_redis_connected(false);
-                state.set_redis_error(Some("segment socket closed".to_string()));
+                state.set_segment_socket_connected(false);
+                state.set_segment_socket_error(Some("segment socket closed".to_string()));
             }
             .boxed()
         })

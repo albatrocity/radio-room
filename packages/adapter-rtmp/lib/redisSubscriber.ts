@@ -1,4 +1,5 @@
 import type { AppContext, JobApi } from "@repo/types"
+import { submitNowPlaying } from "@repo/server/operations/room/submitNowPlaying"
 import type { RedisClientType } from "redis"
 
 type NowPlayingMessage = {
@@ -20,22 +21,10 @@ export async function handleNowPlayingMessage(
     const data: NowPlayingMessage = JSON.parse(message)
     if (data.roomId !== roomId) return
 
-    if (!data.title) {
-      await api.submitMediaData({ roomId })
-      return
-    }
-
-    const trackId = [data.artist, data.title, data.album].filter(Boolean).join("-")
-
-    await api.submitMediaData({
-      roomId,
-      submission: {
-        trackId,
-        sourceType: "rtmp",
-        title: data.title,
-        artist: data.artist,
-        album: data.album,
-      },
+    await submitNowPlaying(api, roomId, {
+      title: data.title,
+      artist: data.artist,
+      album: data.album,
     })
   } catch (error: any) {
     console.error(`[adapter-rtmp] Error processing NOW_PLAYING_CHANGED for room ${roomId}:`, error)

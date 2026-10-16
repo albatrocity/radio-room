@@ -5,21 +5,22 @@ import {
   bindDeviceRoom,
   bridgeControlMessageSchema,
   bridgeEventSchema,
-  BRIDGE_LAST_ENDED_TTL_SEC,
-  BRIDGE_PRESENCE_TTL_SEC,
-  capabilitiesKey,
+  deviceSocketRole,
   getOrCreateCapabilityCache,
-  lastEndedKey,
-  presenceKey,
   provisionSpotifyTokenForRoom,
   receiveDeviceLink,
   registerDeviceSocket,
   settleDeviceResponse,
-  spotifyDeviceKey,
   unregisterDeviceSocket,
   watchDeviceRoom,
 } from "@repo/adapter-bridge"
-import { activeSegmentForDevice } from "../controllers/deviceIngressController"
+import { activeSegmentForDevice } from "../operations/activeSegmentForDevice"
+import {
+  clearDevicePresence,
+  writeDevicePresence,
+  writeDeviceSpotifyId,
+  writeDeviceTrackEnded,
+} from "../operations/bridge/deviceBridgeState"
 import { readDeviceSession, saveDeviceSession, touchDeviceSession } from "./deviceSessionStore"
 
 const HEARTBEAT_MS = 3000
@@ -30,7 +31,6 @@ type DeviceSocket = Socket & {
     daemonId?: string
     deviceToken?: string
     sessionRoomId?: string | null
-    role?: "bridge" | "segment"
     services?: string[]
   }
 }
@@ -106,7 +106,6 @@ export function attachDeviceNamespace(io: Server, context: AppContext): void {
     socket.on("join", (payload: unknown) => {
       const roomId = readRoomId(payload)
       if (!roomId) return
-      deviceSocket.data.role = "bridge"
       void bindRoom(deviceSocket, context, roomId)
     })
 
@@ -114,7 +113,6 @@ export function attachDeviceNamespace(io: Server, context: AppContext): void {
       const roomId = readRoomId(payload)
       if (!roomId) return
       watchDeviceRoom(socket.id, roomId)
-      deviceSocket.data.role = "segment"
       deviceSocket.data.sessionRoomId = roomId
       void pushSegmentSnapshot(context, socket, roomId)
     })
@@ -144,7 +142,7 @@ export function attachDeviceNamespace(io: Server, context: AppContext): void {
 async function bindRoom(socket: DeviceSocket, context: AppContext, roomId: string): Promise<void> {
   const previous = socket.data.sessionRoomId
   if (previous && previous !== roomId) {
-    await clearRoomPresence(context, previous)
+    await clearDevicePresence(context, previous)
     getOrCreateCapabilityCache(context.redis.pubClient, previous).applyEvent({ type: "DISCONNECTING" })
   }
 
@@ -161,7 +159,7 @@ async function bindRoom(socket: DeviceSocket, context: AppContext, roomId: strin
 
   await saveDeviceSession(context.redis.pubClient, token, { daemonId, roomId })
   socket.emit("device-token", { token, roomId })
-  await writePresence(context, roomId, socket.data.services)
+  await writeDevicePresence(context, roomId, socket.data.services)
   startHeartbeat(socket, context, roomId)
 }
 
@@ -170,7 +168,7 @@ function startHeartbeat(socket: DeviceSocket, context: AppContext, roomId: strin
   const timer = setInterval(() => {
     void (async () => {
       if (socket.data.sessionRoomId !== roomId) return
-      await writePresence(context, roomId, socket.data.services)
+      await writeDevicePresence(context, roomId, socket.data.services)
       if (socket.data.deviceToken) {
         await touchDeviceSession(context.redis.pubClient, socket.data.deviceToken).catch(() => {})
       }
@@ -203,18 +201,13 @@ async function onDeviceEvent(socket: DeviceSocket, context: AppContext, payload:
 
   if (event.type === "CAPABILITIES") {
     socket.data.services = event.services
-    await writePresence(context, roomId, event.services)
+    await writeDevicePresence(context, roomId, event.services)
   } else if (event.type === "ENDED") {
-    await context.redis.pubClient.set(
-      lastEndedKey(roomId),
-      JSON.stringify({
-        trackId: event.trackId,
-        source: event.source,
-        reason: event.reason,
-        at: Date.now(),
-      }),
-      { EX: BRIDGE_LAST_ENDED_TTL_SEC },
-    )
+    await writeDeviceTrackEnded(context, roomId, {
+      trackId: event.trackId,
+      source: event.source,
+      reason: event.reason,
+    })
   } else if (event.type === "TOKEN_REQUEST") {
     await provisionSpotifyTokenForRoom({ context, roomId }).catch((error) => {
       console.error(`[device] TOKEN_REQUEST failed for ${roomId}:`, error)
@@ -226,11 +219,11 @@ async function onSpotifyDevice(socket: DeviceSocket, context: AppContext, payloa
   const roomId = socket.data.sessionRoomId
   if (!roomId || !payload || typeof payload !== "object") return
   const deviceId = (payload as { deviceId?: unknown }).deviceId
-  if (typeof deviceId === "string" && deviceId) {
-    await context.redis.pubClient.set(spotifyDeviceKey(roomId), deviceId)
-    return
-  }
-  await context.redis.pubClient.del(spotifyDeviceKey(roomId))
+  await writeDeviceSpotifyId(
+    context,
+    roomId,
+    typeof deviceId === "string" && deviceId ? deviceId : null,
+  )
 }
 
 async function onDisconnect(socket: DeviceSocket, context: AppContext): Promise<void> {
@@ -246,27 +239,13 @@ async function pushSegmentSnapshot(context: AppContext, socket: Socket, roomId: 
 
 async function releaseRoom(socket: DeviceSocket, context: AppContext): Promise<void> {
   const roomId = socket.data.sessionRoomId
-  const role = socket.data.role
+  const role = deviceSocketRole(socket.id)
   stopHeartbeat(socket.id)
   bindDeviceRoom(socket.id, null)
   socket.data.sessionRoomId = null
   if (!roomId || role === "segment") return
   getOrCreateCapabilityCache(context.redis.pubClient, roomId).applyEvent({ type: "DISCONNECTING" })
-  await clearRoomPresence(context, roomId)
-}
-
-async function writePresence(context: AppContext, roomId: string, services?: string[]): Promise<void> {
-  await context.redis.pubClient.set(presenceKey(roomId), "1", { EX: BRIDGE_PRESENCE_TTL_SEC })
-  if (services) {
-    await context.redis.pubClient.set(capabilitiesKey(roomId), JSON.stringify(services), {
-      EX: BRIDGE_PRESENCE_TTL_SEC,
-    })
-  }
-}
-
-async function clearRoomPresence(context: AppContext, roomId: string): Promise<void> {
-  await context.redis.pubClient.del(presenceKey(roomId))
-  await context.redis.pubClient.del(capabilitiesKey(roomId))
+  await clearDevicePresence(context, roomId)
 }
 
 function readRoomId(payload: unknown): string {

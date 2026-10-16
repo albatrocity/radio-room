@@ -71,6 +71,7 @@ export {
   bindDeviceRoom,
   callDevice,
   deviceRoomPresent,
+  deviceSocketRole,
   emitToDeviceRoom,
   emitToDeviceSockets,
   watchDeviceRoom,

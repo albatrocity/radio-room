@@ -33,5 +33,6 @@ Two processes stay on the Mac ([ADR 0084](0084-dj-mac-single-zip-supervised-brid
 - [0036](0036-stream-health-webhook-for-live-rooms.md)
 - [0082](0082-media-bridge-link-via-redis-pubsub.md)
 - [0084](0084-dj-mac-single-zip-supervised-bridge.md)
+- [0009](0009-screaming-snake-case-for-socket-events.md) — `/device` event names (`segment`, `join`, `watch`, `request`) follow the bridge method vocabulary and are not renamed to `SCREAMING_SNAKE_CASE`
 - `packages/server/controllers/deviceIngressController.ts`
 - `packages/server/lib/deviceNamespace.ts`

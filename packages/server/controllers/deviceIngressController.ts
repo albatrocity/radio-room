@@ -2,8 +2,9 @@ import type { Request, Response } from "express"
 import type { AppContext, Room } from "@repo/types"
 import { createJobApi } from "../lib/createJobApi"
 import { readDeviceSession } from "../lib/deviceSessionStore"
-import { findRoom, getAllRooms, parseRoom } from "../operations/data"
-import { readRoomScheduleSnapshot } from "../operations/scheduleRedisSnapshot"
+import { readDeviceSegment } from "../operations/activeSegmentForDevice"
+import { getAllRooms, parseRoom } from "../operations/data"
+import { submitNowPlaying } from "../operations/room/submitNowPlaying"
 
 type DeviceAuth =
   | { ok: true; via: "secret" }
@@ -69,27 +70,12 @@ export async function deviceNowPlaying(req: Request, res: Response) {
     return res.status(403).json({ error: "token is not valid for this room" })
   }
 
-  const title = typeof body.title === "string" ? body.title : ""
-  const artist = typeof body.artist === "string" ? body.artist : undefined
-  const album = typeof body.album === "string" ? body.album : undefined
-
   const context = contextOf(req)
   const api = createJobApi(context)
-  if (!title) {
-    await api.submitMediaData({ roomId })
-    return res.status(200).json({ ok: true })
-  }
-
-  const trackId = [artist, title, album].filter(Boolean).join("-")
-  await api.submitMediaData({
-    roomId,
-    submission: {
-      trackId,
-      sourceType: "rtmp",
-      title,
-      artist,
-      album,
-    },
+  await submitNowPlaying(api, roomId, {
+    title: typeof body.title === "string" ? body.title : "",
+    artist: typeof body.artist === "string" ? body.artist : undefined,
+    album: typeof body.album === "string" ? body.album : undefined,
   })
   return res.status(200).json({ ok: true })
 }
@@ -112,51 +98,14 @@ export async function deviceActiveSegment(req: Request, res: Response) {
   }
 
   const context = contextOf(req)
-  const room = await findRoom({ context, roomId })
-  if (!room) {
+  const read = await readDeviceSegment(context, roomId)
+  if (read.status === "missing") {
     return res.status(404).json({ error: "room not found" })
   }
-  if (!room.activeSegmentId) {
+  if (read.status === "inactive") {
     return res.status(204).end()
   }
-
-  const payload = await segmentPayload(context, room)
-  return res.status(200).json(payload)
-}
-
-/** Current segment for a device socket snapshot. Empty `segmentId` means none is active. */
-export async function activeSegmentForDevice(context: AppContext, roomId: string) {
-  const room = await findRoom({ context, roomId })
-  if (!room?.activeSegmentId) {
-    return {
-      roomId,
-      showId: room?.showId ?? "",
-      segmentId: "",
-      segmentTitle: "",
-      at: Date.now(),
-    }
-  }
-  const payload = await segmentPayload(context, room)
-  return { ...payload, at: Date.now() }
-}
-
-async function segmentPayload(context: AppContext, room: Room) {
-  let segmentTitle = ""
-  let showId = room.showId ?? ""
-  try {
-    const snapshot = await readRoomScheduleSnapshot(context, room.id)
-    if (snapshot?.showId) showId = snapshot.showId
-    const match = snapshot?.segments.find((segment) => segment.segmentId === room.activeSegmentId)
-    if (match?.segment?.title) segmentTitle = match.segment.title
-  } catch (error) {
-    console.warn(`[device] active segment snapshot failed for ${room.id}:`, error)
-  }
-  return {
-    roomId: room.id,
-    showId,
-    segmentId: room.activeSegmentId,
-    segmentTitle,
-  }
+  return res.status(200).json(read.payload)
 }
 
 export type DeviceRoomListItem = {

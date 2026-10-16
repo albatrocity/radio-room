@@ -3,6 +3,8 @@
 **Date:** 2026-03-31  
 **Status:** Partially superseded by [0204](0204-device-trust-boundary.md) (segment cues arrive on `/device`; the Rust binary, localhost UI, and OSC map stay)
 
+**Current rule:** Segment cues arrive on the `/device` socket, and now playing is `POST /api/device/now-playing`. This process does not subscribe to Redis. See [ADR 0204](0204-device-trust-boundary.md). The decision below is the original Redis design.
+
 ## Context
 
 Operators need a **local** process that connects to the **remote** Redis used by Listening Room, subscribes to **`SYSTEM:*`** domain events, and runs small integrations (e.g. **OSC** to external apps such as Farrago) without coupling to Socket.IO or the web apps. The tool should be **low footprint**, easy to run in the **background**, and offer a **simple runtime configuration** surface.

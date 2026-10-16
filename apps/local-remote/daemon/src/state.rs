@@ -18,8 +18,8 @@ pub struct NowPlayingSnapshot {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct StatusSnapshot {
-    pub redis_connected: bool,
-    pub redis_last_error: Option<String>,
+    pub segment_socket_connected: bool,
+    pub segment_socket_last_error: Option<String>,
     pub last_channel: Option<String>,
     pub last_payload_preview: Option<String>,
     pub last_osc_address: Option<String>,
@@ -33,8 +33,8 @@ pub struct StatusSnapshot {
 
 pub struct AppState {
     pub config: RwLock<Config>,
-    pub redis_connected: AtomicBool,
-    pub redis_last_error: RwLock<Option<String>>,
+    pub segment_socket_connected: AtomicBool,
+    pub segment_socket_last_error: RwLock<Option<String>>,
     pub last_channel: RwLock<Option<String>>,
     pub last_payload_preview: RwLock<Option<String>>,
     pub last_osc_address: RwLock<Option<String>>,
@@ -65,8 +65,8 @@ impl AppState {
         let (board_tx, _) = broadcast::channel(64);
         Self {
             config: RwLock::new(cfg),
-            redis_connected: AtomicBool::new(false),
-            redis_last_error: RwLock::new(None),
+            segment_socket_connected: AtomicBool::new(false),
+            segment_socket_last_error: RwLock::new(None),
             last_channel: RwLock::new(None),
             last_payload_preview: RwLock::new(None),
             last_osc_address: RwLock::new(None),
@@ -90,8 +90,12 @@ impl AppState {
 
     pub fn snapshot(&self) -> StatusSnapshot {
         StatusSnapshot {
-            redis_connected: self.redis_connected.load(Ordering::SeqCst),
-            redis_last_error: self.redis_last_error.read().ok().and_then(|g| g.clone()),
+            segment_socket_connected: self.segment_socket_connected.load(Ordering::SeqCst),
+            segment_socket_last_error: self
+                .segment_socket_last_error
+                .read()
+                .ok()
+                .and_then(|g| g.clone()),
             last_channel: self.last_channel.read().ok().and_then(|g| g.clone()),
             last_payload_preview: self
                 .last_payload_preview
@@ -125,12 +129,12 @@ impl AppState {
         snap
     }
 
-    pub fn set_redis_connected(&self, ok: bool) {
-        self.redis_connected.store(ok, Ordering::SeqCst);
+    pub fn set_segment_socket_connected(&self, ok: bool) {
+        self.segment_socket_connected.store(ok, Ordering::SeqCst);
     }
 
-    pub fn set_redis_error(&self, msg: Option<String>) {
-        if let Ok(mut w) = self.redis_last_error.write() {
+    pub fn set_segment_socket_error(&self, msg: Option<String>) {
+        if let Ok(mut w) = self.segment_socket_last_error.write() {
             *w = msg;
         }
     }

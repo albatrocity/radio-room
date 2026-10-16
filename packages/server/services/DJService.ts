@@ -16,8 +16,10 @@ import {
   findRoom,
   getDjs,
   getQueue,
+  getRoomCurrent,
   getNormalizedQueueSplit,
   getQueueWithDispatched,
+  popNextFromQueue,
   getUser,
   isDj,
   isRoomAdmin,
@@ -41,6 +43,7 @@ import {
   findPinViolation,
   findPlayOutOfOrderViolation,
   findRemovalViolation,
+  isForeignPin,
   minInsertIndex,
 } from "../operations/dj/queuePins"
 
@@ -468,6 +471,77 @@ export class DJService {
       queuedItem,
       systemMessage: systemMessage(`${addedBy.username || "Someone"} added a song to the queue`),
     }
+  }
+
+  /**
+   * Plugin skip. App-controlled playback pops the queue and emits one `QUEUE_CHANGED`
+   * after follow-ups. Callers inside plugin emit must defer until that emit returns.
+   */
+  async skipTrack(
+    roomId: string,
+    trackId: string,
+    options?: { actorPluginName?: string },
+  ): Promise<void> {
+    const current = await getRoomCurrent({ context: this.context, roomId })
+    const nowPlaying = current?.nowPlaying ?? null
+    if (!nowPlaying || nowPlaying.mediaSource.trackId !== trackId) {
+      console.log(`[DJService] Skip aborted: track ${trackId} is not currently playing`)
+      return
+    }
+
+    if (isForeignPin(nowPlaying, options?.actorPluginName)) {
+      console.log(
+        `[DJService] Skip refused: track ${trackId} is held by ${nowPlaying.pin?.pluginName}`,
+      )
+      return
+    }
+
+    const room = await findRoom({ context: this.context, roomId })
+    if (!room) {
+      throw new Error(`Room not found: ${roomId}`)
+    }
+
+    const playbackController = await this.adapterService.getRoomPlaybackController(roomId)
+    if (!playbackController) {
+      throw new Error(`No playback controller found for room ${roomId}`)
+    }
+
+    if (!isAppControlledPlayback(room)) {
+      await playbackController.api.skipToNextTrack()
+      return
+    }
+
+    const nextItem = await popNextFromQueue({ context: this.context, roomId })
+    if (!nextItem) {
+      await playbackController.api.skipToNextTrack()
+      return
+    }
+
+    await setDispatchedTrack({ context: this.context, roomId, item: nextItem })
+
+    const uri = nextItem.track.urls?.find((u) => u.type === "resource")?.url
+    if (!uri) {
+      console.error("[DJService] skipTrack: no resource URI for next track")
+      await clearDispatchedTrack({ context: this.context, roomId })
+      await playbackController.api.skipToNextTrack()
+      return
+    }
+
+    await this.context.pluginRegistry?.runBeforePlayQueuedTrack({
+      roomId,
+      item: nextItem,
+      reason: "plugin-skip",
+    })
+
+    try {
+      await playbackController.api.playTrack(uri)
+    } catch (e) {
+      console.error("[DJService] skipTrack: playTrack failed:", e)
+      await clearDispatchedTrack({ context: this.context, roomId })
+      return
+    }
+
+    await this.broadcastQueueChanged(roomId, true)
   }
 
   /**
