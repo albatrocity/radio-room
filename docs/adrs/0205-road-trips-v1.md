@@ -57,7 +57,7 @@ The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (dr
    - Lore is sent only after a visit.
    - `live` describes a parked stop (with `endsAt` and whether the shop is open) or a pause.
 9. **UI is one strip plus a tab (D24).**
-   - The strip is `road-trip-strip` in `aboveChat`, one line about 32 px tall, and viewers can collapse it. It shows the route line, the van dot, and "Next: …" or the live context. Tapping it opens the Trip tab.
+   - The strip is `road-trip-strip` in `aboveChat`, one line about 32 px tall, always shown while a trip is loaded. It shows the route line, the van dot, and "Next: …" or the live context. Tapping it opens the Trip tab.
    - The **Trip** Game State tab (`road-trip-trip-panel`) shows the route, the visited count, the ETA, and a site list.
    - Site detail (`road-trip-site-detail`) opens on the Game State nav stack ([0106](0106-game-state-nav-machine.md)) through a new generic **plugin detail frame** `{ kind: "plugin", pluginName, view, params }`. The frame renders any registered template component with params, so plugins get detail pages without a dedicated frame kind.
    - Every trip message goes through one `tripAnnounce()` helper and renders as a road sign.

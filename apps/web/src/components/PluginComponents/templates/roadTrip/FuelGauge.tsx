@@ -1,9 +1,10 @@
-import { Box, HStack, Text } from "@chakra-ui/react"
+import { Box, HStack, Icon } from "@chakra-ui/react"
+import { Fuel } from "lucide-react"
 import type { FuelView } from "./tripView"
 
 const BARS = 5
 
-/** Compact `⛽ ▮▮▮▯▯` gauge for the strip (M7); turns orange when low, red when empty. */
+/** Compact fuel-pump + `▮▮▮▯▯` gauge for the strip (M7); turns orange when low, red when empty. */
 export function FuelGauge({ fuel }: { fuel: FuelView }) {
   const filled = fuel.empty ? 0 : Math.max(1, Math.ceil(fuel.fraction * BARS))
   const color = fuel.empty ? "red.solid" : fuel.low ? "orange.solid" : "fg.muted"
@@ -16,9 +17,7 @@ export function FuelGauge({ fuel }: { fuel: FuelView }) {
       title={`Gas ${percent}%`}
       role="img"
     >
-      <Text as="span" fontSize="xs" lineHeight={1} aria-hidden>
-        ⛽
-      </Text>
+      <Icon as={Fuel} boxSize={3} color={color} aria-hidden />
       {Array.from({ length: BARS }, (_, i) => (
         <Box
           key={i}

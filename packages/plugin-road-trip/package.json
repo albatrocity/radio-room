@@ -1,6 +1,7 @@
 {
   "name": "@repo/plugin-road-trip",
   "version": "1.0.0",
+  "type": "module",
   "description": "Road Trip — a van drives a Trip Map's route in real time, polls the room at exits, and parks at sites that open shops",
   "main": "index.ts",
   "types": "index.ts",
