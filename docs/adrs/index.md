@@ -30,7 +30,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0022](0022-rest-guest-authentication.md) | REST guest authentication (listening-room HTTP) | Partially superseded by [0058](0058-client-session-localstorage.md) |
 | [0023](0023-publish-playlists-use-room-creator-oauth.md) | Publish playlists use room creator OAuth | Accepted |
 | [0024](0024-post-show-publish-and-archive-flow.md) | Post-show publish and archive flow | Accepted |
-| [0025](0025-local-remote-rust-daemon.md) | local-remote: Rust daemon + local control UI | Partially superseded by [0203](0203-device-trust-boundary.md) (segment poll) |
+| [0025](0025-local-remote-rust-daemon.md) | local-remote: Rust daemon + local control UI | Partially superseded by [0204](0204-device-trust-boundary.md) (segment socket) |
 | [0026](0026-segment-room-settings-overrides.md) | Segment room settings overrides on activation | Accepted |
 | [0027](0027-local-remote-scheduling-ui-cors.md) | local-remote UI: CORS for scheduling API reads | Accepted |
 | [0028](0028-room-schedule-redis-snapshot.md) | Room schedule snapshot in Redis + SHOW_SCHEDULE_UPDATED | Accepted |
@@ -84,12 +84,12 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0076](0076-admin-ui-code-splitting-for-non-admins.md) | Role-gated admin UI code splitting so non-admins do not download settings/config form | Accepted |
 | [0077](0077-bridge-composite-playback-controller.md) | Bridge composite playback controller and Mac daemon | Partially superseded by [0078](0078-spotify-web-playback-sdk-device.md) |
 | [0078](0078-spotify-web-playback-sdk-device.md) | Spotify Web Playback SDK device in bridge Chrome | Accepted |
-| [0079](0079-bridge-daemon-local-control-ui.md) | Bridge daemon local control UI (room discovery + config) | Partially superseded by [0084](0084-dj-mac-single-zip-supervised-bridge.md) and [0203](0203-device-trust-boundary.md) |
+| [0079](0079-bridge-daemon-local-control-ui.md) | Bridge daemon local control UI (room discovery + config) | Partially superseded by [0084](0084-dj-mac-single-zip-supervised-bridge.md) and [0204](0204-device-trust-boundary.md) |
 | [0080](0080-now-playing-seek-and-volume-transport.md) | Now Playing seek and volume transport controls | Partially superseded by [0081](0081-volume-ui-via-volume-manager-plugin.md) |
 | [0081](0081-volume-ui-via-volume-manager-plugin.md) | Live volume UI via Volume Manager plugin | Accepted |
-| [0082](0082-media-bridge-link-via-redis-pubsub.md) | Media Bridge link via Redis Pub/Sub | Partially superseded by [0203](0203-device-trust-boundary.md) |
+| [0082](0082-media-bridge-link-via-redis-pubsub.md) | Media Bridge link via Redis Pub/Sub | Partially superseded by [0204](0204-device-trust-boundary.md) |
 | [0083](0083-media-bridge-connection-status-to-clients.md) | Media Bridge connection status to clients | Accepted |
-| [0084](0084-dj-mac-single-zip-supervised-bridge.md) | DJ Mac single-zip distribution with supervised Media Bridge | Partially superseded by [0203](0203-device-trust-boundary.md) (Redis URL injection) |
+| [0084](0084-dj-mac-single-zip-supervised-bridge.md) | DJ Mac single-zip distribution with supervised Media Bridge | Partially superseded by [0204](0204-device-trust-boundary.md) (Redis URL injection) |
 | [0085](0085-multi-source-search-relevance-ranking.md) | Multi-source DJ search relevance ranking | Accepted |
 | [0086](0086-metadata-search-result-cache.md) | Metadata search result cache (SimpleCache + YouTube first) | Accepted |
 | [0087](0087-room-bridge-media-source-policy.md) | Room-level Media Bridge source policy (metadataSourceIds toggles) | Accepted |
@@ -208,7 +208,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0200](0200-queue-follow-ups-before-queue-changed.md) | Queue follow-ups commit before `QUEUE_CHANGED` | Accepted |
 | [0201](0201-plugin-capability-interfaces.md) | Plugin capability interfaces (`context.polls`, `schedule`, `queue`, `playback`, `catalog`) | Accepted |
 | [0202](0202-plugin-registry-package-and-generic-settings-state.md) | Plugin registry package (`@repo/plugins`) and generic `settings.plugin` state | Accepted |
-| [0203](0203-device-trust-boundary.md) | Device trust boundary (HTTP now-playing and segments, `/device` socket) | Accepted |
+| [0203](0203-departed-user-record-ttl.md) | Departed listener user records kept for two days | Accepted |
+| [0204](0204-device-trust-boundary.md) | Device trust boundary (HTTP now-playing, `/device` socket for playback and segment cues) | Accepted |
 
 ## Creating a New ADR
 

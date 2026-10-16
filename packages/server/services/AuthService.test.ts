@@ -21,6 +21,7 @@ import {
 } from "../operations/data"
 import { onListeningUserDisconnected } from "../operations/room/listeningTransportStats"
 import systemMessage from "../lib/systemMessage"
+import { DEPARTED_USER_RECORD_TTL } from "../lib/constants"
 
 const loadPollInitDataMock = vi.hoisted(() => vi.fn())
 const loadFeedbackInitDataMock = vi.hoisted(() => vi.fn())
@@ -570,7 +571,11 @@ describe("AuthService", () => {
         userId: "user123",
       })
 
-      expect(expireUserIn).toHaveBeenCalled()
+      expect(expireUserIn).toHaveBeenCalledWith({
+        context: mockContext,
+        userId: "user123",
+        ms: DEPARTED_USER_RECORD_TTL,
+      })
 
       expect(result).toEqual({
         username: "Homer",

@@ -19,6 +19,11 @@ export interface LobbyRoom extends Omit<Room, "password"> {
   userCount?: number
   creatorName?: string
   nowPlaying?: QueueItem | null
+  /**
+   * Streaming-mode cover: active segment image, or room artwork when the
+   * segment has none. Null while track detection is on.
+   */
+  streamingArtwork?: string | null
 }
 
 /**
@@ -28,6 +33,7 @@ export interface LobbyRoomUpdate {
   roomId: string
   userCount?: number
   nowPlaying?: QueueItem | null
+  streamingArtwork?: string | null
 }
 
 /**
@@ -41,6 +47,8 @@ export interface LobbyRoomAdded {
   artwork?: string
   passwordRequired?: boolean
   nowPlaying?: QueueItem | null
+  streamingArtwork?: string | null
+  fetchMeta?: boolean
   userCount?: number
 }
 
@@ -154,16 +162,11 @@ export const lobbyMachine = setup({
       const exists = context.rooms.some((r) => r.id === roomId)
       if (exists) {
         return {
-          rooms: context.rooms.map((r) =>
-            r.id === roomId ? { ...r, ...roomData } : r,
-          ),
+          rooms: context.rooms.map((r) => (r.id === roomId ? { ...r, ...roomData } : r)),
         }
       }
       return {
-        rooms: [
-          ...context.rooms,
-          { id: roomId, ...roomData } as LobbyRoom,
-        ],
+        rooms: [...context.rooms, { id: roomId, ...roomData } as LobbyRoom],
       }
     }),
     removeRoom: assign(({ context, event }) => {

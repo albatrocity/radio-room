@@ -1,7 +1,7 @@
 # 0084. DJ Mac single-zip distribution with supervised Media Bridge
 
 **Date:** 2026-07-24
-**Status:** Partially superseded by [0203](0203-device-trust-boundary.md) (`BRIDGE_REDIS_URL` injection only; the zip and two-process supervision stay)
+**Status:** Partially superseded by [0204](0204-device-trust-boundary.md) (`BRIDGE_REDIS_URL` injection only; the zip and two-process supervision stay)
 
 ## Context
 
