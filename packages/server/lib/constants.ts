@@ -8,7 +8,6 @@ export const TEN_SECONDS = 1000 * 10;
 export const THREE_MINUTES = 1000 * 60 * 3;
 export const FIVE_MINUTES = 1000 * 60 * 5;
 export const FORTY_FIVE_MINS = 1000 * 60 * 45;
-export const THREE_HOURS = 1000 * 60 * 60 * 3;
 export const ONE_DAY = 1000 * 60 * 60 * 24;
 export const THREE_DAYS = 1000 * 60 * 60 * 24 * 3;
 export const SEVEN_DAYS = 1000 * 60 * 60 * 24 * 7;
@@ -21,6 +20,12 @@ export const JUKEBOX_FETCH_INTERVAL = FIVE_SECONDS;
 export const RADIO_FETCH_INTERVAL = FIVE_SECONDS;
 export const THROTTLED_JUKEBOX_FETCH_INTERVAL = TEN_SECONDS;
 export const ROOM_EXPIRE_TIME = ONE_DAY;
+/**
+ * How long a departed listener's `user:{id}` hash stays readable so a
+ * next-morning room export can still resolve usernames. Room creators are
+ * persisted and skip this. See ADR 0200.
+ */
+export const DEPARTED_USER_RECORD_TTL = ONE_DAY * 2;
 export const ROOM_IDLE_PAUSE_TIME = FIFTEEN_MINUTES;
 
 export const ERROR_STATION_FETCH_FAILED = "Erorr: Failed to fetch station";
