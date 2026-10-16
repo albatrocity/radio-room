@@ -115,8 +115,15 @@ const FormAddToQueue = ({
 
   const sourceCollection = useMemo(() => {
     if (mode === "browse") {
+      const ids = browseableSourceIds ?? []
+      // Keep the catalog the user is in visible while a bridge blip drops it
+      // from the server list. Removing it makes the select jump to Spotify.
+      const withCurrent =
+        sourceFilter && sourceFilter !== "all" && !ids.includes(sourceFilter)
+          ? [sourceFilter, ...ids]
+          : ids
       return createListCollection({
-        items: (browseableSourceIds ?? []).map((id) => ({
+        items: withCurrent.map((id) => ({
           label: metadataSourceLabel(id),
           value: id,
         })),
@@ -131,7 +138,7 @@ const FormAddToQueue = ({
         })),
       ],
     })
-  }, [mode, browseableSourceIds, metadataSourceIds])
+  }, [mode, browseableSourceIds, metadataSourceIds, sourceFilter])
 
   const showSourceSelect =
     mode === "browse" ? (browseableSourceIds?.length ?? 0) >= 2 : metadataSourceIds.length >= 2

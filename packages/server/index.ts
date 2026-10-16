@@ -326,6 +326,10 @@ export class RadioRoomServer {
       pingTimeout: 60000,
       pingInterval: 25000,
       allowEIO3: false,
+      // Local album RPC still carries cover data URIs (S3 rewrite happens later,
+      // ADR 0186). Engine.IO's 1MB default closes /device mid-response, which
+      // looks like the bridge going offline.
+      maxHttpBufferSize: 16 * 1024 * 1024,
       cors: {
         origin: [
           "http://127.0.0.1:8000",
