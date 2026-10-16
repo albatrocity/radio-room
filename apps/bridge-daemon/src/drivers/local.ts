@@ -100,6 +100,20 @@ function normalizeAlbumUserRating(value: unknown): number | undefined {
   return Math.round(n)
 }
 
+/**
+ * Navidrome's album comment rule (`allOrNothing` in `model/mediafile.go`): the
+ * comment only counts when every track carries the same one.
+ */
+export function rollupAlbumComment(songs: readonly { comment?: unknown }[]): string | undefined {
+  if (songs.length === 0) return undefined
+  const distinct = new Set(
+    songs.map((s) => (typeof s.comment === "string" ? s.comment.trim() : "")),
+  )
+  if (distinct.size !== 1) return undefined
+  const [only] = distinct
+  return only || undefined
+}
+
 function normalizeIdList(ids?: string[]): string[] {
   if (!ids?.length) return []
   return Array.from(new Set(ids.map((p) => p.trim()).filter(Boolean)))
@@ -317,6 +331,22 @@ export class LocalDriver implements Driver {
       const id = entry.id != null ? String(entry.id).trim() : ""
       if (id) out.push(id)
     }
+    return out
+  }
+
+  /**
+   * Album-level comment per album id, rolled up like Navidrome's `album.comment`
+   * (which `getAlbum` does not return). Albums without one are omitted.
+   */
+  async getAlbumComments(albumIds: string[]): Promise<Record<string, string>> {
+    if (!this.navidrome.username) return {}
+    const ids = normalizeIdList(albumIds)
+    const out: Record<string, string> = {}
+    await mapWithConcurrency(ids, ALBUM_UNION_FETCH_CONCURRENCY, async (id) => {
+      const membership = await this.albumCache.get(id)
+      const comment = rollupAlbumComment(membership.entries)
+      if (comment) out[id] = comment
+    })
     return out
   }
 

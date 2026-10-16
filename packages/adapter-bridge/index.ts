@@ -60,7 +60,7 @@ export { requestBridgeLink, listOnlineBridgeDaemons } from "./lib/requestBridgeL
 export type { RequestBridgeLinkResult } from "./lib/requestBridgeLink"
 export { parseBridgeMediaId } from "./lib/parseBridgeMediaId"
 export { youtubeMetadataSource, createYoutubeMetadataApi } from "./lib/youtubeMetadata"
-export { localMetadataSource, registerLocalMetadataForRoom, checkLocalTrackPlaylistMembership, checkLocalTrackPlaylistMembershipBatch, listLocalPlaylists, listLibraryAlbums, listLocalPlaylistTracks, listLocalPlaylistTrackIds, listLocalAlbumTrackIds, fetchLocalPlaylistTracks, fetchLocalAlbumResult, fetchTrackPreview, getLocalPlaylistCoverArt, getLocalAlbumCoverArt, invalidateLocalLibraryCache, normalizePlaylistCoverArtResult, LOCAL_COVER_ART_ID_BATCH } from "./lib/localMetadata"
+export { localMetadataSource, registerLocalMetadataForRoom, checkLocalTrackPlaylistMembership, checkLocalTrackPlaylistMembershipBatch, listLocalPlaylists, listLibraryAlbums, listLocalPlaylistTracks, listLocalPlaylistTrackIds, listLocalAlbumTrackIds, fetchLocalPlaylistTracks, fetchLocalAlbumResult, fetchTrackPreview, getLocalPlaylistCoverArt, getLocalAlbumCoverArt, getLocalAlbumComments, invalidateLocalLibraryCache, normalizePlaylistCoverArtResult, LOCAL_COVER_ART_ID_BATCH } from "./lib/localMetadata"
 export type { TrackPreviewRpcResult, TrackPreviewFingerprintMeta } from "./lib/localMetadata"
 export type { LocalPlaylistTracksResult } from "./lib/localMetadata"
 export { BridgeRpcClient } from "./lib/rpcClient"

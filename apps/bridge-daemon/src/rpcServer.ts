@@ -216,6 +216,10 @@ export class RpcServer {
           normalizeCoverVariants(p.variants),
         )
       }
+      case "getAlbumComments": {
+        if (String(p.source) !== "local" || !this.localDriver) return {}
+        return this.localDriver.getAlbumComments(parseIdList(p.albumIds) ?? [])
+      }
       case "getAlbumCoverArt": {
         if (String(p.source) !== "local" || !this.localDriver) return {}
         return this.localDriver.getAlbumCoverArt(

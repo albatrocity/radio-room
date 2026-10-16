@@ -1011,6 +1011,13 @@ export interface PluginAPI {
   ): Promise<Record<string, LocalPlaylistArtwork>>
 
   /**
+   * Album-level comment per Navidrome album id: the same rollup as Navidrome's
+   * `album.comment` (one identical comment on every track). Albums without one,
+   * and old DJ Mac packs, are omitted.
+   */
+  getLocalAlbumComments(roomId: string, albumIds: string[]): Promise<Record<string, string>>
+
+  /**
    * Ordered track ids for a Navidrome album (playlist-over-album de-dup).
    */
   listLocalAlbumTrackIds(roomId: string, albumId: string): Promise<string[]>

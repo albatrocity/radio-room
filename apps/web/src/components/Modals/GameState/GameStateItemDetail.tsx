@@ -15,6 +15,7 @@ import {
 import { resolveItemRarity, resolvePunchCountNoun } from "@repo/game-logic"
 import AlbumTrackListView, { type AlbumViewHeader } from "../../AlbumTrackListView"
 import ItemArtwork from "../../ItemArtwork"
+import { ItemLoreMarkdown } from "../../ItemLoreMarkdown"
 import { LinkifiedText } from "../../LinkifiedText"
 import PathBreadcrumb from "../../PathBreadcrumb"
 import { ItemRarityTag } from "../../PluginComponents/ItemRarityTag"
@@ -167,6 +168,7 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
         )
       : undefined
   const description = inventoryDisplayDescription(definition, originHint)
+  const lore = definition?.lore?.trim() || undefined
   const firstTrack = tracks[0]
 
   const albumHeader = useMemo((): AlbumViewHeader => {
@@ -182,8 +184,9 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
       rarity: definition != null ? resolveItemRarity(definition) : undefined,
       condition,
       description,
+      lore,
     }
-  }, [name, description, definition, firstTrack, artworkFrame, condition])
+  }, [name, description, lore, definition, firstTrack, artworkFrame, condition])
 
   const primaryActions = <ItemDetailPrimaryActions frame={frame} definition={definition} />
   const itemDomId = frame.source === "inventory" ? frame.inventoryItemId : undefined
@@ -239,7 +242,6 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
     )
   }
 
-  const lore = definition?.lore?.trim()
   // A cover image wins over the model, so only a model-only item gets the wide stage.
   const showModelStage =
     !definition?.imageUrl && resolveItemModelUrl(definition?.shortId, definition?.model) != null
@@ -276,9 +278,9 @@ export default function GameStateItemDetail({ frame, definition, fillHeight = fa
           </LinkifiedText>
         ) : null}
         {lore ? (
-          <LinkifiedText fontSize="sm" textAlign="center">
+          <ItemLoreMarkdown fontSize="sm" textAlign="center" w="100%">
             {lore}
-          </LinkifiedText>
+          </ItemLoreMarkdown>
         ) : null}
         {primaryActions}
         {showPunchCard && inventoryItem ? (
