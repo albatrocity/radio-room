@@ -1,12 +1,14 @@
 import { randomUUID } from "crypto"
 import type { MoveTrackResult, QueueItem, QueueItemAttribution, QueuePluginAPI } from "@repo/types"
 import { isDeferredQueueRequest } from "@repo/types"
-import { isForeignPin } from "../../operations/dj/queuePins"
 import { QueueMutationDuringEmitError } from "./QueueMutationDuringEmitError"
 import { PluginCapability } from "./PluginCapability"
 
 /** Scoped queue reads and writes for one plugin (ADR 0201). */
 export class PluginQueueAPI extends PluginCapability implements QueuePluginAPI {
+  private deferredSkips: { roomId: string; trackId: string }[] | null = null
+  private deferredSkipTimer: ReturnType<typeof setTimeout> | null = null
+
   async getNowPlaying(roomId: string): Promise<QueueItem | null> {
     const { getRoomCurrent } = await import("../../operations/data")
     const current = await getRoomCurrent({ context: this.context, roomId })
@@ -14,88 +16,47 @@ export class PluginQueueAPI extends PluginCapability implements QueuePluginAPI {
   }
 
   async skipTrack(roomId: string, trackId: string): Promise<void> {
-    // Verify the track is still playing before skipping
-    const nowPlaying = await this.getNowPlaying(roomId)
-
-    if (!nowPlaying || nowPlaying.mediaSource.trackId !== trackId) {
-      console.log(`[PluginAPI] Skip aborted: track ${trackId} is not currently playing`)
+    if (this.context.systemEvents?.isEmittingToPlugins?.(roomId)) {
+      this.scheduleSkip(roomId, trackId)
       return
     }
+    await this.runSkip(roomId, trackId)
+  }
 
-    if (isForeignPin(nowPlaying, this.pluginName ?? undefined)) {
-      console.log(
-        `[PluginAPI] Skip refused: track ${trackId} is held by ${nowPlaying.pin?.pluginName}`,
-      )
-      return
+  /** Vote-skip and similar handlers run inside emit. Run the skip after that emit returns. */
+  private scheduleSkip(roomId: string, trackId: string): void {
+    this.deferredSkips = this.deferredSkips ?? []
+    this.deferredSkips.push({ roomId, trackId })
+    if (this.deferredSkipTimer != null) return
+    this.deferredSkipTimer = setTimeout(() => {
+      this.deferredSkipTimer = null
+      const pending = this.deferredSkips
+      this.deferredSkips = null
+      if (pending) void this.flushDeferredSkips(pending)
+    }, 0)
+  }
+
+  private async flushDeferredSkips(
+    pending: { roomId: string; trackId: string }[],
+  ): Promise<void> {
+    const stillEmitting: { roomId: string; trackId: string }[] = []
+    const ready: { roomId: string; trackId: string }[] = []
+    for (const item of pending) {
+      if (this.context.systemEvents?.isEmittingToPlugins?.(item.roomId)) {
+        stillEmitting.push(item)
+      } else {
+        ready.push(item)
+      }
     }
-
-    const {
-      findRoom,
-      popNextFromQueue,
-      setDispatchedTrack,
-      buildQueueChangedData,
-      clearDispatchedTrack,
-    } = await import("../../operations/data")
-    const { isAppControlledPlayback } = await import("../roomTypeHelpers")
-
-    const room = await findRoom({ context: this.context, roomId })
-    if (!room) {
-      throw new Error(`Room not found: ${roomId}`)
+    for (const item of stillEmitting) this.scheduleSkip(item.roomId, item.trackId)
+    for (const item of ready) {
+      await this.runSkip(item.roomId, item.trackId)
     }
+  }
 
-    const { AdapterService } = await import("../../services/AdapterService")
-    const adapterService = new AdapterService(this.context)
-    const playbackController = await adapterService.getRoomPlaybackController(roomId)
-
-    if (!playbackController) {
-      throw new Error(`No playback controller found for room ${roomId}`)
-    }
-
-    if (!isAppControlledPlayback(room)) {
-      await playbackController.api.skipToNextTrack()
-      return
-    }
-
-    const nextItem: QueueItem | null = await popNextFromQueue({ context: this.context, roomId })
-
-    // App queue is authoritative, but with nothing queued fall back to Spotify skip.
-    if (!nextItem) {
-      await playbackController.api.skipToNextTrack()
-      return
-    }
-
-    await setDispatchedTrack({ context: this.context, roomId, item: nextItem })
-
-    const uri = nextItem.track.urls?.find((u) => u.type === "resource")?.url
-    if (!uri) {
-      console.error("[PluginAPI] skipTrack: no resource URI for next track")
-      await clearDispatchedTrack({ context: this.context, roomId })
-      await playbackController.api.skipToNextTrack()
-      return
-    }
-
-    await this.context.pluginRegistry?.runBeforePlayQueuedTrack({
-      roomId,
-      item: nextItem,
-      reason: "plugin-skip",
-    })
-
-    try {
-      await playbackController.api.playTrack(uri)
-    } catch (e) {
-      console.error("[PluginAPI] skipTrack: playTrack failed:", e)
-      await clearDispatchedTrack({ context: this.context, roomId })
-      return
-    }
-
-    if (this.context.systemEvents) {
-      const payload = await buildQueueChangedData({
-        roomId,
-        context: this.context,
-        appControlled: true,
-      })
-      await this.context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
-    }
+  private async runSkip(roomId: string, trackId: string): Promise<void> {
+    const { DJService } = await import("../../services/DJService")
+    await new DJService(this.context).skipTrack(roomId, trackId, this.queueActor())
   }
 
 

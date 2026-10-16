@@ -1,75 +1,42 @@
-import type { RedisClientType } from "redis"
-import {
-  bridgeRequestSchema,
-  requestChannel,
-  responseChannel,
-  type BridgeRequest,
-} from "@repo/adapter-bridge/protocol"
+import type { BridgeRequest, BridgeResponse } from "@repo/adapter-bridge/protocol"
 import type { LocalDriver } from "./drivers/local"
 import { normalizeCoverVariants } from "./drivers/local"
 import type { Router } from "./router"
 import type { TtsService } from "./tts"
 
-type RedisLike = RedisClientType<any, any, any>
-
 export class RpcServer {
-  private sub: RedisLike | null = null
+  private unbind: (() => void) | null = null
 
   constructor(
-    private readonly redis: RedisLike,
-    private readonly roomId: string,
+    private readonly bindRequests: (handler: (req: BridgeRequest) => void) => () => void,
+    private readonly sendResponse: (response: BridgeResponse) => void,
     private readonly router: Router,
     private readonly localDriver: LocalDriver | null,
     private readonly tts: TtsService | null = null,
   ) {}
 
   async start(): Promise<void> {
-    this.sub = this.redis.duplicate() as RedisLike
-    await this.sub.connect()
-    await this.sub.subscribe(requestChannel(this.roomId), (message: string) => {
-      void this.handleMessage(message)
+    this.unbind = this.bindRequests((req) => {
+      void this.handleRequest(req)
     })
-    console.log(`[rpc] Listening on ${requestChannel(this.roomId)}`)
+    console.log("[rpc] listening on device socket")
   }
 
   async stop(): Promise<void> {
-    if (!this.sub) return
-    try {
-      await this.sub.unsubscribe(requestChannel(this.roomId))
-      await this.sub.quit()
-    } catch {
-      /* ignore */
-    }
-    this.sub = null
+    this.unbind?.()
+    this.unbind = null
   }
 
-  private async handleMessage(message: string) {
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(message)
-    } catch {
-      return
-    }
-    const result = bridgeRequestSchema.safeParse(parsed)
-    if (!result.success) return
-    const req = result.data
-
-    // notifyNowPlaying is fire-and-forget (no response required, but we still reply ok)
+  private async handleRequest(req: BridgeRequest) {
     try {
       const value = await this.dispatch(req)
-      await this.redis.publish(
-        responseChannel(this.roomId),
-        JSON.stringify({ id: req.id, ok: true, result: value }),
-      )
+      this.sendResponse({ id: req.id, ok: true, result: value ?? undefined })
     } catch (e) {
-      await this.redis.publish(
-        responseChannel(this.roomId),
-        JSON.stringify({
-          id: req.id,
-          ok: false,
-          error: e instanceof Error ? e.message : String(e),
-        }),
-      )
+      this.sendResponse({
+        id: req.id,
+        ok: false,
+        error: e instanceof Error ? e.message : String(e),
+      })
     }
   }
 

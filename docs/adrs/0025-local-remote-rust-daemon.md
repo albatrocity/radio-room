@@ -1,7 +1,9 @@
 # 0025. local-remote: Rust daemon + local control UI
 
 **Date:** 2026-03-31  
-**Status:** Accepted
+**Status:** Partially superseded by [0204](0204-device-trust-boundary.md) (segment cues arrive on `/device`; the Rust binary, localhost UI, and OSC map stay)
+
+**Current rule:** Segment cues arrive on the `/device` socket, and now playing is `POST /api/device/now-playing`. This process does not subscribe to Redis. See [ADR 0204](0204-device-trust-boundary.md). The decision below is the original Redis design.
 
 ## Context
 

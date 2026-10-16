@@ -40,8 +40,8 @@ listening-room/
 │   ├── studio-bridge/    # Local stub API + Socket.IO for Game Studio → web preview (`make game-studio`)
 │   ├── scheduler/        # Show scheduling admin (Vite + React)
 │   ├── load-tester/      # Load testing CLI tool
-│   ├── local-remote/     # Rust daemon: remote Redis SYSTEM:*, macOS Now Playing watcher, local config UI
-│   └── bridge-daemon/    # Node Media Bridge (CDP/mpv, Redis RPC); supervised by local-remote on DJ Mac
+│   ├── local-remote/     # Rust daemon: /device segment socket, macOS Now Playing watcher, local config UI
+│   └── bridge-daemon/    # Node Media Bridge (CDP/mpv, /device socket); supervised by local-remote on DJ Mac
 │
 ├── packages/
 │   ├── server/            # Core server logic (handlers, operations, services)
@@ -117,7 +117,7 @@ listening-room/
 | ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **jukebox** | `spotify`    | On-demand playback through the Spotify playback controller (Web API / Connect devices). Metadata may also come from Tidal.                                          |
 | **radio**   | `shoutcast`  | Shoutcast/Icecast stream. Optional experimental WebRTC (MediaMTX) beside it; Shoutcast stays the Now Playing authority. Playback controller is `spotify` or `bridge`. |
-| **live**    | `rtmp`       | RTMP ingest via MediaMTX, WebRTC/LL-HLS output. Stream health comes from the MediaMTX webhook. `local-remote` can publish macOS Now Playing into Redis.             |
+| **live**    | `rtmp`       | RTMP ingest via MediaMTX, WebRTC/LL-HLS output. Stream health comes from the MediaMTX webhook. `local-remote` posts macOS Now Playing to `POST /api/device/now-playing`.             |
 
 When adding logic that depends on room type, prefer using helper functions from `roomTypeHelpers.ts` rather than direct `room.type` checks. For example, use `hasListenableStream(room)` instead of `room.type === "radio" || room.type === "live"`. This keeps room-type knowledge centralized and makes it easy to add new stream-backed types. See [ADR 0034](docs/adrs/0034-live-room-type-rtmp-adapter.md).
 
@@ -126,7 +126,7 @@ When adding logic that depends on room type, prefer using helper functions from 
 | Service          | Location                                       | Purpose                                                                                                                                                                                                                                                   |
 | ---------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **MediaMTX**     | `infra/mediamtx/`                              | RTMP ingest, WebRTC (WHEP) + LL-HLS output for live rooms                                                                                                                                                                                                 |
-| **Media Bridge** | `apps/bridge-daemon/` + `@repo/adapter-bridge` | DJ Mac composite playback (`playbackControllerId: "bridge"`); Redis RPC + CAPABILITIES; pack via `npm run pack:dj-mac` ([ADR 0077](docs/adrs/0077-bridge-composite-playback-controller.md)–[0084](docs/adrs/0084-dj-mac-single-zip-supervised-bridge.md)) |
+| **Media Bridge** | `apps/bridge-daemon/` + `@repo/adapter-bridge` | DJ Mac composite playback (`playbackControllerId: "bridge"`); `/device` socket for playback and CAPABILITIES. Redis RPC remains only until a daemon connects on that socket. Pack via `npm run pack:dj-mac` ([ADR 0077](docs/adrs/0077-bridge-composite-playback-controller.md)–[0084](docs/adrs/0084-dj-mac-single-zip-supervised-bridge.md), [ADR 0204](docs/adrs/0204-device-trust-boundary.md)) |
 
 MediaMTX runs locally via `docker compose --profile live up` and is deployed to a VPS via `.github/workflows/deploy-mediamtx.yml`.
 
@@ -166,12 +166,13 @@ See [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md) for full details.
 
 ### Media Bridge (`@repo/adapter-bridge` + `bridge-daemon`)
 
-Bridge is a **playback controller** (and YouTube/local metadata sources), not a new `room.type`. Prefer extending `@repo/adapter-bridge` / daemon drivers over scattering Redis RPC in handlers.
+Bridge is a **playback controller** (and YouTube/local metadata sources), not a new `room.type`. Prefer extending `@repo/adapter-bridge` / daemon drivers. Playback goes through the `/device` socket. Do not add Redis RPC in handlers. `BridgeRpcClient` still falls back to Redis when no device socket is connected ([ADR 0204](docs/adrs/0204-device-trust-boundary.md)).
 
 1. Protocol / RPC: `packages/adapter-bridge/lib/protocol.ts` and daemon `apps/bridge-daemon/`
 2. Server link/status: `packages/server/services/MediaBridgeService.ts` + `operations/bridge/publishMediaBridgeStatus.ts`
 3. Room policy / access: `metadataSourceIds` ([ADR 0087](docs/adrs/0087-room-bridge-media-source-policy.md)), `metadataSourceAccess` + plugin grants ([ADR 0088](docs/adrs/0088-metadata-source-access-grants.md)); plugin guide: [Metadata Source Access](docs/plugins/metadata-source-access.md)
 4. Local / pack testing: [BRIDGE_LOCAL_TESTING.md](docs/BRIDGE_LOCAL_TESTING.md) (`npm run serve -w bridge-daemon`, `npm run pack:dj-mac`). Do not commit `apps/bridge-daemon/dist-bundle/` (generated by `npm run bundle -w bridge-daemon`).
+5. Device channel: `packages/server/lib/deviceNamespace.ts`, `POST /api/device/now-playing`, segment cues via `DeviceSegmentBroadcaster` ([ADR 0204](docs/adrs/0204-device-trust-boundary.md)).
 
 ### Adding a Frontend Actor
 

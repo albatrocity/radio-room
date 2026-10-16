@@ -27,9 +27,12 @@ pub struct Config {
     /// Local HTTP API + static UI (`host:port` or `ip:port`).
     #[serde(default = "default_http_addr")]
     pub http_listen: String,
-    /// Platform HTTP API base URL for scheduling picks in the UI (e.g. `https://api.example.com`).
+    /// Platform HTTP API base URL for scheduling picks and device ingress.
     #[serde(default = "default_platform_api_base_url")]
     pub platform_api_base_url: String,
+    /// Bearer for `/api/device/*`. Same value as `DEVICE_INGRESS_SECRET` on the API.
+    #[serde(default)]
+    pub device_ingress_secret: String,
     #[serde(default)]
     pub features: Features,
 }
@@ -54,7 +57,7 @@ pub struct Features {
     /// Browser soundboard + UDP listener for Farrago OSC Output (see README).
     #[serde(default)]
     pub soundboard: SoundboardFeature,
-    /// macOS Now Playing watcher: publishes track metadata to Redis and writes Now Playing.txt.
+    /// macOS Now Playing watcher: posts track metadata to the platform API and writes Now Playing.txt.
     #[serde(default)]
     pub now_playing: NowPlayingFeature,
     /// Supervise packed bridge-daemon (Node child) and proxy `/api/bridge/*`.
@@ -325,6 +328,7 @@ impl Default for Config {
             room_id: String::new(),
             http_listen: default_http_addr(),
             platform_api_base_url: default_platform_api_base_url(),
+            device_ingress_secret: String::new(),
             features: Features::default(),
         }
     }
@@ -343,7 +347,6 @@ fn validate_osc_address(path: &str) -> Result<()> {
 
 impl Config {
     pub fn validate(&self) -> Result<()> {
-        redis::Client::open(self.redis_url.as_str()).context("invalid redis_url")?;
         let o = &self.features.osc;
         if o.enabled {
             if o.port == 0 {

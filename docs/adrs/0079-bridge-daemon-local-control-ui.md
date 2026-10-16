@@ -1,7 +1,7 @@
 # 0079. Bridge Daemon Local Control UI (Room Discovery + Config)
 
 **Date:** 2026-07-20  
-**Status:** Partially superseded by [0084](0084-dj-mac-single-zip-supervised-bridge.md)
+**Status:** Partially superseded by [0084](0084-dj-mac-single-zip-supervised-bridge.md) and [0204](0204-device-trust-boundary.md) (room list is `GET /api/device/rooms`; the daemon config no longer has `redisUrl`)
 
 ## Context
 

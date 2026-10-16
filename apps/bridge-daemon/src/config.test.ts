@@ -3,7 +3,8 @@ import { applyEnvOverrides, type BridgeDaemonConfig } from "./config"
 
 function baseConfig(overrides: Partial<BridgeDaemonConfig> = {}): BridgeDaemonConfig {
   return {
-    redisUrl: "redis://127.0.0.1:6379",
+    apiBaseUrl: "http://127.0.0.1:3000",
+    deviceIngressSecret: "",
     httpListen: "127.0.0.1:18766",
     services: ["youtube", "local"],
     chrome: {

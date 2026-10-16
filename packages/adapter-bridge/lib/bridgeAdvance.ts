@@ -375,7 +375,7 @@ export function createBridgeAdvanceJob(params: {
 
         const currentTrackId = await resolveCurrentTrackId()
 
-        // 1) Durable ENDED key (written by daemon) — does not depend on pub/sub
+        // 1) Durable ENDED key (API writes it from the device socket, or an old daemon via Redis)
         const endedRaw = await context.redis.pubClient.get(lastEndedKey(roomId))
         if (endedRaw) {
           await context.redis.pubClient.del(lastEndedKey(roomId))
@@ -404,7 +404,7 @@ export function createBridgeAdvanceJob(params: {
           }
         }
 
-        // 2) In-memory ENDED from pub/sub (if subscription works)
+        // 2) In-memory ENDED (device socket ingest or Redis pub/sub)
         const ended = capability.consumeLastEnded()
         if (ended && (await shouldApplyEnded(ended))) {
           await advanceToNext("ended-event", ended.reason)

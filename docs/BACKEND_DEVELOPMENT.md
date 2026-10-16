@@ -61,7 +61,8 @@ SystemEvents.emit()
        └── BroadcasterRegistry
                  │
                  ├── RoomBroadcaster → room channels
-                 └── LobbyBroadcaster → lobby channel
+                 ├── LobbyBroadcaster → lobby channel
+                 └── DeviceSegmentBroadcaster → /device segment sockets
 ```
 
 ### Why Broadcasters?
@@ -117,6 +118,10 @@ Emits **selected** events to the lobby channel with simplified payloads. Used by
 // LOBBY_ROOM_UPDATE { roomId, userCount?, nowPlaying? }
 // ROOM_SETTINGS_UPDATED can also emit LOBBY_ROOM_ADDED / removal when visibility changes
 ```
+
+#### DeviceSegmentBroadcaster
+
+Pushes `SEGMENT_ACTIVATED` to `/device` sockets watching that room (local-remote Farrago cues). It implements `Broadcaster` and emits through the in-memory device socket map in `@repo/adapter-bridge`, not a Socket.IO room. Listener clients do not receive this event from this broadcaster. See [ADR 0204](adrs/0204-device-trust-boundary.md).
 
 ### Creating a New Broadcaster
 

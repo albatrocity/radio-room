@@ -1,4 +1,5 @@
 import type { AppContext, JobApi } from "@repo/types"
+import { submitNowPlaying } from "@repo/server/operations/room/submitNowPlaying"
 import type { RedisClientType } from "redis"
 
 type NowPlayingMessage = {
@@ -9,6 +10,30 @@ type NowPlayingMessage = {
 }
 
 const CHANNEL = "SYSTEM:NOW_PLAYING_CHANGED"
+
+/** Redis now-playing payload. Kept so packs that still publish the channel keep working. */
+export async function handleNowPlayingMessage(
+  roomId: string,
+  api: JobApi,
+  message: string,
+): Promise<void> {
+  try {
+    const data: NowPlayingMessage = JSON.parse(message)
+    if (data.roomId !== roomId) return
+
+    await submitNowPlaying(api, roomId, {
+      title: data.title,
+      artist: data.artist,
+      album: data.album,
+    })
+  } catch (error: any) {
+    console.error(`[adapter-rtmp] Error processing NOW_PLAYING_CHANGED for room ${roomId}:`, error)
+    await api.submitMediaData({
+      roomId,
+      error: error?.message || "Failed to process Now Playing data",
+    })
+  }
+}
 
 /**
  * Per-room subscriber that listens for NOW_PLAYING_CHANGED messages on
@@ -33,34 +58,7 @@ export class RtmpRoomSubscriber {
     await this.subscriberClient.connect()
 
     await this.subscriberClient.subscribe(CHANNEL, async (message: string) => {
-      try {
-        const data: NowPlayingMessage = JSON.parse(message)
-        if (data.roomId !== this.roomId) return
-
-        if (!data.title) {
-          await this.api.submitMediaData({ roomId: this.roomId })
-          return
-        }
-
-        const trackId = [data.artist, data.title, data.album].filter(Boolean).join("-")
-
-        await this.api.submitMediaData({
-          roomId: this.roomId,
-          submission: {
-            trackId,
-            sourceType: "rtmp",
-            title: data.title,
-            artist: data.artist,
-            album: data.album,
-          },
-        })
-      } catch (error: any) {
-        console.error(`[adapter-rtmp] Error processing NOW_PLAYING_CHANGED for room ${this.roomId}:`, error)
-        await this.api.submitMediaData({
-          roomId: this.roomId,
-          error: error?.message || "Failed to process Now Playing data",
-        })
-      }
+      await handleNowPlayingMessage(this.roomId, this.api, message)
     })
 
     console.log(`[adapter-rtmp] Subscribed to ${CHANNEL} for room ${this.roomId}`)

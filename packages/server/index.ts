@@ -47,6 +47,7 @@ import {
 } from "./controllers/pluginsController"
 import { exportRoom } from "./controllers/exportController"
 import { streamHealth } from "./controllers/streamHealthController"
+import { deviceActiveSegment, deviceNowPlaying, deviceRooms } from "./controllers/deviceIngressController"
 import { getImage } from "./operations/data"
 import { getTrackPreviewByPreviewId, PREVIEW_TTL_SEC } from "./operations/data/trackPreviews"
 import { upload, uploadImages, uploadArtwork, chatImagesUploadMiddleware, artworkUploadMiddleware } from "./controllers/imageController"
@@ -300,6 +301,9 @@ export class RadioRoomServer {
         return res.send(buffer)
       })
       .post("/api/stream-health", streamHealth)
+      .post("/api/device/now-playing", deviceNowPlaying)
+      .get("/api/device/active-segment", deviceActiveSegment)
+      .get("/api/device/rooms", deviceRooms)
       .get("/api/public/scheduling/ready-shows", getPublicReadyShows)
       .get("/api/public/scheduling/shows/:id", getPublicReadyShowById)
       .get("/api/scheduling/shows/:id", schedulingShowReadAuth, getSchedulingShowByIdHandler)
@@ -351,6 +355,8 @@ export class RadioRoomServer {
 
   async start() {
     await initializeRedisContext(this.context.redis)
+    const { attachDeviceNamespace } = await import("./lib/deviceNamespace")
+    attachDeviceNamespace(this.io, this.context)
     this.io.adapter(createAdapter(this.context.redis.pubClient, this.context.redis.subClient))
     this.io.use((socket, next) => {
       // Handle session for socket connections
@@ -392,12 +398,12 @@ export class RadioRoomServer {
     this.pendingPlugins = [] // Clear after registration
 
     // Initialize BroadcasterRegistry and register broadcasters
-    const { BroadcasterRegistry, RoomBroadcaster, LobbyBroadcaster } = await import(
-      "./lib/broadcasters"
-    )
+    const { BroadcasterRegistry, RoomBroadcaster, LobbyBroadcaster, DeviceSegmentBroadcaster } =
+      await import("./lib/broadcasters")
     const broadcasterRegistry = new BroadcasterRegistry()
     broadcasterRegistry.register(new RoomBroadcaster(this.io))
     broadcasterRegistry.register(new LobbyBroadcaster(this.io, this.context))
+    broadcasterRegistry.register(new DeviceSegmentBroadcaster())
     console.log("BroadcasterRegistry initialized")
 
     // Initialize SystemEvents (unified event emission layer)

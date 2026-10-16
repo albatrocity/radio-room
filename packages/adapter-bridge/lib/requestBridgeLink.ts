@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { RedisClientType } from "redis"
+import { beginDeviceLink } from "./deviceSession"
 import {
   BRIDGE_RPC_TIMEOUT_MS,
   bridgeControlMessageSchema,
@@ -16,7 +17,7 @@ export type RequestBridgeLinkResult =
   | { ok: false; error: string }
 
 const OFFLINE_MESSAGE =
-  "No Media Bridge is online. Start the bridge daemon on the DJ Mac (`bridge-daemon serve`) with Redis pointed at this environment, then try again."
+  "No Media Bridge is online. Start the bridge daemon on the DJ Mac (`bridge-daemon serve`) aimed at this API, then try again."
 
 /**
  * Publish LINK_REQUEST on BRIDGE:CONTROL and wait for the first matching ACK/NACK.
@@ -28,6 +29,9 @@ export async function requestBridgeLink(params: {
 }): Promise<RequestBridgeLinkResult> {
   const { redis, roomId } = params
   const timeoutMs = params.timeoutMs ?? BRIDGE_RPC_TIMEOUT_MS
+
+  const viaSocket = beginDeviceLink(roomId, timeoutMs)
+  if (viaSocket) return viaSocket
 
   const online = await listOnlineBridgeDaemons(redis)
   if (online.length === 0) {

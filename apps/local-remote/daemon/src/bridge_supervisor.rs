@@ -117,7 +117,11 @@ impl BridgeSupervisor {
             .arg("serve")
             .current_dir(&package_root)
             .env("BRIDGE_PACKAGE_ROOT", &package_root)
-            .env("BRIDGE_REDIS_URL", &cfg.redis_url)
+            .env(
+                "BRIDGE_API_BASE_URL",
+                cfg.platform_api_base_url.trim_end_matches('/'),
+            )
+            .env("DEVICE_INGRESS_SECRET", &cfg.device_ingress_secret)
             .env("PATH", gui_augmented_path())
             .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())

@@ -1,6 +1,6 @@
 # local-remote
 
-Local daemon that connects to the **same Redis** as the Listening Room platform, subscribes to **`SYSTEM:*`** pub/sub channels, and sends **OSC (Open Sound Control)** over **UDP** when **`SEGMENT_ACTIVATED`** matches your room and segment map—useful for triggering tiles in [Farrago](https://rogueamoeba.com/support/manuals/farrago/?page=osc) or any OSC listener.
+Local daemon that listens on the platform device socket for the active segment and sends **OSC (Open Sound Control)** over **UDP** when that segment matches your room and segment map—useful for triggering tiles in [Farrago](https://rogueamoeba.com/support/manuals/farrago/?page=osc) or any OSC listener. Now playing is posted to the same API. See [ADR 0204](../../docs/adrs/0204-device-trust-boundary.md).
 
 On the **DJ Mac**, this binary is also the sole Audio Hijack entrypoint: it can supervise a packed **Media Bridge** Node child and expose bridge controls on the same UI ([ADR 0084](../../docs/adrs/0084-dj-mac-single-zip-supervised-bridge.md)).
 
@@ -31,8 +31,7 @@ Do **not** install Rust/npm/tsx on the DJ Mac or run `npm run serve` there for p
 ## Requirements (dev / from source)
 
 - [Rust](https://rustup.rs/) (stable), `cargo` on your `PATH`
-- Network access to the remote Redis used by the platform
-- **TLS Redis (`rediss://`):** If you see `invalid peer certificate: UnknownIssuer`, append **`/#insecure`** to the URL (e.g. `rediss://:password@host:port/#insecure`). That disables TLS certificate verification—use only when you trust the network path (see redis-rs docs). Prefer fixing trust (correct CA bundle) in production when possible.
+- Network access to the platform API (`platformApiBaseUrl`) and `deviceIngressSecret` matching `DEVICE_INGRESS_SECRET`
 - For Farrago on the same Mac: enable **OSC Input** and note the **UDP port** (Settings → Controllers)
 
 ## Run (from source)
@@ -49,7 +48,7 @@ Or from this directory:
 npm run dev
 ```
 
-Open **http://127.0.0.1:9876/** (default). Set Redis URL, room filter, OSC host/port, and **segment id → OSC address** map, then **Save & apply** (Redis subscription reconnects without restarting the process).
+Open **http://127.0.0.1:9876/** (default). Set the platform API URL, device ingress secret, room id, OSC host/port, and **segment id → OSC address** map, then **Save & apply** (the segment socket reconnects without restarting the process).
 
 Use **Pick segments (ready shows)** to load segment ids from the platform’s **public** scheduling endpoints instead of copying them by hand: set **Platform API URL** to your API origin (defaults to `http://127.0.0.1:3000` in config when unset). No login or cookie—see [Scheduling API (segment picker)](#scheduling-api-segment-picker). The API must allow the local-remote origin in **CORS** ([ADR 0027](../../docs/adrs/0027-local-remote-scheduling-ui-cors.md), [ADR 0029](../../docs/adrs/0029-public-scheduling-read-for-local-remote.md)).
 
@@ -62,7 +61,7 @@ Default path (first run creates it):
 - **macOS:** `~/Library/Application Support/local-remote/config.json`
 - **Linux:** `~/.config/local-remote/config.json`
 
-JSON uses **camelCase** (e.g. `redisUrl`, `roomId`, `platformApiBaseUrl`, `features.osc.segmentMap`, `features.osc.defaultArgs`, `features.soundboard.oscListenPort`).
+JSON uses **camelCase** (e.g. `roomId`, `platformApiBaseUrl`, `deviceIngressSecret`, `features.osc.segmentMap`, `features.osc.defaultArgs`, `features.soundboard.oscListenPort`). `redisUrl` may still be present in older files and is ignored.
 
 ## Scheduling API (segment picker)
 
@@ -75,24 +74,22 @@ These routes are **read-only** and intentionally minimal so operators do not nee
 
 **CORS:** The UI origin (default `http://127.0.0.1:9876`) must be allowed by the API. Defaults include that origin; use **`LOCAL_REMOTE_URL`** if you bind local-remote elsewhere. No **`credentials: "include"`** is used for these calls.
 
-Segment rows added from the picker use **`segmentId`** from the show (the id emitted on **`SEGMENT_ACTIVATED`** in Redis), not the per-show join row id.
+Segment rows added from the picker use **`segmentId`** from the show (the id on the `segment` socket event), not the per-show join row id.
 
-## Platform event contract
+## Active segment
 
-- Channels: `SYSTEM:{EVENT_NAME}` (e.g. `SYSTEM:SEGMENT_ACTIVATED`).
-- Body: JSON only (no envelope); see [`packages/types/SystemEventTypes.ts`](../../packages/types/SystemEventTypes.ts).
-- `SEGMENT_ACTIVATED` payload uses **camelCase** keys (`roomId`, `segmentId`, …).
+local-remote connects to `{platformApiBaseUrl}/device` with `DEVICE_INGRESS_SECRET` and watches its room. The API pushes a `segment` event when a segment activates. The payload uses **camelCase** keys (`roomId`, `showId`, `segmentId`, `segmentTitle`). An empty `segmentId` means nothing is active. On connect, the API sends the segment that is already active.
 
-Filter by **room**: set `roomId` in the UI. Leave it **empty** to accept all rooms.
+Set **room id**. An empty room id cannot be watched. OSC fires when the segment id changes and the segment map has an address.
 
 ## OSC mapping (Farrago example)
 
 1. In Farrago, enable **OSC Input** and choose a **port** (e.g. `8000`).
 2. In local-remote, set **OSC host** to `127.0.0.1` and **port** to the same value.
-3. Map each **segment id** (string, as emitted in Redis) to a **full OSC path** starting with `/`, e.g. `/set/selected/tile/0/0/play`. See [Farrago OSC manual](https://rogueamoeba.com/support/manuals/farrago/?page=osc) for addresses.
+3. Map each **segment id** (string, as sent on the `segment` event) to a **full OSC path** starting with `/`, e.g. `/set/selected/tile/0/0/play`. See [Farrago OSC manual](https://rogueamoeba.com/support/manuals/farrago/?page=osc) for addresses.
 4. Optional **default arguments**: comma-separated floats (e.g. `1` or `1.0`) appended as OSC float32 arguments on every send if the target expects a value.
 
-**v1** only reacts to **`SEGMENT_ACTIVATED`**. Other `SYSTEM:*` events are ignored for OSC (extensible later).
+Only the active segment drives OSC. The device socket does not carry other platform events to local-remote.
 
 ## Farrago soundboard (optional)
 
@@ -155,14 +152,16 @@ For the **Intel DJ Mac pack** (local-remote + Node + bridge-daemon), use `npm ru
 
 Workspace npm scripts pass **`--target-dir daemon/target`** so outputs land under `apps/local-remote/daemon/target/` even when `CARGO_TARGET_DIR` is set globally.
 
-## Manual test (Redis CLI)
+## Manual test (device API)
 
-With the daemon running, OSC enabled, `roomId` / `segmentMap` / port configured:
+With the daemon running, OSC enabled, `roomId` / `segmentMap` / port / secret configured, activate that segment on the room (scheduler or admin). The socket receives the same body the snapshot route returns:
 
 ```bash
-redis-cli -u "$REDIS_URL" PUBLISH 'SYSTEM:SEGMENT_ACTIVATED' \
-  '{"roomId":"YOUR_ROOM","showId":"s","segmentId":"4","segmentTitle":"Test"}'
+curl -s -H "Authorization: Bearer $DEVICE_INGRESS_SECRET" \
+  "$PLATFORM_API/api/device/active-segment?roomId=YOUR_ROOM"
 ```
+
+A body with `"segmentId":"4"` is what the OSC map matches. `204` means nothing is active. The daemon does not poll this route.
 
 ## Run in the background (macOS `launchd`)
 
