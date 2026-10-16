@@ -1,13 +1,8 @@
 import type { Server } from "socket.io"
-import type {
-  SystemEventName,
-  SystemEventPayload,
-  QueueItem,
-  Room,
-  AppContext,
-} from "@repo/types"
+import type { SystemEventName, SystemEventPayload, QueueItem, Room, AppContext } from "@repo/types"
 import { SocketBroadcaster } from "./Broadcaster"
 import { getRoomCurrent, getRoomOnlineUsers } from "../../operations/data"
+import { STREAMING_MODE_TRACK_ID, streamingCoverUrl } from "../streamingMode"
 
 /**
  * Payload sent to lobby clients when room data changes
@@ -16,6 +11,11 @@ export interface LobbyRoomUpdate {
   roomId: string
   userCount?: number
   nowPlaying?: QueueItem | null
+  /**
+   * Streaming-mode cover (segment image, or room artwork when the segment has
+   * none). Null when track detection is on so the lobby logo uses track art.
+   */
+  streamingArtwork?: string | null
 }
 
 /**
@@ -30,6 +30,10 @@ export interface LobbyRoomAdded {
   passwordRequired?: boolean
   /** Current track so lobby clients can show artwork / drive dynamic theme */
   nowPlaying?: QueueItem | null
+  /** See {@link LobbyRoomUpdate.streamingArtwork}. */
+  streamingArtwork?: string | null
+  /** Track detection. False means the lobby logo uses `streamingArtwork`. */
+  fetchMeta?: boolean
   userCount?: number
 }
 
@@ -99,6 +103,7 @@ export class LobbyBroadcaster extends SocketBroadcaster {
   private async emitRoomAdded(roomId: string, room: Room): Promise<void> {
     let nowPlaying: QueueItem | null = null
     let userCount = 0
+    let streamingArtwork: string | null = null
 
     try {
       const [currentMeta, onlineUsers] = await Promise.all([
@@ -107,6 +112,7 @@ export class LobbyBroadcaster extends SocketBroadcaster {
       ])
       nowPlaying = currentMeta?.nowPlaying ?? null
       userCount = onlineUsers?.length ?? 0
+      streamingArtwork = streamingCoverUrl(room, currentMeta?.artwork)
     } catch (error) {
       console.error(`[${this.name}] Failed to enrich LOBBY_ROOM_ADDED:`, error)
     }
@@ -117,8 +123,10 @@ export class LobbyBroadcaster extends SocketBroadcaster {
       type: room.type,
       creator: room.creator,
       artwork: room.artwork,
+      fetchMeta: room.fetchMeta,
       passwordRequired: room.passwordRequired,
       nowPlaying,
+      streamingArtwork,
       userCount,
     }
     this.emit("lobby", "LOBBY_ROOM_ADDED", added)
@@ -140,8 +148,11 @@ export class LobbyBroadcaster extends SocketBroadcaster {
     }
 
     if (event === "TRACK_CHANGED") {
-      const eventData = data as { track?: QueueItem }
+      const eventData = data as { track?: QueueItem; meta?: { artwork?: string | null } }
       update.nowPlaying = eventData.track ?? null
+      const streaming = eventData.track?.mediaSource?.trackId === STREAMING_MODE_TRACK_ID
+      const cover = eventData.meta?.artwork?.trim()
+      update.streamingArtwork = streaming && cover ? cover : null
     }
 
     return update

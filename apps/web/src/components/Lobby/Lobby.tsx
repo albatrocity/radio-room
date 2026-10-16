@@ -10,6 +10,7 @@ import {
 } from "../../hooks/useActors"
 import { useAnimationsEnabled } from "../../hooks/useReducedMotion"
 import { getNextShowTime } from "../../lib/dates"
+import { lobbyLogoArtworkUrl } from "../../lib/lobbyArtwork"
 import { setCurrentArtworkUrl } from "../../hooks/useDynamicTheme"
 import { Logo } from "../ui/logo"
 import { LobbyRoom } from "../../machines/lobbyMachine"
@@ -26,15 +27,10 @@ export default function Lobby() {
   const animationsEnabled = useAnimationsEnabled()
   const transitioningRef = useRef(false)
 
-  const artworkUrl = useMemo(() => {
-    if (!room?.nowPlaying) return undefined
-    const item = room.nowPlaying
-    const track =
-      preferredSource && item.metadataSources?.[preferredSource]
-        ? item.metadataSources[preferredSource]!.track
-        : item.track
-    return track.album?.images?.find((img) => img.type === "image" && img.url)?.url
-  }, [room?.nowPlaying, preferredSource])
+  const artworkUrl = useMemo(
+    () => lobbyLogoArtworkUrl(room, preferredSource),
+    [room, preferredSource],
+  )
 
   useEffect(() => {
     setCurrentArtworkUrl(artworkUrl ?? null)
