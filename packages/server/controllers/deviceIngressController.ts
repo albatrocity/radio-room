@@ -124,6 +124,22 @@ export async function deviceActiveSegment(req: Request, res: Response) {
   return res.status(200).json(payload)
 }
 
+/** Current segment for a device socket snapshot. Empty `segmentId` means none is active. */
+export async function activeSegmentForDevice(context: AppContext, roomId: string) {
+  const room = await findRoom({ context, roomId })
+  if (!room?.activeSegmentId) {
+    return {
+      roomId,
+      showId: room?.showId ?? "",
+      segmentId: "",
+      segmentTitle: "",
+      at: Date.now(),
+    }
+  }
+  const payload = await segmentPayload(context, room)
+  return { ...payload, at: Date.now() }
+}
+
 async function segmentPayload(context: AppContext, room: Room) {
   let segmentTitle = ""
   let showId = room.showId ?? ""

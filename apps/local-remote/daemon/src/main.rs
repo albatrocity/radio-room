@@ -9,7 +9,7 @@ mod now_playing;
 mod osc_listener;
 mod osc_send;
 mod play_monitor;
-mod segment_poll;
+mod segment_socket;
 mod state;
 
 use crate::config::load_or_create_default;
@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     let state = Arc::new(AppState::new(cfg));
     let redis_state = state.clone();
     tokio::spawn(async move {
-        segment_poll::run_segment_poll(redis_state).await;
+        segment_socket::run_segment_socket(redis_state).await;
     });
 
     let osc_in_state = state.clone();

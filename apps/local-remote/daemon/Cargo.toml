@@ -13,7 +13,9 @@ anyhow = "1"
 axum = { version = "0.8", features = ["ws"] }
 dirs = "6"
 libc = "0.2"
+futures-util = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rust_socketio = { version = "0.6", default-features = false, features = ["async"] }
 rosc = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

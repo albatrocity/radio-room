@@ -11,6 +11,8 @@ export type DeviceSocketRecord = {
   id: string
   daemonId: string
   roomId: string | null
+  /** `segment` sockets receive cues only. They are not a bridge for playback RPC. */
+  role?: "bridge" | "segment"
   emit: (event: string, payload: unknown) => void
 }
 
@@ -61,6 +63,21 @@ export function bindDeviceRoom(id: string, roomId: string | null): void {
   const socket = sockets.get(id)
   if (!socket) return
   socket.roomId = roomId
+  if (roomId) socket.role = "bridge"
+}
+
+/** Room subscription for Farrago cues. Does not mark the room as having a bridge. */
+export function watchDeviceRoom(id: string, roomId: string): void {
+  const socket = sockets.get(id)
+  if (!socket) return
+  socket.roomId = roomId
+  socket.role = "segment"
+}
+
+export function emitToDeviceSockets(roomId: string, event: string, payload: unknown): void {
+  sockets.forEach((socket) => {
+    if (socket.roomId === roomId) socket.emit(event, payload)
+  })
 }
 
 export function deviceRoomPresent(roomId: string): boolean {
@@ -195,7 +212,7 @@ export function receiveDeviceLink(message: BridgeControlMessage): boolean {
 function socketForRoom(roomId: string): DeviceSocketRecord | undefined {
   let found: DeviceSocketRecord | undefined
   sockets.forEach((socket) => {
-    if (!found && socket.roomId === roomId) found = socket
+    if (!found && socket.roomId === roomId && socket.role !== "segment") found = socket
   })
   return found
 }

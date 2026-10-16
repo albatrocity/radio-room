@@ -398,12 +398,12 @@ export class RadioRoomServer {
     this.pendingPlugins = [] // Clear after registration
 
     // Initialize BroadcasterRegistry and register broadcasters
-    const { BroadcasterRegistry, RoomBroadcaster, LobbyBroadcaster } = await import(
-      "./lib/broadcasters"
-    )
+    const { BroadcasterRegistry, RoomBroadcaster, LobbyBroadcaster, DeviceSegmentBroadcaster } =
+      await import("./lib/broadcasters")
     const broadcasterRegistry = new BroadcasterRegistry()
     broadcasterRegistry.register(new RoomBroadcaster(this.io))
     broadcasterRegistry.register(new LobbyBroadcaster(this.io, this.context))
+    broadcasterRegistry.register(new DeviceSegmentBroadcaster())
     console.log("BroadcasterRegistry initialized")
 
     // Initialize SystemEvents (unified event emission layer)

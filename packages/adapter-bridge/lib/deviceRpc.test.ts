@@ -2,10 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { BridgeRpcClient } from "./rpcClient"
 import {
   beginDeviceLink,
+  deviceRoomPresent,
+  emitToDeviceSockets,
   receiveDeviceLink,
   registerDeviceSocket,
   resetDeviceSessionsForTests,
   settleDeviceResponse,
+  watchDeviceRoom,
 } from "./deviceSession"
 import type { BridgeRequest } from "./protocol"
 import { provisionSpotifyTokenForRoom } from "./spotifyTokenProvisioner"
@@ -129,5 +132,22 @@ describe("device socket RPC", () => {
       daemonId: "daemon-9",
       roomId: "room-9",
     })
+  })
+
+  it("delivers a segment cue to a watcher without treating it as a bridge", () => {
+    const events: unknown[] = []
+    registerDeviceSocket({
+      id: "watcher",
+      daemonId: "local-remote",
+      roomId: null,
+      emit: (event, payload) => {
+        events.push([event, payload])
+      },
+    })
+    watchDeviceRoom("watcher", "room-1")
+
+    expect(deviceRoomPresent("room-1")).toBe(false)
+    emitToDeviceSockets("room-1", "segment", { segmentId: "4", at: 10 })
+    expect(events).toEqual([["segment", { segmentId: "4", at: 10 }]])
   })
 })

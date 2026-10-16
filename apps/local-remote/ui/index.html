@@ -244,7 +244,7 @@
 
       <label for="roomId">Room ID</label>
       <input id="roomId" type="text" autocomplete="off" />
-      <p class="hint">Required. The active-segment poll asks the platform API for this room.</p>
+      <p class="hint">Required. The device socket watches this room for segment activation.</p>
 
       <label for="httpListen">HTTP listen (restart app to apply)</label>
       <input id="httpListen" type="text" autocomplete="off" />
@@ -257,7 +257,7 @@
         placeholder="http://127.0.0.1:3000"
       />
       <p class="hint">
-        Used for <strong>Fetch ready shows</strong>, the active-segment poll, and now playing. The platform exposes read-only
+        Used for <strong>Fetch ready shows</strong>, the segment socket, and now playing. The platform exposes read-only
         <code>/api/public/scheduling/*</code> endpoints (no login). Production API must allow this
         origin in CORS (see <code>LOCAL_REMOTE_URL</code> if you change HTTP listen).
       </p>
@@ -268,7 +268,7 @@
       <p class="hint">
         Fetches <strong>ready</strong> shows via the platform’s public scheduling API (no login), then
         loads segment names. Click a segment to add an OSC mapping row (the segment id is what the
-        active-segment poll returns). Requests use whatever is currently in
+        segment socket sends). Requests use whatever is currently in
         <strong>Platform API URL</strong> above.
       </p>
       <div class="row">

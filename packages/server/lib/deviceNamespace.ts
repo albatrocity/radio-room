@@ -17,7 +17,9 @@ import {
   settleDeviceResponse,
   spotifyDeviceKey,
   unregisterDeviceSocket,
+  watchDeviceRoom,
 } from "@repo/adapter-bridge"
+import { activeSegmentForDevice } from "../controllers/deviceIngressController"
 import { readDeviceSession, saveDeviceSession, touchDeviceSession } from "./deviceSessionStore"
 
 const HEARTBEAT_MS = 3000
@@ -28,6 +30,7 @@ type DeviceSocket = Socket & {
     daemonId?: string
     deviceToken?: string
     sessionRoomId?: string | null
+    role?: "bridge" | "segment"
     services?: string[]
   }
 }
@@ -103,7 +106,17 @@ export function attachDeviceNamespace(io: Server, context: AppContext): void {
     socket.on("join", (payload: unknown) => {
       const roomId = readRoomId(payload)
       if (!roomId) return
+      deviceSocket.data.role = "bridge"
       void bindRoom(deviceSocket, context, roomId)
+    })
+
+    socket.on("watch", (payload: unknown) => {
+      const roomId = readRoomId(payload)
+      if (!roomId) return
+      watchDeviceRoom(socket.id, roomId)
+      deviceSocket.data.role = "segment"
+      deviceSocket.data.sessionRoomId = roomId
+      void pushSegmentSnapshot(context, socket, roomId)
     })
 
     socket.on("link", (payload: unknown) => {
@@ -226,12 +239,18 @@ async function onDisconnect(socket: DeviceSocket, context: AppContext): Promise<
   unregisterDeviceSocket(socket.id)
 }
 
+async function pushSegmentSnapshot(context: AppContext, socket: Socket, roomId: string): Promise<void> {
+  const payload = await activeSegmentForDevice(context, roomId)
+  socket.emit("segment", payload)
+}
+
 async function releaseRoom(socket: DeviceSocket, context: AppContext): Promise<void> {
   const roomId = socket.data.sessionRoomId
+  const role = socket.data.role
   stopHeartbeat(socket.id)
   bindDeviceRoom(socket.id, null)
   socket.data.sessionRoomId = null
-  if (!roomId) return
+  if (!roomId || role === "segment") return
   getOrCreateCapabilityCache(context.redis.pubClient, roomId).applyEvent({ type: "DISCONNECTING" })
   await clearRoomPresence(context, roomId)
 }

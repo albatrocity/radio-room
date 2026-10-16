@@ -162,7 +162,7 @@ Restart the API after env / adapter registration changes so `@repo/adapter-bridg
 
 **DJ Mac (packed):** start `local-remote` from the zip, open **http://127.0.0.1:9876/**, enable **Media Bridge**, save. Session / rooms / services are on that page (proxied). Child escape hatch: `http://127.0.0.1:18766/`.
 
-**Dev from source — recommended:** local control UI + **device socket standby** (required for **Link to Media Bridge** from the web app — [ADR 0203](adrs/0203-device-trust-boundary.md)):
+**Dev from source — recommended:** local control UI + **device socket standby** (required for **Link to Media Bridge** from the web app — [ADR 0204](adrs/0204-device-trust-boundary.md)):
 
 ```bash
 npm run serve -w bridge-daemon

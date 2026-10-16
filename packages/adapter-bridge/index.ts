@@ -72,6 +72,8 @@ export {
   callDevice,
   deviceRoomPresent,
   emitToDeviceRoom,
+  emitToDeviceSockets,
+  watchDeviceRoom,
   listConnectedDaemonIds,
   notifyDevice,
   receiveDeviceLink,
