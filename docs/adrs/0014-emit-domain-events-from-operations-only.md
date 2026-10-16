@@ -27,4 +27,4 @@ A centralized `emitPluginEvent` helper was introduced to standardize the emit ca
 - **Reusable operations**: The same operation can be called from different transports (Socket.IO, REST, cron jobs) and events will be emitted consistently.
 - **Trade-off**: Requires discipline to avoid the convenience of emitting directly from handlers, especially for simple pass-through cases.
 
-See also: [work-history/plugin-event-architecture.md](../../work-history/plugin-event-architecture.md)
+See also: [work-history/plugin-event-architecture.md](../../work-history/plugin-event-architecture.md). Plugins propose queue follow-ups as data; `DJService` still emits the one `QUEUE_CHANGED` ([0200](0200-queue-follow-ups-before-queue-changed.md)).

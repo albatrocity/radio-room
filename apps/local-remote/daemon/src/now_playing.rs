@@ -1,8 +1,7 @@
 //! macOS Now Playing watcher.
 //!
-//! Watches the system media center for track changes, publishes
-//! `SYSTEM:NOW_PLAYING_CHANGED` to Redis, and writes a `Now Playing.txt`
-//! file that Audio Hijack can read for stream overlay metadata.
+//! Watches the system media center for track changes, posts now-playing to the
+//! platform API, and writes a `Now Playing.txt` file that Audio Hijack can read.
 
 use crate::state::SharedState;
 use std::fs;
@@ -11,7 +10,6 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-const CHANNEL: &str = "SYSTEM:NOW_PLAYING_CHANGED";
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, PartialEq)]
@@ -142,7 +140,7 @@ pub async fn run_now_playing_watcher(state: SharedState) {
             );
 
             write_now_playing_file(&cfg.features.now_playing.now_playing_file_path, track);
-            publish_to_redis(&state, &cfg.room_id, track).await;
+            publish_now_playing(&cfg, track).await;
         } else {
             debug!("now_playing: no track playing");
             state.record_now_playing(None, None, None);
@@ -164,48 +162,45 @@ fn write_now_playing_file(path: &str, track: &TrackInfo) {
     }
 }
 
-async fn publish_to_redis(state: &SharedState, room_id: &str, track: &TrackInfo) {
-    if room_id.is_empty() {
-        warn!("now_playing: no room_id configured, skipping Redis publish");
+async fn publish_now_playing(cfg: &crate::config::Config, track: &TrackInfo) {
+    if cfg.room_id.is_empty() {
+        warn!("now_playing: no room_id configured, skipping platform publish");
+        return;
+    }
+    if cfg.device_ingress_secret.is_empty() {
+        warn!("now_playing: deviceIngressSecret is empty, skipping platform publish");
         return;
     }
 
-    let redis_url = match state.config.read() {
-        Ok(g) => g.redis_url.clone(),
-        Err(_) => return,
-    };
-
-    let client = match redis::Client::open(redis_url.as_str()) {
+    let base = cfg.platform_api_base_url.trim_end_matches('/');
+    let url = format!("{base}/api/device/now-playing");
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(5))
+        .build()
+    {
         Ok(c) => c,
         Err(e) => {
-            error!(error = %e, "now_playing: redis client open failed");
-            return;
-        }
-    };
-
-    let mut con = match client.get_multiplexed_async_connection().await {
-        Ok(c) => c,
-        Err(e) => {
-            error!(error = %e, "now_playing: redis connection failed");
+            error!(error = %e, "now_playing: http client failed");
             return;
         }
     };
 
     let payload = serde_json::json!({
-        "roomId": room_id,
+        "roomId": cfg.room_id,
         "title": track.title,
         "artist": track.artist,
         "album": track.album,
     });
 
-    let result: Result<(), redis::RedisError> = redis::cmd("PUBLISH")
-        .arg(CHANNEL)
-        .arg(payload.to_string())
-        .query_async(&mut con)
-        .await;
-
-    match result {
-        Ok(_) => debug!("now_playing: published to {CHANNEL}"),
-        Err(e) => error!(error = %e, "now_playing: PUBLISH failed"),
+    match client
+        .post(&url)
+        .bearer_auth(&cfg.device_ingress_secret)
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(res) if res.status().is_success() => debug!("now_playing: posted to {url}"),
+        Ok(res) => error!(status = %res.status(), "now_playing: platform publish failed"),
+        Err(e) => error!(error = %e, "now_playing: platform publish failed"),
     }
 }

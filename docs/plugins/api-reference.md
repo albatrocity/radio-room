@@ -1,42 +1,87 @@
 # Plugin API Reference
 
-### PluginAPI Methods
+Plugins reach the host through `PluginContext`. Chat, presence, effects, config, and `emit` stay on `context.api`. Polls, schedules, the queue, playback, and the catalog are separate fields so a caller compiles against only the methods it uses ([ADR 0201](../adrs/0201-plugin-capability-interfaces.md)). `storage`, `game`, `inventory`, `artifacts`, and `personas` were already separate.
+
+`BasePlugin.schedule` / `cancelSchedule` call `context.schedule`. Other domains are `this.context.<field>.<method>`.
+
+### Polls (`context.polls`)
+
+| Method | Description |
+| --- | --- |
+| `createPoll(params)` | Create a core room poll authored by this plugin ([ADR 0152](../adrs/0152-plugin-authored-core-polls.md)); skips the admin gate when scoped; prefer `announce: false` for game loops. Optional `closesAt` / `durationMs` for auto-close ([ADR 0189](../adrs/0189-poll-closes-at-auto-close.md)); listen for `POLL_CLOSED` with `reason` instead of arming your own close timer |
+| `closePoll(params)` | Close a core poll; returns tallies; requires scoped plugin identity ([ADR 0152](../adrs/0152-plugin-authored-core-polls.md)) |
+| `getActivePoll(roomId)` | Active poll or `null` |
+| `getPollVoterIds(roomId, pollId)` | User ids that have voted (no option choices) |
+| `getPollVotes(roomId, pollId)` | Full `userId → optionId` hash for plugin tallying (retained after close; not broadcast) |
+| `tallyPoll(pollId, { excludeUserIds? })` | Count votes per `optionId` (optionally excluding voter ids). Prefer this over hand-rolling tallies from `getPollVotes`. Closed polls also expose counts on `results.optionTallies` in `POLL_CLOSED` |
+
+### Schedule (`context.schedule`)
+
+Prefer `this.schedule` / `this.cancelSchedule` on `BasePlugin`. `getSchedule` is only on the context field. See [Timer API](timers.md).
+
+| Method | Description |
+| --- | --- |
+| `schedule({ id, kind, at?, durationMs?, anchor?, payload? })` | Durable Redis schedule (1s–7d); same `id` replaces ([ADR 0190](../adrs/0190-durable-plugin-scheduler.md)). `anchor` counts playback time instead of wall time ([ADR 0196](../adrs/0196-plugin-playback-timeline.md)) |
+| `cancelSchedule(id)` | Cancel a pending durable schedule |
+| `getSchedule(id)` | Pending schedule `{ id, kind, fireAt, payload, paused? }` or `null` |
+
+### Queue (`context.queue`)
+
+| Method | Description |
+| --- | --- |
+| `getNowPlaying(roomId)` | Get current track |
+| `getQueue(roomId)` | Get room queue |
+| `skipTrack(roomId, trackId)` | Skip current track |
+| `updatePlaylistTrack(roomId, track)` | Update track with pluginData |
+| `setQueueSplit(roomId, belowKey)` | Set queue split anchor ([ADR 0067](../adrs/0067-queue-split-reserved-segment.md), [ADR 0153](../adrs/0153-plugin-authored-queue-split.md)); app-controlled only; skips admin reorder gate when scoped |
+| `removeQueueSplit(roomId)` | Clear queue split; app-controlled only; requires scoped plugin identity ([ADR 0153](../adrs/0153-plugin-authored-queue-split.md)) |
+| `addToTrackQueue(roomId, trackId, options?)` | Enqueue a track (see below) |
+| `removeFromTrackQueue(roomId, trackId)` | Remove a track; app-controlled only |
+| `moveToTrackQueueTop` / `moveToTrackQueueBottom` | Move a track to either end; app-controlled only |
+| `moveTrackByPosition(roomId, trackId, delta, actorUserId?)` | Move by a relative number of positions |
+| `shuffleTrackQueue(roomId)` | Fisher–Yates shuffle; app-controlled only |
+| `enqueueTracks(roomId, tracks, { at?, pin?, addedBy? })` | Queue up to 50 `{ trackId, mediaSourceType? }` as one block with one `QUEUE_CHANGED`. `at`: `"end"` (default), `"next"`, or an index. `pin: true` holds the block against reorders, removals, and skips by anyone but this plugin; returns `{ queued, skipped, blockId? }`. Placement other than `"end"`, and `pin`, are app-controlled only ([ADR 0198](../adrs/0198-plugin-queue-blocks.md)) |
+| `unpinQueueBlock(roomId, blockId)` | Release a block this plugin pinned with `enqueueTracks` |
+
+### Playback (`context.playback`)
+
+| Method | Description |
+| --- | --- |
+| `setPlaybackVolume(roomId, volumePercent)` | Set device volume 0–100 |
+| `supportsVolumeControl(roomId)` | Whether the room's playback controller supports volume |
+| `getPlayback(roomId)` | Transport snapshot `{ state, trackId, progressMs, durationMs }` ([ADR 0196](../adrs/0196-plugin-playback-timeline.md)) |
+| `pausePlayback(roomId)` / `resumePlayback(roomId)` | Pause / resume; app-controlled only; resume never advances the queue |
+| `seekPlayback(roomId, positionMs)` | Seek the current track (clamped to its duration); app-controlled only |
+| `listMediaBridgeSayVoices(roomId)` | Installed macOS `say` voices on the linked Media Bridge ([ADR 0178](../adrs/0178-media-bridge-tts-say-output.md)) |
+| `speakOnMediaBridge(roomId, { text, voice })` | Queue TTS on the DJ Mac. Returns `{ ok: false, message }` when unlinked; never throws |
+
+### Catalog (`context.catalog`)
+
+| Method | Description |
+| --- | --- |
+| `searchTracks({ roomId, query, sourceId?, userId?, limit? })` | Catalog search with the user search pipeline; returns `{ id, title, artists, durationMs, source }[]` for `queue.addToTrackQueue` ([ADR 0197](../adrs/0197-plugin-catalog-search.md)) |
+| `listMetadataSources(roomId)` | Room catalog `{ id, label }[]` (policy ∩ bridge capabilities, not per-user) ([ADR 0088](../adrs/0088-metadata-source-access-grants.md)) |
+| `canAccessMetadataSource(params)` | Whether a user may search or queue a metadata source |
+| `getEffectiveMetadataSourceIds(roomId, userId, action)` | Per-user effective source ids |
+| `listLocal*` / `getLocal*` / `checkLocalTrackPlaylistMembership` | Navidrome library browse, artwork, and playlist membership used by Physical Media |
+
+### PluginAPI (`context.api`)
+
+Residual host: chat, presence, effects, config, and `emit`.
 
 | Method                                                  | Description                                                                                                                       |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `getNowPlaying(roomId)`                                 | Get current track                                                                                                                 |
 | `getUsers(roomId)`                                      | Get users in room                                                                                                                 |
 | `getUsersByIds(userIds)`                                | Look up users by id (includes users who have left the room)                                                                       |
 | `getOnlineUserIds(roomId)`                              | Online user ids only (`SMEMBERS`) — prefer over `getUsers` when you do not need usernames or personas                             |
 | `isUserInRoom(roomId, userId)`                          | Whether the user is currently connected — O(1), prefer over scanning `getUsers`                                                   |
 | `isRoomAdmin(roomId, userId)`                           | Whether the user is a room admin (creator or `room:{id}:admins`); use for defense-in-depth on admin-only `executeAction` handlers |
-| `getQueue(roomId)`                                      | Get room queue                                                                                                                    |
-| `createPoll(params)`                                    | Create a core room poll authored by this plugin ([ADR 0152](../adrs/0152-plugin-authored-core-polls.md)); skips the admin gate when scoped; prefer `announce: false` for game loops. Optional `closesAt` / `durationMs` for auto-close ([ADR 0189](../adrs/0189-poll-closes-at-auto-close.md)); listen for `POLL_CLOSED` with `reason` instead of arming your own close timer |
-| `closePoll(params)`                                     | Close a core poll; returns tallies; requires scoped plugin identity ([ADR 0152](../adrs/0152-plugin-authored-core-polls.md)) |
-| `getActivePoll(roomId)`                                 | Active poll or `null`                                                                                                             |
-| `getPollVoterIds(roomId, pollId)`                       | User ids that have voted (no option choices)                                                                                      |
-| `getPollVotes(roomId, pollId)`                          | Full `userId → optionId` hash for plugin tallying (retained after close; not broadcast)                                           |
-| `tallyPoll(pollId, { excludeUserIds? })`                | Count votes per `optionId` (optionally excluding voter ids). Prefer this over hand-rolling tallies from `getPollVotes`. Closed polls also expose counts on `results.optionTallies` in `POLL_CLOSED` |
-| `schedule({ id, kind, at?, durationMs?, anchor?, payload? })` | Durable Redis schedule (1s–7d); same `id` replaces ([ADR 0190](../adrs/0190-durable-plugin-scheduler.md)). `anchor` counts playback time instead of wall time ([ADR 0196](../adrs/0196-plugin-playback-timeline.md)). Prefer over `startTimer` for restart-safe work — see [Timer API](timers.md) |
-| `cancelSchedule(id)`                                    | Cancel a pending durable schedule                                                                                                 |
-| `getSchedule(id)`                                       | Pending schedule `{ id, kind, fireAt, payload, paused? }` or `null`                                                               |
-| `getPlayback(roomId)`                                   | Transport snapshot `{ state, trackId, progressMs, durationMs }` from the room's playback controller ([ADR 0196](../adrs/0196-plugin-playback-timeline.md)) |
-| `pausePlayback(roomId)` / `resumePlayback(roomId)`      | Pause / resume playback; app-controlled only; resume never advances the queue                                                     |
-| `seekPlayback(roomId, positionMs)`                      | Seek the current track (clamped to its duration); app-controlled only                                                             |
-| `searchTracks({ roomId, query, sourceId?, userId?, limit? })` | Catalog search with the user search pipeline; returns `{ id, title, artists, durationMs, source }[]` for `addToTrackQueue` ([ADR 0197](../adrs/0197-plugin-catalog-search.md)) |
-| `setQueueSplit(roomId, belowKey)`                       | Set queue split anchor ([ADR 0067](../adrs/0067-queue-split-reserved-segment.md), [ADR 0153](../adrs/0153-plugin-authored-queue-split.md)); app-controlled only; skips admin reorder gate when scoped |
-| `removeQueueSplit(roomId)`                              | Clear queue split; app-controlled only; requires scoped plugin identity ([ADR 0153](../adrs/0153-plugin-authored-queue-split.md)) |
-| `addToTrackQueue(roomId, trackId, options?)`            | Enqueue a track (see below)                                                                                                       |
-| `enqueueTracks(roomId, tracks, { at?, pin?, addedBy?, suppressQueueChanged? })` | Queue up to 50 `{ trackId, mediaSourceType? }` as one block with one `QUEUE_CHANGED`. `at`: `"end"` (default), `"next"`, or an index. `pin: true` holds the block against reorders, removals, and skips by anyone but this plugin; returns `{ queued, skipped, blockId? }`. Placement other than `"end"`, and `pin`, are app-controlled only ([ADR 0198](../adrs/0198-plugin-queue-blocks.md)) |
-| `unpinQueueBlock(roomId, blockId)`                      | Release a block this plugin pinned with `enqueueTracks`                                                                           |
 | `getReactions(params)`                                  | Get reactions for track/message                                                                                                   |
-| `skipTrack(roomId, trackId)`                            | Skip current track                                                                                                                |
 | `sendSystemMessage(roomId, message, meta?, mentions?)`  | Send system chat message                                                                                                          |
 | `sendUserSystemMessage(roomId, userId, message, meta?)` | System chat line to one connected client (not persisted, no fan-out)                                                              |
 | `sendUserToast(roomId, userId, toast)`                  | Ephemeral toast to one connected client (see below)                                                                               |
 | `getPluginConfig(roomId, pluginName)`                   | Get plugin config                                                                                                                 |
 | `setPluginConfig(roomId, pluginName, config)`           | Update plugin config                                                                                                              |
-| `updatePlaylistTrack(roomId, track)`                    | Update track with pluginData                                                                                                      |
 | `emit(eventName, data, options?)`                       | Emit plugin event to frontend. Contributors also invalidate user game state unless `options.invalidatesUserState` is `false` ([ADR 0154](../adrs/0154-plugin-emit-invalidates-user-state-opt-out.md)) |
 | `queueSoundEffect(params)`                              | Play a sound effect in the room                                                                                                   |
 | `queueScreenEffect(params)`                             | Play a CSS animation in the room                                                                                                  |
@@ -44,24 +89,24 @@
 ### `addToTrackQueue`
 
 ```typescript
-await this.context.api.addToTrackQueue(roomId, metadataTrackId, {
+await this.context.queue.addToTrackQueue(roomId, metadataTrackId, {
   addedBy: { type: "user", userId, username }, // or omit to attribute to this plugin
   runPluginValidation: false, // default false — skip other plugins' validateQueueRequest
   mediaSourceType: "spotify",
-  suppressQueueChanged: true, // skip QUEUE_CHANGED for this add (cascading flushes)
 })
 ```
 
-| Option                 | Default                | Description                                                                                                                                                                                                                                                                    |
-| ---------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `addedBy`              | calling plugin         | User or plugin attribution on the queue item                                                                                                                                                                                                                                   |
-| `runPluginValidation`  | `false`                | When `true`, run `validateQueueRequest` hooks (may allow / reject / defer)                                                                                                                                                                                                     |
-| `mediaSourceType`      | inferred / `"spotify"` | Catalog source for the track id                                                                                                                                                                                                                                                |
-| `suppressQueueChanged` | `false`                | When `true`, do not emit `QUEUE_CHANGED` after the add — use for cascading adds during an existing `QUEUE_CHANGED` handler; core may rebroadcast a fresh snapshot afterward ([queue-validation cascading adds](queue-validation.md#cascading-queue-adds-during-queue_changed)) |
+Calling `context.queue` mutators from a system-event handler throws `QueueMutationDuringEmitError`. Extra tracks that belong in the same `QUEUE_CHANGED` are follow-ups: implement `collectQueueFollowUps` and `onQueueFollowUpResult` ([Queue Validation — follow-ups](queue-validation.md#queue-follow-ups-before-queue_changed), [ADR 0200](../adrs/0200-queue-follow-ups-before-queue-changed.md)).
 
-### Game & inventory APIs (`PluginContext`)
+| Option                 | Default                | Description                                                                 |
+| ---------------------- | ---------------------- | --------------------------------------------------------------------------- |
+| `addedBy`              | calling plugin         | User or plugin attribution on the queue item                                |
+| `runPluginValidation`  | `false`                | When `true`, run `validateQueueRequest` hooks (may allow / reject / defer) |
+| `mediaSourceType`      | inferred / `"spotify"` | Catalog source for the track id                                             |
 
-Available as **`context.game`** and **`context.inventory`** (and **`this.game`** / **`this.inventory`** on `BasePlugin`). Full reference: [Game Sessions & Inventory](game-sessions.md#game-sessions--inventory); types: `GameSessionPluginAPI`, `InventoryPluginAPI` in `@repo/types`.
+### Game, inventory, artifacts, and personas (`PluginContext`)
+
+Available as **`context.game`**, **`context.inventory`**, **`context.artifacts`**, and **`context.personas`** (game and inventory also as **`this.game`** / **`this.inventory`** on `BasePlugin`). Full reference: [Game Sessions & Inventory](game-sessions.md#game-sessions--inventory); types in `@repo/types`.
 
 ### Queue Validation Helpers
 
@@ -74,7 +119,7 @@ Helper functions exported from `@repo/types` for use in `validateQueueRequest`. 
 | `deferQueueRequest(message: string)` | `{ deferred: true, message }` | Accept selection without enqueueing (info toast) |
 | `isDeferredQueueRequest(result)`     | type guard                    | True when result is a deferred outcome           |
 
-Reference for defer/hold + cascading `suppressQueueChanged`: `@repo/plugin-round-robin-dj` and [Queue Validation — cascading adds](queue-validation.md#cascading-queue-adds-during-queue_changed).
+Reference for defer/hold + queue follow-ups: `@repo/plugin-round-robin-dj` and [Queue Validation — follow-ups](queue-validation.md#queue-follow-ups-before-queue_changed).
 
 ### System Message Options
 

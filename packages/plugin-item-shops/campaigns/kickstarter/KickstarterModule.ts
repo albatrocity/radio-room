@@ -103,7 +103,7 @@ export class KickstarterModule {
         // No poll created yet — the delivery-delay / poll-retry schedule will fire.
         return
       }
-      const active = await this.context.api.getActivePoll(this.context.roomId)
+      const active = await this.context.polls.getActivePoll(this.context.roomId)
       if (!active || active.id !== campaign.pollId) {
         // Core already closed (or never open) — settle from votes.
         await this.resolveDeliveryPoll(campaign)
@@ -242,7 +242,7 @@ export class KickstarterModule {
     const withAttempt = await markPollAttempt(deps, campaign)
 
     const closesAt = Date.now() + POLL_DURATION_MS
-    const created = await deps.context.api.createPoll({
+    const created = await deps.context.polls.createPoll({
       roomId: deps.context.roomId,
       userId: withAttempt.ownerUserId,
       question: `Did ${withAttempt.ownerName} deliver the backer rewards for “${withAttempt.title}”?`,
@@ -299,14 +299,14 @@ export class KickstarterModule {
 
     try {
       const deps = this.deps()
-      const counts = await deps.context.api.tallyPoll(campaign.pollId)
+      const counts = await deps.context.polls.tallyPoll(campaign.pollId)
       const yes = counts[campaign.pollYesOptionId] ?? 0
       const no = counts[campaign.pollNoOptionId] ?? 0
       const success = isDeliverySuccessful(yes, no)
 
-      const active = await deps.context.api.getActivePoll(deps.context.roomId)
+      const active = await deps.context.polls.getActivePoll(deps.context.roomId)
       if (active?.id === campaign.pollId) {
-        await deps.context.api.closePoll({
+        await deps.context.polls.closePoll({
           roomId: deps.context.roomId,
           userId: campaign.ownerUserId,
           pollId: campaign.pollId,

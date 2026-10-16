@@ -42,3 +42,27 @@ describe("BridgeCapabilityCache.start", () => {
     expect(cache.getAvailableServices().size).toBe(0)
   })
 })
+
+describe("BridgeCapabilityCache.applyEvent", () => {
+  it("notifies capability listeners only when connect, disconnect, or services change", () => {
+    const redis = mockRedis({ presenceTtl: -2, capabilities: null })
+    const cache = new BridgeCapabilityCache(redis as any, "room-1")
+    const listener = vi.fn()
+    const events = vi.fn()
+    cache.onCapabilities(listener)
+    cache.onEvent(events)
+
+    cache.applyEvent({ type: "CAPABILITIES", services: ["youtube", "local"] })
+    cache.applyEvent({ type: "CAPABILITIES", services: ["local", "youtube"] })
+    expect(listener).toHaveBeenCalledTimes(1)
+
+    cache.applyEvent({ type: "CAPABILITIES", services: ["youtube"] })
+    expect(listener).toHaveBeenCalledTimes(2)
+
+    cache.applyEvent({ type: "DISCONNECTING" })
+    cache.applyEvent({ type: "DISCONNECTING" })
+    expect(listener).toHaveBeenCalledTimes(3)
+    expect(events).toHaveBeenCalledTimes(5)
+    expect(cache.isConnected()).toBe(false)
+  })
+})

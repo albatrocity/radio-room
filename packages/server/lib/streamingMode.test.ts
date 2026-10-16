@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { isStreamingMode, isTrackDetectionEnabled, streamingDisplayChanged } from "./streamingMode"
+import {
+  isStreamingMode,
+  isTrackDetectionEnabled,
+  streamingCoverUrl,
+  streamingDisplayChanged,
+} from "./streamingMode"
 
 describe("isStreamingMode", () => {
   it("returns true for a radio room with fetchMeta off", () => {
@@ -43,6 +48,28 @@ describe("isTrackDetectionEnabled", () => {
   })
 })
 
+describe("streamingCoverUrl", () => {
+  it("returns the segment or room cover while track detection is off", () => {
+    expect(
+      streamingCoverUrl({ fetchMeta: false, type: "radio" }, " https://cdn/segment.jpg "),
+    ).toBe("https://cdn/segment.jpg")
+    expect(streamingCoverUrl({ fetchMeta: false, type: "live" }, "https://cdn/room.jpg")).toBe(
+      "https://cdn/room.jpg",
+    )
+  })
+
+  it("returns null when there is no cover or track detection is on", () => {
+    expect(streamingCoverUrl({ fetchMeta: false, type: "radio" }, "  ")).toBeNull()
+    expect(streamingCoverUrl({ fetchMeta: false, type: "radio" }, null)).toBeNull()
+    expect(
+      streamingCoverUrl({ fetchMeta: true, type: "radio" }, "https://cdn/segment.jpg"),
+    ).toBeNull()
+    expect(
+      streamingCoverUrl({ fetchMeta: false, type: "jukebox" }, "https://cdn/segment.jpg"),
+    ).toBeNull()
+  })
+})
+
 describe("streamingDisplayChanged", () => {
   it("returns true when title changes", () => {
     expect(streamingDisplayChanged({ title: "A" }, { title: "B" })).toBe(true)
@@ -62,9 +89,7 @@ describe("streamingDisplayChanged", () => {
   })
 
   it("returns true when activeSegmentId changes", () => {
-    expect(
-      streamingDisplayChanged({ activeSegmentId: "a" }, { activeSegmentId: "b" }),
-    ).toBe(true)
+    expect(streamingDisplayChanged({ activeSegmentId: "a" }, { activeSegmentId: "b" })).toBe(true)
   })
 
   it("returns false when nothing relevant changed", () => {

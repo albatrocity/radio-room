@@ -12,7 +12,7 @@ This is separate from:
 Do not hardcode source ids as the only discovery path. Query the room catalog:
 
 ```typescript
-const sources = await this.context!.api.listMetadataSources(this.context!.roomId)
+const sources = await this.context!.catalog.listMetadataSources(this.context!.roomId)
 // [{ id: "spotify", label: "Spotify" }, { id: "youtube", label: "YouTube" }, ...]
 ```
 
@@ -26,14 +26,14 @@ Plugins can evaluate the same ADR 0088 rules the server uses for search/queue wi
 const roomId = this.context!.roomId
 const userId = someUserId
 
-const canSearchYoutube = await this.context!.api.canAccessMetadataSource({
+const canSearchYoutube = await this.context!.catalog.canAccessMetadataSource({
   roomId,
   userId,
   sourceId: "youtube",
   action: "search",
 })
 
-const searchableIds = await this.context!.api.getEffectiveMetadataSourceIds(
+const searchableIds = await this.context!.catalog.getEffectiveMetadataSourceIds(
   roomId,
   userId,
   "search",

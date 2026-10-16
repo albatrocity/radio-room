@@ -359,12 +359,7 @@ export interface PluginStorage {
    * Atomically set `key` to `value` only if the current value equals `expected`
    * (`null` means the key must be absent). Returns true when the write happened.
    */
-  compareAndSet(
-    key: string,
-    expected: string | null,
-    value: string,
-    ttl?: number,
-  ): Promise<boolean>
+  compareAndSet(key: string, expected: string | null, value: string, ttl?: number): Promise<boolean>
   inc(key: string, by?: number): Promise<number>
   dec(key: string, by?: number): Promise<number>
   del(key: string): Promise<void>
@@ -423,11 +418,7 @@ export interface PluginStorage {
    * `fn` receives the current parsed value (or null) and must return the next value.
    * Retries up to `options.retries` times (default 5) on CAS conflict.
    */
-  updateJson<T>(
-    key: string,
-    fn: (prev: T | null) => T,
-    options?: { retries?: number },
-  ): Promise<T>
+  updateJson<T>(key: string, fn: (prev: T | null) => T, options?: { retries?: number }): Promise<T>
 
   // ---------- List / capped log helpers (ADR 0192) -----------------------
 
@@ -458,7 +449,26 @@ export type QueueItemAttribution =
   | { type: "user"; userId: string; username: string }
   | { type: "plugin"; pluginName: string; displayName?: string }
 
-/** Transport snapshot returned by {@link PluginAPI.getPlayback} (ADR 0196). */
+/**
+ * A queue write a plugin wants the owner (`DJService`) to commit before
+ * `QUEUE_CHANGED` is emitted. Follow-ups are data; plugins do not perform the write.
+ */
+export type QueueFollowUp = {
+  type: "enqueue"
+  trackId: string
+  mediaSourceType?: string
+  addedBy: QueueItemAttribution
+  /** Always false. The proposal was already accepted (for example a held track). */
+  runPluginValidation: false
+}
+
+export type QueueFollowUpResult = {
+  followUp: QueueFollowUp
+  success: boolean
+  message?: string
+}
+
+/** Transport snapshot returned by {@link PlaybackPluginAPI.getPlayback} (ADR 0196). */
 export type PluginPlaybackReadResult =
   | {
       success: true
@@ -470,7 +480,7 @@ export type PluginPlaybackReadResult =
     }
   | { success: false; message: string }
 
-/** Slim catalog search hit returned by {@link PluginAPI.searchTracks} (ADR 0197). */
+/** Slim catalog search hit returned by {@link CatalogPluginAPI.searchTracks} (ADR 0197). */
 export interface PluginCatalogTrack {
   /** Metadata track id accepted by `addToTrackQueue`. */
   id: string
@@ -507,106 +517,9 @@ export interface PluginScheduleRevision {
 }
 
 /**
- * Plugin API - provides safe methods for plugins to interact with the system
+ * Plugin-facing polls. Requires the scoped plugin identity from the host (ADR 0152, ADR 0201).
  */
-export interface PluginAPI {
-  getNowPlaying(roomId: string): Promise<QueueItem | null>
-  getReactions(params: {
-    roomId: string
-    reactTo: ReactionSubject
-    filterEmoji?: string
-  }): Promise<Reaction[]>
-  getUsers(roomId: string, params?: { status?: "listening" | "participating" }): Promise<User[]>
-  /** Look up users by their IDs (includes users who have left the room) */
-  getUsersByIds(userIds: string[]): Promise<User[]>
-  /**
-   * Whether the user is currently connected to the room. O(1) — prefer this over
-   * scanning `getUsers(roomId)`, which reads every online user's record.
-   */
-  isUserInRoom(roomId: string, userId: string): Promise<boolean>
-  /**
-   * Online user ids in the room (`SMEMBERS` only). Prefer this over `getUsers`
-   * when you only need ids — no user-hash reads or persona hydration.
-   */
-  getOnlineUserIds(roomId: string): Promise<string[]>
-  /**
-   * Whether the user is a room admin (creator or member of `room:{id}:admins`).
-   * Plugins should use this for defense-in-depth on admin-only `executeAction` handlers.
-   */
-  isRoomAdmin(roomId: string, userId: string): Promise<boolean>
-  skipTrack(roomId: string, trackId: string): Promise<void>
-  sendSystemMessage(
-    roomId: string,
-    message: string,
-    meta?: ChatMessage["meta"],
-    mentions?: ChatMessage["mentions"],
-  ): Promise<void>
-  /**
-   * Deliver a system-authored chat line to a single connected client (by user id).
-   * Does not persist to chat history or emit via SystemEvents (see ADR 0046).
-   */
-  sendUserSystemMessage(
-    roomId: string,
-    userId: string,
-    message: string,
-    meta?: ChatMessage["meta"],
-  ): Promise<void>
-  /**
-   * Ephemeral toast to one connected client (ADR 0148). Does not add chat lines,
-   * notification-center indicators, or persistence. Private socket emit only.
-   */
-  sendUserToast(
-    roomId: string,
-    userId: string,
-    toast: {
-      title: string
-      description?: string
-      type?: "info" | "success" | "warning" | "error"
-      duration?: number
-      /** Stable toast id; defaults to a generated id on the client. */
-      id?: string
-      /** Notification `source` for ADR 0144 toast-only raises. */
-      source?: string
-    },
-  ): Promise<void>
-  /**
-   * Spawn an ephemeral online user with no socket (ADR 0194).
-   * Emits `USER_JOINED`. Does not add the user to room export history.
-   */
-  spawnEphemeralUser(
-    roomId: string,
-    params: { username: string; userId?: string },
-  ): Promise<User>
-  /**
-   * Remove an ephemeral user from the room (ADR 0194). Emits `USER_LEFT`.
-   */
-  despawnEphemeralUser(roomId: string, userId: string): Promise<void>
-  /**
-   * Send a chat message as the given user through the normal message pipeline
-   * (parse → `CHAT_MESSAGE_SUBMITTED` → transforms → persist/broadcast). Skips chat-buffer delay.
-   */
-  sendChatMessageAsUser(roomId: string, userId: string, content: string): Promise<void>
-  /** Add a reaction attributed to the given user (ADR 0194). */
-  addReactionAsUser(
-    roomId: string,
-    userId: string,
-    emoji: Emoji,
-    reactTo: ReactionSubject,
-  ): Promise<void>
-  /** Remove a reaction attributed to the given user (ADR 0194). */
-  removeReactionAsUser(
-    roomId: string,
-    userId: string,
-    emoji: Emoji,
-    reactTo: ReactionSubject,
-  ): Promise<void>
-  getPluginConfig(roomId: string, pluginName: string): Promise<any | null>
-  setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
-  /** Emit an update for a playlist track (e.g., when pluginData changes) */
-  updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
-  /** Get the current queue for a room */
-  getQueue(roomId: string): Promise<QueueItem[]>
-
+export interface PollsPluginAPI {
   /**
    * Create a core room poll authored by this plugin (ADR 0152).
    * Requires a scoped plugin identity; skips the admin gate. Still enforces
@@ -661,7 +574,12 @@ export interface PluginAPI {
     pollId: string,
     options?: { excludeUserIds?: string[] },
   ): Promise<Record<string, number>>
+}
 
+/**
+ * Durable plugin schedules. `BasePlugin.schedule` / `cancelSchedule` delegate here (ADR 0190, ADR 0201).
+ */
+export interface SchedulePluginAPI {
   /**
    * Schedule a durable plugin callback (ADR 0190). Survives restarts; multi-dyno safe.
    * Replaces an existing schedule with the same `id`. Requires scoped plugin identity.
@@ -699,6 +617,19 @@ export interface PluginAPI {
     payload: unknown
     paused?: boolean
   } | null>
+}
+
+/**
+ * Queue reads and writes. One interface for both; a read/write split would still be combined by every writer (ADR 0201).
+ */
+export interface QueuePluginAPI {
+  getNowPlaying(roomId: string): Promise<QueueItem | null>
+  skipTrack(roomId: string, trackId: string): Promise<void>
+
+  /** Emit an update for a playlist track (e.g., when pluginData changes) */
+  updatePlaylistTrack(roomId: string, track: QueueItem): Promise<void>
+  /** Get the current queue for a room */
+  getQueue(roomId: string): Promise<QueueItem[]>
 
   /**
    * Set the queue split anchor (ADR 0067, plugin source ADR 0153). App-controlled rooms only.
@@ -738,11 +669,6 @@ export interface PluginAPI {
       runPluginValidation?: boolean
       /** Metadata/media source that owns this track id (spotify, youtube, …). */
       mediaSourceType?: string
-      /**
-       * When true, skip emitting QUEUE_CHANGED after the add. Use when the caller
-       * will broadcast a single fresh snapshot (e.g. cascading hold flushes).
-       */
-      suppressQueueChanged?: boolean
     },
   ): Promise<{ success: true; queuedItem: QueueItem } | { success: false; message: string }>
 
@@ -824,7 +750,6 @@ export interface PluginAPI {
       at?: "next" | "end" | number
       pin?: boolean
       addedBy?: QueueItemAttribution
-      suppressQueueChanged?: boolean
     },
   ): Promise<
     | {
@@ -842,7 +767,12 @@ export interface PluginAPI {
     roomId: string,
     blockId: string,
   ): Promise<{ success: true } | { success: false; message: string }>
+}
 
+/**
+ * Playback volume, transport, and Media Bridge speech (ADR 0069, ADR 0196, ADR 0178, ADR 0201).
+ */
+export interface PlaybackPluginAPI {
   /**
    * Set playback volume on the room's active PlaybackController device (0-100).
    * Returns failure when no controller is configured or volume control is unsupported.
@@ -883,7 +813,9 @@ export interface PluginAPI {
    * List installed macOS `say` voices on the linked Media Bridge (ADR 0178).
    * Returns `{ voices: [] }` when offline / not bridge.
    */
-  listMediaBridgeSayVoices(roomId: string): Promise<{ voices: Array<{ id: string; name: string; locale: string }> }>
+  listMediaBridgeSayVoices(
+    roomId: string,
+  ): Promise<{ voices: Array<{ id: string; name: string; locale: string }> }>
 
   /**
    * Queue TTS on the DJ Mac via Media Bridge (ADR 0178). Does not wait for playback.
@@ -893,7 +825,12 @@ export interface PluginAPI {
     roomId: string,
     params: { text: string; voice: string },
   ): Promise<{ ok: true } | { ok: false; message: string }>
+}
 
+/**
+ * Catalog search, metadata-source access, and the local library (ADR 0088, ADR 0197, ADR 0201).
+ */
+export interface CatalogPluginAPI {
   /**
    * List metadata sources available to the room (policy ∩ bridge CAPABILITIES).
    * Not filtered per-user — use for plugin config / grant discovery (ADR 0088).
@@ -913,9 +850,7 @@ export interface PluginAPI {
     sourceId?: string
     userId?: string
     limit?: number
-  }): Promise<
-    { success: true; tracks: PluginCatalogTrack[] } | { success: false; message: string }
-  >
+  }): Promise<{ success: true; tracks: PluginCatalogTrack[] } | { success: false; message: string }>
 
   /**
    * Whether a user may search/queue a metadata source under ADR 0088 rules
@@ -1041,6 +976,101 @@ export interface PluginAPI {
     roomId: string,
     playlistId: string,
   ): Promise<Array<{ id: string; albumId?: string }>>
+}
+
+/**
+ * Residual plugin host: chat, presence, sound and screen effects, config, and `emit`.
+ * Polls, schedules, the queue, playback, and the catalog are separate fields on
+ * {@link PluginContext} (ADR 0201).
+ */
+export interface PluginAPI {
+  getReactions(params: {
+    roomId: string
+    reactTo: ReactionSubject
+    filterEmoji?: string
+  }): Promise<Reaction[]>
+  getUsers(roomId: string, params?: { status?: "listening" | "participating" }): Promise<User[]>
+  /** Look up users by their IDs (includes users who have left the room) */
+  getUsersByIds(userIds: string[]): Promise<User[]>
+  /**
+   * Whether the user is currently connected to the room. O(1) — prefer this over
+   * scanning `getUsers(roomId)`, which reads every online user's record.
+   */
+  isUserInRoom(roomId: string, userId: string): Promise<boolean>
+  /**
+   * Online user ids in the room (`SMEMBERS` only). Prefer this over `getUsers`
+   * when you only need ids — no user-hash reads or persona hydration.
+   */
+  getOnlineUserIds(roomId: string): Promise<string[]>
+  /**
+   * Whether the user is a room admin (creator or member of `room:{id}:admins`).
+   * Plugins should use this for defense-in-depth on admin-only `executeAction` handlers.
+   */
+  isRoomAdmin(roomId: string, userId: string): Promise<boolean>
+  sendSystemMessage(
+    roomId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+    mentions?: ChatMessage["mentions"],
+  ): Promise<void>
+  /**
+   * Deliver a system-authored chat line to a single connected client (by user id).
+   * Does not persist to chat history or emit via SystemEvents (see ADR 0046).
+   */
+  sendUserSystemMessage(
+    roomId: string,
+    userId: string,
+    message: string,
+    meta?: ChatMessage["meta"],
+  ): Promise<void>
+  /**
+   * Ephemeral toast to one connected client (ADR 0148). Does not add chat lines,
+   * notification-center indicators, or persistence. Private socket emit only.
+   */
+  sendUserToast(
+    roomId: string,
+    userId: string,
+    toast: {
+      title: string
+      description?: string
+      type?: "info" | "success" | "warning" | "error"
+      duration?: number
+      /** Stable toast id; defaults to a generated id on the client. */
+      id?: string
+      /** Notification `source` for ADR 0144 toast-only raises. */
+      source?: string
+    },
+  ): Promise<void>
+  /**
+   * Spawn an ephemeral online user with no socket (ADR 0194).
+   * Emits `USER_JOINED`. Does not add the user to room export history.
+   */
+  spawnEphemeralUser(roomId: string, params: { username: string; userId?: string }): Promise<User>
+  /**
+   * Remove an ephemeral user from the room (ADR 0194). Emits `USER_LEFT`.
+   */
+  despawnEphemeralUser(roomId: string, userId: string): Promise<void>
+  /**
+   * Send a chat message as the given user through the normal message pipeline
+   * (parse → `CHAT_MESSAGE_SUBMITTED` → transforms → persist/broadcast). Skips chat-buffer delay.
+   */
+  sendChatMessageAsUser(roomId: string, userId: string, content: string): Promise<void>
+  /** Add a reaction attributed to the given user (ADR 0194). */
+  addReactionAsUser(
+    roomId: string,
+    userId: string,
+    emoji: Emoji,
+    reactTo: ReactionSubject,
+  ): Promise<void>
+  /** Remove a reaction attributed to the given user (ADR 0194). */
+  removeReactionAsUser(
+    roomId: string,
+    userId: string,
+    emoji: Emoji,
+    reactTo: ReactionSubject,
+  ): Promise<void>
+  getPluginConfig(roomId: string, pluginName: string): Promise<any | null>
+  setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
 
   /**
    * Emit a custom plugin event.
@@ -1492,6 +1522,16 @@ export interface PluginContext {
   artifacts: ArtifactsPluginAPI
   /** Room personas (identity labels; register/assign plugin-owned personas). */
   personas: PersonasPluginAPI
+  /** Core room polls authored by this plugin (ADR 0152, ADR 0201). */
+  polls: PollsPluginAPI
+  /** Durable schedules for this plugin (ADR 0190, ADR 0201). */
+  schedule: SchedulePluginAPI
+  /** Queue reads and writes for this plugin (ADR 0201). */
+  queue: QueuePluginAPI
+  /** Playback volume, transport, and Media Bridge speech (ADR 0201). */
+  playback: PlaybackPluginAPI
+  /** Catalog search and the local library (ADR 0201). */
+  catalog: CatalogPluginAPI
   getRoom: () => Promise<Room | null>
   appContext: AppContext
 }
@@ -1499,11 +1539,13 @@ export interface PluginContext {
 /**
  * Style hints that plugins can provide to modify UI elements
  */
+export type PluginCssProperties = Record<string, string | number>
+
 export interface PluginStyleHints {
-  /** Styles for the track title */
-  title?: React.CSSProperties
-  /** Styles for subtitles or secondary text */
-  subtitle?: React.CSSProperties
+  /** Styles for the track title (camelCase CSS properties) */
+  title?: PluginCssProperties
+  /** Styles for subtitles or secondary text (camelCase CSS properties) */
+  subtitle?: PluginCssProperties
   /** Badge configuration */
   badge?: {
     variant?: "success" | "warning" | "error" | "info"
@@ -1655,9 +1697,7 @@ export function isChatMessageTransformDrop(
  * @example
  * if (!config.enabled) return allowQueueRequest()
  */
-export const allowQueueRequest = (
-  pluginData?: Record<string, unknown>,
-): QueueValidationResult =>
+export const allowQueueRequest = (pluginData?: Record<string, unknown>): QueueValidationResult =>
   pluginData && Object.keys(pluginData).length > 0
     ? { allowed: true, pluginData }
     : { allowed: true }
@@ -1692,6 +1732,13 @@ export const deferQueueRequest = (message: string): QueueValidationResult => ({
 export interface PluginActionInitiator {
   userId: string
   username?: string
+}
+
+export interface PluginActionResult {
+  success: boolean
+  message?: string
+  /** Config fields the action wrote, so an open admin form can sync (ADR 0068 private fields are not broadcast). */
+  configPatch?: Record<string, unknown>
 }
 
 /**
@@ -1774,7 +1821,7 @@ export interface Plugin {
     action: string,
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
-  ): Promise<{ success: boolean; message?: string }>
+  ): Promise<PluginActionResult>
 
   /**
    * Dry-run parse + merge for a `configImport` action (ADR 0075). No Redis write.
@@ -1813,6 +1860,19 @@ export interface Plugin {
    * }
    */
   validateQueueRequest?(params: QueueValidationParams): Promise<QueueValidationResult>
+
+  /**
+   * Propose queue writes for the owner to commit before it emits `QUEUE_CHANGED`.
+   * Called after the primary write and before the broadcast. Default is an empty list.
+   * Do not call `addToTrackQueue` here or from a system-event handler.
+   */
+  collectQueueFollowUps?(roomId: string): Promise<QueueFollowUp[]>
+
+  /**
+   * Result of a follow-up the owner applied. Success means the track is in Redis.
+   * Plugins clear holds and advance turns here, before `QUEUE_CHANGED` is emitted.
+   */
+  onQueueFollowUpResult?(result: QueueFollowUpResult): Promise<void>
 
   /**
    * Grant a user access to a restricted metadata source (ADR 0088).

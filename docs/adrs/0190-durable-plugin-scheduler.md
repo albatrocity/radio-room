@@ -1,7 +1,7 @@
 # 0190. Durable plugin scheduler
 
 **Date:** 2026-09-22
-**Status:** Accepted. Extended by [0196](0196-plugin-playback-timeline.md) (playback-anchored schedules)
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (point 3: schedules are `context.schedule`). Extended by [0196](0196-plugin-playback-timeline.md) (playback-anchored schedules)
 
 ## Context
 

@@ -76,7 +76,8 @@ listening-room/
 │   ├── adapter-shoutcast/# Shoutcast/Icecast media source
 │   ├── adapter-rtmp/     # Live RTMP media source (MediaMTX)
 │   ├── adapter-bridge/   # Bridge playback controller; YouTube and local metadata
-│   ├── plugin-*/         # Room plugins registered in apps/api/src/server.ts
+│   ├── plugin-*/         # Room plugins
+│   ├── plugins/          # pluginFactories: the registry the API and studio-bridge import
 │   ├── plugin-base/      # BasePlugin
 │   ├── plugin-config-ui/ # Shared schema-driven config forms (web + scheduler)
 │   └── …                 # factories, utils, eslint-config, typescript-config, spotify-catalog

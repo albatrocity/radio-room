@@ -123,13 +123,7 @@ export function hydratePeekItems(
     const def = byId.get(stack.definitionId)
     if (!def) continue
     const condition = isPhysicalMediaDefinition(def)
-      ? readItemCondition({
-          itemId: stack.itemId,
-          definitionId: stack.definitionId,
-          quantity: stack.quantity,
-          acquiredAt: 0,
-          metadata: stack.metadata,
-        })
+      ? readItemCondition(stack)
       : undefined
     items.push({
       itemId: stack.itemId,

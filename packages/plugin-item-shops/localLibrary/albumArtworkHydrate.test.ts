@@ -32,15 +32,15 @@ function albumEntry(albumId: string, withArt?: boolean): ItemCatalogEntry {
 
 function moduleWithAlbums(
   albumIds: string[],
-  api: Partial<PluginContext["api"]> = {},
+  catalog: Partial<PluginContext["catalog"]> = {},
   withArt: readonly string[] = [],
 ): LocalLibraryModule {
   const context = {
     roomId: "room-1",
-    api: {
+    catalog: {
       getLocalAlbumArtwork: vi.fn(async () => ({})),
       getLocalAlbumComments: vi.fn(async () => ({})),
-      ...api,
+      ...catalog,
     },
   } as unknown as PluginContext
   const mod = new LocalLibraryModule("item-shops", () => context)

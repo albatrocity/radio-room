@@ -1,7 +1,7 @@
 # 0153. Plugin-authored queue split
 
 **Date:** 2026-09-03
-**Status:** Accepted
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (`setQueueSplit` / `removeQueueSplit` are `context.queue`)
 
 ## Context
 

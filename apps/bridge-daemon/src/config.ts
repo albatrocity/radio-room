@@ -12,9 +12,14 @@ import {
 export const DEFAULT_HTTP_LISTEN = "127.0.0.1:18766"
 
 export const bridgeDaemonConfigSchema = z.object({
-  redisUrl: z.string().default("redis://127.0.0.1:6379"),
+  /** Platform API origin. The daemon does not open Redis. */
+  apiBaseUrl: z.string().default("http://127.0.0.1:3000"),
+  /** Pack secret. Standby socket auth until a device token is minted. */
+  deviceIngressSecret: z.string().default(""),
+  /** Returned by the API after link or join. Not a Redis key. */
+  deviceToken: z.string().optional(),
   defaultRoomId: z.string().optional(),
-  /** Stable id for Redis standby presence / LINK_ACK (generated once). */
+  /** Stable id for link ACK (generated once). */
   daemonId: z.string().optional(),
   /** Local HTTP control UI bind address (`host:port`). */
   httpListen: z.string().default(DEFAULT_HTTP_LISTEN),
@@ -127,8 +132,10 @@ export function resolveNowPlayingPath(
 /** Env overrides used when local-remote supervises a packed daemon. */
 export function applyEnvOverrides(config: BridgeDaemonConfig): BridgeDaemonConfig {
   const next = { ...config }
-  const redis = process.env.BRIDGE_REDIS_URL?.trim()
-  if (redis) next.redisUrl = redis
+  const api = process.env.BRIDGE_API_BASE_URL?.trim()
+  if (api) next.apiBaseUrl = api
+  const secret = process.env.DEVICE_INGRESS_SECRET?.trim()
+  if (secret) next.deviceIngressSecret = secret
   const room = process.env.BRIDGE_DEFAULT_ROOM_ID?.trim()
   if (room) next.defaultRoomId = room
   const mpv = process.env.BRIDGE_MPV_PATH?.trim()

@@ -1,7 +1,7 @@
 {
   "name": "bridge-daemon",
   "version": "1.0.0",
-  "description": "Listening Room Mac bridge daemon — CDP + mpv playback, Redis RPC",
+  "description": "Listening Room Mac bridge daemon — CDP + mpv playback, device socket",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
@@ -23,7 +23,7 @@
     "commander": "^13.1.0",
     "music-metadata": "^11.14.0",
     "puppeteer-core": "^24.8.2",
-    "redis": "^4.7.0",
+    "socket.io-client": "^4.8.1",
     "zod": "^4.4.2"
   },
   "devDependencies": {

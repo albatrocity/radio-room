@@ -35,4 +35,4 @@ Event types are defined centrally in `packages/types/SystemEventTypes.ts` using 
 - **Trade-off**: Indirection makes it harder to trace "who receives this event" without reading the broadcaster/plugin registrations.
 - **Trade-off**: All events go through a single choke point; if `emit` itself has issues, all consumers are affected.
 
-See also: [docs/BACKEND_DEVELOPMENT.md](../BACKEND_DEVELOPMENT.md)
+See also: [docs/BACKEND_DEVELOPMENT.md](../BACKEND_DEVELOPMENT.md). Queue writes proposed during a commit are follow-ups applied before `QUEUE_CHANGED`, not a second emit ([0200](0200-queue-follow-ups-before-queue-changed.md)).

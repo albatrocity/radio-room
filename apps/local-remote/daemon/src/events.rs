@@ -1,4 +1,4 @@
-//! Platform `SYSTEM:*` payloads (subset).
+//! Active-segment payload returned by the platform device API.
 
 use serde::Deserialize;
 
@@ -17,11 +17,6 @@ impl SegmentActivated {
     pub fn from_json(s: &str) -> serde_json::Result<Self> {
         serde_json::from_str(s)
     }
-}
-
-/// Strip `SYSTEM:` prefix and return event name.
-pub fn event_name_from_channel(channel: &str) -> Option<&str> {
-    channel.strip_prefix("SYSTEM:")
 }
 
 #[cfg(test)]

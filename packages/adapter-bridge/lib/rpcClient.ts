@@ -1,4 +1,5 @@
 import type { RedisClientType } from "redis"
+import { callDevice, deviceRoomPresent, notifyDevice } from "./deviceSession"
 import {
   BRIDGE_RPC_TIMEOUT_MS,
   bridgeResponseSchema,
@@ -65,6 +66,7 @@ export class BridgeRpcClient {
   }
 
   async isPresent(): Promise<boolean> {
+    if (deviceRoomPresent(this.roomId)) return true
     const ttl = await this.pub.ttl(presenceKey(this.roomId))
     return ttl > 0
   }
@@ -74,6 +76,10 @@ export class BridgeRpcClient {
     params: Record<string, unknown> = {},
     options?: { timeoutMs?: number; requirePresence?: boolean },
   ): Promise<unknown> {
+    if (deviceRoomPresent(this.roomId)) {
+      return callDevice(this.roomId, method, params, options?.timeoutMs)
+    }
+
     const requirePresence = options?.requirePresence !== false
     if (requirePresence && !(await this.isPresent())) {
       throw new Error(`Bridge daemon not connected for room ${this.roomId}`)
@@ -106,6 +112,10 @@ export class BridgeRpcClient {
     method: BridgeRequest["method"],
     params: Record<string, unknown> = {},
   ): Promise<void> {
+    if (deviceRoomPresent(this.roomId)) {
+      notifyDevice(this.roomId, method, params)
+      return
+    }
     if (!(await this.isPresent())) return
     const id = crypto.randomUUID()
     const request: BridgeRequest = { id, method, params }

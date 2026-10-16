@@ -207,6 +207,44 @@ describe("addToQueueUiMachine", () => {
     actor.stop()
   })
 
+  it("keeps the browse catalog when a capabilities refresh drops it for one payload", () => {
+    const actor = createActor(addToQueueUiMachine).start()
+    actor.send({ type: "ACTIVATE", roomId: ROOM })
+    actor.send({
+      type: "SET_CAPABILITIES",
+      canBrowse: true,
+      browseableSourceIds: ["spotify", "local"],
+      metadataSourceIds: ["spotify", "local"],
+    })
+    actor.send({ type: "SET_MODE", mode: "browse" })
+    actor.send({ type: "SET_SOURCE", sourceFilter: "local" })
+    actor.send({
+      type: "BROWSE_LOCATION",
+      location: {
+        source: "local",
+        rootKind: "albums",
+        level: "tracks",
+        albumId: "kountry",
+        albumTitle: "Kountry",
+      },
+    })
+
+    actor.send({
+      type: "SET_CAPABILITIES",
+      canBrowse: true,
+      browseableSourceIds: ["spotify"],
+      metadataSourceIds: ["spotify"],
+    })
+
+    expect(actor.getSnapshot().context.sourceFilter).toBe("local")
+    expect(actor.getSnapshot().context.browse).toMatchObject({
+      source: "local",
+      albumId: "kountry",
+      level: "tracks",
+    })
+    actor.stop()
+  })
+
   it("rejects malformed payloads", () => {
     expect(parseAddToQueueUiState(null)).toBeNull()
     expect(parseAddToQueueUiState({ mode: "search" })).toBeNull()

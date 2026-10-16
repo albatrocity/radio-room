@@ -20,7 +20,7 @@ function stubQueueTarget(
     }),
     addedBy: options?.addedBy,
   })
-  vi.mocked(deps.context.api.getQueue).mockResolvedValue([queueItem])
+  vi.mocked(deps.context.queue.getQueue).mockResolvedValue([queueItem])
   return queueItem
 }
 
@@ -42,7 +42,7 @@ describe("repulsiveSeltzer", () => {
     )
 
     expect(result.success).toBe(true)
-    expect(deps.context.api.moveTrackByPosition).toHaveBeenCalledWith(
+    expect(deps.context.queue.moveTrackByPosition).toHaveBeenCalledWith(
       "room-1",
       "meta-track-2",
       1,
@@ -55,7 +55,7 @@ describe("repulsiveSeltzer", () => {
     const user = userFactory.build()
     stubRoomUsers(deps, [user])
     stubQueueTarget(deps, "meta-track-2")
-    vi.mocked(deps.context.api.moveTrackByPosition).mockResolvedValue({
+    vi.mocked(deps.context.queue.moveTrackByPosition).mockResolvedValue({
       success: false,
       reason: "defense_blocked",
       blockingItemName: "Catered Meal",
@@ -93,7 +93,7 @@ describe("repulsiveSeltzer", () => {
     const deps = createMockDeps()
     const user = userFactory.build()
     stubRoomUsers(deps, [user])
-    vi.mocked(deps.context.api.getQueue).mockResolvedValue([])
+    vi.mocked(deps.context.queue.getQueue).mockResolvedValue([])
 
     const result = await invokeUse(
       repulsiveSeltzer,
@@ -108,7 +108,7 @@ describe("repulsiveSeltzer", () => {
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
     expect(result.message).toBe("Targeted track not found in queue.")
-    expect(deps.context.api.moveTrackByPosition).not.toHaveBeenCalled()
+    expect(deps.context.queue.moveTrackByPosition).not.toHaveBeenCalled()
   })
 
   test("announces demotion with victim username and track title", async () => {

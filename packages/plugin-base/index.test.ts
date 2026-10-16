@@ -128,6 +128,11 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   return {
     roomId,
     api: mockApi,
+    polls: mockApi,
+    schedule: mockApi,
+    queue: mockApi,
+    playback: mockApi,
+    catalog: mockApi,
     storage: mockStorage as any, // Cast to include cleanup
     lifecycle: mockLifecycle,
     getRoom: vi.fn().mockResolvedValue(null),

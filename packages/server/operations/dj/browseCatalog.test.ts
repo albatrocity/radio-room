@@ -15,6 +15,7 @@ vi.mock("../data", () => ({
 vi.mock("@repo/adapter-bridge", () => ({
   getBridgeRpcClient: vi.fn(() => ({})),
   fetchLocalPlaylistTracks: vi.fn(async () => ({ ok: true, tracks: [] })),
+  fetchLocalAlbumResult: vi.fn(async () => null),
 }))
 
 import { findRoom } from "../data"

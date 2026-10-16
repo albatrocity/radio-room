@@ -179,7 +179,7 @@ export interface LyricHeroComponentState extends Record<string, unknown> {
 }
 
 /** Per-user bag (competitive / inclusive) via contributeToUserGameState. */
-export interface LyricHeroUserGameState {
+export type LyricHeroUserGameState = {
   puzzle: PublicPuzzleView | null
   phraseIndex: number | null
   phraseTotal: number

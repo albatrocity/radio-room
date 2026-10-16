@@ -380,6 +380,11 @@ function setup(options?: {
     roomId: ROOM,
     storage: createStorage(),
     api,
+    polls: api,
+    schedule: api,
+    queue: api,
+    playback: api,
+    catalog: api,
     game: {
       getActiveSession: vi.fn(async () => ({
         id: "session-1",

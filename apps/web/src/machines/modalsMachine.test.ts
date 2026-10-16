@@ -5,7 +5,7 @@ vi.mock("../actors/socketActor", () => ({
   emitToSocket: vi.fn(),
 }))
 vi.mock("../actors/authActor", () => ({
-  getIsAdmin: () => true,
+  getIsAdmin: vi.fn(() => true),
 }))
 vi.mock("../actors/djActor", () => ({
   canAddToQueue: () => true,
@@ -17,8 +17,10 @@ vi.mock("../actors/userGameStateActor", () => ({
   refreshUserGameState: vi.fn(),
 }))
 
+import { getIsAdmin } from "../actors/authActor"
 import { gameStateNavActor } from "../actors/gameStateNavActor"
 import { refreshUserGameState } from "../actors/userGameStateActor"
+import { toPluginSettingsEvent } from "../lib/pluginSettingsEvent"
 import { modalsMachine } from "./modalsMachine"
 
 describe("modalsMachine", () => {
@@ -69,40 +71,46 @@ describe("modalsMachine", () => {
     expect(actor.getSnapshot().matches("queue.open")).toBe(true)
   })
 
-  it("opens Queue Theme plugin settings from overview", () => {
+  it("opens any plugin's settings from overview without a per-plugin state", () => {
     const actor = createActor(modalsMachine).start()
 
     actor.send({ type: "EDIT_SETTINGS" })
-    actor.send({ type: "EDIT_QUEUE_THEME" })
+    actor.send(toPluginSettingsEvent("example-plugin"))
 
-    expect(actor.getSnapshot().matches("modal.settings.queue_theme")).toBe(true)
+    expect(actor.getSnapshot().matches("modal.settings.plugin")).toBe(true)
+    expect(actor.getSnapshot().context.pluginSettingsName).toBe("example-plugin")
 
     actor.send({ type: "BACK" })
     expect(actor.getSnapshot().matches("modal.settings.overview")).toBe(true)
   })
 
-  it("opens The Fed plugin settings from overview", () => {
+  it("opens plugin settings directly from a closed modal", () => {
     const actor = createActor(modalsMachine).start()
 
-    actor.send({ type: "EDIT_SETTINGS" })
-    actor.send({ type: "EDIT_THE_FED" })
+    actor.send(toPluginSettingsEvent("the-fed"))
 
-    expect(actor.getSnapshot().matches("modal.settings.the_fed")).toBe(true)
-
-    actor.send({ type: "BACK" })
-    expect(actor.getSnapshot().matches("modal.settings.overview")).toBe(true)
+    expect(actor.getSnapshot().matches("modal.settings.plugin")).toBe(true)
+    expect(actor.getSnapshot().context.pluginSettingsName).toBe("the-fed")
   })
 
-  it("opens Lyric Hero plugin settings from overview", () => {
+  it("switches between plugin settings while settings are open", () => {
     const actor = createActor(modalsMachine).start()
 
-    actor.send({ type: "EDIT_SETTINGS" })
-    actor.send({ type: "EDIT_LYRIC_HERO" })
+    actor.send(toPluginSettingsEvent("queue-theme"))
+    actor.send(toPluginSettingsEvent("lyric-hero"))
 
-    expect(actor.getSnapshot().matches("modal.settings.lyric_hero")).toBe(true)
+    expect(actor.getSnapshot().matches("modal.settings.plugin")).toBe(true)
+    expect(actor.getSnapshot().context.pluginSettingsName).toBe("lyric-hero")
+  })
 
-    actor.send({ type: "BACK" })
-    expect(actor.getSnapshot().matches("modal.settings.overview")).toBe(true)
+  it("ignores plugin settings for non-admins", () => {
+    vi.mocked(getIsAdmin).mockReturnValueOnce(false)
+    const actor = createActor(modalsMachine).start()
+
+    actor.send(toPluginSettingsEvent("the-fed"))
+
+    expect(actor.getSnapshot().matches("modal.closed")).toBe(true)
+    expect(actor.getSnapshot().context.pluginSettingsName).toBeNull()
   })
 
   it("keeps game state open when Feedback opens and closes", () => {

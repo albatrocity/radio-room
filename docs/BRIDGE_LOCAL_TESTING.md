@@ -63,7 +63,8 @@ Edit `~/.config/listening-room-bridge/config.json`:
 
 ```json
 {
-  "redisUrl": "redis://127.0.0.1:6379",
+  "apiBaseUrl": "http://127.0.0.1:3000",
+  "deviceIngressSecret": "same-as-DEVICE_INGRESS_SECRET",
   "defaultRoomId": "YOUR_ROOM_ID",
   "services": ["youtube", "local", "spotify"],
   "chrome": {
@@ -130,7 +131,7 @@ Album: Album Name
 
 In Audio Hijack’s Broadcast/Live Stream block, set **Track Source** to that file (“Other Source…”) and set **Title Format** to something like `{title} | {artist} | {album}` — that format belongs in AH, not in the text file.
 
-**Redis URL:** If Redis is only inside Docker, publish port `6379` to the host (usual for local compose) or use `host.docker.internal` from containers and `127.0.0.1` from the Mac daemon.
+**API URL:** `apiBaseUrl` is the Listening Room API (local compose is usually `http://127.0.0.1:3000`). `deviceIngressSecret` must match `DEVICE_INGRESS_SECRET` on that API. The daemon does not open Redis. Now playing is `POST /api/device/now-playing`. Set the same secret on local-remote when it supervises the child; the supervisor injects `BRIDGE_API_BASE_URL` and `DEVICE_INGRESS_SECRET`.
 
 **Now Playing.txt:** Default is `~/Now Playing.txt` — the same path local-remote’s watcher used, and the path Audio Hijack should already be reading. `~` is expanded (Node does not do this on its own). When local-remote supervises the packed daemon, it also injects `BRIDGE_NOW_PLAYING_PATH` from the watcher path if the bridge config field is empty. Application metadata detection off. The macOS watcher is forced off while Media Bridge is enabled so you don’t double-publish.
 
@@ -161,30 +162,30 @@ Restart the API after env / adapter registration changes so `@repo/adapter-bridg
 
 **DJ Mac (packed):** start `local-remote` from the zip, open **http://127.0.0.1:9876/**, enable **Media Bridge**, save. Session / rooms / services are on that page (proxied). Child escape hatch: `http://127.0.0.1:18766/`.
 
-**Dev from source — recommended:** local control UI + **Redis standby** (required for **Link to Media Bridge** from the web app — [ADR 0082](adrs/0082-media-bridge-link-via-redis-pubsub.md)):
+**Dev from source — recommended:** local control UI + **device socket standby** (required for **Link to Media Bridge** from the web app — [ADR 0204](adrs/0204-device-trust-boundary.md)):
 
 ```bash
 npm run serve -w bridge-daemon
 # open http://127.0.0.1:18766/  (or use consolidated UI via local-remote + features.bridge)
 ```
 
-`serve` keeps a Redis connection and listens on `BRIDGE:CONTROL` even before a room is connected. From any admin browser (not only the DJ Mac), open the bridge room → Admin → **Link to Media Bridge**. That publishes a Redis link request; the standby daemon connects and ACKs.
+`serve` opens a Socket.IO connection to `{apiBaseUrl}/device` and stays there even before a room is connected. From any admin browser (not only the DJ Mac), open the bridge room → Admin → **Link to Media Bridge**. The API sends a one-time link code on that socket; the standby daemon connects and ACKs. The code is not written to Redis.
 
-If no daemon is in standby, the button shows: *No Media Bridge is online…* Start `serve` (or packed local-remote with bridge enabled) with Redis aimed at the same Redis as the API.
+If no daemon is in standby, the button shows: *No Media Bridge is online…* Start `serve` (or packed local-remote with bridge enabled) with `apiBaseUrl` aimed at this API and the ingress secret set.
 
-Pick a room marked **bridge** in the local UI (listed from Redis — no copy/paste), or use the web **Link** button. Edit services, Chrome/Tidal/Navidrome/mpv paths, Now Playing path, etc., then **Save**. Connect/disconnect from the Session / Rooms sections.
+Pick a room marked **bridge** in the local UI (listed from `GET /api/device/rooms`), or use the web **Link** button. Edit services, Chrome/Tidal/Navidrome/mpv paths, Now Playing path, etc., then **Save**. Connect/disconnect from the Session / Rooms sections.
 
 CLI alternatives:
 
 ```bash
-npm run rooms -w bridge-daemon          # list rooms from Redis
+npm run rooms -w bridge-daemon          # list rooms from the API
 npm run connect -w bridge-daemon -- --room YOUR_ROOM_ID
 npm run connect -w bridge-daemon -- --room YOUR_ROOM_ID --ui   # connect + UI + standby
 ```
 
-Note: plain `connect` **without** `--ui` does **not** listen for web Link requests.
+`connect` opens the device socket, so web Link requests are received whether or not `--ui` is set. `--ui` also starts the local config page.
 
-Leave the process running. You should see connected drivers listed (and `[standby] listening on BRIDGE:CONTROL`).
+Leave the process running. You should see connected drivers listed (and `[device] connected`).
 
 First Chrome launch uses a dedicated profile under `~/.config/listening-room-bridge/chrome-profile`. Sign into **YouTube Premium** in that window (avoids ads on the broadcast).
 
@@ -243,7 +244,7 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 | Symptom | Check |
 |---------|--------|
 | YouTube search empty | `YOUTUBE_API_KEY` on API; quota; API enabled |
-| `Bridge daemon not connected` | Daemon `connect` running; same `redisUrl` / room id; presence key TTL |
+| `Bridge daemon not connected` | Daemon `serve` or `connect` running; `apiBaseUrl` reaches this API; ingress secret matches; room id matches |
 | No artwork for YouTube | Queue-item hydration; thumbnail URL CORS for dynamic theme |
 | Local search empty | Navidrome creds; daemon includes `local`; RPC `search` |
 | Browse tab missing / empty artists | Room has browseable sources effective for search; for Library: daemon CAPABILITIES include `local`, RPC `listArtists` / `listAlbums`; for Spotify: OAuth metadata source + search-entry query |
@@ -255,7 +256,7 @@ Post-show publish still creates Spotify/Tidal playlists from `metadataSources` I
 | YouTube “Video unavailable” hangs | Reconnect daemon (error/watchdog → ENDED → auto-advance). Some videos can’t embed; they’ll skip. |
 | Spotify SDK `TOKEN_REQUEST` loops / auth failed | In the room, use the **disconnected Spotify** banner or Admin → Overview → Authentication → **Re-link Spotify**. Playback uses the room creator's refresh token; linking from the room copies tokens onto that creator. `show_dialog` is required so Spotify issues a new refresh token. Premium + `streaming` scope required; check API logs for `[bridge-spotify-token]`. |
 | Spotify SDK stuck on “Connecting…” / CORS on `track-playback` | Daemon relaunches bridge Chrome with site-isolation off + CDP preflight fix. Look for `[chrome] Launched … (bridge profile, SDK flags)` and `fulfilling track-playback CORS preflight`, then `ready device_id=`. |
-| Spotify still needs Spotify.app | Remove `"spotify"` from daemon `services` to use legacy Connect, or verify `bridge:{room}:spotify_device` exists in Redis |
+| Spotify still needs Spotify.app | Remove `"spotify"` from daemon `services` to use legacy Connect, or confirm the daemon logged `ready device_id=` (the API stores that id) |
 
 ## Out of scope (this build)
 

@@ -20,6 +20,20 @@ function createMockContext(overrides?: {
     overrides?.getActiveSession ??
     vi.fn(async () => ({ id: "game-1", roomId: "room-1", status: "active" as const, startedAt: 0, config: {} }))
 
+  const api = {
+    getUsers,
+    getUsersByIds: vi.fn(async () => []),
+    isRoomAdmin: vi.fn(async () => overrides?.isRoomAdmin ?? true),
+    sendSystemMessage: vi.fn(async () => {}),
+    sendUserSystemMessage: vi.fn(async () => {}),
+    requestGameStateTabAttention: vi.fn(async () => {}),
+    setPluginConfig,
+    getPluginConfig: vi.fn(async () => null),
+    emit: vi.fn(async () => {}),
+    schedule: vi.fn(async () => ({ ok: true, fireAt: Date.now() + AUTO_SHOP_INTERVAL_MS })),
+    cancelSchedule: vi.fn(async () => true),
+    getSchedule: vi.fn(async () => null),
+  }
   const context = {
     roomId: "room-1",
     storage: {
@@ -29,20 +43,12 @@ function createMockContext(overrides?: {
       hget: vi.fn(async () => null),
       hset: vi.fn(async () => {}),
     },
-    api: {
-      getUsers,
-      getUsersByIds: vi.fn(async () => []),
-      isRoomAdmin: vi.fn(async () => overrides?.isRoomAdmin ?? true),
-      sendSystemMessage: vi.fn(async () => {}),
-      sendUserSystemMessage: vi.fn(async () => {}),
-      requestGameStateTabAttention: vi.fn(async () => {}),
-      setPluginConfig,
-      getPluginConfig: vi.fn(async () => null),
-      emit: vi.fn(async () => {}),
-      schedule: vi.fn(async () => ({ ok: true, fireAt: Date.now() + AUTO_SHOP_INTERVAL_MS })),
-      cancelSchedule: vi.fn(async () => true),
-      getSchedule: vi.fn(async () => null),
-    },
+    api,
+    polls: api,
+    schedule: api,
+    queue: api,
+    playback: api,
+    catalog: api,
     game: { getActiveSession },
     inventory: {
       registerItemDefinitions: vi.fn(async () => {}),
@@ -86,7 +92,7 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     await (plugin as any).syncAutoShopTimer()
 
-    expect(context.api.schedule).toHaveBeenCalledWith(
+    expect(context.schedule.schedule).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: "auto-shop",
         durationMs: AUTO_SHOP_INTERVAL_MS,
@@ -107,8 +113,8 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     await (plugin as any).syncAutoShopTimer()
 
-    expect(context.api.cancelSchedule).toHaveBeenCalledWith("auto-shop")
-    expect(context.api.schedule).not.toHaveBeenCalled()
+    expect(context.schedule.cancelSchedule).toHaveBeenCalledWith("auto-shop")
+    expect(context.schedule.schedule).not.toHaveBeenCalled()
   })
 
   it("skips auto tick without an active game session but re-arms the timer", async () => {
@@ -165,7 +171,7 @@ describe("ItemShopsPlugin auto-shop", () => {
       ;(plugin as any).shopping = { startSession: vi.fn(), clearSessionRound: vi.fn() }
 
       await (plugin as any).syncAutoShopTimer()
-      expect(context.api.schedule).toHaveBeenCalledTimes(1)
+      expect(context.schedule.schedule).toHaveBeenCalledTimes(1)
 
       // Manual start triggers syncAutoShopTimer again
       const result = await plugin.executeAction("startShoppingSession", ADMIN)
@@ -173,7 +179,7 @@ describe("ItemShopsPlugin auto-shop", () => {
       expect(openShoppingRound).toHaveBeenCalledTimes(1)
 
       // syncAutoShopTimer is called again, re-scheduling with the same ID (replaces)
-      expect(context.api.schedule).toHaveBeenCalledTimes(2)
+      expect(context.schedule.schedule).toHaveBeenCalledTimes(2)
     })
   })
 

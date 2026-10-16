@@ -29,11 +29,18 @@ import { BroadcasterRegistry } from "./broadcasters"
  * ```
  */
 export class SystemEvents implements ISystemEvents {
+  /** Rooms whose plugin handlers are on the stack inside `emit`. */
+  private readonly pluginEmitDepth = new Map<string, number>()
+
   constructor(
     private readonly redis: AppContext["redis"],
     private readonly pluginRegistry?: PluginRegistry,
     private readonly broadcasterRegistry?: BroadcasterRegistry,
   ) {}
+
+  isEmittingToPlugins(roomId: string): boolean {
+    return (this.pluginEmitDepth.get(roomId) ?? 0) > 0
+  }
 
   /**
    * Emit a system event to all consumers
@@ -51,16 +58,13 @@ export class SystemEvents implements ISystemEvents {
     roomId: string,
     event: K,
     data: SystemEventPayload<K>,
-    options?: { skipPlugins?: boolean },
   ): Promise<void> {
     try {
       // 1. Emit to Redis PubSub for cross-server communication
       await this.emitToPubSub(event, data)
 
       // 2. Emit to Plugin System for in-process handlers
-      if (!options?.skipPlugins) {
-        await this.emitToPlugins(roomId, event, data)
-      }
+      await this.emitToPlugins(roomId, event, data)
 
       // 3. Emit to Broadcasters for socket channel delivery
       this.emitToBroadcasters(roomId, event, data)
@@ -94,10 +98,15 @@ export class SystemEvents implements ISystemEvents {
       return
     }
 
+    this.pluginEmitDepth.set(roomId, (this.pluginEmitDepth.get(roomId) ?? 0) + 1)
     try {
       await this.pluginRegistry.emit(roomId, event, data)
     } catch (error) {
       console.error(`[SystemEvents] Plugin emission failed for ${event}:`, error)
+    } finally {
+      const next = (this.pluginEmitDepth.get(roomId) ?? 1) - 1
+      if (next <= 0) this.pluginEmitDepth.delete(roomId)
+      else this.pluginEmitDepth.set(roomId, next)
     }
   }
 

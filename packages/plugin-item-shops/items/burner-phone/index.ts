@@ -49,7 +49,7 @@ async function useBurnerPhone(
     return { success: false, consumed: false, message: "Choose a voice." }
   }
 
-  const speak = deps.context.api.speakOnMediaBridge
+  const speak = deps.context.playback.speakOnMediaBridge
   if (typeof speak !== "function") {
     return {
       success: false,

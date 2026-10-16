@@ -2,6 +2,7 @@
   "name": "@repo/plugin-queue-theme",
   "version": "1.0.0",
   "description": "Queue Theme — per-track theme polls with coin payouts and optional decoy themes",
+  "type": "module",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {

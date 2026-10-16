@@ -1,5 +1,9 @@
 import { describe, expect, test, vi, beforeEach } from "vitest"
 import { PluginAPIImpl } from "./PluginAPI"
+import { PluginQueueAPI } from "./PluginQueueAPI"
+import { PluginPlaybackAPI } from "./PluginPlaybackAPI"
+import { PluginCatalogAPI } from "./PluginCatalogAPI"
+import { PluginPollsAPI } from "./PluginPollsAPI"
 import { AppContext } from "@repo/types"
 import {
   appContextFactory,
@@ -151,7 +155,7 @@ describe("PluginAPIImpl.skipTrack", () => {
       }),
     } as Awaited<ReturnType<typeof getRoomCurrent>>)
 
-    await api.skipTrack(roomId, trackId)
+    await new PluginQueueAPI(api).skipTrack(roomId, trackId)
 
     expect(findRoom).not.toHaveBeenCalled()
     expect(skipToNextTrack).not.toHaveBeenCalled()
@@ -163,7 +167,7 @@ describe("PluginAPIImpl.skipTrack", () => {
       roomFactory.build({ id: roomId, playbackMode: "spotify-controlled" }),
     )
 
-    await api.skipTrack(roomId, trackId)
+    await new PluginQueueAPI(api).skipTrack(roomId, trackId)
 
     expect(popNextFromQueue).not.toHaveBeenCalled()
     expect(skipToNextTrack).toHaveBeenCalledTimes(1)
@@ -174,7 +178,7 @@ describe("PluginAPIImpl.skipTrack", () => {
   test("default playback mode (unset): calls skipToNextTrack only", async () => {
     vi.mocked(findRoom).mockResolvedValue(roomFactory.build({ id: roomId }))
 
-    await api.skipTrack(roomId, trackId)
+    await new PluginQueueAPI(api).skipTrack(roomId, trackId)
 
     expect(popNextFromQueue).not.toHaveBeenCalled()
     expect(skipToNextTrack).toHaveBeenCalledTimes(1)
@@ -198,7 +202,7 @@ describe("PluginAPIImpl.skipTrack", () => {
       splitKey: null,
     })
 
-    await api.skipTrack(roomId, trackId)
+    await new PluginQueueAPI(api).skipTrack(roomId, trackId)
 
     expect(popNextFromQueue).toHaveBeenCalledWith({ context: mockContext, roomId })
     expect(setDispatchedTrack).toHaveBeenCalledWith({
@@ -221,7 +225,7 @@ describe("PluginAPIImpl.skipTrack", () => {
     )
     vi.mocked(popNextFromQueue).mockResolvedValue(null)
 
-    await api.skipTrack(roomId, trackId)
+    await new PluginQueueAPI(api).skipTrack(roomId, trackId)
 
     expect(skipToNextTrack).toHaveBeenCalledTimes(1)
     expect(playTrack).not.toHaveBeenCalled()
@@ -237,7 +241,7 @@ describe("PluginAPIImpl.skipTrack", () => {
     })
     vi.mocked(popNextFromQueue).mockResolvedValue(nextItem)
 
-    await api.skipTrack(roomId, trackId)
+    await new PluginQueueAPI(api).skipTrack(roomId, trackId)
 
     expect(clearDispatchedTrack).toHaveBeenCalledWith({ context: mockContext, roomId })
     expect(skipToNextTrack).toHaveBeenCalledTimes(1)
@@ -256,7 +260,7 @@ describe("PluginAPIImpl.skipTrack", () => {
     vi.mocked(popNextFromQueue).mockResolvedValue(nextItem)
     playTrack.mockRejectedValue(new Error("Spotify error"))
 
-    await api.skipTrack(roomId, trackId)
+    await new PluginQueueAPI(api).skipTrack(roomId, trackId)
 
     expect(clearDispatchedTrack).toHaveBeenCalledWith({ context: mockContext, roomId })
     expect(mockContext.systemEvents?.emit).not.toHaveBeenCalled()
@@ -265,7 +269,7 @@ describe("PluginAPIImpl.skipTrack", () => {
   test("throws when room is missing", async () => {
     vi.mocked(findRoom).mockResolvedValue(null)
 
-    await expect(api.skipTrack(roomId, trackId)).rejects.toThrow("Room not found")
+    await expect(new PluginQueueAPI(api).skipTrack(roomId, trackId)).rejects.toThrow("Room not found")
   })
 })
 
@@ -286,7 +290,7 @@ describe("PluginAPIImpl.setPlaybackVolume", () => {
   })
 
   test("clamps and calls controller setVolume", async () => {
-    const result = await api.setPlaybackVolume(roomId, 150.4)
+    const result = await new PluginPlaybackAPI(api).setPlaybackVolume(roomId, 150.4)
 
     expect(result).toEqual({ success: true })
     expect(setVolume).toHaveBeenCalledWith(100)
@@ -295,7 +299,7 @@ describe("PluginAPIImpl.setPlaybackVolume", () => {
   test("returns failure when controller missing", async () => {
     getRoomPlaybackController.mockResolvedValue(null)
 
-    const result = await api.setPlaybackVolume(roomId, 50)
+    const result = await new PluginPlaybackAPI(api).setPlaybackVolume(roomId, 50)
 
     expect(result).toEqual({
       success: false,
@@ -306,7 +310,7 @@ describe("PluginAPIImpl.setPlaybackVolume", () => {
   test("returns failure when volume unsupported", async () => {
     getRoomPlaybackController.mockResolvedValue({ api: {} })
 
-    const result = await api.setPlaybackVolume(roomId, 50)
+    const result = await new PluginPlaybackAPI(api).setPlaybackVolume(roomId, 50)
 
     expect(result).toEqual({
       success: false,
@@ -327,12 +331,12 @@ describe("PluginAPIImpl.supportsVolumeControl", () => {
 
   test("returns true when setVolume is available", async () => {
     getRoomPlaybackController.mockResolvedValue({ api: { setVolume } })
-    await expect(api.supportsVolumeControl(roomId)).resolves.toBe(true)
+    await expect(new PluginPlaybackAPI(api).supportsVolumeControl(roomId)).resolves.toBe(true)
   })
 
   test("returns false when controller missing", async () => {
     getRoomPlaybackController.mockResolvedValue(null)
-    await expect(api.supportsVolumeControl(roomId)).resolves.toBe(false)
+    await expect(new PluginPlaybackAPI(api).supportsVolumeControl(roomId)).resolves.toBe(false)
   })
 })
 
@@ -361,7 +365,7 @@ describe("PluginAPIImpl.searchTracks (ADR 0197)", () => {
       albums: [],
     })
 
-    const result = await api.searchTracks({ roomId: "room-1", query: " neon ", limit: 100 })
+    const result = await new PluginCatalogAPI(api).searchTracks({ roomId: "room-1", query: " neon ", limit: 100 })
 
     expect(searchMocks.searchTracksAcrossSources).toHaveBeenCalledWith(
       expect.objectContaining({ query: "neon", userId: null, includeEntities: false }),
@@ -383,7 +387,7 @@ describe("PluginAPIImpl.searchTracks (ADR 0197)", () => {
       success: false,
       message: 'Metadata source "tidal" is not available for search',
     })
-    const result = await api.searchTracks({
+    const result = await new PluginCatalogAPI(api).searchTracks({
       roomId: "room-1",
       query: "x",
       userId: "u1",
@@ -396,7 +400,7 @@ describe("PluginAPIImpl.searchTracks (ADR 0197)", () => {
   })
 
   test("rejects an empty query without searching", async () => {
-    await expect(api.searchTracks({ roomId: "room-1", query: "  " })).resolves.toEqual({
+    await expect(new PluginCatalogAPI(api).searchTracks({ roomId: "room-1", query: "  " })).resolves.toEqual({
       success: false,
       message: "query is required",
     })
@@ -432,7 +436,7 @@ describe("PluginAPIImpl playback transport (ADR 0196)", () => {
   })
 
   test("getPlayback returns the controller snapshot without an admin user", async () => {
-    await expect(api.getPlayback(roomId)).resolves.toEqual({
+    await expect(new PluginPlaybackAPI(api).getPlayback(roomId)).resolves.toEqual({
       success: true,
       state: "playing",
       trackId: "t1",
@@ -445,13 +449,13 @@ describe("PluginAPIImpl playback transport (ADR 0196)", () => {
     vi.mocked(findRoom).mockResolvedValue(
       roomFactory.build({ id: roomId, playbackMode: "spotify-controlled" }),
     )
-    const result = await api.getPlayback(roomId)
+    const result = await new PluginPlaybackAPI(api).getPlayback(roomId)
     expect(result.success).toBe(true)
   })
 
   test("getPlayback fails when the controller cannot read state", async () => {
     getRoomPlaybackController.mockResolvedValue({ api: {} })
-    await expect(api.getPlayback(roomId)).resolves.toEqual({
+    await expect(new PluginPlaybackAPI(api).getPlayback(roomId)).resolves.toEqual({
       success: false,
       message: "Playback controller does not support reading state",
     })
@@ -459,19 +463,19 @@ describe("PluginAPIImpl playback transport (ADR 0196)", () => {
 
   test("getPlayback fails when transport was not observed", async () => {
     getPlayback.mockResolvedValue({ state: "stopped", track: null, observed: false })
-    const result = await api.getPlayback(roomId)
+    const result = await new PluginPlaybackAPI(api).getPlayback(roomId)
     expect(result.success).toBe(false)
   })
 
   test("pause and resume call the controller", async () => {
-    await expect(api.pausePlayback(roomId)).resolves.toEqual({ success: true })
+    await expect(new PluginPlaybackAPI(api).pausePlayback(roomId)).resolves.toEqual({ success: true })
     expect(pause).toHaveBeenCalledTimes(1)
-    await expect(api.resumePlayback(roomId)).resolves.toEqual({ success: true })
+    await expect(new PluginPlaybackAPI(api).resumePlayback(roomId)).resolves.toEqual({ success: true })
     expect(play).toHaveBeenCalledTimes(1)
   })
 
   test("seek clamps to the track duration", async () => {
-    await expect(api.seekPlayback(roomId, 999_999)).resolves.toEqual({
+    await expect(new PluginPlaybackAPI(api).seekPlayback(roomId, 999_999)).resolves.toEqual({
       success: true,
       positionMs: 180_000,
     })
@@ -479,7 +483,7 @@ describe("PluginAPIImpl playback transport (ADR 0196)", () => {
   })
 
   test("seek rejects invalid positions without touching the controller", async () => {
-    await expect(api.seekPlayback(roomId, -1)).resolves.toEqual({
+    await expect(new PluginPlaybackAPI(api).seekPlayback(roomId, -1)).resolves.toEqual({
       success: false,
       message: "Invalid seek position",
     })
@@ -490,14 +494,14 @@ describe("PluginAPIImpl playback transport (ADR 0196)", () => {
     vi.mocked(findRoom).mockResolvedValue(
       roomFactory.build({ id: roomId, playbackMode: "spotify-controlled" }),
     )
-    const result = await api.pausePlayback(roomId)
+    const result = await new PluginPlaybackAPI(api).pausePlayback(roomId)
     expect(result.success).toBe(false)
     expect(pause).not.toHaveBeenCalled()
   })
 
   test("mutations fail when no controller is configured", async () => {
     getRoomPlaybackController.mockResolvedValue(null)
-    await expect(api.resumePlayback(roomId)).resolves.toEqual({
+    await expect(new PluginPlaybackAPI(api).resumePlayback(roomId)).resolves.toEqual({
       success: false,
       message: "No playback controller configured for this room",
     })
@@ -515,12 +519,12 @@ describe("PluginAPIImpl Media Bridge TTS", () => {
 
   test("listMediaBridgeSayVoices returns empty when no rpc client", async () => {
     bridgeMocks.getBridgeRpcClient.mockReturnValue(undefined)
-    await expect(api.listMediaBridgeSayVoices(roomId)).resolves.toEqual({ voices: [] })
+    await expect(new PluginPlaybackAPI(api).listMediaBridgeSayVoices(roomId)).resolves.toEqual({ voices: [] })
   })
 
   test("speakOnMediaBridge fails softly when no rpc client", async () => {
     bridgeMocks.getBridgeRpcClient.mockReturnValue(undefined)
-    await expect(api.speakOnMediaBridge(roomId, { text: "hi", voice: "Samantha" })).resolves.toEqual(
+    await expect(new PluginPlaybackAPI(api).speakOnMediaBridge(roomId, { text: "hi", voice: "Samantha" })).resolves.toEqual(
       {
         ok: false,
         message: "The line is dead — the DJ Mac isn’t linked.",
@@ -532,7 +536,7 @@ describe("PluginAPIImpl Media Bridge TTS", () => {
     bridgeMocks.getBridgeRpcClient.mockReturnValue({})
     bridgeMocks.speakOnBridge.mockResolvedValue({ ok: true, queued: true })
     await expect(
-      api.speakOnMediaBridge(roomId, { text: "hi", voice: "Samantha" }),
+      new PluginPlaybackAPI(api).speakOnMediaBridge(roomId, { text: "hi", voice: "Samantha" }),
     ).resolves.toEqual({ ok: true })
     expect(bridgeMocks.speakOnBridge).toHaveBeenCalledWith({
       rpc: {},
@@ -641,13 +645,13 @@ describe("PluginAPIImpl metadata source access queries", () => {
   test("canAccessMetadataSource delegates to MetadataSourceAccessService", async () => {
     canAccess.mockResolvedValue(true)
     const params = { roomId, userId, sourceId: "youtube", action: "search" as const }
-    await expect(api.canAccessMetadataSource(params)).resolves.toBe(true)
+    await expect(new PluginCatalogAPI(api).canAccessMetadataSource(params)).resolves.toBe(true)
     expect(canAccess).toHaveBeenCalledWith(params)
   })
 
   test("getEffectiveMetadataSourceIds delegates to getEffectiveSourceIdsForUser", async () => {
     getEffectiveSourceIdsForUser.mockResolvedValue(["spotify", "local"])
-    await expect(api.getEffectiveMetadataSourceIds(roomId, userId, "queue")).resolves.toEqual([
+    await expect(new PluginCatalogAPI(api).getEffectiveMetadataSourceIds(roomId, userId, "queue")).resolves.toEqual([
       "spotify",
       "local",
     ])
@@ -681,7 +685,7 @@ describe("PluginAPIImpl.getLocalPlaylistArtwork", () => {
     mockContext.apiUrl = "https://api.example"
     const api = new PluginAPIImpl(mockContext, {} as Server)
 
-    await expect(api.getLocalPlaylistArtwork("room-1", ["nd-lp"])).resolves.toEqual({
+    await expect(new PluginCatalogAPI(api).getLocalPlaylistArtwork("room-1", ["nd-lp"])).resolves.toEqual({
       "nd-lp": {
         imageUrl: "https://cdn.example/media/covers/v1/aaa/sm.jpg",
         imageUrlLarge: "https://cdn.example/media/covers/v1/bbb/lg.jpg",
@@ -701,7 +705,7 @@ describe("PluginAPIImpl.getLocalPlaylistArtwork", () => {
     const mockContext = appContextFactory.build()
     const api = new PluginAPIImpl(mockContext, {} as Server)
 
-    await expect(api.getLocalPlaylistArtwork("room-1", ["nd-lp"])).resolves.toEqual({
+    await expect(new PluginCatalogAPI(api).getLocalPlaylistArtwork("room-1", ["nd-lp"])).resolves.toEqual({
       "nd-lp": {
         imageUrl: "https://cdn.example/sm.jpg",
         imageUrlLarge: "https://cdn.example/lg.jpg",
@@ -737,7 +741,7 @@ describe("PluginAPIImpl.setQueueSplit", () => {
       splitKey: "spotify:b",
     })
 
-    const result = await api.setQueueSplit(roomId, "spotify:b")
+    const result = await new PluginQueueAPI(api).setQueueSplit(roomId, "spotify:b")
     expect(result).toEqual({ success: true })
     expect(setQueueSplit).toHaveBeenCalledWith({
       context,
@@ -758,7 +762,7 @@ describe("PluginAPIImpl.setQueueSplit", () => {
       roomFactory.build({ id: roomId, playbackMode: "spotify-controlled" }),
     )
 
-    const result = await api.setQueueSplit(roomId, "spotify:b")
+    const result = await new PluginQueueAPI(api).setQueueSplit(roomId, "spotify:b")
     expect(result.success).toBe(false)
     if (!result.success) {
       expect(result.message).toContain("app-controlled")
@@ -782,7 +786,7 @@ describe("PluginAPIImpl.setQueueSplit", () => {
       splitKey: null,
     })
 
-    const result = await api.removeQueueSplit(roomId)
+    const result = await new PluginQueueAPI(api).removeQueueSplit(roomId)
     expect(result).toEqual({ success: true })
     expect(clearQueueSplit).toHaveBeenCalledWith({ context, roomId })
     expect(emit).toHaveBeenCalledWith(roomId, "QUEUE_CHANGED", expect.any(Object))
@@ -790,14 +794,14 @@ describe("PluginAPIImpl.setQueueSplit", () => {
 
   test("fails closed when plugin identity is unset", async () => {
     const api = new PluginAPIImpl(appContextFactory.build(), {} as Server)
-    const setResult = await api.setQueueSplit(roomId, "spotify:b")
+    const setResult = await new PluginQueueAPI(api).setQueueSplit(roomId, "spotify:b")
     expect(setResult).toEqual({
       success: false,
       message: "Plugin identity is required.",
     })
     expect(setQueueSplit).not.toHaveBeenCalled()
 
-    const removeResult = await api.removeQueueSplit(roomId)
+    const removeResult = await new PluginQueueAPI(api).removeQueueSplit(roomId)
     expect(removeResult).toEqual({
       success: false,
       message: "Plugin identity is required.",
@@ -809,7 +813,7 @@ describe("PluginAPIImpl.setQueueSplit", () => {
 describe("PluginAPIImpl.createPoll", () => {
   test("fails closed when plugin identity is unset", async () => {
     const api = new PluginAPIImpl(appContextFactory.build(), {} as Server)
-    const result = await api.createPoll({
+    const result = await new PluginPollsAPI(api).createPoll({
       roomId: "room-1",
       userId: "admin-1",
       question: "Q?",
@@ -827,7 +831,7 @@ describe("PluginAPIImpl.createPoll", () => {
 
   test("fails closed on closePoll when plugin identity is unset", async () => {
     const api = new PluginAPIImpl(appContextFactory.build(), {} as Server)
-    const result = await api.closePoll({
+    const result = await new PluginPollsAPI(api).closePoll({
       roomId: "room-1",
       userId: "admin-1",
       pollId: "poll-1",

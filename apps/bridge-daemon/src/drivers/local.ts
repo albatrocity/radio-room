@@ -9,6 +9,7 @@ import type {
   MetadataListArtistsParams,
   MetadataListArtistsResult,
   MetadataSourceTrack,
+  MetadataSourceUrl,
 } from "@repo/types"
 import type { BridgeDaemonConfig } from "../config"
 import type { Driver, DriverState } from "./Driver"
@@ -672,13 +673,21 @@ export class LocalDriver implements Driver {
     return pickPublicUrl(candidates, this.navidrome.publicUrlTagPriority)
   }
 
-  private async mapSong(song: NavidromeSong): Promise<MetadataSourceTrack> {
+  private async mapSong(
+    song: NavidromeSong,
+    options?: { albumImages?: MetadataSourceUrl[] },
+  ): Promise<MetadataSourceTrack> {
     const id = String(song.id ?? "")
-    const coverKey = coverCacheKey(song)
-    const coverDataUri = coverKey ? await this.coverCache.get(coverKey, COVER_ART_TRACK_SIZE) : undefined
-    const images = coverDataUri
-      ? [{ type: "image" as const, url: coverDataUri, id }]
-      : []
+    // Album drill-in passes the record's one cover. Repeating a 640px data URI
+    // on every track closes the /device socket (engine.io's 1MB default).
+    let images = options?.albumImages
+    if (!images) {
+      const coverKey = coverCacheKey(song)
+      const coverDataUri = coverKey
+        ? await this.coverCache.get(coverKey, COVER_ART_TRACK_SIZE)
+        : undefined
+      images = coverDataUri ? [{ type: "image" as const, url: coverDataUri, id }] : []
+    }
     const artistTitle = isPlaceholderArtist(song.artist) ? "" : String(song.artist).trim()
     const publicUrl = await this.resolvePublicUrl(song)
 
@@ -1089,8 +1098,9 @@ export class LocalDriver implements Driver {
       const id = String(song.id ?? "")
       return !membership || membership.trackIds.has(id)
     })
+    const albumImages = mappedAlbum.images ?? []
     const tracks = await mapWithConcurrency(filtered, MAP_SONG_CONCURRENCY, (song) =>
-      this.mapSong(song),
+      this.mapSong(song, { albumImages }),
     )
     mappedAlbum.trackCount = tracks.length
     return { album: mappedAlbum, tracks }

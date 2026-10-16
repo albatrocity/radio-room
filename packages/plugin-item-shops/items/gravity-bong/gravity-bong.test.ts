@@ -24,7 +24,7 @@ describe("gravity-bong", () => {
 
     const result = await invokeUse(gravityBong, deps, actor.userId, def)
 
-    expect(deps.context.api.shuffleTrackQueue).toHaveBeenCalledWith(deps.context.roomId)
+    expect(deps.context.queue.shuffleTrackQueue).toHaveBeenCalledWith(deps.context.roomId)
 
     expect(result.success).toBe(true)
     expect(result.consumed).toBe(true)

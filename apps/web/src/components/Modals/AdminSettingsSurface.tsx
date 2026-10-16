@@ -42,7 +42,9 @@ type Props = {
 function AdminSettingsCollapsibleSections() {
   const state = useModalsSnapshot()
   const { schemas } = usePluginSchemas()
-  const toStateKey = (name: string) => name.split("-").join("_")
+  const pluginSettingsName = matchesSettingsPath(state, "settings.plugin")
+    ? state.context.pluginSettingsName
+    : null
 
   return (
     <>
@@ -92,15 +94,10 @@ function AdminSettingsCollapsibleSections() {
         </Collapsible.Content>
       </Collapsible.Root>
 
-      {/* Plugin forms: schemas drive the UI. Opening a link still needs a matching
-          `EDIT_*` / `settings.{name}` state in modalsMachine (see getting-started.md). */}
       {schemas
         .filter((plugin) => plugin.configSchema)
         .map((plugin) => (
-          <Collapsible.Root
-            key={plugin.name}
-            open={matchesSettingsPath(state, `settings.${toStateKey(plugin.name)}`)}
-          >
+          <Collapsible.Root key={plugin.name} open={pluginSettingsName === plugin.name}>
             <Collapsible.Content>
               <DynamicPluginSettings pluginName={plugin.name} />
             </Collapsible.Content>

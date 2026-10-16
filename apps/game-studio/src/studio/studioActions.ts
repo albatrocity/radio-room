@@ -300,9 +300,9 @@ export async function addFakeTrackToQueue(userId: string): Promise<void> {
 
 export async function advanceNowPlaying(): Promise<void> {
   const { itemShopsContext, room } = getStudio()
-  const np = await itemShopsContext.api.getNowPlaying(room.roomId)
+  const np = await itemShopsContext.queue.getNowPlaying(room.roomId)
   if (np?.mediaSource.trackId) {
-    await itemShopsContext.api.skipTrack(room.roomId, np.mediaSource.trackId)
+    await itemShopsContext.queue.skipTrack(room.roomId, np.mediaSource.trackId)
   }
 }
 
@@ -987,7 +987,7 @@ export function fireAllPluginTimers(): { fired: number } {
 
 export async function reactToNowPlaying(userId: string, emoji: string): Promise<void> {
   const { room, itemShopsContext, lifecycle } = getStudio()
-  const np = await itemShopsContext.api.getNowPlaying(room.roomId)
+  const np = await itemShopsContext.queue.getNowPlaying(room.roomId)
   if (!np) return
   const user = room.users.get(userId)
   if (!user) return
