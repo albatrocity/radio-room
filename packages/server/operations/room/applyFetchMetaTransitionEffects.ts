@@ -9,6 +9,7 @@ import { clearRoomCurrent, findRoom, getRoomCurrent, setRoomCurrent } from "../d
 import { readRoomScheduleSnapshot } from "../scheduleRedisSnapshot"
 import handleRoomNowPlayingData from "./handleRoomNowPlayingData"
 import { makeStableTrackId } from "../../lib/makeNowPlayingFromStationMeta"
+import { STREAMING_MODE_TRACK_ID } from "../../lib/streamingMode"
 
 /**
  * Clear current now-playing state, rebuild a submission from cached
@@ -60,10 +61,7 @@ export const refreshNowPlayingFromStationMeta = refreshNowPlayingFromCachedMeta
  * branding display. With an active segment: segment title and segment image
  * (falling back to room artwork). Otherwise: room title and room artwork (ADR 0195).
  */
-export async function enterStreamingMode(
-  context: AppContext,
-  roomId: string,
-): Promise<void> {
+export async function enterStreamingMode(context: AppContext, roomId: string): Promise<void> {
   await clearRoomCurrent({ context, roomId })
 
   const room = await findRoom({ context, roomId })
@@ -78,11 +76,11 @@ export async function enterStreamingMode(
   const nowPlaying: QueueItem = {
     title: displayTitle,
     track: {
-      id: "streaming-mode",
+      id: STREAMING_MODE_TRACK_ID,
       title: displayTitle,
       artists: [],
       album: {
-        id: "streaming-mode",
+        id: STREAMING_MODE_TRACK_ID,
         title: "",
         artists: [],
         releaseDate: "",
@@ -100,7 +98,10 @@ export async function enterStreamingMode(
       images: [],
       urls: [],
     },
-    mediaSource: { type: (room.mediaSourceId ?? "shoutcast") as MediaSourceType, trackId: "streaming-mode" },
+    mediaSource: {
+      type: (room.mediaSourceId ?? "shoutcast") as MediaSourceType,
+      trackId: STREAMING_MODE_TRACK_ID,
+    },
     addedAt: Date.now(),
     playedAt: Date.now(),
   }

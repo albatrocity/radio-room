@@ -208,6 +208,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0200](0200-queue-follow-ups-before-queue-changed.md) | Queue follow-ups commit before `QUEUE_CHANGED` | Accepted |
 | [0201](0201-plugin-capability-interfaces.md) | Plugin capability interfaces (`context.polls`, `schedule`, `queue`, `playback`, `catalog`) | Accepted |
 | [0202](0202-plugin-registry-package-and-generic-settings-state.md) | Plugin registry package (`@repo/plugins`) and generic `settings.plugin` state | Accepted |
+| [0203](0203-departed-user-record-ttl.md) | Departed listener user records kept for two days | Accepted |
 
 ## Creating a New ADR
 
