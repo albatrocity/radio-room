@@ -7,6 +7,7 @@ import {
   Heading,
   Input,
   NativeSelect,
+  Popover,
   SimpleGrid,
   Stack,
   Text,
@@ -25,8 +26,10 @@ import { useDebouncedValue } from "../../hooks/useDebouncedValue"
 import {
   DEFAULT_PREVIEW_WALLETS,
   SITE_LIBRARY,
+  addBlankSite,
   addScriptedEvent,
   addSiteFromPreset,
+  siteSlugFromName,
   draftRouteMiles,
   estimateIncidents,
   loadDraft,
@@ -86,6 +89,99 @@ function numberOr(value: string): number | undefined {
  * only pure `@repo/road-trip-map` modules.
  */
 const LINT_DEBOUNCE_MS = 250
+
+/** A site with no preset. Name and slug are typed here; the inspector fills in the rest. */
+function BlankSiteButton({
+  onAdd,
+}: {
+  onAdd: (name: string, slug: string) => string | null
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [slug, setSlug] = useState("")
+  const [slugTouched, setSlugTouched] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const reset = () => {
+    setName("")
+    setSlug("")
+    setSlugTouched(false)
+    setError(null)
+  }
+
+  const submit = () => {
+    const message = onAdd(name, slug)
+    if (message) {
+      setError(message)
+      return
+    }
+    setOpen(false)
+    reset()
+  }
+
+  return (
+    <Popover.Root
+      open={open}
+      onOpenChange={(details) => {
+        setOpen(details.open)
+        if (details.open) reset()
+      }}
+      positioning={{ placement: "bottom-start" }}
+    >
+      <Popover.Trigger asChild>
+        <Button size="xs" variant="outline">
+          📍 Blank site
+        </Button>
+      </Popover.Trigger>
+      <Popover.Positioner>
+        <Popover.Content p="3" minW="240px">
+          <Stack gap="2">
+            <Field.Root>
+              <Field.Label fontSize="xs">Name</Field.Label>
+              <Input
+                size="sm"
+                maxLength={60}
+                autoFocus
+                value={name}
+                placeholder="Roadside diner"
+                onChange={(event) => {
+                  const next = event.target.value
+                  setName(next)
+                  if (!slugTouched) setSlug(siteSlugFromName(next))
+                  setError(null)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") submit()
+                }}
+              />
+            </Field.Root>
+            <Field.Root invalid={error != null}>
+              <Field.Label fontSize="xs">Slug</Field.Label>
+              <Input
+                size="sm"
+                maxLength={64}
+                value={slug}
+                placeholder="roadside-diner"
+                onChange={(event) => {
+                  setSlugTouched(true)
+                  setSlug(event.target.value)
+                  setError(null)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") submit()
+                }}
+              />
+              {error ? <Field.ErrorText fontSize="xs">{error}</Field.ErrorText> : null}
+            </Field.Root>
+            <Button size="sm" onClick={submit}>
+              Add site
+            </Button>
+          </Stack>
+        </Popover.Content>
+      </Popover.Positioner>
+    </Popover.Root>
+  )
+}
 
 export function TripMapEditor() {
   const [draft, setDraft] = useState<TripMapInput>(loadDraft)
@@ -398,6 +494,15 @@ export function TripMapEditor() {
         <Text fontSize="xs" color="fg.muted">
           Add site:
         </Text>
+        <BlankSiteButton
+          onAdd={(name, slug) => {
+            const result = addBlankSite(draft, { name, slug })
+            if (!result.ok) return result.error
+            setDraft(result.draft)
+            setSelectedSiteId(result.siteId)
+            return null
+          }}
+        />
         {SITE_LIBRARY.map((preset) => (
           <Button
             key={preset.id}

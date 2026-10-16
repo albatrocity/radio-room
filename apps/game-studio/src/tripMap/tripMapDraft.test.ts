@@ -2,7 +2,7 @@ import { ITEM_CATALOG } from "@repo/plugin-item-shops"
 import { roadTripItemId, SAMPLE_TRIP_MAP, VAN_CONSUMABLES, VAN_PARTS } from "@repo/road-trip-map"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { describe, expect, it } from "vitest"
-import { OFFER_CATALOG, parseDraft, validateCatalogShop } from "./tripMapDraft"
+import { addBlankSite, OFFER_CATALOG, parseDraft, siteSlugFromName, validateCatalogShop } from "./tripMapDraft"
 
 describe("OFFER_CATALOG", () => {
   it("includes every Item Shops catalog entry and every van item", () => {
@@ -78,5 +78,23 @@ describe("validateCatalogShop", () => {
         }),
       ]),
     )
+  })
+})
+
+describe("addBlankSite", () => {
+  it("adds a site with the typed name and slug and no preset", () => {
+    const result = addBlankSite(SAMPLE_TRIP_MAP, { name: "Roadside Diner", slug: "roadside-diner" })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const site = result.draft.sites.find((item) => item.id === "roadside-diner")
+    expect(site).toMatchObject({ name: "Roadside Diner", icon: "📍" })
+    expect(site?.presetId).toBeUndefined()
+    expect(site?.mile).toBeGreaterThan(0)
+  })
+
+  it("rejects a bad slug and a slug already on the map", () => {
+    expect(addBlankSite(SAMPLE_TRIP_MAP, { name: "Diner", slug: "Roadside Diner" }).ok).toBe(false)
+    expect(addBlankSite(SAMPLE_TRIP_MAP, { name: "Again", slug: "gas-n-go" }).ok).toBe(false)
+    expect(siteSlugFromName("Roadside Diner!")).toBe("roadside-diner")
   })
 })

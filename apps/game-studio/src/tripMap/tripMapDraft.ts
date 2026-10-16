@@ -292,15 +292,34 @@ export function removeSite(draft: TripMapInput, siteId: string): TripMapInput {
   return { ...draft, sites: draft.sites.filter((s) => s.id !== siteId) }
 }
 
+const SITE_SLUG = /^[a-z0-9][a-z0-9-]*$/
+
+/** Lowercase letters, digits, and dashes, matching `siteIdSchema`. */
+export function siteSlugFromName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64)
+}
+
 function uniqueSiteId(draft: TripMapInput, base: string): string {
-  const slug =
-    base
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "site"
+  const slug = siteSlugFromName(base) || "site"
   const taken = new Set(draft.sites.map((s) => s.id))
   if (!taken.has(slug)) return slug
   for (let n = 2; ; n++) if (!taken.has(`${slug}-${n}`)) return `${slug}-${n}`
+}
+
+/** Mile in the widest gap, so a new stop doesn't land on an existing pin. */
+function mileInWidestGap(draft: TripMapInput): number {
+  const end = draftRouteMiles(draft)
+  const stops = [0, ...draft.sites.map((s) => s.mile).sort((a, b) => a - b), end]
+  let best = { gap: -1, at: end / 2 }
+  for (let i = 1; i < stops.length; i++) {
+    const gap = stops[i]! - stops[i - 1]!
+    if (gap > best.gap) best = { gap, at: (stops[i]! + stops[i - 1]!) / 2 }
+  }
+  return roundMile(Math.min(Math.max(0.1, best.at), Math.max(0.1, end - 0.1)))
 }
 
 /** Add a library preset: destinations go at the end, other sites in the widest gap. */
@@ -310,18 +329,37 @@ export function addSiteFromPreset(
 ): { draft: TripMapInput; siteId: string } {
   const end = draftRouteMiles(draft)
   const id = uniqueSiteId(draft, preset.site.name)
-  let mile = end
-  if (!isDestination(preset.site)) {
-    const stops = [0, ...draft.sites.map((s) => s.mile).sort((a, b) => a - b), end]
-    let best = { gap: -1, at: end / 2 }
-    for (let i = 1; i < stops.length; i++) {
-      const gap = stops[i]! - stops[i - 1]!
-      if (gap > best.gap) best = { gap, at: (stops[i]! + stops[i - 1]!) / 2 }
-    }
-    mile = best.at
-  }
-  const site = siteFromPreset(preset, id, roundMile(mile)) as TripSiteDraft
+  const mile = isDestination(preset.site) ? roundMile(end) : mileInWidestGap(draft)
+  const site = siteFromPreset(preset, id, mile) as TripSiteDraft
   return { draft: { ...draft, sites: [...draft.sites, site] }, siteId: id }
+}
+
+export type AddBlankSiteResult =
+  | { ok: true; draft: TripMapInput; siteId: string }
+  | { ok: false; error: string }
+
+/**
+ * A site with no preset: the designer supplies the name and slug.
+ * Description and icon are placeholders the inspector can replace.
+ */
+export function addBlankSite(draft: TripMapInput, input: { name: string; slug: string }): AddBlankSiteResult {
+  const name = input.name.trim()
+  const slug = input.slug.trim()
+  if (!name || name.length > 60) return { ok: false, error: "Name is required (60 characters max)." }
+  if (slug.length > 64 || !SITE_SLUG.test(slug)) {
+    return { ok: false, error: "Slug is lowercase letters, digits, and dashes." }
+  }
+  if (draft.sites.some((site) => site.id === slug)) {
+    return { ok: false, error: "A site already uses that slug." }
+  }
+  const site: TripSiteDraft = {
+    id: slug,
+    name,
+    description: "A stop along the route.",
+    icon: "📍",
+    mile: mileInWidestGap(draft),
+  }
+  return { ok: true, draft: { ...draft, sites: [...draft.sites, site] }, siteId: slug }
 }
 
 export type TripProjection = {
