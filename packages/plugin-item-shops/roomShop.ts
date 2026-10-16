@@ -1,4 +1,10 @@
-import type { ItemDefinition, RoomShopOffer, ValidateShopRequest, ValidateShopResult } from "@repo/types"
+import type {
+  ItemDefinition,
+  RoomShopOffer,
+  RoomShopSample,
+  ValidateShopRequest,
+  ValidateShopResult,
+} from "@repo/types"
 import {
   ROOM_SHOP_ID_PREFIX,
   type ItemShopsShopCatalogEntry,
@@ -18,6 +24,10 @@ export type RoomShopScope = {
   shopIds: string[]
   /** Custom offers (D14) re-resolved for late joiners. */
   offers?: RoomShopOffer[]
+  /** Offers-only buyback fraction. Catalog shops keep their own rates. */
+  buybackRate?: number
+  /** When set, each traveler samples this way from `offers`. */
+  sample?: RoomShopSample
   title?: string
   openedAt: number
 }
@@ -99,13 +109,16 @@ export function resolveRoomShopOffers(
 }
 
 /** The shop a round assigns when the scope has offers but no catalog shops. */
-export function offersOnlyShop(scope: Pick<RoomShopScope, "scopeId" | "title">): ItemShopsShopCatalogEntry {
+export function offersOnlyShop(
+  scope: Pick<RoomShopScope, "scopeId" | "title" | "buybackRate">,
+): ItemShopsShopCatalogEntry {
+  const rate = scope.buybackRate ?? 0
   return {
     shopId: `${ROOM_SHOP_ID_PREFIX}${scope.scopeId}`,
     name: scope.title ?? "Shop",
     openingMessage: "{{shopName}} is open!",
     availableItems: [],
-    listedBuybackRate: 0,
-    unlistedBuybackRate: 0,
+    listedBuybackRate: rate,
+    unlistedBuybackRate: rate,
   }
 }

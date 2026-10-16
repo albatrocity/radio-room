@@ -15,6 +15,8 @@ import {
   parseTripMap,
   roadTripItemId,
   routeMiles,
+  SITE_SHOP_POOL_CAP,
+  SITE_SHOP_SHELF_CAP,
   siteFromPreset,
   sitePresetForShop,
   tripMapSchema,
@@ -32,7 +34,9 @@ import {
   SHOP_CATALOG,
   validateRoomShopRequest,
 } from "@repo/plugin-item-shops"
-import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
+import { DEFAULT_RARITY_WEIGHTS, pickWeightedDistinctShortIds } from "@repo/game-logic"
+import { isPhysicalMediaDefinition, ITEM_SHOPS_PLUGIN_NAME, type ItemRarity } from "@repo/types"
+import type { SiteShopSample } from "@repo/road-trip-map"
 
 const DRAFT_STORAGE_KEY = "game-studio:trip-map-draft"
 
@@ -77,27 +81,138 @@ export function saveDraft(draft: TripMapInput): void {
   }
 }
 
-/** The offers picker: road-trip parts and consumables (Item Shops items validate too, hand-edited). */
-export const OFFER_OPTIONS: { definitionId: string; name: string; emoji: string; coinValue: number }[] =
-  [...VAN_PARTS, ...VAN_CONSUMABLES].map((item) => ({
-    definitionId: roadTripItemId(item.shortId),
-    name: item.name,
-    emoji: item.emoji,
-    coinValue: item.coinValue,
-  }))
+/** Offers on one site. A sampled pool uses the higher cap. */
+export const OFFER_SHELF_CAP = SITE_SHOP_SHELF_CAP
+export const OFFER_POOL_CAP = SITE_SHOP_POOL_CAP
 
-const KNOWN_DEFINITION_IDS = new Set([
-  ...OFFER_OPTIONS.map((o) => o.definitionId),
-  ...ITEM_CATALOG.map((entry) => `${ITEM_SHOPS_PLUGIN_NAME}:${entry.definition.shortId}`),
-])
+export type OfferOption = {
+  definitionId: string
+  name: string
+  icon: string
+  coinValue: number
+  plugin: "item-shops" | "road-trip"
+  rarity: ItemRarity
+  /** From `availableInRoomTypes`. Omitted when the item sells in every room type. */
+  roomTypes?: ("jukebox" | "radio" | "live")[]
+  /** Physical Media: the price is the rolled condition price, not `coinValue`. */
+  decorated?: "condition"
+  /**
+   * Shop-level purchase effects that do not follow the item into a composed shop.
+   * Sweetwater's sales-rep follow-up and the Green Room's end-of-round confiscation.
+   */
+  outsideShopNote?: string
+}
 
-/** Item Shops' own check, with only Record Store treated as room-dependent. */
+/**
+ * Shops whose `onBuy` changes the visit, not the item. Farmers Market's handler
+ * is a no-op, so its produce is not listed.
+ */
+const OUTSIDE_HOME_SHOP: Record<string, string> = {
+  sweetwater: "behaves differently outside Sweetwater",
+  "green-room": "behaves differently outside Green Room",
+}
+
+function outsideShopNote(shortId: string): string | undefined {
+  for (const shop of SHOP_CATALOG) {
+    const note = OUTSIDE_HOME_SHOP[shop.shopId]
+    if (!note) continue
+    if (shop.availableItems.some((item) => item.shortId === shortId)) return note
+  }
+  return undefined
+}
+
+type OfferSourceItem = Omit<OfferOption, "plugin">
+
+/** Catalogs the studio can sell. A future item-registering plugin is one entry. */
+const ITEM_SOURCES: { plugin: OfferOption["plugin"]; items: OfferSourceItem[] }[] = [
+  {
+    plugin: "item-shops",
+    items: ITEM_CATALOG.map((entry) => {
+      const note = outsideShopNote(entry.definition.shortId)
+      const roomTypes = entry.availableInRoomTypes
+      return {
+        definitionId: `${ITEM_SHOPS_PLUGIN_NAME}:${entry.definition.shortId}`,
+        name: entry.definition.name,
+        icon: entry.definition.icon ?? "package",
+        coinValue: entry.definition.coinValue ?? 0,
+        rarity: entry.definition.rarity ?? "common",
+        ...(roomTypes && roomTypes.length > 0 ? { roomTypes: [...roomTypes] } : {}),
+        ...(isPhysicalMediaDefinition(entry.definition) ? { decorated: "condition" as const } : {}),
+        ...(note ? { outsideShopNote: note } : {}),
+      }
+    }),
+  },
+  {
+    plugin: "road-trip",
+    items: [...VAN_PARTS, ...VAN_CONSUMABLES].map((item) => ({
+      definitionId: roadTripItemId(item.shortId),
+      name: item.name,
+      icon: item.emoji,
+      coinValue: item.coinValue,
+      rarity: "common" as const,
+    })),
+  },
+]
+
+export const OFFER_CATALOG: OfferOption[] = ITEM_SOURCES.flatMap((source) =>
+  source.items.map((item) => ({ ...item, plugin: source.plugin })),
+)
+
+const OFFER_BY_ID = new Map(OFFER_CATALOG.map((option) => [option.definitionId, option]))
+
+/** Names a seeded roll would put on one traveler's shelf. The whole pool when `count` covers it. */
+export function previewOfferSample(
+  offers: { definitionId: string }[],
+  sample: { count: number; weights?: SiteShopSample["weights"] },
+  random: () => number,
+): string[] {
+  const options: OfferOption[] = []
+  const seen = new Set<string>()
+  for (const offer of offers) {
+    const option = OFFER_BY_ID.get(offer.definitionId)
+    if (!option || seen.has(option.definitionId)) continue
+    seen.add(option.definitionId)
+    options.push(option)
+  }
+  if (sample.count >= options.length) return options.map((option) => option.name)
+  const even = sample.weights === "even"
+  const picked = pickWeightedDistinctShortIds(
+    options.map((option) => ({
+      shortId: option.definitionId,
+      weight: even ? 1 : DEFAULT_RARITY_WEIGHTS[option.rarity],
+    })),
+    sample.count,
+    random,
+  )
+  const byId = new Map(options.map((option) => [option.definitionId, option]))
+  return picked.map((id) => byId.get(id)!.name)
+}
+
+const KNOWN_DEFINITION_IDS = new Set(OFFER_CATALOG.map((option) => option.definitionId))
+
+function offerRoomWarnings(offers: { definitionId: string }[] | undefined): string[] {
+  if (!offers) return []
+  const warnings: string[] = []
+  for (const offer of offers) {
+    const option = OFFER_BY_ID.get(offer.definitionId)
+    if (!option?.roomTypes?.length) continue
+    const where =
+      option.roomTypes.length === 1 ? `${option.roomTypes[0]} only` : option.roomTypes.join(", ")
+    warnings.push(`${option.name} isn't sold in every room (${where}); the van still stops`)
+  }
+  return warnings
+}
+
+/** Item Shops' own check, plus room-type warnings for composed offers. */
 export function validateCatalogShop(req: { shopIds?: string[]; offers?: { definitionId: string }[] }) {
-  return validateRoomShopRequest(req, {
+  const result = validateRoomShopRequest(req, {
     shopIds: KNOWN_SHOP_IDS,
     availableShopIds: EVERYWHERE_SHOP_IDS,
     definitionIds: KNOWN_DEFINITION_IDS,
   })
+  if (!result.ok) return result
+  const warnings = [...(result.warnings ?? []), ...offerRoomWarnings(req.offers)]
+  return warnings.length > 0 ? { ok: true as const, warnings } : { ok: true as const }
 }
 
 export function parseDraft(draft: TripMapInput, departAt: number): ParseTripMapResult {

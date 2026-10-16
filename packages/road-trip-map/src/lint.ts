@@ -208,6 +208,32 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
         siteId: site.id,
       })
     }
+    if (site.shop?.sample && offers.length === 0) {
+      issues.push({
+        severity: "error",
+        code: "sample-without-offers",
+        message: `${site.name} samples a shop with no offers.`,
+        path: `sites.${index}.shop.sample`,
+        siteId: site.id,
+      })
+    } else if (site.shop?.sample && site.shop.sample.count > offers.length) {
+      issues.push({
+        severity: "warning",
+        code: "sample-larger-than-pool",
+        message: `${site.name}: everyone sees the whole pool.`,
+        path: `sites.${index}.shop.sample.count`,
+        siteId: site.id,
+      })
+    }
+    if (shopIds.length > 0 && site.shop?.buybackRate != null) {
+      issues.push({
+        severity: "warning",
+        code: "buyback-with-catalog-shop",
+        message: `${site.name} sets a buyback rate, but its catalog shops keep their own rates.`,
+        path: `sites.${index}.shop.buybackRate`,
+        siteId: site.id,
+      })
+    }
     if (isDestination(site) && site.services?.mechanic) {
       issues.push({
         severity: "warning",

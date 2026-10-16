@@ -338,6 +338,49 @@ describe("van and incidents (Phase 3)", () => {
     expect(codes(parsed((m) => (m.sites[0]!.shop = {})))).toContain("empty-shop")
   })
 
+  it("warns when a buyback rate is set beside catalog shops and ignores it on offers-only shops", () => {
+    const withCatalog = parsed((m) => {
+      m.sites.find((site) => site.id === "farmers-market")!.shop!.buybackRate = 0.5
+    })
+    expect(codes(withCatalog)).toContain("buyback-with-catalog-shop")
+    const offersOnly = parsed((m) => {
+      m.sites.find((site) => site.id === "gas-n-go")!.shop!.buybackRate = 0.5
+    })
+    expect(codes(offersOnly)).not.toContain("buyback-with-catalog-shop")
+    expect(offersOnly.ok).toBe(true)
+  })
+
+  it("requires offers to sample and warns when the count covers the pool", () => {
+    const none = parsed((m) => {
+      m.sites[0]!.shop = { sample: { count: 3, weights: "rarity" } }
+    })
+    expect(none.ok).toBe(false)
+    expect(codes(none)).toContain("sample-without-offers")
+
+    const covered = parsed((m) => {
+      m.sites.find((site) => site.id === "gas-n-go")!.shop!.sample = { count: 8, weights: "even" }
+    })
+    expect(covered.ok).toBe(true)
+    expect(codes(covered)).toContain("sample-larger-than-pool")
+  })
+
+  it("caps an unsampled shelf at 12 and a pool at 40", () => {
+    const offers = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ definitionId: `road-trip:item-${i}` }))
+    const shelf = parsed((m) => {
+      m.sites[0]!.shop = { offers: offers(13) }
+    })
+    expect(shelf.ok).toBe(false)
+    expect(shelf.issues.some((issue) => issue.message.includes("at most 12"))).toBe(true)
+
+    const pool = parsed((m) => {
+      m.sites[0]!.shop = { offers: offers(13), sample: { count: 3, weights: "rarity" } }
+    })
+    expect(pool.ok).toBe(true)
+    if (!pool.ok) return
+    expect(pool.map.sites[0]?.shop?.sample?.weights).toBe("rarity")
+  })
+
   it("rejects malformed offer ids", () => {
     expect(
       parsed((m) => (m.sites[0]!.shop = { offers: [{ definitionId: "fix-a-flat" }] })).ok,

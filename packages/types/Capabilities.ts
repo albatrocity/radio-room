@@ -17,6 +17,14 @@ export type RoomShopOffer = {
   stock?: number
 }
 
+/** Per-traveler sample drawn from a composed offer pool. */
+export type RoomShopSample = {
+  /** How many offers each traveler sees (1–8). */
+  count: number
+  /** `rarity` uses the catalog rarity weights. `even` gives every offer the same weight. */
+  weights?: "rarity" | "even"
+}
+
 /** Open a room-wide shop round for a scope (e.g. a road-trip site stop). */
 export type OpenRoomShopRequest = {
   /** Owner-chosen id; `closeRoomShop` only ends the round this scope opened. */
@@ -26,6 +34,17 @@ export type OpenRoomShopRequest = {
   shopIds?: string[]
   /** Custom offers merged into the round's shop. At least one of `shopIds` / `offers` is required. */
   offers?: RoomShopOffer[]
+  /**
+   * Buyback fraction (0–1) for an offers-only shop. Applies to listed offers
+   * and to anything else. Ignored when `shopIds` opens a catalog shop.
+   */
+  buybackRate?: number
+  /**
+   * When set, `offers` is a pool and each traveler sees `count` weighted picks.
+   * Omitted offers stay on the shelf for everyone. Catalog shops in the same
+   * request still sample on their own; these picks are appended.
+   */
+  sample?: RoomShopSample
   /** Optional room message when the shop opens. */
   openingMessage?: string
 }

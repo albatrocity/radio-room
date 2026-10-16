@@ -7,6 +7,7 @@ import type {
   ItemRarity,
   LucideIconName,
   MediaCondition,
+  RoomShopSample,
   ShoppingSessionInstance,
   ShopOffer,
   UserInventory,
@@ -419,29 +420,146 @@ export type ShoppingExtraOffer = {
   stock?: number
 }
 
-/** Append custom offers after the sampled ones, continuing `offerId`. */
+/** Options for composed (custom) offers that belong to the shop owner's catalog. */
+export type AppendExtraOffersOptions = {
+  catalogByShortId?: ReadonlyMap<string, ItemCatalogEntry>
+  hooks?: ShopEconomyHooks
+  roomType?: RoomTypeForShopFilter | null
+  /**
+   * Extras whose `sourcePlugin` is this id and whose `shortId` is in
+   * `catalogByShortId` are room-gated and run through `hooks.decorateOffer`.
+   * Other plugins' items stay ungated and undecorated.
+   */
+  ownerPlugin?: string
+  /** Draw this many distinct offers per traveler. Gating and decoration run first. */
+  sample?: RoomShopSample
+  /** Used for `sample`. Defaults to `Math.random`. */
+  random?: () => number
+}
+
+function ownedCatalogEntry(
+  extra: ShoppingExtraOffer,
+  opts?: AppendExtraOffersOptions,
+): ItemCatalogEntry | undefined {
+  if (!opts?.ownerPlugin || extra.definition.sourcePlugin !== opts.ownerPlugin) return undefined
+  return opts.catalogByShortId?.get(extra.definition.shortId)
+}
+
+/**
+ * Drop the owner's catalog extras that `availableInRoomTypes` excludes from
+ * `roomType`. Without a room type, or for any other plugin's item, nothing is dropped.
+ */
+export function retainComposableExtras(
+  extras: readonly ShoppingExtraOffer[],
+  opts?: AppendExtraOffersOptions,
+): ShoppingExtraOffer[] {
+  if (!opts?.roomType) return [...extras]
+  const roomType = opts.roomType
+  return extras.filter((extra) => {
+    const entry = ownedCatalogEntry(extra, opts)
+    if (!entry) return true
+    return isItemAvailableInRoomType(entry, roomType)
+  })
+}
+
+/** Load warnings for catalog extras this room type will not sell. */
+export function composableOfferWarnings(
+  extras: readonly ShoppingExtraOffer[],
+  opts?: AppendExtraOffersOptions,
+): string[] {
+  if (!opts?.roomType) return []
+  const roomType = opts.roomType
+  return extras.flatMap((extra) => {
+    const entry = ownedCatalogEntry(extra, opts)
+    if (!entry || isItemAvailableInRoomType(entry, roomType)) return []
+    return [`${extra.definition.name} isn't sold in ${roomType} rooms; the van still stops`]
+  })
+}
+
+function offerFromExtra(
+  extra: ShoppingExtraOffer,
+  offerId: number,
+  economy: ReturnType<typeof resolveEconomy>,
+  entry: ItemCatalogEntry | undefined,
+  hooks?: ShopEconomyHooks,
+): ShopOffer {
+  const decorated = entry ? hooks?.decorateOffer?.(entry, extra.basePrice) : undefined
+  const basePrice = decorated?.price ?? extra.basePrice
+  const definition = entry?.definition ?? extra.definition
+  return {
+    offerId,
+    shortId: extra.definition.shortId,
+    definitionId: extra.definition.id,
+    name: definition.name,
+    description: definition.description,
+    ...(entry && definition.artist?.trim() ? { artist: definition.artist.trim() } : {}),
+    icon: definition.icon ?? ("package" as LucideIconName),
+    ...(definition.imageUrl ? { imageUrl: definition.imageUrl } : {}),
+    ...(entry && definition.imageUrlLarge ? { imageUrlLarge: definition.imageUrlLarge } : {}),
+    ...(entry && definition.artworkFrame ? { artworkFrame: definition.artworkFrame } : {}),
+    ...(entry && definition.mediaFormat ? { mediaFormat: definition.mediaFormat } : {}),
+    ...(decorated?.condition ? { condition: decorated.condition } : {}),
+    basePrice,
+    price: scalePrice(basePrice, economy.costScale, economy.priceRounding),
+    available: true,
+    ...(extra.stock && extra.stock > 1 ? { remaining: extra.stock } : {}),
+    rarity: definition.rarity ?? "common",
+  }
+}
+
+/**
+ * Distinct weighted picks from an already gated and decorated pool.
+ * A count that covers the pool returns the pool in shelf order.
+ */
+export function sampleComposableOffers(
+  offers: readonly ShopOffer[],
+  sample: RoomShopSample,
+  random: () => number = Math.random,
+): ShopOffer[] {
+  const unique: ShopOffer[] = []
+  const seen = new Set<string>()
+  for (const offer of offers) {
+    if (seen.has(offer.shortId)) continue
+    seen.add(offer.shortId)
+    unique.push(offer)
+  }
+  if (sample.count >= unique.length) return unique
+  const even = sample.weights === "even"
+  const picked = pickWeightedDistinctShortIds(
+    unique.map((offer) => ({
+      shortId: offer.shortId,
+      weight: even ? 1 : (DEFAULT_RARITY_WEIGHTS[offer.rarity] ?? DEFAULT_RARITY_WEIGHTS.common),
+    })),
+    sample.count,
+    random,
+  )
+  const byShortId = new Map(unique.map((offer) => [offer.shortId, offer]))
+  return picked.map((shortId) => byShortId.get(shortId)!)
+}
+
+/**
+ * Append custom offers after the sampled catalog ones, continuing `offerId`.
+ * The owner's own catalog items are room-gated and decorated like a catalog
+ * offer; every other extra is appended as given. `sample` then draws distinct
+ * picks from that pool. Catalog-shop sampling is separate and is not merged in.
+ */
 export function appendExtraOffers(
   instance: ShoppingSessionInstance,
   extras: readonly ShoppingExtraOffer[],
   economy?: EconomyScaleState | null,
+  opts?: AppendExtraOffersOptions,
 ): ShoppingSessionInstance {
-  if (extras.length === 0) return instance
+  const kept = retainComposableExtras(extras, opts)
+  if (kept.length === 0) return instance
   const resolved = resolveEconomy(economy)
+  const built = kept.map((extra, i) =>
+    offerFromExtra(extra, i, resolved, ownedCatalogEntry(extra, opts), opts?.hooks),
+  )
+  const chosen = opts?.sample
+    ? sampleComposableOffers(built, opts.sample, opts.random ?? Math.random)
+    : built
   const start = instance.offers.length
-  const offers: ShopOffer[] = extras.map(({ definition, basePrice, stock }, i) => ({
-    offerId: start + i,
-    shortId: definition.shortId,
-    definitionId: definition.id,
-    name: definition.name,
-    description: definition.description,
-    icon: definition.icon ?? ("package" as LucideIconName),
-    ...(definition.imageUrl ? { imageUrl: definition.imageUrl } : {}),
-    basePrice,
-    price: scalePrice(basePrice, resolved.costScale, resolved.priceRounding),
-    available: true,
-    ...(stock && stock > 1 ? { remaining: stock } : {}),
-    rarity: definition.rarity ?? "common",
-  }))
+  const offers = chosen.map((offer, i) => ({ ...offer, offerId: start + i }))
   return { ...instance, offers: [...instance.offers, ...offers] }
 }
 

@@ -695,6 +695,12 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
         scopeId,
         shopIds,
         ...(offers.length > 0 ? { offers } : {}),
+        ...(shopIds.length === 0 && site.shop?.buybackRate != null
+          ? { buybackRate: site.shop.buybackRate }
+          : {}),
+        ...(site.shop?.sample
+          ? { sample: { count: site.shop.sample.count, weights: site.shop.sample.weights } }
+          : {}),
         ...(site.shop?.title ? { title: site.shop.title } : {}),
         ...(site.shop?.openingMessage ? { openingMessage: site.shop.openingMessage } : {}),
       },

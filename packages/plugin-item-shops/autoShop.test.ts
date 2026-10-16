@@ -1,8 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
 import { ShoppingSessionHelper } from "@repo/plugin-base"
-import type { PluginActionInitiator } from "@repo/types"
+import type { ItemCatalogEntry } from "@repo/plugin-base/helpers"
+import type { ItemDefinition, PluginActionInitiator } from "@repo/types"
+import { ITEM_SHOPS_SESSION_STORAGE_KEYS } from "@repo/types"
 import { ItemShopsPlugin } from "./index"
+import { beatDetector } from "./items/beat-detector"
 import { ITEM_CATALOG } from "./items/index"
+import { physicalMediaShopEconomyHooks } from "./localLibrary/shopEconomy"
 import { SHOP_CATALOG } from "./shops"
 import { defaultItemShopsConfig } from "./types"
 
@@ -275,13 +279,80 @@ describe("ItemShopsPlugin auto-shop", () => {
         coinValue: 30,
       }
 
-      function withDefinitions(definitions: (typeof FLAT)[]) {
+      function withDefinitions(definitions: ItemDefinition[]) {
         const created = setup()
         created.context.inventory.getItemDefinitions = vi.fn(async (ids: string[]) =>
           definitions.filter((d) => ids.includes(d.id)),
         )
         return created
       }
+
+      it("sets the offers-only buyback rate and leaves the default at 0", async () => {
+        const { access, shopping } = withDefinitions([FLAT])
+        await access.openRoomShop({
+          scopeId: "s",
+          offers: [{ definitionId: FLAT.id }],
+          buybackRate: 0.5,
+        })
+        const [, eligible] = shopping.startSession.mock.calls[0] as unknown as [
+          unknown,
+          { listedBuybackRate: number; unlistedBuybackRate: number }[],
+        ]
+        expect(eligible[0]).toMatchObject({ listedBuybackRate: 0.5, unlistedBuybackRate: 0.5 })
+
+        shopping.startSession.mockClear()
+        await access.openRoomShop({ scopeId: "s2", offers: [{ definitionId: FLAT.id }] })
+        const [, again] = shopping.startSession.mock.calls[0] as unknown as [
+          unknown,
+          { listedBuybackRate: number; unlistedBuybackRate: number }[],
+        ]
+        expect(again[0]).toMatchObject({ listedBuybackRate: 0, unlistedBuybackRate: 0 })
+      })
+
+      it("gives a late joiner a sample from the same offer pool", async () => {
+        const carrot: ItemDefinition = {
+          id: "item-shops:carrots",
+          sourcePlugin: "item-shops",
+          shortId: "carrots",
+          name: "Carrots",
+          description: "Produce",
+          stackable: true,
+          maxStack: 5,
+          tradeable: true,
+          consumable: true,
+          coinValue: 5,
+        }
+        const { access, context } = withDefinitions([FLAT, carrot])
+        const assignInstanceForUserId = vi.fn(async () => {})
+        ;(plugin as any).shopping = {
+          ...(plugin as any).shopping,
+          isActive: vi.fn(async () => true),
+          getInstance: vi.fn(async () => null),
+          assignInstanceForUserId,
+        }
+        const sample = { count: 1, weights: "even" as const }
+        expect(
+          await access.openRoomShop({
+            scopeId: "s",
+            offers: [{ definitionId: FLAT.id }, { definitionId: carrot.id }],
+            sample,
+          }),
+        ).toEqual({ ok: true })
+        const start = (plugin as any).shopping.startSession as ReturnType<typeof vi.fn>
+        expect(start.mock.calls[0]?.[3]).toEqual(sample)
+        await (plugin as any).handleUserJoined({ user: { userId: "u2", username: "Late" } })
+        expect(assignInstanceForUserId).toHaveBeenCalledWith(
+          "u2",
+          expect.any(Number),
+          expect.any(Array),
+          [
+            expect.objectContaining({ definition: expect.objectContaining({ id: FLAT.id }) }),
+            expect.objectContaining({ definition: expect.objectContaining({ id: carrot.id }) }),
+          ],
+          sample,
+        )
+        expect(context.api.emit).toHaveBeenCalled()
+      })
 
       it("opens an offers-only round on a synthetic shop with the resolved extras", async () => {
         const { access, shopping } = withDefinitions([FLAT])
@@ -334,6 +405,102 @@ describe("ItemShopsPlugin auto-shop", () => {
           ok: false,
           errors: ["List at least one shop id or custom offer."],
         })
+      })
+
+      it("warns when an offer is gated out of this room type", async () => {
+        const definition: ItemDefinition = {
+          id: "item-shops:beat-detector",
+          sourcePlugin: "item-shops",
+          ...beatDetector.catalogEntry.definition,
+        }
+        const { access, context } = withDefinitions([definition])
+        context.getRoom = vi.fn(async () => ({ type: "jukebox", playbackControllerId: "spotify" }))
+        expect(
+          await access.validateShop({ offers: [{ definitionId: definition.id }] }),
+        ).toEqual({
+          ok: true,
+          warnings: ["Beat Detector isn't sold in jukebox rooms; the van still stops"],
+        })
+      })
+
+      it("does not open when every offer is gated out and there is no catalog shop", async () => {
+        const definition: ItemDefinition = {
+          id: "item-shops:beat-detector",
+          sourcePlugin: "item-shops",
+          ...beatDetector.catalogEntry.definition,
+        }
+        const { access, context, shopping } = withDefinitions([definition])
+        context.getRoom = vi.fn(async () => ({ type: "jukebox", playbackControllerId: "spotify" }))
+        expect(
+          await access.openRoomShop({ scopeId: "s", offers: [{ definitionId: definition.id }] }),
+        ).toEqual({ ok: false, reason: "unavailable" })
+        expect(shopping.startSession).not.toHaveBeenCalled()
+      })
+
+      it("buying a decorated physical media offer gives the rolled condition", async () => {
+        const pm: ItemCatalogEntry = {
+          definition: {
+            shortId: "pm-loveless",
+            name: "LP: Loveless",
+            description: "A LP from the Record Store.",
+            icon: "Disc3",
+            mediaFormat: "LP",
+            artworkFrame: "record-jacket",
+            stackable: false,
+            maxStack: 1,
+            tradeable: true,
+            consumable: false,
+            coinValue: 20,
+            rarity: "uncommon",
+            slotPool: "collection",
+          },
+        }
+        const definition: ItemDefinition = {
+          id: "item-shops:pm-loveless",
+          sourcePlugin: "item-shops",
+          ...pm.definition,
+        }
+        const { access, context } = withDefinitions([definition])
+        const kv = new Map<string, string>()
+        const instances = new Map<string, string>()
+        context.storage.get = vi.fn(async (key: string) => kv.get(key) ?? null)
+        context.storage.set = vi.fn(async (key: string, value: string) => {
+          kv.set(key, value)
+        })
+        context.storage.hget = vi.fn(async (key: string, field: string) =>
+          key === ITEM_SHOPS_SESSION_STORAGE_KEYS.INSTANCES ? (instances.get(field) ?? null) : null,
+        )
+        context.storage.hset = vi.fn(async (key: string, field: string, value: string) => {
+          if (key === ITEM_SHOPS_SESSION_STORAGE_KEYS.INSTANCES) instances.set(field, value)
+        })
+        context.game.getUserState = vi.fn(async () => ({ attributes: { coin: 100 } }))
+        context.game.addScore = vi.fn(async () => {})
+        const giveItem = vi.fn(async () => ({ itemId: "pm-1" }))
+        context.inventory.giveItem = giveItem
+        ;(plugin as any).shopping = new ShoppingSessionHelper(
+          "item-shops",
+          context,
+          [pm],
+          [],
+          { hooks: physicalMediaShopEconomyHooks(() => ({ min: "poor", max: "poor" })) },
+        )
+
+        expect(
+          await access.openRoomShop({
+            scopeId: "s",
+            title: "Crate",
+            offers: [{ definitionId: definition.id, basePrice: 20 }],
+          }),
+        ).toEqual({ ok: true })
+        const bought = await plugin.executeAction("buy:0", { userId: "u1", username: "Listener" })
+        expect(bought.success).toBe(true)
+        expect(giveItem).toHaveBeenCalledWith(
+          "u1",
+          "item-shops:pm-loveless",
+          1,
+          { condition: "poor" },
+          "purchase",
+        )
       })
     })
   })

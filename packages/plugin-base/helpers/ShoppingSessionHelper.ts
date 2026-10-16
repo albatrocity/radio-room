@@ -4,6 +4,7 @@ import type {
   ItemRarity,
   PluginActionInitiator,
   PluginContext,
+  RoomShopSample,
   ShoppingSessionInstance,
   ShopOffer,
   User,
@@ -24,6 +25,7 @@ import {
   resolveItemRarity,
   resolveShopItemPrice,
   resolveUnlistedSellBasePrice,
+  retainComposableExtras,
   isShopListedItem,
   type WeightedCandidate,
 } from "./shoppingSessionCatalog"
@@ -132,12 +134,13 @@ export class ShoppingSessionHelper {
     users: readonly Pick<User, "userId">[],
     eligibleShops?: readonly ShopCatalogEntry[],
     extraOffers: readonly ShoppingExtraOffer[] = [],
+    sample?: RoomShopSample,
   ): Promise<void> {
     await this.context.storage.del(KEYS.INSTANCES)
     await this.setActive(true)
     const now = Date.now()
     for (const u of users) {
-      await this.assignInstanceForUserId(u.userId, now, eligibleShops, extraOffers)
+      await this.assignInstanceForUserId(u.userId, now, eligibleShops, extraOffers, sample)
     }
   }
 
@@ -152,6 +155,7 @@ export class ShoppingSessionHelper {
     openedAt = Date.now(),
     eligibleShops?: readonly ShopCatalogEntry[],
     extraOffers: readonly ShoppingExtraOffer[] = [],
+    sample?: RoomShopSample,
   ): Promise<void> {
     const pool = this.resolveAssignmentPool(eligibleShops)
     if (pool.length === 0) {
@@ -163,6 +167,14 @@ export class ShoppingSessionHelper {
     }
     const shortIds = this.sampleOfferShortIds(shop, 3)
     const session = await this.context.game.getActiveSession()
+    const room = await this.context.getRoom()
+    const offerOpts = {
+      catalogByShortId: this.catalogMap,
+      hooks: this.hooks,
+      roomType: room?.type,
+      ownerPlugin: this.pluginName,
+      ...(sample ? { sample } : {}),
+    }
     const instance = appendExtraOffers(
       buildShoppingInstance(
         shop,
@@ -174,7 +186,15 @@ export class ShoppingSessionHelper {
       ),
       extraOffers,
       session?.config?.economy,
+      offerOpts,
     )
+    if (shop.shopId.startsWith(ROOM_SHOP_ID_PREFIX)) {
+      const listed = retainComposableExtras(extraOffers, offerOpts)
+      instance.listedShortIds = listed.map((extra) => extra.definition.shortId)
+      const overrides: Record<string, number> = {}
+      for (const extra of listed) overrides[extra.definition.shortId] = extra.basePrice
+      if (Object.keys(overrides).length > 0) instance.listedPriceOverrides = overrides
+    }
     const displayMessage = (
       shop.openingMessage ?? "{{shopName}} is now open for business!"
     ).replace(/\{\{shopName\}\}/g, shop.name)
@@ -325,20 +345,27 @@ export class ShoppingSessionHelper {
     if (!session) {
       return { success: false, message: "No active game session." }
     }
-    // A room shop with only custom offers has no catalog entry; it buys back at the instance's unlisted rate.
+    // A room shop built only from custom offers is not in the catalog. Its
+    // instance records which offers are listed and the buyback rates.
     const shop = this.getShopById(inst.shopId)
     if (!shop && !inst.shopId.startsWith(ROOM_SHOP_ID_PREFIX)) {
       return { success: false, message: "Shop data is out of sync." }
     }
-    const listed = shop ? isShopListedItem(shop, definition.shortId) : false
+    const listed = shop
+      ? isShopListedItem(shop, definition.shortId)
+      : (inst.listedShortIds?.includes(definition.shortId) ?? false)
     const rate =
       (listed
         ? (shop?.listedBuybackRate ?? inst.listedBuybackRate)
         : (shop?.unlistedBuybackRate ?? inst.unlistedBuybackRate)) ?? 0
-    let base =
-      shop && listed
+    const catalogCoin = this.catalogMap.get(definition.shortId)?.definition.coinValue
+    let base = shop
+      ? listed
         ? resolveShopItemPrice(shop, definition.shortId, this.catalogMap)
         : resolveUnlistedSellBasePrice(this.catalogMap, definition.shortId)
+      : listed
+        ? (inst.listedPriceOverrides?.[definition.shortId] ?? catalogCoin ?? definition.coinValue ?? 0)
+        : (catalogCoin ?? definition.coinValue ?? 0)
     if (this.hooks?.adjustSellBase) {
       base = this.hooks.adjustSellBase(item, definition, base)
     }

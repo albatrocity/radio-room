@@ -93,6 +93,7 @@ function makeContext(params?: {
       addScore,
     },
     inventory: { giveItem, removeItem },
+    getRoom: vi.fn(async () => null),
   } as unknown as PluginContext
   return { context, giveItem, removeItem, addScore }
 }
@@ -329,6 +330,71 @@ describe("ShoppingSessionHelper custom offers", () => {
     await helper.purchase({ userId: "u1", username: "U" }, 0)
     const afterTwo = JSON.parse(hset.mock.calls[1]![2] as string) as { offers: ShopOffer[] }
     expect(afterTwo.offers[0]).toMatchObject({ available: false, remaining: 0 })
+  })
+
+  it("buys listed and unlisted items back at the offers-only buyback rate", async () => {
+    const pedal: ItemDefinition = {
+      id: "item-shops:fuzz-pedal",
+      sourcePlugin: "item-shops",
+      ...PEDAL.definition,
+    }
+    const other: ItemDefinition = {
+      id: "item-shops:pm-loveless",
+      sourcePlugin: "item-shops",
+      ...PM.definition,
+    }
+    const { context, addScore } = makeContext()
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    const stand = {
+      shopId: "room-shop:stand",
+      name: "Stand",
+      availableItems: [],
+      listedBuybackRate: 0.5,
+      unlistedBuybackRate: 0.5,
+    }
+    await helper.assignInstanceForUserId("u1", 1, [stand], [{ definition: pedal, basePrice: 40 }])
+    const raw = (context.storage.hset as ReturnType<typeof vi.fn>).mock.calls[0]![2] as string
+    context.storage.hget = vi.fn(async () => raw) as PluginContext["storage"]["hget"]
+
+    const held = (definition: ItemDefinition): InventoryItem => ({
+      itemId: definition.shortId,
+      definitionId: definition.id,
+      sourcePlugin: definition.sourcePlugin,
+      quantity: 1,
+      acquiredAt: 1,
+    })
+    await expect(helper.sell("u1", held(pedal), pedal)).resolves.toMatchObject({ success: true, refund: 20 })
+    await expect(helper.sell("u1", held(other), other)).resolves.toMatchObject({ success: true, refund: 10 })
+    expect(addScore).toHaveBeenCalledWith("u1", "coin", 20, "item-shops:sale", { intent: "exact" })
+    expect(addScore).toHaveBeenCalledWith("u1", "coin", 10, "item-shops:sale", { intent: "exact" })
+  })
+
+  it("buys nothing back at an offers-only shop when the rate is left at 0", async () => {
+    const pedal: ItemDefinition = {
+      id: "item-shops:fuzz-pedal",
+      sourcePlugin: "item-shops",
+      ...PEDAL.definition,
+    }
+    const { context } = makeContext()
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    const stand = {
+      shopId: "room-shop:stand",
+      name: "Stand",
+      availableItems: [],
+      listedBuybackRate: 0,
+      unlistedBuybackRate: 0,
+    }
+    await helper.assignInstanceForUserId("u1", 1, [stand], [{ definition: pedal, basePrice: 40 }])
+    const raw = (context.storage.hset as ReturnType<typeof vi.fn>).mock.calls[0]![2] as string
+    context.storage.hget = vi.fn(async () => raw) as PluginContext["storage"]["hget"]
+    const item: InventoryItem = {
+      itemId: "fuzz-1",
+      definitionId: pedal.id,
+      sourcePlugin: "item-shops",
+      quantity: 1,
+      acquiredAt: 1,
+    }
+    await expect(helper.sell("u1", item, pedal)).resolves.toMatchObject({ success: true, refund: 0 })
   })
 
   it("buys back on an offers-only room shop at the instance's rates", async () => {

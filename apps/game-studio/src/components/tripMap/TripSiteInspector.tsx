@@ -18,8 +18,8 @@ import {
   skipPollQuestion,
   type TripMap,
 } from "@repo/road-trip-map"
+import { TripOfferPicker } from "./TripOfferPicker"
 import {
-  OFFER_OPTIONS,
   SHOP_OPTIONS,
   type FuelProjectionStop,
   type TripSiteDraft,
@@ -89,7 +89,15 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
   const setShop = (patch: Partial<NonNullable<TripSiteDraft["shop"]>>) => {
     const next = { ...site.shop, ...patch }
     if (next.offers?.length === 0) delete next.offers
-    const empty = !next.shopIds?.length && !next.offers && !next.title && !next.openingMessage
+    if (next.buybackRate == null) delete next.buybackRate
+    if (next.sample == null) delete next.sample
+    const empty =
+      !next.shopIds?.length &&
+      !next.offers &&
+      next.buybackRate == null &&
+      next.sample == null &&
+      !next.title &&
+      !next.openingMessage
     onChange({ shop: empty ? undefined : next })
   }
   const setServices = (patch: Partial<NonNullable<TripSiteDraft["services"]>>) => {
@@ -98,11 +106,6 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
     if (!next.mechanic) delete next.mechanic
     onChange({ services: Object.keys(next).length > 0 ? next : undefined })
   }
-  const setOffer = (definitionId: string, offer: { basePrice?: number } | null) => {
-    const rest = offers.filter((o) => o.definitionId !== definitionId)
-    setShop({ offers: offer ? [...rest, { definitionId, ...offer }] : rest })
-  }
-
   return (
     <Stack gap="3">
       <HStack justify="space-between">
@@ -335,37 +338,42 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
             />
           ))}
         </HStack>
-        <Text fontSize="xs" fontWeight="semibold" color="fg.muted" mb="1">
-          Custom offers (always on the shelf)
-        </Text>
-        <Stack gap="1" mb="2">
-          {OFFER_OPTIONS.map((option) => {
-            const offer = offers.find((o) => o.definitionId === option.definitionId)
-            return (
-              <HStack key={option.definitionId} gap="3">
-                <Box flex="1">
-                  <Toggle
-                    label={`${option.emoji} ${option.name}`}
-                    checked={offer !== undefined}
-                    onChange={(checked) => setOffer(option.definitionId, checked ? {} : null)}
-                  />
-                </Box>
-                {offer ? (
-                  <Input
-                    size="xs"
-                    type="number"
-                    maxW="110px"
-                    placeholder={`${option.coinValue} coins`}
-                    value={offer.basePrice ?? ""}
-                    onChange={(e) =>
-                      setOffer(option.definitionId, { basePrice: optionalNumber(e.target.value) })
-                    }
-                  />
-                ) : null}
-              </HStack>
-            )
-          })}
-        </Stack>
+        <Box mb="2">
+          <TripOfferPicker
+            offers={offers}
+            sample={site.shop?.sample}
+            onChange={(next) => setShop({ offers: next })}
+            onSampleChange={(sample) => setShop({ sample })}
+          />
+        </Box>
+        <Field.Root maxW="180px" mb="2">
+          <Field.Label fontSize="xs">Buyback rate</Field.Label>
+          <Input
+            size="sm"
+            type="number"
+            min={0}
+            max={1}
+            step={0.05}
+            placeholder="0"
+            value={site.shop?.buybackRate ?? ""}
+            onChange={(e) => {
+              const raw = e.target.value.trim()
+              if (raw === "") {
+                setShop({ buybackRate: undefined })
+                return
+              }
+              const n = Number(raw)
+              setShop({
+                buybackRate: Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : undefined,
+              })
+            }}
+          />
+          <Field.HelperText fontSize="xs">
+            {shopIds.length > 0
+              ? "Catalog shops keep their own rates."
+              : "Offers-only shops buy back at this fraction. 0 buys nothing back."}
+          </Field.HelperText>
+        </Field.Root>
         <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
           <Field.Root>
             <Field.Label fontSize="xs">Stand title</Field.Label>

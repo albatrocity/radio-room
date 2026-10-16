@@ -1,7 +1,7 @@
 # 0207. Trip Maps as portable JSON
 
 **Date:** 2026-10-02
-**Status:** Accepted
+**Status:** Accepted. Amended 2026-10-16 (composed site shops)
 
 ## Context
 
@@ -57,3 +57,12 @@ Alternatives considered:
 - Studio, the plugin, and tests can't disagree about validity, because they share one parser.
 - Rooms load maps by paste only. Game Studio–published assets arrived in Phase 4 ([0210](0210-shared-model-viewer-and-studio-site-assets.md)); drag-and-drop map file loading in the room is not built.
 - Changing the schema in a breaking way means bumping `schemaVersion` and migrating in `parseTripMap`.
+
+## Amendment (2026-10-16) — composed site shops
+
+`shop.offers` is a first-class way to build a site shop, including a shop with no `shopIds`. Game Studio's offer picker lists every Item Shops catalog entry and every van part and consumable (`ITEM_SOURCES` in `apps/game-studio/src/tripMap/tripMapDraft.ts`). A room-restricted item warns in the map check. The picker notes Sweetwater and Green Room items, whose shop effects do not apply in a composed shop.
+
+Optional fields, ignored by maps that omit them:
+
+- `buybackRate` (0–1) sets the offers-only buyback fraction. A site that also names catalog shops keeps those shops' rates, and the map check warns.
+- `sample: { count: 1–8, weights?: "rarity" | "even" }` turns `offers` into a pool. Without it, every traveler sees every offer (at most 12). With it, the pool can list 40. `count` larger than the pool warns that everyone sees the whole pool. `sample` with no offers is an error.

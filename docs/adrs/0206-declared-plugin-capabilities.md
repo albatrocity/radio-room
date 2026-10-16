@@ -1,7 +1,7 @@
 # 0206. Declared plugin capabilities; `shopAccess`
 
 **Date:** 2026-10-02
-**Status:** Accepted
+**Status:** Accepted. Amended 2026-10-16 (composed offers)
 
 ## Context
 
@@ -34,3 +34,18 @@ Plugins had no supported way to ask each other for anything. The options were:
 - A capability has one provider per server. That is enough for now. Several providers would need a selection rule.
 - Game Studio's mock plugin API stubs `requestCapability`, so plugins that call it run in the sandbox.
 - This is the pattern for future requests between plugins. Phase 3 extended `shopAccess` with custom offers, and the stretch goal's `PLUGIN_SIGNAL` covers one-way notifications.
+
+## Amendment (2026-10-16) — composed offers
+
+A Trip Map site can build a shop from `offers` alone. Item Shops still owns the round. For items in Item Shops' own catalog, a composed offer follows the same item-level rules as a catalog offer:
+
+- `availableInRoomTypes` drops the offer when the room type is outside the list. The map still loads. `validateShop` warns (`"<name> isn't sold in <roomType> rooms; the van still stops"`). If every offer is dropped and the site names no catalog shop, `openRoomShop` returns `unavailable`.
+- `decorateOffer` runs, so Physical Media gets a rolled condition and a condition price.
+- Items from other plugins have no catalog entry. They are ungated and undecorated.
+
+Shop-level purchase effects do not follow an item. Sweetwater's sales-rep follow-up and the Green Room's end-of-round confiscation run only when that shop is the open visit. Record Store stock built from the room's library is not a registered item, so it is not composable.
+
+`openRoomShop` also takes:
+
+- `buybackRate` (0–1, default 0). An offers-only shop buys back listed offers and anything else at this fraction. Catalog shops in the same request keep their own rates.
+- `sample: { count, weights? }`. `offers` becomes a pool. Each traveler, including a late joiner, gets `count` distinct picks (`weights` `"rarity"` or `"even"`). Gating and decoration run on the pool first. A catalog shop in the same request still samples on its own; the composed picks are appended, not merged into that pool.

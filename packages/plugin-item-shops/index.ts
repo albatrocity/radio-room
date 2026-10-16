@@ -16,6 +16,8 @@ import {
   buildItemCatalogMap,
   filterShopCatalogByRoomType,
   applyShopRarityOverrides,
+  composableOfferWarnings,
+  retainComposableExtras,
   resolveEconomy,
   scalePrice,
 } from "@repo/game-logic"
@@ -95,6 +97,7 @@ import type {
   OpenRoomShopResult,
   PluginCapabilities,
   RoomShopOffer,
+  RoomShopSample,
   ValidateShopRequest,
   ValidateShopResult,
 } from "@repo/types"
@@ -766,9 +769,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     // Skip if user already has an assignment (e.g. page refresh during session)
     const existing = await this.shopping.getInstance(data.user.userId)
     if (existing) return
-    const { eligible, extras } = await this.resolveRoundAssignment(config)
+    const { eligible, extras, sample } = await this.resolveRoundAssignment(config)
     if (eligible.length === 0) return
-    await this.shopping.assignInstanceForUserId(data.user.userId, Date.now(), eligible, extras)
+    await this.shopping.assignInstanceForUserId(
+      data.user.userId,
+      Date.now(),
+      eligible,
+      extras,
+      sample,
+    )
     await this.emit("SHOPPING_SESSION_UPDATED", { roomId: this.context.roomId })
     await this.requestShopTabAttention(data.user.userId)
   }
@@ -852,11 +861,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   private async startRoundWith(
     eligible: ItemShopsShopCatalogEntry[],
     extras: ShoppingExtraOffer[] = [],
+    sample?: RoomShopSample,
   ): Promise<void> {
     if (!this.context) return
     await this.invokeShoppingRoundSessionEndHooks()
     const users = await this.context.api.getUsers(this.context.roomId)
-    await this.shopping.startSession(users, eligible, extras)
+    await this.shopping.startSession(users, eligible, extras, sample)
     await this.invokeShoppingRoundSessionStartHooks(eligible)
     await this.emit("SHOPPING_SESSION_STARTED", { roomId: this.context.roomId })
     for (const u of users) {
@@ -865,15 +875,17 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   /** Shops and custom offers for the round in progress: the scoped round's, else the rotation. */
-  private async resolveRoundAssignment(
-    config: ItemShopsConfig,
-  ): Promise<{ eligible: ItemShopsShopCatalogEntry[]; extras: ShoppingExtraOffer[] }> {
+  private async resolveRoundAssignment(config: ItemShopsConfig): Promise<{
+    eligible: ItemShopsShopCatalogEntry[]
+    extras: ShoppingExtraOffer[]
+    sample?: RoomShopSample
+  }> {
     const scope = await this.readRoomShopScope()
     if (!scope) return { eligible: await this.resolveEligibleShops(config), extras: [] }
     const { extras } = await this.resolveOffers(scope.offers ?? [])
     const shops = scope.shopIds.length > 0 ? await this.resolveScopedShops(config, scope.shopIds) : []
     const eligible = shops.length === 0 && extras.length > 0 ? [offersOnlyShop(scope)] : shops
-    return { eligible, extras }
+    return { eligible, extras, ...(scope.sample ? { sample: scope.sample } : {}) }
   }
 
   private async resolveOffers(
@@ -907,16 +919,29 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     await this.context?.storage.del(ROOM_SHOP_SCOPE_KEY)
   }
 
+  private composableOfferOptions(roomType?: "jukebox" | "radio" | "live" | null) {
+    return {
+      catalogByShortId: buildItemCatalogMap(this.effectiveCatalogForGive()),
+      roomType,
+      ownerPlugin: this.name,
+    }
+  }
+
   private async validateRoomShop(req: ValidateShopRequest): Promise<ValidateShopResult> {
     const config = (await this.getConfig()) ?? defaultItemShopsConfig
     const shopIds = req.shopIds ?? []
     const available = shopIds.length > 0 ? await this.resolveScopedShops(config, shopIds) : []
     const { extras } = await this.resolveOffers(req.offers ?? [])
-    return validateRoomShopRequest(req, {
+    const result = validateRoomShopRequest(req, {
       shopIds: new Set(defaultEnabledShopIds()),
       availableShopIds: new Set(available.map((shop) => shop.shopId)),
       definitionIds: new Set(extras.map((e) => e.definition.id)),
     })
+    if (!result.ok) return result
+    const room = await this.context?.getRoom()
+    const gated = composableOfferWarnings(extras, this.composableOfferOptions(room?.type))
+    const warnings = [...(result.warnings ?? []), ...gated]
+    return warnings.length > 0 ? { ok: true, warnings } : { ok: true }
   }
 
   /** `shopAccess.openRoomShop`: a room-wide round limited to the caller's shops and offers. */
@@ -929,21 +954,30 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const offers = req.offers ?? []
     const { extras, unknown } = await this.resolveOffers(offers)
     if (unknown.length > 0) return { ok: false, reason: "unknown-item" }
+    const room = await this.context.getRoom()
+    const sellable = retainComposableExtras(extras, this.composableOfferOptions(room?.type))
     const shops = shopIds.length > 0 ? await this.resolveScopedShops(config, shopIds) : []
-    if (shops.length === 0 && extras.length === 0) {
+    if (shops.length === 0 && sellable.length === 0) {
       const known = new Set(defaultEnabledShopIds())
       const allKnown = shopIds.length > 0 && shopIds.every((id) => known.has(id))
-      return { ok: false, reason: allKnown ? "unavailable" : "unknown-shop" }
+      const offersKnownButGated = offers.length > 0
+      return { ok: false, reason: allKnown || offersKnownButGated ? "unavailable" : "unknown-shop" }
     }
     const scope: RoomShopScope = {
       scopeId: req.scopeId,
       shopIds,
       openedAt: Date.now(),
       ...(offers.length > 0 ? { offers } : {}),
+      ...(req.buybackRate != null ? { buybackRate: req.buybackRate } : {}),
+      ...(req.sample ? { sample: req.sample } : {}),
       ...(req.title ? { title: req.title } : {}),
     }
     await this.context.storage.setJson(ROOM_SHOP_SCOPE_KEY, scope)
-    await this.startRoundWith(shops.length > 0 ? shops : [offersOnlyShop(scope)], extras)
+    await this.startRoundWith(
+      shops.length > 0 ? shops : [offersOnlyShop(scope)],
+      sellable,
+      req.sample,
+    )
     if (req.openingMessage) {
       await this.context.api.sendSystemMessage(this.context.roomId, req.openingMessage, {
         type: "alert",
@@ -1705,7 +1739,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Start a shopping round first (toolbar → Start shopping).",
         }
       }
-      const { eligible, extras } = await this.resolveRoundAssignment(config)
+      const { eligible, extras, sample } = await this.resolveRoundAssignment(config)
       if (eligible.length === 0) {
         return {
           success: false,
@@ -1716,7 +1750,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       let assigned = 0
       for (const u of users) {
         if (await this.shopping.getInstance(u.userId)) continue
-        await this.shopping.assignInstanceForUserId(u.userId, Date.now(), eligible, extras)
+        await this.shopping.assignInstanceForUserId(u.userId, Date.now(), eligible, extras, sample)
         await this.requestShopTabAttention(u.userId)
         assigned++
       }

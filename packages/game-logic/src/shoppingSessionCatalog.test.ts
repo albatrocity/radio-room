@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
+import type { ItemDefinition, ShoppingSessionInstance } from "@repo/types"
 import type { ItemCatalogEntry, ShopCatalogEntry } from "./shoppingSessionCatalog"
 import {
+  appendExtraOffers,
   applyShopRarityOverrides,
   buildItemCatalogMap,
   buildShoppingInstance,
@@ -292,5 +294,179 @@ describe("applyShopRarityOverrides", () => {
   it("does not clone when override matches catalog rarity", () => {
     const next = applyShopRarityOverrides(shops, { "spy-world": "legendary" })
     expect(next).toBe(shops)
+  })
+})
+
+describe("appendExtraOffers", () => {
+  const empty: ShoppingSessionInstance = {
+    shopId: "room-shop:s",
+    shopName: "Shop",
+    offers: [],
+    openedAt: 1,
+  }
+
+  function defined(entry: ItemCatalogEntry, sourcePlugin: string): ItemDefinition {
+    return {
+      id: `${sourcePlugin}:${entry.definition.shortId}`,
+      sourcePlugin,
+      ...entry.definition,
+    }
+  }
+
+  const scopeOpts = {
+    catalogByShortId: buildItemCatalogMap([RADIO_ONLY, PM_ENTRY]),
+    ownerPlugin: "item-shops",
+    hooks: {
+      decorateOffer(entry: ItemCatalogEntry, basePrice: number) {
+        if (!entry.definition.mediaFormat) return {}
+        return { condition: "poor" as const, price: Math.round(basePrice * 0.45) }
+      },
+    },
+  }
+
+  const foreign: ItemDefinition = {
+    id: "road-trip:fix-a-flat",
+    sourcePlugin: "road-trip",
+    shortId: "fix-a-flat",
+    name: "Fix-a-Flat",
+    description: "Patch a blown tire.",
+    stackable: true,
+    maxStack: 5,
+    tradeable: true,
+    consumable: true,
+    coinValue: 30,
+  }
+
+  it("drops a gated Item Shops offer in a jukebox room and keeps it in a radio room", () => {
+    const extra = { definition: defined(RADIO_ONLY, "item-shops"), basePrice: 35 }
+    const jukebox = appendExtraOffers(empty, [extra], null, { ...scopeOpts, roomType: "jukebox" })
+    expect(jukebox.offers).toEqual([])
+
+    const radio = appendExtraOffers(empty, [extra], null, { ...scopeOpts, roomType: "radio" })
+    expect(radio.offers.map((offer) => offer.shortId)).toEqual(["oscilloscope"])
+    expect(radio.offers[0]?.condition).toBeUndefined()
+    expect(radio.offers[0]?.price).toBe(35)
+  })
+
+  it("applies decorateOffer condition and price on a Physical Media offer", () => {
+    const instance = appendExtraOffers(
+      empty,
+      [{ definition: defined(PM_ENTRY, "item-shops"), basePrice: 20 }],
+      null,
+      { ...scopeOpts, roomType: "jukebox" },
+    )
+    expect(instance.offers[0]).toMatchObject({
+      condition: "poor",
+      price: 9,
+      basePrice: 9,
+      mediaFormat: "LP",
+      artworkFrame: "record-jacket",
+    })
+  })
+
+  it("leaves a foreign-plugin offer untouched", () => {
+    const instance = appendExtraOffers(empty, [{ definition: foreign, basePrice: 25, stock: 2 }], null, {
+      ...scopeOpts,
+      roomType: "jukebox",
+    })
+    expect(instance.offers).toEqual([
+      expect.objectContaining({
+        offerId: 0,
+        shortId: "fix-a-flat",
+        definitionId: "road-trip:fix-a-flat",
+        name: "Fix-a-Flat",
+        basePrice: 25,
+        price: 25,
+        remaining: 2,
+        available: true,
+      }),
+    ])
+    expect(instance.offers[0]?.condition).toBeUndefined()
+    expect(instance.offers[0]?.mediaFormat).toBeUndefined()
+  })
+
+  function mulberry32(seed: number): () => number {
+    let a = seed >>> 0
+    return () => {
+      a |= 0
+      a = (a + 0x6d2b79f5) | 0
+      let t = Math.imul(a ^ (a >>> 15), 1 | a)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+  }
+
+  function plain(shortId: string, rarity: "common" | "legendary"): ItemDefinition {
+    return {
+      id: `road-trip:${shortId}`,
+      sourcePlugin: "road-trip",
+      shortId,
+      name: shortId,
+      description: shortId,
+      stackable: true,
+      maxStack: 5,
+      tradeable: true,
+      consumable: true,
+      coinValue: 10,
+      rarity,
+    }
+  }
+
+  it("samples count distinct offers and returns the whole pool when count covers it", () => {
+    const pool = ["a", "b", "c", "d"].map((id) => ({ definition: plain(id, "common"), basePrice: 1 }))
+    const rng = mulberry32(7)
+    for (let i = 0; i < 40; i++) {
+      const picked = appendExtraOffers(empty, pool, null, {
+        sample: { count: 3, weights: "even" },
+        random: rng,
+      }).offers.map((offer) => offer.shortId)
+      expect(picked).toHaveLength(3)
+      expect(new Set(picked).size).toBe(3)
+      expect(picked.every((id) => ["a", "b", "c", "d"].includes(id))).toBe(true)
+    }
+    const whole = appendExtraOffers(empty, pool.slice(0, 2), null, {
+      sample: { count: 8, weights: "rarity" },
+      random: () => 0,
+    })
+    expect(whole.offers.map((offer) => offer.shortId)).toEqual(["a", "b"])
+  })
+
+  it("weights samples by rarity and can weight them evenly", () => {
+    const extras = [
+      { definition: plain("pebble", "common"), basePrice: 1 },
+      { definition: plain("crown", "legendary"), basePrice: 1 },
+    ]
+    const trials = 2000
+    const count = (weights: "rarity" | "even", seed: number) => {
+      const rng = mulberry32(seed)
+      let commons = 0
+      for (let i = 0; i < trials; i++) {
+        const offer = appendExtraOffers(empty, extras, null, {
+          sample: { count: 1, weights },
+          random: rng,
+        }).offers[0]
+        if (offer?.shortId === "pebble") commons++
+      }
+      return commons / trials
+    }
+    const rarity = count("rarity", 1)
+    const even = count("even", 1)
+    expect(rarity).toBeGreaterThan(0.7)
+    expect(rarity).toBeLessThan(0.9)
+    expect(even).toBeGreaterThan(0.4)
+    expect(even).toBeLessThan(0.6)
+  })
+
+  it("never samples an offer gated out of the room", () => {
+    const picked = appendExtraOffers(
+      empty,
+      [
+        { definition: defined(RADIO_ONLY, "item-shops"), basePrice: 35 },
+        { definition: plain("pebble", "common"), basePrice: 1 },
+      ],
+      null,
+      { ...scopeOpts, roomType: "jukebox", sample: { count: 2, weights: "even" }, random: () => 0.99 },
+    )
+    expect(picked.offers.map((offer) => offer.shortId)).toEqual(["pebble"])
   })
 })

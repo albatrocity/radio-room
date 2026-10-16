@@ -60,12 +60,49 @@ export const shopOfferSchema = z.object({
 })
 export type SiteShopOffer = z.infer<typeof shopOfferSchema>
 
-export const siteShopSchema = z.object({
-  title: z.string().min(1).max(60).optional(),
-  shopIds: z.array(z.string().min(1)).max(8).optional(),
-  offers: z.array(shopOfferSchema).max(12).optional(),
-  openingMessage: z.string().min(1).max(200).optional(),
+export const siteShopSampleSchema = z.object({
+  /** How many offers each traveler sees. */
+  count: z.number().int().min(1).max(8),
+  /** Default rarity weights, or the same weight for every offer. */
+  weights: z.enum(["rarity", "even"]).default("rarity"),
 })
+export type SiteShopSample = z.infer<typeof siteShopSampleSchema>
+
+/** A shelf lists at most 12 offers. A sampled pool lists at most 40. */
+export const SITE_SHOP_SHELF_CAP = 12
+export const SITE_SHOP_POOL_CAP = 40
+
+export const siteShopSchema = z
+  .object({
+    title: z.string().min(1).max(60).optional(),
+    shopIds: z.array(z.string().min(1)).max(8).optional(),
+    offers: z.array(shopOfferSchema).max(SITE_SHOP_POOL_CAP).optional(),
+    /**
+     * When set, `offers` is a candidate pool and each traveler sees `count` picks.
+     * Without it, every traveler sees every offer.
+     */
+    sample: siteShopSampleSchema.optional(),
+    /**
+     * Offers-only shops buy back at this fraction of the item's price (0–1).
+     * Listed offers use their `basePrice`; anything else uses `coinValue`.
+     * Ignored when the site also names catalog shops.
+     */
+    buybackRate: z.number().min(0).max(1).optional(),
+    openingMessage: z.string().min(1).max(200).optional(),
+  })
+  .superRefine((shop, ctx) => {
+    const count = shop.offers?.length ?? 0
+    const cap = shop.sample ? SITE_SHOP_POOL_CAP : SITE_SHOP_SHELF_CAP
+    if (count > cap) {
+      ctx.addIssue({
+        path: ["offers"],
+        code: z.ZodIssueCode.custom,
+        message: shop.sample
+          ? `A sampled pool can list at most ${SITE_SHOP_POOL_CAP} offers.`
+          : `A shelf can list at most ${SITE_SHOP_SHELF_CAP} offers.`,
+      })
+    }
+  })
 export type SiteShop = z.infer<typeof siteShopSchema>
 
 export const siteServicesSchema = z.object({
