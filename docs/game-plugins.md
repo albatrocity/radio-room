@@ -1,6 +1,6 @@
 # Game plugins
 
-Plugins registered in `apps/api/src/server.ts`. Item and shop content for the ones that sell things lives in `@repo/plugin-item-shops` — see [Item Shops Development](SHOP_ITEM_DEVELOPMENT.md).
+Plugins registered in `@repo/plugins` (`packages/plugins/index.ts`). Item and shop content for the ones that sell things lives in `@repo/plugin-item-shops` — see [Item Shops Development](SHOP_ITEM_DEVELOPMENT.md).
 
 ## Play
 

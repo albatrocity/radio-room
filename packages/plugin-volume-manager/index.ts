@@ -144,7 +144,7 @@ export class VolumeManagerPlugin extends BasePlugin<VolumeManagerConfig> {
     }
 
     const volume = clampVolumePercent(rawVolume)
-    const result = await this.context!.api.setPlaybackVolume(this.context!.roomId, volume)
+    const result = await this.context!.playback.setPlaybackVolume(this.context!.roomId, volume)
     if (!result.success) {
       return result
     }
@@ -180,7 +180,7 @@ export class VolumeManagerPlugin extends BasePlugin<VolumeManagerConfig> {
 
   private async applyLiveVolume(volumePercent: number): Promise<boolean> {
     const volume = clampVolumePercent(volumePercent)
-    const result = await this.context!.api.setPlaybackVolume(this.context!.roomId, volume)
+    const result = await this.context!.playback.setPlaybackVolume(this.context!.roomId, volume)
     if (!result.success) {
       console.warn(`[${this.name}] Failed to set playback volume:`, result.message)
       return false

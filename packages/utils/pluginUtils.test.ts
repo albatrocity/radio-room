@@ -1,9 +1,46 @@
 import { describe, expect, it } from "vitest"
+import type { Plugin } from "@repo/types"
 import {
   checkShowWhenCondition,
   checkShowWhenConditions,
   resolveShowWhenPath,
+  toPluginSchemaInfo,
 } from "./pluginUtils"
+
+describe("toPluginSchemaInfo", () => {
+  it("copies identity and schemas from the plugin's getters", () => {
+    const configSchema = { jsonSchema: {}, layout: [], fieldMeta: {} }
+    const componentSchema = { components: [], storeKeys: ["score"] }
+    const plugin = {
+      name: "example-plugin",
+      version: "1.2.3",
+      description: "Example",
+      getDefaultConfig: () => ({ enabled: false }),
+      getConfigSchema: () => configSchema,
+      getComponentSchema: () => componentSchema,
+    } as unknown as Plugin
+
+    expect(toPluginSchemaInfo(plugin)).toEqual({
+      name: "example-plugin",
+      version: "1.2.3",
+      description: "Example",
+      defaultConfig: { enabled: false },
+      configSchema,
+      componentSchema,
+    })
+  })
+
+  it("leaves schemas undefined when the plugin does not define them", () => {
+    const plugin = { name: "bare", version: "1.0.0" } as unknown as Plugin
+
+    expect(toPluginSchemaInfo(plugin)).toMatchObject({
+      name: "bare",
+      defaultConfig: undefined,
+      configSchema: undefined,
+      componentSchema: undefined,
+    })
+  })
+})
 
 describe("resolveShowWhenPath", () => {
   it("resolves bare fields from config then store", () => {

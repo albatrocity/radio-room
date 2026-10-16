@@ -1,4 +1,4 @@
-# 0200. Departed listener user records kept for two days
+# 0203. Departed listener user records kept for two days
 
 **Date:** 2026-10-16
 **Status:** Accepted

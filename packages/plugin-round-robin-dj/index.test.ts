@@ -39,9 +39,15 @@ function createInMemoryStorage() {
     getJson: vi.fn(async (k: string) => {
       const raw = strings.get(k) ?? null
       if (!raw) return { raw: null, value: null }
-      try { return { raw, value: JSON.parse(raw) } } catch { return { raw, value: null } }
+      try {
+        return { raw, value: JSON.parse(raw) }
+      } catch {
+        return { raw, value: null }
+      }
     }),
-    setJson: vi.fn(async (k: string, v: unknown) => { strings.set(k, JSON.stringify(v)) }),
+    setJson: vi.fn(async (k: string, v: unknown) => {
+      strings.set(k, JSON.stringify(v))
+    }),
     updateJson: vi.fn(),
     lrange: vi.fn(async () => []),
     appendCapped: vi.fn(),
@@ -55,17 +61,23 @@ function setup(configOverrides: Partial<RoundRobinDjConfig> = {}) {
   const config: RoundRobinDjConfig = { ...defaultRoundRobinDjConfig, ...configOverrides }
 
   const holders = new Set<string>()
-  const assignments = new Map<string, { personaId: string; assignedBy: string; assignedAt: string }>()
+  const assignments = new Map<
+    string,
+    { personaId: string; assignedBy: string; assignedAt: string }
+  >()
 
   const api = {
     isRoomAdmin: vi.fn(async (_roomId: string, userId: string) => userId === "admin-1"),
     sendSystemMessage: vi.fn(async () => {}),
     sendUserSystemMessage: vi.fn(async () => {}),
-    getUsers: vi.fn(async () => [
-      { userId: "a", username: "A", isDeputyDj: true },
-      { userId: "b", username: "B", isDeputyDj: true },
-      { userId: "c", username: "C", isDeputyDj: false },
-    ] as User[]),
+    getUsers: vi.fn(
+      async () =>
+        [
+          { userId: "a", username: "A", isDeputyDj: true },
+          { userId: "b", username: "B", isDeputyDj: true },
+          { userId: "c", username: "C", isDeputyDj: false },
+        ] as User[],
+    ),
     getUsersByIds: vi.fn(async (ids: string[]) =>
       ids.map((id) => ({ userId: id, username: id.toUpperCase() })),
     ),
@@ -122,6 +134,11 @@ function setup(configOverrides: Partial<RoundRobinDjConfig> = {}) {
   const context = {
     roomId: ROOM,
     api,
+    polls: api,
+    schedule: api,
+    queue: api,
+    playback: api,
+    catalog: api,
     storage,
     lifecycle,
     personas,
@@ -155,6 +172,65 @@ async function writeState(
 ): Promise<void> {
   await storage.set(STATE_KEY, JSON.stringify(state))
   ;(plugin as unknown as { stateCache: undefined }).stateCache = undefined
+}
+
+function queueItem(userId: string, trackId: string, addedAt = Date.now()): QueueItem {
+  return {
+    addedAt,
+    addedBy: { userId, username: userId.toUpperCase() },
+    mediaSource: { type: "spotify", trackId },
+    track: { id: trackId, title: trackId, artists: [], album: { title: "" } },
+  } as unknown as QueueItem
+}
+
+async function saveHold(
+  storage: ReturnType<typeof createInMemoryStorage>,
+  userId: string,
+  trackId: string,
+  mediaSourceType = "spotify",
+) {
+  await storage.set(
+    `hold:${userId}`,
+    JSON.stringify({
+      trackId,
+      mediaSourceType,
+      username: userId.toUpperCase(),
+      heldAt: Date.now(),
+    }),
+  )
+}
+
+/** Locked sequential round, current turn is `ids[0]`. */
+function lockedSequential(ids: string[]) {
+  const state = createInitialState("sequential", ids)
+  state.order = [...ids]
+  state.orderLocked = true
+  state.phase = "locked"
+  state.round = 2
+  return state
+}
+
+function enqueuedTrackIds(api: { addToTrackQueue: { mock: { calls: unknown[][] } } }): string[] {
+  return api.addToTrackQueue.mock.calls.map((call) => call[1] as string)
+}
+
+/** Drive the owner loop: propose a follow-up, apply its result, repeat. */
+async function applyFollowUps(
+  plugin: RoundRobinDjPlugin,
+  api: { getQueue: { mockResolvedValue: (queue: QueueItem[]) => void } },
+  queue: QueueItem[],
+) {
+  api.getQueue.mockResolvedValue(queue)
+  const applied = []
+  for (let round = 0; round < 50 && applied.length < 50; round++) {
+    const followUps = await plugin.collectQueueFollowUps(ROOM)
+    if (followUps.length === 0) break
+    for (const followUp of followUps) {
+      applied.push(followUp)
+      await plugin.onQueueFollowUpResult({ followUp, success: true })
+    }
+  }
+  return applied
 }
 
 describe("RoundRobinDjPlugin", () => {
@@ -203,6 +279,7 @@ describe("RoundRobinDjPlugin", () => {
         eligibleUserIds: expect.arrayContaining(["a", "b"]),
         participantUserIds: expect.arrayContaining(["a", "b"]),
       }),
+      undefined,
     )
 
     const componentState = await plugin.getComponentState()
@@ -313,7 +390,7 @@ describe("RoundRobinDjPlugin", () => {
   })
 
   it("flushes a held track when the previous deputy queues", async () => {
-    const { plugin, context, storage, api, lifecycleHandlers } = setup({
+    const { plugin, context, storage, api } = setup({
       enabled: true,
       mode: "sequential",
       deferOutOfTurnQueues: true,
@@ -337,25 +414,19 @@ describe("RoundRobinDjPlugin", () => {
       }),
     )
 
-    const item = {
-      addedAt: Date.now(),
-      addedBy: { userId: "a", username: "A" },
-      mediaSource: { type: "spotify", trackId: "t-a" },
-      track: { id: "t-a", title: "A", artists: [], album: { title: "" } },
-    } as unknown as QueueItem
+    const item = queueItem("a", "t-a")
+    const applied = await applyFollowUps(plugin, api, [item])
 
-    await emit(lifecycleHandlers, "QUEUE_CHANGED", { roomId: ROOM, queue: [item] })
-
-    expect(api.addToTrackQueue).toHaveBeenCalledWith(
-      ROOM,
-      "held-b",
+    expect(applied).toEqual([
       expect.objectContaining({
-        addedBy: { type: "user", userId: "b", username: "B" },
-        runPluginValidation: false,
+        type: "enqueue",
+        trackId: "held-b",
         mediaSourceType: "spotify",
-        suppressQueueChanged: true,
+        runPluginValidation: false,
+        addedBy: { type: "user", userId: "b", username: "B" },
       }),
-    )
+    ])
+    expect(api.addToTrackQueue).not.toHaveBeenCalled()
     expect(await storage.get("hold:b")).toBeNull()
     const state = JSON.parse((await storage.get(STATE_KEY))!)
     // Both deputies queued → auto-advance starts the next round
@@ -365,7 +436,7 @@ describe("RoundRobinDjPlugin", () => {
   })
 
   it("keeps the hold and turn when flush enqueue fails", async () => {
-    const { plugin, context, storage, api, lifecycleHandlers } = setup({
+    const { plugin, context, storage, api } = setup({
       enabled: true,
       mode: "sequential",
       deferOutOfTurnQueues: true,
@@ -388,24 +459,26 @@ describe("RoundRobinDjPlugin", () => {
       }),
     )
 
-    api.addToTrackQueue.mockResolvedValueOnce({
+    api.getQueue.mockResolvedValue([queueItem("a", "t-a")])
+    const [followUp] = await plugin.collectQueueFollowUps(ROOM)
+    expect(followUp?.trackId).toBe("held-b")
+    await plugin.onQueueFollowUpResult({
+      followUp: followUp!,
       success: false,
       message: "Track not found",
     })
-
-    const item = {
-      addedAt: Date.now(),
-      addedBy: { userId: "a", username: "A" },
-      mediaSource: { type: "spotify", trackId: "t-a" },
-      track: { id: "t-a", title: "A", artists: [], album: { title: "" } },
-    } as unknown as QueueItem
-
-    await emit(lifecycleHandlers, "QUEUE_CHANGED", { roomId: ROOM, queue: [item] })
+    expect(api.addToTrackQueue).not.toHaveBeenCalled()
 
     expect(await storage.get("hold:b")).toContain("held-b")
     const state = JSON.parse((await storage.get(STATE_KEY))!)
     expect(state.queuedThisRound).toEqual(["a"])
     expect(state.order[state.currentIndex]).toBe("b")
+    expect(api.sendUserSystemMessage).toHaveBeenCalledWith(
+      ROOM,
+      "b",
+      "Round Robin: could not add your held song (Track not found). Try adding again on your turn.",
+      { type: "alert", status: "error" },
+    )
   })
 
   it("grants metadata access only to eligible deputies", async () => {
@@ -530,6 +603,7 @@ describe("RoundRobinDjPlugin", () => {
       expect.objectContaining({
         participantUserIds: expect.arrayContaining(["a", "b", "c"]),
       }),
+      undefined,
     )
   })
 
@@ -705,5 +779,257 @@ describe("RoundRobinDjPlugin", () => {
     expect(state.queuedThisRound).toEqual([])
     expect(state.order).toEqual(["b", "c", "a"])
     expect(state.order[state.currentIndex]).toBe("b")
+  })
+
+  describe("hold flush outcomes", () => {
+    it("flushes each later deputy's hold when the current deputy queues", async () => {
+      const { plugin, context, storage, api } = setup({
+        enabled: true,
+        mode: "sequential",
+        deferOutOfTurnQueues: true,
+        autoAdvanceRounds: true,
+      })
+      await plugin.register(context)
+      api.sendSystemMessage.mockClear()
+      await writeState(plugin, storage, lockedSequential(["a", "b", "c", "d"]))
+      await saveHold(storage, "b", "held-b")
+      await saveHold(storage, "c", "held-c", "youtube")
+      await saveHold(storage, "d", "held-d")
+
+      const applied = await applyFollowUps(plugin, api, [queueItem("a", "t-a")])
+
+      expect(applied.map((followUp) => followUp.trackId)).toEqual(["held-b", "held-c", "held-d"])
+      expect(
+        applied.map((followUp) => [
+          followUp.trackId,
+          followUp.addedBy,
+          followUp.mediaSourceType,
+          followUp.runPluginValidation,
+        ]),
+      ).toEqual([
+        ["held-b", { type: "user", userId: "b", username: "B" }, "spotify", false],
+        ["held-c", { type: "user", userId: "c", username: "C" }, "youtube", false],
+        ["held-d", { type: "user", userId: "d", username: "D" }, "spotify", false],
+      ])
+      expect(api.addToTrackQueue).not.toHaveBeenCalled()
+      expect(await storage.get("hold:b")).toBeNull()
+      expect(await storage.get("hold:c")).toBeNull()
+      expect(await storage.get("hold:d")).toBeNull()
+      const state = JSON.parse((await storage.get(STATE_KEY))!)
+      expect(state.round).toBe(3)
+      expect(state.queuedThisRound).toEqual([])
+      expect(state.order[state.currentIndex]).toBe("a")
+      expect(api.sendSystemMessage.mock.calls.map((call) => call[1])).toEqual([
+        "Round Robin: it's B's turn to queue",
+        "Round Robin: it's C's turn to queue",
+        "Round Robin: it's D's turn to queue",
+        "Round Robin: it's A's turn to queue",
+        "Round Robin: round 3 started",
+      ])
+    })
+
+    it("does not enqueue a hold twice when the flush re-enters QUEUE_CHANGED", async () => {
+      const { plugin, context, storage, api, lifecycleHandlers } = setup({
+        enabled: true,
+        mode: "sequential",
+        deferOutOfTurnQueues: true,
+        autoAdvanceRounds: false,
+      })
+      await plugin.register(context)
+      const complete = lockedSequential(["a", "b", "c"])
+      complete.queuedThisRound = ["a", "b", "c"]
+      complete.phase = "roundComplete"
+      await writeState(plugin, storage, complete)
+      await saveHold(storage, "a", "held-a")
+
+      api.addToTrackQueue.mockImplementation(async (_room: string, trackId: string) => {
+        await emit(lifecycleHandlers, "QUEUE_CHANGED", {
+          roomId: ROOM,
+          queue: [queueItem("a", trackId)],
+        })
+        return { success: true as const, queuedItem: { track: { id: trackId } } as QueueItem }
+      })
+
+      await plugin.executeAction("advanceRound", { userId: "admin-1", username: "Admin" })
+
+      expect(enqueuedTrackIds(api)).toEqual(["held-a"])
+      const state = JSON.parse((await storage.get(STATE_KEY))!)
+      expect(state.queuedThisRound).toEqual(["a"])
+      expect(state.order[state.currentIndex]).toBe("b")
+      expect(await storage.get("hold:a")).toBeNull()
+    })
+
+    it("drops the queuer's own hold and still flushes the next deputy", async () => {
+      const { plugin, context, storage, api } = setup({
+        enabled: true,
+        mode: "sequential",
+        deferOutOfTurnQueues: true,
+        autoAdvanceRounds: false,
+      })
+      await plugin.register(context)
+      await writeState(plugin, storage, lockedSequential(["a", "b"]))
+      await saveHold(storage, "a", "held-a")
+      await saveHold(storage, "b", "held-b")
+
+      const applied = await applyFollowUps(plugin, api, [queueItem("a", "live-a")])
+
+      expect(applied.map((followUp) => followUp.trackId)).toEqual(["held-b"])
+      expect(api.addToTrackQueue).not.toHaveBeenCalled()
+      expect(await storage.get("hold:a")).toBeNull()
+      expect(await storage.get("hold:b")).toBeNull()
+      const state = JSON.parse((await storage.get(STATE_KEY))!)
+      expect(state.queuedThisRound).toEqual(["a", "b"])
+    })
+
+    it("ignores a queue snapshot that should not move the turn", async () => {
+      const cases: { name: string; item: QueueItem; enabled?: boolean }[] = [
+        { name: "stale", item: queueItem("a", "t-a", Date.now() - 5000) },
+        { name: "plugin", item: queueItem("plugin:music-shop", "t-shop") },
+        { name: "wrong turn", item: queueItem("c", "t-c") },
+        { name: "disabled", item: queueItem("a", "t-a"), enabled: false },
+      ]
+
+      for (const current of cases) {
+        const { plugin, context, storage, api, lifecycleHandlers } = setup({
+          enabled: current.enabled ?? true,
+          mode: "sequential",
+          deferOutOfTurnQueues: true,
+        })
+        await plugin.register(context)
+        await writeState(plugin, storage, lockedSequential(["a", "b", "c"]))
+        await saveHold(storage, "b", "held-b")
+
+        await emit(lifecycleHandlers, "QUEUE_CHANGED", {
+          roomId: ROOM,
+          queue: [current.item],
+        })
+        api.getQueue.mockResolvedValue([current.item])
+        expect(await plugin.collectQueueFollowUps(ROOM), current.name).toEqual([])
+
+        expect(enqueuedTrackIds(api), current.name).toEqual([])
+        expect(await storage.get("hold:b"), current.name).toContain("held-b")
+        const state = JSON.parse((await storage.get(STATE_KEY))!)
+        expect(state.queuedThisRound, current.name).toEqual([])
+        expect(state.order[state.currentIndex], current.name).toBe("a")
+      }
+    })
+
+    it("flushes the next deputy's hold when the current deputy leaves", async () => {
+      const { plugin, context, storage, api, lifecycleHandlers } = setup({
+        enabled: true,
+        mode: "sequential",
+        deferOutOfTurnQueues: true,
+      })
+      await plugin.register(context)
+      await writeState(plugin, storage, lockedSequential(["a", "b", "c"]))
+      await saveHold(storage, "a", "held-a")
+      await saveHold(storage, "b", "held-b")
+
+      await emit(lifecycleHandlers, "USER_LEFT", {
+        roomId: ROOM,
+        user: { userId: "a", username: "A" },
+      })
+
+      expect(enqueuedTrackIds(api)).toEqual(["held-b"])
+      expect(await storage.get("hold:a")).toBeNull()
+      expect(await storage.get("hold:b")).toBeNull()
+      const state = JSON.parse((await storage.get(STATE_KEY))!)
+      expect(state.participants).toEqual(["b", "c"])
+      expect(state.queuedThisRound).toEqual(["b"])
+      expect(state.order[state.currentIndex]).toBe("c")
+    })
+
+    it("flushes a held track when an admin opens the next round on that deputy", async () => {
+      const { plugin, context, storage, api } = setup({
+        enabled: true,
+        mode: "sequential",
+        deferOutOfTurnQueues: true,
+        autoAdvanceRounds: false,
+      })
+      await plugin.register(context)
+      const complete = lockedSequential(["a", "b"])
+      complete.queuedThisRound = ["a", "b"]
+      complete.phase = "roundComplete"
+      await writeState(plugin, storage, complete)
+      await saveHold(storage, "a", "held-a", "youtube")
+
+      const ok = await plugin.executeAction("advanceRound", {
+        userId: "admin-1",
+        username: "Admin",
+      })
+
+      expect(ok.success).toBe(true)
+      expect(enqueuedTrackIds(api)).toEqual(["held-a"])
+      expect(api.addToTrackQueue).toHaveBeenCalledWith(
+        ROOM,
+        "held-a",
+        expect.objectContaining({
+          addedBy: { type: "user", userId: "a", username: "A" },
+          runPluginValidation: false,
+          mediaSourceType: "youtube",
+        }),
+      )
+      expect(await storage.get("hold:a")).toBeNull()
+      const state = JSON.parse((await storage.get(STATE_KEY))!)
+      expect(state.round).toBe(3)
+      expect(state.queuedThisRound).toEqual(["a"])
+      expect(state.order[state.currentIndex]).toBe("b")
+    })
+
+    it("flushes the new turn's hold after the current deputy is removed", async () => {
+      const { plugin, context, storage, api, lifecycleHandlers } = setup({
+        enabled: true,
+        mode: "sequential",
+        deferOutOfTurnQueues: true,
+      })
+      await plugin.register(context)
+      await writeState(plugin, storage, lockedSequential(["a", "b", "c"]))
+      await saveHold(storage, "b", "held-b")
+
+      await emit(lifecycleHandlers, "DEPUTY_DJ_CHANGED", {
+        roomId: ROOM,
+        userId: "a",
+        isDeputyDj: false,
+      })
+      expect(enqueuedTrackIds(api)).toEqual([])
+
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(enqueuedTrackIds(api)).toEqual(["held-b"])
+      expect(await storage.get("hold:b")).toBeNull()
+      const state = JSON.parse((await storage.get(STATE_KEY))!)
+      expect(state.participants).not.toContain("a")
+      expect(state.queuedThisRound).toEqual(["b"])
+      expect(state.order[state.currentIndex]).toBe("c")
+    })
+
+    it("flushes the backward next deputy in forward-and-back mode", async () => {
+      const { plugin, context, storage, api } = setup({
+        enabled: true,
+        mode: "forwardAndBack",
+        deferOutOfTurnQueues: true,
+        autoAdvanceRounds: true,
+      })
+      await plugin.register(context)
+      const snake = createInitialState("forwardAndBack", ["a", "b", "c"])
+      snake.order = ["a", "b", "c"]
+      snake.orderLocked = true
+      snake.phase = "locked"
+      snake.round = 2
+      snake.direction = -1
+      snake.currentIndex = 2
+      await writeState(plugin, storage, snake)
+      await saveHold(storage, "b", "held-b")
+      await saveHold(storage, "a", "held-a")
+
+      const applied = await applyFollowUps(plugin, api, [queueItem("c", "t-c")])
+
+      expect(applied.map((followUp) => followUp.trackId)).toEqual(["held-b", "held-a"])
+      expect(api.addToTrackQueue).not.toHaveBeenCalled()
+      const state = JSON.parse((await storage.get(STATE_KEY))!)
+      expect(state.queuedThisRound).toEqual([])
+      expect(state.direction).toBe(1)
+      expect(state.order[state.currentIndex]).toBe("a")
+    })
   })
 })

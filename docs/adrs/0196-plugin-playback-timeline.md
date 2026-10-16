@@ -1,7 +1,7 @@
 # 0196. Plugin playback timeline (transport and playback-anchored schedules)
 
 **Date:** 2026-10-01
-**Status:** Accepted
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (transport is `context.playback`)
 
 ## Context
 

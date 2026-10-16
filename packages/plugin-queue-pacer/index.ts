@@ -95,8 +95,8 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       }
     }
 
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
-    const queue = await this.context!.api.getQueue(this.context!.roomId)
+    const nowPlaying = await this.context!.queue.getNowPlaying(this.context!.roomId)
+    const queue = await this.context!.queue.getQueue(this.context!.roomId)
     const hasQueuedTracksBehind = queue.length > 0
     const perTrackWindowMs = await this.computeWindow(config!)
     const exceedsBudget = trackExceedsBudget(nowPlaying, perTrackWindowMs)
@@ -193,8 +193,8 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
   private async computeWindow(config: QueuePacerConfig): Promise<number | null> {
     if (!config.endTime) return null
 
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
-    const queue = await this.context!.api.getQueue(this.context!.roomId)
+    const nowPlaying = await this.context!.queue.getNowPlaying(this.context!.roomId)
+    const queue = await this.context!.queue.getQueue(this.context!.roomId)
     const remainingTracks = queue.length + (nowPlaying ? 1 : 0)
 
     if (remainingTracks === 0) return null
@@ -234,7 +234,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       return
     }
 
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    const nowPlaying = await this.context!.queue.getNowPlaying(this.context!.roomId)
     if (!nowPlaying) {
       console.log(`[${this.name}] armCurrentTrack: no nowPlaying, returning`)
       return
@@ -288,7 +288,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
 
     await this.persistState()
 
-    const queue = await this.context!.api.getQueue(this.context!.roomId)
+    const queue = await this.context!.queue.getQueue(this.context!.roomId)
     const hasQueuedTracksBehind = queue.length > 0
 
     await this.context!.api.emit("WINDOW_RECOMPUTED", {
@@ -324,7 +324,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       return
     }
 
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    const nowPlaying = await this.context!.queue.getNowPlaying(this.context!.roomId)
     const nowPlayingMediaTrackId = nowPlaying?.mediaSource?.trackId
     console.log(`[${this.name}] handleTimerFire: nowPlaying check`, {
       hasNowPlaying: !!nowPlaying,
@@ -343,7 +343,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       return
     }
 
-    const queue = await this.context!.api.getQueue(this.context!.roomId)
+    const queue = await this.context!.queue.getQueue(this.context!.roomId)
     console.log(`[${this.name}] handleTimerFire: queue check`, {
       queueLength: queue.length,
     })
@@ -364,7 +364,7 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
     await this.cancelSchedule(`track:${trackId}`)
 
     try {
-      await this.context!.api.skipTrack(this.context!.roomId, trackId)
+      await this.context!.queue.skipTrack(this.context!.roomId, trackId)
       console.log(`[${this.name}] skipTrack call completed`)
     } catch (err) {
       console.error(`[${this.name}] skipTrack error:`, err)
@@ -546,8 +546,8 @@ export class QueuePacerPlugin extends BasePlugin<QueuePacerConfig> {
       return
     }
 
-    const queue = await this.context!.api.getQueue(this.context!.roomId)
-    const nowPlaying = await this.context!.api.getNowPlaying(this.context!.roomId)
+    const queue = await this.context!.queue.getQueue(this.context!.roomId)
+    const nowPlaying = await this.context!.queue.getNowPlaying(this.context!.roomId)
     const remainingTracks = queue.length + (nowPlaying ? 1 : 0)
     const perTrackWindowMs = await this.computeWindow(config)
 

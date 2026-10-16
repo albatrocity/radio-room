@@ -1,7 +1,7 @@
 # 0198. Plugin queue blocks and pins
 
 **Date:** 2026-10-01
-**Status:** Accepted
+**Status:** Partially superseded by [0200](0200-queue-follow-ups-before-queue-changed.md) — the public `suppressQueueChanged` option on `enqueueTracks` and `addToTrackQueue` only. Points 2–5 below still stand. Queue methods are `context.queue` ([0201](0201-plugin-capability-interfaces.md)).
 
 ## Context
 

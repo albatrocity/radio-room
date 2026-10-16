@@ -142,18 +142,18 @@ export class LocalLibraryModule {
     }
 
     const playlists = derivePrefixedPlaylists
-      ? await context.api.listLocalPlaylists(context.roomId)
+      ? await context.catalog.listLocalPlaylists(context.roomId)
       : []
     const mediaPlaylists = playlists.filter((p) => parsePhysicalMediaName(p.name) != null)
     const artwork =
       derivePrefixedPlaylists && mediaPlaylists.length > 0
-        ? await context.api.getLocalPlaylistArtwork(
+        ? await context.catalog.getLocalPlaylistArtwork(
             context.roomId,
             mediaPlaylists.map((p) => p.id),
           )
         : {}
 
-    const albums = deriveAlbums ? await context.api.listLibraryAlbums(context.roomId) : []
+    const albums = deriveAlbums ? await context.catalog.listLibraryAlbums(context.roomId) : []
 
     let omitAlbumIds = new Set<string>()
     const albumRatingByPlaylistId: Record<string, number> = {}
@@ -166,7 +166,7 @@ export class LocalLibraryModule {
         async (pl) => {
           const ndId = pl.id.trim()
           if (!ndId) return null
-          const trackRefs = await context.api.listLocalPlaylistTrackIds(context.roomId, ndId)
+          const trackRefs = await context.catalog.listLocalPlaylistTrackIds(context.roomId, ndId)
           const trackIds = trackRefs.map((t) => t.id.trim()).filter(Boolean)
           if (trackIds.length === 0) return null
 
@@ -207,7 +207,7 @@ export class LocalLibraryModule {
         albumIdList,
         DEDUP_RPC_CONCURRENCY,
         async (albumId) => {
-          const trackIds = await context.api.listLocalAlbumTrackIds(context.roomId, albumId)
+          const trackIds = await context.catalog.listLocalAlbumTrackIds(context.roomId, albumId)
           if (trackIds.length === 0) return null
           return { id: albumId, trackIds }
         },
@@ -331,7 +331,7 @@ export class LocalLibraryModule {
     const unique = [...new Set(albumIds)]
     if (unique.length === 0) return []
     for (const id of unique) this.albumArtworkAttempted.add(id)
-    const artwork = await context.api.getLocalAlbumArtwork(context.roomId, unique)
+    const artwork = await context.catalog.getLocalAlbumArtwork(context.roomId, unique)
     return this.applyAlbumArtwork(artwork)
   }
 
@@ -356,7 +356,7 @@ export class LocalLibraryModule {
       if (missing.length === 0) return
       const batch = missing.slice(0, batchSize)
       for (const id of batch) this.albumArtworkAttempted.add(id)
-      const artwork = await context.api.getLocalAlbumArtwork(context.roomId, batch)
+      const artwork = await context.catalog.getLocalAlbumArtwork(context.roomId, batch)
       const changed = this.applyAlbumArtwork(artwork)
       if (changed.length > 0 && options.onBatch) await options.onBatch(changed)
     }
@@ -651,7 +651,7 @@ export class LocalLibraryModule {
     const trackInPlaylistKey: Record<string, boolean> = {}
     const trackInAlbumKey: Record<string, boolean> = {}
     if (playlistIdsForMembership.length > 0 || albumIdsForMembership.length > 0) {
-      const memberIds = await context.api.checkLocalTrackPlaylistMembership({
+      const memberIds = await context.catalog.checkLocalTrackPlaylistMembership({
         roomId: params.roomId,
         trackId: params.trackId,
         playlistIds: playlistIdsForMembership,
@@ -903,9 +903,9 @@ export class LocalLibraryModule {
     const empty = new Map<string, { playlistIds: string[]; albumIds: string[] }>()
     if (!context || trackIds.length === 0) return empty
 
-    const api = context.api
-    if (typeof api.checkLocalTrackPlaylistMembershipBatch === "function") {
-      return api.checkLocalTrackPlaylistMembershipBatch({
+    const catalog = context.catalog
+    if (typeof catalog.checkLocalTrackPlaylistMembershipBatch === "function") {
+      return catalog.checkLocalTrackPlaylistMembershipBatch({
         roomId: context.roomId,
         trackIds,
         playlistIds,
@@ -919,7 +919,7 @@ export class LocalLibraryModule {
       trackIds.map(async (id) => {
         out.set(
           id,
-          await api.checkLocalTrackPlaylistMembership({
+          await catalog.checkLocalTrackPlaylistMembership({
             roomId: context.roomId,
             trackId: id,
             playlistIds,

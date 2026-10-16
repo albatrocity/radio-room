@@ -2,6 +2,7 @@
   "name": "@repo/plugin-music-upload",
   "version": "1.0.0",
   "description": "Music upload plugin — admin-designated uploaders send audio/archives to private S3",
+  "type": "module",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {

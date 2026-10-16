@@ -71,6 +71,11 @@ function createMockContext(roomId = "test-room"): PluginContext {
   return {
     roomId,
     api: mockApi,
+    polls: mockApi,
+    schedule: mockApi,
+    queue: mockApi,
+    playback: mockApi,
+    catalog: mockApi,
     storage: mockStorage,
     lifecycle: mockLifecycle,
     getRoom: vi.fn(),
@@ -148,8 +153,8 @@ describe("VolumeManagerPlugin", () => {
       },
     })
 
-    expect(mockContext.api.setPlaybackVolume).toHaveBeenCalledWith("test-room", 40)
-    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 40 })
+    expect(mockContext.playback.setPlaybackVolume).toHaveBeenCalledWith("test-room", 40)
+    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 40 }, undefined)
   })
 
   test("does not apply startVolume on config change", async () => {
@@ -177,7 +182,7 @@ describe("VolumeManagerPlugin", () => {
       },
     })
 
-    expect(mockContext.api.setPlaybackVolume).not.toHaveBeenCalled()
+    expect(mockContext.playback.setPlaybackVolume).not.toHaveBeenCalled()
   })
 
   test("applies startVolume at track start via beforePlayQueuedTrack", async () => {
@@ -194,13 +199,13 @@ describe("VolumeManagerPlugin", () => {
       reason: "manual",
     })
 
-    expect(mockContext.api.setPlaybackVolume).toHaveBeenCalledWith("test-room", 0)
+    expect(mockContext.playback.setPlaybackVolume).toHaveBeenCalledWith("test-room", 0)
     expect(mockContext.api.setPluginConfig).toHaveBeenCalledWith(
       "test-room",
       "volume-manager",
       expect.objectContaining({ volume: 0 }),
     )
-    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 0 })
+    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 0 }, undefined)
   })
 
   test("setVolume action requires admin", async () => {
@@ -215,7 +220,7 @@ describe("VolumeManagerPlugin", () => {
     const result = await plugin.executeAction("setVolume", { userId: "user1" }, { volume: 50 })
 
     expect(result).toEqual({ success: false, message: "Admin required" })
-    expect(mockContext.api.setPlaybackVolume).not.toHaveBeenCalled()
+    expect(mockContext.playback.setPlaybackVolume).not.toHaveBeenCalled()
   })
 
   test("setVolume action updates live volume", async () => {
@@ -233,13 +238,13 @@ describe("VolumeManagerPlugin", () => {
     )
 
     expect(result).toEqual({ success: true })
-    expect(mockContext.api.setPlaybackVolume).toHaveBeenCalledWith("test-room", 55)
+    expect(mockContext.playback.setPlaybackVolume).toHaveBeenCalledWith("test-room", 55)
     expect(mockContext.api.setPluginConfig).toHaveBeenCalledWith(
       "test-room",
       "volume-manager",
       expect.objectContaining({ volume: 55 }),
     )
-    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 55 })
+    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 55 }, undefined)
   })
 
   test("syncs config and UI when Spotify volume changes externally", async () => {
@@ -256,13 +261,13 @@ describe("VolumeManagerPlugin", () => {
       volumePercent: 42,
     })
 
-    expect(mockContext.api.setPlaybackVolume).not.toHaveBeenCalled()
+    expect(mockContext.playback.setPlaybackVolume).not.toHaveBeenCalled()
     expect(mockContext.api.setPluginConfig).toHaveBeenCalledWith(
       "test-room",
       "volume-manager",
       expect.objectContaining({ volume: 42 }),
     )
-    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 42 })
+    expect(mockContext.api.emit).toHaveBeenCalledWith("VOLUME_CHANGED", { volume: 42 }, undefined)
   })
 
   test("ignores PLAYBACK_VOLUME_CHANGED when plugin is disabled", async () => {

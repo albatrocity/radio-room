@@ -115,6 +115,11 @@ function setup(configOverrides: Partial<LyricHeroConfig> = {}) {
   const context = {
     roomId: ROOM,
     api,
+    polls: api,
+    schedule: api,
+    queue: api,
+    playback: api,
+    catalog: api,
     storage,
     game,
     lifecycle,

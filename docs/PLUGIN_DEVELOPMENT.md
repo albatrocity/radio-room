@@ -4,13 +4,19 @@ This guide explains how to create plugins for Listening Room. Plugins extend roo
 
 Documentation is split into focused guides below. Start with [Getting Started](plugins/getting-started.md) if you are new to plugin development.
 
+## Adding a plugin
+
+A new plugin is a `packages/plugin-{name}` package (with `"type": "module"`) plus one line in `pluginFactories` (`packages/plugins/index.ts`) and its dependency in `packages/plugins/package.json`. The API registers that list, studio-bridge serves the same schemas to Game Studio, and Admin Settings opens any plugin's form through the shared `settings.plugin` state, so no web or studio edit is needed ([ADR 0202](adrs/0202-plugin-registry-package-and-generic-settings-state.md)).
+
+Host code changes only for a new component template, a new `PluginContext` capability, or a plugin event that core UI handles. See [Getting Started §6](plugins/getting-started.md#6-when-a-plugin-needs-a-host-change).
+
 ## Guides
 
 ### Essentials
 
 | Guide | Topics |
 | ----- | ------ |
-| [Getting Started](plugins/getting-started.md) | Architecture overview, quick start, package setup, registration, **admin settings `EDIT_*` in `modalsMachine`** (required every new plugin) |
+| [Getting Started](plugins/getting-started.md) | Architecture overview, quick start, package setup, registration in `@repo/plugins`, when a plugin needs a host change |
 | [BasePlugin Reference](plugins/base-plugin.md) | Properties, methods, lifecycle hooks, optional overrides |
 | [Event System](plugins/events.md) | System events, game/inventory events, handler examples |
 | [Storage API](plugins/storage.md) | Redis namespacing, `getJson` / `updateJson` / `appendCapped`, plugin vs session leaderboards ([ADR 0192](adrs/0192-plugin-storage-and-leaderboard-helpers.md)) |
@@ -29,11 +35,11 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 | Guide | Topics |
 | ----- | ------ |
 | [Queue Validation](plugins/queue-validation.md) | Intercepting enqueue requests, fail-open semantics |
-| [Metadata Source Access](plugins/metadata-source-access.md) | Restricted sources, plugin grants, `listMetadataSources` / `canAccessMetadataSource` / `getEffectiveMetadataSourceIds`; browse / Search entities use `search` access ([ADR 0089](adrs/0089-metadata-source-content-browse.md), [ADR 0090](adrs/0090-hybrid-metadata-catalog-browse.md)) |
+| [Metadata Source Access](plugins/metadata-source-access.md) | Restricted sources, plugin grants, `context.catalog` (`listMetadataSources` / `canAccessMetadataSource` / `getEffectiveMetadataSourceIds`); browse / Search entities use `search` access ([ADR 0089](adrs/0089-metadata-source-content-browse.md), [ADR 0090](adrs/0090-hybrid-metadata-catalog-browse.md)) |
 | [Data & Export](plugins/data-and-export.md) | Playlist/now-playing augmentation, room exports |
-| [Timer API](plugins/timers.md) | Durable `schedule` / `onScheduled` ([ADR 0190](adrs/0190-durable-plugin-scheduler.md)); `startTimer` for short in-memory UI only |
+| [Timer API](plugins/timers.md) | Durable `this.schedule` / `onScheduled` (`context.schedule`, [ADR 0190](adrs/0190-durable-plugin-scheduler.md)); `startTimer` for short in-memory UI only |
 
-**Timed polls:** Pass `closesAt` or `durationMs` to `api.createPoll` ([ADR 0189](adrs/0189-poll-closes-at-auto-close.md)). Core schedules auto-close in Redis and emits `POLL_CLOSED` with `reason: "expired"` (or `"manual"`). Listen for `POLL_CLOSED` instead of running your own close timer. Bounds: 5 seconds–24 hours. For option counts use `api.tallyPoll(pollId, { excludeUserIds? })` or `results.optionTallies` on close. See [API Reference](plugins/api-reference.md).
+**Timed polls:** Pass `closesAt` or `durationMs` to `context.polls.createPoll` ([ADR 0189](adrs/0189-poll-closes-at-auto-close.md), [ADR 0201](adrs/0201-plugin-capability-interfaces.md)). Core schedules auto-close in Redis and emits `POLL_CLOSED` with `reason: "expired"` (or `"manual"`). Listen for `POLL_CLOSED` instead of running your own close timer. Bounds: 5 seconds–24 hours. For option counts use `context.polls.tallyPoll(pollId, { excludeUserIds? })` or `results.optionTallies` on close. See [API Reference](plugins/api-reference.md).
 
 ### Game Systems
 
@@ -48,7 +54,7 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 
 | Guide | Topics |
 | ----- | ------ |
-| [Plugin API Reference](plugins/api-reference.md) | `PluginAPI` methods, sound/screen effects |
+| [Plugin API Reference](plugins/api-reference.md) | `context.api` plus polls, schedule, queue, playback, and catalog ([ADR 0201](adrs/0201-plugin-capability-interfaces.md)) |
 | [Best Practices & Examples](plugins/best-practices.md) | Patterns, reference plugins, testing |
 
 ## Related Documentation
@@ -58,6 +64,8 @@ Documentation is split into focused guides below. Start with [Getting Started](p
 - Queue Theme — `@repo/plugin-queue-theme` (per-track theme polls + decoy themes; [ADR 0152](adrs/0152-plugin-authored-core-polls.md), [ADR 0153](adrs/0153-plugin-authored-queue-split.md))
 - The Fed — `@repo/plugin-the-fed` (optional `costScale` controller; [ADR 0162](adrs/0162-economy-scale-for-game-sessions.md), [ADR 0163](adrs/0163-the-fed-economy-controller.md))
 - [ADR 0006: Plugin system](adrs/0006-plugin-system-for-room-features.md)
+- [ADR 0201: Plugin capability interfaces](adrs/0201-plugin-capability-interfaces.md) — `context.polls`, `schedule`, `queue`, `playback`, `catalog`
+- [ADR 0202: Plugin registry package and generic settings state](adrs/0202-plugin-registry-package-and-generic-settings-state.md) — `@repo/plugins`, `EDIT_PLUGIN_SETTINGS`
 - [ADR 0042: Game sessions and inventory](adrs/0042-game-sessions-and-inventory.md)
 - [ADR 0097: Plugin contributeToUserGameState](adrs/0097-plugin-contribute-to-user-game-state.md)
 - [ADR 0154: Plugin emit may skip USER_GAME_STATE_INVALIDATED](adrs/0154-plugin-emit-invalidates-user-state-opt-out.md)

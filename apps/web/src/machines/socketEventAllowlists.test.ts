@@ -22,7 +22,14 @@ import { MEDIA_ITEM_TRACKS_EVENT_TYPES, mediaItemTracksMachine } from "./mediaIt
 import { QUEUE_EVENT_TYPES, queueMachine } from "./queueMachine"
 import { TRACK_SEARCH_EVENT_TYPES, trackSearchMachine } from "./trackSearchMachine"
 
+/**
+ * `socketActor` always fans these out, even when a subscriber has an allowlist
+ * (ADR 0093). Machines may handle them without listing them in `eventTypes`.
+ */
+const LIFECYCLE_EVENT_TYPES = ["SOCKET_ONLINE", "SOCKET_OFFLINE", "SOCKET_RECONNECTING"]
+
 /** Events a component sends into the machine itself; never delivered by the socket hub. */
+
 const cases: Array<{
   name: string
   machine: AnyStateMachine
@@ -62,7 +69,9 @@ describe("socket event allowlists", () => {
       const handled = machine.events
       expect(handled.length).toBeGreaterThan(0)
 
-      const expected = handled.filter((type) => !locallySent.includes(type)).sort()
+      const expected = handled
+        .filter((type) => !locallySent.includes(type) && !LIFECYCLE_EVENT_TYPES.includes(type))
+        .sort()
       expect([...allowlist].sort()).toEqual(expected)
     },
   )

@@ -1,9 +1,7 @@
 import type { AppContext, QueueItemAttribution } from "@repo/types"
-import type { Room } from "@repo/types/Room"
 import { findShowSegmentTracks } from "../services/SchedulingService"
 import { DJService } from "../services/DJService"
 import { findRoom, getQueue, isRoomAdmin, setQueue } from "./data"
-import { buildQueueChangedData } from "./data/djs"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
 
 export type SegmentTrackInjectionPlacement = "top" | "bottom"
@@ -13,16 +11,6 @@ type ErrorBody = { status: number; error: string; message: string }
 export type InjectSegmentTracksResult =
   | { ok: true; added: number; skipped: number }
   | { ok: false; error: ErrorBody }
-
-async function emitQueueChanged(context: AppContext, roomId: string, room: Room): Promise<void> {
-  if (!context.systemEvents) return
-  const payload = await buildQueueChangedData({
-    roomId,
-    context,
-    appControlled: isAppControlledPlayback(room),
-  })
-  await context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload)
-}
 
 export async function injectSegmentTracksToQueue(params: {
   context: AppContext
@@ -90,7 +78,7 @@ export async function injectSegmentTracksToQueue(params: {
 
     const result = await djService.queueSongAs(roomId, attribution, trackId, {
       runPluginValidation: false,
-      suppressQueueChanged: true,
+      deferQueueChanged: true,
     })
 
     if (result.success) {
@@ -111,7 +99,7 @@ export async function injectSegmentTracksToQueue(params: {
     await setQueue({ roomId, items: [...addedItems, ...rest], context })
   }
 
-  await emitQueueChanged(context, roomId, room)
+  await djService.finishDeferredQueueWrite(roomId)
 
   return { ok: true, added, skipped }
 }

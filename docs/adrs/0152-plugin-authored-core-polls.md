@@ -1,7 +1,7 @@
 # 0152. Plugin-authored core polls
 
 **Date:** 2026-09-03
-**Status:** Accepted
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (point 6: polls are `context.polls`)
 
 ## Context
 

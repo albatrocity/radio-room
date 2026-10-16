@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   setQueue: vi.fn(),
   buildQueueChangedData: vi.fn(),
   queueSongAs: vi.fn(),
+  finishDeferredQueueWrite: vi.fn(),
 }))
 
 vi.mock("../services/SchedulingService", () => ({
@@ -30,7 +31,10 @@ vi.mock("./data/djs", () => ({
 
 vi.mock("../services/DJService", () => ({
   DJService: vi.fn(function MockDJService() {
-    return { queueSongAs: m.queueSongAs }
+    return {
+      queueSongAs: m.queueSongAs,
+      finishDeferredQueueWrite: m.finishDeferredQueueWrite,
+    }
   }),
 }))
 
@@ -53,9 +57,8 @@ function baseRoom(over: Partial<Room> = {}): Room {
 }
 
 describe("injectSegmentTracksToQueue", () => {
-  const emit = vi.fn()
   const context = {
-    systemEvents: { emit },
+    systemEvents: { emit: vi.fn() },
   } as unknown as AppContext
 
   beforeEach(() => {
@@ -70,10 +73,7 @@ describe("injectSegmentTracksToQueue", () => {
       success: true,
       queuedItem: { track: { id: trackId } },
     }))
-    m.getQueue.mockResolvedValue([
-      { track: { id: "t1" } },
-      { track: { id: "t2" } },
-    ])
+    m.getQueue.mockResolvedValue([{ track: { id: "t1" } }, { track: { id: "t2" } }])
     m.buildQueueChangedData.mockResolvedValue({
       roomId: "r1",
       queue: [{ track: { id: "t1" } }, { track: { id: "t2" } }],
@@ -95,7 +95,7 @@ describe("injectSegmentTracksToQueue", () => {
     if (!result.ok) expect(result.error.status).toBe(400)
   })
 
-  it("enqueues tracks bottom-up and emits a single QUEUE_CHANGED", async () => {
+  it("enqueues tracks bottom-up and publishes the queue once", async () => {
     const result = await injectSegmentTracksToQueue({
       context,
       roomId: "r1",
@@ -115,10 +115,11 @@ describe("injectSegmentTracksToQueue", () => {
       "r1",
       { type: "plugin", pluginName: "scheduler", displayName: "Round 1" },
       "t1",
-      { runPluginValidation: false, suppressQueueChanged: true },
+      { runPluginValidation: false, deferQueueChanged: true },
     )
     expect(m.setQueue).not.toHaveBeenCalled()
-    expect(emit).toHaveBeenCalledWith("r1", "QUEUE_CHANGED", expect.any(Object))
+    expect(m.finishDeferredQueueWrite).toHaveBeenCalledTimes(1)
+    expect(m.finishDeferredQueueWrite).toHaveBeenCalledWith("r1")
   })
 
   it("moves added tracks to the front for top placement", async () => {

@@ -1,7 +1,7 @@
 # 0197. Plugin catalog search
 
 **Date:** 2026-10-01
-**Status:** Accepted
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (`searchTracks` is `context.catalog`)
 
 ## Context
 

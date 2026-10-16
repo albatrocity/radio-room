@@ -38,7 +38,7 @@ await this.schedule({
 })
 
 await this.cancelSchedule("round-advance")
-const pending = await this.context.api.getSchedule("round-advance")
+const pending = await this.context.schedule.getSchedule("round-advance")
 // { id, kind, fireAt, payload } | null
 ```
 
@@ -47,7 +47,7 @@ const pending = await this.context.api.getSchedule("round-advance")
 | `onScheduled(kind, handler)` | Register handler `(payload, scheduleId) => …` for a kind |
 | `schedule({ id, kind, at?, durationMs?, anchor?, payload? })` | Arm or replace a durable schedule |
 | `cancelSchedule(id)` | Cancel a pending schedule |
-| `api.getSchedule(id)` | Read pending schedule metadata (`paused: true` for a paused anchor) |
+| `context.schedule.getSchedule(id)` | Read pending schedule metadata (`paused: true` for a paused anchor) |
 | `onScheduleRevised(handler)` | Observe an anchored schedule pausing, resuming, moving, or being cancelled |
 
 **When to use:** game/economy deadlines, auto-advance, item return timers, recurring ticks (self-reschedule from the handler), anything that must fire after a process restart.

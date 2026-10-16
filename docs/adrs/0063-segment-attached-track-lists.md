@@ -51,3 +51,4 @@ Constraints:
 - [`packages/server/operations/injectSegmentTracksToQueue.ts`](../../packages/server/operations/injectSegmentTracksToQueue.ts)
 - [`packages/spotify-catalog/`](../../packages/spotify-catalog/)
 - Scheduler UI: `SegmentTrackPicker` in `apps/scheduler`
+- Intermediate inject adds defer their `QUEUE_CHANGED` inside `DJService` and emit once ([0200](0200-queue-follow-ups-before-queue-changed.md)). The public `suppressQueueChanged` option is gone.

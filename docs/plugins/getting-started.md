@@ -9,12 +9,17 @@
 └─────────────────────────────────────────────────────────────┘
                             │
                             ├─ Creates PluginContext
-                            │   ├─ api: PluginAPI
+                            │   ├─ api: PluginAPI (chat, presence, effects, config, emit)
                             │   ├─ storage: PluginStorage
                             │   ├─ game: GameSessionPluginAPI (room-scoped)
                             │   ├─ inventory: InventoryPluginAPI (room-scoped)
                             │   ├─ artifacts: ArtifactsPluginAPI (cross-room)
                             │   ├─ personas: PersonasPluginAPI (room-scoped)
+                            │   ├─ polls: PollsPluginAPI
+                            │   ├─ schedule: SchedulePluginAPI
+                            │   ├─ queue: QueuePluginAPI
+                            │   ├─ playback: PlaybackPluginAPI
+                            │   ├─ catalog: CatalogPluginAPI
                             │   ├─ lifecycle: Event handlers
                             │   ├─ getRoom / appContext
                             │   └─ roomId: string
@@ -55,6 +60,7 @@
 5. **Sandboxed Storage**: Redis storage namespaced by plugin and room
 6. **Optional Global Game State**: Core services expose `context.game` (sessions, score/coin, modifiers, leaderboards) and `context.inventory` (cross-plugin items). Use these when you want shared economy or UI across plugins; keep plugin-local sorted sets when scores should stay private to one plugin.
 7. **User Personas**: Core `context.personas` exposes session identity labels (VIP, Judge, etc.) with badges in the listener list and chat. See [User Personas](user-personas.md#user-personas) and [ADR 0057](../adrs/0057-user-personas-system.md).
+8. **Capability fields**: Polls, schedules, the queue, playback, and the catalog are `context.polls`, `context.schedule`, `context.queue`, `context.playback`, and `context.catalog` ([ADR 0201](../adrs/0201-plugin-capability-interfaces.md)). `context.api` is the residual host (chat, presence, effects, config, `emit`). `this.schedule()` / `this.cancelSchedule()` on `BasePlugin` call `context.schedule`.
 
 
 ## Quick Start
@@ -72,6 +78,7 @@ cd packages/plugin-my-feature
 {
   "name": "@repo/plugin-my-feature",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.ts",
   "dependencies": {
     "@repo/types": "*",
@@ -188,36 +195,32 @@ export function createMyFeaturePlugin(configOverrides?: Partial<MyFeatureConfig>
 export default createMyFeaturePlugin
 ```
 
+`"type": "module"` matters: studio-bridge loads every plugin with Node's ESM loader, which cannot read named exports from a CommonJS-typed package.
+
 ### 5. Register Plugin
 
-In `apps/api/src/server.ts`:
+Add the factory to `pluginFactories` in `packages/plugins/index.ts` and the package to `packages/plugins/package.json`, then run `npm install`:
 
 ```typescript
-import { createMyFeaturePlugin } from "@repo/plugin-my-feature"
+import createMyFeaturePlugin from "@repo/plugin-my-feature"
 
-// In registerAdapters():
-await registerAdapters(context, {
-  plugins: [
-    createPlaylistDemocracyPlugin,
-    createSpecialWordsPlugin,
-    createMyFeaturePlugin, // Add your plugin
-  ],
-})
+export const pluginFactories: PluginFactory[] = [
+  createPlaylistDemocracyPlugin,
+  // …
+  createMyFeaturePlugin,
+]
 ```
 
-Also add the package to `apps/api/package.json` and run `npm install`.
+That is the whole registration. The API passes `pluginFactories` to `registerAdapters`, and studio-bridge serves their schemas to Game Studio ([ADR 0202](../adrs/0202-plugin-registry-package-and-generic-settings-state.md)). Admin Settings lists every plugin with a `getConfigSchema()`, and its link sends `EDIT_PLUGIN_SETTINGS` with the plugin name to the shared `settings.plugin` state in `modalsMachine`. No per-plugin web code is needed.
 
-### 6. Register the admin settings view
+### 6. When a plugin needs a host change
 
-**Do this every time you add a plugin.** `AdminSettingsSurface` / Overview list plugins from `getConfigSchema()`, and clicks send `toPluginSettingsEventType(pluginName)` (e.g. `my-feature` → `EDIT_MY_FEATURE`). That event is a no-op until `modalsMachine` knows it.
+A plugin that uses existing component templates and existing `PluginContext` methods stops at step 5. These three cases still change host code:
 
-In `apps/web/src/machines/modalsMachine.ts`, for plugin name `my-feature` (hyphens become underscores / scream case):
+| Change | Files |
+| ------ | ----- |
+| New component template type | `packages/types/PluginComponent.ts`, the template React component, `apps/web/src/components/PluginComponents/templates/componentMap.tsx` ([Plugin Components](components.md)) |
+| New host capability | A new `PluginContext` field and `Plugin*API` interface, plus an ADR, following [ADR 0201](../adrs/0201-plugin-capability-interfaces.md). Do not add methods to the residual `PluginAPI` |
+| Plugin event handled by core UI | That machine's `subscribeById` `eventTypes` ([ADR 0093](../adrs/0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md)), as `GameSessions.tsx` does for `PLUGIN:the-fed:TICK`. Plugin component areas already receive `PLUGIN:{name}:*` |
 
-1. Add `{ type: "EDIT_MY_FEATURE" }` to the `Event` union.
-2. Add `EDIT_MY_FEATURE: ".my_feature"` to `settingsSectionOn`.
-3. Add `EDIT_MY_FEATURE: openSettingsSection("my_feature")` on the `modal` region's `on`.
-4. Add `my_feature: { on: { BACK: "overview" } }` under `settings.states`.
-
-Copy an existing plugin row (e.g. `queue_theme` or `the_fed`) and add a `modalsMachine.test.ts` case that opens the section and `BACK`s to overview.
-
-Without this step, the Plugins list in Admin Settings shows the name but the button does not open the form.
+If the plugin's Room UI depends on an action Game Studio should simulate, add a stub to `apps/studio-bridge` (see `stubQuiz.ts`, `stubLyricHero.ts`). Schemas need no studio change.

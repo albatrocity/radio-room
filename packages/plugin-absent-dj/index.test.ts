@@ -108,6 +108,11 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   return {
     roomId,
     api: mockApi,
+    polls: mockApi,
+    schedule: mockApi,
+    queue: mockApi,
+    playback: mockApi,
+    catalog: mockApi,
     storage: mockStorage,
     lifecycle: mockLifecycle,
     getRoom: vi.fn().mockResolvedValue(null),
@@ -204,8 +209,8 @@ describe("AbsentDjPlugin", () => {
       await trackChangedHandler({ roomId: "test-room", track })
 
       // Schedule should not have been called (only cancelSchedule for clearing previous)
-      expect(mockContext.api.schedule).not.toHaveBeenCalled()
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.schedule.schedule).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should not start timer when track has no addedBy user", async () => {
@@ -217,8 +222,8 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      expect(mockContext.api.schedule).not.toHaveBeenCalled()
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.schedule.schedule).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should not start timer when DJ is present in room", async () => {
@@ -238,8 +243,8 @@ describe("AbsentDjPlugin", () => {
 
       await trackChangedHandler({ roomId: "test-room", track })
 
-      expect(mockContext.api.schedule).not.toHaveBeenCalled()
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.schedule.schedule).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should start timer and skip track when DJ is absent", async () => {
@@ -260,7 +265,7 @@ describe("AbsentDjPlugin", () => {
       await trackChangedHandler({ roomId: "test-room", track })
 
       // Schedule should have been called with correct delay
-      expect(mockContext.api.schedule).toHaveBeenCalledWith(
+      expect(mockContext.schedule.schedule).toHaveBeenCalledWith(
         expect.objectContaining({
           kind: "countdown",
           anchor: { trackId: "track1", afterPlaybackMs: 30000 },
@@ -268,13 +273,13 @@ describe("AbsentDjPlugin", () => {
       )
 
       // Timer should not have fired yet
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
 
       // Simulate the schedule firing
       const payload = lastSchedulePayload(mockContext.api)
       await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
     })
 
     test("should send messageOnPlay when configured and DJ is absent", async () => {
@@ -318,7 +323,7 @@ describe("AbsentDjPlugin", () => {
       await trackChangedHandler({ roomId: "test-room", track: track1 })
 
       // cancelSchedule was called at start of onTrackChanged
-      expect(mockContext.api.cancelSchedule).toHaveBeenCalled()
+      expect(mockContext.schedule.cancelSchedule).toHaveBeenCalled()
 
       // Second track starts (should clear first timer)
       const track2 = createMockQueueItem("track2", "Song 2", {
@@ -332,8 +337,8 @@ describe("AbsentDjPlugin", () => {
       await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
       // Second track SHOULD be skipped (first was replaced)
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track2")
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track2")
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalledWith("test-room", "track1")
     })
   })
 
@@ -375,10 +380,10 @@ describe("AbsentDjPlugin", () => {
       })
 
       // cancelSchedule should have been called for the countdown
-      expect(mockContext.api.cancelSchedule).toHaveBeenCalled()
+      expect(mockContext.schedule.cancelSchedule).toHaveBeenCalled()
 
       // Track should NOT have been skipped
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should not cancel timer when different user joins", async () => {
@@ -396,7 +401,7 @@ describe("AbsentDjPlugin", () => {
       await trackChangedHandler({ roomId: "test-room", track })
 
       // Clear the cancelSchedule calls from onTrackChanged
-      vi.mocked(mockContext.api.cancelSchedule).mockClear()
+      vi.mocked(mockContext.schedule.cancelSchedule).mockClear()
 
       // A different user joins
       await userJoinedHandler({
@@ -405,12 +410,12 @@ describe("AbsentDjPlugin", () => {
       })
 
       // cancelSchedule should NOT have been called again
-      expect(mockContext.api.cancelSchedule).not.toHaveBeenCalled()
+      expect(mockContext.schedule.cancelSchedule).not.toHaveBeenCalled()
 
       // Simulate the timer firing — track SHOULD still be skipped
       const payload = lastSchedulePayload(mockContext.api)
       await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
     })
 
     test("should do nothing if no active timer", async () => {
@@ -423,7 +428,7 @@ describe("AbsentDjPlugin", () => {
       })
 
       // Should not throw or do anything unexpected
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
   })
 
@@ -496,10 +501,10 @@ describe("AbsentDjPlugin", () => {
       })
 
       // cancelSchedule should have been called when disabling
-      expect(mockContext.api.cancelSchedule).toHaveBeenCalled()
+      expect(mockContext.schedule.cancelSchedule).toHaveBeenCalled()
 
       // Track should NOT have been skipped
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should start timer for current track when enabled and DJ is absent", async () => {
@@ -507,7 +512,7 @@ describe("AbsentDjPlugin", () => {
         userId: "dj1",
         username: "DJ One",
       })
-      vi.mocked(mockContext.api.getNowPlaying).mockResolvedValue(nowPlaying)
+      vi.mocked(mockContext.queue.getNowPlaying).mockResolvedValue(nowPlaying)
 
       // DJ is NOT in the room
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user2")])
@@ -523,7 +528,7 @@ describe("AbsentDjPlugin", () => {
       const payload = lastSchedulePayload(mockContext.api)
       await plugin.handleScheduled("countdown", payload, "absent-dj-countdown")
 
-      expect(mockContext.api.skipTrack).toHaveBeenCalledWith("test-room", "track1")
+      expect(mockContext.queue.skipTrack).toHaveBeenCalledWith("test-room", "track1")
     })
   })
 
@@ -650,7 +655,7 @@ describe("AbsentDjPlugin", () => {
       // Cleanup
       await plugin.cleanup()
 
-      expect(mockContext.api.skipTrack).not.toHaveBeenCalled()
+      expect(mockContext.queue.skipTrack).not.toHaveBeenCalled()
     })
 
     test("should handle roomDeleted event", async () => {
@@ -731,7 +736,7 @@ describe("AbsentDjPlugin", () => {
     })
 
     test("freezes the countdown when the room starts paused", async () => {
-      vi.mocked(mockContext.api.schedule).mockResolvedValue({
+      vi.mocked(mockContext.schedule.schedule).mockResolvedValue({
         ok: true,
         fireAt: Date.now() + 30_000,
         anchored: true,

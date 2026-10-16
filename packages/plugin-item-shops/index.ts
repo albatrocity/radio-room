@@ -1527,7 +1527,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           message: "Refresh local library is only available in Media Bridge rooms.",
         }
       }
-      const ok = await this.context.api.invalidateLocalLibraryCache(this.context.roomId)
+      const ok = await this.context.catalog.invalidateLocalLibraryCache(this.context.roomId)
       await this.applyLocalLibraryGrantConfig()
       return ok
         ? {

@@ -20,7 +20,7 @@ function stubQueueTarget(
     }),
     addedBy: options?.addedBy,
   })
-  vi.mocked(deps.context.api.getQueue).mockResolvedValue([queueItem])
+  vi.mocked(deps.context.queue.getQueue).mockResolvedValue([queueItem])
   return queueItem
 }
 
@@ -37,7 +37,7 @@ describe("warmBeer", () => {
     })
 
     expect(result.success).toBe(true)
-    expect(deps.context.api.moveTrackByPosition).toHaveBeenCalledWith(
+    expect(deps.context.queue.moveTrackByPosition).toHaveBeenCalledWith(
       "room-1",
       "meta-track-1",
       -1,
@@ -56,7 +56,7 @@ describe("warmBeer", () => {
     const deps = createMockDeps()
     const user = userFactory.build()
     stubRoomUsers(deps, [user])
-    vi.mocked(deps.context.api.getQueue).mockResolvedValue([])
+    vi.mocked(deps.context.queue.getQueue).mockResolvedValue([])
 
     const result = await invokeUse(warmBeer, deps, user.userId, createMockDefinition("warm-beer"), {
       targetQueueItemId: "missing-track",
@@ -65,7 +65,7 @@ describe("warmBeer", () => {
     expect(result.success).toBe(false)
     expect(result.consumed).toBe(false)
     expect(result.message).toBe("Targeted track not found in queue.")
-    expect(deps.context.api.moveTrackByPosition).not.toHaveBeenCalled()
+    expect(deps.context.queue.moveTrackByPosition).not.toHaveBeenCalled()
   })
 
   test("consumes item when defense_blocked", async () => {
@@ -73,7 +73,7 @@ describe("warmBeer", () => {
     const user = userFactory.build()
     stubRoomUsers(deps, [user])
     stubQueueTarget(deps, "q1")
-    vi.mocked(deps.context.api.moveTrackByPosition).mockResolvedValue({
+    vi.mocked(deps.context.queue.moveTrackByPosition).mockResolvedValue({
       success: false,
       reason: "defense_blocked",
       blockingItemName: "Catered Meal",
@@ -94,7 +94,7 @@ describe("warmBeer", () => {
     const user = userFactory.build()
     stubRoomUsers(deps, [user])
     stubQueueTarget(deps, "q1")
-    vi.mocked(deps.context.api.moveTrackByPosition).mockResolvedValue({
+    vi.mocked(deps.context.queue.moveTrackByPosition).mockResolvedValue({
       success: false,
       reason: "error",
       message: "Cannot move",

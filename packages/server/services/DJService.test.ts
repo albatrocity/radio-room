@@ -221,20 +221,22 @@ describe("DJService", () => {
     test("adds song to queue when not already in queue", async () => {
       // Mock for addToQueue
       vi.mocked(addToQueue).mockResolvedValue(undefined)
-      
+
       // Mock room
-      vi.mocked(findRoom).mockResolvedValue(roomFactory.build({
-        id: "room123",
-        creator: "user123",
-      }))
-      
+      vi.mocked(findRoom).mockResolvedValue(
+        roomFactory.build({
+          id: "room123",
+          creator: "user123",
+        }),
+      )
+
       // Mock track data
       const mockTrack = metadataSourceTrackFactory.build({
         id: "track123",
         title: "Test Track",
         urls: [{ type: "resource", url: "spotify:track:123", id: "url1" }],
       })
-      
+
       // Mock adapter service methods
       const mockMetadataSource = {
         api: {
@@ -248,11 +250,15 @@ describe("DJService", () => {
           playTrack: vi.fn().mockResolvedValue(undefined),
         },
       }
-      
+
       // @ts-ignore - accessing private property for testing
-      djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue(mockMetadataSource)
+      djService["adapterService"].getUserMetadataSource = vi
+        .fn()
+        .mockResolvedValue(mockMetadataSource)
       // @ts-ignore - accessing private property for testing
-      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue(mockPlaybackController)
+      djService["adapterService"].getRoomPlaybackController = vi
+        .fn()
+        .mockResolvedValue(mockPlaybackController)
 
       const result = await djService.queueSong("room123", "user123", "Homer", "track123")
 
@@ -269,7 +275,7 @@ describe("DJService", () => {
               id: "track123",
             }),
           }),
-        })
+        }),
       )
 
       // expect(result).toEqual({
@@ -373,7 +379,9 @@ describe("DJService", () => {
         },
       }
       // @ts-ignore — testing private property
-      djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue(mockMetadataSource)
+      djService["adapterService"].getUserMetadataSource = vi
+        .fn()
+        .mockResolvedValue(mockMetadataSource)
       // @ts-ignore
       djService["adapterService"].getRoomPlaybackController = vi
         .fn()
@@ -1012,7 +1020,9 @@ describe("DJService", () => {
       vi.mocked(getQueue).mockResolvedValue([itemA, itemB])
       vi.mocked(isRoomAdmin).mockResolvedValue(true)
 
-      const result = await djService.reorderQueue("room123", "user123", [canonicalQueueTrackKey(itemA)])
+      const result = await djService.reorderQueue("room123", "user123", [
+        canonicalQueueTrackKey(itemA),
+      ])
 
       expect(result).toEqual({ success: false, message: "Invalid queue order" })
       expect(setQueue).not.toHaveBeenCalled()
@@ -1239,7 +1249,9 @@ describe("DJService", () => {
           },
         }
         // @ts-ignore — testing private property
-        djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue(mockMetadataSource)
+        djService["adapterService"].getUserMetadataSource = vi
+          .fn()
+          .mockResolvedValue(mockMetadataSource)
         // @ts-ignore
         djService["adapterService"].getRoomPlaybackController = vi
           .fn()
@@ -1268,7 +1280,9 @@ describe("DJService", () => {
         vi.mocked(addToQueue).mockResolvedValue(undefined)
         vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
 
-        const validateQueueRequest = vi.fn().mockResolvedValue({ allowed: false, reason: "blocked" })
+        const validateQueueRequest = vi
+          .fn()
+          .mockResolvedValue({ allowed: false, reason: "blocked" })
         mockContext.pluginRegistry = {
           validateQueueRequest,
           // Other methods on the registry are not invoked here.
@@ -1348,60 +1362,114 @@ describe("DJService", () => {
         expect(addToQueue).not.toHaveBeenCalled()
       })
 
-      test("rebroadcasts QUEUE_CHANGED without plugins when handlers mutate the queue", async () => {
-        vi.mocked(addToQueue).mockResolvedValue(undefined)
+      test("applies every follow-up round before a single QUEUE_CHANGED", async () => {
+        const queue: QueueItem[] = []
+        vi.mocked(addToQueue).mockImplementation(async ({ item }) => {
+          queue.push(item)
+        })
+        vi.mocked(getQueue).mockImplementation(async () => [...queue])
         vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
         vi.mocked(getNormalizedQueueSplit).mockResolvedValue(null)
-        vi.mocked(getQueue).mockResolvedValue([])
 
-        const mockTrack = metadataSourceTrackFactory.build({
-          id: "track-a",
-          urls: [{ type: "resource", url: "spotify:track:a", id: "url1" }],
-        })
-        const heldTrack = metadataSourceTrackFactory.build({
-          id: "track-held",
-          urls: [{ type: "resource", url: "spotify:track:held", id: "url-held" }],
-        })
-        const heldItem = queueItemFactory.build({
-          mediaSource: { type: "spotify", trackId: "track-held" },
-          track: heldTrack,
-        })
-
+        const trackFor = (id: string) =>
+          metadataSourceTrackFactory.build({
+            id,
+            urls: [{ type: "resource", url: `spotify:track:${id}`, id: `url-${id}` }],
+          })
         // @ts-ignore — testing private property
         djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue({
-          api: {
-            findById: vi.fn(async (id: string) => (id === "track-held" ? heldTrack : mockTrack)),
-          },
+          api: { findById: vi.fn(async (id: string) => trackFor(id)) },
         })
         // @ts-ignore
         djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
           api: { addToQueue: vi.fn() },
         })
 
-        vi.mocked(buildQueueChangedData)
-          .mockResolvedValueOnce({
-            roomId: "room123",
-            queue: [itemA],
-            splitKey: null,
-          })
-          .mockResolvedValueOnce({
-            roomId: "room123",
-            queue: [itemA, heldItem],
-            splitKey: null,
-          })
+        const followUp = (trackId: string, username: string) => ({
+          pluginName: "round-robin-dj",
+          followUp: {
+            type: "enqueue" as const,
+            trackId,
+            addedBy: { type: "user" as const, userId: username, username },
+            runPluginValidation: false as const,
+          },
+        })
+        const rounds = [[followUp("track-b", "Marge")], [followUp("track-c", "Lisa")], []]
+        const deliver = vi.fn(async () => undefined)
+        mockContext.pluginRegistry = {
+          collectQueueFollowUps: vi.fn(async () => rounds.shift() ?? []),
+          deliverQueueFollowUpResult: deliver,
+        }
 
         const emit = mockContext.systemEvents!.emit as ReturnType<typeof vi.fn>
-        emit.mockImplementation(async (roomId: string, event: string) => {
-          if (event === "QUEUE_CHANGED" && emit.mock.calls.length === 1) {
-            // Simulate round-robin hold flush during plugin handling
-            await djService.queueSongAs(
-              roomId,
-              { type: "user", userId: "user456", username: "Marge" },
-              "track-held",
-              { suppressQueueChanged: true },
-            )
-          }
+        const result = await djService.queueSongAs(
+          "room123",
+          { type: "user", userId: "user123", username: "Homer" },
+          "track-a",
+        )
+
+        expect(result.success).toBe(true)
+        expect(queue.map((item) => item.track.id)).toEqual(["track-a", "track-b", "track-c"])
+        expect(buildQueueChangedData).toHaveBeenCalledTimes(1)
+        expect(emit).toHaveBeenCalledTimes(1)
+        expect(emit).toHaveBeenCalledWith(
+          "room123",
+          "QUEUE_CHANGED",
+          expect.objectContaining({
+            queue: [
+              expect.objectContaining({ track: expect.objectContaining({ id: "track-a" }) }),
+              expect.objectContaining({ track: expect.objectContaining({ id: "track-b" }) }),
+              expect.objectContaining({ track: expect.objectContaining({ id: "track-c" }) }),
+            ],
+          }),
+        )
+        expect(emit.mock.calls[0]).toHaveLength(3)
+        expect(deliver).toHaveBeenCalledTimes(2)
+        expect(deliver.mock.invocationCallOrder[1]).toBeLessThan(emit.mock.invocationCallOrder[0]!)
+      })
+
+      test("stops follow-ups after a failed enqueue and still emits once", async () => {
+        const queue: QueueItem[] = []
+        vi.mocked(addToQueue).mockImplementation(async ({ item }) => {
+          queue.push(item)
         })
+        vi.mocked(getQueue).mockImplementation(async () => [...queue])
+        vi.mocked(findRoom).mockResolvedValue(appControlledRoom)
+
+        const trackFor = (id: string) =>
+          metadataSourceTrackFactory.build({
+            id,
+            urls: [{ type: "resource", url: `spotify:track:${id}`, id: `url-${id}` }],
+          })
+        // @ts-ignore — testing private property
+        djService["adapterService"].getUserMetadataSource = vi.fn().mockResolvedValue({
+          api: {
+            findById: vi.fn(async (id: string) => (id === "track-missing" ? null : trackFor(id))),
+          },
+        })
+        // @ts-ignore
+        djService["adapterService"].getRoomMetadataSources = vi.fn(async () => new Map())
+        // @ts-ignore
+        djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+          api: { addToQueue: vi.fn() },
+        })
+
+        const collect = vi.fn(async () => [
+          {
+            pluginName: "round-robin-dj",
+            followUp: {
+              type: "enqueue" as const,
+              trackId: "track-missing",
+              addedBy: { type: "user" as const, userId: "user456", username: "Marge" },
+              runPluginValidation: false as const,
+            },
+          },
+        ])
+        const deliver = vi.fn(async () => undefined)
+        mockContext.pluginRegistry = {
+          collectQueueFollowUps: collect,
+          deliverQueueFollowUpResult: deliver,
+        }
 
         const result = await djService.queueSongAs(
           "room123",
@@ -1410,21 +1478,17 @@ describe("DJService", () => {
         )
 
         expect(result.success).toBe(true)
-        expect(buildQueueChangedData).toHaveBeenCalledTimes(2)
-        expect(emit).toHaveBeenCalledTimes(2)
-        expect(emit).toHaveBeenNthCalledWith(
-          1,
+        expect(queue.map((item) => item.track.id)).toEqual(["track-a"])
+        expect(collect).toHaveBeenCalledTimes(1)
+        expect(deliver).toHaveBeenCalledWith(
           "room123",
-          "QUEUE_CHANGED",
-          expect.objectContaining({ queue: [itemA] }),
+          "round-robin-dj",
+          expect.objectContaining({
+            success: false,
+            message: expect.stringContaining("Track not found"),
+          }),
         )
-        expect(emit).toHaveBeenNthCalledWith(
-          2,
-          "room123",
-          "QUEUE_CHANGED",
-          expect.objectContaining({ queue: [itemA, heldItem] }),
-          { skipPlugins: true },
-        )
+        expect(mockContext.systemEvents?.emit).toHaveBeenCalledTimes(1)
       })
 
       test("does not rebuild QUEUE_CHANGED when plugins leave the queue unchanged", async () => {
@@ -1490,9 +1554,7 @@ describe("DJService", () => {
         vi.mocked(getQueue)
           .mockResolvedValueOnce([])
           .mockResolvedValueOnce([itemA, itemB, queuedItem])
-        vi.mocked(getNormalizedQueueSplit).mockResolvedValue(
-          canonicalQueueTrackKey(itemB),
-        )
+        vi.mocked(getNormalizedQueueSplit).mockResolvedValue(canonicalQueueTrackKey(itemB))
         vi.mocked(addToQueue).mockImplementation(async ({ item }) => {
           Object.assign(queuedItem, item)
         })

@@ -91,6 +91,7 @@ describe("MessageHandlers", () => {
         "1",
         "Homer",
         "Hello world",
+        undefined,
       )
     })
 
@@ -144,6 +145,13 @@ describe("MessageHandlers", () => {
       const now = 1_700_000_000_000
       vi.setSystemTime(now)
 
+      mockSocket.context.redis = {
+        ...mockSocket.context.redis,
+        pubClient: {
+          get: vi.fn().mockResolvedValue(null),
+          hGetAll: vi.fn().mockResolvedValue({ username: "Homer" }),
+        },
+      }
       mockSocket.context.gameSessions = {
         getUserState: vi.fn().mockResolvedValue({
           userId: "1",

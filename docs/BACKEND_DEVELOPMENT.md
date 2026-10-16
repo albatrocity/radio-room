@@ -30,19 +30,9 @@ await context.systemEvents.emit(roomId, "TRACK_CHANGED", {
 })
 ```
 
-Fan-out order is **Redis PubSub → plugins → broadcasters**. Optional emit options:
+Fan-out order is **Redis PubSub → plugins → broadcasters**. `emit` takes the room, the event name, and the payload. There is no skip-plugins option.
 
-```typescript
-await context.systemEvents.emit(roomId, "QUEUE_CHANGED", payload, {
-  skipPlugins: true, // PubSub + Socket.IO only; do not re-enter plugin handlers
-})
-```
-
-| Option | Effect |
-|--------|--------|
-| `skipPlugins: true` | Skip in-process plugin handlers; still publish to Redis and broadcasters |
-
-**Why `skipPlugins` exists:** Plugins may mutate domain state while handling an event (e.g. enqueue more tracks during `QUEUE_CHANGED`). The original emit’s payload was snapshotted *before* those handlers ran, so broadcasters would otherwise send a stale queue to clients after plugins return. `DJService.queueSongAs` rebuilds and re-emits with `{ skipPlugins: true }` only when a nested `suppressQueueChanged` add succeeded during plugin handling (dirty flag), not on every enqueue. See [Queue Validation — Cascading queue adds](plugins/queue-validation.md#cascading-queue-adds-during-queue_changed).
+**Queue writes are finished before that emit.** After a primary enqueue, `DJService` asks each room plugin for `collectQueueFollowUps`, applies those enqueues itself, delivers `onQueueFollowUpResult`, and repeats until a round proposes nothing or applies nothing (cap 50). One `QUEUE_CHANGED` then carries the queue that includes those tracks. Calling a queue mutator from a plugin handler while that emit is in progress throws `QueueMutationDuringEmitError`. See [ADR 0200](adrs/0200-queue-follow-ups-before-queue-changed.md) and [Queue Validation — Follow-ups](plugins/queue-validation.md#queue-follow-ups-before-queue_changed).
 
 ### Event Types
 

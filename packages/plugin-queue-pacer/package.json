@@ -2,6 +2,7 @@
   "name": "@repo/plugin-queue-pacer",
   "version": "1.0.0",
   "description": "Queue Pacer plugin for Listening Room - helps a show finish its queue by a target end time",
+  "type": "module",
   "main": "index.ts",
   "types": "index.ts",
   "exports": {

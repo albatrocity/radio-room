@@ -102,6 +102,11 @@ function createMockContext(roomId: string = "test-room"): PluginContext {
   return {
     roomId,
     api: mockApi,
+    polls: mockApi,
+    schedule: mockApi,
+    queue: mockApi,
+    playback: mockApi,
+    catalog: mockApi,
     storage: mockStorage,
     lifecycle: mockLifecycle,
     getRoom: vi.fn().mockResolvedValue(null),
@@ -201,7 +206,7 @@ describe("QueueHygienePlugin", () => {
     test("should allow when user is admin and exemptAdmins is true", async () => {
       vi.mocked(mockContext.api.isRoomAdmin).mockResolvedValue(true)
       // Last track was from same user (would be consecutive)
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
       ])
 
@@ -228,7 +233,7 @@ describe("QueueHygienePlugin", () => {
         createMockUser("user2"),
       ])
       // Last track was from different user
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user2"),
       ])
 
@@ -239,7 +244,7 @@ describe("QueueHygienePlugin", () => {
 
     test("should allow when queue is empty", async () => {
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([])
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([])
 
       const result = await plugin.validateQueueRequest(validationParams)
 
@@ -253,7 +258,7 @@ describe("QueueHygienePlugin", () => {
       })
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track was from same user
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
       ])
 
@@ -268,7 +273,7 @@ describe("QueueHygienePlugin", () => {
     test("should reject when cooldown has not expired", async () => {
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track was from same user
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
       ])
       // User queued 10 seconds ago (still in cooldown)
@@ -287,7 +292,7 @@ describe("QueueHygienePlugin", () => {
     test("should allow when cooldown has expired", async () => {
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track was from same user
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
       ])
       // User queued 5 minutes ago (cooldown expired)
@@ -302,7 +307,7 @@ describe("QueueHygienePlugin", () => {
     test("should allow when no previous queue timestamp exists", async () => {
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track was from same user
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
       ])
       // No previous timestamp
@@ -341,7 +346,7 @@ describe("QueueHygienePlugin", () => {
     test("should use base cooldown with empty queue and few DJs", async () => {
       vi.mocked(mockContext.api.getUsers).mockResolvedValue([createMockUser("user1")])
       // Last track from same user (consecutive)
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
       ])
       // User queued 25 seconds ago (just under base cooldown of 30s)
@@ -362,7 +367,7 @@ describe("QueueHygienePlugin", () => {
       vi.mocked(mockContext.api.getUsers).mockResolvedValue(manyDjs)
 
       // Last track from same user
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue([
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue([
         createMockQueueItem("track1", "user1"),
       ])
 
@@ -389,7 +394,7 @@ describe("QueueHygienePlugin", () => {
       const longQueue = Array.from({ length: 15 }, (_, i) =>
         createMockQueueItem(`track${i}`, i === 14 ? "user1" : `user${i}`),
       )
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue(longQueue)
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue(longQueue)
 
       // User queued 2 minutes ago
       const twoMinutesAgo = Date.now() - 120000
@@ -419,7 +424,7 @@ describe("QueueHygienePlugin", () => {
       const longQueue = Array.from({ length: 15 }, (_, i) =>
         createMockQueueItem(`track${i}`, i === 14 ? "user1" : `user${i}`),
       )
-      vi.mocked(mockContext.api.getQueue).mockResolvedValue(longQueue)
+      vi.mocked(mockContext.queue.getQueue).mockResolvedValue(longQueue)
 
       // User queued 35 seconds ago (just over base cooldown of 30s)
       const thirtyFiveSecondsAgo = Date.now() - 35000

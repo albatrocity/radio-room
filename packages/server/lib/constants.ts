@@ -23,7 +23,7 @@ export const ROOM_EXPIRE_TIME = ONE_DAY;
 /**
  * How long a departed listener's `user:{id}` hash stays readable so a
  * next-morning room export can still resolve usernames. Room creators are
- * persisted and skip this. See ADR 0200.
+ * persisted and skip this. See ADR 0203.
  */
 export const DEPARTED_USER_RECORD_TTL = ONE_DAY * 2;
 export const ROOM_IDLE_PAUSE_TIME = FIFTEEN_MINUTES;
