@@ -311,8 +311,40 @@ export class LocalLibraryModule {
   }
 
   /**
-   * Fetch + apply sleeves for specific derived album shortIds (shop offers / held
-   * items). No-op for playlist SKUs and albums that already have imageUrl.
+   * Patch derived album SKUs with lore from Navidrome's album-comment rollup.
+   * `description` keeps the canned line. Returns changed shortIds.
+   */
+  applyAlbumLore(loreByAlbumId: Readonly<Record<string, string>>): string[] {
+    const changedShortIds: string[] = []
+    this.derivedPhysicalMedia = this.derivedPhysicalMedia.map((entry) => {
+      const albumId = this.derivedAlbumMap[entry.definition.shortId]?.trim()
+      if (!albumId) return entry
+      const lore = loreByAlbumId[albumId]?.trim()
+      if (!lore || entry.definition.lore === lore) return entry
+      changedShortIds.push(entry.definition.shortId)
+      return { ...entry, definition: { ...entry.definition, lore } }
+    })
+    return changedShortIds
+  }
+
+  /**
+   * Sleeves and lore for one batch of album ids, fetched together so the
+   * attempted set covers both.
+   */
+  private async fetchAlbumArtworkAndLore(
+    context: PluginContext,
+    albumIds: string[],
+  ): Promise<string[]> {
+    const [artwork, lore] = await Promise.all([
+      context.catalog.getLocalAlbumArtwork(context.roomId, albumIds),
+      context.catalog.getLocalAlbumComments(context.roomId, albumIds),
+    ])
+    return [...new Set([...this.applyAlbumArtwork(artwork), ...this.applyAlbumLore(lore)])]
+  }
+
+  /**
+   * Fetch + apply sleeves and lore for specific derived album shortIds (shop
+   * offers / held items). No-op for playlist SKUs and albums already fetched.
    */
   async ensureAlbumArtworkForShortIds(shortIds: readonly string[]): Promise<string[]> {
     const context = this.getContext()
@@ -331,13 +363,12 @@ export class LocalLibraryModule {
     const unique = [...new Set(albumIds)]
     if (unique.length === 0) return []
     for (const id of unique) this.albumArtworkAttempted.add(id)
-    const artwork = await context.catalog.getLocalAlbumArtwork(context.roomId, unique)
-    return this.applyAlbumArtwork(artwork)
+    return this.fetchAlbumArtworkAndLore(context, unique)
   }
 
   /**
-   * Background fill of missing album sleeves in batches. Call after refresh so
-   * the catalog can register without waiting on the full library.
+   * Background fill of missing album sleeves and lore in batches. Call after
+   * refresh so the catalog can register without waiting on the full library.
    */
   async hydrateMissingAlbumArtwork(
     options: {
@@ -356,8 +387,7 @@ export class LocalLibraryModule {
       if (missing.length === 0) return
       const batch = missing.slice(0, batchSize)
       for (const id of batch) this.albumArtworkAttempted.add(id)
-      const artwork = await context.catalog.getLocalAlbumArtwork(context.roomId, batch)
-      const changed = this.applyAlbumArtwork(artwork)
+      const changed = await this.fetchAlbumArtworkAndLore(context, batch)
       if (changed.length > 0 && options.onBatch) await options.onBatch(changed)
     }
   }

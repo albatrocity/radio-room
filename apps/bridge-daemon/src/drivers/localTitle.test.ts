@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest"
-import { resolveLocalDisplayTitle, titleFromFilename } from "./local"
+import { resolveLocalDisplayTitle, rollupAlbumComment, titleFromFilename } from "./local"
+
+describe("rollupAlbumComment", () => {
+  it("returns the comment when every track carries the same one", () => {
+    expect(rollupAlbumComment([{ comment: "Notes " }, { comment: " Notes" }])).toBe("Notes")
+  })
+
+  it("omits partial, mixed, blank, and empty albums", () => {
+    expect(rollupAlbumComment([{ comment: "Notes" }, {}])).toBeUndefined()
+    expect(rollupAlbumComment([{ comment: "A" }, { comment: "B" }])).toBeUndefined()
+    expect(rollupAlbumComment([{ comment: "  " }, { comment: "" }])).toBeUndefined()
+    expect(rollupAlbumComment([])).toBeUndefined()
+  })
+})
 
 describe("titleFromFilename", () => {
   it("strips directory and extension", () => {

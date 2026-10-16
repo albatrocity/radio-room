@@ -86,7 +86,7 @@ export function upsertStudioFeedbackResponse(params: {
 
 export function listStudioFeedbackInbox(
   roomId: string,
-  usernameById: Map<string, string>,
+  usernameById: ReadonlyMap<string, string | undefined>,
 ): {
   topicId: string
   userId: string

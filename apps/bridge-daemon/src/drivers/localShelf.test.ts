@@ -104,6 +104,40 @@ describe("LocalDriver shelf browsing", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("getAlbum.view")
   })
 
+  it("getAlbumComments returns the rollup only when every track shares the comment", async () => {
+    const songsByAlbum: Record<string, unknown[]> = {
+      "al-same": [
+        { id: "t1", comment: " Liner notes. " },
+        { id: "t2", comment: "Liner notes." },
+      ],
+      "al-first-only": [{ id: "t3", comment: "Only on track one" }, { id: "t4" }],
+      "al-mixed": [
+        { id: "t5", comment: "A" },
+        { id: "t6", comment: "B" },
+      ],
+    }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const id = new URL(url).searchParams.get("id") ?? ""
+        if (url.includes("getAlbum.view") && songsByAlbum[id]) {
+          return {
+            ok: true,
+            json: async () => ({
+              "subsonic-response": { album: { id, name: id, song: songsByAlbum[id] } },
+            }),
+          } as unknown as Response
+        }
+        throw new Error(`unexpected fetch: ${url}`)
+      }),
+    )
+
+    const driver = new LocalDriver(navidrome, mpv)
+    await expect(
+      driver.getAlbumComments(["al-same", "al-first-only", "al-mixed"]),
+    ).resolves.toEqual({ "al-same": "Liner notes." })
+  })
+
   it("returns playlist cover art keyed by playlist id", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.includes("getCoverArt.view")) return coverResponse()

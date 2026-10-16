@@ -946,6 +946,13 @@ export interface CatalogPluginAPI {
   ): Promise<Record<string, LocalPlaylistArtwork>>
 
   /**
+   * Album-level comment per Navidrome album id: the same rollup as Navidrome's
+   * `album.comment` (one identical comment on every track). Albums without one,
+   * and old DJ Mac packs, are omitted.
+   */
+  getLocalAlbumComments(roomId: string, albumIds: string[]): Promise<Record<string, string>>
+
+  /**
    * Ordered track ids for a Navidrome album (playlist-over-album de-dup).
    */
   listLocalAlbumTrackIds(roomId: string, albumId: string): Promise<string[]>
@@ -1532,11 +1539,13 @@ export interface PluginContext {
 /**
  * Style hints that plugins can provide to modify UI elements
  */
+export type PluginCssProperties = Record<string, string | number>
+
 export interface PluginStyleHints {
-  /** Styles for the track title */
-  title?: React.CSSProperties
-  /** Styles for subtitles or secondary text */
-  subtitle?: React.CSSProperties
+  /** Styles for the track title (camelCase CSS properties) */
+  title?: PluginCssProperties
+  /** Styles for subtitles or secondary text (camelCase CSS properties) */
+  subtitle?: PluginCssProperties
   /** Badge configuration */
   badge?: {
     variant?: "success" | "warning" | "error" | "info"
@@ -1725,6 +1734,13 @@ export interface PluginActionInitiator {
   username?: string
 }
 
+export interface PluginActionResult {
+  success: boolean
+  message?: string
+  /** Config fields the action wrote, so an open admin form can sync (ADR 0068 private fields are not broadcast). */
+  configPatch?: Record<string, unknown>
+}
+
 /**
  * Base plugin interface
  */
@@ -1805,7 +1821,7 @@ export interface Plugin {
     action: string,
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
-  ): Promise<{ success: boolean; message?: string }>
+  ): Promise<PluginActionResult>
 
   /**
    * Dry-run parse + merge for a `configImport` action (ADR 0075). No Redis write.

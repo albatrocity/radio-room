@@ -28,7 +28,7 @@ Alternatives considered:
    - *Stage* (detail): `OrbitControls` rotate + zoom, no pan, no auto-rotate. The focusable canvas handles arrow keys (rotate the model) and `+`/`-` (zoom) itself, because `OrbitControls.listenToKeyEvents` maps plain arrows to pan.
    - The Lucide icon shows while the GLB loads and replaces the viewer on load failure, WebGL failure, or context loss.
 7. **Precedence in `ItemArtwork`:** cover `imageUrl` (framed or plain), then model, then Lucide `icon`.
-8. **Lore renders only on `default` and `punchCard` detail**, under the muted `description`, in full foreground color, newlines kept, URLs linkified. Not on list rows, shop cards, or `trackList` detail.
+8. **Lore renders on item detail only**: `default` and `punchCard` under the muted `description`, and `trackList` in the album header under the description (album Physical Media lore — [ADR 0099](0099-physical-media-personal-libraries.md) §1). Not on list rows or shop cards. Lore is basic markdown (`ItemLoreMarkdown`: `react-markdown` with `remark-gfm` and `remark-breaks`): emphasis, links, lists, quotes, inline code. Single newlines are kept and bare URLs link. Raw HTML and images are dropped, because album lore comes from operator-tagged files.
 
 ## Consequences
 

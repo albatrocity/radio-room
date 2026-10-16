@@ -540,6 +540,48 @@ export async function getLocalAlbumCoverArt(params: {
   })
 }
 
+/** Max album ids per `getAlbumComments` RPC (one Navidrome getAlbum each on a cold cache). */
+export const LOCAL_ALBUM_COMMENT_ID_BATCH = 8
+
+/** Keep non-empty string values; anything else from a stale or odd daemon is dropped. */
+export function normalizeAlbumCommentsResult(result: unknown): Record<string, string> {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return {}
+  const out: Record<string, string> = {}
+  for (const [id, value] of Object.entries(result as Record<string, unknown>)) {
+    if (typeof value !== "string") continue
+    const comment = value.trim()
+    if (comment) out[id] = comment
+  }
+  return out
+}
+
+/**
+ * Album-level comment per Navidrome album id (identical comment on every track).
+ * Albums without one are omitted; an old DJ Mac pack (unknown method) yields `{}`.
+ */
+export async function getLocalAlbumComments(params: {
+  rpc: BridgeRpcClient
+  albumIds: string[]
+}): Promise<Record<string, string>> {
+  const ids = Array.from(new Set(params.albumIds.map((id) => id.trim()).filter(Boolean)))
+  if (ids.length === 0) return {}
+  if (!(await params.rpc.isPresent())) return {}
+  const out: Record<string, string> = {}
+  for (let i = 0; i < ids.length; i += LOCAL_ALBUM_COMMENT_ID_BATCH) {
+    const chunk = ids.slice(i, i + LOCAL_ALBUM_COMMENT_ID_BATCH)
+    try {
+      const result = (await params.rpc.call("getAlbumComments", {
+        source: "local",
+        albumIds: chunk,
+      })) as unknown
+      Object.assign(out, normalizeAlbumCommentsResult(result))
+    } catch {
+      // Old pack (unknown method) or a failed chunk: those albums get no lore.
+    }
+  }
+  return out
+}
+
 /** Drop daemon-side playlist membership and cover-art caches. */
 export async function invalidateLocalLibraryCache(params: {
   rpc: BridgeRpcClient

@@ -601,6 +601,21 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     }
   }
 
+  /** Album-comment rollup per Navidrome album id. Empty on failure or an old DJ Mac pack. */
+  async getLocalAlbumComments(roomId: string, albumIds: string[]): Promise<Record<string, string>> {
+    const ids = [...new Set(albumIds.map((id) => id.trim()).filter(Boolean))]
+    if (ids.length === 0) return {}
+    try {
+      const { getBridgeRpcClient, getLocalAlbumComments } = await import("@repo/adapter-bridge")
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return {}
+      return await getLocalAlbumComments({ rpc, albumIds: ids })
+    } catch (e) {
+      console.warn("[PluginAPI] getLocalAlbumComments failed:", e)
+      return {}
+    }
+  }
+
   /**
    * Ordered track ids for a Navidrome album (de-dup / lean listing). Empty on failure.
    * Prefers `listAlbumTrackIds` RPC; falls back to getAlbum on old packs.

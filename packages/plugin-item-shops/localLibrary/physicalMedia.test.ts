@@ -368,6 +368,8 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
     expect(items[0]?.definition.stackable).toBe(false)
     expect(items[0]?.definition.maxStack).toBe(1)
     expect(items[0]?.definition.artist).toBe("My Bloody Valentine")
+    expect(items[0]?.definition.description).toBe(`A ${lovelessFormat.format} from the Record Store.`)
+    expect(items[0]?.definition.lore).toBeUndefined()
     expect(items[0]?.definition.rarity).toBe("common")
     expect(items[0]?.definition.coinValue).toBe(priceFromSongCount(11))
     expect(items[0]?.definition.slotPool).toBe("collection")

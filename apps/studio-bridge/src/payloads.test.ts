@@ -133,7 +133,7 @@ describe("buildUserGameStatePayload", () => {
       consumable: false,
       slotPool: "playback" as const,
       coinValue: 80,
-      icon: "Disc2",
+      icon: "Disc2" as const,
     }
     const item = {
       itemId: "dev-1",

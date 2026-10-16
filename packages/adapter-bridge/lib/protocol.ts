@@ -29,6 +29,7 @@ export const bridgeRequestSchema = z.object({
     "getPlaylistCoverArt",
     "listLibraryAlbums",
     "getAlbumCoverArt",
+    "getAlbumComments",
     "getTrackPreview",
     "invalidatePlaylistCache",
     /** List installed macOS `say` voices (ADR 0178). */

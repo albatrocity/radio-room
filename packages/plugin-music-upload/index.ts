@@ -131,6 +131,6 @@ export class MusicUploadPlugin extends BasePlugin<MusicUploadConfig> {
 
 export default function createMusicUploadPlugin(
   overrides?: Partial<MusicUploadConfig>,
-): Plugin<MusicUploadConfig> {
+): Plugin {
   return new MusicUploadPlugin(overrides)
 }

@@ -169,7 +169,11 @@ async function emitTradeTypingToCounterpart(
 }
 
 /** Updates socket identity and pushes INIT + USER_GAME_STATE (same contract as socket VIEW_AS_USER). */
-function applyViewAsToSocket(socket: Socket, snap: BridgeSnapshot, newUser: User): void {
+function applyViewAsToSocket(
+  socket: Pick<Socket, "data" | "emit">,
+  snap: BridgeSnapshot,
+  newUser: User,
+): void {
   socket.data.userId = newUser.userId
   socket.data.username = newUser.username
   socket.emit("event", {

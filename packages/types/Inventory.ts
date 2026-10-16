@@ -260,7 +260,10 @@ export function formatFromArtworkFrame(
 
 /** True when this definition is derived Physical Media (not a library card or device). */
 export function isPhysicalMediaDefinition(
-  definition?: Pick<ItemDefinition, "mediaFormat" | "artworkFrame"> | null,
+  definition?: {
+    mediaFormat?: ItemDefinition["mediaFormat"] | string | null
+    artworkFrame?: ItemDefinition["artworkFrame"] | null
+  } | null,
 ): boolean {
   return definition?.mediaFormat != null || definition?.artworkFrame != null
 }
@@ -277,7 +280,7 @@ export function isStorageContainerDefinition(
 }
 
 /** Wear ladder read. Absent / invalid metadata is mint (ADR 0155). */
-export function readItemCondition(item: InventoryItem): MediaCondition {
+export function readItemCondition(item: Pick<InventoryItem, "metadata">): MediaCondition {
   const raw = item.metadata?.[PHYSICAL_MEDIA_CONDITION_KEY]
   return isMediaCondition(raw) ? raw : "mint"
 }

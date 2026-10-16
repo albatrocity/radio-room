@@ -883,7 +883,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     await this.context.api.setPluginConfig(this.context.roomId, this.name, next)
     // Keep in-memory cache aligned with what we just wrote (PluginAPI.setPluginConfig
     // does not emit CONFIG_CHANGED, so getConfig() would otherwise stay stale).
-    ;(this as { configCache?: ItemShopsConfig | null }).configCache = next
+    this.primeConfigCache(next)
     this.syncOfferConditionBounds(next)
     await this.syncAutoShopTimer()
     const keys = Object.keys(patch) as (keyof ItemShopsConfig)[]

@@ -11,6 +11,7 @@ import type {
   Plugin,
   PluginActionElement,
   PluginActionInitiator,
+  PluginActionResult,
   PluginContext,
   PluginAugmentationData,
   PluginLifecycleEvents,
@@ -857,6 +858,11 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     return this.configCache
   }
 
+  /** Seed the config cache after a direct `setPluginConfig`, which emits no CONFIG_CHANGED. */
+  protected primeConfigCache(config: TConfig | null): void {
+    this.configCache = config
+  }
+
   /**
    * Cleanup plugin resources and storage.
    * Automatically clears all timers, cleans up plugin storage, and calls onCleanup() if defined.
@@ -1037,7 +1043,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     action: string,
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
-  ): Promise<{ success: boolean; message?: string }> {
+  ): Promise<PluginActionResult> {
     const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     if (!this.context) {
@@ -1078,7 +1084,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
 
   protected async requireRoomAdminForAction(
     initiator?: PluginActionInitiator,
-  ): Promise<{ ok: true } | { ok: false; result: { success: boolean; message?: string } }> {
+  ): Promise<{ ok: true } | { ok: false; result: { success: false; message: string } }> {
     if (!this.context) {
       return { ok: false, result: { success: false, message: "Plugin not initialized" } }
     }
@@ -1118,7 +1124,7 @@ export abstract class BasePlugin<TConfig = any> implements Plugin {
     action: string,
     initiator?: PluginActionInitiator,
     params?: Record<string, unknown>,
-  ): Promise<{ success: boolean; message?: string }> {
+  ): Promise<PluginActionResult> {
     if (this.findConfigImportAction(action)) {
       return this.runConfigImportAction(action, initiator, params)
     }

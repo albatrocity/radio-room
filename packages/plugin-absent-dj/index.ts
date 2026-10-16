@@ -31,7 +31,7 @@ export { absentDjConfigSchema, defaultAbsentDjConfig } from "./types"
 // Skip Data Type
 // ============================================================================
 
-interface SkipData {
+type SkipData = {
   trackId: string
   trackTitle: string
   timestamp: number
