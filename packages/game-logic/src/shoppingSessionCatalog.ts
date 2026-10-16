@@ -509,14 +509,16 @@ function offerFromExtra(
 
 /**
  * Distinct weighted picks from an already gated and decorated pool.
- * A count that covers the pool returns the pool in shelf order.
+ * A count that covers the pool returns the pool in shelf order. Duplicates
+ * (by `shortId`) collapse to the first. Generic so Game Studio's "Preview a
+ * traveler" samples with this exact function instead of a copy.
  */
-export function sampleComposableOffers(
-  offers: readonly ShopOffer[],
+export function sampleComposableOffers<T extends Pick<ShopOffer, "shortId" | "rarity">>(
+  offers: readonly T[],
   sample: RoomShopSample,
   random: () => number = Math.random,
-): ShopOffer[] {
-  const unique: ShopOffer[] = []
+): T[] {
+  const unique: T[] = []
   const seen = new Set<string>()
   for (const offer of offers) {
     if (seen.has(offer.shortId)) continue

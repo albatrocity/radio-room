@@ -2,7 +2,15 @@ import { ITEM_CATALOG } from "@repo/plugin-item-shops"
 import { roadTripItemId, SAMPLE_TRIP_MAP, VAN_CONSUMABLES, VAN_PARTS } from "@repo/road-trip-map"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { describe, expect, it } from "vitest"
-import { addBlankSite, OFFER_CATALOG, parseDraft, siteSlugFromName, validateCatalogShop } from "./tripMapDraft"
+import { sampleComposableOffers } from "@repo/game-logic"
+import {
+  addBlankSite,
+  OFFER_CATALOG,
+  parseDraft,
+  previewOfferSample,
+  siteSlugFromName,
+  validateCatalogShop,
+} from "./tripMapDraft"
 
 describe("OFFER_CATALOG", () => {
   it("includes every Item Shops catalog entry and every van item", () => {
@@ -96,5 +104,47 @@ describe("addBlankSite", () => {
     expect(addBlankSite(SAMPLE_TRIP_MAP, { name: "Diner", slug: "Roadside Diner" }).ok).toBe(false)
     expect(addBlankSite(SAMPLE_TRIP_MAP, { name: "Again", slug: "gas-n-go" }).ok).toBe(false)
     expect(siteSlugFromName("Roadside Diner!")).toBe("roadside-diner")
+  })
+})
+
+describe("previewOfferSample", () => {
+  /** Deterministic sequence so the preview and the runtime see the same draws. */
+  function seq(values: number[]) {
+    let i = 0
+    return () => values[i++ % values.length]!
+  }
+
+  const pool = OFFER_CATALOG.slice(0, 6).map((o) => ({ definitionId: o.definitionId }))
+
+  it("shows the whole pool, in shelf order, when the count covers it", () => {
+    expect(previewOfferSample(pool, { count: 8 }, seq([0.5]))).toEqual(
+      OFFER_CATALOG.slice(0, 6).map((o) => o.name),
+    )
+  })
+
+  it("draws count distinct picks, exactly as a live stop would", () => {
+    const draws = [0.9, 0.1, 0.5, 0.3]
+    const picked = previewOfferSample(pool, { count: 3 }, seq(draws))
+    expect(picked).toHaveLength(3)
+    expect(new Set(picked).size).toBe(3)
+    const runtime = sampleComposableOffers(
+      OFFER_CATALOG.slice(0, 6).map((o) => ({
+        ...o,
+        shortId: o.definitionId.slice(o.definitionId.indexOf(":") + 1),
+      })),
+      { count: 3 },
+      seq(draws),
+    ).map((o) => o.name)
+    expect(picked).toEqual(runtime)
+  })
+
+  it("skips unknown ids and collapses duplicates", () => {
+    const first = OFFER_CATALOG[0]!
+    const offers = [
+      { definitionId: first.definitionId },
+      { definitionId: first.definitionId },
+      { definitionId: "item-shops:does-not-exist" },
+    ]
+    expect(previewOfferSample(offers, { count: 2 }, seq([0.5]))).toEqual([first.name])
   })
 })

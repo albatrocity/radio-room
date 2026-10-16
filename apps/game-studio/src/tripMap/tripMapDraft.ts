@@ -34,7 +34,7 @@ import {
   SHOP_CATALOG,
   validateRoomShopRequest,
 } from "@repo/plugin-item-shops"
-import { DEFAULT_RARITY_WEIGHTS, pickWeightedDistinctShortIds } from "@repo/game-logic"
+import { sampleComposableOffers } from "@repo/game-logic"
 import { isPhysicalMediaDefinition, ITEM_SHOPS_PLUGIN_NAME, type ItemRarity } from "@repo/types"
 import type { SiteShopSample } from "@repo/road-trip-map"
 
@@ -160,32 +160,27 @@ export const OFFER_CATALOG: OfferOption[] = ITEM_SOURCES.flatMap((source) =>
 
 const OFFER_BY_ID = new Map(OFFER_CATALOG.map((option) => [option.definitionId, option]))
 
-/** Names a seeded roll would put on one traveler's shelf. The whole pool when `count` covers it. */
+/**
+ * Names a seeded roll would put on one traveler's shelf. The whole pool when
+ * `count` covers it. Uses the runtime's `sampleComposableOffers`, so the preview
+ * dedupes (by `shortId`) and weights exactly like a live stop. Unknown ids are
+ * skipped; the studio has no room type, so nothing is gated here.
+ */
 export function previewOfferSample(
   offers: { definitionId: string }[],
   sample: { count: number; weights?: SiteShopSample["weights"] },
   random: () => number,
 ): string[] {
-  const options: OfferOption[] = []
-  const seen = new Set<string>()
-  for (const offer of offers) {
+  const pool = offers.flatMap((offer) => {
     const option = OFFER_BY_ID.get(offer.definitionId)
-    if (!option || seen.has(option.definitionId)) continue
-    seen.add(option.definitionId)
-    options.push(option)
-  }
-  if (sample.count >= options.length) return options.map((option) => option.name)
-  const even = sample.weights === "even"
-  const picked = pickWeightedDistinctShortIds(
-    options.map((option) => ({
-      shortId: option.definitionId,
-      weight: even ? 1 : DEFAULT_RARITY_WEIGHTS[option.rarity],
-    })),
-    sample.count,
-    random,
-  )
-  const byId = new Map(options.map((option) => [option.definitionId, option]))
-  return picked.map((id) => byId.get(id)!.name)
+    return option ? [{ ...option, shortId: shortIdOf(option.definitionId) }] : []
+  })
+  return sampleComposableOffers(pool, sample, random).map((option) => option.name)
+}
+
+/** `item-shops:vu-meter` → `vu-meter`. */
+function shortIdOf(definitionId: string): string {
+  return definitionId.slice(definitionId.indexOf(":") + 1)
 }
 
 const KNOWN_DEFINITION_IDS = new Set(OFFER_CATALOG.map((option) => option.definitionId))
