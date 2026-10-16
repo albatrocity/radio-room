@@ -76,6 +76,11 @@ function ensureDevice(config: BridgeDaemonConfig = activeConfig): DeviceClient {
     onLink: (message) => {
       void standby?.handleMessage(message)
     },
+    onConnect: () => {
+      if (!session) return
+      client.join(session.roomId)
+      session.presence.announce()
+    },
   })
   deviceClient = client
   standby = new StandbyControl(

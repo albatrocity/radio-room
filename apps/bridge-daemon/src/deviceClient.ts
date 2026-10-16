@@ -16,6 +16,7 @@ export type DeviceClientOptions = {
   getToken: () => string | undefined
   onToken: (token: string, roomId: string) => void
   onLink: (message: unknown) => void
+  onConnect?: () => void
 }
 
 /**
@@ -48,7 +49,10 @@ export class DeviceClient {
       transports: ["websocket", "polling"],
     })
     this.socket = socket
-    socket.on("connect", () => console.log(`[device] connected ${base}/device`))
+    socket.on("connect", () => {
+      console.log(`[device] connected ${base}/device`)
+      this.options.onConnect?.()
+    })
     socket.on("connect_error", (err) => console.warn(`[device] connect error: ${err.message}`))
     socket.on("request", (payload: unknown) => {
       const parsed = bridgeRequestSchema.safeParse(payload)

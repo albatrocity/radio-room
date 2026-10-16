@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const findRoom = vi.fn()
 const refreshAuth = vi.fn()
@@ -21,7 +21,12 @@ vi.mock("@repo/server/operations/dj/metadataAuthError", () => ({
   publishMetadataAuthError: (...args: unknown[]) => publishAuthError(...args),
 }))
 
-import { provisionSpotifyTokenForRoom, wireSpotifyTokenProvisioning } from "./spotifyTokenProvisioner"
+import { bindDeviceRoom, registerDeviceSocket, resetDeviceSessionsForTests } from "./deviceSession"
+import {
+  ensureSpotifyTokenProvisioned,
+  provisionSpotifyTokenForRoom,
+  wireSpotifyTokenProvisioning,
+} from "./spotifyTokenProvisioner"
 import { spotifyTokenKey, BRIDGE_SPOTIFY_TOKEN_TTL_SEC } from "./protocol"
 
 describe("provisionSpotifyTokenForRoom", () => {
@@ -116,6 +121,69 @@ describe("provisionSpotifyTokenForRoom", () => {
 
     expect(token).toBeNull()
     expect(publishAuthError).not.toHaveBeenCalled()
+  })
+})
+
+describe("ensureSpotifyTokenProvisioned", () => {
+  const del = vi.fn()
+  const ttl = vi.fn()
+  const context = {
+    redis: { pubClient: { set, hGet, del, ttl } },
+    data: { getUserServiceAuth },
+  } as any
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    resetDeviceSessionsForTests()
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-16T15:00:00Z"))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function connectSocket(roomId: string) {
+    registerDeviceSocket({
+      id: `sock-${roomId}`,
+      daemonId: "daemon-1",
+      roomId: null,
+      emit: () => {},
+    })
+    bindDeviceRoom(`sock-${roomId}`, roomId)
+  }
+
+  it("does not provision on every advance tick when the socket has no token", async () => {
+    connectSocket("room-throttle")
+    findRoom.mockResolvedValue({ creator: "user-1" })
+    getUserServiceAuth.mockResolvedValue(null)
+    refreshAuth.mockRejectedValue(new Error("No refresh token available"))
+    hGet.mockResolvedValue("already")
+
+    await ensureSpotifyTokenProvisioned({ context, roomId: "room-throttle" })
+    await ensureSpotifyTokenProvisioned({ context, roomId: "room-throttle" })
+    expect(findRoom).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(new Date("2026-10-16T15:00:15Z"))
+    await ensureSpotifyTokenProvisioned({ context, roomId: "room-throttle" })
+    expect(findRoom).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not re-push a socket token on the next advance tick", async () => {
+    connectSocket("room-fresh")
+    findRoom.mockResolvedValue({ creator: "user-1" })
+    getUserServiceAuth.mockResolvedValue({
+      accessToken: "stored-fresh",
+      refreshToken: "rtok",
+      expiresAt: Date.now() + 3600_000,
+    })
+
+    await ensureSpotifyTokenProvisioned({ context, roomId: "room-fresh" })
+    await ensureSpotifyTokenProvisioned({ context, roomId: "room-fresh" })
+
+    expect(findRoom).toHaveBeenCalledTimes(1)
+    expect(del).toHaveBeenCalledTimes(1)
+    expect(set).not.toHaveBeenCalled()
   })
 })
 

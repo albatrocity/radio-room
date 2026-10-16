@@ -153,6 +153,16 @@ export function dropSpotifyTokenProvisioning(roomId: string): void {
 }
 
 const lastEnsureAttempt = new Map<string, number>()
+const ENSURE_ATTEMPT_MS = 15_000
+
+/** One provision attempt per room per window. Covers a missing socket push and the Redis fallback. */
+function claimEnsureAttempt(roomId: string): boolean {
+  const now = Date.now()
+  const last = lastEnsureAttempt.get(roomId) ?? 0
+  if (now - last < ENSURE_ATTEMPT_MS) return false
+  lastEnsureAttempt.set(roomId, now)
+  return true
+}
 
 /** Ensure a token key exists (used by the advance job as a pub/sub backup). */
 export async function ensureSpotifyTokenProvisioned(params: {
@@ -163,6 +173,7 @@ export async function ensureSpotifyTokenProvisioned(params: {
   if (deviceRoomPresent(roomId)) {
     const last = lastSocketPush.get(roomId) ?? 0
     if (last !== 0 && Date.now() - last < SOCKET_TOKEN_REFRESH_MS) return
+    if (!claimEnsureAttempt(roomId)) return
     await provisionSpotifyTokenForRoom({ context, roomId })
     return
   }
@@ -171,10 +182,7 @@ export async function ensureSpotifyTokenProvisioned(params: {
   // -2 = missing, -1 = no expiry; refresh when missing or near expiry
   if (ttl !== -2 && !(ttl >= 0 && ttl < 120)) return
 
-  const now = Date.now()
-  const last = lastEnsureAttempt.get(roomId) ?? 0
-  if (now - last < 15_000) return
-  lastEnsureAttempt.set(roomId, now)
+  if (!claimEnsureAttempt(roomId)) return
 
   await provisionSpotifyTokenForRoom({ context, roomId })
 }

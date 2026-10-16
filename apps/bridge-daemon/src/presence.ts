@@ -1,11 +1,14 @@
 import type { BridgeEvent } from "@repo/adapter-bridge/protocol"
 
 /**
- * Forwards daemon events onto the device socket. The API writes presence keys.
+ * Forwards daemon events onto the device socket. The API writes presence keys
+ * and refreshes their TTL. CAPABILITIES is sent at start and again when the
+ * socket reconnects, so a new API process learns the service list. Repeats of
+ * the same list do not notify capability listeners.
  */
 export class Presence {
-  private timer: NodeJS.Timeout | null = null
   private services: string[] = []
+  private started = false
 
   constructor(
     private readonly emit: (event: BridgeEvent) => void,
@@ -14,10 +17,14 @@ export class Presence {
 
   async start(services: string[]): Promise<void> {
     this.services = [...services]
-    this.timer = setInterval(() => {
-      this.emit({ type: "CAPABILITIES", services: this.services })
-    }, 3000)
+    this.started = true
     await this.publish({ type: "CAPABILITIES", services: this.services })
+  }
+
+  /** Re-send the current service list after the device socket connects. */
+  announce(): void {
+    if (!this.started) return
+    this.emit({ type: "CAPABILITIES", services: this.services })
   }
 
   async publish(event: BridgeEvent): Promise<void> {
@@ -30,8 +37,6 @@ export class Presence {
   }
 
   async disconnecting(): Promise<void> {
-    if (this.timer) clearInterval(this.timer)
-    this.timer = null
     await this.publish({ type: "DISCONNECTING" })
   }
 }

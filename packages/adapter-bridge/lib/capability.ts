@@ -87,6 +87,11 @@ export class BridgeCapabilityCache {
     return () => this.eventListeners.delete(listener)
   }
 
+  private notifyCapabilities(): void {
+    const services = this.services
+    for (const listener of Array.from(this.capabilityListeners)) listener(services)
+  }
+
   /**
    * Apply a bridge event from Redis pub/sub or the /device socket.
    * Same-process callers (the device namespace) use this so ENDED reaches the advance job
@@ -96,15 +101,19 @@ export class BridgeCapabilityCache {
     for (const listener of Array.from(this.eventListeners)) listener(event)
 
     if (event.type === "CAPABILITIES") {
-      this.services = new Set(event.services)
+      const next = new Set(event.services)
+      const changed =
+        !this.connected || !this.capabilitiesKnown || !sameStringSet(this.services, next)
+      this.services = next
       this.connected = true
       this.capabilitiesKnown = true
-      for (const listener of Array.from(this.capabilityListeners)) listener(this.services)
+      if (changed) this.notifyCapabilities()
     } else if (event.type === "DISCONNECTING") {
+      const changed = this.connected || this.capabilitiesKnown || this.services.size > 0
       this.connected = false
       this.services = new Set()
       this.capabilitiesKnown = false
-      for (const listener of Array.from(this.capabilityListeners)) listener(this.services)
+      if (changed) this.notifyCapabilities()
     } else if (event.type === "STATE") {
       this.lastState = event
     } else if (event.type === "ENDED") {
@@ -182,6 +191,14 @@ export function getOrCreateCapabilityCache(
     caches.set(roomId, cache)
   }
   return cache
+}
+
+function sameStringSet(left: Set<string>, right: Set<string>): boolean {
+  if (left.size !== right.size) return false
+  for (const value of left) {
+    if (!right.has(value)) return false
+  }
+  return true
 }
 
 export function dropCapabilityCache(roomId: string): void {
