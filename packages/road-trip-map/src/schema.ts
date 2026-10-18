@@ -113,13 +113,23 @@ export const siteServicesSchema = z.object({
 })
 export type SiteServices = z.infer<typeof siteServicesSchema>
 
-export const incidentIdSchema = z.enum(["traffic-jam", "blown-tire", "engine-failure", "out-of-gas"])
+export const incidentIdSchema = z.enum([
+  "traffic-jam",
+  "blown-tire",
+  "engine-failure",
+  "out-of-gas",
+])
 export type IncidentId = z.infer<typeof incidentIdSchema>
 
 /** Out of Gas only follows an empty tank, so it can't be triggered or scripted. */
 export const triggerableIncidentIdSchema = z.enum(["traffic-jam", "blown-tire", "engine-failure"])
 export type TriggerableIncidentId = z.infer<typeof triggerableIncidentIdSchema>
 export const TRIGGERABLE_INCIDENT_IDS = triggerableIncidentIdSchema.options
+
+/** System-alert status for a site's chat narrative. Omitted posts the paragraph on its own. */
+export const narrativeVariantSchema = z.enum(["info", "success", "warning", "error"])
+export type NarrativeVariant = z.infer<typeof narrativeVariantSchema>
+export const NARRATIVE_VARIANTS = narrativeVariantSchema.options
 
 /** A story beat at a mile marker (D23). Server-only: never sent to clients. */
 export const scriptedEventSchema = z.object({
@@ -137,6 +147,13 @@ export const siteSchema = z.object({
   description: z.string().min(1).max(160),
   icon: z.string().min(1).max(16),
   imageUrl: httpsUrlSchema.optional(),
+  /**
+   * Chat prose posted when the van stops here. Separate from the exit sign
+   * and from a shop's opening message.
+   */
+  narrative: z.string().min(1).max(2000).optional(),
+  /** System-alert status for `narrative`. Omitted posts the paragraph on its own. */
+  narrativeVariant: narrativeVariantSchema.optional(),
   lore: z.string().max(4000).optional(),
   model: siteModelSchema.optional(),
   mile: z.number().min(0),

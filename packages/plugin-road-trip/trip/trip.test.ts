@@ -16,12 +16,7 @@ import {
   setFundsMode,
   siteShopScopeId,
 } from "./transitions"
-import {
-  installPart,
-  skipIncidentStep,
-  triggerIncident,
-  useIncidentItem,
-} from "./incidents"
+import { installPart, skipIncidentStep, triggerIncident, useIncidentItem } from "./incidents"
 
 /** The full sample map: Mechanic and a scripted flat at mile 9. */
 function withIncidents(mutate?: (map: TripMapInput) => void): TripMapInput {
@@ -200,6 +195,58 @@ describe("trip playable (Phase 1)", () => {
       icon: "⬆",
       title: "Kept driving past Dusty Boots Records",
       body: "No votes. The van stays on the highway.",
+    })
+  })
+
+  it("posts site narrative as chat prose when the van stops, and not when it drives past", () => {
+    const narrative =
+      "In 1960, Alex Jordan opened his dream house built atop a chimney of rock to the public."
+    const sim = new TripSim(
+      noGas((map) => {
+        const record = map.sites.find((site) => site.id === "record-store")!
+        record.narrative = narrative
+        record.narrativeVariant = "warning"
+        const stand = map.sites.find((site) => site.id === "farmers-market")!
+        stand.narrative = "Honey, peaches, and a hand-lettered sign."
+        stand.skipPoll = { default: "skip" }
+      }),
+    )
+    sim.votes["record-store"] = { stop: 1, skip: 0 }
+    sim.apply(depart)
+    sim.runUntil(T0 + 4 * MIN + 1)
+    expect(sim.state.sites["record-store"]?.phase).toBe("parked")
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual({
+      type: "narrate",
+      body: narrative,
+      variant: "warning",
+    })
+    expect(sim.signs()).toContain("EXIT 4 · DUSTY BOOTS RECORDS")
+    expect(sim.signs()).not.toContain(narrative)
+
+    sim.runUntil(T0 + 13 * MIN)
+    expect(sim.state.sites["farmers-market"]?.phase).toBe("skipped")
+    expect(sim.effects.map(({ effect }) => effect)).not.toContainEqual({
+      type: "narrate",
+      body: "Honey, peaches, and a hand-lettered sign.",
+    })
+  })
+
+  it("posts destination narrative when the van arrives", () => {
+    const narrative = "The house lights drop and the room goes quiet."
+    const sim = new TripSim(
+      noGas((map) => {
+        const concert = map.sites.find((site) => site.id === "concert")!
+        concert.narrative = narrative
+        concert.narrativeVariant = "success"
+      }),
+    )
+    sim.apply(depart)
+    sim.runUntil(T0 + 30 * MIN)
+    expect(sim.state.status).toBe("arrived")
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual({
+      type: "narrate",
+      body: narrative,
+      variant: "success",
     })
   })
 
@@ -595,7 +642,7 @@ describe("van and incidents (Phase 3)", () => {
     expect(sim.apply(installPart("turbocharger", ADA))).toBe(false)
     sim.apply(depart)
     expect(sim.current.mph).toBeCloseTo(60 * 1.25, 9)
-    expect(sim.current.gpm).toBeCloseTo((sim.state.baseGpm / 0.75), 9)
+    expect(sim.current.gpm).toBeCloseTo(sim.state.baseGpm / 0.75, 9)
     expect(sim.signs()).toContain("ada bolted on a turbocharger")
 
     sim.apply(installPart("aero-spoiler", ADA))
@@ -604,7 +651,9 @@ describe("van and incidents (Phase 3)", () => {
     const sheet = buildTripStore(sim.state, sim.map, sim.current, sim.now).vanSheet
     expect(sheet.parts.map((p) => p.slot)).toEqual(["aero", "engine"])
     expect(sheet.speedFactors.map((f) => f.source)).toEqual(["aero-spoiler", "turbocharger"])
-    expect(sheet.mpgFactors).toEqual([{ source: "turbocharger", label: "Turbocharger", factor: 0.75 }])
+    expect(sheet.mpgFactors).toEqual([
+      { source: "turbocharger", label: "Turbocharger", factor: 0.75 },
+    ])
   })
 
   it("a scripted blown tire: shoulder window, roadside service, tire change", () => {
@@ -612,7 +661,11 @@ describe("van and incidents (Phase 3)", () => {
     sim.apply(depart)
     sim.runUntil(T0 + 9 * MIN + 4 * MIN + 1_000)
     // Mile 9 comes after the 4 min stand at the market.
-    expect(sim.state.incident).toMatchObject({ incident: "blown-tire", source: "scripted", step: 0 })
+    expect(sim.state.incident).toMatchObject({
+      incident: "blown-tire",
+      source: "scripted",
+      step: 0,
+    })
     expect(sim.state.scriptedFired).toEqual(["flat-at-9"])
     expect(sim.current.mph).toBe(0)
     const nudge = sim.effects.find(({ effect }) => effect.type === "nudge-holders")?.effect
@@ -628,9 +681,7 @@ describe("van and incidents (Phase 3)", () => {
     sim.runUntil(T0 + 40 * MIN)
     expect(sim.state.status).toBe("arrived")
     expect(
-      sim.log
-        .filter((e) => e.kind === "incident")
-        .map((e) => e.kind === "incident" && e.step),
+      sim.log.filter((e) => e.kind === "incident").map((e) => e.kind === "incident" && e.step),
     ).toEqual(["started", "cleared"])
   })
 
@@ -672,7 +723,11 @@ describe("van and incidents (Phase 3)", () => {
   })
 
   it("engine failure tows the van to the Mechanic, skipping what it passes", () => {
-    const sim = incidentTrip()
+    const narrative = "Hank wipes his hands and nods at the bay."
+    const sim = incidentTrip((map) => {
+      const garage = map.sites.find((site) => site.id === "hanks-garage")!
+      garage.narrative = narrative
+    })
     sim.apply(depart)
     sim.runUntil(T0 + 2 * MIN)
     expect(sim.apply(triggerIncident("engine-failure"))).toBe(true)
@@ -696,6 +751,10 @@ describe("van and incidents (Phase 3)", () => {
     expect(sim.log.find((e) => e.kind === "incident" && e.step === "towed")).toMatchObject({
       siteId: "hanks-garage",
       miles: expect.closeTo(8, 3),
+    })
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual({
+      type: "narrate",
+      body: narrative,
     })
 
     sim.runUntil(T0 + 40 * MIN)
@@ -754,9 +813,7 @@ describe("van and incidents (Phase 3)", () => {
   })
 
   it("Out of Gas cuts a traffic jam short", () => {
-    const sim = new TripSim(
-      sample((m) => (m.sites = m.sites.filter((s) => !s.services?.gas))),
-    )
+    const sim = new TripSim(sample((m) => (m.sites = m.sites.filter((s) => !s.services?.gas))))
     sim.apply(depart)
     sim.runUntil(T0 + 6 * MIN)
     sim.apply(triggerIncident("traffic-jam"))

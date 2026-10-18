@@ -21,7 +21,13 @@ function createHarness() {
   const lists = new Map<string, string[]>()
   const schedules = new Map<string, Schedule>()
   const handlers = new Map<string, (data: any) => unknown>()
-  const signs: { title: string; status?: string; theme?: string }[] = []
+  const signs: {
+    type?: string
+    title?: string
+    body: string
+    status?: string
+    theme?: string
+  }[] = []
   const emitted: Record<string, unknown>[] = []
   let activePoll: Poll | null = null
   const votes = new Map<string, Record<string, number>>()
@@ -76,8 +82,14 @@ function createHarness() {
       return { ok: true, fireAt: params.at }
     }),
     cancelSchedule: vi.fn(async (id: string) => schedules.delete(id)),
-    sendSystemMessage: vi.fn(async (_roomId: string, _content: string, meta: any) => {
-      signs.push({ title: meta.title, status: meta.status, theme: meta.theme })
+    sendSystemMessage: vi.fn(async (_roomId: string, content: string, meta: any) => {
+      signs.push({
+        type: meta.type,
+        title: meta.title,
+        body: content,
+        status: meta.status,
+        theme: meta.theme,
+      })
     }),
     sendUserSystemMessage: vi.fn(async () => {}),
     getOnlineUserIds: vi.fn(async () => Object.keys(wallets)),
@@ -391,7 +403,9 @@ describe("RoadTripPlugin", () => {
       "openRoomShop",
       "closeRoomShop",
     ])
-    expect(h.signs.every((s) => s.theme === "road-trip")).toBe(true)
+    expect(h.signs.filter((s) => s.type !== "prose").every((s) => s.theme === "road-trip")).toBe(
+      true,
+    )
     expect(h.api.sendUserSystemMessage).toHaveBeenCalledWith(
       "room-1",
       "host",
@@ -408,6 +422,35 @@ describe("RoadTripPlugin", () => {
     )
     expect(exported.markdownSections?.[0]).toContain("| ADA | 98 |")
     expect((exported.data as { summary: { status: string } }).summary.status).toBe("arrived")
+  })
+
+  it("posts a stop's narrative as prose, without the road-trip theme", async () => {
+    const narrative =
+      "In 1960, Alex Jordan opened his dream house built atop a chimney of rock to the public."
+    const map = JSON.parse(BASE_MAP_JSON) as typeof SAMPLE_TRIP_MAP
+    const record = map.sites.find((site) => site.id === "record-store")!
+    record.narrative = narrative
+    record.narrativeVariant = "warning"
+    const { plugin, h } = await setup()
+    await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(map) })
+    expect(await plugin.executeAction("depart", ADMIN)).toMatchObject({ success: true })
+
+    await runUntil(plugin, h, T0 + 2.5 * MIN)
+    const poll = h.activePoll!
+    h.votes.set(poll.id, { "opt-stop": 1, "opt-skip": 0 })
+    await runUntil(plugin, h, T0 + 4 * MIN + 1)
+
+    expect(h.signs).toContainEqual(
+      expect.objectContaining({
+        type: "prose",
+        body: narrative,
+        status: "warning",
+        theme: undefined,
+      }),
+    )
+    expect(
+      h.signs.filter((sign) => sign.type !== "prose").every((sign) => sign.theme === "road-trip"),
+    ).toBe(true)
   })
 
   it("voluntary mode: anyone chips in, and meeting the goal fills up early", async () => {
@@ -464,10 +507,9 @@ describe("RoadTripPlugin", () => {
     const { plugin, h } = await setup()
     await plugin.executeAction("loadMap", ADMIN, { mapJson: BASE_MAP_JSON })
     await plugin.executeAction("depart", ADMIN)
-    expect(
-      (await plugin.executeAction("loadMap", ADMIN, { mapJson: BASE_MAP_JSON }))
-        .success,
-    ).toBe(false)
+    expect((await plugin.executeAction("loadMap", ADMIN, { mapJson: BASE_MAP_JSON })).success).toBe(
+      false,
+    )
     expect((await plugin.executeAction("newTrip", ADMIN)).message).toBe("End the trip first.")
     expect((await plugin.executeAction("endTrip", ADMIN)).success).toBe(true)
     expect(lastTrip(h).status).toBe("stranded")
@@ -528,8 +570,9 @@ describe("RoadTripPlugin", () => {
     ])
     const legs = (await h.context.storage.lrange("trip:legs", 0, -1)).map((l) => JSON.parse(l))
     expect(legs.map((l: { mph: number }) => l.mph)).toEqual([0, 60])
-    const state = (await h.context.storage.getJson<{ leg: unknown; blockers: unknown[] }>("trip:state"))
-      .value!
+    const state = (
+      await h.context.storage.getJson<{ leg: unknown; blockers: unknown[] }>("trip:state")
+    ).value!
     expect(state.leg).toEqual(legs[0])
     expect(state.blockers).toHaveLength(2)
   })
@@ -612,7 +655,10 @@ describe("RoadTripPlugin", () => {
       const { plugin, h } = await setup()
       h.holdings.ada = ["road-trip:fix-a-flat"]
       await plugin.executeAction("loadMap", ADMIN, {
-        mapJson: JSON.stringify({ ...SAMPLE_TRIP_MAP, route: { ...SAMPLE_TRIP_MAP.route, tanksPerTrip: 0.8 } }),
+        mapJson: JSON.stringify({
+          ...SAMPLE_TRIP_MAP,
+          route: { ...SAMPLE_TRIP_MAP.route, tanksPerTrip: 0.8 },
+        }),
       })
       await plugin.executeAction("depart", ADMIN)
       await runUntil(plugin, h, T0 + 13 * MIN + 5_000)
@@ -630,7 +676,10 @@ describe("RoadTripPlugin", () => {
         expect.stringContaining("Fix-a-Flat"),
         expect.anything(),
       )
-      expect(await use(plugin, "ada", "fix-a-flat")).toMatchObject({ success: true, consumed: true })
+      expect(await use(plugin, "ada", "fix-a-flat")).toMatchObject({
+        success: true,
+        consumed: true,
+      })
       expect(lastTrip(h).live).toBeUndefined()
       expect(h.schedules.has("incident:incident-1:0")).toBe(false)
     })
@@ -638,7 +687,10 @@ describe("RoadTripPlugin", () => {
     it("host triggers an engine failure; skipping the tow fee refunds the levy; the tow can't be skipped", async () => {
       const { plugin, h } = await setup()
       await plugin.executeAction("loadMap", ADMIN, { mapJson: FULL_MAP_JSON })
-      expect((await plugin.executeAction("triggerIncident", ADMIN, { incident: "engine-failure" })).success).toBe(false)
+      expect(
+        (await plugin.executeAction("triggerIncident", ADMIN, { incident: "engine-failure" }))
+          .success,
+      ).toBe(false)
       await plugin.executeAction("depart", ADMIN)
       vi.setSystemTime(T0 + MIN)
       expect(

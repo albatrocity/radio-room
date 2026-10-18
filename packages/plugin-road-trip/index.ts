@@ -341,6 +341,12 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
           case "sign":
             await this.tripAnnounce(effect.variant, effect.title, effect.body, effect.icon)
             break
+          case "narrate":
+            await api.sendSystemMessage(roomId, effect.body, {
+              type: "prose",
+              ...(effect.variant ? { status: effect.variant } : {}),
+            })
+            break
           case "open-shop":
             await this.openSiteShop(map, effect.siteId, effect.scopeId)
             break
@@ -377,7 +383,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     }
   }
 
-  /** Every trip message goes through here so they all render as road signs (D25). */
+  /** Status messages go through here so they render as road signs (D25). Narrative does not. */
   private async tripAnnounce(
     variant: SignVariant,
     title: string,

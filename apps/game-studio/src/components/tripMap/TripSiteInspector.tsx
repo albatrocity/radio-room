@@ -14,8 +14,10 @@ import {
 import type { ReactNode } from "react"
 import {
   isDestination,
+  NARRATIVE_VARIANTS,
   resolveSiteSettings,
   skipPollQuestion,
+  type NarrativeVariant,
   type TripMap,
 } from "@repo/road-trip-map"
 import { TripOfferPicker } from "./TripOfferPicker"
@@ -36,6 +38,10 @@ type Props = {
   art: ReactNode
   onChange: (patch: Partial<TripSiteDraft>) => void
   onRemove: () => void
+}
+
+function narrativeVariant(value: string): NarrativeVariant | undefined {
+  return NARRATIVE_VARIANTS.find((variant) => variant === value)
 }
 
 function optionalNumber(value: string): number | undefined {
@@ -160,6 +166,38 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
           value={site.description ?? ""}
           onChange={(e) => onChange({ description: e.target.value })}
         />
+      </Field.Root>
+      <Field.Root>
+        <Field.Label fontSize="xs">Narrative</Field.Label>
+        <Textarea
+          size="sm"
+          rows={5}
+          maxLength={2000}
+          value={site.narrative ?? ""}
+          onChange={(e) =>
+            onChange({ narrative: e.target.value.trim() ? e.target.value : undefined })
+          }
+        />
+        <Field.HelperText fontSize="xs">
+          Posted in chat when the van stops. The exit sign still says where you parked.
+        </Field.HelperText>
+      </Field.Root>
+      <Field.Root maxW="240px">
+        <Field.Label fontSize="xs">System message</Field.Label>
+        <NativeSelect.Root size="sm">
+          <NativeSelect.Field
+            value={site.narrativeVariant ?? ""}
+            onChange={(e) => onChange({ narrativeVariant: narrativeVariant(e.target.value) })}
+          >
+            <option value="">Plain</option>
+            {NARRATIVE_VARIANTS.map((variant) => (
+              <option key={variant} value={variant}>
+                {variant.charAt(0).toUpperCase() + variant.slice(1)}
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
       </Field.Root>
       {art}
       <Field.Root>
@@ -387,6 +425,7 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
             <Field.Label fontSize="xs">Opening message</Field.Label>
             <Input
               size="sm"
+              maxLength={200}
               value={site.shop?.openingMessage ?? ""}
               onChange={(e) => setShop({ openingMessage: e.target.value || undefined })}
             />

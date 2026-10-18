@@ -15,6 +15,7 @@ import {
   BACK_ON_THE_ROAD,
   exitTitle,
   findSite,
+  narrate,
   fundShareCopy,
   milesLabel,
   nextSiteAhead,
@@ -510,6 +511,8 @@ function park(state: TripState, ctx: TransitionContext, site: TripSite): Transit
         ? `Parked for ${minutes} min. ${site.shop?.title ?? site.name} is open.`
         : `Parked for ${minutes} min. ${site.description}`,
   })
+  const narrative = narrate(site)
+  if (narrative) effects.push(narrative)
   if (gas) effects.push(gas.effect)
   const blockers = [...state.blockers.filter((b) => b.kind !== "parked"), blocker]
   if (gas) blockers.push(gas.blocker)
@@ -555,6 +558,7 @@ function arriveDestination(
   if (!runtime.revealed)
     log.push({ kind: "site", siteId: site.id, name: site.name, phase: "revealed" })
   log.push(late ? { kind: "late", deadlineAt: deadline } : { kind: "arrived" })
+  const narrative = narrate(site)
   return {
     next: { ...closed.next, status: late ? "late" : "arrived", arrivedAt: now, sites },
     log,
@@ -567,6 +571,7 @@ function arriveDestination(
         title: late ? `Made it to ${site.name} · late` : `Made it to ${site.name}`,
         body: site.description,
       },
+      ...(narrative ? [narrative] : []),
       { type: "nudge-host" },
     ],
   }

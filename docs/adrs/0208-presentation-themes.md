@@ -30,3 +30,7 @@ Most listeners follow a road trip ([0210](0210-road-trips-v1.md)) through chat. 
 - Plugins can give their messages and polls a distinct look with data alone, and core stays theme-agnostic apart from the enum.
 - Adding a theme means adding an enum value and registering renderers. Old clients fall back to plain.
 - The poll history modal still renders themed polls plainly. Theming it is a small follow-up through the same registry.
+
+## See also
+
+- [0212. Site narrative is chat prose, not a road sign](0212-site-narrative-chat.md) — `meta.type: "prose"` renders in `SystemMessage` before theme lookup and does not use the road-trip theme.

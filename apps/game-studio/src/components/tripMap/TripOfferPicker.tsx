@@ -178,6 +178,12 @@ export function TripOfferPicker({ offers, sample, onChange, onSampleChange }: Pr
         </Text>
       ) : null}
 
+      <Box
+        display="grid"
+        gridTemplateColumns="minmax(0, 1fr) minmax(0, 1fr)"
+        gap="3"
+        alignItems="start"
+      >
       {offers.length > 0 ? (
         <Stack gap="2">
           {offers.map((offer, index) => {
@@ -242,6 +248,7 @@ export function TripOfferPicker({ offers, sample, onChange, onSampleChange }: Pr
         </Text>
       )}
 
+      <Stack gap="2">
       <Input
         size="sm"
         placeholder="Add item — search by name or id"
@@ -306,6 +313,8 @@ export function TripOfferPicker({ offers, sample, onChange, onSampleChange }: Pr
             })}
           </Stack>
         )}
+      </Box>
+      </Stack>
       </Box>
     </Stack>
   )

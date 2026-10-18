@@ -66,3 +66,7 @@ Optional fields, ignored by maps that omit them:
 
 - `buybackRate` (0–1) sets the offers-only buyback fraction. A site that also names catalog shops keeps those shops' rates, and the map check warns.
 - `sample: { count: 1–8, weights?: "rarity" | "even" }` turns `offers` into a pool. Without it, every traveler sees every offer (at most 12). With it, the pool can list 40. `count` larger than the pool warns that everyone sees the whole pool. `sample` with no offers is an error.
+
+## See also
+
+- [0212. Site narrative is chat prose, not a road sign](0212-site-narrative-chat.md) — optional `site.narrative`, posted when the van stops

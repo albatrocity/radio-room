@@ -210,13 +210,14 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0202](0202-plugin-registry-package-and-generic-settings-state.md) | Plugin registry package (`@repo/plugins`) and generic `settings.plugin` state | Accepted |
 | [0203](0203-departed-user-record-ttl.md) | Departed listener user records kept for two days | Accepted |
 | [0204](0204-device-trust-boundary.md) | Device trust boundary (HTTP now-playing, `/device` socket for playback and segment cues) | Accepted |
-| [0205](0205-road-trips-v1.md) | Road trips v1: ledger of legs, trip mode as a loaded map, sites as timed stops, van parts and incidents (+ `schedulesIgnoreEnabled`, store-aware tab `showWhen`, Quick Access live status, plugin detail frame) | Accepted |
+| [0205](0205-road-trips-v1.md) | Road trips v1: ledger of legs, trip mode as a loaded map, sites as timed stops, van parts and incidents (+ `schedulesIgnoreEnabled`, store-aware tab `showWhen`, Quick Access live status, plugin detail frame) | Partially superseded by [0212](0212-site-narrative-chat.md) (decision 9; the rest stands) |
 | [0206](0206-declared-plugin-capabilities.md) | Declared plugin capabilities (`requestCapability`); Item Shops `shopAccess` with custom offers | Accepted (composed-offer amendment 2026-10-16) |
 | [0207](0207-trip-maps-portable-json.md) | Trip Maps as portable JSON (`@repo/road-trip-map`, `parseTripMap`, Game Studio editor) | Accepted (composed site shops amendment 2026-10-16) |
 | [0208](0208-presentation-themes.md) | Presentation themes for system messages and plugin-authored polls | Accepted |
 | [0209](0209-trip-funds-escrow-pool-and-levy.md) | Trip funds: shared `EscrowPoolHelper` and proportional levy in plugin-base, `pool-card`, short funds still served, fuel on the ledger (amends [0188](0188-kickstarter-campaigns-coin-escrow.md)) | Accepted |
 | [0210](0210-shared-model-viewer-and-studio-site-assets.md) | Shared `@repo/model-viewer` (sole `three` importer) for items and sites; Game Studio publishes content-addressed site art to the CDN with designer credentials (extends 0199, amends 0207) | Accepted |
 | [0211](0211-trip-timeline-room-export.md) | Trip timeline in the room export | Accepted |
+| [0212](0212-site-narrative-chat.md) | Site narrative is chat prose, not a road sign | Accepted |
 
 ## Creating a New ADR
 

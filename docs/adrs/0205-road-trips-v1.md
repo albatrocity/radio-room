@@ -1,7 +1,7 @@
 # 0205. Road trips v1: a ledger of legs, trip mode as a loaded map, sites as timed stops
 
 **Date:** 2026-10-02
-**Status:** Accepted
+**Status:** Partially superseded by [0212](0212-site-narrative-chat.md) (decision 9; the rest stands)
 
 ## Context
 
@@ -60,7 +60,7 @@ The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (dr
    - The strip is `road-trip-strip` in `aboveChat`, one line about 32 px tall, always shown while a trip is loaded. It shows the route line, the van dot, and "Next: …" or the live context. Tapping it opens the Trip tab.
    - The **Trip** Game State tab (`road-trip-trip-panel`) shows the route, the visited count, the ETA, and a site list.
    - Site detail (`road-trip-site-detail`) opens on the Game State nav stack ([0106](0106-game-state-nav-machine.md)) through a new generic **plugin detail frame** `{ kind: "plugin", pluginName, view, params }`. The frame renders any registered template component with params, so plugins get detail pages without a dedicated frame kind.
-   - Every trip message goes through one `tripAnnounce()` helper and renders as a road sign.
+   - Status messages go through one `tripAnnounce()` helper and render as road signs. Site narrative does not: it is chat prose ([0212](0212-site-narrative-chat.md)).
 10. **Two small generic seams on the web.**
     - **Store-aware tab `showWhen`.** `checkShowWhenConditions` now also reads the plugin store, through the shared plugin component actors ([0093](0093-client-socket-event-allowlists-and-shared-plugin-component-actors.md)). The Trip tab shows only when `tripActive` is true. Config conditions are still checked first, so existing tabs behave as before. The tab list subscribes through `usePluginStoresSelector`, which reduces the stores to the set of visible tab ids, so the room-wide provider re-renders only when that set changes.
     - **Quick Access live status ([0074](0074-quick-access-admin-panels.md)).** A read-only Quick Access field whose key also exists in the plugin's store shows the live store value. Road-trip's `tripProgress`, `tripEta`, `tripNextSite`, and `tripWarnings` are computed on every publish, so status never needs a config write. Unsaved form edits are not reset.
@@ -92,9 +92,10 @@ The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (dr
 
 ## See also
 
-- [0206. Declared plugin capabilities](0211-declared-plugin-capabilities.md)
+- [0206. Declared plugin capabilities](0206-declared-plugin-capabilities.md)
 - [0207. Trip Maps as portable JSON](0207-trip-maps-portable-json.md)
 - [0208. Presentation themes](0208-presentation-themes.md)
 - [0211. Trip timeline in the room export](0211-trip-timeline-room-export.md)
 - [0190. Durable plugin scheduler](0190-durable-plugin-scheduler.md)
 - [0192. Plugin storage helpers](0192-plugin-storage-and-leaderboard-helpers.md)
+- [0212. Site narrative is chat prose, not a road sign](0212-site-narrative-chat.md)

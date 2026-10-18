@@ -17,6 +17,7 @@ import {
   fundShareCopy,
   milesLabel,
   openShopAt,
+  narrate,
   seededIndex,
   withSite,
   type Transition,
@@ -614,6 +615,8 @@ function towArrived(
         : site.description,
     },
   ]
+  const narrative = narrate(site)
+  if (narrative) effects.push(narrative)
   return result(enterStep({ next: state, log, effects }, ctx, atMechanic, incident.step + 1))
 }
 

@@ -9,7 +9,8 @@ import { userSchema } from "./User"
 
 export const chatMessageMetaSchema = z.object({
   status: z.enum(["error", "success", "warning", "info"]).optional(),
-  type: z.enum(["alert"]).nullable().optional(),
+  /** `alert` is a notice. `prose` is a wrapping paragraph, not a road sign. */
+  type: z.enum(["alert", "prose"]).nullable().optional(),
   title: z.string().nullable().optional(),
   /**
    * User ids whose public label was masked in `content`, in left-to-right order

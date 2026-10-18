@@ -12,6 +12,8 @@ export type SignVariant = "info" | "success" | "warning" | "error"
 
 export type TripEffect =
   | { type: "sign"; variant: SignVariant; title: string; body?: string; icon?: string }
+  /** Site narrative. Chat prose, not a road sign. `variant` is the system-alert status. */
+  | { type: "narrate"; body: string; variant?: SignVariant }
   | { type: "open-shop"; siteId: string; scopeId: string }
   | { type: "close-shop"; scopeId: string }
   | { type: "close-poll"; pollId: string }
@@ -97,6 +99,23 @@ export function fundShareCopy(fund: TripFund, collected: number, payers: number)
 
 export function exitTitle(site: TripSite): string {
   return `EXIT ${Math.round(site.mile)} · ${site.name.toUpperCase()}`
+}
+
+/** Chat prose for a stop. Blank copy posts nothing. */
+export function siteNarrative(site: TripSite): string | undefined {
+  const text = site.narrative?.trim()
+  return text ? text : undefined
+}
+
+/** Posted beside the exit sign, not as one. Only when the van actually stops. */
+export function narrate(site: TripSite): TripEffect | null {
+  const body = siteNarrative(site)
+  if (!body) return null
+  return {
+    type: "narrate",
+    body,
+    ...(site.narrativeVariant ? { variant: site.narrativeVariant } : {}),
+  }
 }
 
 export function milesLabel(miles: number): string {
