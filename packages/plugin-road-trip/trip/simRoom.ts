@@ -2,8 +2,11 @@ import type { ChatMessage, Poll, PollHistoryEntry } from "@repo/types"
 import type { EscrowPoolState } from "@repo/plugin-base"
 import {
   INCIDENTS,
+  describeSiteShop,
   itemsResolving,
   resolveSiteSettings,
+  siteShopRequest,
+  siteShopTitle,
   skipPollQuestion,
   vanConsumable,
   type TripMapInput,
@@ -297,7 +300,8 @@ export class TripSimRoom {
     this.effectCursor = this.sim.effects.length
     for (const { effect } of fresh) {
       const at = Math.max(this.lastMessageAt + 1, this.clock())
-      const message = effectToChat(effect, at)
+      const message =
+        effect.type === "open-shop" ? this.shopChat(effect.siteId, at) : effectToChat(effect, at)
       if (!message) continue
       this.lastMessageAt = at
       this.messages = [...this.messages, message]
@@ -305,6 +309,20 @@ export class TripSimRoom {
     this.syncPoll()
     if (changed || fresh.length > 0) this.version++
     return changed
+  }
+
+  /**
+   * Stands in for Item Shops opening the stop's round (ADR 0213 approximates
+   * shops): the opening line, plus what the shop would stock.
+   */
+  private shopChat(siteId: string, at: number): ChatMessage | null {
+    const site = this.sim.map.sites.find((s) => s.id === siteId)
+    const request = site ? siteShopRequest(site) : null
+    if (!site || !request) return null
+    const title = siteShopTitle(site)
+    const stock = `Sells ${describeSiteShop(request)}.`
+    const opening = site.shop?.openingMessage
+    return systemChat(opening ? `${opening}\n\n${stock}` : stock, { type: "alert", status: "info", title }, at)
   }
 
   private syncPoll(): void {

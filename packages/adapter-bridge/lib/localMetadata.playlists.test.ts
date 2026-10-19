@@ -92,6 +92,16 @@ describe("mapLocalLibraryAlbumRow", () => {
     })
   })
 
+  it("keeps string genres and drops junk; omits the field when none remain", () => {
+    expect(
+      mapLocalLibraryAlbumRow({ id: "al-1", name: "Kid A", genres: ["Electronic", 3, " ", "electronic"] }),
+    ).toEqual({ id: "al-1", name: "Kid A", genres: ["Electronic"] })
+    expect(mapLocalLibraryAlbumRow({ id: "al-1", name: "Kid A", genres: "Rock" })).toEqual({
+      id: "al-1",
+      name: "Kid A",
+    })
+  })
+
   it("coerces string userRating / year / songCount from Subsonic JSON", () => {
     expect(
       mapLocalLibraryAlbumRow({

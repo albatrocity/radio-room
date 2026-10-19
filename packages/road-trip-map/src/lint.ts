@@ -5,11 +5,15 @@ import {
   isDestination,
   parkPlan,
   resolveSiteSettings,
+  resolveTripTuning,
   routeMiles,
+  siteShopRequest,
   sortedSites,
+  type SiteShopRequest,
 } from "./derive"
+import { PHYSICAL_MEDIA_FORMATS, formatPhysicalMediaList } from "@repo/types"
 import { INCIDENTS, nearestMechanicAhead } from "./incidents"
-import type { SiteShopOffer, TripMap } from "./schema"
+import type { TripMap } from "./schema"
 
 export type TripMapIssueSeverity = "error" | "warning"
 
@@ -27,8 +31,8 @@ export type ShopValidationResult =
   | { ok: false; errors: string[] }
 
 export type LintTripMapDeps = {
-  /** Validate one site's shop ids and custom offers (Item Shops `shopAccess.validateShop`). */
-  validateShop?: (req: { shopIds?: string[]; offers?: SiteShopOffer[] }) => ShopValidationResult
+  /** Validate one site's offers and record bin (Item Shops `shopAccess.validateShop`). */
+  validateShop?: (req: SiteShopRequest) => ShopValidationResult
   /** Planned departure time (ms) for the deadline check. */
   departAt?: number
   /** Asset CDN origin that published site art should live under. */
@@ -78,6 +82,7 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
 
   const assetOrigin = `${(deps.assetBaseUrl ?? DEFAULT_ASSET_CDN_BASE_URL).replace(/\/+$/, "")}/`
   const seen = new Set<string>()
+  const vanFormats = resolveTripTuning(map).vanPlayback.formats
   map.sites.forEach((site, index) => {
     const assets = [
       { label: "image", url: site.imageUrl, path: `sites.${index}.imageUrl` },
@@ -160,21 +165,17 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
       })
     }
 
-    const shopIds = site.shop?.shopIds ?? []
     const offers = site.shop?.offers ?? []
-    if ((shopIds.length > 0 || offers.length > 0) && deps.validateShop) {
-      const result = deps.validateShop({
-        ...(shopIds.length > 0 ? { shopIds } : {}),
-        ...(offers.length > 0 ? { offers } : {}),
-      })
+    const shopRequest = siteShopRequest(site)
+    if (shopRequest && deps.validateShop) {
+      const result = deps.validateShop(shopRequest)
       if (!result.ok) {
         for (const error of result.errors) {
-          const item = error.startsWith("Unknown item")
           issues.push({
             severity: "error",
-            code: item ? "unknown-item" : "unknown-shop",
+            code: "unknown-item",
             message: `${site.name}: ${error}`,
-            path: `sites.${index}.shop.${item ? "offers" : "shopIds"}`,
+            path: `sites.${index}.shop.offers`,
             siteId: site.id,
           })
         }
@@ -184,7 +185,7 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
             severity: "warning",
             code: "shop-availability",
             message: `${site.name}: ${warning}`,
-            path: `sites.${index}.shop.shopIds`,
+            path: `sites.${index}.shop`,
             siteId: site.id,
           })
         }
@@ -199,14 +200,28 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
         siteId: site.id,
       })
     }
-    if (site.shop && shopIds.length === 0 && offers.length === 0) {
+    if (site.shop && !shopRequest) {
       issues.push({
         severity: "warning",
         code: "empty-shop",
-        message: `${site.name} has a shop with no shops or offers; no shop will open there.`,
+        message: `${site.name} has a shop with no offers and sells no records; no shop will open there.`,
         path: `sites.${index}.shop`,
         siteId: site.id,
       })
+    }
+    const carry = site.services?.physicalMedia
+    if (carry) {
+      const sold = carry.formats?.length ? carry.formats : PHYSICAL_MEDIA_FORMATS
+      const unplayable = sold.filter((format) => !vanFormats.includes(format))
+      if (unplayable.length > 0) {
+        issues.push({
+          severity: "warning",
+          code: "van-cannot-play",
+          message: `${site.name} sells ${formatPhysicalMediaList(unplayable)} the van can't play; travelers need their own player.`,
+          path: `sites.${index}.services.physicalMedia`,
+          siteId: site.id,
+        })
+      }
     }
     if (site.shop?.sample && offers.length === 0) {
       issues.push({
@@ -222,15 +237,6 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
         code: "sample-larger-than-pool",
         message: `${site.name}: everyone sees the whole pool.`,
         path: `sites.${index}.shop.sample.count`,
-        siteId: site.id,
-      })
-    }
-    if (shopIds.length > 0 && site.shop?.buybackRate != null) {
-      issues.push({
-        severity: "warning",
-        code: "buyback-with-catalog-shop",
-        message: `${site.name} sets a buyback rate, but its catalog shops keep their own rates.`,
-        path: `sites.${index}.shop.buybackRate`,
         siteId: site.id,
       })
     }

@@ -1,6 +1,7 @@
 import type {
   AppContext,
   CatalogPluginAPI,
+  LibraryAlbumRow,
   LocalPlaylistArtwork,
   MetadataSourceAccessAction,
   MetadataSourceTrack,
@@ -483,17 +484,7 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
    * List Navidrome albums for Physical Media album-catalog derivation.
    * Returns [] when offline / old DJ Mac pack (unknown RPC).
    */
-  async listLibraryAlbums(roomId: string): Promise<
-    Array<{
-      id: string
-      name: string
-      artist?: string
-      year?: number
-      songCount?: number
-      coverArt?: string
-      userRating?: number
-    }>
-  > {
+  async listLibraryAlbums(roomId: string): Promise<LibraryAlbumRow[]> {
     try {
       const { getBridgeRpcClient, listLibraryAlbums } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)

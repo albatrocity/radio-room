@@ -21,11 +21,8 @@ import {
   type TripMap,
 } from "@repo/road-trip-map"
 import { TripOfferPicker } from "./TripOfferPicker"
-import {
-  SHOP_OPTIONS,
-  type FuelProjectionStop,
-  type TripSiteDraft,
-} from "../../tripMap/tripMapDraft"
+import { TripPhysicalMediaService } from "./TripPhysicalMediaService"
+import { type FuelProjectionStop, type TripSiteDraft } from "../../tripMap/tripMapDraft"
 
 const DEFAULT_GAS_PRICE = 8
 
@@ -87,7 +84,6 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
           settings.mystery,
         )
       : null
-  const shopIds = site.shop?.shopIds ?? []
   const offers = site.shop?.offers ?? []
 
   const setSkipPoll = (patch: Partial<NonNullable<TripSiteDraft["skipPoll"]>>) =>
@@ -98,7 +94,6 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
     if (next.buybackRate == null) delete next.buybackRate
     if (next.sample == null) delete next.sample
     const empty =
-      !next.shopIds?.length &&
       !next.offers &&
       next.buybackRate == null &&
       next.sample == null &&
@@ -110,6 +105,7 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
     const next: NonNullable<TripSiteDraft["services"]> = { ...site.services, ...patch }
     if (!next.gas) delete next.gas
     if (!next.mechanic) delete next.mechanic
+    if (!next.physicalMedia) delete next.physicalMedia
     onChange({ services: Object.keys(next).length > 0 ? next : undefined })
   }
   return (
@@ -353,6 +349,12 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
                 : "drives past."}
             </Text>
           ) : null}
+          <Box mt="3">
+            <TripPhysicalMediaService
+              carry={site.services?.physicalMedia}
+              onChange={(physicalMedia) => setServices({ physicalMedia })}
+            />
+          </Box>
         </Box>
       ) : null}
 
@@ -360,22 +362,6 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
         <Text fontSize="sm" fontWeight="semibold" mb="2">
           Shop
         </Text>
-        <HStack gap="4" flexWrap="wrap" mb="2">
-          {SHOP_OPTIONS.map((shop) => (
-            <Toggle
-              key={shop.shopId}
-              label={shop.name}
-              checked={shopIds.includes(shop.shopId)}
-              onChange={(checked) =>
-                setShop({
-                  shopIds: checked
-                    ? [...shopIds, shop.shopId]
-                    : shopIds.filter((id) => id !== shop.shopId),
-                })
-              }
-            />
-          ))}
-        </HStack>
         <Box mb="2">
           <TripOfferPicker
             offers={offers}
@@ -407,9 +393,7 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
             }}
           />
           <Field.HelperText fontSize="xs">
-            {shopIds.length > 0
-              ? "Catalog shops keep their own rates."
-              : "Offers-only shops buy back at this fraction. 0 buys nothing back."}
+            The stand buys back at this fraction, records included. 0 buys nothing back.
           </Field.HelperText>
         </Field.Root>
         <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">

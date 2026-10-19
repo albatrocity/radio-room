@@ -1,5 +1,5 @@
 import type { TripMap, TripSite } from "@repo/road-trip-map"
-import { formatShare, sortedSites } from "@repo/road-trip-map"
+import { formatShare, siteShopRequest, sortedSites } from "@repo/road-trip-map"
 import type { SiteRuntime, TripFund, TripLogEvent, TripState } from "./state"
 
 /**
@@ -70,9 +70,9 @@ export function siteShopScopeId(tripId: string, siteId: string): string {
   return `trip:${tripId}:site:${siteId}`
 }
 
-/** A site opens a shop when it names catalog shops or custom offers (D14). */
+/** A site opens a shop when it lists custom offers or sells records (ADR 0214). */
 export function hasSiteShop(site: TripSite): boolean {
-  return (site.shop?.shopIds?.length ?? 0) > 0 || (site.shop?.offers?.length ?? 0) > 0
+  return siteShopRequest(site) !== null
 }
 
 /** Open the site's shop, closing another scope's round first. */

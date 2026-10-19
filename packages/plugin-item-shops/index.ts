@@ -65,7 +65,11 @@ import { maybeAccrueTourLaminateOnAcquire } from "./items/tour-laminate"
 import type { ItemShopsShopAccess } from "./items/shared/types"
 import { KickstarterModule } from "./campaigns/kickstarter/KickstarterModule"
 import { SHOP_CATALOG } from "./shops"
-import { buildEffectiveShopCatalog, defaultEnabledShopIds } from "./localLibrary/catalog"
+import {
+  buildEffectiveShopCatalog,
+  defaultEnabledShopIds,
+  withPhysicalMediaStock,
+} from "./localLibrary/catalog"
 import { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
 import { itemShopsConfigSchema, defaultItemShopsConfig, type ItemShopsConfig } from "./types"
 import { DEFAULT_LOCAL_LIBRARY_GRANTS } from "./types"
@@ -76,6 +80,7 @@ import {
 import { isLocalLibraryGrantShortId } from "./localLibraryGrants"
 import { LocalLibraryModule } from "./localLibrary"
 import { physicalMediaShopEconomyHooks } from "./localLibrary/shopEconomy"
+import { matchingPhysicalMedia } from "./localLibrary/physicalMediaStock"
 import {
   conditionsWithinBounds,
   DEFAULT_OFFER_CONDITION_BOUNDS,
@@ -147,7 +152,7 @@ export { itemShopsConfigSchema, defaultItemShopsConfig } from "./types"
 export { ITEM_CATALOG, items } from "./items/index"
 export { SHOP_CATALOG } from "./shops"
 export { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
-export { validateRoomShopIds, validateRoomShopRequest } from "./roomShop"
+export { validateRoomShopRequest } from "./roomShop"
 
 export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   name = PLUGIN_NAME
@@ -165,6 +170,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       openRoomShop: (req) => this.openRoomShop(req),
       closeRoomShop: (scopeId) => this.closeRoomShop(scopeId),
       validateShop: (req) => this.validateRoomShop(req),
+      setSharedPlayback: (ownerId, playback) =>
+        this.localLibrary.setSharedPlayback(ownerId, playback),
     },
   }
 
@@ -883,9 +890,14 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const scope = await this.readRoomShopScope()
     if (!scope) return { eligible: await this.resolveEligibleShops(config), extras: [] }
     const { extras } = await this.resolveOffers(scope.offers ?? [])
-    const shops = scope.shopIds.length > 0 ? await this.resolveScopedShops(config, scope.shopIds) : []
-    const eligible = shops.length === 0 && extras.length > 0 ? [offersOnlyShop(scope)] : shops
+    const shop = this.scopedShop(scope)
+    const eligible = shop.availableItems.length > 0 || extras.length > 0 ? [shop] : []
     return { eligible, extras, ...(scope.sample ? { sample: scope.sample } : {}) }
+  }
+
+  /** The scope's composed shop with its record bin stocked (ADR 0214); no bin off the Media Bridge. */
+  private scopedShop(scope: RoomShopScope): ItemShopsShopCatalogEntry {
+    return withPhysicalMediaStock(offersOnlyShop(scope), this.localLibrary.derivedPhysicalMedia)
   }
 
   private async resolveOffers(
@@ -899,14 +911,6 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
           (d): d is ItemDefinition => d !== null,
         )
     return resolveRoomShopOffers(offers, definitions)
-  }
-
-  /** Named catalog shops regardless of rotation, still filtered by controller and room type. */
-  private async resolveScopedShops(
-    config: ItemShopsConfig,
-    shopIds: string[],
-  ): Promise<ItemShopsShopCatalogEntry[]> {
-    return this.resolveEligibleShops({ ...config, enabledShopIds: shopIds })
   }
 
   private async readRoomShopScope(): Promise<RoomShopScope | null> {
@@ -928,14 +932,15 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   private async validateRoomShop(req: ValidateShopRequest): Promise<ValidateShopResult> {
-    const config = (await this.getConfig()) ?? defaultItemShopsConfig
-    const shopIds = req.shopIds ?? []
-    const available = shopIds.length > 0 ? await this.resolveScopedShops(config, shopIds) : []
     const { extras } = await this.resolveOffers(req.offers ?? [])
     const result = validateRoomShopRequest(req, {
-      shopIds: new Set(defaultEnabledShopIds()),
-      availableShopIds: new Set(available.map((shop) => shop.shopId)),
       definitionIds: new Set(extras.map((e) => e.definition.id)),
+      physicalMedia: {
+        derived: this.localLibrary.derivedPhysicalMedia.length,
+        matching: req.physicalMedia
+          ? matchingPhysicalMedia(this.localLibrary.derivedPhysicalMedia, req.physicalMedia).length
+          : 0,
+      },
     })
     if (!result.ok) return result
     const room = await this.context?.getRoom()
@@ -944,40 +949,32 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     return warnings.length > 0 ? { ok: true, warnings } : { ok: true }
   }
 
-  /** `shopAccess.openRoomShop`: a room-wide round limited to the caller's shops and offers. */
+  /** `shopAccess.openRoomShop`: a room-wide round on the caller's composed shop. */
   private async openRoomShop(req: OpenRoomShopRequest): Promise<OpenRoomShopResult> {
     if (!this.context) return { ok: false, reason: "disabled" }
     const config = await this.getConfig()
     if (!config?.enabled) return { ok: false, reason: "disabled" }
     if (!(await this.context.game.getActiveSession())) return { ok: false, reason: "no-session" }
-    const shopIds = req.shopIds ?? []
     const offers = req.offers ?? []
     const { extras, unknown } = await this.resolveOffers(offers)
     if (unknown.length > 0) return { ok: false, reason: "unknown-item" }
     const room = await this.context.getRoom()
     const sellable = retainComposableExtras(extras, this.composableOfferOptions(room?.type))
-    const shops = shopIds.length > 0 ? await this.resolveScopedShops(config, shopIds) : []
-    if (shops.length === 0 && sellable.length === 0) {
-      const known = new Set(defaultEnabledShopIds())
-      const allKnown = shopIds.length > 0 && shopIds.every((id) => known.has(id))
-      const offersKnownButGated = offers.length > 0
-      return { ok: false, reason: allKnown || offersKnownButGated ? "unavailable" : "unknown-shop" }
-    }
     const scope: RoomShopScope = {
       scopeId: req.scopeId,
-      shopIds,
       openedAt: Date.now(),
       ...(offers.length > 0 ? { offers } : {}),
+      ...(req.physicalMedia ? { physicalMedia: req.physicalMedia } : {}),
       ...(req.buybackRate != null ? { buybackRate: req.buybackRate } : {}),
       ...(req.sample ? { sample: req.sample } : {}),
       ...(req.title ? { title: req.title } : {}),
     }
+    const shop = this.scopedShop(scope)
+    if (shop.availableItems.length === 0 && sellable.length === 0) {
+      return { ok: false, reason: "unavailable" }
+    }
     await this.context.storage.setJson(ROOM_SHOP_SCOPE_KEY, scope)
-    await this.startRoundWith(
-      shops.length > 0 ? shops : [offersOnlyShop(scope)],
-      sellable,
-      req.sample,
-    )
+    await this.startRoundWith([shop], sellable, req.sample)
     if (req.openingMessage) {
       await this.context.api.sendSystemMessage(this.context.roomId, req.openingMessage, {
         type: "alert",

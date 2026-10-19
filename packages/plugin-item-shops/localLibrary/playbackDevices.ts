@@ -39,8 +39,9 @@ const DEVICE_MAPS: DeviceCatalogMaps = (() => {
 function formatsFromHeld(
   items: InventoryItem[],
   map: ReadonlyMap<string, readonly PhysicalMediaFormat[]>,
+  shared: Iterable<PhysicalMediaFormat>,
 ): Set<PhysicalMediaFormat> {
-  const out = new Set<PhysicalMediaFormat>()
+  const out = new Set<PhysicalMediaFormat>(shared)
   for (const item of items) {
     if (item.quantity <= 0) continue
     const formats = map.get(item.definitionId)
@@ -50,17 +51,26 @@ function formatsFromHeld(
   return out
 }
 
-/** Union of `playbackFormats` across held device stacks. */
-export function playableFormats(items: InventoryItem[]): Set<PhysicalMediaFormat> {
-  return formatsFromHeld(items, DEVICE_MAPS.formats)
+/**
+ * Union of `playbackFormats` across held device stacks, plus room-shared
+ * formats such as the trip van's (ADR 0215).
+ */
+export function playableFormats(
+  items: InventoryItem[],
+  shared: Iterable<PhysicalMediaFormat> = [],
+): Set<PhysicalMediaFormat> {
+  return formatsFromHeld(items, DEVICE_MAPS.formats, shared)
 }
 
 /**
  * Union of `playbackFormats` across held devices with `gentlePlayback: true`
- * (ADR 0166). Matching Physical Media is not worn on queue.
+ * (ADR 0166), plus gentle shared formats. Matching Physical Media is not worn on queue.
  */
-export function gentlePlayableFormats(items: InventoryItem[]): Set<PhysicalMediaFormat> {
-  return formatsFromHeld(items, DEVICE_MAPS.gentleFormats)
+export function gentlePlayableFormats(
+  items: InventoryItem[],
+  shared: Iterable<PhysicalMediaFormat> = [],
+): Set<PhysicalMediaFormat> {
+  return formatsFromHeld(items, DEVICE_MAPS.gentleFormats, shared)
 }
 
 /** False for library cards and operator grants — they carry no `mediaFormat`. */

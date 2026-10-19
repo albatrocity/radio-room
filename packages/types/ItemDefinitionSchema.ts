@@ -44,3 +44,9 @@ export const itemDefinitionAuthoringSchema = z.object({
 })
 
 export type ItemDefinitionAuthoring = z.infer<typeof itemDefinitionAuthoringSchema>
+
+/** Zod shape of `PhysicalMediaCarry` for trip maps and capability requests (ADR 0214). */
+export const physicalMediaCarrySchema = z.object({
+  formats: z.array(z.enum(PHYSICAL_MEDIA_FORMATS)).max(PHYSICAL_MEDIA_FORMATS.length).optional(),
+  genres: z.array(z.string().trim().min(1).max(60)).max(12).optional(),
+})

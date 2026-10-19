@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { InventoryItem } from "@repo/types"
 import type { HeldLocalLibraryGrant } from "./grants"
 import { gentlePlayableFormats, playableFormats, requiresPlaybackDevice } from "./playbackDevices"
+import { sharedPlaybackFormats, withSharedPlayback } from "./sharedPlayback"
 
 function stack(definitionId: string, itemId = definitionId): InventoryItem {
   return {
@@ -47,6 +48,28 @@ describe("playableFormats", () => {
       stack("item-shops:missing"),
     ])
     expect(formats.size).toBe(0)
+  })
+
+  it("adds room-shared formats to held devices", () => {
+    const formats = playableFormats([stack("item-shops:cd-player")], ["LP"] as const)
+    expect(Array.from(formats).sort()).toEqual(["CD", "LP"])
+  })
+})
+
+describe("sharedPlayback", () => {
+  it("replaces an owner, clears it on empty formats, and unions owners", () => {
+    let entries = withSharedPlayback({}, "road-trip", { formats: ["CD", "CD"], gentle: true })
+    entries = withSharedPlayback(entries, "bar", { formats: ["LP"] })
+    expect(entries).toEqual({
+      "road-trip": { formats: ["CD"], gentle: true },
+      bar: { formats: ["LP"] },
+    })
+    const union = sharedPlaybackFormats(entries)
+    expect(Array.from(union.formats).sort()).toEqual(["CD", "LP"])
+    expect(Array.from(union.gentle)).toEqual(["CD"])
+    expect(withSharedPlayback(entries, "road-trip", { formats: [] })).toEqual({
+      bar: { formats: ["LP"] },
+    })
   })
 })
 

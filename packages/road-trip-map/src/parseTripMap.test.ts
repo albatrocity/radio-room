@@ -14,7 +14,7 @@ import {
 } from "./derive"
 import { tripMapContentHash } from "./hash"
 import { TRIP_MAP_MAX_BYTES, type TripMapInput } from "./schema"
-import { GENERIC_SITE_PRESETS, siteFromPreset, sitePresetForShop } from "./presets"
+import { GENERIC_SITE_PRESETS, siteFromPreset } from "./presets"
 
 function clone(): TripMapInput {
   return structuredClone(SAMPLE_TRIP_MAP)
@@ -47,6 +47,7 @@ describe("parseTripMap", () => {
       revealMiles: 10,
       skipPoll: { leadMinutes: 1.5, durationSec: 45, default: "skip" },
       funds: { mode: "automatic", windowMinutes: 3 },
+      vanPlayback: { formats: ["CD", "LP", "TAPE", "45"], gentle: false },
     })
   })
 
@@ -113,15 +114,60 @@ describe("parseTripMap", () => {
     expect(codes(parseTripMap(input))).toContain("poll-before-departure")
   })
 
-  it("blocks unknown shop ids through validateShop", () => {
+  it("blocks unknown items through validateShop", () => {
     const result = parseTripMap(clone(), {
-      validateShop: ({ shopIds }) =>
-        shopIds?.includes("farmers-market")
-          ? { ok: false, errors: ['Unknown shop "farmers-market"'] }
+      validateShop: ({ offers }) =>
+        offers?.some((o) => o.definitionId === "item-shops:carrots")
+          ? { ok: false, errors: ['Unknown item "item-shops:carrots"'] }
           : { ok: true },
     })
     expect(result.ok).toBe(false)
-    expect(codes(result)).toContain("unknown-shop")
+    expect(codes(result)).toContain("unknown-item")
+  })
+
+  it("validates a records-only site's bin with no offers", () => {
+    const requests: unknown[] = []
+    parseTripMap(clone(), {
+      validateShop: (req) => {
+        requests.push(req)
+        return { ok: true }
+      },
+    })
+    expect(requests[0]).toEqual({ physicalMedia: { formats: ["LP", "45"] } })
+  })
+
+  it("rejects an unknown physical media format", () => {
+    const input = clone() as unknown as { sites: { services?: unknown }[] }
+    input.sites[0]!.services = { physicalMedia: { formats: ["8-TRACK"] } }
+    expect(parseTripMap(input).ok).toBe(false)
+  })
+
+  it("warns when a site sells formats the van can't play", () => {
+    const cdVan = (mutate: (map: TripMapInput) => void = () => {}) => {
+      const input = clone()
+      input.tuning = { ...input.tuning, vanPlayback: { formats: ["CD"] } }
+      mutate(input)
+      return parseTripMap(input)
+    }
+    const lpBin = cdVan()
+    expect(lpBin.issues.find((i) => i.code === "van-cannot-play")).toMatchObject({
+      severity: "warning",
+      siteId: "record-store",
+      message: "Dusty Boots Records sells LPs and 45s the van can't play; travelers need their own player.",
+    })
+    expect(codes(cdVan((m) => (m.sites[0]!.services = { physicalMedia: {} })))).toContain(
+      "van-cannot-play",
+    )
+    expect(
+      codes(cdVan((m) => (m.sites[0]!.services = { physicalMedia: { formats: ["CD"] } }))),
+    ).not.toContain("van-cannot-play")
+    expect(codes(parseTripMap(clone()))).not.toContain("van-cannot-play")
+  })
+
+  it("warns about a shop block that sells nothing", () => {
+    const input = clone()
+    delete input.sites[0]!.services
+    expect(codes(parseTripMap(input))).toContain("empty-shop")
   })
 
   it("passes shop availability warnings through without blocking", () => {
@@ -204,12 +250,11 @@ describe("hash and presets", () => {
       role: "destination",
       presetId: "destination-venue",
     })
-    const stand = sitePresetForShop({
-      shopId: "farmers-market",
-      name: "Farmers Market",
-      icon: "🍎",
+    const records = GENERIC_SITE_PRESETS.find((p) => p.id === "record-shop")!
+    expect(records.site).toMatchObject({
+      services: { physicalMedia: {} },
+      shop: { buybackRate: 0.1 },
     })
-    expect(stand.site.shop).toEqual({ shopIds: ["farmers-market"] })
   })
 })
 
@@ -335,19 +380,8 @@ describe("van and incidents (Phase 3)", () => {
     expect(seen).toContainEqual({
       offers: [{ definitionId: "road-trip:fix-a-flat" }, { definitionId: "road-trip:aaa-card" }],
     })
-    expect(codes(parsed((m) => (m.sites[0]!.shop = {})))).toContain("empty-shop")
-  })
-
-  it("warns when a buyback rate is set beside catalog shops and ignores it on offers-only shops", () => {
-    const withCatalog = parsed((m) => {
-      m.sites.find((site) => site.id === "farmers-market")!.shop!.buybackRate = 0.5
-    })
-    expect(codes(withCatalog)).toContain("buyback-with-catalog-shop")
-    const offersOnly = parsed((m) => {
-      m.sites.find((site) => site.id === "gas-n-go")!.shop!.buybackRate = 0.5
-    })
-    expect(codes(offersOnly)).not.toContain("buyback-with-catalog-shop")
-    expect(offersOnly.ok).toBe(true)
+    expect(codes(parsed((m) => (m.sites[1]!.shop = {})))).toContain("empty-shop")
+    expect(codes(parsed((m) => (m.sites[0]!.shop = {})))).not.toContain("empty-shop")
   })
 
   it("requires offers to sample and warns when the count covers the pool", () => {

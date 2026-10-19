@@ -24,6 +24,9 @@ import {
   isDestination,
   parseTripMap,
   resolveSiteSettings,
+  resolveTripTuning,
+  siteShopRequest,
+  siteShopTitle,
   skipPollQuestion,
   triggerableIncidentIdSchema,
   type TripMap,
@@ -219,6 +222,35 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
       this.costScaleCache = null
       await this.mutateTrip(gameSessionStarted)
     })
+    this.onConfigChange(async ({ config, previousConfig }) => {
+      if (config?.enabled !== previousConfig?.enabled) await this.syncVanPlayback()
+    })
+    // Item Shops storage can outlive a restart or a missed clear; re-assert it.
+    // `requestCapability` initializes Item Shops on demand, and
+    // `PluginRegistry.initializePluginForRoom` has no in-flight guard, so this
+    // relies on Item Shops being listed before Road Trip in
+    // `packages/plugins/index.ts` (room sync awaits each plugin in order).
+    this.syncVanPlayback().catch((error) =>
+      console.warn(`[road-trip] couldn't sync van playback in ${context.roomId}`, error),
+    )
+  }
+
+  /**
+   * The van is a playback device while a map is loaded and the plugin is
+   * enabled (ADR 0215); otherwise Road Trip's shared playback is cleared.
+   */
+  private async syncVanPlayback(): Promise<void> {
+    if (!this.context) return
+    const config = await this.getConfig()
+    const stored = config?.enabled ? await this.trips.readMap() : null
+    const vanPlayback = stored ? resolveTripTuning(stored.map).vanPlayback : null
+    await this.context.api.requestCapability(
+      this.context.roomId,
+      "shopAccess",
+      "setSharedPlayback",
+      PLUGIN_NAME,
+      vanPlayback ? { formats: vanPlayback.formats, gentle: vanPlayback.gentle } : { formats: [] },
+    )
   }
 
   async getComponentState(): Promise<Record<string, unknown>> {
@@ -689,24 +721,20 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   ): Promise<string | null> {
     if (!this.context) return null
     const site = map.sites.find((s) => s.id === siteId)
-    const shopIds = site?.shop?.shopIds ?? []
-    const offers = site?.shop?.offers ?? []
-    if (!site || (shopIds.length === 0 && offers.length === 0)) return null
+    const request = site ? siteShopRequest(site) : null
+    if (!site || !request) return null
     const result = await this.context.api.requestCapability(
       this.context.roomId,
       "shopAccess",
       "openRoomShop",
       {
         scopeId,
-        shopIds,
-        ...(offers.length > 0 ? { offers } : {}),
-        ...(shopIds.length === 0 && site.shop?.buybackRate != null
-          ? { buybackRate: site.shop.buybackRate }
-          : {}),
+        ...request,
+        ...(site.shop?.buybackRate != null ? { buybackRate: site.shop.buybackRate } : {}),
         ...(site.shop?.sample
           ? { sample: { count: site.shop.sample.count, weights: site.shop.sample.weights } }
           : {}),
-        ...(site.shop?.title ? { title: site.shop.title } : {}),
+        title: siteShopTitle(site),
         ...(site.shop?.openingMessage ? { openingMessage: site.shop.openingMessage } : {}),
       },
     )
@@ -1094,6 +1122,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     )
     await this.trips.writeState(fresh)
     await this.publish(fresh, Date.now())
+    await this.syncVanPlayback()
 
     const warnings = [
       ...parsed.issues.filter((i) => i.severity === "warning").map((i) => i.message),
@@ -1111,14 +1140,13 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     const errors: string[] = []
     const warnings: string[] = []
     for (const site of map.sites) {
-      const shopIds = site.shop?.shopIds ?? []
-      const offers = site.shop?.offers ?? []
-      if (shopIds.length === 0 && offers.length === 0) continue
+      const request = siteShopRequest(site)
+      if (!request) continue
       const result = await this.context!.api.requestCapability(
         this.context!.roomId,
         "shopAccess",
         "validateShop",
-        { shopIds, ...(offers.length > 0 ? { offers } : {}) },
+        request,
       )
       if (!result.ok) {
         warnings.push(`Item Shops isn't available, so ${site.name}'s shop won't open`)
@@ -1140,6 +1168,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     await this.trips.clearAll()
     this.mapCache = null
     await this.publish(null, Date.now())
+    await this.syncVanPlayback()
     return { success: true, message: "Map unloaded." }
   }
 

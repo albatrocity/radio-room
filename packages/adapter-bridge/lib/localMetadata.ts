@@ -11,7 +11,8 @@ import type {
   MetadataSourceTrack,
   SimpleCache,
 } from "@repo/types"
-import type { AppContext } from "@repo/types"
+import type { AppContext, LibraryAlbumRow } from "@repo/types"
+import { normalizeGenres } from "@repo/types"
 import {
   LOCAL_BROWSE_CACHE_TTL_SEC,
   metadataBrowseAlbumCacheKey,
@@ -379,17 +380,7 @@ export async function listLocalPlaylists(params: {
   }
 }
 
-export type LocalLibraryAlbumListItem = {
-  id: string
-  name: string
-  artist?: string
-  year?: number
-  songCount?: number
-  /** Subsonic coverArt key only — never a data URI. */
-  coverArt?: string
-  /** Navidrome userRating (1–5); drives Physical Media rarity (ADR 0111). */
-  userRating?: number
-}
+export type LocalLibraryAlbumListItem = LibraryAlbumRow
 
 /** Coerce Subsonic JSON numbers that may arrive as strings. */
 export function parseSubsonicNumber(value: unknown): number | undefined {
@@ -421,6 +412,7 @@ export function mapLocalLibraryAlbumRow(row: unknown): LocalLibraryAlbumListItem
   const userRating = normalizeAlbumUserRating(r.userRating)
   const year = parseSubsonicNumber(r.year)
   const songCount = parseSubsonicNumber(r.songCount)
+  const genres = normalizeGenres(r.genres)
   return {
     id,
     name: r.name != null ? String(r.name) : id,
@@ -429,6 +421,7 @@ export function mapLocalLibraryAlbumRow(row: unknown): LocalLibraryAlbumListItem
     ...(songCount != null ? { songCount } : {}),
     ...(safeCover ? { coverArt: safeCover } : {}),
     ...(userRating != null ? { userRating } : {}),
+    ...(genres.length > 0 ? { genres } : {}),
   }
 }
 

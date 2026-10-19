@@ -250,6 +250,8 @@ describe("LocalDriver shelf browsing", () => {
                       songCount: 11,
                       coverArt: "al-cover-1",
                       userRating: "5",
+                      genre: "Shoegaze",
+                      genres: [{ name: "Shoegaze" }, { name: "Dream Pop" }],
                     },
                     {
                       id: "al-2",
@@ -292,6 +294,7 @@ describe("LocalDriver shelf browsing", () => {
         songCount: 11,
         coverArt: "al-cover-1",
         userRating: 5,
+        genres: ["Shoegaze", "Dream Pop"],
       },
       { id: "al-2", name: "Kid A", artist: "Radiohead", songCount: 10, userRating: 4 },
     ])

@@ -11,6 +11,7 @@ import type {
   MetadataSourceTrack,
   MetadataSourceUrl,
 } from "@repo/types"
+import { normalizeGenres } from "@repo/types"
 import type { BridgeDaemonConfig } from "../config"
 import type { Driver, DriverState } from "./Driver"
 import {
@@ -94,6 +95,12 @@ export function parseSubsonicNumber(value: unknown): number | undefined {
   return undefined
 }
 
+/** Subsonic `genre` plus OpenSubsonic `genres[].name`, deduped. */
+export function navidromeAlbumGenres(album: Pick<NavidromeAlbum, "genre" | "genres">): string[] {
+  const named = Array.isArray(album.genres) ? album.genres.map((g) => g?.name) : []
+  return normalizeGenres([album.genre, ...named])
+}
+
 function normalizeAlbumUserRating(value: unknown): number | undefined {
   const n = parseSubsonicNumber(value)
   if (n == null) return undefined
@@ -140,6 +147,8 @@ export type LibraryAlbumListItem = {
   coverArt?: string
   /** Navidrome userRating (1–5) when present; drives Physical Media rarity (ADR 0111). */
   userRating?: number
+  /** Navidrome album genres; filters record bins (ADR 0214). */
+  genres?: string[]
 }
 
 const LIBRARY_ALBUM_PAGE_SIZE = 500
@@ -549,6 +558,7 @@ export class LocalDriver implements Driver {
         const userRating = normalizeAlbumUserRating(a.userRating) ?? ratingsFromHighest.get(id)
         const year = parseSubsonicNumber(a.year)
         const songCount = parseSubsonicNumber(a.songCount)
+        const genres = navidromeAlbumGenres(a)
         out.push({
           id,
           name: String(a.name ?? id).trim() || id,
@@ -559,6 +569,7 @@ export class LocalDriver implements Driver {
           ...(songCount != null ? { songCount } : {}),
           ...(coverArt ? { coverArt } : {}),
           ...(userRating != null ? { userRating } : {}),
+          ...(genres.length > 0 ? { genres } : {}),
         })
       }
       if (list.length < LIBRARY_ALBUM_PAGE_SIZE) break

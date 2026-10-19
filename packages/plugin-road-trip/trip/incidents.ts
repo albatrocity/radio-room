@@ -5,6 +5,7 @@ import {
   incidentSteps,
   isDestination,
   roadTripItemId,
+  siteShopTitle,
   sortedSites,
   vanConsumable,
   vanPart,
@@ -611,7 +612,7 @@ function towArrived(
       icon: site.icon,
       title: `Towed to ${site.name}`,
       body: shop.scopeId
-        ? `${site.shop?.title ?? site.name} is open while the van's in the bay.`
+        ? `${siteShopTitle(site)} is open while the van's in the bay.`
         : site.description,
     },
   ]

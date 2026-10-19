@@ -33,6 +33,7 @@ import type {
   ItemDefinition,
   ItemSellResult,
   ItemUseResult,
+  LibraryAlbumRow,
   LocalPlaylistArtwork,
   UserInventory,
 } from "./Inventory"
@@ -931,21 +932,10 @@ export interface CatalogPluginAPI {
   ): Promise<Record<string, LocalPlaylistArtwork>>
 
   /**
-   * List Navidrome albums for album-catalog Physical Media derivation (ADR 0109).
+   * List Navidrome albums for album-catalog Physical Media derivation (ADR 0110).
    * Returns [] when offline / unknown RPC (old DJ Mac pack).
    */
-  listLibraryAlbums(roomId: string): Promise<
-    Array<{
-      id: string
-      name: string
-      artist?: string
-      year?: number
-      songCount?: number
-      coverArt?: string
-      /** Navidrome userRating (1–5); drives Physical Media rarity (ADR 0111). */
-      userRating?: number
-    }>
-  >
+  listLibraryAlbums(roomId: string): Promise<LibraryAlbumRow[]>
 
   /**
    * Cover artwork URLs for Navidrome albums (`al-cover-…` image ids).

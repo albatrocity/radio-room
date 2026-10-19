@@ -20,6 +20,7 @@ import {
   parkPlan,
   resolveSiteSettings,
   roadTripItemId,
+  siteShopTitle,
   skipDefaultsAhead,
   sortedSites,
   vanPart,
@@ -76,7 +77,7 @@ export function buildTripStore(
     if (site.imageUrl) entry.imageUrl = site.imageUrl
     if (isDestination(site)) entry.destination = true
     else if (!resolveSiteSettings(map, site).optional) entry.mandatory = true
-    if (hasSiteShop(site)) entry.shopTitle = site.shop?.title ?? site.name
+    if (hasSiteShop(site)) entry.shopTitle = siteShopTitle(site)
     if (isGasSite(site)) entry.gasPrice = site.services!.gas!.pricePerGallon
     if (site.services?.mechanic) entry.mechanic = true
     if (runtime.visitedAt !== undefined) {

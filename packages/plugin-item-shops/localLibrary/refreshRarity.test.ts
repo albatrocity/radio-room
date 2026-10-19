@@ -38,14 +38,21 @@ describe("LocalLibraryModule refresh rarity", () => {
     expect(item?.definition.rarity).toBe("legendary")
   })
 
-  it("inherits album userRating onto a prefixed playlist that shadows the album", async () => {
+  it("inherits album userRating and genres onto a prefixed playlist that shadows the album", async () => {
     const api = {
       listLocalPlaylists: vi.fn(async () => [
         { id: "nd-1", name: "[LP] Loveless", songCount: 2 },
       ]),
       getLocalPlaylistArtwork: vi.fn(async () => ({})),
       listLibraryAlbums: vi.fn(async () => [
-        { id: "al-1", name: "Loveless", year: 1991, songCount: 2, userRating: 5 },
+        {
+          id: "al-1",
+          name: "Loveless",
+          year: 1991,
+          songCount: 2,
+          userRating: 5,
+          genres: ["Shoegaze"],
+        },
       ]),
       listLocalPlaylistTrackIds: vi.fn(async () => [
         { id: "t1", albumId: "al-1" },
@@ -65,6 +72,7 @@ describe("LocalLibraryModule refresh rarity", () => {
       (e) => e.definition.shortId === physicalMediaAlbumShortId("al-1"),
     )
     expect(playlistItem?.definition.rarity).toBe("legendary")
+    expect(playlistItem?.definition.genres).toEqual(["Shoegaze"])
     expect(albumItem).toBeUndefined()
   })
 })

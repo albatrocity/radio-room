@@ -1,4 +1,5 @@
-import type { SkipDefault, TripMap, TripSite } from "./schema"
+import { PHYSICAL_MEDIA_FORMAT_LABELS, type PhysicalMediaCarry } from "@repo/types"
+import type { SiteShopOffer, SkipDefault, TripMap, TripSite, TripTuning } from "./schema"
 
 /** Destination mile tolerance when comparing against the derived route length. */
 export const ROUTE_END_TOLERANCE_MILES = 0.05
@@ -50,6 +51,50 @@ export function resolveSiteSettings(map: TripMap, site: TripSite): ResolvedSiteS
     skipDefault: site.skipPoll?.default ?? map.tuning.skipPoll.default,
     parkMs: (site.parkMinutes ?? map.tuning.parkMinutes) * 60_000,
   }
+}
+
+/**
+ * The tuning a trip runs with. Today that's `map.tuning`; read `vanPlayback`
+ * through here so a future loadout can override it in one place.
+ */
+export function resolveTripTuning(map: Pick<TripMap, "tuning">): TripTuning {
+  return map.tuning
+}
+
+/** What a site's shop sells: custom offers and/or a record bin (ADR 0214). */
+export type SiteShopRequest = { offers?: SiteShopOffer[]; physicalMedia?: PhysicalMediaCarry }
+
+/** The site's shop contents, or `null` when it sells nothing. */
+export function siteShopRequest(site: {
+  shop?: { offers?: SiteShopOffer[] }
+  services?: { physicalMedia?: PhysicalMediaCarry }
+}): SiteShopRequest | null {
+  const offers = site.shop?.offers ?? []
+  const physicalMedia = site.services?.physicalMedia
+  if (offers.length === 0 && !physicalMedia) return null
+  return {
+    ...(offers.length > 0 ? { offers } : {}),
+    ...(physicalMedia ? { physicalMedia } : {}),
+  }
+}
+
+/** The name a site's shop goes by: its `shop.title`, else the site's name. */
+export function siteShopTitle(site: { name: string; shop?: { title?: string } }): string {
+  return site.shop?.title ?? site.name
+}
+
+/** "Records (CDs; Country) and 2 offers": a one-line summary for previews. */
+export function describeSiteShop(request: SiteShopRequest): string {
+  const parts: string[] = []
+  const carry = request.physicalMedia
+  if (carry) {
+    const formats = carry.formats?.map((f) => PHYSICAL_MEDIA_FORMAT_LABELS[f]).join(", ")
+    const filters = [formats, carry.genres?.join(", ")].filter(Boolean)
+    parts.push(filters.length > 0 ? `Records (${filters.join("; ")})` : "Every record")
+  }
+  const offers = request.offers?.length ?? 0
+  if (offers > 0) parts.push(`${offers} ${offers === 1 ? "offer" : "offers"}`)
+  return parts.join(" and ")
 }
 
 // ---------------------------------------------------------------------------

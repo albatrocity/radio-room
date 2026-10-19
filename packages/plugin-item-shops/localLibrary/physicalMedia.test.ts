@@ -404,6 +404,15 @@ describe("derivePhysicalMediaItemsFromAlbums", () => {
     expect(items[0]?.definition.coinValue).toBe(priceFromSongCount(11))
   })
 
+  it("copies normalized album genres, and omits them when there are none", () => {
+    const { items } = derivePhysicalMediaItemsFromAlbums([
+      { id: "al-1", name: "Red Headed Stranger", year: 1975, songCount: 15, genres: [" Country ", "country", "Outlaw"] },
+      { id: "al-2", name: "No tags", year: 1995, songCount: 10 },
+    ])
+    expect(items[0]?.definition.genres).toEqual(["Country", "Outlaw"])
+    expect(items[1]?.definition.genres).toBeUndefined()
+  })
+
   it("omits albums in omitAlbumIds", () => {
     const { items } = derivePhysicalMediaItemsFromAlbums(
       [

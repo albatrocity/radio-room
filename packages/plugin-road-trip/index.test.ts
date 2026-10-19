@@ -272,7 +272,7 @@ describe("RoadTripPlugin", () => {
   it("loads a map whose shop this room can't open, with the warning", async () => {
     const { plugin, h } = await setup()
     const warning =
-      "Record Store only opens in rooms on the Media Bridge with a local library; the van still stops"
+      "Records only sell in rooms on the Media Bridge with a local library; the van still stops"
     h.api.requestCapability.mockResolvedValueOnce({
       ok: true,
       value: { ok: true, warnings: [warning] },
@@ -283,8 +283,48 @@ describe("RoadTripPlugin", () => {
     })
     expect(result).toEqual({
       success: true,
-      message: `Loaded "Concert Run": 12.0 mi, 4 sites. Warnings: Gas 'n' Go: ${warning}`,
+      message: `Loaded "Concert Run": 12.0 mi, 4 sites. Warnings: Dusty Boots Records: ${warning}`,
     })
+  })
+
+  it("lends the van's formats while a map is loaded and enabled (ADR 0215)", async () => {
+    const { plugin, h } = await setup()
+    const playback = () =>
+      h.shopCalls.filter((c) => c[2] === "setSharedPlayback").map((c) => c.slice(3))
+    expect(playback()).toEqual([["road-trip", { formats: [] }]])
+
+    h.api.getPluginConfig.mockResolvedValue({ enabled: true } as never)
+    await h.fire("CONFIG_CHANGED", {
+      roomId: "room-1",
+      pluginName: "road-trip",
+      config: { enabled: true },
+      previousConfig: { enabled: false },
+    })
+    expect(playback().at(-1)).toEqual(["road-trip", { formats: [] }])
+
+    const cdVan = JSON.parse(BASE_MAP_JSON)
+    cdVan.tuning = { ...cdVan.tuning, vanPlayback: { formats: ["CD"], gentle: true } }
+    await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(cdVan) })
+    expect(playback().at(-1)).toEqual(["road-trip", { formats: ["CD"], gentle: true }])
+
+    h.api.getPluginConfig.mockResolvedValue({ enabled: false } as never)
+    await h.fire("CONFIG_CHANGED", {
+      roomId: "room-1",
+      pluginName: "road-trip",
+      config: { enabled: false },
+      previousConfig: { enabled: true },
+    })
+    expect(playback().at(-1)).toEqual(["road-trip", { formats: [] }])
+
+    h.api.getPluginConfig.mockResolvedValue({ enabled: true } as never)
+    const restarted = new RoadTripPlugin()
+    await restarted.register(h.context)
+    await vi.waitFor(() =>
+      expect(playback().at(-1)).toEqual(["road-trip", { formats: ["CD"], gentle: true }]),
+    )
+
+    await restarted.executeAction("unloadMap", ADMIN)
+    expect(playback().at(-1)).toEqual(["road-trip", { formats: [] }])
   })
 
   it("requires an admin", async () => {
@@ -369,19 +409,20 @@ describe("RoadTripPlugin", () => {
     const opened = h.shopCalls.filter((c) => c[2] === "openRoomShop")
     expect(opened[0]?.[3]).toEqual({
       scopeId: expect.stringContaining(":site:gas-n-go"),
-      shopIds: [],
       offers: SAMPLE_TRIP_MAP.sites.find((s) => s.id === "gas-n-go")!.shop!.offers,
       title: "Gas 'n' Go counter",
     })
+    const market = SAMPLE_TRIP_MAP.sites.find((s) => s.id === "farmers-market")!.shop!
     expect(opened[1]).toEqual([
       "room-1",
       "shopAccess",
       "openRoomShop",
       {
         scopeId: expect.stringContaining(":site:farmers-market"),
-        shopIds: ["farmers-market"],
-        openingMessage: SAMPLE_TRIP_MAP.sites.find((s) => s.id === "farmers-market")!.shop!
-          .openingMessage,
+        offers: market.offers,
+        sample: market.sample,
+        title: "Farmers Market",
+        openingMessage: market.openingMessage,
       },
     ])
 
@@ -395,7 +436,8 @@ describe("RoadTripPlugin", () => {
       state: "visited",
       lore: expect.any(String),
     })
-    expect(h.shopCalls.map((c) => c[2])).toEqual([
+    expect(h.shopCalls.map((c) => c[2]).filter((m) => m !== "setSharedPlayback")).toEqual([
+      "validateShop",
       "validateShop",
       "validateShop",
       "openRoomShop",

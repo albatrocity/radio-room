@@ -14,6 +14,7 @@ import {
   type QueueValidationResult,
   type ResolvedPhysicalMediaItem,
   type MediaCondition,
+  type SharedPlayback,
   PHYSICAL_MEDIA_CONDITION_KEY,
   PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY,
 } from "@repo/types"
@@ -65,6 +66,14 @@ import {
   playableFormats,
   requiresPlaybackDevice,
 } from "./playbackDevices"
+import {
+  NO_SHARED_PLAYBACK,
+  SHARED_PLAYBACK_KEY,
+  sharedPlaybackFormats,
+  withSharedPlayback,
+  type SharedPlaybackEntries,
+  type SharedPlaybackFormats,
+} from "./sharedPlayback"
 
 function physicalMediaArtworkFields(definition?: ItemCatalogEntry["definition"]): {
   icon?: ItemCatalogEntry["definition"]["icon"]
@@ -157,6 +166,7 @@ export class LocalLibraryModule {
 
     let omitAlbumIds = new Set<string>()
     const albumRatingByPlaylistId: Record<string, number> = {}
+    const albumGenresByPlaylistId: Record<string, string[]> = {}
 
     if (derivePrefixedPlaylists && deriveAlbums && mediaPlaylists.length > 0 && albums.length > 0) {
       const playlistNdIdToAlbumId = new Map<string, string>()
@@ -222,9 +232,9 @@ export class LocalLibraryModule {
 
       for (const [playlistNdId, albumId] of playlistNdIdToAlbumId) {
         if (!omitAlbumIds.has(albumId)) continue
-        const rating = albums.find((a) => a.id.trim() === albumId)?.userRating
-        if (rating == null) continue
-        albumRatingByPlaylistId[playlistNdId] = rating
+        const album = albums.find((a) => a.id.trim() === albumId)
+        if (album?.userRating != null) albumRatingByPlaylistId[playlistNdId] = album.userRating
+        if (album?.genres?.length) albumGenresByPlaylistId[playlistNdId] = album.genres
       }
     }
 
@@ -236,6 +246,7 @@ export class LocalLibraryModule {
         overrides,
         artwork,
         albumRatingByPlaylistId,
+        albumGenresByPlaylistId,
       )
       playlistItems.push(...derived.items)
       playlistMap = derived.playlistMap
@@ -637,6 +648,23 @@ export class LocalLibraryModule {
     }
   }
 
+  /** `shopAccess.setSharedPlayback` (ADR 0215). Empty `formats` clears the owner. */
+  async setSharedPlayback(ownerId: string, playback: SharedPlayback): Promise<void> {
+    const context = this.getContext()
+    if (!context) return
+    const { value } = await context.storage.getJson<SharedPlaybackEntries>(SHARED_PLAYBACK_KEY)
+    const next = withSharedPlayback(value ?? {}, ownerId, playback)
+    if (Object.keys(next).length === 0) await context.storage.del(SHARED_PLAYBACK_KEY)
+    else await context.storage.setJson(SHARED_PLAYBACK_KEY, next)
+  }
+
+  private async readSharedPlayback(): Promise<SharedPlaybackFormats> {
+    const context = this.getContext()
+    if (!context) return NO_SHARED_PLAYBACK
+    const { value } = await context.storage.getJson<SharedPlaybackEntries>(SHARED_PLAYBACK_KEY)
+    return value ? sharedPlaybackFormats(value) : NO_SHARED_PLAYBACK
+  }
+
   async validateQueueRequest(
     params: QueueValidationParams,
     config: { enabled: boolean; localLibraryGrants?: LocalLibraryGrantConfig[] },
@@ -715,17 +743,18 @@ export class LocalLibraryModule {
     const durableMatches = matchingDurableRecords(held, trackInPlaylistKey, trackInAlbumKey)
     if (durableMatches.length > 0) {
       const needsDevice = durableMatches.filter(requiresPlaybackDevice)
+      const shared = await this.readSharedPlayback()
       // A library card or operator grant covers the track outright.
       let snapshot: MediaCondition | undefined
       if (needsDevice.length < durableMatches.length) {
-        snapshot = await this.wearRecordForQueue(params, durableMatches, inv)
+        snapshot = await this.wearRecordForQueue(params, durableMatches, inv, shared)
       } else {
-        const devices = playableFormats(items)
+        const devices = playableFormats(items, shared.formats)
         const playable = needsDevice.filter((h) => h.mediaFormat && devices.has(h.mediaFormat))
         if (playable.length === 0) {
           return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
         }
-        snapshot = await this.wearRecordForQueue(params, playable, inv)
+        snapshot = await this.wearRecordForQueue(params, playable, inv, shared)
       }
       if (snapshot) {
         return allowQueueRequest({
@@ -763,6 +792,7 @@ export class LocalLibraryModule {
     params: QueueValidationParams,
     matching: HeldLocalLibraryGrant[],
     inv: UserInventory,
+    shared: SharedPlaybackFormats,
   ): Promise<MediaCondition | undefined> {
     const context = this.getContext()
     if (!context) return undefined
@@ -770,7 +800,7 @@ export class LocalLibraryModule {
     const wearable = matching.filter((h) => h.grant.scope !== "library")
     if (wearable.length === 0) return undefined
 
-    const gentle = gentlePlayableFormats(inv.items)
+    const gentle = gentlePlayableFormats(inv.items, shared.gentle)
     if (wearable.some((h) => h.mediaFormat != null && gentle.has(h.mediaFormat))) {
       return undefined
     }

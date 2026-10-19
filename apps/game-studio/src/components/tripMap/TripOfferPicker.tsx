@@ -244,7 +244,7 @@ export function TripOfferPicker({ offers, sample, onChange, onSampleChange }: Pr
         </Stack>
       ) : (
         <Text fontSize="xs" color="fg.muted">
-          No offers yet. This site sells only the catalog shops selected above.
+          No offers yet. Records sold under Services stock their own bin.
         </Text>
       )}
 

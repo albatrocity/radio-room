@@ -35,6 +35,10 @@ export type NavidromeAlbum = {
   coverArt?: string
   /** Operator star rating (1–5) when set in Navidrome. */
   userRating?: number
+  /** Subsonic: first genre. */
+  genre?: string
+  /** OpenSubsonic: every genre. */
+  genres?: { name?: string }[]
 }
 
 export type CoverArtUrlFn = (coverArtId: string) => string

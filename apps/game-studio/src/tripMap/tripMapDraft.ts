@@ -18,50 +18,36 @@ import {
   SITE_SHOP_POOL_CAP,
   SITE_SHOP_SHELF_CAP,
   siteFromPreset,
-  sitePresetForShop,
   tripMapSchema,
   type IncidentCostLine,
   type ParseTripMapResult,
+  type SiteShopRequest,
   type TriggerableIncidentId,
   type SitePreset,
   type TripMap,
   type TripMapInput,
   type TripSite,
 } from "@repo/road-trip-map"
-import {
-  ITEM_CATALOG,
-  RECORD_STORE_SHOP,
-  SHOP_CATALOG,
-  validateRoomShopRequest,
-} from "@repo/plugin-item-shops"
+import { ITEM_CATALOG, SHOP_CATALOG, validateRoomShopRequest } from "@repo/plugin-item-shops"
 import { sampleComposableOffers } from "@repo/game-logic"
-import { isPhysicalMediaDefinition, ITEM_SHOPS_PLUGIN_NAME, type ItemRarity } from "@repo/types"
+import {
+  isPhysicalMediaDefinition,
+  ITEM_SHOPS_PLUGIN_NAME,
+  type ItemRarity,
+  PHYSICAL_MEDIA_FORMAT_LABELS,
+  type PhysicalMediaFormat,
+} from "@repo/types"
 import type { SiteShopSample } from "@repo/road-trip-map"
 
 const DRAFT_STORAGE_KEY = "game-studio:trip-map-draft"
 
 export type TripSiteDraft = TripMapInput["sites"][number]
 
-/** Catalog shops plus Record Store, which Item Shops only stocks on the Media Bridge. */
-export const SHOP_OPTIONS: { shopId: string; name: string }[] = [
-  ...SHOP_CATALOG,
-  RECORD_STORE_SHOP,
-].map((shop) => ({ shopId: shop.shopId, name: shop.name }))
-
-const KNOWN_SHOP_IDS = new Set(SHOP_OPTIONS.map((s) => s.shopId))
-const EVERYWHERE_SHOP_IDS = new Set(SHOP_CATALOG.map((s) => s.shopId))
-
-/** Site library: generic presets plus one roadside stand per Item Shops shop. */
-export const SITE_LIBRARY: SitePreset[] = [
-  ...GENERIC_SITE_PRESETS,
-  ...SHOP_OPTIONS.map((shop) =>
-    sitePresetForShop(
-      shop.shopId === RECORD_STORE_SHOP.shopId
-        ? { ...shop, icon: "📀", description: "Crates of used records and playback gear." }
-        : shop,
-    ),
-  ),
-]
+/** Checkbox label for a format: "CDs", "Cassettes". */
+export function formatCheckLabel(format: PhysicalMediaFormat): string {
+  const label = PHYSICAL_MEDIA_FORMAT_LABELS[format]
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}
 
 export function loadDraft(): TripMapInput {
   try {
@@ -198,13 +184,12 @@ function offerRoomWarnings(offers: { definitionId: string }[] | undefined): stri
   return warnings
 }
 
-/** Item Shops' own check, plus room-type warnings for composed offers. */
-export function validateCatalogShop(req: { shopIds?: string[]; offers?: { definitionId: string }[] }) {
-  const result = validateRoomShopRequest(req, {
-    shopIds: KNOWN_SHOP_IDS,
-    availableShopIds: EVERYWHERE_SHOP_IDS,
-    definitionIds: KNOWN_DEFINITION_IDS,
-  })
+/**
+ * Item Shops' own check, plus room-type warnings for composed offers. The
+ * studio has no room library, so a record bin is never warned about here.
+ */
+export function validateCatalogShop(req: SiteShopRequest) {
+  const result = validateRoomShopRequest(req, { definitionIds: KNOWN_DEFINITION_IDS })
   if (!result.ok) return result
   const warnings = [...(result.warnings ?? []), ...offerRoomWarnings(req.offers)]
   return warnings.length > 0 ? { ok: true as const, warnings } : { ok: true as const }
@@ -263,6 +248,13 @@ export function updateFunds(
   patch: Partial<NonNullable<TripTuningDraft["funds"]>>,
 ): TripMapInput {
   return updateTuning(draft, { funds: { ...draft.tuning?.funds, ...patch } })
+}
+
+export function updateVanPlayback(
+  draft: TripMapInput,
+  patch: Partial<NonNullable<TripTuningDraft["vanPlayback"]>>,
+): TripMapInput {
+  return updateTuning(draft, { vanPlayback: { ...draft.tuning?.vanPlayback, ...patch } })
 }
 
 export function updateSite(

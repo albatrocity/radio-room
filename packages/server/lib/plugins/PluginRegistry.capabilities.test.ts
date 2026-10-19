@@ -25,6 +25,7 @@ function shopAccessStub(): ShopAccessCapability {
     openRoomShop: vi.fn(async () => ({ ok: true as const })),
     closeRoomShop: vi.fn(async () => {}),
     validateShop: vi.fn(async () => ({ ok: true as const })),
+    setSharedPlayback: vi.fn(async () => {}),
   }
 }
 
@@ -35,7 +36,7 @@ describe("PluginRegistry.requestCapability (ADR 0206)", () => {
     registry.registerPlugin(() => shopsPlugin(shopAccessStub()))
     seedRoomPlugin(registry, "room1", shopsPlugin(access))
 
-    const request = { scopeId: "trip:t:site:a", shopIds: ["farmers-market"] }
+    const request = { scopeId: "trip:t:site:a", physicalMedia: { formats: ["CD" as const] } }
     const result = await registry.requestCapability("room1", "shopAccess", "openRoomShop", [
       request,
     ])

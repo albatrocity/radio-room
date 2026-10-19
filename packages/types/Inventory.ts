@@ -71,8 +71,63 @@ export const PHYSICAL_MEDIA_FORMATS: readonly PhysicalMediaFormat[] = [
   "45",
 ] as const
 
+/** Plural, lowercase-friendly names for player-facing and authoring copy ("CDs", "cassettes"). */
+export const PHYSICAL_MEDIA_FORMAT_LABELS: Record<PhysicalMediaFormat, string> = {
+  CD: "CDs",
+  LP: "LPs",
+  TAPE: "cassettes",
+  "45": "45s",
+}
+
+/** "CDs", "CDs and LPs", "CDs, LPs, and 45s"; "nothing" when empty. */
+export function formatPhysicalMediaList(formats: readonly PhysicalMediaFormat[] | undefined): string {
+  const labels = (formats ?? []).map((f) => PHYSICAL_MEDIA_FORMAT_LABELS[f] ?? f)
+  if (labels.length === 0) return "nothing"
+  if (labels.length === 1) return labels[0]!
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`
+  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`
+}
+
 export function isPhysicalMediaFormat(value: unknown): value is PhysicalMediaFormat {
   return typeof value === "string" && (PHYSICAL_MEDIA_FORMATS as readonly string[]).includes(value)
+}
+
+/**
+ * Which derived Physical Media a shop or trip site stocks (ADR 0214). Any listed
+ * format and any listed genre; a record must pass both. Empty or omitted = no limit.
+ */
+export type PhysicalMediaCarry = {
+  formats?: PhysicalMediaFormat[]
+  genres?: string[]
+}
+
+/** Trimmed, non-empty, deduped case-insensitively (first spelling wins). */
+export function normalizeGenres(values: unknown): string[] {
+  if (!Array.isArray(values)) return []
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    if (typeof value !== "string") continue
+    const genre = value.trim()
+    const key = genre.toLowerCase()
+    if (!genre || seen.has(key)) continue
+    seen.add(key)
+    out.push(genre)
+  }
+  return out
+}
+
+/** Whether a record definition belongs in a carry. Items with no `mediaFormat` never match. */
+export function matchesPhysicalMediaCarry(
+  definition: { mediaFormat?: PhysicalMediaFormat | null; genres?: readonly string[] | null },
+  carry: PhysicalMediaCarry,
+): boolean {
+  const format = definition.mediaFormat
+  if (!format) return false
+  if (carry.formats?.length && !carry.formats.includes(format)) return false
+  if (!carry.genres?.length) return true
+  const wanted = new Set(carry.genres.map((g) => g.trim().toLowerCase()))
+  return (definition.genres ?? []).some((g) => wanted.has(g.trim().toLowerCase()))
 }
 
 /** Session slot pools. Default (omitted / unknown) is the consumable bag. */
@@ -305,6 +360,21 @@ export type LocalPlaylistArtwork = {
   imageUrlLarge?: string
 }
 
+/** One Navidrome album from `listLibraryAlbums`, for album-catalog Physical Media (ADR 0110). */
+export type LibraryAlbumRow = {
+  id: string
+  name: string
+  artist?: string
+  year?: number
+  songCount?: number
+  /** Subsonic coverArt key only, never a data URI. */
+  coverArt?: string
+  /** Navidrome userRating (1–5); drives Physical Media rarity (ADR 0111). */
+  userRating?: number
+  /** Navidrome album genres; absent on stale DJ Mac packs (ADR 0214). */
+  genres?: string[]
+}
+
 export const PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY = "physicalMediaFrame" as const
 
 /** `ItemDefinition.model` must be a bare GLB filename — no directories (ADR 0199). */
@@ -387,6 +457,8 @@ export interface ItemDefinition {
    * Use this — not `artworkFrame` — to key format-specific behavior.
    */
   mediaFormat?: PhysicalMediaFormat
+  /** Navidrome genres on a derived record; filters record bins (ADR 0214). */
+  genres?: string[]
   /**
    * Formats this item can play. Holding one is required to queue a track from a
    * record whose `mediaFormat` is listed here (ADR 0160). Distinct from

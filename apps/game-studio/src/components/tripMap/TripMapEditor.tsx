@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import {
   FUND_PURPOSE_LABELS,
+  GENERIC_SITE_PRESETS,
   INCIDENTS,
   SAMPLE_TRIP_MAP,
   TRIGGERABLE_INCIDENT_IDS,
@@ -25,7 +26,6 @@ import { toaster } from "../ui/toaster"
 import { useDebouncedValue } from "../../hooks/useDebouncedValue"
 import {
   DEFAULT_PREVIEW_WALLETS,
-  SITE_LIBRARY,
   addBlankSite,
   addScriptedEvent,
   addSiteFromPreset,
@@ -65,6 +65,7 @@ import { TripFuelCurve } from "./TripFuelCurve"
 import { TripRouteTrack } from "./TripRouteTrack"
 import { TripSiteArt } from "./TripSiteArt"
 import { TripSiteInspector } from "./TripSiteInspector"
+import { TripVanPlayback } from "./TripVanPlayback"
 
 function toLocalInput(ms: number): string {
   const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60_000)
@@ -490,6 +491,8 @@ export function TripMapEditor() {
         </Field.Root>
       </SimpleGrid>
 
+      <TripVanPlayback draft={draft} onChange={setDraft} />
+
       <HStack gap="2" flexWrap="wrap">
         <Text fontSize="xs" color="fg.muted">
           Add site:
@@ -503,7 +506,7 @@ export function TripMapEditor() {
             return null
           }}
         />
-        {SITE_LIBRARY.map((preset) => (
+        {GENERIC_SITE_PRESETS.map((preset) => (
           <Button
             key={preset.id}
             size="xs"

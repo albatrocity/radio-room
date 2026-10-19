@@ -17,6 +17,8 @@ import {
   itemsResolving,
   roadTripItemId,
   routeMiles as mapRouteMiles,
+  siteShopRequest,
+  siteShopTitle,
   tripMapSchema,
   vanPart,
   type FundsMode,
@@ -125,9 +127,7 @@ function revealed(
     icon: site.icon,
     ...(site.imageUrl ? { imageUrl: site.imageUrl } : {}),
     ...(site.role === "destination" ? { destination: true } : {}),
-    ...(site.shop?.shopIds?.length || site.shop?.offers?.length
-      ? { shopTitle: site.shop.title ?? site.name }
-      : {}),
+    ...(siteShopRequest(site) ? { shopTitle: siteShopTitle(site) } : {}),
     ...(site.services?.gas ? { gasPrice: site.services.gas.pricePerGallon } : {}),
     ...(site.services?.mechanic ? { mechanic: true as const } : {}),
     ...(state === "visited" && site.model ? { modelUrl: site.model.url } : {}),

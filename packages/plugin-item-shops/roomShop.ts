@@ -1,5 +1,6 @@
 import type {
   ItemDefinition,
+  PhysicalMediaCarry,
   RoomShopOffer,
   RoomShopSample,
   ValidateShopRequest,
@@ -10,7 +11,6 @@ import {
   type ItemShopsShopCatalogEntry,
   type ShoppingExtraOffer,
 } from "@repo/plugin-base"
-import { RECORD_STORE_SHOP_ID } from "./localLibrary/catalog"
 
 /**
  * Room shop rounds opened through the `shopAccess` capability (ADR 0206).
@@ -21,10 +21,11 @@ export const ROOM_SHOP_SCOPE_KEY = "room-shop:scope"
 
 export type RoomShopScope = {
   scopeId: string
-  shopIds: string[]
   /** Custom offers (D14) re-resolved for late joiners. */
   offers?: RoomShopOffer[]
-  /** Offers-only buyback fraction. Catalog shops keep their own rates. */
+  /** The record bin's filter, re-matched for late joiners (ADR 0214). */
+  physicalMedia?: PhysicalMediaCarry
+  /** Buyback fraction for everything the shop buys back. Default 0. */
   buybackRate?: number
   /** When set, each traveler samples this way from `offers`. */
   sample?: RoomShopSample
@@ -32,57 +33,35 @@ export type RoomShopScope = {
   openedAt: number
 }
 
-const UNAVAILABLE_NOTES: Record<string, string> = {
-  [RECORD_STORE_SHOP_ID]:
-    "Record Store only opens in rooms on the Media Bridge with a local library",
-}
+/** How many derived records this room has, and how many a request's bin matches. */
+export type PhysicalMediaAvailability = { derived: number; matching: number }
 
 /**
- * Unknown ids are errors. Known shops this room can't open right now (Record
- * Store off the Media Bridge, or a shop with nothing for this room type) are
- * warnings, so the same map still loads in any room.
+ * Offers and/or a record bin. Unknown offers are errors. A bin this room
+ * can't fill is a warning, so the same map still loads in any room (ADR 0207).
  */
-export function validateRoomShopIds(
-  shopIds: readonly string[],
-  knownShopIds: ReadonlySet<string>,
-  availableShopIds: ReadonlySet<string> = knownShopIds,
-): ValidateShopResult {
-  if (shopIds.length === 0) return { ok: false, errors: ["List at least one shop id."] }
-  const errors = shopIds.filter((id) => !knownShopIds.has(id)).map((id) => `Unknown shop "${id}"`)
-  if (errors.length > 0) return { ok: false, errors }
-  const warnings = shopIds
-    .filter((id) => !availableShopIds.has(id))
-    .map(
-      (id) =>
-        `${UNAVAILABLE_NOTES[id] ?? `Shop "${id}" isn't available in this room`}; the van still stops`,
-    )
-  return warnings.length > 0 ? { ok: true, warnings } : { ok: true }
-}
-
-/** Shop ids plus custom offers; offers alone are a valid room shop. */
 export function validateRoomShopRequest(
   req: ValidateShopRequest,
-  known: {
-    shopIds: ReadonlySet<string>
-    availableShopIds?: ReadonlySet<string>
-    definitionIds: ReadonlySet<string>
-  },
+  known: { definitionIds: ReadonlySet<string>; physicalMedia?: PhysicalMediaAvailability },
 ): ValidateShopResult {
-  const shopIds = req.shopIds ?? []
   const offers = req.offers ?? []
-  if (shopIds.length === 0 && offers.length === 0) {
-    return { ok: false, errors: ["List at least one shop id or custom offer."] }
+  if (offers.length === 0 && !req.physicalMedia) {
+    return { ok: false, errors: ["List at least one custom offer, or sell physical media."] }
   }
-  const offerErrors = offers
+  const errors = offers
     .filter((o) => !known.definitionIds.has(o.definitionId))
     .map((o) => `Unknown item "${o.definitionId}"`)
-  if (shopIds.length === 0) {
-    return offerErrors.length > 0 ? { ok: false, errors: offerErrors } : { ok: true }
+  if (errors.length > 0) return { ok: false, errors }
+  const warning = req.physicalMedia && known.physicalMedia ? binWarning(known.physicalMedia) : null
+  return warning ? { ok: true, warnings: [warning] } : { ok: true }
+}
+
+function binWarning({ derived, matching }: PhysicalMediaAvailability): string | null {
+  if (derived === 0) {
+    return "Records only sell in rooms on the Media Bridge with a local library; the van still stops"
   }
-  const shops = validateRoomShopIds(shopIds, known.shopIds, known.availableShopIds)
-  if (!shops.ok) return { ok: false, errors: [...shops.errors, ...offerErrors] }
-  if (offerErrors.length > 0) return { ok: false, errors: offerErrors }
-  return shops
+  if (matching === 0) return "No records in this room's library match; the van still stops"
+  return null
 }
 
 /** Resolve offers against registered definitions; `unknown` lists ids with no definition. */
@@ -108,9 +87,13 @@ export function resolveRoomShopOffers(
   return { extras, unknown }
 }
 
-/** The shop a round assigns when the scope has offers but no catalog shops. */
+/**
+ * The composed shop a scoped round assigns. Its record bin comes from
+ * `physicalMedia` (stocked by `withPhysicalMediaStock`, like any catalog
+ * shop); offers are appended as extras.
+ */
 export function offersOnlyShop(
-  scope: Pick<RoomShopScope, "scopeId" | "title" | "buybackRate">,
+  scope: Pick<RoomShopScope, "scopeId" | "title" | "buybackRate" | "physicalMedia">,
 ): ItemShopsShopCatalogEntry {
   const rate = scope.buybackRate ?? 0
   return {
@@ -118,6 +101,7 @@ export function offersOnlyShop(
     name: scope.title ?? "Shop",
     openingMessage: "{{shopName}} is open!",
     availableItems: [],
+    ...(scope.physicalMedia ? { physicalMedia: scope.physicalMedia } : {}),
     listedBuybackRate: rate,
     unlistedBuybackRate: rate,
   }

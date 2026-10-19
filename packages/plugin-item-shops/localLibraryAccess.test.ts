@@ -30,12 +30,22 @@ const TAPE_SHORT_ID = "pm-blue-lines"
 const TAPE_DEF_ID = `item-shops:${TAPE_SHORT_ID}`
 
 function createStorage() {
+  const json = new Map<string, unknown>()
   return {
     get: vi.fn(async () => null),
     set: vi.fn(),
-    del: vi.fn(),
+    del: vi.fn(async (key: string) => {
+      json.delete(key)
+    }),
     hget: vi.fn(),
     hset: vi.fn(),
+    getJson: vi.fn(async (key: string) => {
+      const value = json.get(key) ?? null
+      return { raw: value == null ? null : JSON.stringify(value), value }
+    }),
+    setJson: vi.fn(async (key: string, value: unknown) => {
+      json.set(key, structuredClone(value))
+    }),
   }
 }
 
@@ -1387,6 +1397,66 @@ describe("ItemShopsPlugin local library grants", () => {
         "cd-stack-1",
         expect.anything(),
       )
+    })
+
+    describe("shared playback (the trip van, ADR 0215)", () => {
+      function cdWithoutDevice() {
+        return setup({
+          extraItems: [cdStack()],
+          extraDerivedPhysicalMedia: [DERIVED_CD],
+          extraPlaylistMap: { [CD_SHORT_ID]: "nd-cd" },
+          membershipPlaylistIds: ["nd-cd"],
+          hasPlaybackDevice: false,
+        })
+      }
+      const shopAccess = (plugin: ItemShopsPlugin) => plugin.capabilities.shopAccess!
+
+      it("queues a CD with no device while the van plays CDs, and the CD wears", async () => {
+        const { plugin, inventory } = cdWithoutDevice()
+        await shopAccess(plugin).setSharedPlayback("road-trip", { formats: ["CD"] })
+        expect(await plugin.validateQueueRequest(localParams)).toEqual({
+          allowed: true,
+          pluginData: { physicalMediaFrame: { condition: "mint" } },
+        })
+        expect(inventory.updateItemMetadata).toHaveBeenCalledWith("u1", "cd-stack-1", {
+          condition: "good",
+        })
+      })
+
+      it("skips wear when the van is gentle", async () => {
+        const { plugin, inventory } = cdWithoutDevice()
+        await shopAccess(plugin).setSharedPlayback("road-trip", { formats: ["CD"], gentle: true })
+        expect(await plugin.validateQueueRequest(localParams)).toEqual({ allowed: true })
+        expect(inventory.updateItemMetadata).not.toHaveBeenCalled()
+      })
+
+      it("still rejects a format the van doesn't play, and rejects again once cleared", async () => {
+        const { plugin } = cdWithoutDevice()
+        const rejected = { allowed: false, reason: PLAYBACK_DEVICE_MISSING_REASON }
+        await shopAccess(plugin).setSharedPlayback("road-trip", { formats: ["LP"] })
+        expect(await plugin.validateQueueRequest(localParams)).toEqual(rejected)
+        await shopAccess(plugin).setSharedPlayback("road-trip", { formats: ["CD"] })
+        await shopAccess(plugin).setSharedPlayback("road-trip", { formats: [] })
+        expect(await plugin.validateQueueRequest(localParams)).toEqual(rejected)
+      })
+
+      it("unions owners, and clearing one leaves the other", async () => {
+        const { plugin } = cdWithoutDevice()
+        await shopAccess(plugin).setSharedPlayback("road-trip", { formats: ["LP"] })
+        await shopAccess(plugin).setSharedPlayback("jukebox-bar", { formats: ["CD"] })
+        expect(await plugin.validateQueueRequest(localParams)).toMatchObject({ allowed: true })
+        await shopAccess(plugin).setSharedPlayback("road-trip", { formats: [] })
+        expect(await plugin.validateQueueRequest(localParams)).toMatchObject({ allowed: true })
+      })
+
+      it("still requires owning the record", async () => {
+        const { plugin } = setup({ hasLibraryGrant: false, hasPlaybackDevice: false })
+        await shopAccess(plugin).setSharedPlayback("road-trip", { formats: ["CD", "LP"] })
+        expect(await plugin.validateQueueRequest(localParams)).toEqual({
+          allowed: false,
+          reason: LOCAL_LIBRARY_QUEUE_REJECT_REASON,
+        })
+      })
     })
 
     it("allows a library-scope grant with no playback device", async () => {

@@ -186,12 +186,51 @@ describe("ItemShopsPlugin auto-shop", () => {
       return { ...created, shopping, access: plugin.capabilities.shopAccess! }
     }
 
-    it("opens a round limited to the named shops, even outside the rotation", async () => {
-      const { access, shopping, context } = setup({ ...autoShopConfig(), enabledShopIds: ["sweetwater"] })
-      const result = await access.openRoomShop({ scopeId: "trip:t1:site:a", shopIds: ["farmers-market"] })
+    const record = (shortId: string, mediaFormat: "CD" | "LP", genres?: string[]): ItemCatalogEntry => ({
+      definition: {
+        shortId,
+        name: shortId,
+        description: "",
+        mediaFormat,
+        ...(genres ? { genres } : {}),
+        stackable: false,
+        maxStack: 1,
+        tradeable: true,
+        consumable: false,
+        coinValue: 25,
+      },
+    })
+
+    function withRecords(config = autoShopConfig()) {
+      const created = setup(config)
+      ;(plugin as any).localLibrary.derivedPhysicalMedia = [
+        record("country-cd", "CD", ["Country"]),
+        record("country-lp", "LP", ["Country"]),
+        record("rock-cd", "CD", ["Rock"]),
+      ]
+      return created
+    }
+
+    const COUNTRY_CDS = { formats: ["CD" as const], genres: ["country"] }
+
+    it("opens a record bin on a composed shop, outside the rotation", async () => {
+      const { access, shopping, context } = withRecords({ ...autoShopConfig(), enabledShopIds: ["sweetwater"] })
+      const result = await access.openRoomShop({
+        scopeId: "trip:t1:site:a",
+        title: "Honky Tonk",
+        physicalMedia: COUNTRY_CDS,
+      })
       expect(result).toEqual({ ok: true })
-      const [, eligible] = shopping.startSession.mock.calls[0] as unknown as [unknown, { shopId: string }[]]
-      expect(eligible.map((s) => s.shopId)).toEqual(["farmers-market"])
+      const [, eligible, extras] = shopping.startSession.mock.calls[0] as unknown as [
+        unknown,
+        { shopId: string; name: string; distinctOffers?: boolean; availableItems: { shortId: string }[] }[],
+        unknown[],
+      ]
+      expect(eligible).toEqual([
+        expect.objectContaining({ shopId: "room-shop:trip:t1:site:a", name: "Honky Tonk", distinctOffers: true }),
+      ])
+      expect(eligible[0]!.availableItems.map((i) => i.shortId)).toEqual(["country-cd"])
+      expect(extras).toEqual([])
       expect(context.api.emit).toHaveBeenCalledWith(
         "SHOPPING_SESSION_STARTED",
         { roomId: "room-1" },
@@ -199,27 +238,44 @@ describe("ItemShopsPlugin auto-shop", () => {
       )
     })
 
-    it("reports disabled, no session, and unknown shops", async () => {
-      let { access } = setup({ ...autoShopConfig(), enabled: false })
-      expect(await access.openRoomShop({ scopeId: "s", shopIds: ["farmers-market"] })).toEqual({
+    it("re-matches the bin for a late joiner", async () => {
+      const { access } = withRecords()
+      const assignInstanceForUserId = vi.fn(async () => {})
+      ;(plugin as any).shopping = {
+        ...(plugin as any).shopping,
+        getInstance: vi.fn(async () => null),
+        assignInstanceForUserId,
+      }
+      await access.openRoomShop({ scopeId: "s", physicalMedia: COUNTRY_CDS })
+      ;(plugin as any).localLibrary.derivedPhysicalMedia.push(record("new-country-cd", "CD", ["Country"]))
+      await (plugin as any).handleUserJoined({ user: { userId: "u2", username: "Late" } })
+      const eligible = (assignInstanceForUserId.mock.calls[0] as unknown[])[2] as {
+        availableItems: { shortId: string }[]
+      }[]
+      expect(eligible[0]!.availableItems.map((i) => i.shortId)).toEqual(["country-cd", "new-country-cd"])
+    })
+
+    it("reports disabled, no session, and an empty bin", async () => {
+      let { access } = withRecords({ ...autoShopConfig(), enabled: false })
+      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: {} })).toEqual({
         ok: false,
         reason: "disabled",
       })
-      ;({ access } = setup())
-      expect(await access.openRoomShop({ scopeId: "s", shopIds: ["nope"] })).toEqual({
+      ;({ access } = withRecords())
+      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: { genres: ["Polka"] } })).toEqual({
         ok: false,
-        reason: "unknown-shop",
+        reason: "unavailable",
       })
       ;(plugin as any).context.game.getActiveSession = vi.fn(async () => null)
-      expect(await access.openRoomShop({ scopeId: "s", shopIds: ["farmers-market"] })).toEqual({
+      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: {} })).toEqual({
         ok: false,
         reason: "no-session",
       })
     })
 
     it("closes only the round its scope opened", async () => {
-      const { access, shopping } = setup()
-      await access.openRoomShop({ scopeId: "trip:t1:site:a", shopIds: ["farmers-market"] })
+      const { access, shopping } = withRecords()
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: {} })
       await access.closeRoomShop("trip:t1:site:other")
       expect(shopping.clearSessionRound).not.toHaveBeenCalled()
       await access.closeRoomShop("trip:t1:site:a")
@@ -227,41 +283,34 @@ describe("ItemShopsPlugin auto-shop", () => {
     })
 
     it("a regular round takes over the scope so the trip can't close it", async () => {
-      const { access, shopping } = setup()
-      await access.openRoomShop({ scopeId: "trip:t1:site:a", shopIds: ["farmers-market"] })
+      const { access, shopping } = withRecords()
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: {} })
       await plugin.executeAction("startShoppingSession", ADMIN)
       await access.closeRoomShop("trip:t1:site:a")
       expect(shopping.clearSessionRound).not.toHaveBeenCalled()
     })
 
     it("auto-shop stands down while a scoped round is open", async () => {
-      const { access } = setup()
-      await access.openRoomShop({ scopeId: "trip:t1:site:a", shopIds: ["farmers-market"] })
+      const { access } = withRecords()
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: {} })
       const openShoppingRound = vi.spyOn(plugin as any, "openShoppingRound")
       await (plugin as any).onAutoShopTick()
       expect(openShoppingRound).not.toHaveBeenCalled()
     })
 
-    it("validates shop ids against the catalog", async () => {
-      const { access } = setup()
-      expect(await access.validateShop({ shopIds: ["farmers-market"] })).toEqual({ ok: true })
-      expect(await access.validateShop({ shopIds: ["farmers-market", "mall"] })).toEqual({
-        ok: false,
-        errors: ['Unknown shop "mall"'],
-      })
-    })
-
-    it("accepts Record Store everywhere, warning when the room can't open it", async () => {
-      const { access } = setup()
-      expect(await access.validateShop({ shopIds: ["record-store"] })).toEqual({
+    it("accepts a record bin everywhere, warning when the room can't fill it", async () => {
+      let { access } = setup()
+      expect(await access.validateShop({ physicalMedia: {} })).toEqual({
         ok: true,
         warnings: [
-          "Record Store only opens in rooms on the Media Bridge with a local library; the van still stops",
+          "Records only sell in rooms on the Media Bridge with a local library; the van still stops",
         ],
       })
-      expect(await access.openRoomShop({ scopeId: "s", shopIds: ["record-store"] })).toEqual({
-        ok: false,
-        reason: "unavailable",
+      ;({ access } = withRecords())
+      expect(await access.validateShop({ physicalMedia: COUNTRY_CDS })).toEqual({ ok: true })
+      expect(await access.validateShop({ physicalMedia: { genres: ["Polka"] } })).toEqual({
+        ok: true,
+        warnings: ["No records in this room's library match; the van still stops"],
       })
     })
 
@@ -373,20 +422,26 @@ describe("ItemShopsPlugin auto-shop", () => {
         expect(extras).toEqual([{ definition: FLAT, basePrice: 25, stock: 2 }])
       })
 
-      it("adds offers to a catalog shop round and defaults the price to coinValue", async () => {
+      it("appends offers to a record bin and defaults the price to coinValue", async () => {
         const { access, shopping } = withDefinitions([FLAT])
+        ;(plugin as any).localLibrary.derivedPhysicalMedia = [record("country-cd", "CD", ["Country"])]
+        const sample = { count: 1, weights: "even" as const }
         await access.openRoomShop({
           scopeId: "s",
-          shopIds: ["farmers-market"],
+          physicalMedia: COUNTRY_CDS,
           offers: [{ definitionId: FLAT.id }],
+          sample,
         })
-        const [, eligible, extras] = shopping.startSession.mock.calls[0] as unknown as [
+        const [, eligible, extras, extrasSample] = shopping.startSession.mock.calls[0] as unknown as [
           unknown,
-          { shopId: string }[],
+          { availableItems: { shortId: string }[]; distinctOffers?: boolean }[],
           { basePrice: number }[],
+          unknown,
         ]
-        expect(eligible.map((s) => s.shopId)).toEqual(["farmers-market"])
+        expect(eligible[0]!.availableItems.map((i) => i.shortId)).toEqual(["country-cd"])
+        expect(eligible[0]!.distinctOffers).toBe(true)
         expect(extras[0]?.basePrice).toBe(30)
+        expect(extrasSample).toEqual(sample)
       })
 
       it("refuses unknown items on open and reports them on validate", async () => {
@@ -403,7 +458,7 @@ describe("ItemShopsPlugin auto-shop", () => {
         expect(await access.validateShop({ offers: [{ definitionId: FLAT.id }] })).toEqual({ ok: true })
         expect(await access.validateShop({})).toEqual({
           ok: false,
-          errors: ["List at least one shop id or custom offer."],
+          errors: ["List at least one custom offer, or sell physical media."],
         })
       })
 
@@ -423,7 +478,7 @@ describe("ItemShopsPlugin auto-shop", () => {
         })
       })
 
-      it("does not open when every offer is gated out and there is no catalog shop", async () => {
+      it("does not open when every offer is gated out and there is no record bin", async () => {
         const definition: ItemDefinition = {
           id: "item-shops:beat-detector",
           sourcePlugin: "item-shops",

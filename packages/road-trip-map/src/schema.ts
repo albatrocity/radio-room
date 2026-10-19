@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { PHYSICAL_MEDIA_FORMATS, physicalMediaCarrySchema } from "@repo/types"
 
 /**
  * Trip Map v1 (ADR 0207).
@@ -72,10 +73,13 @@ export type SiteShopSample = z.infer<typeof siteShopSampleSchema>
 export const SITE_SHOP_SHELF_CAP = 12
 export const SITE_SHOP_POOL_CAP = 40
 
+/**
+ * A site's composed shop (ADR 0214): custom offers, plus the record bin from
+ * `services.physicalMedia`. Sites never open Item Shops catalog shops.
+ */
 export const siteShopSchema = z
   .object({
     title: z.string().min(1).max(60).optional(),
-    shopIds: z.array(z.string().min(1)).max(8).optional(),
     offers: z.array(shopOfferSchema).max(SITE_SHOP_POOL_CAP).optional(),
     /**
      * When set, `offers` is a candidate pool and each traveler sees `count` picks.
@@ -83,9 +87,8 @@ export const siteShopSchema = z
      */
     sample: siteShopSampleSchema.optional(),
     /**
-     * Offers-only shops buy back at this fraction of the item's price (0–1).
+     * The shop buys back at this fraction of the item's price (0–1), default 0.
      * Listed offers use their `basePrice`; anything else uses `coinValue`.
-     * Ignored when the site also names catalog shops.
      */
     buybackRate: z.number().min(0).max(1).optional(),
     openingMessage: z.string().min(1).max(200).optional(),
@@ -110,6 +113,11 @@ export const siteServicesSchema = z.object({
   gas: z.object({ pricePerGallon: z.number().positive().max(1000) }).optional(),
   /** A Mechanic: Engine Failure tows here (M4). */
   mechanic: z.literal(true).optional(),
+  /**
+   * Sells derived records matching these formats and genres (ADR 0214). `{}`
+   * sells every record. Each traveler sees 3, beside the site's `shop.offers`.
+   */
+  physicalMedia: physicalMediaCarrySchema.optional(),
 })
 export type SiteServices = z.infer<typeof siteServicesSchema>
 
@@ -186,6 +194,7 @@ export type FundsMode = z.infer<typeof fundsModeSchema>
 
 const DEFAULT_SKIP_POLL = { leadMinutes: 1.5, durationSec: 45, default: "skip" as const }
 const DEFAULT_FUNDS = { mode: "automatic" as const, windowMinutes: 3 }
+const DEFAULT_VAN_PLAYBACK = { formats: [...PHYSICAL_MEDIA_FORMATS], gentle: false }
 
 export const tripTuningSchema = z.object({
   /** Cosmetic tank size: the gauge and gas quotes are in gallons. */
@@ -209,6 +218,19 @@ export const tripTuningSchema = z.object({
       windowMinutes: z.number().positive().max(30).default(DEFAULT_FUNDS.windowMinutes),
     })
     .default(DEFAULT_FUNDS),
+  /**
+   * The van counts as a playback device while the map is loaded (ADR 0215).
+   * `gentle` plays records without wear, like a hi-fi device.
+   */
+  vanPlayback: z
+    .object({
+      formats: z
+        .array(z.enum(PHYSICAL_MEDIA_FORMATS))
+        .max(PHYSICAL_MEDIA_FORMATS.length)
+        .default([...PHYSICAL_MEDIA_FORMATS]),
+      gentle: z.boolean().default(false),
+    })
+    .default(DEFAULT_VAN_PLAYBACK),
   /** Flavor-copy picks only. */
   seed: z.number().int().optional(),
 })
@@ -227,6 +249,7 @@ export const tripMapSchema = z.object({
     revealMiles: 10,
     skipPoll: DEFAULT_SKIP_POLL,
     funds: DEFAULT_FUNDS,
+    vanPlayback: DEFAULT_VAN_PLAYBACK,
   }),
   sites: z.array(siteSchema).min(1).max(64),
   scriptedEvents: z.array(scriptedEventSchema).max(32).optional(),

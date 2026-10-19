@@ -5,6 +5,8 @@
  * plugin-instance lookup.
  */
 
+import type { PhysicalMediaCarry, PhysicalMediaFormat } from "./Inventory"
+
 /**
  * One custom offer in a room shop: any registered item by full definition id
  * (e.g. `road-trip:fix-a-flat`), added to every user's instance (D14).
@@ -25,24 +27,27 @@ export type RoomShopSample = {
   weights?: "rarity" | "even"
 }
 
-/** Open a room-wide shop round for a scope (e.g. a road-trip site stop). */
+/**
+ * Open a room-wide shop round for a scope (e.g. a road-trip site stop). The
+ * round's shop is composed: custom offers plus an optional record bin
+ * (ADR 0214). At least one of `offers` / `physicalMedia` is required.
+ */
 export type OpenRoomShopRequest = {
   /** Owner-chosen id; `closeRoomShop` only ends the round this scope opened. */
   scopeId: string
   title?: string
-  /** Item Shops catalog shop ids the round is limited to. */
-  shopIds?: string[]
-  /** Custom offers merged into the round's shop. At least one of `shopIds` / `offers` is required. */
+  /** Custom offers on the round's shop. */
   offers?: RoomShopOffer[]
   /**
-   * Buyback fraction (0–1) for an offers-only shop. Applies to listed offers
-   * and to anything else. Ignored when `shopIds` opens a catalog shop.
+   * Derived records the shop stocks. Each traveler sees 3 distinct picks,
+   * re-matched for late joiners. `{}` = every record.
    */
+  physicalMedia?: PhysicalMediaCarry
+  /** Buyback fraction (0–1) for listed offers and anything else. Default 0. */
   buybackRate?: number
   /**
    * When set, `offers` is a pool and each traveler sees `count` weighted picks.
-   * Omitted offers stay on the shelf for everyone. Catalog shops in the same
-   * request still sample on their own; these picks are appended.
+   * Omitted offers stay on the shelf for everyone. The record bin samples on its own.
    */
   sample?: RoomShopSample
   /** Optional room message when the shop opens. */
@@ -53,19 +58,30 @@ export type OpenRoomShopResult =
   | { ok: true }
   | {
       ok: false
-      reason: "disabled" | "unknown-shop" | "unknown-item" | "unavailable" | "no-session"
+      reason: "disabled" | "unknown-item" | "unavailable" | "no-session"
     }
 
-/** `warnings`: known shops this room can't open right now (e.g. Record Store off the Media Bridge). */
+/** `warnings`: what this room can't sell right now (e.g. records off the Media Bridge). */
 export type ValidateShopResult = { ok: true; warnings?: string[] } | { ok: false; errors: string[] }
 
-export type ValidateShopRequest = { shopIds?: string[]; offers?: RoomShopOffer[] }
+export type ValidateShopRequest = { offers?: RoomShopOffer[]; physicalMedia?: PhysicalMediaCarry }
+
+/**
+ * Formats everyone in the room can play without holding a device, e.g. the
+ * van on a trip (ADR 0215). `gentle` skips wear for those formats (ADR 0166).
+ */
+export type SharedPlayback = { formats: PhysicalMediaFormat[]; gentle?: boolean }
 
 /** Item Shops' room-shop access for other plugins (D13). Distinct from Item Shops' internal per-user `ItemShopsShopAccess`. */
 export interface ShopAccessCapability {
   openRoomShop(req: OpenRoomShopRequest): Promise<OpenRoomShopResult>
   closeRoomShop(scopeId: string): Promise<void>
   validateShop(req: ValidateShopRequest): Promise<ValidateShopResult>
+  /**
+   * Set (or, with empty `formats`, clear) one owner's shared playback. Owners'
+   * formats union; the caller still has to own the record.
+   */
+  setSharedPlayback(ownerId: string, playback: SharedPlayback): Promise<void>
 }
 
 /** Every capability a plugin can declare. Add new capabilities here. */

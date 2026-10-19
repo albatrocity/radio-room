@@ -3,6 +3,7 @@ import { queueItemFactory } from "@repo/factories/queueItem"
 import type {
   ChatMessage,
   Emoji,
+  LibraryAlbumRow,
   LocalPlaylistArtwork,
   PluginCatalogTrack,
   PluginPlaybackReadResult,
@@ -637,17 +638,7 @@ export class MockStudioPluginApi implements PluginAPI {
     return {}
   }
 
-  async listLibraryAlbums(_roomId: string): Promise<
-    Array<{
-      id: string
-      name: string
-      artist?: string
-      year?: number
-      songCount?: number
-      coverArt?: string
-      userRating?: number
-    }>
-  > {
+  async listLibraryAlbums(_roomId: string): Promise<LibraryAlbumRow[]> {
     return []
   }
 

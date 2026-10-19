@@ -27,6 +27,7 @@ export const pluginFactories: PluginFactory[] = [
   createAbsentDjPlugin,
   createQueueHygienePlugin,
   createGuessTheTunePlugin,
+  // Before Road Trip, which calls Item Shops' `shopAccess` while it registers.
   createItemShopsPlugin,
   createLoyaltyProgramPlugin,
   createQueuePacerPlugin,

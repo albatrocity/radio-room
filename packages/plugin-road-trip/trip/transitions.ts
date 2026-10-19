@@ -7,6 +7,7 @@ import {
   milesToNextGas,
   parkPlan,
   resolveSiteSettings,
+  siteShopTitle,
   sortedSites,
 } from "@repo/road-trip-map"
 import {
@@ -508,7 +509,7 @@ function park(state: TripState, ctx: TransitionContext, site: TripSite): Transit
     body: gas
       ? `Parked for ${minutes} min. ${gas.summary}`
       : shop.scopeId
-        ? `Parked for ${minutes} min. ${site.shop?.title ?? site.name} is open.`
+        ? `Parked for ${minutes} min. ${siteShopTitle(site)} is open.`
         : `Parked for ${minutes} min. ${site.description}`,
   })
   const narrative = narrate(site)

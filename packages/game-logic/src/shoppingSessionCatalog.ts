@@ -7,6 +7,7 @@ import type {
   ItemRarity,
   LucideIconName,
   MediaCondition,
+  PhysicalMediaCarry,
   RoomShopSample,
   ShoppingSessionInstance,
   ShopOffer,
@@ -143,6 +144,11 @@ export type ShopCatalogEntry = {
    * (`pickWeightedDistinctShortIds`).
    */
   distinctOffers?: boolean
+  /**
+   * Derived Physical Media this shop stocks beside `availableItems` (ADR 0214).
+   * `{}` = every record. Omitted = none.
+   */
+  physicalMedia?: PhysicalMediaCarry
   /** Called after a successful purchase. Use for shop-specific follow-up behaviors. */
   onBuy?: (ctx: ShopBuyContext) => void | Promise<void>
   /** Called after a shopping round starts for this shop (subset of eligible shops for the round). */

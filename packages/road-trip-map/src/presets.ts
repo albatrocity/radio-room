@@ -50,6 +50,17 @@ export const GENERIC_SITE_PRESETS: SitePreset[] = [
     },
   },
   {
+    id: "record-shop",
+    label: "Record shop",
+    site: {
+      name: "Record Shop",
+      description: "Crates of used records and a hand-lettered genre map on the wall.",
+      icon: "📀",
+      services: { physicalMedia: {} },
+      shop: { buybackRate: 0.1 },
+    },
+  },
+  {
     id: "destination-venue",
     label: "Venue (destination)",
     site: {
@@ -88,25 +99,6 @@ export const GENERIC_SITE_PRESETS: SitePreset[] = [
     },
   },
 ]
-
-/** Preset for a site that opens one Item Shops catalog shop as a roadside stand (D14). */
-export function sitePresetForShop(shop: {
-  shopId: string
-  name: string
-  icon?: string
-  description?: string
-}): SitePreset {
-  return {
-    id: `shop-${shop.shopId}`,
-    label: shop.name,
-    site: {
-      name: shop.name,
-      description: shop.description ?? `Pull off and browse ${shop.name}.`,
-      icon: shop.icon ?? "🛍️",
-      shop: { shopIds: [shop.shopId] },
-    },
-  }
-}
 
 /** Instantiate a preset at a mile with a unique id. */
 export function siteFromPreset(preset: SitePreset, id: string, mile: number): TripSite {

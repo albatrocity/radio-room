@@ -5,7 +5,7 @@ import type {
   LucideIconName,
   PhysicalMediaFormat,
 } from "@repo/types"
-import { ARTWORK_FRAME_BY_FORMAT } from "@repo/types"
+import { ARTWORK_FRAME_BY_FORMAT, normalizeGenres } from "@repo/types"
 import type { PhysicalMediaOverride } from "./config"
 import { cannedPhysicalMediaDescription } from "./conditionMessaging"
 
@@ -122,6 +122,8 @@ export type PhysicalMediaAlbum = {
   songCount?: number
   /** Navidrome userRating (1–5); drives rarity only (ADR 0111). */
   userRating?: number
+  /** Navidrome album genres; filters record bins (ADR 0214). */
+  genres?: string[]
 }
 
 /**
@@ -183,6 +185,7 @@ export function derivePhysicalMediaItemsFromAlbums(
     const artwork = artworkByAlbumId[id]
     const imageUrl = artwork?.imageUrl?.trim()
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
+    const genres = normalizeGenres(album.genres)
     items.push({
       definition: {
         shortId,
@@ -192,6 +195,7 @@ export function derivePhysicalMediaItemsFromAlbums(
         icon: inferred.icon,
         artworkFrame: inferred.artworkFrame,
         mediaFormat: inferred.token,
+        ...(genres.length > 0 ? { genres } : {}),
         ...(imageUrl ? { imageUrl } : {}),
         ...(imageUrlLarge ? { imageUrlLarge } : {}),
         stackable: false,
@@ -337,6 +341,8 @@ export function derivePhysicalMediaItems(
    * (ADR 0110 de-dup). Used when no override or title-tag rarity is set.
    */
   albumRatingByPlaylistId: Readonly<Record<string, number>> = {},
+  /** Genres of the album a playlist shadows, keyed by Navidrome playlist id. */
+  albumGenresByPlaylistId: Readonly<Record<string, readonly string[]>> = {},
 ): { items: ItemCatalogEntry[]; playlistMap: Record<string, string> } {
   const overrideById = new Map(overrides.map((o) => [o.playlistId.trim(), o]))
   const items: ItemCatalogEntry[] = []
@@ -359,6 +365,7 @@ export function derivePhysicalMediaItems(
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
     const rarity =
       override?.rarity ?? parsed.rarity ?? rarityFromUserRating(albumRatingByPlaylistId[id])
+    const genres = normalizeGenres(albumGenresByPlaylistId[id])
     items.push({
       definition: {
         shortId,
@@ -368,6 +375,7 @@ export function derivePhysicalMediaItems(
         icon: (override?.icon as LucideIconName | undefined) ?? parsed.icon,
         artworkFrame: parsed.artworkFrame,
         mediaFormat: parsed.token,
+        ...(genres.length > 0 ? { genres } : {}),
         ...(imageUrl ? { imageUrl } : {}),
         ...(imageUrlLarge ? { imageUrlLarge } : {}),
         stackable: false,

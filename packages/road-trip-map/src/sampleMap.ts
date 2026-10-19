@@ -1,7 +1,7 @@
 import type { TripMapInput } from "./schema"
 
 /**
- * Twelve-minute dev map for the Phase 1–3 playables: skip the Record Store,
+ * Twelve-minute dev map for the Phase 1–3 playables: skip the vinyl shop,
  * fill up at the gas station (low fuel makes it stop; Fix-a-Flat on the
  * counter), stop at the stand, blow a tire at mile 9, pass Hank's Garage, arrive.
  */
@@ -22,12 +22,14 @@ export const SAMPLE_TRIP_MAP: TripMapInput = {
   sites: [
     {
       id: "record-store",
-      presetId: "roadside-attraction",
+      presetId: "record-shop",
       name: "Dusty Boots Records",
       description: "Crates of used vinyl in a converted gas station.",
       icon: "📀",
       lore: "The owner swears the jukebox in the back only plays songs that haven't been written yet.",
       mile: 4,
+      services: { physicalMedia: { formats: ["LP", "45"] } },
+      shop: { buybackRate: 0.1 },
     },
     {
       id: "gas-n-go",
@@ -45,7 +47,7 @@ export const SAMPLE_TRIP_MAP: TripMapInput = {
     },
     {
       id: "farmers-market",
-      presetId: "shop-farmers-market",
+      presetId: "roadside-attraction",
       name: "Farmers Market",
       description: "A roadside stand with honey, peaches, and hand-lettered signs.",
       icon: "🍎",
@@ -53,7 +55,13 @@ export const SAMPLE_TRIP_MAP: TripMapInput = {
       mile: 8,
       skipPoll: { default: "stop" },
       shop: {
-        shopIds: ["farmers-market"],
+        offers: [
+          { definitionId: "item-shops:carrots" },
+          { definitionId: "item-shops:tomatoes" },
+          { definitionId: "item-shops:blueberries" },
+          { definitionId: "item-shops:lemons" },
+        ],
+        sample: { count: 3, weights: "even" },
         openingMessage: "The stand is open. Grab something for the road.",
       },
     },

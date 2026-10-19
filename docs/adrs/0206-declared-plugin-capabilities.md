@@ -1,7 +1,9 @@
 # 0206. Declared plugin capabilities; `shopAccess`
 
 **Date:** 2026-10-02
-**Status:** Accepted. Amended 2026-10-16 (composed offers)
+**Status:** Accepted. Amended 2026-10-16 (composed offers). Partially superseded by [0214](0214-physical-media-carry.md)
+
+> **Partially superseded by [0214](0214-physical-media-carry.md):** `shopIds` is gone from `openRoomShop` and `validateShop`, along with the `unknown-shop` reason. Requests take `offers` and/or a `physicalMedia` carry, and every scoped round is one composed shop. [0215](0215-van-shared-playback-formats.md) adds `setSharedPlayback`.
 
 ## Context
 

@@ -99,6 +99,16 @@ describe("TripSimRoom", () => {
     expect(sim.state.sites["record-store"]?.phase).toBe("stopping")
   })
 
+  it("posts what a records stop's shop sells when the van parks there", () => {
+    const { sim } = room()
+    sim.depart()
+    while (!sim.poll && sim.step());
+    sim.setVotes({ stop: 1, skip: 0 })
+    for (let i = 0; i < 10 && sim.state.sites["record-store"]?.phase !== "visited"; i++) sim.step()
+    const shop = sim.messages.find((m) => m.meta?.title === "Dusty Boots Records")
+    expect(shop?.content).toBe("Sells Records (LPs, 45s).")
+  })
+
   it("freezes the store on the wall clock so the room doesn't move the van", () => {
     const { sim, advanceWall } = room()
     sim.depart()

@@ -1,7 +1,9 @@
 # 0160. Playback-device gating
 
 **Date:** 2026-09-04
-**Status:** Accepted. Amended by [0166](0166-hifi-playback-devices-skip-wear.md)
+**Status:** Accepted. Amended by [0166](0166-hifi-playback-devices-skip-wear.md) and [0215](0215-van-shared-playback-formats.md)
+
+> **Amended by [0215](0215-van-shared-playback-formats.md):** held devices are no longer the only source of playable formats. Room-shared formats set through `shopAccess.setSharedPlayback` (the trip van) union into the same check.
 
 ## Context
 
