@@ -11,7 +11,7 @@ import type {
   MetadataSourceTrack,
   MetadataSourceUrl,
 } from "@repo/types"
-import { normalizeGenres } from "@repo/types"
+import { normalizeRecordGenres } from "@repo/types"
 import type { BridgeDaemonConfig } from "../config"
 import type { Driver, DriverState } from "./Driver"
 import {
@@ -95,10 +95,10 @@ export function parseSubsonicNumber(value: unknown): number | undefined {
   return undefined
 }
 
-/** Subsonic `genre` plus OpenSubsonic `genres[].name`, deduped. */
+/** Subsonic `genre` plus OpenSubsonic `genres[].name`, deduped and capped. */
 export function navidromeAlbumGenres(album: Pick<NavidromeAlbum, "genre" | "genres">): string[] {
   const named = Array.isArray(album.genres) ? album.genres.map((g) => g?.name) : []
-  return normalizeGenres([album.genre, ...named])
+  return normalizeRecordGenres([album.genre, ...named])
 }
 
 function normalizeAlbumUserRating(value: unknown): number | undefined {

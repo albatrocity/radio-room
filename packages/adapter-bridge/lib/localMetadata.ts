@@ -12,7 +12,7 @@ import type {
   SimpleCache,
 } from "@repo/types"
 import type { AppContext, LibraryAlbumRow } from "@repo/types"
-import { normalizeGenres } from "@repo/types"
+import { normalizeRecordGenres } from "@repo/types"
 import {
   LOCAL_BROWSE_CACHE_TTL_SEC,
   metadataBrowseAlbumCacheKey,
@@ -412,7 +412,7 @@ export function mapLocalLibraryAlbumRow(row: unknown): LocalLibraryAlbumListItem
   const userRating = normalizeAlbumUserRating(r.userRating)
   const year = parseSubsonicNumber(r.year)
   const songCount = parseSubsonicNumber(r.songCount)
-  const genres = normalizeGenres(r.genres)
+  const genres = normalizeRecordGenres(r.genres)
   return {
     id,
     name: r.name != null ? String(r.name) : id,

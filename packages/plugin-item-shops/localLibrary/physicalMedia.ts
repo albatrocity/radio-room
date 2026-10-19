@@ -5,7 +5,7 @@ import type {
   LucideIconName,
   PhysicalMediaFormat,
 } from "@repo/types"
-import { ARTWORK_FRAME_BY_FORMAT, normalizeGenres } from "@repo/types"
+import { ARTWORK_FRAME_BY_FORMAT, normalizeRecordGenres } from "@repo/types"
 import type { PhysicalMediaOverride } from "./config"
 import { cannedPhysicalMediaDescription } from "./conditionMessaging"
 
@@ -185,7 +185,7 @@ export function derivePhysicalMediaItemsFromAlbums(
     const artwork = artworkByAlbumId[id]
     const imageUrl = artwork?.imageUrl?.trim()
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
-    const genres = normalizeGenres(album.genres)
+    const genres = normalizeRecordGenres(album.genres)
     items.push({
       definition: {
         shortId,
@@ -365,7 +365,7 @@ export function derivePhysicalMediaItems(
     const imageUrlLarge = artwork?.imageUrlLarge?.trim()
     const rarity =
       override?.rarity ?? parsed.rarity ?? rarityFromUserRating(albumRatingByPlaylistId[id])
-    const genres = normalizeGenres(albumGenresByPlaylistId[id])
+    const genres = normalizeRecordGenres(albumGenresByPlaylistId[id])
     items.push({
       definition: {
         shortId,

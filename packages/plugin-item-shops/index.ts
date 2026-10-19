@@ -80,7 +80,7 @@ import {
 import { isLocalLibraryGrantShortId } from "./localLibraryGrants"
 import { LocalLibraryModule } from "./localLibrary"
 import { physicalMediaShopEconomyHooks } from "./localLibrary/shopEconomy"
-import { matchingPhysicalMedia } from "./localLibrary/physicalMediaStock"
+import { countMatchingPhysicalMedia } from "./localLibrary/physicalMediaStock"
 import {
   conditionsWithinBounds,
   DEFAULT_OFFER_CONDITION_BOUNDS,
@@ -938,7 +938,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       physicalMedia: {
         derived: this.localLibrary.derivedPhysicalMedia.length,
         matching: req.physicalMedia
-          ? matchingPhysicalMedia(this.localLibrary.derivedPhysicalMedia, req.physicalMedia).length
+          ? countMatchingPhysicalMedia(this.localLibrary.derivedPhysicalMedia, req.physicalMedia)
           : 0,
       },
     })

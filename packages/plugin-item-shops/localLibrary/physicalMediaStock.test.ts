@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { ItemCatalogEntry, ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
-import type { PhysicalMediaFormat } from "@repo/types"
-import { matchingPhysicalMedia } from "./physicalMediaStock"
+import { MAX_RECORD_GENRES, normalizeRecordGenres, type PhysicalMediaFormat } from "@repo/types"
+import { countMatchingPhysicalMedia, matchingPhysicalMedia } from "./physicalMediaStock"
 import { buildEffectiveShopCatalog, RECORD_STORE_SHOP_ID, withPhysicalMediaStock } from "./catalog"
 import { RECORD_STORE_FIXED_ITEMS } from "./shops/record-store"
 
@@ -58,6 +58,20 @@ describe("matchingPhysicalMedia", () => {
 
   it("prices from the definition", () => {
     expect(matchingPhysicalMedia([record("a", "CD")], {})).toEqual([{ shortId: "a", coinValue: 25 }])
+  })
+
+  it("counts the same records it would stock", () => {
+    for (const carry of [{}, { formats: ["CD" as const] }, { genres: ["country"] }, { genres: ["Polka"] }]) {
+      expect(countMatchingPhysicalMedia(derived, carry)).toBe(matchingPhysicalMedia(derived, carry).length)
+    }
+  })
+
+  it("caps genres read off an album, keeping first-seen order", () => {
+    const tags = Array.from({ length: 30 }, (_, i) => `Genre ${i}`)
+    const capped = normalizeRecordGenres([" Genre 0 ", "genre 0", ...tags])
+    expect(capped).toHaveLength(MAX_RECORD_GENRES)
+    expect(capped[0]).toBe("Genre 0")
+    expect(capped[1]).toBe("Genre 1")
   })
 })
 

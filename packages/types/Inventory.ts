@@ -101,6 +101,9 @@ export type PhysicalMediaCarry = {
   genres?: string[]
 }
 
+/** Most genres a derived record keeps, so a tag-spammed album can't bloat payloads. */
+export const MAX_RECORD_GENRES = 8
+
 /** Trimmed, non-empty, deduped case-insensitively (first spelling wins). */
 export function normalizeGenres(values: unknown): string[] {
   if (!Array.isArray(values)) return []
@@ -117,17 +120,42 @@ export function normalizeGenres(values: unknown): string[] {
   return out
 }
 
-/** Whether a record definition belongs in a carry. Items with no `mediaFormat` never match. */
+/** `normalizeGenres` capped at `MAX_RECORD_GENRES`, for genres read off an album. */
+export function normalizeRecordGenres(values: unknown): string[] {
+  return normalizeGenres(values).slice(0, MAX_RECORD_GENRES)
+}
+
+type CarryCandidate = {
+  mediaFormat?: PhysicalMediaFormat | null
+  genres?: readonly string[] | null
+}
+
+/**
+ * A predicate for one carry, built once so matching a whole library doesn't
+ * rebuild the genre set per record. Items with no `mediaFormat` never match.
+ */
+export function physicalMediaCarryMatcher(
+  carry: PhysicalMediaCarry,
+): (definition: CarryCandidate) => boolean {
+  const formats = carry.formats?.length ? new Set(carry.formats) : null
+  const genres = carry.genres?.length
+    ? new Set(carry.genres.map((g) => g.trim().toLowerCase()))
+    : null
+  return (definition) => {
+    const format = definition.mediaFormat
+    if (!format) return false
+    if (formats && !formats.has(format)) return false
+    if (!genres) return true
+    return (definition.genres ?? []).some((g) => genres.has(g.trim().toLowerCase()))
+  }
+}
+
+/** Whether a record definition belongs in a carry. Prefer `physicalMediaCarryMatcher` in loops. */
 export function matchesPhysicalMediaCarry(
-  definition: { mediaFormat?: PhysicalMediaFormat | null; genres?: readonly string[] | null },
+  definition: CarryCandidate,
   carry: PhysicalMediaCarry,
 ): boolean {
-  const format = definition.mediaFormat
-  if (!format) return false
-  if (carry.formats?.length && !carry.formats.includes(format)) return false
-  if (!carry.genres?.length) return true
-  const wanted = new Set(carry.genres.map((g) => g.trim().toLowerCase()))
-  return (definition.genres ?? []).some((g) => wanted.has(g.trim().toLowerCase()))
+  return physicalMediaCarryMatcher(carry)(definition)
 }
 
 /** Session slot pools. Default (omitted / unknown) is the consumable bag. */
