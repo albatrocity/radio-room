@@ -30,11 +30,22 @@ import {
 export const T0 = Date.parse("2026-10-02T20:00:00.000Z")
 export const MIN = 60_000
 
-type OpenPoll = { siteId: string; pollId: string; closesAt: number }
+export type OpenPoll = { siteId: string; pollId: string; closesAt: number }
+
+/** A pending schedule (`request`) or an open skip poll closing. */
+export type SimEvent = {
+  at: number
+  kind: ThresholdRequest["kind"] | "poll-close"
+  siteId?: string
+  request?: ThresholdRequest
+}
+
+export type SimStep = { event: SimEvent; log: TripLogEntry[]; effects: TripEffect[] }
 
 /**
- * In-memory trip runtime for tests: the same transitions, commit, and
- * thresholds as `mutateTrip`, with schedules fired in time order.
+ * In-memory trip runtime: the same transitions, commit, and thresholds as
+ * `mutateTrip`, with schedules fired in time order. Used by tests and the
+ * Game Studio trip simulator (ADR 0213).
  */
 export class TripSim {
   map: TripMap
@@ -56,11 +67,12 @@ export class TripSim {
   costScale = 1
   private pollSeq = 0
 
-  constructor(input: TripMapInput = SAMPLE_TRIP_MAP) {
+  constructor(input: TripMapInput = SAMPLE_TRIP_MAP, start = T0) {
     const parsed = parseTripMap(input)
     if (!parsed.ok) throw new Error(parsed.issues.map((i) => i.message).join("; "))
     this.map = parsed.map
-    this.state = createTripState({ map: parsed.map, hash: parsed.hash, loadedAt: T0 }, "trip-1", 7)
+    this.now = start
+    this.state = createTripState({ map: parsed.map, hash: parsed.hash, loadedAt: start }, "trip-1", 7)
   }
 
   /** The leg in force, read from state exactly as `mutateTrip` does. */
@@ -152,27 +164,64 @@ export class TripSim {
     return solveThresholds(this.state, this.map, this.current, this.now)
   }
 
+  /** The earliest pending schedule or poll close; poll closes win ties. */
+  peekNext(): SimEvent | null {
+    const next = [...this.thresholds()].sort((a, b) => a.at - b.at)[0]
+    const poll = [...this.polls].sort((a, b) => a.closesAt - b.closesAt)[0]
+    if (poll && (!next || poll.closesAt <= next.at)) {
+      return { at: poll.closesAt, kind: "poll-close", siteId: poll.siteId }
+    }
+    if (!next) return null
+    return {
+      at: next.at,
+      kind: next.kind,
+      ...(next.payload.siteId ? { siteId: next.payload.siteId } : {}),
+      request: next,
+    }
+  }
+
   /** Fire schedules and poll closes in time order up to `until`. */
   runUntil(until: number): void {
     for (let guard = 0; guard < 500; guard++) {
-      const next = [...this.thresholds()].sort((a, b) => a.at - b.at)[0]
-      const poll = [...this.polls].sort((a, b) => a.closesAt - b.closesAt)[0]
-      const nextAt = Math.min(next?.at ?? Infinity, poll?.closesAt ?? Infinity)
-      if (nextAt > until) break
-      this.now = nextAt
-      if (poll && poll.closesAt === nextAt) {
-        this.polls = this.polls.filter((p) => p !== poll)
-        this.apply(
-          resolveSkip(poll.siteId, {
-            pollId: poll.pollId,
-            votes: this.votes[poll.siteId] ?? { stop: 0, skip: 0 },
-          }),
-        )
-        continue
-      }
-      this.fire(next!)
+      const event = this.peekNext()
+      if (!event || event.at > until) break
+      this.fireEvent(event)
     }
     this.now = until
+  }
+
+  /**
+   * Fire exactly one pending event (the one `peekNext` names), moving the
+   * clock to it. Returns what fired, with the log and effects it produced.
+   */
+  stepNext(): SimStep | null {
+    const event = this.peekNext()
+    if (!event) return null
+    const logStart = this.log.length
+    const effectStart = this.effects.length
+    this.fireEvent(event)
+    return {
+      event,
+      log: this.log.slice(logStart),
+      effects: this.effects.slice(effectStart).map(({ effect }) => effect),
+    }
+  }
+
+  private fireEvent(event: SimEvent): void {
+    this.now = Math.max(this.now, event.at)
+    if (event.kind === "poll-close") {
+      const poll = this.polls.find((p) => p.siteId === event.siteId)
+      if (!poll) return
+      this.polls = this.polls.filter((p) => p !== poll)
+      this.apply(
+        resolveSkip(poll.siteId, {
+          pollId: poll.pollId,
+          votes: this.votes[poll.siteId] ?? { stop: 0, skip: 0 },
+        }),
+      )
+      return
+    }
+    this.fire(event.request!)
   }
 
   private fire(request: ThresholdRequest): void {

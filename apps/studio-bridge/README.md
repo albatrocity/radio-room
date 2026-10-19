@@ -18,6 +18,15 @@ Set `STUDIO_BRIDGE_TRIP_PREVIEW=1` when starting the bridge (or connect with the
 
 Fixtures live in `src/stubRoadTrip.ts`.
 
+### Trip simulator relay
+
+Game Studio's **Trip sim** page posts `{ roomId, snapshot }` to **`POST /trip-sim`** after every step ([ADR 0213](../../docs/adrs/0213-game-studio-trip-simulator.md)). `snapshot` is a `TripSimSnapshot` from `@repo/plugin-road-trip/sim` (store payload, trip chat lines, open poll, last closed poll), or `null` to clear it. It's kept beside the sandbox snapshot (`src/tripSimState.ts`), so `POST /sync` can't drop trip chat. While it's loaded:
+
+- the bridge emits `PLUGIN:road-trip:TRIP_UPDATED`, `MESSAGE_RECEIVED` for new lines, and `POLL_PUBLISHED` / `POLL_CLOSED` as the sim's exit poll opens and closes
+- LOGIN, `ROOM_DATA`, and `GET .../plugins/road-trip/components` merge the sim's chat, poll, and store, with no env flag
+- it replaces the fixture; `road-trip` plugin actions from the Room UI are refused with a pointer back to Game Studio
+- clearing it (or loading a new run) sends `MESSAGE_DELETED` for each of the old run's chat lines, and the store falls back to the fixture (or no trip)
+
 ## Out of scope (for now)
 
 - **`QUEUE_SONG` / `SONG_QUEUE_HELD`** — not stubbed. Round Robin DJ held-queue toasts and deputy turn flow are exercised against the real API + `@repo/plugin-round-robin-dj`, not Game Studio. Add a preview flag + ack stub only if Studio needs to polish that client UX without the full backend.

@@ -1,13 +1,14 @@
 "use client"
 
 import { Button, Heading, HStack, IconButton } from "@chakra-ui/react"
-import { Map as MapIcon, Moon, Sparkles, Sun, Users } from "lucide-react"
+import { Map as MapIcon, Moon, Route, Sparkles, Sun, Users } from "lucide-react"
 import { studioPageHref, type StudioPage } from "../../hooks/useStudioPage"
 import { useColorMode } from "../ui/color-mode"
 
 const PAGES: { page: StudioPage; label: string; icon: typeof Users }[] = [
   { page: "sandbox", label: "Sandbox", icon: Users },
   { page: "trip-maps", label: "Trip maps", icon: MapIcon },
+  { page: "trip-sim", label: "Trip sim", icon: Route },
 ]
 
 export function StudioHeader({ page }: { page: StudioPage }) {

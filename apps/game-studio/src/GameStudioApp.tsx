@@ -5,6 +5,7 @@ import { useEffect } from "react"
 import { SandboxPage } from "./components/studio/SandboxPage"
 import { StudioHeader } from "./components/studio/StudioHeader"
 import { TripMapEditor } from "./components/tripMap/TripMapEditor"
+import { TripSimPage } from "./components/tripSim/TripSimPage"
 import { useStudioBootstrap } from "./hooks/useStudioBootstrap"
 import { useStudioPage } from "./hooks/useStudioPage"
 import { connectStudioBridge, connectStudioBridgeControl } from "./studio/bridgeClient"
@@ -39,7 +40,13 @@ export function GameStudioApp() {
       <Container maxW="breakpoint-xl">
         <Stack gap="6">
           <StudioHeader page={page} />
-          {page === "trip-maps" ? <TripMapEditor /> : <SandboxPage boot={boot} />}
+          {page === "trip-maps" ? (
+            <TripMapEditor />
+          ) : page === "trip-sim" ? (
+            <TripSimPage />
+          ) : (
+            <SandboxPage boot={boot} />
+          )}
         </Stack>
       </Container>
     </Box>

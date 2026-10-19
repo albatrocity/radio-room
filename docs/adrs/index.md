@@ -218,6 +218,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0210](0210-shared-model-viewer-and-studio-site-assets.md) | Shared `@repo/model-viewer` (sole `three` importer) for items and sites; Game Studio publishes content-addressed site art to the CDN with designer credentials (extends 0199, amends 0207) | Accepted |
 | [0211](0211-trip-timeline-room-export.md) | Trip timeline in the room export | Accepted |
 | [0212](0212-site-narrative-chat.md) | Site narrative is chat prose, not a road sign | Accepted |
+| [0213](0213-game-studio-trip-simulator.md) | Game Studio trip simulator steps the pure trip runtime (`TripSim.stepNext`, `@repo/plugin-road-trip/sim`, `POST /trip-sim`) | Accepted |
 
 ## Creating a New ADR
 

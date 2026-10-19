@@ -47,6 +47,7 @@ export default defineConfig(({ mode }) => {
       ],
       exclude: [
         "@repo/plugin-item-shops",
+        "@repo/plugin-road-trip",
         "@repo/plugin-base",
         "@repo/game-logic",
         "@repo/types",

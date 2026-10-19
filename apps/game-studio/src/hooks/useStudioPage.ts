@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from "react"
 
-export type StudioPage = "sandbox" | "trip-maps"
+export type StudioPage = "sandbox" | "trip-maps" | "trip-sim"
 
 const PAGE_HASHES: Record<StudioPage, string> = {
   sandbox: "#/",
   "trip-maps": "#/trip-maps",
+  "trip-sim": "#/trip-sim",
 }
 
 export function studioPageHref(page: StudioPage): string {
@@ -12,7 +13,9 @@ export function studioPageHref(page: StudioPage): string {
 }
 
 function pageFromHash(hash: string): StudioPage {
-  return hash === PAGE_HASHES["trip-maps"] ? "trip-maps" : "sandbox"
+  if (hash === PAGE_HASHES["trip-maps"]) return "trip-maps"
+  if (hash === PAGE_HASHES["trip-sim"]) return "trip-sim"
+  return "sandbox"
 }
 
 function subscribe(onChange: () => void): () => void {

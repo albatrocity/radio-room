@@ -66,6 +66,7 @@ import {
   runStubRoadTripAction,
   startStubRoadTrip,
 } from "./stubRoadTrip.js"
+import { getTripSim, isTripSimSnapshot, mergeTripChat, setTripSim } from "./tripSimState.js"
 import {
   buildEffectiveMetadataSourcesEvent,
   requireBrowseableSource,
@@ -122,6 +123,11 @@ function tripPreviewEnabled(socket: Socket): boolean {
   const q = socket.handshake.query.tripPreview
   const raw = Array.isArray(q) ? q[0] : q
   return raw === "1" || raw === "true"
+}
+
+/** Road Trip store: the Game Studio trip sim when loaded (ADR 0213), else the fixture. */
+function roadTripComponentState(roomId: string): Record<string, unknown> {
+  return getTripSim(roomId)?.store ?? buildStubRoadTripComponentState(roomId)
 }
 
 /** Stable ISO time for stub room docs (avoids a new Room identity every emit). */
@@ -335,7 +341,7 @@ function broadcastRefresh(io: IOServer, roomId: string): void {
         type: "ROOM_DATA",
         data: {
           room: stubRoomForRoomData(roomId, snap, refreshedAt),
-          messages: snap.chat,
+          messages: mergeTripChat(roomId, snap.chat),
           playlist: [],
           scheduleSnapshot: null,
         },
@@ -381,9 +387,14 @@ function wireSocketHandlers(io: IOServer): void {
         socket.join(roomSocketPath(payload.roomId))
 
         const initData = buildInitPayload(snap, user)
-        const tripPreview = tripPreviewEnabled(socket)
+        const tripSim = getTripSim(payload.roomId)
+        const tripPreview = !tripSim && tripPreviewEnabled(socket)
         if (pollPreviewEnabled(socket) && !initData.activePoll) {
           initData.activePoll = buildStubActivePoll(payload.roomId)
+        }
+        if (tripSim) {
+          if (!initData.activePoll && tripSim.poll) initData.activePoll = tripSim.poll
+          initData.messages = mergeTripChat(payload.roomId, initData.messages)
         }
         if (tripPreview) {
           if (!initData.activePoll) initData.activePoll = buildStubRoadTripPoll(payload.roomId)
@@ -395,7 +406,14 @@ function wireSocketHandlers(io: IOServer): void {
           data: initData,
         })
 
-        if (initData.activePoll && (pollPreviewEnabled(socket) || tripPreview)) {
+        if (tripSim) {
+          socket.emit("event", { type: "PLUGIN:road-trip:TRIP_UPDATED", data: tripSim.store })
+        }
+
+        if (
+          initData.activePoll &&
+          (pollPreviewEnabled(socket) || tripPreview || initData.activePoll === tripSim?.poll)
+        ) {
           socket.emit("event", {
             type: "POLL_PUBLISHED",
             data: { roomId: payload.roomId, poll: initData.activePoll },
@@ -721,7 +739,7 @@ function wireSocketHandlers(io: IOServer): void {
           type: "ROOM_DATA",
           data: {
             room: stubRoomForRoomData(roomId, snap, bridgeRoomTimestampIso()),
-            messages: snap.chat,
+            messages: mergeTripChat(roomId, snap.chat),
             playlist: [],
             scheduleSnapshot: null,
           },
@@ -1465,6 +1483,16 @@ function wireSocketHandlers(io: IOServer): void {
           socket.emit("event", {
             type: "PLUGIN_ACTION_RESULT",
             data: { success, message },
+          })
+          return
+        }
+        if (data.pluginName === ROAD_TRIP_PREVIEW_PLUGIN && getTripSim(roomId)) {
+          socket.emit("event", {
+            type: "PLUGIN_ACTION_RESULT",
+            data: {
+              success: false,
+              message: "The Game Studio trip simulator is driving this trip. Make changes there.",
+            },
           })
           return
         }
@@ -2338,7 +2366,7 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
       [VOLUME_MANAGER_PLUGIN]: buildStubVolumeComponentState(roomId),
       [ROUND_ROBIN_PREVIEW_PLUGIN]: buildStubRoundRobinComponentState(roomId),
       [LYRIC_HERO_PREVIEW_PLUGIN]: buildStubLyricHeroComponentState(roomId),
-      [ROAD_TRIP_PREVIEW_PLUGIN]: buildStubRoadTripComponentState(roomId),
+      [ROAD_TRIP_PREVIEW_PLUGIN]: roadTripComponentState(roomId),
     },
   })
 })
@@ -2356,7 +2384,7 @@ app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
           : pluginName === LYRIC_HERO_PREVIEW_PLUGIN
             ? buildStubLyricHeroComponentState(roomId)
             : pluginName === ROAD_TRIP_PREVIEW_PLUGIN
-              ? buildStubRoadTripComponentState(roomId)
+              ? roadTripComponentState(roomId)
               : {}
   res.status(200).json({ state })
 })
@@ -2429,6 +2457,20 @@ app.post("/sync", (req, res) => {
   if (io) {
     broadcastRefresh(io, parsed.roomId)
   }
+})
+
+/** Game Studio trip simulator snapshot, or `snapshot: null` to clear it (ADR 0213). */
+app.post("/trip-sim", (req, res) => {
+  const roomId = typeof req.body?.roomId === "string" ? req.body.roomId : null
+  const snapshot = req.body?.snapshot
+  if (!roomId || (snapshot !== null && !isTripSimSnapshot(snapshot))) {
+    res.status(400).json({ error: "Expected { roomId, snapshot: TripSimSnapshot | null }" })
+    return
+  }
+  const events = setTripSim(roomId, snapshot, () => buildStubRoadTripComponentState(roomId))
+  res.status(204).end()
+  if (!io) return
+  for (const event of events) io.to(roomSocketPath(roomId)).emit("event", event)
 })
 
 app.post("/broadcast", (req, res) => {

@@ -12,6 +12,7 @@
     "@repo/model-viewer": "*",
     "@repo/plugin-base": "*",
     "@repo/plugin-item-shops": "*",
+    "@repo/plugin-road-trip": "*",
     "@repo/road-trip-map": "*",
     "@repo/types": "*",
     "@repo/utils": "*",

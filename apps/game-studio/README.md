@@ -143,6 +143,19 @@ Open **Trip maps** in the header (**http://localhost:8005/#/trip-maps**) to desi
 
 ---
 
+## Trip simulator
+
+Open **Trip sim** in the header (**http://localhost:8005/#/trip-sim**) to play a Trip Map one timeline event at a time against the Room UI preview ([ADR 0213](../../docs/adrs/0213-game-studio-trip-simulator.md)). It runs the real trip runtime from `@repo/plugin-road-trip/sim` in the browser; the API, Redis, and the scheduler stay off.
+
+- **Load** the Trip map editor draft or a saved `maps/<id>.json`. A map with lint errors doesn't start; fix it in the editor.
+- **Depart**, then **Next event** fires the next pending thing: a reveal, an exit poll opening or closing, an arrival, the end of a stop, a fuel threshold, a scripted incident, or an incident step. The panel shows the sim clock, T+ from departure, the mile, and what fires next. The timeline lists every logged event.
+- **Decisions** are made here, before stepping: exit poll votes (a tie or no votes uses the site's default), voluntary chip-ins, incident items (Fix-a-Flat, CB Radio), and a host skip. The host incident buttons start Traffic Jam, Blown Tire, or Engine Failure.
+- With `make game-studio` running, every change updates `studio-room`: the strip, Trip and Van tabs, road signs and narrative in chat, the road-sign exit poll, and the pool card. The van doesn't glide between steps; it sits where the sim is. Votes and chip-ins in the room don't change the simulation. No env flag is needed, and the sim replaces the `STUDIO_BRIDGE_TRIP_PREVIEW` fixture while loaded.
+- **Reset** unloads the sim and clears its chat lines and poll from the room. The sim survives switching studio pages, not a page reload.
+- Automatic-mode levies split three sample wallets, and site shops show only as site state (no Item Shops round opens).
+
+---
+
 ## Useful commands (from repository root)
 
 | Command                                            | Purpose                                                         |
