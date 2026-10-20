@@ -1,5 +1,5 @@
 import type { TripMap, TripSite } from "@repo/road-trip-map"
-import { formatShare, siteShopRequest, sortedSites } from "@repo/road-trip-map"
+import { formatShare, resolveSiteSettings, siteShopRequest, sortedSites } from "@repo/road-trip-map"
 import type { SiteRuntime, TripFund, TripLogEvent, TripState } from "./state"
 
 /**
@@ -75,18 +75,22 @@ export function hasSiteShop(site: TripSite): boolean {
   return siteShopRequest(site) !== null
 }
 
-/** Open the site's shop, closing another scope's round first. */
+/**
+ * Open the site's shop, closing another scope's round first. `close` runs
+ * before the arrival lines; `open` runs after the exit sign and narrative, so
+ * the shop's opening message comes last.
+ */
 export function openShopAt(
   state: TripState,
   site: TripSite,
-): { scopeId: string | undefined; effects: TripEffect[] } {
+): { scopeId: string | undefined; close: TripEffect[]; open: TripEffect[] } {
   const scopeId = hasSiteShop(site) ? siteShopScopeId(state.tripId, site.id) : undefined
-  const effects: TripEffect[] = []
-  if (state.shopScopeId && state.shopScopeId !== scopeId) {
-    effects.push({ type: "close-shop", scopeId: state.shopScopeId })
-  }
-  if (scopeId) effects.push({ type: "open-shop", siteId: site.id, scopeId })
-  return { scopeId, effects }
+  const close: TripEffect[] =
+    state.shopScopeId && state.shopScopeId !== scopeId
+      ? [{ type: "close-shop", scopeId: state.shopScopeId }]
+      : []
+  const open: TripEffect[] = scopeId ? [{ type: "open-shop", siteId: site.id, scopeId }] : []
+  return { scopeId, close, open }
 }
 
 /** " from 3 travelers" / ", 1.2% of the van's wallets" after a fund total. */
@@ -145,6 +149,26 @@ export function nextSiteAhead(state: TripState, map: TripMap, mile: number): Tri
       return false
     }
     return site.mile > mile - ARRIVAL_MILE_EPSILON
+  })
+}
+
+/**
+ * Once the room pulls off at an optional site, signs and skip polls for sites
+ * this close past it wait until the van leaves the stop (ADR 0217).
+ */
+export const PULL_OFF_HOLD_MILES = 3
+
+/**
+ * The optional stop holding `site`'s sign and poll: one the room chose to pull
+ * off at (stopping or parked), with `site` within `PULL_OFF_HOLD_MILES` past it.
+ */
+export function pullOffHold(state: TripState, map: TripMap, site: TripSite): TripSite | undefined {
+  return sortedSites(map).find((stop) => {
+    if (stop.id === site.id) return false
+    const phase = state.sites[stop.id]?.phase
+    if (phase !== "stopping" && phase !== "parked") return false
+    if (!resolveSiteSettings(map, stop).optional) return false
+    return site.mile >= stop.mile && site.mile - stop.mile <= PULL_OFF_HOLD_MILES
   })
 }
 

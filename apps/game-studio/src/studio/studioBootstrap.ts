@@ -21,6 +21,8 @@ import { StudioRoom } from "./studioRoom"
 const ITEM_SHOPS_STUDIO_CONFIG = {
   ...defaultItemShopsConfig,
   enabled: true,
+  // Records come from the designer's Navidrome via studio-bridge (ADR 0216).
+  deriveAlbumsAsPhysicalMedia: true,
 } as const
 
 /**
@@ -42,6 +44,7 @@ export function enforceStudioItemShopsPluginDefaults(room: StudioRoom): void {
     ...stored,
     enabled: true,
     assignShopOnJoin: true,
+    deriveAlbumsAsPhysicalMedia: true,
     enabledShopIds,
   })
 }
@@ -125,10 +128,14 @@ export async function bootstrapStudio(): Promise<StudioBootstrap> {
       createdAt: new Date().toISOString(),
       lastRefreshedAt: new Date().toISOString(),
       playbackMode: "app-controlled",
+      // A bridge room, so Item Shops derives records from the designer's library.
+      playbackControllerId: "bridge",
     }),
     appContext: stubAppContext(registry),
   }
 
+  // Before register, so its first record refresh sees the studio defaults.
+  enforceStudioItemShopsPluginDefaults(room)
   await itemShopsPlugin.register(ctx)
 
   ctx.inventory.registerItemDefinitions(ITEM_CATALOG.map((e) => e.definition))

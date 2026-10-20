@@ -7,7 +7,8 @@ import type {
   ItemRarity,
   LucideIconName,
   MediaCondition,
-  PhysicalMediaCarry,
+  PhysicalMediaStock,
+  RecordAlbumRef,
   RoomShopSample,
   ShoppingSessionInstance,
   ShopOffer,
@@ -129,6 +130,11 @@ export type ShopCatalogEntry = {
    */
   rarity?: ItemRarity
   openingMessage?: string
+  /**
+   * When `false`, the opening line is saved on the visit but not DM'd.
+   * A room shop does this when the caller posts that line to the room.
+   */
+  postOpeningMessage?: boolean
   /** Chat meta for the private opening DM (e.g. `{ type: "alert", status: "info" }`). */
   openingMessageMeta?: ChatMessage["meta"]
   availableItems: ShopAvailableItem[]
@@ -145,10 +151,11 @@ export type ShopCatalogEntry = {
    */
   distinctOffers?: boolean
   /**
-   * Derived Physical Media this shop stocks beside `availableItems` (ADR 0214).
-   * `{}` = every record. Omitted = none.
+   * The record bin this shop stocks beside `availableItems` (ADR 0214, 0216):
+   * designer picks plus, with `library`, matching derived records
+   * (`library: {}` = every record). Omitted = none.
    */
-  physicalMedia?: PhysicalMediaCarry
+  physicalMedia?: PhysicalMediaStock
   /** Called after a successful purchase. Use for shop-specific follow-up behaviors. */
   onBuy?: (ctx: ShopBuyContext) => void | Promise<void>
   /** Called after a shopping round starts for this shop (subset of eligible shops for the round). */
@@ -173,6 +180,11 @@ export type ItemCatalogEntry = {
    * playlist or album key resolved via Item Shops derived maps / config.
    */
   localLibraryGrant?: LocalLibraryGrant
+  /**
+   * A record whose album lives on a non-local source (a picked Spotify album,
+   * ADR 0216). Holding it unlocks that album's tracks when the source is restricted.
+   */
+  recordAlbum?: RecordAlbumRef
   /**
    * When set, shopping offers omit this SKU unless `room.type` is in the list.
    * Gift/trade into other room types remains allowed; the item is inert there.

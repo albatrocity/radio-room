@@ -4,8 +4,24 @@
     {
       "name": "game-studio",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--workspace", "apps/game-studio"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace",
+        "apps/game-studio"
+      ],
       "port": 8005
+    },
+    {
+      "name": "studio-bridge",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--workspace",
+        "apps/studio-bridge"
+      ],
+      "port": 3099
     }
   ]
 }

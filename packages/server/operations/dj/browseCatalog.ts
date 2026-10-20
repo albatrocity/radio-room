@@ -14,7 +14,7 @@ import {
 } from "@repo/utils"
 import { AdapterService } from "../../services/AdapterService"
 import { findRoom } from "../data"
-import { fetchResolvedMediaItemTracks } from "./mediaItemTracks"
+import { fetchResolvedMediaItemTracks, mediaItemTracksSource } from "./mediaItemTracks"
 import { publishMetadataAuthError } from "./metadataAuthError"
 
 async function localCatalogFilterOptions(
@@ -132,10 +132,10 @@ export async function getEffectiveMetadataSources(params: {
     roomId,
     metadataSourceIds,
   })
-  const myMedia =
-    metadataSourceIds.includes("local") && context.pluginRegistry?.listPhysicalMediaItems
-      ? await context.pluginRegistry.listPhysicalMediaItems({ roomId, userId })
-      : []
+  // Held records only; a picked Spotify record lists even without Local (ADR 0216).
+  const myMedia = context.pluginRegistry?.listPhysicalMediaItems
+    ? await context.pluginRegistry.listPhysicalMediaItems({ roomId, userId })
+    : []
   return { metadataSourceIds, ...browse, myMedia }
 }
 
@@ -370,7 +370,7 @@ export async function browseMediaItem(params: {
 }): Promise<
   | {
       ok: true
-      source: "local"
+      source: string
       mediaKey: string
       name: string
       tracks: TaggedMetadataSourceTrack[]
@@ -383,7 +383,17 @@ export async function browseMediaItem(params: {
     return { ok: false, message: "mediaKey is required" }
   }
 
-  if (context.metadataSourceAccess) {
+  const resolved = context.pluginRegistry?.resolvePhysicalMediaItem
+    ? await context.pluginRegistry.resolvePhysicalMediaItem({ roomId, userId, mediaKey: key })
+    : null
+  if (!resolved) {
+    return { ok: false, message: "You don't have that item" }
+  }
+
+  // Local records still need Local search access. A record from another source
+  // (a picked Spotify album, ADR 0216) is its own authorization: it's held.
+  const sourceId = resolved.kind === "album" ? (resolved.sourceId ?? "local") : "local"
+  if (sourceId === "local" && context.metadataSourceAccess) {
     const allowed = await context.metadataSourceAccess.canAccess({
       roomId,
       userId,
@@ -395,27 +405,18 @@ export async function browseMediaItem(params: {
     }
   }
 
-  const resolved = context.pluginRegistry?.resolvePhysicalMediaItem
-    ? await context.pluginRegistry.resolvePhysicalMediaItem({ roomId, userId, mediaKey: key })
-    : null
-  if (!resolved) {
-    return { ok: false, message: "You don't have that item" }
-  }
-
   const listed = await fetchResolvedMediaItemTracks({
     roomId,
-    source:
-      resolved.kind === "album"
-        ? { kind: "album", albumId: resolved.albumId }
-        : { kind: "playlist", playlistId: resolved.playlistId },
+    source: mediaItemTracksSource(resolved),
     logLabel: "browseMediaItem",
     cache: context.cache,
+    context,
   })
   if (!listed.ok) return listed
 
   return {
     ok: true,
-    source: "local",
+    source: sourceId,
     mediaKey: resolved.item.mediaKey,
     name: resolved.item.name,
     tracks: listed.tracks,

@@ -1,5 +1,9 @@
 import { z } from "zod"
-import { PHYSICAL_MEDIA_FORMATS, physicalMediaCarrySchema } from "@repo/types"
+import {
+  PHYSICAL_MEDIA_FORMATS,
+  physicalMediaCarrySchema,
+  physicalMediaStockSchema,
+} from "@repo/types"
 
 /**
  * Trip Map v1 (ADR 0207).
@@ -74,8 +78,8 @@ export const SITE_SHOP_SHELF_CAP = 12
 export const SITE_SHOP_POOL_CAP = 40
 
 /**
- * A site's composed shop (ADR 0214): custom offers, plus the record bin from
- * `services.physicalMedia`. Sites never open Item Shops catalog shops.
+ * A site's composed shop (ADR 0214, 0216): custom offers, plus the record bin
+ * from `services.physicalMedia`. Sites never open Item Shops catalog shops.
  */
 export const siteShopSchema = z
   .object({
@@ -114,10 +118,18 @@ export const siteServicesSchema = z.object({
   /** A Mechanic: Engine Failure tows here (M4). */
   mechanic: z.literal(true).optional(),
   /**
-   * Sells derived records matching these formats and genres (ADR 0214). `{}`
-   * sells every record. Each traveler sees 3, beside the site's `shop.offers`.
+   * The record bin (ADR 0214, 0216): designer `picks` plus, with `library`,
+   * derived records matching its formats and genres (`library: {}` = every
+   * record). Each traveler sees 3, beside the site's `shop.offers`.
    */
-  physicalMedia: physicalMediaCarrySchema.optional(),
+  physicalMedia: z
+    .union([
+      physicalMediaStockSchema.strict(),
+      // Maps written before picks put the library filter at the top level.
+      // Trips haven't shipped, so lift it rather than migrate.
+      physicalMediaCarrySchema.strict().transform((library) => ({ library })),
+    ])
+    .optional(),
 })
 export type SiteServices = z.infer<typeof siteServicesSchema>
 

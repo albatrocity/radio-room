@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import type { OpenRoomShopRequest } from "@repo/types"
 import { SAMPLE_TRIP_MAP, type TripMapInput, type TripStore } from "@repo/road-trip-map"
 import { TripSimRoom, freezeStoreForRoom } from "./simRoom"
 import { MIN, T0, TripSim } from "./testSim"
@@ -57,6 +58,23 @@ describe("TripSim.stepNext", () => {
     expect(step.effects.map((e) => e.type)).toEqual(["sign"])
   })
 
+  it("parks with the exit sign, then the narrative, then the shop opening", () => {
+    const map = noGas()
+    map.sites.find((s) => s.id === "record-store")!.narrative = "The bell jangles."
+    const sim = new TripSim(map)
+    sim.votes["record-store"] = { stop: 3, skip: 0 }
+    sim.apply(depart)
+    for (let i = 0; i < 20; i++) {
+      const step = sim.stepNext()
+      if (!step) break
+      if (step.effects.some((e) => e.type === "open-shop")) {
+        expect(step.effects.map((e) => e.type)).toEqual(["sign", "narrate", "open-shop"])
+        return
+      }
+    }
+    throw new Error("the van never parked at the record store")
+  })
+
   it("peekNext names nothing before departure", () => {
     expect(new TripSim(noGas()).peekNext()).toBeNull()
   })
@@ -99,14 +117,68 @@ describe("TripSimRoom", () => {
     expect(sim.state.sites["record-store"]?.phase).toBe("stopping")
   })
 
-  it("posts what a records stop's shop sells when the van parks there", () => {
-    const { sim } = room()
+  function parkAtRecordStore(map: TripMapInput) {
+    const { sim } = room(map)
     sim.depart()
     while (!sim.poll && sim.step());
     sim.setVotes({ stop: 1, skip: 0 })
-    for (let i = 0; i < 10 && sim.state.sites["record-store"]?.phase !== "visited"; i++) sim.step()
-    const shop = sim.messages.find((m) => m.meta?.title === "Dusty Boots Records")
-    expect(shop?.content).toBe("Sells Records (LPs, 45s).")
+    for (let i = 0; i < 10 && sim.state.sites["record-store"]?.phase !== "parked"; i++) sim.step()
+    return sim
+  }
+
+  it("posts the exit sign, then the narrative, then the shop's opening message", () => {
+    const map = noGas()
+    const site = map.sites.find((s) => s.id === "record-store")!
+    site.narrative = "The bell over the door jangles."
+    site.shop = { ...site.shop, openingMessage: "Crates are open. Dig in." }
+    const sim = parkAtRecordStore(map)
+    const exit = sim.messages.findIndex((m) => /Parked for \d+ min/.test(m.content))
+    const narrative = sim.messages.findIndex((m) => m.content === "The bell over the door jangles.")
+    const shop = sim.messages.findIndex((m) => m.content === "Crates are open. Dig in.")
+    expect(exit).toBeGreaterThanOrEqual(0)
+    expect(narrative).toBe(exit + 1)
+    expect(shop).toBe(narrative + 1)
+    expect(sim.messages.some((m) => m.content.startsWith("Sells "))).toBe(false)
+  })
+
+  it("opens and closes real shop rounds through a shops handler", () => {
+    const opened: OpenRoomShopRequest[] = []
+    const closed: string[] = []
+    const map = noGas()
+    map.sites.find((s) => s.id === "record-store")!.shop = {
+      buybackRate: 0.1,
+      openingMessage: "Crates are open.",
+    }
+    let wall = T0
+    const sim = new TripSimRoom(map, {
+      roomId: "studio-room",
+      clock: () => wall,
+      shops: { open: (r) => opened.push(r), close: (id) => closed.push(id) },
+    })
+    sim.depart()
+    while (!sim.poll && sim.step()) wall += 1
+    sim.setVotes({ stop: 1, skip: 0 })
+    for (let i = 0; i < 10 && sim.state.sites["record-store"]?.phase !== "parked"; i++) sim.step()
+    expect(opened).toEqual([
+      expect.objectContaining({
+        title: "Dusty Boots Records",
+        physicalMedia: { library: { formats: ["LP", "45"] } },
+        buybackRate: 0.1,
+        openingMessage: "Crates are open.",
+      }),
+    ])
+    expect(sim.openShopScopeId).toBe(opened[0]!.scopeId)
+    // The real round posts the opening message; the sim doesn't add a stand-in.
+    expect(sim.messages.some((m) => m.content === "Crates are open.")).toBe(false)
+
+    sim.closeOpenShop()
+    expect(closed).toEqual([opened[0]!.scopeId])
+    expect(sim.openShopScopeId).toBeNull()
+  })
+
+  it("posts no shop line when the shop has no opening message", () => {
+    const sim = parkAtRecordStore(noGas())
+    expect(sim.messages.some((m) => m.meta?.title === "Dusty Boots Records")).toBe(false)
   })
 
   it("freezes the store on the wall clock so the room doesn't move the van", () => {

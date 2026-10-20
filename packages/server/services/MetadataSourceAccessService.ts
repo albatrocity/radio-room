@@ -55,14 +55,16 @@ export class MetadataSourceAccessService {
     userId: string
     sourceId: string
     action: MetadataSourceAccessAction
+    /** The track being queued; lets a plugin grant one album (ADR 0216). */
+    trackId?: string
     room?: Room | null
   }): Promise<boolean> {
-    const { roomId, userId, sourceId, action } = params
+    const { roomId, userId, sourceId, action, trackId } = params
     const room = params.room ?? (await findRoom({ context: this.context, roomId }))
     if (!room) return false
 
     const enabled = await this.getEnabledSourceIds(roomId, room)
-    return this.buildAccessEvaluator({ room, roomId, userId, enabled })(sourceId, action)
+    return this.buildAccessEvaluator({ room, roomId, userId, enabled })(sourceId, action, trackId)
   }
 
   /**
@@ -74,7 +76,11 @@ export class MetadataSourceAccessService {
     roomId: string
     userId: string
     enabled: string[]
-  }): (sourceId: string, action: MetadataSourceAccessAction) => Promise<boolean> {
+  }): (
+    sourceId: string,
+    action: MetadataSourceAccessAction,
+    trackId?: string,
+  ) => Promise<boolean> {
     const { room, roomId, userId, enabled } = params
     let adminLookup: Promise<boolean> | undefined
     const isAdmin = () =>
@@ -85,7 +91,7 @@ export class MetadataSourceAccessService {
         roomCreator: room.creator,
       }))
 
-    return async (sourceId, action) => {
+    return async (sourceId, action, trackId) => {
       if (!enabled.includes(sourceId)) return false
 
       // Non-bridge: no restricted baseline
@@ -96,7 +102,13 @@ export class MetadataSourceAccessService {
       const mode = room.metadataSourceAccess?.[sourceId] ?? "open"
       if (mode !== "restricted") return true
 
-      return this.anyPluginGrants({ roomId, userId, sourceId, action })
+      return this.anyPluginGrants({
+        roomId,
+        userId,
+        sourceId,
+        action,
+        ...(trackId ? { trackId } : {}),
+      })
     }
   }
 
@@ -164,6 +176,7 @@ export class MetadataSourceAccessService {
     userId: string
     sourceId: string
     action: MetadataSourceAccessAction
+    trackId?: string
   }): Promise<boolean> {
     const registry = this.context.pluginRegistry
     if (!registry?.grantMetadataSourceAccess) return false

@@ -1,5 +1,10 @@
 import { z } from "zod"
-import { ITEM_SLOT_POOLS, PHYSICAL_MEDIA_FORMATS } from "./Inventory"
+import {
+  ITEM_SLOT_POOLS,
+  MAX_RECORD_PICKS,
+  PHYSICAL_MEDIA_FORMATS,
+  PICKABLE_RECORD_SOURCES,
+} from "./Inventory"
 
 /**
  * Authorable slice of an inventory item definition (no `id` / `sourcePlugin`).
@@ -49,4 +54,23 @@ export type ItemDefinitionAuthoring = z.infer<typeof itemDefinitionAuthoringSche
 export const physicalMediaCarrySchema = z.object({
   formats: z.array(z.enum(PHYSICAL_MEDIA_FORMATS)).max(PHYSICAL_MEDIA_FORMATS.length).optional(),
   genres: z.array(z.string().trim().min(1).max(60)).max(12).optional(),
+})
+
+/** Zod shape of `PhysicalMediaPick` (ADR 0216). */
+export const physicalMediaPickSchema = z.object({
+  source: z.enum(PICKABLE_RECORD_SOURCES),
+  id: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(200),
+  artist: z.string().trim().min(1).max(200),
+  year: z.number().int().min(1800).max(3000).optional(),
+  trackCount: z.number().int().min(1).max(500),
+  imageUrl: z.string().url().max(2000).optional(),
+  format: z.enum(PHYSICAL_MEDIA_FORMATS).optional(),
+  lore: z.string().trim().min(1).max(2000).optional(),
+})
+
+/** Zod shape of `PhysicalMediaStock` (ADR 0216). */
+export const physicalMediaStockSchema = z.object({
+  library: physicalMediaCarrySchema.optional(),
+  picks: z.array(physicalMediaPickSchema).max(MAX_RECORD_PICKS).optional(),
 })

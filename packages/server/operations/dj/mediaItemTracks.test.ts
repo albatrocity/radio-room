@@ -2,8 +2,18 @@ import { beforeEach, describe, expect, test, vi } from "vitest"
 import {
   BRIDGE_TRACK_LISTING_FAILED_MESSAGE,
   BRIDGE_UNREACHABLE_MESSAGE,
+  SOURCE_ALBUM_LISTING_FAILED_MESSAGE,
   fetchResolvedMediaItemTracks,
 } from "./mediaItemTracks"
+
+const getAlbum = vi.fn()
+vi.mock("../../services/AdapterService", () => ({
+  AdapterService: class {
+    async getRoomMetadataSources() {
+      return new Map([["spotify", { api: { getAlbum } }]])
+    }
+  },
+}))
 
 vi.mock("@repo/adapter-bridge", () => ({
   getBridgeRpcClient: vi.fn(() => ({})),
@@ -118,5 +128,36 @@ describe("fetchResolvedMediaItemTracks", () => {
       ok: false,
       message: BRIDGE_TRACK_LISTING_FAILED_MESSAGE,
     })
+  })
+
+  test("lists a picked record's album through the room's source (ADR 0216)", async () => {
+    getAlbum.mockResolvedValueOnce({ album: { id: "harvest" }, tracks: [{ id: "h1" }, { id: "h2" }] })
+    const result = await fetchResolvedMediaItemTracks({
+      roomId: "room1",
+      source: { kind: "album", albumId: "harvest", sourceId: "spotify" },
+      logLabel: "test",
+      context: {} as any,
+    })
+    expect(getAlbum).toHaveBeenCalledWith("harvest")
+    expect(getBridgeRpcClient).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      ok: true,
+      tracks: [
+        { id: "h1", source: "spotify" },
+        { id: "h2", source: "spotify" },
+      ],
+    })
+  })
+
+  test("fails softly when the source can't list the album", async () => {
+    getAlbum.mockResolvedValueOnce(null)
+    await expect(
+      fetchResolvedMediaItemTracks({
+        roomId: "room1",
+        source: { kind: "album", albumId: "gone", sourceId: "spotify" },
+        logLabel: "test",
+        context: {} as any,
+      }),
+    ).resolves.toEqual({ ok: false, message: SOURCE_ALBUM_LISTING_FAILED_MESSAGE })
   })
 })

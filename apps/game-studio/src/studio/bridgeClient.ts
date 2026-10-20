@@ -5,6 +5,8 @@ import type {
   GiftOffer,
   InventoryItem,
   ItemDefinition,
+  PhysicalMediaPick,
+  PickableRecordSource,
   Poll,
   PollHistoryEntry,
   QueueItem,
@@ -110,7 +112,10 @@ let studioBridgeSyncWarned = false
  * Push sandbox state to the local studio-bridge server whenever `StudioRoom` mutates.
  * Set `VITE_STUDIO_BRIDGE_URL` (e.g. http://127.0.0.1:3099) — `make game-studio` starts the bridge.
  */
-export function connectStudioBridge(room: StudioRoom, baseUrl: string): () => void {
+export function connectStudioBridge(
+  room: StudioRoom,
+  baseUrl: string,
+): { stop: () => void; resync: () => void } {
   const root = baseUrl.replace(/\/$/, "")
   let timer: ReturnType<typeof setTimeout> | null = null
   let cancelled = false
@@ -143,10 +148,14 @@ export function connectStudioBridge(room: StudioRoom, baseUrl: string): () => vo
   const unsub = room.subscribe(schedule)
   void flush()
 
-  return () => {
-    cancelled = true
-    unsub()
-    if (timer) clearTimeout(timer)
+  return {
+    stop: () => {
+      cancelled = true
+      unsub()
+      if (timer) clearTimeout(timer)
+    },
+    // A restarted bridge has no snapshot until the next mutation; push one now.
+    resync: schedule,
   }
 }
 
@@ -174,7 +183,11 @@ export async function requestStudioBridgeViewAs(
 /**
  * Receive Room UI actions (chat, inventory, plugin buttons) from Listening Room via studio-bridge.
  */
-export function connectStudioBridgeControl(baseUrl: string, roomId: string): () => void {
+export function connectStudioBridgeControl(
+  baseUrl: string,
+  roomId: string,
+  options: { onConnect?: () => void } = {},
+): () => void {
   const root = baseUrl.replace(/\/$/, "")
   const socket: IoClientSocket = ioClient(root, {
     transports: ["websocket", "polling"],
@@ -183,6 +196,7 @@ export function connectStudioBridgeControl(baseUrl: string, roomId: string): () 
 
   const onConnect = (): void => {
     socket.emit("STUDIO_SUBSCRIBE", { roomId })
+    options.onConnect?.()
   }
 
   const onEvent = (
@@ -215,4 +229,54 @@ export function connectStudioBridgeControl(baseUrl: string, roomId: string): () 
     socket.off("event", onEvent)
     socket.disconnect()
   }
+}
+
+/** One album the record picker lists (ADR 0216); `coverUrl` is for the picker only. */
+export type StudioRecordHit = Omit<PhysicalMediaPick, "format" | "lore"> & { coverUrl?: string }
+
+export type StudioRecordSearch = {
+  results: StudioRecordHit[]
+  unavailable: { source: PickableRecordSource; reason: string }[]
+}
+
+function absoluteCover(root: string, coverUrl: string | undefined): string | undefined {
+  if (!coverUrl) return undefined
+  return coverUrl.startsWith("/") ? `${root}${coverUrl}` : coverUrl
+}
+
+/** Search Spotify and the designer's Navidrome through studio-bridge. */
+export async function searchStudioRecords(
+  baseUrl: string,
+  query: string,
+): Promise<StudioRecordSearch> {
+  const root = baseUrl.replace(/\/$/, "")
+  const res = await fetch(`${root}/records/search?q=${encodeURIComponent(query)}`).catch(() => {
+    throw new Error("studio-bridge isn't reachable. Run `make game-studio`.")
+  })
+  if (!res.ok) throw new Error(`Record search failed (${res.status})`)
+  const body = (await res.json()) as StudioRecordSearch
+  return {
+    ...body,
+    results: body.results.map((hit) => ({ ...hit, coverUrl: absoluteCover(root, hit.coverUrl) })),
+  }
+}
+
+/** A ready pick (snapshot, lore, format) for one album; `id` may be a Spotify URL. */
+export async function fetchStudioRecordPick(
+  baseUrl: string,
+  source: PickableRecordSource,
+  id: string,
+): Promise<PhysicalMediaPick> {
+  const root = baseUrl.replace(/\/$/, "")
+  const res = await fetch(`${root}/records/${source}/${encodeURIComponent(id)}`)
+  const body = (await res.json().catch(() => ({}))) as { pick?: PhysicalMediaPick; error?: string }
+  if (!res.ok || !body.pick) throw new Error(body.error ?? `Album lookup failed (${res.status})`)
+  return body.pick
+}
+
+/** A local pick's cover through studio-bridge; Spotify picks carry their own. */
+export function studioRecordCover(baseUrl: string, pick: PhysicalMediaPick): string | undefined {
+  if (pick.imageUrl) return pick.imageUrl
+  if (pick.source !== "local") return undefined
+  return `${baseUrl.replace(/\/$/, "")}/records/local/${encodeURIComponent(pick.id)}/cover`
 }

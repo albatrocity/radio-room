@@ -102,7 +102,7 @@ export function buildStubLyricHeroComponentState(roomId: string): Record<string,
   return storePayload(session)
 }
 
-/** `SESSION_STARTED` for optional `lyricPreview=1` handshake (mirrors quizPreview). */
+/** `SESSION_STARTED` for optional `lyricPreview=1` handshake (like `pollPreview`). */
 export function buildStubLyricHeroSessionStarted(roomId: string): {
   type: string
   data: Record<string, unknown>

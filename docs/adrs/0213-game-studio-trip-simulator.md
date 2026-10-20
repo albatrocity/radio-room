@@ -1,7 +1,7 @@
 # 0213. Game Studio trip simulator steps the pure trip runtime
 
 **Date:** 2026-10-19
-**Status:** Accepted
+**Status:** Accepted (shop rounds amendment 2026-10-19)
 
 ## Context
 
@@ -23,6 +23,12 @@ studio-bridge already previews road-trip UI from canned fixtures (`STUDIO_BRIDGE
 - The sim shares the pure runtime with production, so it reflects transition changes immediately. Effects that need other plugins (Item Shops rounds, nudges, automatic levies against real wallets) are approximated: shops appear only as site state, and levies split `TripSim`'s sample wallets.
 - The van does not glide between steps in the preview. That is the trade for not running a clock.
 - Room-side interaction with the trip is read-only while the sim is loaded.
+
+## Amendment (2026-10-19): real shop rounds in the sandbox
+
+`TripSimRoom` takes an optional `shops` handler (`SimShops`). Game Studio passes one backed by the sandbox's Item Shops `shopAccess`, so a stop's `open-shop` / `close-shop` effects open and close a real round. Its request comes from `siteOpenRoomShopRequest`, the same builder the plugin uses, so the Room UI's Item Shop tab shows the stop's offers and record bin. If no sandbox game session is running, one starts first. Without a handler (tests, other callers), a stop posts only the shop's opening message.
+
+The sandbox acts as a bridge room with `deriveAlbumsAsPhysicalMedia` on. Its catalog reads the designer's Navidrome through studio-bridge (`GET /records/library`, covers via `/records/local/:id/cover`), so library bins and local picks stock like a real room's. With no reachable Navidrome, the library is empty and a library-only bin is unavailable.
 
 ## See also
 

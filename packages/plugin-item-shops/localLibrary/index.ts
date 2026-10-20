@@ -3,15 +3,19 @@ import {
   parseArtworkFrame,
   rejectQueueRequest,
   type ItemDefinition,
+  type LibraryAlbumRow,
   type PhysicalMediaFormat,
+  type PhysicalMediaPick,
   type MetadataSourceAccessGrantParams,
   type UserInventory,
   type MetadataSourceAccessGrantResult,
   type PhysicalMediaItem,
   type PhysicalMediaNowPlayingFrame,
   type PluginContext,
+  type QueueItem,
   type QueueValidationParams,
   type QueueValidationResult,
+  type RecordAlbumRef,
   type ResolvedPhysicalMediaItem,
   type MediaCondition,
   type SharedPlayback,
@@ -34,11 +38,7 @@ import {
   derivePhysicalMediaItemsFromAlbums,
   parsePhysicalMediaName,
 } from "./physicalMedia"
-import {
-  CONDITION_WEAR_RANK,
-  degradeCondition,
-  readItemCondition,
-} from "./condition"
+import { CONDITION_WEAR_RANK, degradeCondition, readItemCondition } from "./condition"
 import {
   convertWearToastDescription,
   intactWearToastDescription,
@@ -52,14 +52,19 @@ import {
   definitionIdForShortId,
   isLocalLibraryGrantShortId,
   listHeldLocalLibraryGrants,
+  listHeldSourceRecords,
   matchingDurableRecords,
   pickGrantToConsume,
   playlistMapFromGrantConfig,
   resolveLocalCatalogScope,
   LOCAL_LIBRARY_QUEUE_REJECT_REASON,
   type HeldLocalLibraryGrant,
+  type HeldRecordCopy,
+  type HeldSourceRecord,
   type LocalCatalogScope,
 } from "./grants"
+import { derivePickedRecord, pickKey, resolvePick, type ResolvedPick } from "./pickedRecords"
+import type { PickStock } from "./physicalMediaStock"
 import {
   PLAYBACK_DEVICE_MISSING_REASON,
   gentlePlayableFormats,
@@ -74,6 +79,19 @@ import {
   type SharedPlaybackEntries,
   type SharedPlaybackFormats,
 } from "./sharedPlayback"
+
+/** Resolved picks by record shortId (ADR 0216), so sold records outlive the stop. */
+export const PICKED_RECORDS_KEY = "record-picks:v1"
+
+/** What a request's picks can stock in this room (ADR 0216). */
+export type PickAvailability = {
+  total: number
+  available: number
+  /** "Artist – Title" for local picks with no match in this library. */
+  unresolved: string[]
+  /** Sources the room doesn't offer, with how many picks they cost. */
+  unavailableSources: Record<string, number>
+}
 
 function physicalMediaArtworkFields(definition?: ItemCatalogEntry["definition"]): {
   icon?: ItemCatalogEntry["definition"]["icon"]
@@ -94,9 +112,54 @@ function physicalMediaArtworkFields(definition?: ItemCatalogEntry["definition"])
  * access, catalog filters, and queue redemption here so the module can later
  * become its own plugin without a data migration.
  */
+/** Map key for a record's album on its source. */
+export function sourceAlbumKey(ref: RecordAlbumRef): string {
+  return `${ref.sourceId}:${ref.albumId}`
+}
+
+/**
+ * The album a non-local queued track sits on, read from the media source's own
+ * track data (ADR 0216). Local tracks match by Navidrome membership instead.
+ */
+export function sourceAlbumOf(item: QueueItem): RecordAlbumRef | undefined {
+  const sourceId = item.mediaSource?.type
+  if (!sourceId || sourceId === "local") return undefined
+  const enriched = item.metadataSources?.[sourceId as keyof typeof item.metadataSources]
+  const primary =
+    !item.metadataSource?.type || item.metadataSource.type === sourceId ? item.track : undefined
+  const albumId = (enriched?.track.album?.id ?? primary?.album?.id)?.trim()
+  return albumId ? { sourceId, albumId } : undefined
+}
+
+/** Now Playing sleeve for a record definition, or undefined without a frame. */
+function nowPlayingFrameOf(
+  definition: Pick<ItemDefinition, "artworkFrame" | "imageUrl" | "imageUrlLarge">,
+): PhysicalMediaNowPlayingFrame | undefined {
+  const artworkFrame = definition.artworkFrame
+    ? parseArtworkFrame(definition.artworkFrame)
+    : undefined
+  if (!artworkFrame) return undefined
+  const imageUrl = definition.imageUrl?.trim()
+  const imageUrlLarge = definition.imageUrlLarge?.trim()
+  return {
+    artworkFrame,
+    ...(imageUrl ? { imageUrl } : {}),
+    ...(imageUrlLarge ? { imageUrlLarge } : {}),
+  }
+}
+
 export class LocalLibraryModule {
   grantCatalog: ItemCatalogEntry[] = ITEM_CATALOG.filter((e) => e.localLibraryGrant)
   derivedPhysicalMedia: ItemCatalogEntry[] = []
+  /** Record SKUs for resolved picks (ADR 0216). */
+  pickedRecords: ItemCatalogEntry[] = []
+  private resolvedPicks = new Map<string, ResolvedPick>()
+  /** pickKey → record shortId for picks that resolved. */
+  private pickShortIds = new Map<string, string>()
+  /** Metadata sources the room offers, refreshed when picks register. */
+  private pickSources = new Set<string>()
+  /** The room's library albums from the last refresh, for local pick matching. */
+  private libraryAlbumsMemo: LibraryAlbumRow[] | null = null
   private derivedPlaylistMap: Record<string, string> = {}
   private derivedAlbumMap: Record<string, string> = {}
   /** Album ids already fetched for sleeves this refresh (avoids hydrate spin on missing art). */
@@ -116,13 +179,156 @@ export class LocalLibraryModule {
   } {
     const configGrants = buildGrantCatalogEntries(grants)
     const staticGrants = ITEM_CATALOG.filter((e) => e.localLibraryGrant)
-    const grantCatalog = [...staticGrants, ...configGrants, ...this.derivedPhysicalMedia]
+    const grantCatalog = [
+      ...staticGrants,
+      ...configGrants,
+      ...this.derivedPhysicalMedia,
+      ...this.pickedRecords.filter((e) => e.localLibraryGrant),
+    ]
     this.grantCatalog = grantCatalog
     return {
-      itemCatalog: buildEffectiveItemCatalog(grants, this.derivedPhysicalMedia),
-      shopCatalog: buildEffectiveShopCatalog(grants, this.derivedPhysicalMedia),
+      itemCatalog: buildEffectiveItemCatalog(grants, this.derivedPhysicalMedia, this.pickedRecords),
+      shopCatalog: buildEffectiveShopCatalog(grants, this.derivedPhysicalMedia, this.pickStock),
       grantCatalog,
     }
+  }
+
+  /** Shop stock for picks: resolved, from a source the room offers (ADR 0216). */
+  readonly pickStock: PickStock = (picks) => {
+    const byShortId = new Map(this.pickedRecords.map((e) => [e.definition.shortId, e] as const))
+    const out: { shortId: string; coinValue: number }[] = []
+    for (const pick of picks) {
+      if (!this.pickSources.has(pick.source)) continue
+      const shortId = this.pickShortIds.get(pickKey(pick))
+      const entry = shortId ? byShortId.get(shortId) : undefined
+      if (!entry) continue
+      out.push({ shortId: entry.definition.shortId, coinValue: entry.definition.coinValue ?? 0 })
+    }
+    return out
+  }
+
+  pickAvailability(picks: readonly PhysicalMediaPick[]): PickAvailability {
+    const unresolved: string[] = []
+    const unavailableSources: Record<string, number> = {}
+    let available = 0
+    for (const pick of picks) {
+      if (!this.pickSources.has(pick.source)) {
+        unavailableSources[pick.source] = (unavailableSources[pick.source] ?? 0) + 1
+      } else if (!this.pickShortIds.has(pickKey(pick))) {
+        unresolved.push(`${pick.artist} – ${pick.title}`)
+      } else {
+        available++
+      }
+    }
+    return { total: picks.length, available, unresolved, unavailableSources }
+  }
+
+  /** Load persisted picks so held picked records resolve after a restart. */
+  async loadPickedRecords(): Promise<void> {
+    const context = this.getContext()
+    if (!context) return
+    const { value } =
+      await context.storage.getJson<Record<string, ResolvedPick>>(PICKED_RECORDS_KEY)
+    this.resolvedPicks = new Map(Object.entries(value ?? {}))
+    this.rebuildPickedRecords()
+  }
+
+  /**
+   * Resolve picks against this room and keep their SKUs (ADR 0216). Re-derives
+   * every pick so edited snapshots (lore, format) win. Returns whether any
+   * record definition changed, so callers resync catalogs.
+   */
+  async registerPicks(picks: readonly PhysicalMediaPick[]): Promise<boolean> {
+    const context = this.getContext()
+    if (!context || picks.length === 0) return false
+    const sources = await context.catalog.listMetadataSources(context.roomId)
+    this.pickSources = new Set(sources.map((source) => source.id))
+
+    const library = picks.some((pick) => pick.source === "local") ? await this.libraryAlbums() : []
+    let changed = false
+    for (const pick of picks) {
+      const ref = resolvePick(pick, library)
+      if (!ref) continue
+      const entry = derivePickedRecord({ pick, ref })
+      const shortId = entry.definition.shortId
+      this.pickShortIds.set(pickKey(pick), shortId)
+      const existing = this.resolvedPicks.get(shortId)
+      if (existing && JSON.stringify(existing) === JSON.stringify({ pick, ref })) continue
+      this.resolvedPicks.set(shortId, { pick, ref })
+      changed = true
+    }
+    if (!changed) return false
+    this.rebuildPickedRecords()
+    await context.storage.setJson(PICKED_RECORDS_KEY, Object.fromEntries(this.resolvedPicks))
+    return true
+  }
+
+  private rebuildPickedRecords(): void {
+    const previous = new Map(this.pickedRecords.map((e) => [e.definition.shortId, e] as const))
+    this.pickedRecords = [...this.resolvedPicks.values()].map((resolved) => {
+      const entry = derivePickedRecord(resolved)
+      const shortId = entry.definition.shortId
+      this.pickShortIds.set(pickKey(resolved.pick), shortId)
+      // Keep a hydrated local sleeve / lore across re-derivation.
+      const prior = previous.get(shortId)?.definition
+      if (!prior) return entry
+      return {
+        ...entry,
+        definition: {
+          ...entry.definition,
+          ...(!entry.definition.imageUrl && prior.imageUrl ? { imageUrl: prior.imageUrl } : {}),
+          ...(!entry.definition.imageUrlLarge && prior.imageUrlLarge
+            ? { imageUrlLarge: prior.imageUrlLarge }
+            : {}),
+          ...(!entry.definition.lore && prior.lore ? { lore: prior.lore } : {}),
+        },
+      }
+    })
+  }
+
+  /** The room's library albums: last refresh's, else one fetch (bridge rooms only). */
+  private async libraryAlbums(): Promise<LibraryAlbumRow[]> {
+    if (this.libraryAlbumsMemo) return this.libraryAlbumsMemo
+    const context = this.getContext()
+    if (!context) return []
+    const room = await context.getRoom()
+    if (room?.playbackControllerId !== "bridge") return []
+    const albums = await context.catalog.listLibraryAlbums(context.roomId)
+    if (albums.length > 0) this.libraryAlbumsMemo = albums
+    return albums
+  }
+
+  /** Every record SKU sleeves and lore can patch: derived plus picked. */
+  private recordEntries(): ItemCatalogEntry[] {
+    return [...this.derivedPhysicalMedia, ...this.pickedRecords]
+  }
+
+  /** Navidrome album id behind a record shortId (derived album or local pick). */
+  private localAlbumIdFor(entry: ItemCatalogEntry): string | undefined {
+    const shortId = entry.definition.shortId
+    const derived = this.derivedAlbumMap[shortId]?.trim()
+    if (derived) return derived
+    const album = entry.definition.mediaAlbum
+    return entry.localLibraryGrant?.scope === "album" && album?.sourceId === "local"
+      ? album.albumId
+      : undefined
+  }
+
+  /** Apply `patch` to every derived and picked record with a local album. */
+  private patchLocalAlbumRecords(
+    patch: (entry: ItemCatalogEntry, albumId: string) => ItemCatalogEntry,
+  ): string[] {
+    const changed: string[] = []
+    const apply = (entry: ItemCatalogEntry) => {
+      const albumId = this.localAlbumIdFor(entry)
+      if (!albumId) return entry
+      const next = patch(entry, albumId)
+      if (next !== entry) changed.push(entry.definition.shortId)
+      return next
+    }
+    this.derivedPhysicalMedia = this.derivedPhysicalMedia.map(apply)
+    this.pickedRecords = this.pickedRecords.map(apply)
+    return changed
   }
 
   async refreshDerivedPhysicalMedia(
@@ -141,6 +347,7 @@ export class LocalLibraryModule {
     const context = this.getContext()
     if (!context) return null
     const room = await context.getRoom()
+    this.libraryAlbumsMemo = null
     if (room?.playbackControllerId !== "bridge") {
       this.derivedPhysicalMedia = []
       this.derivedPlaylistMap = {}
@@ -163,6 +370,7 @@ export class LocalLibraryModule {
         : {}
 
     const albums = deriveAlbums ? await context.catalog.listLibraryAlbums(context.roomId) : []
+    if (albums.length > 0) this.libraryAlbumsMemo = albums
 
     let omitAlbumIds = new Set<string>()
     const albumRatingByPlaylistId: Record<string, number> = {}
@@ -276,8 +484,8 @@ export class LocalLibraryModule {
   /** Navidrome album ids for derived SKUs that still need a sleeve fetch. */
   albumIdsMissingArtwork(): string[] {
     const missing: string[] = []
-    for (const entry of this.derivedPhysicalMedia) {
-      const albumId = this.derivedAlbumMap[entry.definition.shortId]?.trim()
+    for (const entry of this.recordEntries()) {
+      const albumId = this.localAlbumIdFor(entry)
       if (!albumId) continue
       if (entry.definition.imageUrl?.trim()) continue
       if (this.albumArtworkAttempted.has(albumId)) continue
@@ -293,10 +501,7 @@ export class LocalLibraryModule {
   applyAlbumArtwork(
     artworkByAlbumId: Readonly<Record<string, { imageUrl?: string; imageUrlLarge?: string }>>,
   ): string[] {
-    const changedShortIds: string[] = []
-    this.derivedPhysicalMedia = this.derivedPhysicalMedia.map((entry) => {
-      const albumId = this.derivedAlbumMap[entry.definition.shortId]?.trim()
-      if (!albumId) return entry
+    return this.patchLocalAlbumRecords((entry, albumId) => {
       const art = artworkByAlbumId[albumId]
       if (!art) return entry
       const imageUrl = art.imageUrl?.trim()
@@ -308,7 +513,6 @@ export class LocalLibraryModule {
       ) {
         return entry
       }
-      changedShortIds.push(entry.definition.shortId)
       return {
         ...entry,
         definition: {
@@ -318,7 +522,6 @@ export class LocalLibraryModule {
         },
       }
     })
-    return changedShortIds
   }
 
   /**
@@ -326,16 +529,13 @@ export class LocalLibraryModule {
    * `description` keeps the canned line. Returns changed shortIds.
    */
   applyAlbumLore(loreByAlbumId: Readonly<Record<string, string>>): string[] {
-    const changedShortIds: string[] = []
-    this.derivedPhysicalMedia = this.derivedPhysicalMedia.map((entry) => {
-      const albumId = this.derivedAlbumMap[entry.definition.shortId]?.trim()
-      if (!albumId) return entry
+    return this.patchLocalAlbumRecords((entry, albumId) => {
+      // A designer's lore on a pick wins over the album comment (ADR 0216).
+      if (this.resolvedPicks.get(entry.definition.shortId)?.pick.lore) return entry
       const lore = loreByAlbumId[albumId]?.trim()
       if (!lore || entry.definition.lore === lore) return entry
-      changedShortIds.push(entry.definition.shortId)
       return { ...entry, definition: { ...entry.definition, lore } }
     })
-    return changedShortIds
   }
 
   /**
@@ -364,10 +564,10 @@ export class LocalLibraryModule {
     for (const raw of shortIds) {
       const shortId = raw.trim()
       if (!shortId) continue
-      const albumId = this.derivedAlbumMap[shortId]?.trim()
-      if (!albumId) continue
-      const entry = this.derivedPhysicalMedia.find((e) => e.definition.shortId === shortId)
-      if (entry?.definition.imageUrl?.trim()) continue
+      const entry = this.recordEntries().find((e) => e.definition.shortId === shortId)
+      const albumId = entry ? this.localAlbumIdFor(entry) : undefined
+      if (!entry || !albumId) continue
+      if (entry.definition.imageUrl?.trim()) continue
       if (this.albumArtworkAttempted.has(albumId)) continue
       albumIds.push(albumId)
     }
@@ -412,18 +612,26 @@ export class LocalLibraryModule {
   }
 
   albumMap(): Record<string, string> {
-    return { ...this.derivedAlbumMap }
+    const map = { ...this.derivedAlbumMap }
+    for (const entry of this.pickedRecords) {
+      const albumId = this.localAlbumIdFor(entry)
+      if (albumId) map[entry.definition.shortId] = albumId
+    }
+    return map
   }
 
   async listPhysicalMediaItems(userId: string): Promise<PhysicalMediaItem[]> {
     const held = await this.getHeldGrants(userId)
     const byShort = catalogByShortId(this.grantCatalog)
     const derivedByShort = new Map(
-      this.derivedPhysicalMedia.map((e) => [e.definition.shortId, e] as const),
+      this.recordEntries().map((e) => [e.definition.shortId, e] as const),
     )
     const byMediaKey = new Map<string, PhysicalMediaItem>()
-    for (const h of held) {
-      if (h.grant.scope !== "playlist" && h.grant.scope !== "album") continue
+    const records = [
+      ...held.filter((h) => h.grant.scope === "playlist" || h.grant.scope === "album"),
+      ...(await this.getHeldSourceRecords(userId)),
+    ]
+    for (const h of records) {
       const definition =
         derivedByShort.get(h.shortId)?.definition ?? byShort.get(h.shortId)?.definition
       const next: PhysicalMediaItem = {
@@ -457,6 +665,21 @@ export class LocalLibraryModule {
   ): Promise<ResolvedPhysicalMediaItem | null> {
     const key = mediaKey.trim()
     if (!key) return null
+    const sourceRecord = (await this.getHeldSourceRecords(userId)).find((h) => h.shortId === key)
+    if (sourceRecord) {
+      const definition = this.pickedRecords.find((e) => e.definition.shortId === key)?.definition
+      return {
+        kind: "album",
+        albumId: sourceRecord.ref.albumId,
+        sourceId: sourceRecord.ref.sourceId,
+        item: {
+          mediaKey: key,
+          name: sourceRecord.name,
+          ...physicalMediaArtworkFields(definition),
+          ...(sourceRecord.condition ? { condition: sourceRecord.condition } : {}),
+        },
+      }
+    }
     const held = await this.getHeldGrants(userId)
     const match = held.find(
       (h) => h.shortId === key && (h.grant.scope === "playlist" || h.grant.scope === "album"),
@@ -492,6 +715,19 @@ export class LocalLibraryModule {
   ): ResolvedPhysicalMediaItem | null {
     const key = mediaKey.trim()
     if (!key) return null
+    const picked = this.pickedRecords.find((e) => e.definition.shortId === key)
+    if (picked?.recordAlbum) {
+      return {
+        kind: "album",
+        albumId: picked.recordAlbum.albumId,
+        sourceId: picked.recordAlbum.sourceId,
+        item: {
+          mediaKey: key,
+          name: picked.definition.name,
+          ...physicalMediaArtworkFields(picked.definition),
+        },
+      }
+    }
     const entry = catalogByShortId(this.grantCatalog).get(key)
     if (!entry?.localLibraryGrant) return null
     const grant = entry.localLibraryGrant
@@ -547,7 +783,7 @@ export class LocalLibraryModule {
     const byPlaylistId = new Map<string, (typeof this.derivedPhysicalMedia)[number]>()
     const byAlbumId = new Map<string, (typeof this.derivedPhysicalMedia)[number]>()
     const playlistIds: string[] = []
-    for (const entry of this.derivedPhysicalMedia) {
+    for (const entry of this.recordEntries()) {
       const artworkFrame = entry.definition.artworkFrame
         ? parseArtworkFrame(entry.definition.artworkFrame)
         : undefined
@@ -558,7 +794,7 @@ export class LocalLibraryModule {
         byPlaylistId.set(playlistNdId, entry)
         continue
       }
-      const albumNdId = this.derivedAlbumMap[entry.definition.shortId]?.trim()
+      const albumNdId = this.localAlbumIdFor(entry)
       if (albumNdId) {
         byAlbumId.set(albumNdId, entry)
       }
@@ -576,17 +812,9 @@ export class LocalLibraryModule {
       id: string,
       entry: (typeof this.derivedPhysicalMedia)[number] | undefined,
     ) => {
-      const artworkFrame = entry?.definition.artworkFrame
-        ? parseArtworkFrame(entry.definition.artworkFrame)
-        : undefined
-      if (!artworkFrame) return false
-      const imageUrl = entry?.definition.imageUrl?.trim()
-      const imageUrlLarge = entry?.definition.imageUrlLarge?.trim()
-      out.set(id, {
-        artworkFrame,
-        ...(imageUrl ? { imageUrl } : {}),
-        ...(imageUrlLarge ? { imageUrlLarge } : {}),
-      })
+      const frame = entry ? nowPlayingFrameOf(entry.definition) : undefined
+      if (!frame) return false
+      out.set(id, frame)
       return true
     }
 
@@ -608,6 +836,31 @@ export class LocalLibraryModule {
     return out
   }
 
+  /**
+   * Sleeves for tracks on a non-local source, matched by album against picked
+   * records' `recordAlbum` (ADR 0216). No RPC: the queued track already names
+   * its album. Keyed by {@link sourceAlbumKey}; when several picks share an
+   * album (LP and CD), the first by shortId wins.
+   */
+  resolveSourceRecordFrames(
+    albums: readonly RecordAlbumRef[],
+  ): Map<string, PhysicalMediaNowPlayingFrame> {
+    const out = new Map<string, PhysicalMediaNowPlayingFrame>()
+    if (albums.length === 0) return out
+    const wanted = new Set(albums.map(sourceAlbumKey))
+    const picks = [...this.pickedRecords].sort((a, b) =>
+      a.definition.shortId.localeCompare(b.definition.shortId),
+    )
+    for (const entry of picks) {
+      if (!entry.recordAlbum) continue
+      const key = sourceAlbumKey(entry.recordAlbum)
+      if (!wanted.has(key) || out.has(key)) continue
+      const frame = nowPlayingFrameOf(entry.definition)
+      if (frame) out.set(key, frame)
+    }
+    return out
+  }
+
   async resolveNowPlayingFrame(trackId: string): Promise<PhysicalMediaNowPlayingFrame | undefined> {
     const frames = await this.resolveNowPlayingFrames([trackId])
     return frames.get(trackId.trim())
@@ -619,12 +872,51 @@ export class LocalLibraryModule {
   ): Promise<MetadataSourceAccessGrantResult> {
     const context = this.getContext()
     if (!context || !config.enabled) return "abstain"
-    if (params.sourceId !== "local") return "abstain"
+    if (params.sourceId !== "local") return this.grantSourceRecordAccess(params)
     const scope = await this.resolveUserLocalCatalogScope(
       params.userId,
       config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS,
     )
     return scope.mode === "none" ? "abstain" : "grant"
+  }
+
+  /**
+   * A held picked record unlocks queueing its own album's tracks on a
+   * restricted non-local source (ADR 0216). Search and track-less checks
+   * abstain, so a record never opens the whole catalog.
+   */
+  private async grantSourceRecordAccess(
+    params: MetadataSourceAccessGrantParams,
+  ): Promise<MetadataSourceAccessGrantResult> {
+    if (params.action !== "queue" || !params.trackId) return "abstain"
+    const held = (await this.getHeldSourceRecords(params.userId)).filter(
+      (h) => h.ref.sourceId === params.sourceId,
+    )
+    const covering = await this.recordsCoveringTrack(held, params.sourceId, params.trackId)
+    return covering.length > 0 ? "grant" : "abstain"
+  }
+
+  /** Held source records whose album lists `trackId` (one listing per album). */
+  private async recordsCoveringTrack(
+    held: readonly HeldSourceRecord[],
+    sourceId: string,
+    trackId: string,
+  ): Promise<HeldSourceRecord[]> {
+    const context = this.getContext()
+    if (!context || held.length === 0) return []
+    const albumIds = [...new Set(held.map((h) => h.ref.albumId))]
+    const covered = new Set<string>()
+    await Promise.all(
+      albumIds.map(async (albumId) => {
+        const trackIds = await context.catalog.getAlbumTrackIds({
+          roomId: context.roomId,
+          sourceId,
+          albumId,
+        })
+        if (trackIds.includes(trackId)) covered.add(albumId)
+      }),
+    )
+    return held.filter((h) => covered.has(h.ref.albumId))
   }
 
   async resolveLocalLibraryCatalogFilter(params: {
@@ -671,17 +963,11 @@ export class LocalLibraryModule {
   ): Promise<QueueValidationResult> {
     const context = this.getContext()
     if (!context || !config.enabled) return allowQueueRequest()
-    if (params.mediaSourceType !== "local") return allowQueueRequest()
+    if (params.mediaSourceType !== "local") return this.validateSourceRecordQueue(params)
 
     const room = await context.getRoom()
     if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
-
-    const isAdmin = await context.api.isRoomAdmin(params.roomId, params.userId)
-    if (isAdmin) {
-      const session = await context.game.getActiveSession()
-      const wearForAdmins = session?.config.physicalMediaWearForAdmins !== false
-      if (!wearForAdmins) return allowQueueRequest()
-    }
+    if (await this.adminSkipsRecordGate(params)) return allowQueueRequest()
 
     const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const inv = await context.inventory.getInventory(params.userId)
@@ -781,6 +1067,50 @@ export class LocalLibraryModule {
     return allowQueueRequest()
   }
 
+  /** Admins skip record gating unless the session wears their records too. */
+  private async adminSkipsRecordGate(params: QueueValidationParams): Promise<boolean> {
+    const context = this.getContext()
+    if (!context) return false
+    if (!(await context.api.isRoomAdmin(params.roomId, params.userId))) return false
+    const session = await context.game.getActiveSession()
+    return session?.config.physicalMediaWearForAdmins === false
+  }
+
+  /**
+   * Queueing from a restricted non-local source with a held picked record
+   * (ADR 0216): same device check and wear as a library record. A track no
+   * held record covers passes, so other plugins' grants still work.
+   */
+  private async validateSourceRecordQueue(
+    params: QueueValidationParams,
+  ): Promise<QueueValidationResult> {
+    const context = this.getContext()
+    const sourceId = params.mediaSourceType
+    if (!context || !sourceId) return allowQueueRequest()
+    const room = await context.getRoom()
+    if (room?.playbackControllerId !== "bridge") return allowQueueRequest()
+    if (room.metadataSourceAccess?.[sourceId] !== "restricted") return allowQueueRequest()
+    if (await this.adminSkipsRecordGate(params)) return allowQueueRequest()
+
+    const inv = await context.inventory.getInventory(params.userId)
+    const held = listHeldSourceRecords({
+      pluginName: this.pluginName,
+      items: inv.items,
+      catalog: this.pickedRecords,
+    }).filter((h) => h.ref.sourceId === sourceId)
+    const covering = await this.recordsCoveringTrack(held, sourceId, params.trackId)
+    if (covering.length === 0) return allowQueueRequest()
+
+    const shared = await this.readSharedPlayback()
+    const devices = playableFormats(inv.items, shared.formats)
+    const playable = covering.filter((h) => !h.mediaFormat || devices.has(h.mediaFormat))
+    if (playable.length === 0) return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
+    const snapshot = await this.wearRecordForQueue(params, playable, inv, shared)
+    return snapshot
+      ? allowQueueRequest({ [PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY]: { condition: snapshot } })
+      : allowQueueRequest()
+  }
+
   /**
    * Degrade (or convert) the worst matching playlist/album record. Never rejects.
    * `matching` is already membership- and (when required) format-filtered.
@@ -790,14 +1120,14 @@ export class LocalLibraryModule {
    */
   private async wearRecordForQueue(
     params: QueueValidationParams,
-    matching: HeldLocalLibraryGrant[],
+    matching: HeldRecordCopy[],
     inv: UserInventory,
     shared: SharedPlaybackFormats,
   ): Promise<MediaCondition | undefined> {
     const context = this.getContext()
     if (!context) return undefined
 
-    const wearable = matching.filter((h) => h.grant.scope !== "library")
+    const wearable = matching.filter((h) => h.grant?.scope !== "library")
     if (wearable.length === 0) return undefined
 
     const gentle = gentlePlayableFormats(inv.items, shared.gentle)
@@ -901,6 +1231,16 @@ export class LocalLibraryModule {
     if (!context) return []
     const inv = await context.inventory.getInventory(userId)
     return inv.items
+  }
+
+  private async getHeldSourceRecords(userId: string): Promise<HeldSourceRecord[]> {
+    if (this.pickedRecords.length === 0) return []
+    const items = await this.getInventoryItems(userId)
+    return listHeldSourceRecords({
+      pluginName: this.pluginName,
+      items,
+      catalog: this.pickedRecords,
+    })
   }
 
   private async getHeldGrants(userId: string): Promise<HeldLocalLibraryGrant[]> {

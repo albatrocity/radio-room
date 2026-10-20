@@ -27,10 +27,13 @@ export function GameStudioApp() {
   useEffect(() => {
     if (!boot) return
     const url = import.meta.env.VITE_STUDIO_BRIDGE_URL ?? "http://127.0.0.1:3099"
-    const unsubSync = connectStudioBridge(boot.room, url)
-    const unsubControl = connectStudioBridgeControl(url, boot.room.roomId)
+    const sync = connectStudioBridge(boot.room, url)
+    // Re-send the sandbox whenever the bridge (re)connects, e.g. after `tsx watch` restarts it.
+    const unsubControl = connectStudioBridgeControl(url, boot.room.roomId, {
+      onConnect: sync.resync,
+    })
     return () => {
-      unsubSync()
+      sync.stop()
       unsubControl()
     }
   }, [boot])

@@ -26,7 +26,7 @@ import {
   useQueueBrowseMediaKey,
 } from "../hooks/useActors"
 import { useTrackRoomPresence } from "../hooks/useTrackRoomPresence"
-import { metadataSourceLabel } from "../lib/metadataSourceLabels"
+import { RECORDS_BROWSE_SOURCE, metadataSourceLabel } from "../lib/metadataSourceLabels"
 import type {
   AddToQueueBrowseLocation,
   AddToQueueMode,
@@ -62,9 +62,17 @@ const FormAddToQueue = ({
   const bridgeConnected = useMediaBridgeConnected()
   const bridgeServices = useMediaBridgeServices()
   const effectiveSourceIds = useEffectiveMetadataSourceIds()
-  const browseableSourceIds = useBrowseableMetadataSourceIds()
+  const serverBrowseableSourceIds = useBrowseableMetadataSourceIds()
   const browseSourceCapabilities = useBrowseSourceCapabilities()
   const myMedia = useMyMedia()
+  // Held records sit under Local; without Local, they get their own entry (ADR 0216).
+  const browseableSourceIds = useMemo(() => {
+    if (serverBrowseableSourceIds === null) return null
+    if (serverBrowseableSourceIds.includes("local") || !myMedia?.length) {
+      return serverBrowseableSourceIds
+    }
+    return [...serverBrowseableSourceIds, RECORDS_BROWSE_SOURCE]
+  }, [serverBrowseableSourceIds, myMedia])
   const queueBrowseMediaKey = useQueueBrowseMediaKey()
   const isQueueModalOpen = useIsModalOpen("queue")
   const { mode, sourceFilter, pendingNavigation, canBrowse } = useAddToQueueUi()
@@ -84,7 +92,9 @@ const FormAddToQueue = ({
   }, [room?.metadataSourceIds, room?.playbackControllerId, bridgeConnected, bridgeServices])
 
   const metadataSourceIds = effectiveSourceIds ?? fallbackSourceIds
-  const canBrowseLocal = (browseableSourceIds ?? []).includes("local")
+  const canBrowseRecords = (browseableSourceIds ?? []).some(
+    (id) => id === "local" || id === RECORDS_BROWSE_SOURCE,
+  )
 
   useEffect(() => {
     if (browseableSourceIds === null) return
@@ -103,9 +113,9 @@ const FormAddToQueue = ({
   }, [isQueueModalOpen, send])
 
   useEffect(() => {
-    if (!queueBrowseMediaKey || !canBrowseLocal) return
+    if (!queueBrowseMediaKey || !canBrowseRecords) return
     send({ type: "DEEP_LINK_MEDIA", mediaKey: queueBrowseMediaKey })
-  }, [queueBrowseMediaKey, canBrowseLocal, send])
+  }, [queueBrowseMediaKey, canBrowseRecords, send])
 
   useEffect(() => {
     if (mode === "browse") {

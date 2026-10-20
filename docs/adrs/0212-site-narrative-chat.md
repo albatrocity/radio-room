@@ -24,6 +24,10 @@ A stop already posts a road sign: where the van parked, for how long, and whethe
 - Old clients that do not know `type: "prose"` show the paragraph as an ordinary system message. The text still arrives.
 - Lore stays on the site detail page. Narrative is the chat line.
 
+## Amendment (2026-10-19): arrival order
+
+At a stop with a shop, chat reads top to bottom: the exit sign ("Parked for 4 min…"), then the site narrative, then the shop's opening message. `openShopAt` splits closing the previous scope's round (first) from opening this site's shop (after the narrative), in both `park` and a tow to the Mechanic. The Game Studio simulator posts only the shop's opening message, like the room, and no longer adds a generated "Sells …" summary (`describeSiteShop` is gone).
+
 ## See also
 
 - [0205. Road trips v1](0205-road-trips-v1.md)

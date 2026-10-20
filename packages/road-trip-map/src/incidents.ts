@@ -16,7 +16,13 @@ export type IncidentStep =
   /** The van waits; using one of `resolvesWith` (item short ids) ends the incident. */
   | { kind: "window"; label: string; ms: number; resolvesWith: string[] }
   /** A cost step (D15). `waivable`: a AAA Card covers it. */
-  | { kind: "fund"; purpose: IncidentFundPurpose; baseCost: number; provider: string; waivable: boolean }
+  | {
+      kind: "fund"
+      purpose: IncidentFundPurpose
+      baseCost: number
+      provider: string
+      waivable: boolean
+    }
   /** `status` replaces the incident's name as the headline once help is on the way ("Refuelling"). */
   | { kind: "wait"; label: string; ms: number; status?: string }
   /** Tow the van to a Mechanic: engine off, no fuel burns. The Mechanic's shop opens on arrival. */
@@ -35,7 +41,7 @@ export const INCIDENTS: Record<IncidentId, IncidentSpec> = {
     name: "Traffic jam",
     emoji: "🚗",
     headline: "Traffic jam",
-    body: "Brake lights for miles. The van crawls along.",
+    body: "Hit some traffic.The van crawls along.",
   },
   "blown-tire": {
     name: "Blown tire",
@@ -181,7 +187,12 @@ export function incidentSteps(
           provider: "the fuel truck",
           waivable: false,
         },
-        { kind: "wait", label: "Waiting for the fuel truck", ms: t.deliveryWaitMs, status: "Refuelling" },
+        {
+          kind: "wait",
+          label: "Waiting for the fuel truck",
+          ms: t.deliveryWaitMs,
+          status: "Refuelling",
+        },
       ]
   }
 }

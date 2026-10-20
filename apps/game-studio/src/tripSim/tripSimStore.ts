@@ -1,7 +1,10 @@
 import { useSyncExternalStore } from "react"
-import { TripSimRoom } from "@repo/plugin-road-trip/sim"
+import { TripSimRoom, type SimShops } from "@repo/plugin-road-trip/sim"
 import type { TripMapInput } from "@repo/road-trip-map"
+import type { OpenRoomShopRequest, ShopAccessCapability } from "@repo/types"
 import { STUDIO_ROOM_ID } from "../studio/constants"
+import { getStudio } from "../studio/studioEnvironment"
+import { startStudioGameSession } from "../studio/studioActions"
 import { postTripSim } from "./tripSimBridge"
 
 /**
@@ -22,12 +25,48 @@ function notify(): void {
   void postTripSim(bridgeUrl(), STUDIO_ROOM_ID, room ? room.snapshot() : null)
 }
 
+/** The sandbox's Item Shops `shopAccess`, so a stop opens a real shop round in the room. */
+function sandboxShopAccess(): ShopAccessCapability | undefined {
+  try {
+    return getStudio().itemShopsPlugin.capabilities?.shopAccess
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * A stop's shop becomes a real sandbox round (Item Shops in Game Studio), so
+ * the Room UI shows its shelf and record bin. Rounds need a game session; the
+ * sandbox starts one when none is running.
+ */
+const sandboxShops: SimShops = {
+  open(request: OpenRoomShopRequest) {
+    void (async () => {
+      const shopAccess = sandboxShopAccess()
+      if (!shopAccess) return
+      let result = await shopAccess.openRoomShop(request)
+      if (!result.ok && result.reason === "no-session") {
+        await startStudioGameSession()
+        result = await shopAccess.openRoomShop(request)
+      }
+      if (!result.ok) {
+        console.warn(`[trip-sim] ${request.title ?? request.scopeId}'s shop didn't open (${result.reason})`)
+      }
+    })()
+  },
+  close(scopeId: string) {
+    void sandboxShopAccess()?.closeRoomShop(scopeId)
+  },
+}
+
 export function loadTripSim(map: TripMapInput): void {
-  room = new TripSimRoom(map, { roomId: STUDIO_ROOM_ID })
+  room?.closeOpenShop()
+  room = new TripSimRoom(map, { roomId: STUDIO_ROOM_ID, shops: sandboxShops })
   notify()
 }
 
 export function clearTripSim(): void {
+  room?.closeOpenShop()
   room = null
   notify()
 }

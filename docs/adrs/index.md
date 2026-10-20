@@ -93,7 +93,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0085](0085-multi-source-search-relevance-ranking.md) | Multi-source DJ search relevance ranking | Accepted |
 | [0086](0086-metadata-search-result-cache.md) | Metadata search result cache (SimpleCache + YouTube first) | Accepted |
 | [0087](0087-room-bridge-media-source-policy.md) | Room-level Media Bridge source policy (metadataSourceIds toggles) | Accepted |
-| [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog host) |
+| [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog host); amended by [0216](0216-record-picks.md) (`trackId` on queue grants) |
 | [0089](0089-metadata-source-content-browse.md) | Metadata source content browse (artists → albums → tracks) | Partially superseded by [0090](0090-hybrid-metadata-catalog-browse.md) |
 | [0090](0090-hybrid-metadata-catalog-browse.md) | Hybrid metadata catalog browse (search-entry + Search entity rows) | Accepted |
 | [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Partially superseded by [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) |
@@ -217,10 +217,12 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0209](0209-trip-funds-escrow-pool-and-levy.md) | Trip funds: shared `EscrowPoolHelper` and proportional levy in plugin-base, `pool-card`, short funds still served, fuel on the ledger (amends [0188](0188-kickstarter-campaigns-coin-escrow.md)) | Accepted |
 | [0210](0210-shared-model-viewer-and-studio-site-assets.md) | Shared `@repo/model-viewer` (sole `three` importer) for items and sites; Game Studio publishes content-addressed site art to the CDN with designer credentials (extends 0199, amends 0207) | Accepted |
 | [0211](0211-trip-timeline-room-export.md) | Trip timeline in the room export | Accepted |
-| [0212](0212-site-narrative-chat.md) | Site narrative is chat prose, not a road sign | Accepted |
-| [0213](0213-game-studio-trip-simulator.md) | Game Studio trip simulator steps the pure trip runtime (`TripSim.stepNext`, `@repo/plugin-road-trip/sim`, `POST /trip-sim`) | Accepted |
-| [0214](0214-physical-media-carry.md) | Physical media carry (`{ formats?, genres? }`) on trip site services and shop entries; record genres from Navidrome; trips stop naming catalog shops (partially supersedes 0206, 0207) | Accepted |
+| [0212](0212-site-narrative-chat.md) | Site narrative is chat prose, not a road sign | Accepted (arrival order amendment 2026-10-19) |
+| [0213](0213-game-studio-trip-simulator.md) | Game Studio trip simulator steps the pure trip runtime (`TripSim.stepNext`, `@repo/plugin-road-trip/sim`, `POST /trip-sim`) | Accepted (shop rounds amendment 2026-10-19) |
+| [0214](0214-physical-media-carry.md) | Physical media carry (`{ formats?, genres? }`) on trip site services and shop entries; record genres from Navidrome; trips stop naming catalog shops (partially supersedes 0206, 0207) | Accepted (amended by [0216](0216-record-picks.md): the carry moves under `library`) |
 | [0215](0215-van-shared-playback-formats.md) | The van shares playback formats while a trip map is loaded (`tuning.vanPlayback`, `shopAccess.setSharedPlayback`; amends 0160) | Accepted |
+| [0216](0216-record-picks.md) | Record picks: designer-chosen albums from any source (`PhysicalMediaPick`, `PhysicalMediaStock` = `library` carry + `picks`), track-scoped `grantMetadataSourceAccess` (`trackId`), `getAlbumTrackIds` (amends 0088, 0214) | Accepted |
+| [0217](0217-pull-off-sign-hold.md) | Pulling off holds signs and skip polls for sites within 3 mi past the stop until the van leaves (`pullOffHold`; amends 0205) | Accepted |
 
 ## Creating a New ADR
 

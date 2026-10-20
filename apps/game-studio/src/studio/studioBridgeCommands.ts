@@ -86,7 +86,14 @@ export type StudioBridgeCommand =
   | { kind: "TRADE_UNLOCK"; roomId: string; userId: string; tradeId: string }
   | { kind: "TRADE_CONFIRM"; roomId: string; userId: string; tradeId: string }
   | { kind: "TRADE_CANCEL"; roomId: string; userId: string; tradeId: string }
-  | { kind: "SEND_MESSAGE"; roomId: string; userId: string; content: string }
+  | {
+      kind: "SEND_MESSAGE"
+      roomId: string
+      userId: string
+      /** The Room UI sender's name, used when they aren't in this sandbox. */
+      username?: string
+      content: string
+    }
   | {
       kind: "EXECUTE_PLUGIN_ACTION"
       roomId: string
@@ -260,8 +267,10 @@ export async function dispatchStudioBridgeCommand(
       return studioTradeCancel({ userId: cmd.userId, tradeId: cmd.tradeId })
     }
     case "SEND_MESSAGE": {
-      await studioActions.sendChatAsUser(cmd.userId, cmd.content)
-      return { success: true }
+      const posted = await studioActions.sendChatAsUser(cmd.userId, cmd.content, {
+        username: cmd.username,
+      })
+      return posted ? { success: true } : { success: false, message: "Message was not posted" }
     }
     case "EXECUTE_PLUGIN_ACTION": {
       await studioActions.executeBridgePluginAction(

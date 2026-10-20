@@ -35,6 +35,7 @@ import ScrollShadowViewport from "./ScrollShadowViewport"
 import { stopTrackPreview, toggleTrackPreview } from "../actors/trackPreviewActor"
 import { artistsLabel, releaseYear } from "../lib/albumHeaderFields"
 import { preferBrowserRenderableImages } from "../lib/metadataImages"
+import { RECORDS_BROWSE_SOURCE } from "../lib/metadataSourceLabels"
 import { STALE_PHYSICAL_MEDIA_EMPTY } from "@repo/game-logic"
 import type { GetTrackPresence } from "../hooks/useTrackRoomPresence"
 
@@ -180,11 +181,13 @@ function CatalogBrowse({
   }
   const albumSearch = caps.albumSearch
   const searchEntry = caps.entryMode === "search"
-  const showMediaTab = sourceId === "local" && myMedia.length > 0
-  const showRootTabs = (albumSearch || showMediaTab) && level === "root"
+  // My Records is a browse-only source holding just the collection (ADR 0216).
+  const recordsOnly = sourceId === RECORDS_BROWSE_SOURCE
+  const showMediaTab = (sourceId === "local" || recordsOnly) && myMedia.length > 0
+  const showRootTabs = !recordsOnly && (albumSearch || showMediaTab) && level === "root"
 
   const loadRoot = (nextSource: string, kind: RootKind, query?: string) => {
-    if (kind === "media") return
+    if (kind === "media" || nextSource === RECORDS_BROWSE_SOURCE) return
     if (kind === "albums") {
       send({
         type: "FETCH_ALBUMS",
@@ -216,13 +219,13 @@ function CatalogBrowse({
       return
     }
     setLevel("root")
-    setRootKind("artists")
+    setRootKind(sourceId === RECORDS_BROWSE_SOURCE ? "media" : "artists")
     setSelectedArtist(null)
     setSelectedAlbum(null)
     setSelectedMedia(null)
     setFilter("")
     skipNextFilterFetch.current = true
-    if (searchEntry) {
+    if (searchEntry || sourceId === RECORDS_BROWSE_SOURCE) {
       // Wait for query
       return
     }
@@ -509,7 +512,7 @@ function CatalogBrowse({
   }
 
   const showEmptySearchHint =
-    searchEntry && level === "root" && rootKind !== "media" && !filter.trim()
+    searchEntry && !recordsOnly && level === "root" && rootKind !== "media" && !filter.trim()
   const mediaFilter = filter.trim().toLowerCase()
   const mediaItems = mediaFilter
     ? myMedia.filter((s) => s.name.toLowerCase().includes(mediaFilter))
@@ -528,7 +531,7 @@ function CatalogBrowse({
         title: selectedMedia.name,
         artists: artistsLabel(firstTrack?.artists),
         year: releaseYear(firstTrack?.album?.releaseDate),
-        sourceId: "local",
+        sourceId: firstTrack?.source ?? "local",
         images: physicalMediaImages(selectedMedia),
         imageUrl: selectedMedia.imageUrl,
         imageUrlLarge: selectedMedia.imageUrlLarge,
@@ -646,7 +649,7 @@ function CatalogBrowse({
           loading={isLoading && tracks.length === 0}
           emptyMessage={state.matches("failure") ? undefined : "No tracks found."}
           disabled={disabled}
-          defaultSourceId={sourceId}
+          defaultSourceId={recordsOnly ? (firstTrack?.source ?? "local") : sourceId}
           canPreviewTrack={(track) => (track.source ?? sourceId) === "local"}
           onPreview={handlePreview}
           onAddToQueue={onChoose}

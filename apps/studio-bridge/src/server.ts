@@ -4,6 +4,7 @@ import express from "express"
 import type { Socket } from "socket.io"
 import type { Server as IOServer } from "socket.io"
 import { Server } from "socket.io"
+import type { ChatMessage } from "@repo/types"
 import type { User } from "@repo/types/User"
 import { canonicalQueueTrackKey } from "@repo/types/Queue"
 import type { QueueItem } from "@repo/types/Queue"
@@ -47,12 +48,6 @@ import {
   upsertStudioFeedbackResponse,
 } from "./stubFeedback.js"
 import {
-  QUIZ_PREVIEW_PLUGIN,
-  buildStubQuizComponentState,
-  buildStubQuizSessionStarted,
-  runStubQuizAction,
-} from "./stubQuiz.js"
-import {
   LYRIC_HERO_PREVIEW_PLUGIN,
   buildStubLyricHeroComponentState,
   buildStubLyricHeroSessionStarted,
@@ -89,19 +84,13 @@ import {
   stubSetPlaybackVolume,
 } from "./stubVolumeManager.js"
 import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
+import { fetchLocalCover, getRecordPick, listLibraryAlbums, searchRecords } from "./recordPicks.js"
 
 const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
 
 /** When `pollPreview=1` on the Socket.IO handshake query, LOGIN includes a stub active poll. */
 function pollPreviewEnabled(socket: Socket): boolean {
   const q = socket.handshake.query.pollPreview ?? socket.handshake.query.polls
-  const raw = Array.isArray(q) ? q[0] : q
-  return raw === "1" || raw === "true"
-}
-
-/** When `quizPreview=1` on the Socket.IO handshake query, LOGIN emits a stub quiz SESSION_STARTED. */
-function quizPreviewEnabled(socket: Socket): boolean {
-  const q = socket.handshake.query.quizPreview ?? socket.handshake.query.quiz
   const raw = Array.isArray(q) ? q[0] : q
   return raw === "1" || raw === "true"
 }
@@ -270,6 +259,16 @@ async function forwardRoomUiCommandToStudioWithAck(
   })
 }
 
+/** A system line shown only to one Room UI socket. */
+function bridgeNotice(content: string): ChatMessage {
+  return {
+    user: { userId: "system", username: "system", id: "system" },
+    content,
+    timestamp: new Date().toISOString(),
+    meta: { type: "alert", status: "warning" },
+  } as ChatMessage
+}
+
 function studioNotConnectedMessage(): string {
   return "Game Studio is not connected to the bridge. Run `make game-studio` and keep that tab open."
 }
@@ -418,11 +417,6 @@ function wireSocketHandlers(io: IOServer): void {
             type: "POLL_PUBLISHED",
             data: { roomId: payload.roomId, poll: initData.activePoll },
           })
-        }
-
-        if (quizPreviewEnabled(socket)) {
-          const started = buildStubQuizSessionStarted(payload.roomId)
-          socket.emit("event", started)
         }
 
         if (lyricPreviewEnabled(socket)) {
@@ -1332,12 +1326,20 @@ function wireSocketHandlers(io: IOServer): void {
             : ""
       const trimmed = raw.trim()
       if (!trimmed) return
-      await forwardRoomUiCommandToStudio(io, roomId, {
+      const ack = await forwardRoomUiCommandToStudioWithAck(io, roomId, {
         kind: "SEND_MESSAGE",
         roomId,
         userId,
+        username: socket.data.username as string | undefined,
         content: trimmed,
       })
+      // Game Studio owns chat; say so instead of swallowing the message.
+      if (!ack) {
+        socket.emit("event", {
+          type: "MESSAGE_RECEIVED",
+          data: { roomId, message: bridgeNotice(studioNotConnectedMessage()) },
+        })
+      }
     })
 
     socket.on("REMOVE_FROM_QUEUE", async (data: { trackId?: string }) => {
@@ -1455,19 +1457,6 @@ function wireSocketHandlers(io: IOServer): void {
           socket.emit("event", {
             type: "PLUGIN_ACTION_RESULT",
             data: { success: false, message: "Not in a room or missing plugin action." },
-          })
-          return
-        }
-        // The bridge fakes quiz-sessions (the real plugin does not run in the sandbox):
-        // drive the in-memory preview session and broadcast PLUGIN:quiz-sessions:* events.
-        if (data.pluginName === QUIZ_PREVIEW_PLUGIN) {
-          const { success, message, events } = runStubQuizAction(roomId, data.action, data.params)
-          for (const ev of events) {
-            io.to(roomSocketPath(roomId)).emit("event", ev)
-          }
-          socket.emit("event", {
-            type: "PLUGIN_ACTION_RESULT",
-            data: { success, message },
           })
           return
         }
@@ -2362,7 +2351,6 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
   const roomId = req.params.roomId
   res.status(200).json({
     states: {
-      [QUIZ_PREVIEW_PLUGIN]: buildStubQuizComponentState(roomId),
       [VOLUME_MANAGER_PLUGIN]: buildStubVolumeComponentState(roomId),
       [ROUND_ROBIN_PREVIEW_PLUGIN]: buildStubRoundRobinComponentState(roomId),
       [LYRIC_HERO_PREVIEW_PLUGIN]: buildStubLyricHeroComponentState(roomId),
@@ -2375,17 +2363,15 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
 app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
   const { roomId, pluginName } = req.params
   const state =
-    pluginName === QUIZ_PREVIEW_PLUGIN
-      ? buildStubQuizComponentState(roomId)
-      : pluginName === VOLUME_MANAGER_PLUGIN
-        ? buildStubVolumeComponentState(roomId)
-        : pluginName === ROUND_ROBIN_PREVIEW_PLUGIN
-          ? buildStubRoundRobinComponentState(roomId)
-          : pluginName === LYRIC_HERO_PREVIEW_PLUGIN
-            ? buildStubLyricHeroComponentState(roomId)
-            : pluginName === ROAD_TRIP_PREVIEW_PLUGIN
-              ? roadTripComponentState(roomId)
-              : {}
+    pluginName === VOLUME_MANAGER_PLUGIN
+      ? buildStubVolumeComponentState(roomId)
+      : pluginName === ROUND_ROBIN_PREVIEW_PLUGIN
+        ? buildStubRoundRobinComponentState(roomId)
+        : pluginName === LYRIC_HERO_PREVIEW_PLUGIN
+          ? buildStubLyricHeroComponentState(roomId)
+          : pluginName === ROAD_TRIP_PREVIEW_PLUGIN
+            ? roadTripComponentState(roomId)
+            : {}
   res.status(200).json({ state })
 })
 
@@ -2436,6 +2422,45 @@ app.get("/rooms/:roomId", (req, res) => {
     room: doc,
     scheduleSnapshot: null,
   })
+})
+
+/** Game Studio's record picker: Spotify and local album search (ADR 0216). */
+app.get("/records/search", async (req, res) => {
+  const query = typeof req.query.q === "string" ? req.query.q : ""
+  res.status(200).json(await searchRecords(query))
+})
+
+/** The designer's Navidrome albums, for Game Studio's sandbox library (ADR 0216). */
+app.get("/records/library", async (_req, res) => {
+  try {
+    res.status(200).json({ albums: await listLibraryAlbums() })
+  } catch (error: unknown) {
+    res.status(503).json({ albums: [], error: error instanceof Error ? error.message : "Library failed" })
+  }
+})
+
+app.get("/records/local/:id/cover", async (req, res) => {
+  const cover = await fetchLocalCover(req.params.id).catch(() => null)
+  if (!cover) {
+    res.status(404).end()
+    return
+  }
+  res.setHeader("content-type", cover.headers.get("content-type") ?? "image/jpeg")
+  res.setHeader("cache-control", "private, max-age=3600")
+  res.status(200).send(Buffer.from(await cover.arrayBuffer()))
+})
+
+app.get("/records/:source/:id", async (req, res) => {
+  try {
+    const pick = await getRecordPick(req.params.source, req.params.id)
+    if (!pick) {
+      res.status(404).json({ error: "Album not found" })
+      return
+    }
+    res.status(200).json({ pick })
+  } catch (error: unknown) {
+    res.status(503).json({ error: error instanceof Error ? error.message : "Lookup failed" })
+  }
 })
 
 app.post("/sync", (req, res) => {

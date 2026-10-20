@@ -5,6 +5,7 @@ import {
   type LucideIconName,
   type MediaCondition,
   type PhysicalMediaFormat,
+  type RecordAlbumRef,
 } from "@repo/types"
 import type { ItemCatalogEntry, LocalLibraryGrant } from "@repo/plugin-base/helpers"
 import type { LocalLibraryGrantConfig } from "./config"
@@ -30,6 +31,15 @@ export type HeldLocalLibraryGrant = {
   /** Copy wear; mint when metadata is absent (ADR 0155). */
   condition?: MediaCondition
 }
+
+/**
+ * A held record from a non-local source (a picked Spotify album, ADR 0216).
+ * Shares the copy fields wear needs with {@link HeldLocalLibraryGrant}.
+ */
+export type HeldSourceRecord = Omit<HeldLocalLibraryGrant, "grant"> & { ref: RecordAlbumRef }
+
+/** Any held record copy that can be worn on queue. */
+export type HeldRecordCopy = Omit<HeldLocalLibraryGrant, "grant"> & { grant?: LocalLibraryGrant }
 
 export function definitionIdForShortId(pluginName: string, shortId: string): string {
   return `${pluginName}:${shortId}`
@@ -136,6 +146,39 @@ export function listHeldLocalLibraryGrants(params: {
       ...(entry!.definition.mediaFormat
         ? { mediaFormat: entry!.definition.mediaFormat }
         : {}),
+    })
+  }
+  out.sort((a, b) => a.definitionId.localeCompare(b.definitionId))
+  return out
+}
+
+/** shortId from an inventory definition id (`plugin:shortId`). */
+function shortIdOf(definitionId: string): string {
+  return definitionId.includes(":") ? definitionId.slice(definitionId.indexOf(":") + 1) : definitionId
+}
+
+/** Held records whose album is on a non-local source (deterministic order). */
+export function listHeldSourceRecords(params: {
+  pluginName: string
+  items: InventoryItem[]
+  catalog: readonly ItemCatalogEntry[]
+}): HeldSourceRecord[] {
+  const byShort = catalogByShortId(params.catalog)
+  const out: HeldSourceRecord[] = []
+  for (const item of params.items) {
+    if (item.quantity <= 0) continue
+    const shortId = shortIdOf(item.definitionId)
+    if (item.definitionId !== definitionIdForShortId(params.pluginName, shortId)) continue
+    const entry = byShort.get(shortId)
+    if (!entry?.recordAlbum) continue
+    out.push({
+      definitionId: item.definitionId,
+      shortId,
+      name: entry.definition.name,
+      itemId: item.itemId,
+      ref: entry.recordAlbum,
+      condition: readItemCondition(item),
+      ...(entry.definition.mediaFormat ? { mediaFormat: entry.definition.mediaFormat } : {}),
     })
   }
   out.sort((a, b) => a.definitionId.localeCompare(b.definitionId))

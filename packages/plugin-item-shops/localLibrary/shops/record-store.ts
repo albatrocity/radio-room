@@ -23,7 +23,7 @@ export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] 
 /**
  * Theme: Physical Media and playback capability (derived records, broken SKUs,
  * cleaners, playback devices). Bridge-only; carries every derived record
- * (`physicalMedia: {}`, ADR 0214) plus extra playlist-scoped grant rows.
+ * (`physicalMedia: { library: {} }`, ADR 0214, 0216) plus extra playlist-scoped grant rows.
  * Assignment rarity: common (ADR 0175).
  */
 export const RECORD_STORE_SHOP: ItemShopsShopCatalogEntry = {
@@ -33,7 +33,7 @@ export const RECORD_STORE_SHOP: ItemShopsShopCatalogEntry = {
   openingMessage: "Flip through the bins and buy a record to expand your queuing options.",
   requiresPlaybackControllerId: "bridge",
   distinctOffers: true,
-  physicalMedia: {},
+  physicalMedia: { library: {} },
   availableItems: [],
   listedBuybackRate: 0.1,
   unlistedBuybackRate: 0,

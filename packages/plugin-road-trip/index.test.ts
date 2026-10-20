@@ -545,6 +545,38 @@ describe("RoadTripPlugin", () => {
     ).toBeGreaterThan(1)
   })
 
+  it("holds the next site's sign and poll while pulling off just before it", async () => {
+    const map = JSON.parse(BASE_MAP_JSON) as typeof SAMPLE_TRIP_MAP
+    // Gas 'n' Go (mile 6) is 2 mi past the Record Store; sign it only 0.5 mi out.
+    map.sites.find((site) => site.id === "gas-n-go")!.revealMiles = 0.5
+    const { plugin, h } = await setup()
+    await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(map) })
+    await plugin.executeAction("depart", ADMIN)
+    const staleGasPoll = h.schedules.get("skip-poll:gas-n-go")!
+
+    await runUntil(plugin, h, T0 + 2.5 * MIN)
+    h.votes.set(h.activePoll!.id, { "opt-stop": 3, "opt-skip": 0 })
+    await runUntil(plugin, h, T0 + 3.5 * MIN)
+    expect(h.schedules.has("reveal:gas-n-go")).toBe(false)
+    expect(h.schedules.has("skip-poll:gas-n-go")).toBe(false)
+
+    // A stale schedule firing anyway opens no poll and re-arms nothing.
+    const pollsBefore = h.api.createPoll.mock.calls.length
+    await plugin.handleScheduled(staleGasPoll.kind, staleGasPoll.payload, staleGasPoll.id)
+    expect(h.api.createPoll.mock.calls.length).toBe(pollsBefore)
+    expect(h.schedules.has("skip-poll:gas-n-go")).toBe(false)
+
+    // Parked at 4:00 for 4 min; nothing about Gas 'n' Go until the van leaves.
+    await runUntil(plugin, h, T0 + 8 * MIN - 1)
+    expect(lastTrip(h).sites.find((s) => s.id === "gas-n-go")).toBeUndefined()
+    expect(h.signs.some((sign) => sign.title?.includes("Gas 'n' Go"))).toBe(false)
+
+    // Back on the road at 8:00: its poll opens on its usual lead (1.5 min before 10:00).
+    await runUntil(plugin, h, T0 + 8.5 * MIN + 5_000)
+    expect(h.activePoll?.question).toContain("Gas 'n' Go")
+    expect(h.signs.some((sign) => sign.title === "Coming up: Gas 'n' Go")).toBe(true)
+  })
+
   it("locks the map after departure and supports new trip / unload", async () => {
     const { plugin, h } = await setup()
     await plugin.executeAction("loadMap", ADMIN, { mapJson: BASE_MAP_JSON })

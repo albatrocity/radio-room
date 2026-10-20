@@ -42,6 +42,10 @@ const POLL_NOT_IMPLEMENTED = {
   error: { status: 501, error: "Not Implemented", message: "Polls are not implemented in Game Studio" },
 } as const
 
+function studioBridgeBaseUrl(): string {
+  return (import.meta.env.VITE_STUDIO_BRIDGE_URL ?? "http://127.0.0.1:3099").replace(/\/$/, "")
+}
+
 export class MockStudioPluginApi implements PluginAPI {
   private readonly schedules = new Map<string, StudioSchedule>()
   private scheduleHandler:
@@ -638,15 +642,31 @@ export class MockStudioPluginApi implements PluginAPI {
     return {}
   }
 
+  /**
+   * The designer's Navidrome albums through studio-bridge, so site shops'
+   * library bins and local picks stock like a bridge room's (ADR 0216).
+   * Empty when the bridge or Navidrome is unavailable.
+   */
   async listLibraryAlbums(_roomId: string): Promise<LibraryAlbumRow[]> {
-    return []
+    try {
+      const res = await fetch(`${studioBridgeBaseUrl()}/records/library`)
+      if (!res.ok) return []
+      const body = (await res.json()) as { albums?: LibraryAlbumRow[] }
+      return body.albums ?? []
+    } catch {
+      return []
+    }
   }
 
+  /** Covers proxied by studio-bridge from the designer's Navidrome. */
   async getLocalAlbumArtwork(
     _roomId: string,
-    _albumIds: string[],
+    albumIds: string[],
   ): Promise<Record<string, LocalPlaylistArtwork>> {
-    return {}
+    const root = studioBridgeBaseUrl()
+    return Object.fromEntries(
+      albumIds.map((id) => [id, { imageUrl: `${root}/records/local/${encodeURIComponent(id)}/cover` }]),
+    )
   }
 
   async getLocalAlbumComments(
@@ -657,6 +677,14 @@ export class MockStudioPluginApi implements PluginAPI {
   }
 
   async listLocalAlbumTrackIds(_roomId: string, _albumId: string): Promise<string[]> {
+    return []
+  }
+
+  async getAlbumTrackIds(_params: {
+    roomId: string
+    sourceId: string
+    albumId: string
+  }): Promise<string[]> {
     return []
   }
 

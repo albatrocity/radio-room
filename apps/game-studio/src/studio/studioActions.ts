@@ -306,10 +306,21 @@ export async function advanceNowPlaying(): Promise<void> {
   }
 }
 
-export async function sendChatAsUser(userId: string, content: string): Promise<void> {
+/**
+ * Post chat as a user. A Room UI sender who isn't in this sandbox (another
+ * Game Studio tab synced the bridge last) still posts under `fallback.username`
+ * rather than being dropped. Returns whether the message was posted.
+ */
+export async function sendChatAsUser(
+  userId: string,
+  content: string,
+  fallback?: { username?: string },
+): Promise<boolean> {
   const { room, itemShopsPlugin } = getStudio()
-  const user = room.users.get(userId)
-  if (!user) return
+  const user: User | undefined =
+    room.users.get(userId) ??
+    (fallback?.username ? { userId, username: fallback.username, status: "listening" } : undefined)
+  if (!user) return false
 
   const now = Date.now()
   const rawState = room.getUserState(userId)
@@ -342,11 +353,12 @@ export async function sendChatAsUser(userId: string, content: string): Promise<v
     user,
   }
   const pluginTransformed = await itemShopsPlugin.transformChatMessage?.(room.roomId, message)
-  if (isChatMessageTransformDrop(pluginTransformed)) return
+  if (isChatMessageTransformDrop(pluginTransformed)) return false
   if (pluginTransformed) {
     message = pluginTransformed
   }
   room.appendChat(message)
+  return true
 }
 
 export async function useInventoryItem(

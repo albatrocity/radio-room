@@ -22,6 +22,7 @@ import {
   nextSiteAhead,
   openShopAt,
   pct,
+  pullOffHold,
   seededIndex,
   withSite,
   type Transition,
@@ -56,6 +57,8 @@ export {
   formatShare,
   fundShareCopy,
   nextSiteAhead,
+  PULL_OFF_HOLD_MILES,
+  pullOffHold,
   siteShopScopeId,
   type SignVariant,
   type Transition,
@@ -295,6 +298,8 @@ export function revealSite(siteId: string): Transition {
     if (state.status !== "driving") return null
     const runtime = state.sites[siteId]
     if (!runtime || runtime.revealed) return null
+    const site = findSite(map, siteId)
+    if (site && pullOffHold(state, map, site)) return null
     const result = revealEvents(state, map, [siteId], mile)
     return { next: result.state, log: result.log, effects: result.effects }
   }
@@ -305,11 +310,12 @@ export function markPolling(
   pollId: string,
   optionIds: [string, string],
 ): Transition {
-  return (state, { map }) => {
+  return (state, { map, mile }) => {
     if (state.status !== "driving") return null
     const site = findSite(map, siteId)
     const runtime = state.sites[siteId]
     if (!site || runtime?.phase !== "ahead") return null
+    if (pullOffHold(state, map, site)) return null
     let next = withSite(state, siteId, {
       phase: "polling",
       pollId,
@@ -317,12 +323,17 @@ export function markPolling(
       pollRetryAt: undefined,
     })
     const log: TripLogEvent[] = []
+    const effects: TripEffect[] = []
+    // Normally the reveal fired a second earlier. When both came due at once
+    // (e.g. released from a pull-off hold), the poll reveals and signs it.
     if (!resolveSiteSettings(map, site).mystery && !runtime.revealed) {
-      next = withSite(next, siteId, { revealed: true })
-      log.push({ kind: "site", siteId, name: site.name, phase: "revealed" })
+      const revealed = revealEvents(next, map, [siteId], mile)
+      next = revealed.state
+      log.push(...revealed.log)
+      effects.push(...revealed.effects)
     }
     log.push({ kind: "site", siteId, name: site.name, phase: "poll" })
-    return { next, log }
+    return { next, log, effects }
   }
 }
 
@@ -498,7 +509,8 @@ function park(state: TripState, ctx: TransitionContext, site: TripSite): Transit
     siteId: site.id,
   }
   const shop = openShopAt(state, site)
-  const effects: TripEffect[] = [...shop.effects]
+  // Exit sign, then narrative, then the shop opens (its opening line last).
+  const effects: TripEffect[] = [...shop.close]
   const gas = state.fund ? null : openGasFund(state, ctx, site)
   const minutes = Math.round(settings.parkMs / 60_000)
   effects.push({
@@ -514,6 +526,7 @@ function park(state: TripState, ctx: TransitionContext, site: TripSite): Transit
   })
   const narrative = narrate(site)
   if (narrative) effects.push(narrative)
+  effects.push(...shop.open)
   if (gas) effects.push(gas.effect)
   const blockers = [...state.blockers.filter((b) => b.kind !== "parked"), blocker]
   if (gas) blockers.push(gas.blocker)

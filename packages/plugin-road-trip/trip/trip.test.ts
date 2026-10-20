@@ -12,7 +12,10 @@ import {
   gasUrgency,
   liveSkipDefault,
   pauseTrip,
+  PULL_OFF_HOLD_MILES,
+  pullOffHold,
   resumeTrip,
+  revealSite,
   setFundsMode,
   siteShopScopeId,
 } from "./transitions"
@@ -387,6 +390,79 @@ describe("trip lifecycle", () => {
     sim.runUntil(T0 + 12 * MIN)
     expect(sim.state.sites["record-store"]!.phase).toBe("visited")
     expect(sim.state.sites[second.id]!.visitedAt).toBeDefined()
+  })
+
+  it("holds signs and polls just past a pull-off until the van leaves the stop", () => {
+    const sim = new TripSim(
+      noGas((m) => {
+        // Farmers Market 1.5 mi past the Record Store, signed only 0.5 mi out.
+        m.sites[1]!.mile = 5.5
+        m.sites[1]!.revealMiles = 0.5
+      }),
+    )
+    sim.votes["record-store"] = { stop: 4, skip: 1 }
+    sim.votes["farmers-market"] = { stop: 0, skip: 2 }
+    sim.apply(depart)
+
+    // Decided to pull off: Farmers Market's reveal and poll aren't armed.
+    sim.runUntil(T0 + 3.5 * MIN)
+    expect(sim.state.sites["record-store"]!.phase).toBe("stopping")
+    const held = sim.thresholds().map((t) => t.id)
+    expect(held).toContain("arrive:farmers-market")
+    expect(held).not.toContain("reveal:farmers-market")
+    expect(held).not.toContain("skip-poll:farmers-market")
+
+    // A stray reveal (fired before its schedule was cancelled) does nothing.
+    expect(sim.apply(revealSite("farmers-market"))).toBe(false)
+
+    // Parked: still held.
+    sim.runUntil(T0 + 5 * MIN)
+    expect(sim.state.sites["record-store"]!.phase).toBe("parked")
+    expect(sim.state.sites["farmers-market"]).toMatchObject({ phase: "ahead", revealed: false })
+
+    // Back on the road: its sign shows (it's still ahead) and its poll runs.
+    sim.runUntil(T0 + 30 * MIN)
+    expect(sim.state.sites["farmers-market"]).toMatchObject({
+      phase: "skipped",
+      revealed: true,
+      votes: { stop: 0, skip: 2 },
+    })
+    expect(sim.signs()).toEqual([
+      "On the road · Concert Run",
+      "Coming up: Dusty Boots Records",
+      "Taking the exit for Dusty Boots Records",
+      "EXIT 4 · DUSTY BOOTS RECORDS",
+      "Back on the road",
+      "Coming up: Farmers Market",
+      "Kept driving past Farmers Market",
+      "Made it to The Concert",
+    ])
+    const comingUp = sim.effects.find(
+      ({ effect }) => effect.type === "sign" && effect.title === "Coming up: Farmers Market",
+    )
+    expect(comingUp?.at).toBeGreaterThanOrEqual(T0 + 8 * MIN)
+  })
+
+  it("holds only optional pull-offs, and only sites within 3 mi past them", () => {
+    const sim = new TripSim(noGas())
+    const [records, market] = [sim.map.sites[0]!, sim.map.sites[1]!]
+    const at = (mile: number) => ({ ...market, mile })
+    // Ahead (no decision yet) or skipped: nothing is held.
+    expect(pullOffHold(sim.state, sim.map, at(5))).toBeUndefined()
+    sim.state = {
+      ...sim.state,
+      sites: { ...sim.state.sites, [records.id]: { phase: "stopping", revealed: true } },
+    }
+    expect(pullOffHold(sim.state, sim.map, at(5))?.id).toBe(records.id)
+    expect(pullOffHold(sim.state, sim.map, at(records.mile + PULL_OFF_HOLD_MILES))?.id).toBe(
+      records.id,
+    )
+    expect(pullOffHold(sim.state, sim.map, at(records.mile + 3.1))).toBeUndefined()
+    // Behind the stop: the van reaches it first, so its sign isn't held.
+    expect(pullOffHold(sim.state, sim.map, at(records.mile - 0.5))).toBeUndefined()
+    // A mandatory stop isn't a pull-off.
+    const mandatory = new TripSim(noGas((m) => (m.sites[0]!.mandatory = true)))
+    expect(pullOffHold(mandatory.state, mandatory.map, at(5))).toBeUndefined()
   })
 
   it("commits the leg into state, so the ledger never projects from a stale leg", () => {

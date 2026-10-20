@@ -29,6 +29,11 @@ const FORMAT_BY_TOKEN: Record<
   "45": { token: "45", format: "45", icon: "DiscAlbum", artworkFrame: ARTWORK_FRAME_BY_FORMAT["45"] },
 }
 
+/** Icon, frame, and label for a format token. */
+export function physicalMediaFormatInfo(format: PhysicalMediaFormat): PhysicalMediaFormatInfo {
+  return FORMAT_BY_TOKEN[format]
+}
+
 /** Shop/item label for a format token (`TAPE` → `"Cassette"`). */
 export function physicalMediaTypeLabel(format: PhysicalMediaFormat): string {
   return FORMAT_BY_TOKEN[format].format
@@ -60,7 +65,7 @@ export function physicalMediaAlbumShortId(albumId: string): string {
   return `pm-al-${safe}`
 }
 
-type PhysicalMediaFormatInfo = {
+export type PhysicalMediaFormatInfo = {
   token: PhysicalMediaFormat
   format: string
   icon: LucideIconName
@@ -125,6 +130,14 @@ export type PhysicalMediaAlbum = {
   /** Navidrome album genres; filters record bins (ADR 0214). */
   genres?: string[]
 }
+
+/** Detail view shared by every record SKU. */
+export const RECORD_DETAIL_VIEW = {
+  actionIcon: "Eye",
+  actionLabel: "View",
+  iconOnly: true,
+  layout: "trackList",
+} as const
 
 /**
  * Album ids whose ordered track lists exactly match a derived playlist.
@@ -195,6 +208,7 @@ export function derivePhysicalMediaItemsFromAlbums(
         icon: inferred.icon,
         artworkFrame: inferred.artworkFrame,
         mediaFormat: inferred.token,
+        mediaAlbum: { sourceId: "local", albumId: id },
         ...(genres.length > 0 ? { genres } : {}),
         ...(imageUrl ? { imageUrl } : {}),
         ...(imageUrlLarge ? { imageUrlLarge } : {}),

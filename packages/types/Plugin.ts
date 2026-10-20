@@ -912,6 +912,12 @@ export interface CatalogPluginAPI {
   }): Promise<Map<string, { playlistIds: string[]; albumIds: string[] }>>
 
   /**
+   * Track ids on an album in one of the room's metadata sources (ADR 0216).
+   * Uses the room's credentials and the browse cache. Returns [] on failure.
+   */
+  getAlbumTrackIds(params: { roomId: string; sourceId: string; albumId: string }): Promise<string[]>
+
+  /**
    * List Navidrome playlists on the room's Media Bridge (admin config picker).
    * Returns [] when offline / not bridge.
    */
@@ -1904,12 +1910,14 @@ export interface Plugin {
    * Grant a user access to a restricted metadata source (ADR 0088).
    * Called when evaluating search/queue access for bridge rooms.
    * Any plugin returning `"grant"` wins; errors/timeouts count as `"abstain"` (fail-closed).
+   * Queue checks pass `trackId`, so a grant can cover one album (ADR 0216).
    */
   grantMetadataSourceAccess?(params: {
     roomId: string
     userId: string
     sourceId: string
     action: "search" | "queue"
+    trackId?: string
   }): Promise<"grant" | "abstain">
 
   /**

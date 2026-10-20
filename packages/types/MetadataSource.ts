@@ -204,7 +204,12 @@ export type ResolvedPhysicalMediaItem = {
   item: PhysicalMediaItem
 } & (
   | { kind: "playlist"; playlistId: string }
-  | { kind: "album"; albumId: string }
+  | {
+      kind: "album"
+      albumId: string
+      /** Metadata source holding the album; omitted = `"local"` (ADR 0216). */
+      sourceId?: string
+    }
 )
 
 export type MetadataCatalogFilterOptions = {

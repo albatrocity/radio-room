@@ -218,7 +218,7 @@ describe("ItemShopsPlugin auto-shop", () => {
       const result = await access.openRoomShop({
         scopeId: "trip:t1:site:a",
         title: "Honky Tonk",
-        physicalMedia: COUNTRY_CDS,
+        physicalMedia: { library: COUNTRY_CDS },
       })
       expect(result).toEqual({ ok: true })
       const [, eligible, extras] = shopping.startSession.mock.calls[0] as unknown as [
@@ -246,7 +246,7 @@ describe("ItemShopsPlugin auto-shop", () => {
         getInstance: vi.fn(async () => null),
         assignInstanceForUserId,
       }
-      await access.openRoomShop({ scopeId: "s", physicalMedia: COUNTRY_CDS })
+      await access.openRoomShop({ scopeId: "s", physicalMedia: { library: COUNTRY_CDS } })
       ;(plugin as any).localLibrary.derivedPhysicalMedia.push(record("new-country-cd", "CD", ["Country"]))
       await (plugin as any).handleUserJoined({ user: { userId: "u2", username: "Late" } })
       const eligible = (assignInstanceForUserId.mock.calls[0] as unknown[])[2] as {
@@ -257,17 +257,17 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     it("reports disabled, no session, and an empty bin", async () => {
       let { access } = withRecords({ ...autoShopConfig(), enabled: false })
-      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: {} })).toEqual({
+      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: { library: {} } })).toEqual({
         ok: false,
         reason: "disabled",
       })
       ;({ access } = withRecords())
-      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: { genres: ["Polka"] } })).toEqual({
+      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: { library: { genres: ["Polka"] } } })).toEqual({
         ok: false,
         reason: "unavailable",
       })
       ;(plugin as any).context.game.getActiveSession = vi.fn(async () => null)
-      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: {} })).toEqual({
+      expect(await access.openRoomShop({ scopeId: "s", physicalMedia: { library: {} } })).toEqual({
         ok: false,
         reason: "no-session",
       })
@@ -275,7 +275,7 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     it("closes only the round its scope opened", async () => {
       const { access, shopping } = withRecords()
-      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: {} })
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: { library: {} } })
       await access.closeRoomShop("trip:t1:site:other")
       expect(shopping.clearSessionRound).not.toHaveBeenCalled()
       await access.closeRoomShop("trip:t1:site:a")
@@ -284,7 +284,7 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     it("a regular round takes over the scope so the trip can't close it", async () => {
       const { access, shopping } = withRecords()
-      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: {} })
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: { library: {} } })
       await plugin.executeAction("startShoppingSession", ADMIN)
       await access.closeRoomShop("trip:t1:site:a")
       expect(shopping.clearSessionRound).not.toHaveBeenCalled()
@@ -292,7 +292,7 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     it("auto-shop stands down while a scoped round is open", async () => {
       const { access } = withRecords()
-      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: {} })
+      await access.openRoomShop({ scopeId: "trip:t1:site:a", physicalMedia: { library: {} } })
       const openShoppingRound = vi.spyOn(plugin as any, "openShoppingRound")
       await (plugin as any).onAutoShopTick()
       expect(openShoppingRound).not.toHaveBeenCalled()
@@ -300,15 +300,15 @@ describe("ItemShopsPlugin auto-shop", () => {
 
     it("accepts a record bin everywhere, warning when the room can't fill it", async () => {
       let { access } = setup()
-      expect(await access.validateShop({ physicalMedia: {} })).toEqual({
+      expect(await access.validateShop({ physicalMedia: { library: {} } })).toEqual({
         ok: true,
         warnings: [
           "Records only sell in rooms on the Media Bridge with a local library; the van still stops",
         ],
       })
       ;({ access } = withRecords())
-      expect(await access.validateShop({ physicalMedia: COUNTRY_CDS })).toEqual({ ok: true })
-      expect(await access.validateShop({ physicalMedia: { genres: ["Polka"] } })).toEqual({
+      expect(await access.validateShop({ physicalMedia: { library: COUNTRY_CDS } })).toEqual({ ok: true })
+      expect(await access.validateShop({ physicalMedia: { library: { genres: ["Polka"] } } })).toEqual({
         ok: true,
         warnings: ["No records in this room's library match; the van still stops"],
       })
@@ -335,6 +335,62 @@ describe("ItemShopsPlugin auto-shop", () => {
         )
         return created
       }
+
+      it("posts the caller's opening message and does not DM the default line", async () => {
+        const { access, shopping, context } = withRecords()
+        const openingMessage = "Flip through and find something. There's also a bajillion CDs in the back."
+        await access.openRoomShop({
+          scopeId: "sister-anne-s",
+          title: "Sister Anne's record bins",
+          openingMessage,
+          physicalMedia: { library: {} },
+        })
+        const [, eligible] = shopping.startSession.mock.calls[0] as unknown as [
+          unknown,
+          { openingMessage?: string; postOpeningMessage?: boolean; name: string }[],
+        ]
+        expect(eligible[0]).toMatchObject({
+          name: "Sister Anne's record bins",
+          openingMessage,
+          postOpeningMessage: false,
+        })
+        expect(context.api.sendSystemMessage).toHaveBeenCalledWith("room-1", openingMessage, {
+          type: "alert",
+          status: "info",
+          title: "Sister Anne's record bins",
+        })
+      })
+
+      it("fills {{shopName}} in the room opening message", async () => {
+        const { access, context } = withRecords()
+        await access.openRoomShop({
+          scopeId: "s",
+          title: "Hank's parts counter",
+          openingMessage: "{{shopName}} has parts.",
+          physicalMedia: { library: {} },
+        })
+        expect(context.api.sendSystemMessage).toHaveBeenCalledWith(
+          "room-1",
+          "Hank's parts counter has parts.",
+          expect.objectContaining({ title: "Hank's parts counter" }),
+        )
+      })
+
+      it("keeps the default opening line when the caller has none", async () => {
+        const { access, shopping, context } = withRecords()
+        await access.openRoomShop({
+          scopeId: "s",
+          title: "Hank's parts counter",
+          physicalMedia: { library: {} },
+        })
+        const [, eligible] = shopping.startSession.mock.calls[0] as unknown as [
+          unknown,
+          { openingMessage?: string; postOpeningMessage?: boolean }[],
+        ]
+        expect(eligible[0]).toMatchObject({ openingMessage: "{{shopName}} is open!" })
+        expect(eligible[0]!.postOpeningMessage).toBeUndefined()
+        expect(context.api.sendSystemMessage).not.toHaveBeenCalled()
+      })
 
       it("sets the offers-only buyback rate and leaves the default at 0", async () => {
         const { access, shopping } = withDefinitions([FLAT])
@@ -428,7 +484,7 @@ describe("ItemShopsPlugin auto-shop", () => {
         const sample = { count: 1, weights: "even" as const }
         await access.openRoomShop({
           scopeId: "s",
-          physicalMedia: COUNTRY_CDS,
+          physicalMedia: { library: COUNTRY_CDS },
           offers: [{ definitionId: FLAT.id }],
           sample,
         })

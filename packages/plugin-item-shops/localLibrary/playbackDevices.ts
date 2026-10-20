@@ -74,6 +74,6 @@ export function gentlePlayableFormats(
 }
 
 /** False for library cards and operator grants — they carry no `mediaFormat`. */
-export function requiresPlaybackDevice(held: HeldLocalLibraryGrant): boolean {
+export function requiresPlaybackDevice(held: Pick<HeldLocalLibraryGrant, "mediaFormat">): boolean {
   return held.mediaFormat != null
 }

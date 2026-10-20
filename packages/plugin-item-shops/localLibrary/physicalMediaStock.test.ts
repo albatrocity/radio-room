@@ -86,7 +86,7 @@ describe("shop physicalMedia stock", () => {
 
   it("appends only matching records to a shop that declares a carry", () => {
     const stocked = withPhysicalMediaStock(
-      { ...shop, physicalMedia: { formats: ["CD"], genres: ["Country"] } },
+      { ...shop, physicalMedia: { library: { formats: ["CD"], genres: ["Country"] } } },
       derived,
     )
     expect(ids(stocked.availableItems)).toEqual(["cd-player", "country-cd"])
@@ -94,7 +94,7 @@ describe("shop physicalMedia stock", () => {
   })
 
   it("leaves a shop whose carry matches nothing as declared", () => {
-    const declared = { ...shop, physicalMedia: { genres: ["Polka"] } }
+    const declared = { ...shop, physicalMedia: { library: { genres: ["Polka"] } } }
     expect(withPhysicalMediaStock(declared, derived)).toBe(declared)
   })
 

@@ -101,6 +101,45 @@ export type PhysicalMediaCarry = {
   genres?: string[]
 }
 
+/** Metadata sources a designer can pick albums from (ADR 0216). */
+export const PICKABLE_RECORD_SOURCES = ["spotify", "local"] as const
+export type PickableRecordSource = (typeof PICKABLE_RECORD_SOURCES)[number]
+
+/** Most picks one shop or site can carry. */
+export const MAX_RECORD_PICKS = 24
+
+/**
+ * One designer-chosen album, snapshotted when picked (ADR 0216). The same shape
+ * for every source: `source` is a metadata source id and `id` is the album id
+ * there. A `local` pick re-resolves against the room's library by id, then by
+ * artist + title, since Navidrome ids belong to one server.
+ */
+export type PhysicalMediaPick = {
+  source: PickableRecordSource
+  id: string
+  title: string
+  artist: string
+  year?: number
+  trackCount: number
+  imageUrl?: string
+  /** Overrides the inferred format. */
+  format?: PhysicalMediaFormat
+  /** Shown as the record's lore; wins over the library's album comment. */
+  lore?: string
+}
+
+/**
+ * What a shop or trip site's record bin holds (ADR 0216): designer picks plus,
+ * when `library` is set, the derived records that carry matches (`{}` = all).
+ */
+export type PhysicalMediaStock = {
+  library?: PhysicalMediaCarry
+  picks?: PhysicalMediaPick[]
+}
+
+/** A source-tagged album, e.g. `{ sourceId: "spotify", albumId }`. */
+export type RecordAlbumRef = { sourceId: string; albumId: string }
+
 /** Most genres a derived record keeps, so a tag-spammed album can't bloat payloads. */
 export const MAX_RECORD_GENRES = 8
 
@@ -487,6 +526,8 @@ export interface ItemDefinition {
   mediaFormat?: PhysicalMediaFormat
   /** Navidrome genres on a derived record; filters record bins (ADR 0214). */
   genres?: string[]
+  /** The album a record plays, on whichever source it lives (ADR 0216). */
+  mediaAlbum?: RecordAlbumRef
   /**
    * Formats this item can play. Holding one is required to queue a track from a
    * record whose `mediaFormat` is listed here (ADR 0160). Distinct from

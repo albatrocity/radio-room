@@ -40,6 +40,7 @@ import {
   type InventoryItem,
   type QueueItem,
   type QueueValidationParams,
+  type RecordAlbumRef,
   type QueueValidationResult,
   type ShoppingSessionInstance,
   type SystemEventPayload,
@@ -67,6 +68,7 @@ import { KickstarterModule } from "./campaigns/kickstarter/KickstarterModule"
 import { SHOP_CATALOG } from "./shops"
 import {
   buildEffectiveShopCatalog,
+  codeShopPicks,
   defaultEnabledShopIds,
   withPhysicalMediaStock,
 } from "./localLibrary/catalog"
@@ -78,7 +80,7 @@ import {
   LOCAL_LIBRARY_GRANT_USE_MESSAGE,
 } from "./catalogFromConfig"
 import { isLocalLibraryGrantShortId } from "./localLibraryGrants"
-import { LocalLibraryModule } from "./localLibrary"
+import { LocalLibraryModule, sourceAlbumKey, sourceAlbumOf } from "./localLibrary"
 import { physicalMediaShopEconomyHooks } from "./localLibrary/shopEconomy"
 import { countMatchingPhysicalMedia } from "./localLibrary/physicalMediaStock"
 import {
@@ -93,6 +95,7 @@ import { SonRegistry, FAMILY_PHOTO_SON_DESPAWN_KIND } from "./helpers/sonRegistr
 import {
   ROOM_SHOP_SCOPE_KEY,
   offersOnlyShop,
+  picksOf,
   resolveRoomShopOffers,
   validateRoomShopRequest,
   type RoomShopScope,
@@ -100,6 +103,7 @@ import {
 import type {
   OpenRoomShopRequest,
   OpenRoomShopResult,
+  PhysicalMediaPick,
   PluginCapabilities,
   RoomShopOffer,
   RoomShopSample,
@@ -153,6 +157,7 @@ export { ITEM_CATALOG, items } from "./items/index"
 export { SHOP_CATALOG } from "./shops"
 export { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
 export { validateRoomShopRequest } from "./roomShop"
+export { inferPhysicalMediaFormat } from "./localLibrary/physicalMedia"
 
 export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   name = PLUGIN_NAME
@@ -210,6 +215,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       derivePrefixedPlaylists: config?.derivePrefixedPlaylistsAsPhysicalMedia ?? true,
       deriveAlbums: config?.deriveAlbumsAsPhysicalMedia ?? false,
     })
+    await this.localLibrary.loadPickedRecords()
+    await this.localLibrary.registerPicks(codeShopPicks())
     const grants = config?.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
     const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
     this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog, {
@@ -228,8 +235,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
             durationMs,
             payload: { sonUserId },
           }),
-        cancelDespawn: (sonUserId) =>
-          this.cancelSchedule(SonRegistry.despawnScheduleId(sonUserId)),
+        cancelDespawn: (sonUserId) => this.cancelSchedule(SonRegistry.despawnScheduleId(sonUserId)),
       },
       this.name,
     )
@@ -375,6 +381,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       derivePrefixedPlaylists: config?.derivePrefixedPlaylistsAsPhysicalMedia ?? true,
       deriveAlbums: config?.deriveAlbumsAsPhysicalMedia ?? false,
     })
+    await this.localLibrary.registerPicks(codeShopPicks())
     await this.resyncDerivedCatalogs()
     this.scheduleAlbumArtworkHydrate()
   }
@@ -437,7 +444,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   }
 
   private giveItemPickerEntries(): ItemCatalogEntry[] {
-    return this.effectiveCatalogForGive().filter((e) => e.localLibraryGrant?.scope !== "album")
+    return this.effectiveCatalogForGive().filter(
+      (e) => e.localLibraryGrant?.scope !== "album" && !e.recordAlbum,
+    )
   }
 
   /**
@@ -676,8 +685,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         return timer ? { id: timer.id, data: timer.data as T | undefined } : null
       },
       clearTimer: (id) => this.clearTimer(timerPrefix + id),
-      schedule: (params) =>
-        this.schedule({ ...params, id: timerPrefix + params.id }),
+      schedule: (params) => this.schedule({ ...params, id: timerPrefix + params.id }),
       cancelSchedule: (id) => this.cancelSchedule(timerPrefix + id),
 
       sendSystemMessage: async (message, meta, mentions) => {
@@ -698,8 +706,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         const session = await this.context!.game.getActiveSession()
         return session != null
       },
-      isUserInRoom: async (uid) =>
-        this.context!.api.isUserInRoom(this.context!.roomId, uid),
+      isUserInRoom: async (uid) => this.context!.api.isUserInRoom(this.context!.roomId, uid),
 
       getState: <T>(key: string) => stateStore.get(key) as T | undefined,
       setState: <T>(key: string, value: T) => {
@@ -729,8 +736,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         return timer ? { id: timer.id, data: timer.data as T | undefined } : null
       },
       clearTimer: (id) => this.clearTimer(timerPrefix + id),
-      schedule: (params) =>
-        this.schedule({ ...params, id: timerPrefix + params.id }),
+      schedule: (params) => this.schedule({ ...params, id: timerPrefix + params.id }),
       cancelSchedule: (id) => this.cancelSchedule(timerPrefix + id),
 
       sendSystemMessage: async (message, meta, mentions) => {
@@ -890,14 +896,24 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const scope = await this.readRoomShopScope()
     if (!scope) return { eligible: await this.resolveEligibleShops(config), extras: [] }
     const { extras } = await this.resolveOffers(scope.offers ?? [])
+    await this.registerPicks(picksOf(scope.physicalMedia))
     const shop = this.scopedShop(scope)
     const eligible = shop.availableItems.length > 0 || extras.length > 0 ? [shop] : []
     return { eligible, extras, ...(scope.sample ? { sample: scope.sample } : {}) }
   }
 
-  /** The scope's composed shop with its record bin stocked (ADR 0214); no bin off the Media Bridge. */
+  /** The scope's composed shop with its record bin stocked (ADR 0214, 0216). */
   private scopedShop(scope: RoomShopScope): ItemShopsShopCatalogEntry {
-    return withPhysicalMediaStock(offersOnlyShop(scope), this.localLibrary.derivedPhysicalMedia)
+    return withPhysicalMediaStock(
+      offersOnlyShop(scope),
+      this.localLibrary.derivedPhysicalMedia,
+      this.localLibrary.pickStock,
+    )
+  }
+
+  /** Resolve picks into record SKUs and resync catalogs when any changed (ADR 0216). */
+  private async registerPicks(picks: readonly PhysicalMediaPick[]): Promise<void> {
+    if (await this.localLibrary.registerPicks(picks)) await this.resyncDerivedCatalogs()
   }
 
   private async resolveOffers(
@@ -933,13 +949,17 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private async validateRoomShop(req: ValidateShopRequest): Promise<ValidateShopResult> {
     const { extras } = await this.resolveOffers(req.offers ?? [])
+    const picks = picksOf(req.physicalMedia)
+    await this.registerPicks(picks)
+    const library = req.physicalMedia?.library
     const result = validateRoomShopRequest(req, {
       definitionIds: new Set(extras.map((e) => e.definition.id)),
       physicalMedia: {
         derived: this.localLibrary.derivedPhysicalMedia.length,
-        matching: req.physicalMedia
-          ? countMatchingPhysicalMedia(this.localLibrary.derivedPhysicalMedia, req.physicalMedia)
+        matching: library
+          ? countMatchingPhysicalMedia(this.localLibrary.derivedPhysicalMedia, library)
           : 0,
+        ...(picks.length > 0 ? { picks: this.localLibrary.pickAvailability(picks) } : {}),
       },
     })
     if (!result.ok) return result
@@ -958,6 +978,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const offers = req.offers ?? []
     const { extras, unknown } = await this.resolveOffers(offers)
     if (unknown.length > 0) return { ok: false, reason: "unknown-item" }
+    await this.registerPicks(picksOf(req.physicalMedia))
     const room = await this.context.getRoom()
     const sellable = retainComposableExtras(extras, this.composableOfferOptions(room?.type))
     const scope: RoomShopScope = {
@@ -968,6 +989,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       ...(req.buybackRate != null ? { buybackRate: req.buybackRate } : {}),
       ...(req.sample ? { sample: req.sample } : {}),
       ...(req.title ? { title: req.title } : {}),
+      ...(req.openingMessage ? { openingMessage: req.openingMessage } : {}),
     }
     const shop = this.scopedShop(scope)
     if (shop.availableItems.length === 0 && sellable.length === 0) {
@@ -976,7 +998,8 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     await this.context.storage.setJson(ROOM_SHOP_SCOPE_KEY, scope)
     await this.startRoundWith([shop], sellable, req.sample)
     if (req.openingMessage) {
-      await this.context.api.sendSystemMessage(this.context.roomId, req.openingMessage, {
+      const content = req.openingMessage.replace(/\{\{shopName\}\}/g, shop.name)
+      await this.context.api.sendSystemMessage(this.context.roomId, content, {
         type: "alert",
         status: "info",
         ...(req.title ? { title: req.title } : {}),
@@ -1007,10 +1030,12 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       "./shops/sweetwater/messages"
     )
     const stateStore = this.getShopStateStore(SWEETWATER_SHOP_ID)
-    const state = stateStore.get(userId) as { username: string; lastPurchasedItemName: string } | undefined
+    const state = stateStore.get(userId) as
+      | { username: string; lastPurchasedItemName: string }
+      | undefined
     if (!state) return
 
-    if (isSweetwaterDoNotCall(<T,>(k: string) => stateStore.get(k) as T | undefined, userId)) return
+    if (isSweetwaterDoNotCall(<T>(k: string) => stateStore.get(k) as T | undefined, userId)) return
 
     const session = await this.context.game.getActiveSession()
     if (!session) {
@@ -1529,7 +1554,9 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       }
       const amountRaw = params?.amount
       const amount =
-        typeof amountRaw === "number" ? amountRaw : Number(typeof amountRaw === "string" ? amountRaw : NaN)
+        typeof amountRaw === "number"
+          ? amountRaw
+          : Number(typeof amountRaw === "string" ? amountRaw : NaN)
       const username =
         (typeof initiator?.username === "string" && initiator.username.trim()) || userId
       const result = await this.kickstarter.backCampaign({ userId, username, amount })
@@ -1954,9 +1981,18 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
       item.mediaSource?.type === "local" ? (item.mediaSource.trackId?.trim() ?? "") : "",
     )
     const frames = await this.localLibrary.resolveNowPlayingFrames(localIds.filter(Boolean))
+    const sourceAlbums = items.map(sourceAlbumOf)
+    const sourceFrames = this.localLibrary.resolveSourceRecordFrames(
+      sourceAlbums.filter((ref): ref is RecordAlbumRef => Boolean(ref)),
+    )
     return items.map((item, index) => {
       const id = localIds[index] ?? ""
-      const membership = id ? frames.get(id) : undefined
+      const sourceAlbum = sourceAlbums[index]
+      const membership = id
+        ? frames.get(id)
+        : sourceAlbum
+          ? sourceFrames.get(sourceAlbumKey(sourceAlbum))
+          : undefined
       if (!membership) return {}
 
       const persisted = item.pluginData?.[PLUGIN_NAME] as

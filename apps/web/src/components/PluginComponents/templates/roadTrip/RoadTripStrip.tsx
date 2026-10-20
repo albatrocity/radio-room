@@ -1,5 +1,4 @@
-import { Box, HStack, Icon, Text } from "@chakra-ui/react"
-import { Van } from "lucide-react"
+import { Box, HStack, Text } from "@chakra-ui/react"
 import { openGameStateOnTab } from "../../../../actors/modalsActor"
 import type { RoadTripStripComponentProps } from "../../../../types/PluginComponent"
 import { usePluginComponentContext } from "../../context"
@@ -52,7 +51,6 @@ export function RoadTripStripTemplateComponent({
           }
         }}
       >
-        <Icon as={Van} boxSize={4} flexShrink={0} color="fg.muted" aria-hidden />
         <TripRouteLine trip={trip} mile={mile} />
         <Text fontSize="xs" truncate flex="0 1 auto" minW={0} color="fg.muted">
           {context}

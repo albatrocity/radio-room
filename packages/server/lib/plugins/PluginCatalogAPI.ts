@@ -625,6 +625,19 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     }
   }
 
+  /** Track ids on an album in one of the room's metadata sources (ADR 0216). */
+  async getAlbumTrackIds(params: {
+    roomId: string
+    sourceId: string
+    albumId: string
+  }): Promise<string[]> {
+    const { roomId, sourceId, albumId } = params
+    if (sourceId === "local") return this.listLocalAlbumTrackIds(roomId, albumId)
+    const { fetchSourceAlbumTracks } = await import("../../operations/dj/mediaItemTracks")
+    const tracks = await fetchSourceAlbumTracks({ context: this.context, roomId, sourceId, albumId })
+    return tracks?.map((track) => track.id) ?? []
+  }
+
   async invalidateLocalLibraryCache(roomId: string): Promise<boolean> {
     try {
       const { metadataBrowseRoomPrefix } = await import("@repo/utils")

@@ -111,7 +111,9 @@ export function startQueuedIncident(
   if (state.status !== "driving" || state.incident || isStopped(state)) return null
   const [head, ...rest] = state.incidentQueue
   if (!head) return null
-  return result(beginIncident({ next: { ...state, incidentQueue: rest }, log: [], effects: [] }, ctx, head))
+  return result(
+    beginIncident({ next: { ...state, incidentQueue: rest }, log: [], effects: [] }, ctx, head),
+  )
 }
 
 function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident): Acc {
@@ -190,7 +192,7 @@ function incidentStepsFor(
 function startHint(step: IncidentStep, fund: TripFund | undefined): string {
   switch (step.kind) {
     case "slow":
-      return "A CB Radio finds a way around."
+      return "Maybe some radio communication will help."
     case "window":
       return `Got a ${itemNames(step.resolvesWith)}? Use it from the Van tab.`
     case "fund":
@@ -246,7 +248,11 @@ function enterStep(
       break
     case "fund":
       return openIncidentFund(
-        { next: { ...hold(state, incident, ctx.now), incident: current }, log: acc.log, effects: acc.effects },
+        {
+          next: { ...hold(state, incident, ctx.now), incident: current },
+          log: acc.log,
+          effects: acc.effects,
+        },
         ctx,
         current,
         step,
@@ -269,7 +275,11 @@ function enterStep(
       break
     }
   }
-  return { next: { ...state, incident: current }, log: acc.log, effects: [...acc.effects, ...effects] }
+  return {
+    next: { ...state, incident: current },
+    log: acc.log,
+    effects: [...acc.effects, ...effects],
+  }
 }
 
 /** Sites and scripted events the tow passes are skipped (M4: tow legs). */
@@ -329,7 +339,11 @@ function openIncidentFund(
             incident: incident.incident,
             source: incident.source,
             step: "aaa",
-            resolvedBy: { userId: card.userId, name: card.name, itemId: roadTripItemId(card.partId) },
+            resolvedBy: {
+              userId: card.userId,
+              name: card.name,
+              itemId: roadTripItemId(card.partId),
+            },
           },
         ],
         effects: [
@@ -515,7 +529,13 @@ function finishIncident(
     } else if (state.status === "driving" && liveBlockers(state, ctx.now).length === 0) {
       effects.push(
         incident.incident === "out-of-gas"
-          ? { type: "sign", variant: "success", icon: "⛽", title: "Fuel's in", body: "Full tank. Back on the road." }
+          ? {
+              type: "sign",
+              variant: "success",
+              icon: "⛽",
+              title: "Fuel's in",
+              body: "Full tank. Back on the road.",
+            }
           : BACK_ON_THE_ROAD,
       )
     }
@@ -605,7 +625,7 @@ function towArrived(
     },
   )
   const effects: TripEffect[] = [
-    ...shop.effects,
+    ...shop.close,
     {
       type: "sign",
       variant: "info",
@@ -618,6 +638,7 @@ function towArrived(
   ]
   const narrative = narrate(site)
   if (narrative) effects.push(narrative)
+  effects.push(...shop.open)
   return result(enterStep({ next: state, log, effects }, ctx, atMechanic, incident.step + 1))
 }
 
@@ -677,7 +698,14 @@ export const skipIncidentStep: Transition = (state, ctx) => {
     enterStep(
       {
         next,
-        log: [{ kind: "incident", incident: incident.incident, source: incident.source, step: "skipped" }],
+        log: [
+          {
+            kind: "incident",
+            incident: incident.incident,
+            source: incident.source,
+            step: "skipped",
+          },
+        ],
         effects: [],
       },
       ctx,
@@ -699,7 +727,10 @@ export function installPart(partId: string, user: Traveler): Transition {
     return {
       next: {
         ...state,
-        parts: { ...state.parts, [part.slot]: { partId, userId: user.userId, name: user.name, at: now } },
+        parts: {
+          ...state.parts,
+          [part.slot]: { partId, userId: user.userId, name: user.name, at: now },
+        },
       },
       log: [
         {

@@ -4,6 +4,7 @@
  */
 
 import { assign, setup } from "xstate"
+import { RECORDS_BROWSE_SOURCE } from "../lib/metadataSourceLabels"
 
 export const ADD_TO_QUEUE_UI_STORAGE_PREFIX = "addToQueueUi:"
 
@@ -273,12 +274,18 @@ export const addToQueueUiMachine = setup({
     }),
     deepLinkMedia: assign(({ context, event }) => {
       if (event.type !== "DEEP_LINK_MEDIA") return {}
-      if (!context.browseableSourceIds.includes("local")) return {}
+      // Records live under Local when it's browseable, else under My Records (ADR 0216).
+      const source = context.browseableSourceIds.includes("local")
+        ? "local"
+        : context.browseableSourceIds.includes(RECORDS_BROWSE_SOURCE)
+          ? RECORDS_BROWSE_SOURCE
+          : null
+      if (!source) return {}
       return {
         mode: "browse" as const,
-        sourceFilter: "local",
+        sourceFilter: source,
         pendingNavigation: {
-          source: "local",
+          source,
           mediaKey: event.mediaKey,
           rootKind: "media" as const,
         },

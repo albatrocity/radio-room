@@ -25,8 +25,8 @@ import {
   parseTripMap,
   resolveSiteSettings,
   resolveTripTuning,
+  siteOpenRoomShopRequest,
   siteShopRequest,
-  siteShopTitle,
   skipPollQuestion,
   triggerableIncidentIdSchema,
   type TripMap,
@@ -82,6 +82,7 @@ import {
   liveSkipDefault,
   markPolling,
   pauseTrip,
+  pullOffHold,
   extendFundHold,
   recordLevy,
   resolveFund,
@@ -721,22 +722,13 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   ): Promise<string | null> {
     if (!this.context) return null
     const site = map.sites.find((s) => s.id === siteId)
-    const request = site ? siteShopRequest(site) : null
+    const request = site ? siteOpenRoomShopRequest(site, scopeId) : null
     if (!site || !request) return null
     const result = await this.context.api.requestCapability(
       this.context.roomId,
       "shopAccess",
       "openRoomShop",
-      {
-        scopeId,
-        ...request,
-        ...(site.shop?.buybackRate != null ? { buybackRate: site.shop.buybackRate } : {}),
-        ...(site.shop?.sample
-          ? { sample: { count: site.shop.sample.count, weights: site.shop.sample.weights } }
-          : {}),
-        title: siteShopTitle(site),
-        ...(site.shop?.openingMessage ? { openingMessage: site.shop.openingMessage } : {}),
-      },
+      request,
     )
     if (result.ok && result.value.ok) return null
     const reason = result.ok ? (result.value.ok ? "" : result.value.reason) : result.reason
@@ -912,7 +904,8 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     if (!state || !stored || !leg || state.tripId !== tripId || state.status !== "driving") return
     if (state.sites[siteId]?.phase !== "ahead" || leg.mph <= 0) return
     const site = stored.map.sites.find((s) => s.id === siteId)
-    if (!site) return
+    // Held by a pull-off just before it; the threshold re-arms when the van leaves the stop.
+    if (!site || pullOffHold(state, stored.map, site)) return
     const arriveAt = timeToMile(leg, site.mile)
     if (arriveAt === null) return
 

@@ -11,7 +11,12 @@ import {
   sortedSites,
   type SiteShopRequest,
 } from "./derive"
-import { PHYSICAL_MEDIA_FORMATS, formatPhysicalMediaList } from "@repo/types"
+import {
+  PHYSICAL_MEDIA_FORMATS,
+  formatPhysicalMediaList,
+  type PhysicalMediaFormat,
+  type PhysicalMediaStock,
+} from "@repo/types"
 import { INCIDENTS, nearestMechanicAhead } from "./incidents"
 import type { TripMap } from "./schema"
 
@@ -200,7 +205,7 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
         siteId: site.id,
       })
     }
-    if (site.shop && !shopRequest) {
+    if ((site.shop || site.services?.physicalMedia) && !shopRequest) {
       issues.push({
         severity: "warning",
         code: "empty-shop",
@@ -209,9 +214,8 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
         siteId: site.id,
       })
     }
-    const carry = site.services?.physicalMedia
-    if (carry) {
-      const sold = carry.formats?.length ? carry.formats : PHYSICAL_MEDIA_FORMATS
+    const sold = soldFormats(site.services?.physicalMedia)
+    if (sold.length > 0) {
       const unplayable = sold.filter((format) => !vanFormats.includes(format))
       if (unplayable.length > 0) {
         issues.push({
@@ -352,4 +356,23 @@ export function hasLintErrors(issues: TripMapIssue[]): boolean {
 
 function fmt(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
+}
+
+/**
+ * Formats a bin can sell: the library filter's (every format when unset) plus
+ * each pick's chosen format. A pick without one is inferred in the room, so
+ * it could be any format.
+ */
+function soldFormats(stock: PhysicalMediaStock | undefined): PhysicalMediaFormat[] {
+  if (!stock) return []
+  const sold = new Set<PhysicalMediaFormat>()
+  if (stock.library) {
+    for (const format of stock.library.formats?.length ? stock.library.formats : PHYSICAL_MEDIA_FORMATS) {
+      sold.add(format)
+    }
+  }
+  for (const pick of stock.picks ?? []) {
+    if (pick.format) sold.add(pick.format)
+  }
+  return PHYSICAL_MEDIA_FORMATS.filter((format) => sold.has(format))
 }

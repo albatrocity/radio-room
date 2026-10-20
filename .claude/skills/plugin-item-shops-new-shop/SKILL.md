@@ -15,6 +15,7 @@ description: Adds a new shop to @repo/plugin-item-shops—dedicated shop module,
 6. **Economy**: **listedBuybackRate** and **unlistedBuybackRate** (multipliers vs base price; see Sweetwater vs Green Room for scale).
 7. **onBuy**: Needed after each successful purchase? If yes, what side effects (state, timers, follow-up messages)?
 8. **onSessionEnd**: Optional cleanup when the shopping round ends (timers are cleared automatically—use for extra teardown if required).
+9. **Records** (optional): should the shop sell Physical Media? Set `physicalMedia: { library?, picks? }` (ADR 0214, 0216). `library` is a format/genre filter over the room's derived records (`{}` = all of them). `picks` are specific albums (`PhysicalMediaPick`: Spotify or library, with a snapshot of title, artist, year and track count). Both pool into one bin of distinct offers. Picks register on plugin register and stock only in rooms whose sources can play them.
 
 Canonical type definitions live in `packages/game-logic/src/shoppingSessionCatalog.ts` (`ShopCatalogEntry`, `ShopBuyContext`).
 

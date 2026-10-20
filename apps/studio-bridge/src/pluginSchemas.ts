@@ -8,7 +8,6 @@ import { toPluginSchemaInfo } from "@repo/utils"
  */
 const PREVIEW_ENABLED_PLUGINS = new Set([
   "item-shops",
-  "quiz-sessions",
   "playlist-bingo",
   "queue-theme",
   "volume-manager",

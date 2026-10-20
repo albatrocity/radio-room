@@ -5,7 +5,7 @@
  * plugin-instance lookup.
  */
 
-import type { PhysicalMediaCarry, PhysicalMediaFormat } from "./Inventory"
+import type { PhysicalMediaFormat, PhysicalMediaStock } from "./Inventory"
 
 /**
  * One custom offer in a room shop: any registered item by full definition id
@@ -30,7 +30,7 @@ export type RoomShopSample = {
 /**
  * Open a room-wide shop round for a scope (e.g. a road-trip site stop). The
  * round's shop is composed: custom offers plus an optional record bin
- * (ADR 0214). At least one of `offers` / `physicalMedia` is required.
+ * (ADR 0214, 0216). At least one of `offers` / `physicalMedia` is required.
  */
 export type OpenRoomShopRequest = {
   /** Owner-chosen id; `closeRoomShop` only ends the round this scope opened. */
@@ -39,10 +39,10 @@ export type OpenRoomShopRequest = {
   /** Custom offers on the round's shop. */
   offers?: RoomShopOffer[]
   /**
-   * Derived records the shop stocks. Each traveler sees 3 distinct picks,
-   * re-matched for late joiners. `{}` = every record.
+   * The record bin: designer picks plus, with `library`, matching derived
+   * records. Each traveler sees 3 distinct records, re-matched for late joiners.
    */
-  physicalMedia?: PhysicalMediaCarry
+  physicalMedia?: PhysicalMediaStock
   /** Buyback fraction (0–1) for listed offers and anything else. Default 0. */
   buybackRate?: number
   /**
@@ -64,7 +64,7 @@ export type OpenRoomShopResult =
 /** `warnings`: what this room can't sell right now (e.g. records off the Media Bridge). */
 export type ValidateShopResult = { ok: true; warnings?: string[] } | { ok: false; errors: string[] }
 
-export type ValidateShopRequest = { offers?: RoomShopOffer[]; physicalMedia?: PhysicalMediaCarry }
+export type ValidateShopRequest = { offers?: RoomShopOffer[]; physicalMedia?: PhysicalMediaStock }
 
 /**
  * Formats everyone in the room can play without holding a device, e.g. the

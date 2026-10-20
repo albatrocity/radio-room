@@ -36,6 +36,8 @@ import {
   type ItemRarity,
   PHYSICAL_MEDIA_FORMAT_LABELS,
   type PhysicalMediaFormat,
+  type PhysicalMediaPick,
+  type PickableRecordSource,
 } from "@repo/types"
 import type { SiteShopSample } from "@repo/road-trip-map"
 
@@ -47,6 +49,22 @@ export type TripSiteDraft = TripMapInput["sites"][number]
 export function formatCheckLabel(format: PhysicalMediaFormat): string {
   const label = PHYSICAL_MEDIA_FORMAT_LABELS[format]
   return label.charAt(0).toUpperCase() + label.slice(1)
+}
+
+/** The badge on a picked album; travelers never see where a record came from. */
+export const PICK_SOURCE_LABEL: Record<PickableRecordSource, string> = {
+  spotify: "Spotify",
+  local: "Library",
+}
+
+/** One pick per album and format, matching how rooms key them (ADR 0216). */
+export function pickKey(pick: Pick<PhysicalMediaPick, "source" | "id" | "format">): string {
+  return `${pick.source}:${pick.id}:${pick.format ?? ""}`
+}
+
+/** studio-bridge base URL (`VITE_STUDIO_BRIDGE_URL`). */
+export function studioBridgeUrl(): string {
+  return import.meta.env.VITE_STUDIO_BRIDGE_URL ?? "http://127.0.0.1:3099"
 }
 
 export function loadDraft(): TripMapInput {

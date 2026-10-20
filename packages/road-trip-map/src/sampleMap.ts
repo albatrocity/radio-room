@@ -28,7 +28,7 @@ export const SAMPLE_TRIP_MAP: TripMapInput = {
       icon: "📀",
       lore: "The owner swears the jukebox in the back only plays songs that haven't been written yet.",
       mile: 4,
-      services: { physicalMedia: { formats: ["LP", "45"] } },
+      services: { physicalMedia: { library: { formats: ["LP", "45"] } } },
       shop: { buybackRate: 0.1 },
     },
     {

@@ -7,6 +7,7 @@ export {
   effectToChat,
   freezeStoreForRoom,
   type SimIncidentItem,
+  type SimShops,
   type SimTraveler,
   type TripSimSnapshot,
 } from "./trip/simRoom"

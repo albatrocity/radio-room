@@ -35,6 +35,11 @@ export async function searchSpotifyCatalog(
     refresh_token: "",
   })
 
-  const searchResults = await spotifyApi.search(trimmed, ["track"], market, limit)
+  const searchResults = await spotifyApi.search(
+    trimmed,
+    ["track"],
+    market as Parameters<SpotifyApi["search"]>[2],
+    limit as Parameters<SpotifyApi["search"]>[3],
+  )
   return (searchResults.tracks?.items ?? []).map((item) => trackItemSchema.parse(item))
 }

@@ -1,4 +1,5 @@
-import { Box, Text } from "@chakra-ui/react"
+import { Box, Icon, Text } from "@chakra-ui/react"
+import { Van } from "lucide-react"
 import type { TripStore } from "@repo/road-trip-map"
 import { useAnimationsEnabled } from "../../../../hooks/useReducedMotion"
 import { siteLabel, sitePin } from "./tripView"
@@ -10,7 +11,7 @@ type Props = {
   size?: "sm" | "md"
 }
 
-/** Route line: travelled solid, remaining dashed, icon pins, `?` for unrevealed sites. */
+/** Route line: travelled solid, remaining dashed, icon pins, `?` for unrevealed sites, and the van riding it. */
 export function TripRouteLine({ trip, mile, size = "sm" }: Props) {
   const animationsEnabled = useAnimationsEnabled()
   const pct = (value: number) =>
@@ -61,16 +62,17 @@ export function TripRouteLine({ trip, mile, size = "sm" }: Props) {
           {sitePin(site)}
         </Text>
       ))}
-      <Box
+      <Icon
+        as={Van}
         position="absolute"
         top="50%"
         left={`${vanPct}%`}
         transform="translate(-50%, -50%)"
-        boxSize={size === "md" ? "12px" : "9px"}
-        borderRadius="full"
-        bg="action.solid"
-        borderWidth="2px"
-        borderColor="bg"
+        boxSize={size === "md" ? "20px" : "14px"}
+        p="1px"
+        bg="bg"
+        borderRadius="sm"
+        color={{ base: "action.solid", _dark: "action.contrast" }}
         transition={animationsEnabled ? "left 1s linear" : "none"}
         data-road-trip-van
       />

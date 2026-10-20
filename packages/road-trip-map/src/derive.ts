@@ -1,4 +1,4 @@
-import { PHYSICAL_MEDIA_FORMAT_LABELS, type PhysicalMediaCarry } from "@repo/types"
+import type { OpenRoomShopRequest, PhysicalMediaCarry, PhysicalMediaStock } from "@repo/types"
 import type { SiteShopOffer, SkipDefault, TripMap, TripSite, TripTuning } from "./schema"
 
 /** Destination mile tolerance when comparing against the derived route length. */
@@ -61,16 +61,34 @@ export function resolveTripTuning(map: Pick<TripMap, "tuning">): TripTuning {
   return map.tuning
 }
 
-/** What a site's shop sells: custom offers and/or a record bin (ADR 0214). */
-export type SiteShopRequest = { offers?: SiteShopOffer[]; physicalMedia?: PhysicalMediaCarry }
+/** What a site's shop sells: custom offers and/or a record bin (ADR 0214, 0216). */
+export type SiteShopRequest = { offers?: SiteShopOffer[]; physicalMedia?: PhysicalMediaStock }
+
+/**
+ * A site's bin as authored: the stock shape, or a pre-picks top-level library
+ * filter (lifted on parse). Studio drafts can hold either.
+ */
+export function physicalMediaStockOf(
+  value: PhysicalMediaStock | PhysicalMediaCarry | undefined,
+): PhysicalMediaStock | undefined {
+  if (!value) return undefined
+  if ("library" in value || "picks" in value) return value as PhysicalMediaStock
+  return { library: value as PhysicalMediaCarry }
+}
+
+/** A bin that sells something: a library filter or at least one pick. */
+export function stocksRecords(stock: PhysicalMediaStock | undefined): stock is PhysicalMediaStock {
+  return Boolean(stock && (stock.library || stock.picks?.length))
+}
 
 /** The site's shop contents, or `null` when it sells nothing. */
 export function siteShopRequest(site: {
   shop?: { offers?: SiteShopOffer[] }
-  services?: { physicalMedia?: PhysicalMediaCarry }
+  services?: { physicalMedia?: PhysicalMediaStock }
 }): SiteShopRequest | null {
   const offers = site.shop?.offers ?? []
-  const physicalMedia = site.services?.physicalMedia
+  const stock = site.services?.physicalMedia
+  const physicalMedia = stocksRecords(stock) ? stock : undefined
   if (offers.length === 0 && !physicalMedia) return null
   return {
     ...(offers.length > 0 ? { offers } : {}),
@@ -83,18 +101,24 @@ export function siteShopTitle(site: { name: string; shop?: { title?: string } })
   return site.shop?.title ?? site.name
 }
 
-/** "Records (CDs; Country) and 2 offers": a one-line summary for previews. */
-export function describeSiteShop(request: SiteShopRequest): string {
-  const parts: string[] = []
-  const carry = request.physicalMedia
-  if (carry) {
-    const formats = carry.formats?.map((f) => PHYSICAL_MEDIA_FORMAT_LABELS[f]).join(", ")
-    const filters = [formats, carry.genres?.join(", ")].filter(Boolean)
-    parts.push(filters.length > 0 ? `Records (${filters.join("; ")})` : "Every record")
+/**
+ * The `shopAccess.openRoomShop` request for a site's stop: its offers and bin,
+ * buyback, sample, title, and opening message. Null when it sells nothing.
+ * Shared by the runtime and the Game Studio simulator.
+ */
+export function siteOpenRoomShopRequest(site: TripSite, scopeId: string): OpenRoomShopRequest | null {
+  const request = siteShopRequest(site)
+  if (!request) return null
+  return {
+    scopeId,
+    ...request,
+    ...(site.shop?.buybackRate != null ? { buybackRate: site.shop.buybackRate } : {}),
+    ...(site.shop?.sample
+      ? { sample: { count: site.shop.sample.count, weights: site.shop.sample.weights } }
+      : {}),
+    title: siteShopTitle(site),
+    ...(site.shop?.openingMessage ? { openingMessage: site.shop.openingMessage } : {}),
   }
-  const offers = request.offers?.length ?? 0
-  if (offers > 0) parts.push(`${offers} ${offers === 1 ? "offer" : "offers"}`)
-  return parts.join(" and ")
 }
 
 // ---------------------------------------------------------------------------

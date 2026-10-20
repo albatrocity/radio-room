@@ -15,6 +15,7 @@
     "@repo/plugin-item-shops": "*",
     "@repo/plugin-road-trip": "*",
     "@repo/road-trip-map": "*",
+    "@repo/spotify-catalog": "*",
     "@repo/plugins": "*",
     "@repo/types": "*",
     "@repo/utils": "*",

@@ -52,12 +52,16 @@ async grantMetadataSourceAccess(params: {
   userId: string
   sourceId: string
   action: "search" | "queue"
+  /** Set on queue checks: the track being queued (ADR 0216). */
+  trackId?: string
 }): Promise<"grant" | "abstain"> {
   // Return "grant" to unlock a restricted source for this user/action.
   // Return "abstain" if this plugin does not apply.
   return "abstain"
 }
 ```
+
+Queue checks pass `trackId`, so a grant can cover a single album rather than the whole source. Item Shops uses this for picked records ([ADR 0216](../adrs/0216-record-picks.md)): a held Spotify record grants `queue` only for tracks on its album, which it checks with `context.catalog.getAlbumTrackIds({ roomId, sourceId, albumId })`. Checks without a `trackId` (search tabs, effective-source lists) should abstain unless your grant really covers the whole source.
 
 **Semantics (fail-closed for grants):**
 

@@ -432,6 +432,24 @@ describe("ShoppingSessionHelper opening DMs", () => {
     )
   })
 
+  it("keeps an authored opening line on the visit without DMing it", async () => {
+    const { context } = makeContext()
+    const sendUserSystemMessage = context.api.sendUserSystemMessage
+    const shop: ShopCatalogEntry = {
+      ...SHOP,
+      openingMessage: "Flip through and find something.",
+      postOpeningMessage: false,
+    }
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [shop])
+    await helper.assignInstanceForUserId("u1")
+
+    expect(sendUserSystemMessage).not.toHaveBeenCalled()
+    const stored = JSON.parse(
+      (context.storage.hset as ReturnType<typeof vi.fn>).mock.calls[0]![2] as string,
+    ) as { openingMessage?: string }
+    expect(stored.openingMessage).toBe("Flip through and find something.")
+  })
+
   it("omits opening meta when the shop does not set it", async () => {
     const { context } = makeContext()
     const sendUserSystemMessage = context.api.sendUserSystemMessage

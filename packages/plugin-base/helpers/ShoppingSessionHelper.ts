@@ -200,6 +200,7 @@ export class ShoppingSessionHelper {
     ).replace(/\{\{shopName\}\}/g, shop.name)
     instance.openingMessage = displayMessage
     await this.persistInstance(userId, instance)
+    if (shop.postOpeningMessage === false) return
     await this.context.api.sendUserSystemMessage(
       this.context.roomId,
       userId,

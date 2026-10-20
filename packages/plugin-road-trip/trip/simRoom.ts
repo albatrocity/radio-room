@@ -1,10 +1,10 @@
-import type { ChatMessage, Poll, PollHistoryEntry } from "@repo/types"
+import type { ChatMessage, OpenRoomShopRequest, Poll, PollHistoryEntry } from "@repo/types"
 import type { EscrowPoolState } from "@repo/plugin-base"
 import {
   INCIDENTS,
-  describeSiteShop,
   itemsResolving,
   resolveSiteSettings,
+  siteOpenRoomShopRequest,
   siteShopRequest,
   siteShopTitle,
   skipPollQuestion,
@@ -128,6 +128,15 @@ function tally(pollId: string, votes: SkipVotes, closedAt: number): PollHistoryE
 }
 
 /**
+ * Real shop rounds for the simulator's stops (e.g. Game Studio's sandbox Item
+ * Shops). Without one, a stop's shop is approximated by its opening line.
+ */
+export type SimShops = {
+  open(request: OpenRoomShopRequest): void
+  close(scopeId: string): void
+}
+
+/**
  * The Game Studio trip simulator (ADR 0213): `TripSim` plus what the Room UI
  * needs to show it. Chat lines get wall-clock timestamps as they're produced;
  * the skip poll and pool card are built with the plugin's own presenters.
@@ -144,10 +153,17 @@ export class TripSimRoom {
   private lastMessageAt = 0
   private openPoll: OpenPoll | null = null
   private readonly clock: () => number
+  private readonly shops: SimShops | undefined
+  /** The shop round this run opened and hasn't closed. */
+  openShopScopeId: string | null = null
 
-  constructor(input: TripMapInput, options: { roomId: string; clock?: () => number }) {
+  constructor(
+    input: TripMapInput,
+    options: { roomId: string; clock?: () => number; shops?: SimShops },
+  ) {
     this.clock = options.clock ?? Date.now
     this.roomId = options.roomId
+    this.shops = options.shops
     this.sim = new TripSim(input, this.clock())
     this.runId = `sim-${this.clock().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
   }
@@ -299,6 +315,7 @@ export class TripSimRoom {
     const fresh = this.sim.effects.slice(this.effectCursor)
     this.effectCursor = this.sim.effects.length
     for (const { effect } of fresh) {
+      if (this.shops && this.runShopEffect(effect)) continue
       const at = Math.max(this.lastMessageAt + 1, this.clock())
       const message =
         effect.type === "open-shop" ? this.shopChat(effect.siteId, at) : effectToChat(effect, at)
@@ -313,16 +330,38 @@ export class TripSimRoom {
 
   /**
    * Stands in for Item Shops opening the stop's round (ADR 0213 approximates
-   * shops): the opening line, plus what the shop would stock.
+   * shops): the shop's opening message, as the room posts it. Nothing when it
+   * has none.
    */
   private shopChat(siteId: string, at: number): ChatMessage | null {
     const site = this.sim.map.sites.find((s) => s.id === siteId)
-    const request = site ? siteShopRequest(site) : null
-    if (!site || !request) return null
-    const title = siteShopTitle(site)
-    const stock = `Sells ${describeSiteShop(request)}.`
-    const opening = site.shop?.openingMessage
-    return systemChat(opening ? `${opening}\n\n${stock}` : stock, { type: "alert", status: "info", title }, at)
+    const opening = site?.shop?.openingMessage
+    if (!site || !siteShopRequest(site) || !opening) return null
+    return systemChat(opening, { type: "alert", status: "info", title: siteShopTitle(site) }, at)
+  }
+
+  /** Hand shop effects to the real shops; true when handled. */
+  private runShopEffect(effect: TripEffect): boolean {
+    if (effect.type === "close-shop") {
+      this.shops!.close(effect.scopeId)
+      if (this.openShopScopeId === effect.scopeId) this.openShopScopeId = null
+      return true
+    }
+    if (effect.type !== "open-shop") return false
+    const site = this.sim.map.sites.find((s) => s.id === effect.siteId)
+    const request = site ? siteOpenRoomShopRequest(site, effect.scopeId) : null
+    if (request) {
+      this.shops!.open(request)
+      this.openShopScopeId = effect.scopeId
+    }
+    return true
+  }
+
+  /** Close the round this run opened (unloading or replacing the run). */
+  closeOpenShop(): void {
+    if (!this.shops || !this.openShopScopeId) return
+    this.shops.close(this.openShopScopeId)
+    this.openShopScopeId = null
   }
 
   private syncPoll(): void {

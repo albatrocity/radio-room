@@ -1,7 +1,7 @@
 # 0214. Physical media carry on site services and shop entries; trips stop naming catalog shops
 
 **Date:** 2026-10-19
-**Status:** Accepted
+**Status:** Accepted (amended by [0216](0216-record-picks.md): bins are `{ library?: carry; picks? }`, so the carry in decisions 3–6 moves under `library`)
 
 ## Context
 
@@ -28,7 +28,7 @@ Naming catalog shops from a trip map also coupled maps to Item Shops' shop ids, 
 - Shops in code can narrow their record stock with the same filter.
 - Genre filters are only as good as Navidrome tags. Studio can't see a room's library, so it can't warn that no "Country" exists; the room warns when the map loads.
 - Authors lose one-click catalog shop stands and those shops' `onBuy` hooks on the road. The offer picker still lists every catalog item.
-- The Game Studio trip simulator ([0213](0213-game-studio-trip-simulator.md)) still doesn't open real rounds; at a shop stop it posts the opening line and what the shop sells (`describeSiteShop`).
+- The Game Studio trip simulator ([0213](0213-game-studio-trip-simulator.md)) still doesn't open real rounds; at a shop stop it posts only the shop's opening message, as the room does (the generated "Sells …" summary was removed).
 - No `schemaVersion` bump: trips haven't shipped, so there's no migration. A stray `shopIds` key is stripped on parse, and the site gets an `empty-shop` warning if it has nothing else to sell.
 
 ## See also

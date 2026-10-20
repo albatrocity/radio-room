@@ -265,6 +265,7 @@ export class DJService {
         userId: attribution.userId,
         sourceId: sourceType,
         action: "queue",
+        trackId: metadataTrackId,
         room,
       })
       if (!canAccess) {
@@ -376,6 +377,7 @@ export class DJService {
         userId: attribution.userId,
         sourceId: resolvedSource,
         action: "queue",
+        trackId: track.id,
         room,
       })
       if (!canAccessResolved) {

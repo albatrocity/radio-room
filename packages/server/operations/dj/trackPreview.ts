@@ -7,7 +7,11 @@ import {
   storePreviewIdRedirect,
   type TrackPreviewGenerationResult,
 } from "../data/trackPreviews"
-import { BRIDGE_UNREACHABLE_MESSAGE, fetchResolvedMediaItemTracks } from "./mediaItemTracks"
+import {
+  BRIDGE_UNREACHABLE_MESSAGE,
+  fetchResolvedMediaItemTracks,
+  mediaItemTracksSource,
+} from "./mediaItemTracks"
 
 type BrowseFailure = { ok: false; message: string }
 
@@ -40,12 +44,10 @@ export async function listMediaItemTracks(params: {
 
   const listed = await fetchResolvedMediaItemTracks({
     roomId,
-    source:
-      resolved.kind === "album"
-        ? { kind: "album", albumId: resolved.albumId }
-        : { kind: "playlist", playlistId: resolved.playlistId },
+    source: mediaItemTracksSource(resolved),
     logLabel: "listMediaItemTracks",
     cache: context.cache,
+    context,
   })
   if (!listed.ok) return listed
 
@@ -127,12 +129,10 @@ async function authorizeMediaItemTrackPreview(params: {
 
   const listed = await fetchResolvedMediaItemTracks({
     roomId,
-    source:
-      resolved.kind === "album"
-        ? { kind: "album", albumId: resolved.albumId }
-        : { kind: "playlist", playlistId: resolved.playlistId },
+    source: mediaItemTracksSource(resolved),
     logLabel: "authorizeMediaItemTrackPreview",
     cache: context.cache,
+    context,
   })
   if (!listed.ok) return listed
 

@@ -351,7 +351,7 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
           ) : null}
           <Box mt="3">
             <TripPhysicalMediaService
-              carry={site.services?.physicalMedia}
+              stock={site.services?.physicalMedia}
               onChange={(physicalMedia) => setServices({ physicalMedia })}
             />
           </Box>

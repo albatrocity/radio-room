@@ -1,5 +1,14 @@
 import type { ItemCatalogEntry, ShopAvailableItem } from "@repo/plugin-base/helpers"
-import { physicalMediaCarryMatcher, type PhysicalMediaCarry } from "@repo/types"
+import {
+  physicalMediaCarryMatcher,
+  type PhysicalMediaCarry,
+  type PhysicalMediaPick,
+} from "@repo/types"
+
+/** Shop stock for picks: shortIds of resolved picks this room can play (ADR 0216). */
+export type PickStock = (picks: readonly PhysicalMediaPick[]) => ShopAvailableItem[]
+
+export const NO_PICK_STOCK: PickStock = () => []
 
 /** Derived records in `carry`, as shop stock (ADR 0214). */
 export function matchingPhysicalMedia(

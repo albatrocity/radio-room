@@ -56,7 +56,7 @@ export const GENERIC_SITE_PRESETS: SitePreset[] = [
       name: "Record Shop",
       description: "Crates of used records and a hand-lettered genre map on the wall.",
       icon: "📀",
-      services: { physicalMedia: {} },
+      services: { physicalMedia: { library: {} } },
       shop: { buybackRate: 0.1 },
     },
   },

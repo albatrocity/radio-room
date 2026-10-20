@@ -133,7 +133,50 @@ describe("parseTripMap", () => {
         return { ok: true }
       },
     })
-    expect(requests[0]).toEqual({ physicalMedia: { formats: ["LP", "45"] } })
+    expect(requests[0]).toEqual({ physicalMedia: { library: { formats: ["LP", "45"] } } })
+  })
+
+  const PICK = {
+    source: "spotify" as const,
+    id: "harvest",
+    title: "Harvest",
+    artist: "Neil Young",
+    year: 1972,
+    trackCount: 10,
+    format: "LP" as const,
+  }
+
+  it("passes picks beside the library filter to validateShop", () => {
+    const input = clone()
+    input.sites[0]!.services = {
+      physicalMedia: { library: { genres: ["Country"] }, picks: [PICK] },
+    }
+    const requests: unknown[] = []
+    parseTripMap(input, {
+      validateShop: (req) => {
+        requests.push(req)
+        return { ok: true }
+      },
+    })
+    expect(requests[0]).toEqual({
+      physicalMedia: { library: { genres: ["Country"] }, picks: [PICK] },
+    })
+  })
+
+  it("caps picks and rejects an unknown pick source", () => {
+    const input = clone()
+    input.sites[0]!.services = { physicalMedia: { picks: Array.from({ length: 25 }, () => PICK) } }
+    expect(parseTripMap(input).ok).toBe(false)
+    const bad = clone() as unknown as { sites: { services?: unknown }[] }
+    bad.sites[0]!.services = { physicalMedia: { picks: [{ ...PICK, source: "tidal" }] } }
+    expect(parseTripMap(bad).ok).toBe(false)
+  })
+
+  it("warns about a record bin with neither picks nor a library filter", () => {
+    const input = clone()
+    input.sites[0]!.services = { physicalMedia: { picks: [] } }
+    delete input.sites[0]!.shop
+    expect(codes(parseTripMap(input))).toContain("empty-shop")
   })
 
   it("rejects an unknown physical media format", () => {
@@ -155,11 +198,18 @@ describe("parseTripMap", () => {
       siteId: "record-store",
       message: "Dusty Boots Records sells LPs and 45s the van can't play; travelers need their own player.",
     })
-    expect(codes(cdVan((m) => (m.sites[0]!.services = { physicalMedia: {} })))).toContain(
-      "van-cannot-play",
-    )
+    expect(
+      codes(cdVan((m) => (m.sites[0]!.services = { physicalMedia: { library: {} } }))),
+    ).toContain("van-cannot-play")
     expect(
       codes(cdVan((m) => (m.sites[0]!.services = { physicalMedia: { formats: ["CD"] } }))),
+    ).not.toContain("van-cannot-play")
+    const lpPick = cdVan(
+      (m) => (m.sites[0]!.services = { physicalMedia: { picks: [{ ...PICK, format: "LP" }] } }),
+    )
+    expect(lpPick.issues.find((i) => i.code === "van-cannot-play")?.message).toContain("sells LPs")
+    expect(
+      codes(cdVan((m) => (m.sites[0]!.services = { physicalMedia: { picks: [{ ...PICK, format: "CD" }] } }))),
     ).not.toContain("van-cannot-play")
     expect(codes(parseTripMap(clone()))).not.toContain("van-cannot-play")
   })

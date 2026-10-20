@@ -1,7 +1,7 @@
 # 0088. Metadata source access grants
 
 **Date:** 2026-08-02
-**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog queries are `context.catalog`)
+**Status:** Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog queries are `context.catalog`). Amended by [0216](0216-record-picks.md) (queue grants receive `trackId`)
 
 ## Context
 

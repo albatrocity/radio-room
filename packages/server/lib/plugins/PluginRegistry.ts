@@ -608,6 +608,7 @@ export class PluginRegistry {
     userId: string
     sourceId: string
     action: "search" | "queue"
+    trackId?: string
   }): Promise<boolean> {
     const roomPluginMap = this.roomPlugins.get(params.roomId)
 

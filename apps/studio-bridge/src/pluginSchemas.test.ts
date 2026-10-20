@@ -21,7 +21,7 @@ describe("buildBridgePluginSchemas", () => {
   })
 
   it("enables previewed plugins by default and leaves the rest at their package default", () => {
-    expect(byName("quiz-sessions")?.defaultConfig?.enabled).toBe(true)
+    expect(byName("lyric-hero")?.defaultConfig?.enabled).toBe(true)
     expect(byName("the-fed")?.defaultConfig?.enabled).toBe(false)
   })
 

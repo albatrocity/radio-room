@@ -2,7 +2,7 @@ import type { TripMap } from "@repo/road-trip-map"
 import { resolveSiteSettings, sortedSites } from "@repo/road-trip-map"
 import { project, timeToGallonsUsed, timeToMile, type Leg } from "./ledger"
 import { currentIncidentStep, isTowing, type FuelLevel, type TripState } from "./state"
-import { ARRIVAL_MILE_EPSILON, fuelLine } from "./transitions"
+import { ARRIVAL_MILE_EPSILON, fuelLine, pullOffHold } from "./transitions"
 
 export type ThresholdKind =
   | "reveal"
@@ -138,6 +138,9 @@ export function solveThresholds(
       at: Math.max(arriveAt, soon),
       payload: { tripId, siteId: site.id },
     })
+
+    // Pulled off just before this site: its sign and poll wait until the van leaves the stop.
+    if (pullOffHold(state, map, site)) continue
 
     const settings = resolveSiteSettings(map, site)
     let pollAt: number | null = null
