@@ -13,6 +13,7 @@ import {
   siteLabel,
   sitePin,
   stripContext,
+  tripTabTitle,
   useInterpolatedVanMile,
   useTripStore,
 } from "./tripView"
@@ -110,13 +111,15 @@ export function RoadTripTripPanelTemplateComponent({
 
   const badge = STATUS_BADGE[trip.status]
   const eta = etaLine(trip)
+  const title = tripTabTitle(trip, mile)
+  const context = stripContext(trip, mile, now)
 
   return (
     <Stack gap={4}>
       <Stack gap={1}>
         <HStack justify="space-between" align="center">
           <Text fontWeight="bold" fontSize="md" truncate>
-            {trip.mapTitle}
+            {title}
           </Text>
           <Badge colorPalette={badge.palette}>{badge.label}</Badge>
         </HStack>
@@ -131,7 +134,9 @@ export function RoadTripTripPanelTemplateComponent({
         <TripRouteLine trip={trip} mile={mile} size="md" />
       </Box>
 
-      <Text fontSize="sm">{stripContext(trip, mile, now)}</Text>
+      {context !== trip.mapTitle && context !== title ? (
+        <Text fontSize="sm">{context}</Text>
+      ) : null}
 
       <Stack gap={2}>
         {trip.sites.map((site) => (

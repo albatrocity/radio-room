@@ -111,6 +111,18 @@ export function nextSiteAhead(trip: TripStore, mile: number): TripStoreSite | un
   )
 }
 
+/**
+ * Trip tab heading. While the van is moving and no site is in view ahead
+ * (secret stops stay off the store until they reveal), the map title gives
+ * way to the current speed.
+ */
+export function tripTabTitle(trip: TripStore, mile: number): string {
+  if (trip.van.mph > 0 && !trip.live && !nextSiteAhead(trip, mile)) {
+    return `Cruising at ${Math.round(trip.van.mph)}mph`
+  }
+  return trip.mapTitle
+}
+
 /** "road-trip:fix-a-flat" → "Fix-a-Flat". */
 export function vanItemName(definitionId: string): string {
   const shortId = definitionId.split(":").pop() ?? definitionId
