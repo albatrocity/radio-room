@@ -16,7 +16,9 @@ import {
   tripTabTitle,
   useInterpolatedVanMile,
   useTripStore,
+  vanPhase,
 } from "./tripView"
+import { useRoadTripVanMotion } from "./useRoadTripVanMotion"
 
 const STATUS_BADGE: Record<TripStore["status"], { label: string; palette: string }> = {
   loaded: { label: "Ready", palette: "gray" },
@@ -100,6 +102,10 @@ export function RoadTripTripPanelTemplateComponent({
   const trip = useTripStore(tripKey)
   const { mile, now } = useInterpolatedVanMile(trip)
   const openDetail = useOpenTabDetail(`${pluginName ?? "road-trip"}:trip`)
+  const motion = useRoadTripVanMotion(
+    `${pluginName ?? "road-trip"}:${tripKey}`,
+    trip ? vanPhase(trip, mile) : null,
+  )
 
   if (!trip) {
     return (
@@ -131,7 +137,7 @@ export function RoadTripTripPanelTemplateComponent({
       </Stack>
 
       <Box px={1}>
-        <TripRouteLine trip={trip} mile={mile} size="md" />
+        <TripRouteLine trip={trip} mile={mile} size="md" motion={motion} />
       </Box>
 
       {context !== trip.mapTitle && context !== title ? (

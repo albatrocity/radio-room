@@ -17,14 +17,15 @@ export function FuelGauge({ fuel }: { fuel: FuelView }) {
       title={`Gas ${percent}%`}
       role="img"
     >
-      <Icon as={Fuel} boxSize={3} color={color} aria-hidden />
+      <Icon as={Fuel} boxSize={3.5} color={color} aria-hidden />
       {Array.from({ length: BARS }, (_, i) => (
         <Box
           key={i}
-          w="4px"
-          h="10px"
+          w="5px"
+          h="12px"
           borderRadius="1px"
           bg={i < filled ? color : "transparent"}
+          transition="background-color 0.4s ease-out"
           borderWidth="1px"
           borderColor={color}
         />

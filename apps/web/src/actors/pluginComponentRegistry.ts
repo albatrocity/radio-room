@@ -7,6 +7,7 @@
 
 import { createActor, type ActorRefFrom } from "xstate"
 import { pluginComponentMachine } from "../machines/pluginComponentMachine"
+import { teardownRoadTripVanMotionActors } from "./roadTripVanMotionRegistry"
 
 export type PluginComponentActor = ActorRefFrom<typeof pluginComponentMachine>
 
@@ -47,4 +48,5 @@ export function teardownPluginComponentActors(): void {
     actor.stop()
   }
   actors.clear()
+  teardownRoadTripVanMotionActors()
 }

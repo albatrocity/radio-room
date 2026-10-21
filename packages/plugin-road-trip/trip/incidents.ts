@@ -30,6 +30,7 @@ import {
   gallonsLeft,
   installedPartIds,
   liveBlockers,
+  refillShownAfterFill,
   type ActiveIncident,
   type Blocker,
   type FundPayment,
@@ -497,10 +498,16 @@ function finishIncident(
   const log: TripLogEvent[] = [...acc.log]
   const effects: TripEffect[] = [...acc.effects]
   if (incident.incident === "out-of-gas") {
-    const added = Math.max(0, state.tankGallons - Math.max(0, gallonsLeft(state, ctx.gallonsUsed)))
+    const preGallons = Math.max(0, gallonsLeft(state, ctx.gallonsUsed))
+    const added = Math.max(0, state.tankGallons - preGallons)
+    const shown = refillShownAfterFill({ ...state, incident }, preGallons, ctx.now)
     state = {
       ...state,
-      lastFill: { gallons: state.tankGallons, gallonsUsed: ctx.gallonsUsed },
+      lastFill: {
+        gallons: state.tankGallons,
+        gallonsUsed: ctx.gallonsUsed,
+        ...(shown ? { shown } : {}),
+      },
       fuelFlags: [],
     }
     log.push({ kind: "fuel", level: "filled", gallons: added })

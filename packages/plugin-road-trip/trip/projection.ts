@@ -34,6 +34,7 @@ import {
   effectiveGpm,
   installedPartIds,
   liveBlockers,
+  refillInView,
   tankAt,
   type TripState,
 } from "./state"
@@ -118,6 +119,8 @@ export function buildTripStore(
   }
   const live = liveContext(state, map, now, extras)
   if (live) store.live = live
+  const refill = refillInView(state, anchorGallons, now)
+  if (refill) store.fuel.refill = refill
   if (state.departedAt !== undefined) store.departedAt = state.departedAt
   if (state.arrivedAt !== undefined) store.arrivedAt = state.arrivedAt
   if (state.endedAt !== undefined) store.endedAt = state.endedAt

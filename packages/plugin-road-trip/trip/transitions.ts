@@ -34,6 +34,7 @@ import { resolveIncidentFund, startOrQueueIncident, startQueuedIncident } from "
 import {
   effectiveGpm,
   gallonsLeft,
+  refillShownAfterFill,
   type Blocker,
   type FuelLevel,
   type FundPayment,
@@ -756,11 +757,20 @@ export function resolveFund(fundId: string, outcome: FundOutcome): Transition {
     const site = fund.siteId ? findSite(ctx.map, fund.siteId) : undefined
     const name = site?.name ?? "the gas station"
     const collected = Math.min(fund.cost, Math.max(0, Math.floor(outcome.collected)))
+    const shown = refillShownAfterFill(
+      state,
+      Math.max(0, gallonsLeft(state, ctx.gallonsUsed)),
+      ctx.now,
+    )
     let next: TripState = {
       ...state,
       fund: undefined,
       blockers: state.blockers.filter((b) => b.kind !== "fund"),
-      lastFill: { gallons: state.tankGallons, gallonsUsed: ctx.gallonsUsed },
+      lastFill: {
+        gallons: state.tankGallons,
+        gallonsUsed: ctx.gallonsUsed,
+        ...(shown ? { shown } : {}),
+      },
       fuelFlags: [],
     }
     const gal = Math.round(fund.gallons * 10) / 10

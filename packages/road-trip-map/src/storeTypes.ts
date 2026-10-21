@@ -85,7 +85,11 @@ export type TripStoreFuel = {
   drivingGallonsPerMile: number
   tank: number
   lowPct: number
+  /** A refuel in view: the gauge climbs from `fromGallons` to a full tank across the window. */
+  refill?: TripStoreRefill
 }
+
+export type TripStoreRefill = { fromGallons: number; startedAt: number; endsAt: number }
 
 export type TripStoreVanPart = {
   slot: PartSlot
@@ -151,6 +155,13 @@ export function interpolateVanMile(
 ): number {
   const hours = Math.max(0, now - trip.van.anchorAt) / MS_PER_HOUR
   return Math.min(trip.routeMiles, trip.van.anchorMile + trip.van.mph * hours)
+}
+
+/** Where a refill's climb stands at `now` (clamped to the window). */
+export function refillGallonsAt(refill: TripStoreRefill, tank: number, now: number): number {
+  const span = refill.endsAt - refill.startedAt
+  const progress = span > 0 ? Math.min(1, Math.max(0, (now - refill.startedAt) / span)) : 1
+  return refill.fromGallons + (tank - refill.fromGallons) * progress
 }
 
 /** Gallons in the tank at `now`, from the emitted anchors (never below zero). */

@@ -502,11 +502,19 @@ describe("gas and money (Phase 2)", () => {
     expect(sim.current.mph).toBe(0)
     // 108 of 1,100 coins: everyone pays ~9.8%; the leftover coin goes to the larger fraction.
     expect(sim.wallets).toEqual({ ada: 902, bo: 90, cy: 0 })
+    // The gauge pumps across the hold; the tank itself fills when it ends.
+    const pumping = buildTripStore(sim.state, sim.map, sim.current, sim.now)
+    expect(pumping.fuel.refill).toEqual({
+      fromGallons: pumping.fuel.anchorGallons,
+      startedAt: sim.state.fund!.openedAt,
+      endsAt: sim.state.fund!.endsAt,
+    })
 
     sim.runUntil(T0 + 6 * MIN + 21_000)
     expect(sim.state.fund).toBeUndefined()
     expect(sim.gallons()).toBe(15)
     expect(sim.state.fuelFlags).toEqual([])
+    expect(buildTripStore(sim.state, sim.map, sim.current, sim.now).fuel.refill).toBeUndefined()
 
     sim.runUntil(T0 + 30 * MIN)
     // 12 min drive + 2 min gas + 4 min stand
@@ -578,9 +586,19 @@ describe("gas and money (Phase 2)", () => {
 
     sim.pledge("ada", 100)
     expect(sim.state.fund).toBeDefined()
+    const before = sim.gallons()
     sim.pledge("bo", 8)
     expect(sim.state.fund).toBeUndefined()
     expect(sim.gallons()).toBe(15)
+    // An instant fill climbs the gauge over 20s from where it stood.
+    expect(buildTripStore(sim.state, sim.map, sim.current, sim.now).fuel.refill).toEqual({
+      fromGallons: before,
+      startedAt: sim.now,
+      endsAt: sim.now + 20_000,
+    })
+    expect(
+      buildTripStore(sim.state, sim.map, sim.current, sim.now + 20_000).fuel.refill,
+    ).toBeUndefined()
     expect(sim.log.find((e) => e.kind === "fund")).toMatchObject({
       collected: 108,
       payers: 2,
@@ -638,11 +656,17 @@ describe("gas and money (Phase 2)", () => {
       label: "⛽ Refuelling · Waiting for the fuel truck",
     })
     expect(refuelling.vanSheet.incident).toMatchObject({ name: "Refuelling", stepKind: "wait" })
+    expect(refuelling.fuel.refill).toEqual({
+      fromGallons: expect.closeTo(0, 6),
+      startedAt: sim.state.incident!.stepStartedAt,
+      endsAt: sim.state.incident!.stepEndsAt,
+    })
     expect(buildStatusLines(sim.state, sim.map, refuelling).tripWarnings).toBe(
       "⛽ Refuelling: Waiting for the fuel truck",
     )
     sim.runUntil(emptyAt + 20_000 + 2 * MIN + 1_000)
     expect(sim.state.incident).toBeUndefined()
+    expect(sim.state.lastFill.shown).toBeUndefined()
     expect(sim.log.filter((e) => e.kind === "fuel").at(-1)).toMatchObject({
       level: "filled",
       gallons: expect.closeTo(15, 3),

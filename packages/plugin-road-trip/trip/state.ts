@@ -5,6 +5,7 @@ import type {
   PartSlot,
   TripFundPurpose,
   TripMap,
+  TripStoreRefill,
 } from "@repo/road-trip-map"
 import {
   baseGallonsPerMile,
@@ -13,6 +14,7 @@ import {
   isOptionalSite,
   PART_SLOTS,
   productOf,
+  refillGallonsAt,
   routeMiles,
 } from "@repo/road-trip-map"
 import { project, type Leg, type LegRates } from "./ledger"
@@ -56,7 +58,12 @@ export type SiteRuntime = {
 }
 
 /** Tank level at the last fill, against the ledger's `gallonsUsed` prefix sum (M2). */
-export type FuelFill = { gallons: number; gallonsUsed: number }
+export type FuelFill = {
+  gallons: number
+  gallonsUsed: number
+  /** A fill with no pump time of its own: the gauge climbs across this window instead. */
+  shown?: TripStoreRefill
+}
 
 export type FuelLevel = "low" | "empty"
 
@@ -303,6 +310,56 @@ export function isTowing(state: TripState): boolean {
 /** Gallons in the tank for a ledger `gallonsUsed`; negative once the tank ran dry. */
 export function gallonsLeft(state: Pick<TripState, "lastFill">, gallonsUsed: number): number {
   return state.lastFill.gallons - (gallonsUsed - state.lastFill.gallonsUsed)
+}
+
+/** How long the gauge climbs for a fill that has no pump time of its own. */
+export const INSTANT_REFILL_SHOW_MS = 20_000
+
+/**
+ * A fill under way: the automatic pump, or the fuel truck's Refuelling wait.
+ * The tank itself fills when the window ends.
+ */
+export function pendingRefill(state: TripState, gallons: number): TripStoreRefill | undefined {
+  const fund = state.fund
+  if (fund?.purpose === "gas" && fund.mode === "automatic") {
+    return { fromGallons: gallons, startedAt: fund.openedAt, endsAt: fund.endsAt }
+  }
+  const incident = state.incident
+  if (
+    incident?.incident === "out-of-gas" &&
+    currentIncidentStep(state)?.kind === "wait" &&
+    incident.stepEndsAt !== undefined
+  ) {
+    return { fromGallons: gallons, startedAt: incident.stepStartedAt, endsAt: incident.stepEndsAt }
+  }
+  return undefined
+}
+
+/**
+ * The climb to record on `lastFill` when the tank fills now: none when the fill's
+ * own window already played out, otherwise 20s from wherever the gauge stood.
+ */
+export function refillShownAfterFill(
+  state: TripState,
+  preGallons: number,
+  now: number,
+): TripStoreRefill | undefined {
+  const pending = pendingRefill(state, preGallons)
+  if (pending && now >= pending.endsAt) return undefined
+  const fromGallons = pending ? refillGallonsAt(pending, state.tankGallons, now) : preGallons
+  return { fromGallons, startedAt: now, endsAt: now + INSTANT_REFILL_SHOW_MS }
+}
+
+/** The refill the gauge should show at `now`, if any. */
+export function refillInView(
+  state: TripState,
+  gallons: number,
+  now: number,
+): TripStoreRefill | undefined {
+  const pending = pendingRefill(state, gallons)
+  if (pending) return pending
+  const shown = state.lastFill.shown
+  return shown && now < shown.endsAt ? shown : undefined
 }
 
 /** Tank level at `now` from the leg in force, clamped at empty. */
