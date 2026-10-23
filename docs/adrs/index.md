@@ -210,6 +210,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0202](0202-plugin-registry-package-and-generic-settings-state.md) | Plugin registry package (`@repo/plugins`) and generic `settings.plugin` state | Accepted |
 | [0203](0203-departed-user-record-ttl.md) | Departed listener user records kept for two days | Accepted |
 | [0204](0204-device-trust-boundary.md) | Device trust boundary (HTTP now-playing, `/device` socket for playback and segment cues) | Accepted |
+| [0205](0205-newsletter-signup-guards.md) | Newsletter signup guards (POST-only confirm, form token, honeypot, Redis caps) | Accepted |
 
 ## Creating a New ADR
 

@@ -63,11 +63,19 @@ export interface ScheduleNewsletterIssueRequest {
 export interface SubscribeNewsletterRequest {
   email: string
   source?: string
+  /** Honeypot. Must be empty; a non-empty value is treated as a bot. */
+  website?: string
+  /** From `GET /api/newsletter/form-token`. */
+  formToken?: string
 }
 
+/** Identical for sends, bot drops, and existing subscribers. */
 export interface SubscribeNewsletterResponse {
   ok: true
-  alreadySubscribed: boolean
+}
+
+export interface NewsletterFormTokenResponse {
+  token: string
 }
 
 export interface NewsletterPreviewResponse {

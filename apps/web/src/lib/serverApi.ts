@@ -2,6 +2,7 @@ import ky from "ky"
 import type {
   CompleteMusicUploadRequest,
   FailMusicUploadRequest,
+  NewsletterFormTokenResponse,
   PresignMusicUploadRequest,
   PresignMusicUploadResponse,
   RoomScheduleSnapshotDTO,
@@ -120,6 +121,10 @@ export async function getPluginComponentState(
 // =============================================================================
 // Newsletter
 // =============================================================================
+
+export async function getNewsletterFormToken() {
+  return api.get("api/newsletter/form-token").json<NewsletterFormTokenResponse>()
+}
 
 export async function subscribeNewsletter(body: SubscribeNewsletterRequest) {
   return api.post("api/newsletter/subscribe", { json: body }).json<SubscribeNewsletterResponse>()

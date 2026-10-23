@@ -13,8 +13,18 @@ import type {
 import { and, desc, eq } from "drizzle-orm"
 import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2"
 import type { AppContext } from "@repo/types"
+import {
+  countSignupAttempt,
+  issueSignupToken,
+  readSignupToken,
+  releaseConfirmationSend,
+  reserveConfirmationSend,
+  screenSignupRequest,
+  type SignupGuardRedis,
+} from "./newsletterSignupGuard"
 
 const NEWSLETTER_SCHEDULED_REDIS_KEY = "newsletter:scheduled"
+const SIGNUP_RATE_LIMIT_MESSAGE = "Too many signup attempts. Try again later."
 const CONFIRM_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const SEND_CONCURRENCY = 10
 
@@ -22,6 +32,13 @@ export class NewsletterBadRequestError extends Error {
   constructor(message: string) {
     super(message)
     this.name = "NewsletterBadRequestError"
+  }
+}
+
+export class NewsletterRateLimitError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "NewsletterRateLimitError"
   }
 }
 
@@ -454,23 +471,78 @@ export async function listSubscribers(): Promise<NewsletterSubscribersSummary> {
   }
 }
 
-export async function subscribe(
-  email: string,
-  source?: string,
-): Promise<{ alreadySubscribed: boolean }> {
-  const normalizedEmail = email.trim().toLowerCase()
+export function issueNewsletterFormToken(): string {
+  return issueSignupToken(Date.now(), getUnsubscribeSecret())
+}
+
+export type SubscribeInput = {
+  email: unknown
+  source?: unknown
+  website?: unknown
+  formToken?: unknown
+  ip: string | undefined
+}
+
+/**
+ * Resolves without sending for bot signals, active subscribers, and capped
+ * addresses, so callers cannot tell those cases apart from a real send.
+ */
+export async function subscribe(input: SubscribeInput, redis: SignupGuardRedis): Promise<void> {
+  if (!input.ip) {
+    throw new NewsletterRateLimitError(SIGNUP_RATE_LIMIT_MESSAGE)
+  }
+  const ipCount = await countSignupAttempt(redis, input.ip)
+  const screen = screenSignupRequest({
+    ipCount,
+    honeypot: typeof input.website === "string" ? input.website : undefined,
+    tokenVerdict: readSignupToken(
+      typeof input.formToken === "string" ? input.formToken : undefined,
+      Date.now(),
+      getUnsubscribeSecret(),
+    ),
+  })
+  if (screen === "rate_limited") {
+    console.info("[newsletter] signup dropped: rate_ip")
+    throw new NewsletterRateLimitError(SIGNUP_RATE_LIMIT_MESSAGE)
+  }
+  if (screen === "drop") {
+    console.info("[newsletter] signup dropped: bot")
+    return
+  }
+
+  const normalizedEmail = typeof input.email === "string" ? input.email.trim().toLowerCase() : ""
   if (!normalizedEmail || !normalizedEmail.includes("@")) {
     throw new NewsletterBadRequestError("Valid email is required")
   }
+  const source = typeof input.source === "string" ? input.source : undefined
 
   const existing = await db.query.subscriber.findFirst({
     where: eq(subscriber.email, normalizedEmail),
   })
 
   if (existing?.status === "active" && existing.wantsEmail) {
-    return { alreadySubscribed: true }
+    return
   }
 
+  const reservation = await reserveConfirmationSend(redis, normalizedEmail)
+  if (reservation !== "reserved") {
+    console.info(`[newsletter] signup dropped: rate_email (${reservation})`)
+    return
+  }
+
+  try {
+    await sendConfirmation(normalizedEmail, source, existing)
+  } catch (error) {
+    await releaseConfirmationSend(redis, normalizedEmail)
+    throw error
+  }
+}
+
+async function sendConfirmation(
+  normalizedEmail: string,
+  source: string | undefined,
+  existing: typeof subscriber.$inferSelect | undefined,
+): Promise<void> {
   if (existing) {
     await db
       .update(subscriber)
@@ -523,8 +595,6 @@ export async function subscribe(
       },
     }),
   )
-
-  return { alreadySubscribed: false }
 }
 
 export async function confirmSubscription(token: string, email: string): Promise<SubscriberDTO> {

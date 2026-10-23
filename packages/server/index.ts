@@ -61,8 +61,10 @@ import { getPublicReadyShowById, getPublicReadyShows } from "./routes/publicSche
 import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/schedulingRouter"
 import {
   confirmNewsletterHandler,
+  confirmNewsletterPageHandler,
   createNewsletterRouter,
   handleSesSnsWebhook,
+  newsletterFormTokenHandler,
   subscribeNewsletterHandler,
   unsubscribeNewsletterHandler,
 } from "./routes/newsletterRouter"
@@ -310,8 +312,14 @@ export class RadioRoomServer {
       // Scheduling API (admin-only)
       .use("/api/scheduling", requireAdmin ?? noopMiddleware, createSchedulingRouter())
       // Newsletter public routes
+      .get("/api/newsletter/form-token", newsletterFormTokenHandler)
       .post("/api/newsletter/subscribe", subscribeNewsletterHandler)
-      .get("/api/newsletter/confirm", confirmNewsletterHandler)
+      .get("/api/newsletter/confirm", confirmNewsletterPageHandler)
+      .post(
+        "/api/newsletter/confirm",
+        express.urlencoded({ extended: false }),
+        confirmNewsletterHandler,
+      )
       .get("/api/newsletter/unsubscribe", unsubscribeNewsletterHandler)
       .post("/api/newsletter/unsubscribe", unsubscribeNewsletterHandler)
       // Newsletter API (admin-only)
