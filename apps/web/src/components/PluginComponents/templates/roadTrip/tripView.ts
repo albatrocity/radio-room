@@ -283,6 +283,9 @@ export function stripReadout(
       const next = nextSiteAhead(trip, mile)
       const ms = next ? msToSite(trip, next, mile) : null
       const destination = revealedName(next)
+      if (!destination && phase === "cruising") {
+        return { status: VAN_PHASE_LABEL.cruising, destination: `${Math.round(trip.van.mph)} mph` }
+      }
       return {
         status: VAN_PHASE_LABEL[phase],
         ...(destination ? { destination } : {}),

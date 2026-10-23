@@ -94,9 +94,16 @@ describe("stripReadout", () => {
     })
   })
 
-  it("hides an unrevealed destination but keeps the countdown", () => {
+  it("shows the speed instead of an unrevealed destination", () => {
     const readout = stripReadout(trip({ sites: [{ id: "x", mile: 5, state: "unrevealed" }] }), 0, NOW)
-    expect(readout).toEqual({ status: "Cruising", countdown: "5:00" })
+    expect(readout).toEqual({ status: "Cruising", destination: "60 mph" })
+  })
+
+  it("shows the speed when no site is ahead", () => {
+    expect(stripReadout(trip({ sites: [] }), 0, NOW)).toEqual({
+      status: "Cruising",
+      destination: "60 mph",
+    })
   })
 
   it("counts down the stop while parked", () => {
