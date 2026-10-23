@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react"
+import type { ComponentType, ElementType, ReactNode } from "react"
 import type { PresentationVariant } from "@repo/types"
 import type { Poll, PollOption } from "@repo/types/Poll"
 
@@ -25,6 +25,8 @@ export type PollTheme = {
   Header: ComponentType<PollThemeHeaderProps>
   collapsedLabel: (poll: Poll) => string
   optionLabel: (poll: Poll, option: PollOption) => string
+  /** Leading icon for an option, on the vote buttons and the results bars. */
+  optionIcon?: (poll: Poll, option: PollOption) => ElementType | undefined
   /** Replaces the plain `closesAt` ExpiryBar on the expanded card. */
   CloseBar: ComponentType<{ poll: Poll; endAt: number }>
   Footer?: ComponentType<{ poll: Poll }>

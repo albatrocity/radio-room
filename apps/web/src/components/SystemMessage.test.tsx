@@ -16,6 +16,8 @@ vi.mock("../hooks/useHasInventoryPeek", () => ({
   useHasInventoryPeek: () => harness.peek,
 }))
 
+vi.mock("../lib/navigateToNotificationTarget", () => ({ navigateToTarget: vi.fn() }))
+
 vi.mock("../lib/listenerDisplayName", () => ({
   displayNameForUserId: (userId: string) => userId,
 }))
@@ -84,5 +86,28 @@ describe("SystemMessage prose", () => {
     )
     expect(plain).toContain("Somebody pulled off here.")
     expect(plain).not.toContain("<svg")
+  })
+})
+
+describe("SystemMessage action", () => {
+  it("renders the action button under a themed alert", () => {
+    harness.peek = false
+    const html = render(
+      <SystemMessage
+        {...prose(
+          {
+            type: "alert",
+            title: "Sister Anne's",
+            action: {
+              label: "Open shop",
+              target: { surface: "gameState", tabId: "item-shops:item-shops-tab" },
+            },
+          },
+          { content: "Crates are open." },
+        )}
+      />,
+    )
+    expect(html).toContain("data-road-sign")
+    expect(html).toMatch(/<button[^>]*>Open shop<\/button>/)
   })
 })

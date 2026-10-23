@@ -1,5 +1,5 @@
 import { memo, lazy, Suspense } from "react"
-import { Box, Heading, HStack, VStack } from "@chakra-ui/react"
+import { Box, Flex, Heading, VStack } from "@chakra-ui/react"
 
 import {
   useCurrentRoom,
@@ -117,11 +117,11 @@ function NowPlaying({ meta }: NowPlayingProps) {
           <PluginArea area="nowPlaying" />
         </Box>
 
-        <Box hideBelow="sm" colorPalette="primary" flexShrink={0}>
-          <HStack>
+        <Box hideBelow="sm" colorPalette="primary" flexShrink={0} maxW="100%">
+          <Flex wrap="wrap" justify="center" gap={2}>
             <ButtonAddToQueue variant="subtle" />
             <ButtonPolls variant="subtle" />
-          </HStack>
+          </Flex>
         </Box>
       </VStack>
     </Box>

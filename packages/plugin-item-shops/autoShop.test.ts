@@ -358,6 +358,10 @@ describe("ItemShopsPlugin auto-shop", () => {
           type: "alert",
           status: "info",
           title: "Sister Anne's record bins",
+          action: {
+            label: "Open shop",
+            target: { surface: "gameState", tabId: "item-shops:item-shops-tab" },
+          },
         })
       })
 

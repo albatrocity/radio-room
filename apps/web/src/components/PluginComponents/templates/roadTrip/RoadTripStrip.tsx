@@ -62,15 +62,15 @@ export function RoadTripStripTemplateComponent({
           <Text fontWeight="medium" truncate flexShrink={0} maxW="60%">
             {readout.status}
           </Text>
-          {readout.countdown ? (
-            <Text color="fg.muted" flexShrink={0} fontVariantNumeric="tabular-nums">
-              {readout.countdown}
-            </Text>
-          ) : null}
           <Box flex={1} />
           {readout.destination ? (
             <Text color="fg.muted" truncate minW={0} textAlign="right">
               {readout.destination}
+            </Text>
+          ) : null}
+          {readout.countdown ? (
+            <Text color="fg.muted" flexShrink={0} fontVariantNumeric="tabular-nums">
+              {readout.countdown}
             </Text>
           ) : null}
           <FuelGauge fuel={fuelView(trip, gallons)} />

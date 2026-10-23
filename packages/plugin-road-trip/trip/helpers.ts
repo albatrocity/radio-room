@@ -176,6 +176,6 @@ export function pullOffHold(state: TripState, map: TripMap, site: TripSite): Tri
 export const BACK_ON_THE_ROAD: TripEffect = {
   type: "sign",
   variant: "info",
-  icon: "🚐",
+  icon: "Van",
   title: "Back on the road",
 }

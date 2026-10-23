@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react"
-import { Button, HStack, Text } from "@chakra-ui/react"
+import { useEffect, useRef, type ElementType } from "react"
+import { Button, HStack, Icon, Text } from "@chakra-ui/react"
 import { useAnimationsEnabled } from "../../hooks/useReducedMotion"
 import { runVoteConfirmAnimation } from "../../animations/voteConfirmAnimation"
 
 type Props = {
   label: string
+  icon?: ElementType
   selected: boolean
   disabled: boolean
   onClick: () => void
@@ -13,6 +14,7 @@ type Props = {
 
 export function PollOptionButton({
   label,
+  icon,
   selected,
   disabled,
   onClick,
@@ -53,7 +55,10 @@ export function PollOptionButton({
       transition="transform 120ms ease, border-color 120ms ease"
     >
       <HStack w="100%" justify="space-between">
-        <Text textAlign="left">{label}</Text>
+        <HStack gap={2} minW={0}>
+          {icon ? <Icon as={icon} boxSize={4} flexShrink={0} aria-hidden /> : null}
+          <Text textAlign="left">{label}</Text>
+        </HStack>
         {selected && (
           <Text as="span" ref={checkRef} aria-hidden fontSize="sm" opacity={showConfirmAnimation ? 0 : 1}>
             ✓

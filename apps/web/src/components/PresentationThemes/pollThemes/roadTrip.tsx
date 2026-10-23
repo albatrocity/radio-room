@@ -1,4 +1,5 @@
 import { Box, HStack, Image, Text } from "@chakra-ui/react"
+import { CornerUpRight, MoveUp } from "lucide-react"
 import type { Poll } from "@repo/types/Poll"
 import { useNow } from "../../../hooks/useActors"
 import { formatCountdown } from "../../../lib/formatCountdown"
@@ -6,12 +7,9 @@ import { useAnimationsEnabled } from "../../../hooks/useReducedMotion"
 import { ROAD_SIGN_FONT, roadSignColors } from "../roadSignStyle"
 import type { PollTheme, PollThemeHeaderProps } from "../types"
 
-const EXIT_ARROW = "⬈"
-const STRAIGHT_ARROW = "⬆"
-
 /** First option is the exit by convention; every other option keeps driving. */
-function laneArrow(poll: Poll, optionId: string): string {
-  return poll.options[0]?.id === optionId ? EXIT_ARROW : STRAIGHT_ARROW
+function laneIcon(poll: Poll, optionId: string) {
+  return poll.options[0]?.id === optionId ? CornerUpRight : MoveUp
 }
 
 function RoadTripPollHeader({ poll, actions }: PollThemeHeaderProps) {
@@ -112,7 +110,8 @@ export const roadTripPollTheme: PollTheme = {
     if (!headline) return poll.question
     return eyebrow ? `${eyebrow} · ${headline}` : headline
   },
-  optionLabel: (poll, option) => `${laneArrow(poll, option.id)}  ${option.label}`,
+  optionLabel: (_poll, option) => option.label,
+  optionIcon: (poll, option) => laneIcon(poll, option.id),
   CloseBar: RoadTripExitBar,
   Footer: RoadTripPollFooter,
 }

@@ -1,5 +1,6 @@
-import { Box, HStack, Text } from "@chakra-ui/react"
+import { Box, HStack, Icon, Text } from "@chakra-ui/react"
 import ParsedEmojiMessage from "../../ParsedEmojiMessage"
+import { getIcon } from "../../PluginComponents/icons"
 import { ROAD_SIGN_FONT, roadSignColors } from "../roadSignStyle"
 import type { ChatThemeMessageProps } from "../types"
 
@@ -8,6 +9,7 @@ export function RoadTripSignMessage({ title, content, status, icon, time }: Chat
   const colors = roadSignColors(status)
   const headline = title?.trim() || content
   const body = title?.trim() ? content : null
+  const LucideIcon = icon ? getIcon(icon) : undefined
 
   return (
     <Box px={3} py={1.5} role="group" data-road-sign={status ?? "info"}>
@@ -21,7 +23,9 @@ export function RoadTripSignMessage({ title, content, status, icon, time }: Chat
           borderColor={colors.rule}
           align="center"
         >
-          {icon ? (
+          {LucideIcon ? (
+            <Icon as={LucideIcon} boxSize={5} flexShrink={0} aria-hidden />
+          ) : icon ? (
             <Text as="span" fontSize="lg" lineHeight={1} flexShrink={0} aria-hidden>
               {icon}
             </Text>

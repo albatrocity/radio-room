@@ -26,6 +26,8 @@ const PALETTE_TOKENS = {
   contrast: { light: 50, dark: 200 },
   fg: { light: 600, dark: 200 },
   muted: { light: 200, dark: 800 },
+  // Outline buttons read `colorPalette.border`; undefined, it inherits an ancestor's palette (e.g. a blue Alert).
+  border: { light: 200, dark: 800 },
   subtle: { light: 100, dark: 900 },
   emphasized: { light: 200, dark: 800 },
   focusRing: { light: 500, dark: 500 },
@@ -87,7 +89,7 @@ function generateSemanticColorTokens(themeList: Record<string, AppTheme>) {
       semanticTokens[category][shade] = { value: conditionalValue }
     })
 
-    // Generate color palette tokens (solid, contrast, fg, muted, subtle, emphasized, focusRing)
+    // Generate color palette tokens (solid, contrast, fg, muted, border, subtle, emphasized, focusRing)
     Object.entries(PALETTE_TOKENS).forEach(([tokenName, shades]) => {
       const conditionalValue: Record<string, string> = {
         base: `{colors.${category}.${shades.light}}`,

@@ -115,6 +115,10 @@ function PollCard() {
     () => (theme && poll ? (option: PollOption) => theme.optionLabel(poll, option) : undefined),
     [theme, poll],
   )
+  const optionIcon = useMemo(() => {
+    const iconFor = theme?.optionIcon
+    return iconFor && poll ? (option: PollOption) => iconFor(poll, option) : undefined
+  }, [theme, poll])
 
   const winnerIds = useMemo(() => new Set(revealResults?.winners ?? []), [revealResults])
   const isTie = winnerIds.size > 1
@@ -321,6 +325,7 @@ function PollCard() {
                   <PollResultsBar
                     key={option.id}
                     label={formatOptionLabel ? formatOptionLabel(option) : option.label}
+                    icon={optionIcon?.(option)}
                     count={count}
                     pct={pct}
                     isWinner={winnerIds.has(option.id)}
@@ -355,6 +360,7 @@ function PollCard() {
               confirmOptionId={confirmOptionId}
               onVote={handleVote}
               formatOptionLabel={formatOptionLabel}
+              optionIcon={optionIcon}
             />
           )}
         </Box>

@@ -458,4 +458,27 @@ describe("ShoppingSessionHelper opening DMs", () => {
 
     expect(sendUserSystemMessage).toHaveBeenCalledWith("room-1", "u1", expect.any(String), undefined)
   })
+
+  it("adds the opening action alongside the shop's meta", async () => {
+    const { context } = makeContext()
+    const sendUserSystemMessage = context.api.sendUserSystemMessage
+    const action = {
+      label: "Open shop",
+      target: { surface: "gameState" as const, tabId: "item-shops:item-shops-tab" },
+    }
+    const shop: ShopCatalogEntry = {
+      ...SHOP,
+      openingMessageMeta: { type: "alert", status: "info" },
+    }
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [shop], {
+      openingAction: action,
+    })
+    await helper.assignInstanceForUserId("u1")
+
+    expect(sendUserSystemMessage).toHaveBeenCalledWith("room-1", "u1", expect.any(String), {
+      type: "alert",
+      status: "info",
+      action,
+    })
+  })
 })

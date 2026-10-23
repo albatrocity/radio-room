@@ -1,7 +1,9 @@
-import { Badge, Box, HStack, Text } from "@chakra-ui/react"
+import type { ElementType } from "react"
+import { Badge, Box, HStack, Icon, Text } from "@chakra-ui/react"
 
 type Props = {
   label: string
+  icon?: ElementType
   count: number
   pct: number
   isWinner: boolean
@@ -12,6 +14,7 @@ type Props = {
 
 export function PollResultsBar({
   label,
+  icon,
   count,
   pct,
   isWinner,
@@ -24,9 +27,12 @@ export function PollResultsBar({
   return (
     <Box w="100%">
       <HStack justify="space-between" mb={1} gap={2}>
-        <Text fontSize="sm" fontWeight="medium" lineClamp={2}>
-          {label}
-        </Text>
+        <HStack gap={1.5} minW={0}>
+          {icon ? <Icon as={icon} boxSize={3.5} flexShrink={0} aria-hidden /> : null}
+          <Text fontSize="sm" fontWeight="medium" lineClamp={2}>
+            {label}
+          </Text>
+        </HStack>
         <HStack gap={1} flexShrink={0}>
           {isWinner && (
             <Badge size="sm" colorPalette={isTie ? "orange" : "green"}>

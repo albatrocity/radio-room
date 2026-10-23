@@ -22,9 +22,19 @@ export const chatMessageMetaSchema = z.object({
   maskedLabel: z.string().optional(),
   /** Themed rendering for alert messages (ADR 0208); `status` picks the variant. */
   theme: presentationThemeSchema.optional(),
-  /** Short glyph (emoji) shown by themed renderers. */
+  /** Short glyph shown by themed renderers: an emoji, or a Lucide icon name ("Van"). */
   icon: z.string().max(16).optional(),
+  /** A button under a system message that opens part of the room UI. */
+  action: z
+    .object({
+      label: z.string().max(40),
+      /** Game modal tab, keyed `${pluginName}:${schemaTabId}`. */
+      target: z.object({ surface: z.literal("gameState"), tabId: z.string() }),
+    })
+    .optional(),
 })
+
+export type ChatMessageAction = NonNullable<z.infer<typeof chatMessageMetaSchema>["action"]>
 
 // =============================================================================
 // Text effects & segments (plugin-driven rich chat; client maps to styles)

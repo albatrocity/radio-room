@@ -422,7 +422,7 @@ function pollResultSign(
     return {
       type: "sign",
       variant: "info",
-      icon: "↗",
+      icon: "CornerUpRight",
       title: mystery ? "Taking the exit" : `Taking the exit for ${site.name}`,
       body,
     }
@@ -430,7 +430,7 @@ function pollResultSign(
   return {
     type: "sign",
     variant: "info",
-    icon: "⬆",
+    icon: "MoveUp",
     title: mystery ? "Kept driving" : `Kept driving past ${site.name}`,
     body,
   }

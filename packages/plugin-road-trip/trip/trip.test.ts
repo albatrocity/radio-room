@@ -195,7 +195,7 @@ describe("trip playable (Phase 1)", () => {
     expect(sim.effects.map(({ effect }) => effect)).toContainEqual({
       type: "sign",
       variant: "info",
-      icon: "⬆",
+      icon: "MoveUp",
       title: "Kept driving past Dusty Boots Records",
       body: "No votes. The van stays on the highway.",
     })

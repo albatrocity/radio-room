@@ -1,7 +1,7 @@
 # 0208. Presentation themes for system messages and plugin-authored polls
 
 **Date:** 2026-10-02
-**Status:** Accepted
+**Status:** Accepted (amended by [0218](0218-system-message-actions-and-theme-icons.md): Lucide `meta.icon`, poll `optionIcon`)
 
 ## Context
 

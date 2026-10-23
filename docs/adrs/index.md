@@ -223,6 +223,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0215](0215-van-shared-playback-formats.md) | The van shares playback formats while a trip map is loaded (`tuning.vanPlayback`, `shopAccess.setSharedPlayback`; amends 0160) | Accepted |
 | [0216](0216-record-picks.md) | Record picks: designer-chosen albums from any source (`PhysicalMediaPick`, `PhysicalMediaStock` = `library` carry + `picks`), track-scoped `grantMetadataSourceAccess` (`trackId`), `getAlbumTrackIds` (amends 0088, 0214) | Accepted |
 | [0217](0217-pull-off-sign-hold.md) | Pulling off holds signs and skip polls for sites within 3 mi past the stop until the van leaves (`pullOffHold`; amends 0205) | Accepted |
+| [0218](0218-system-message-actions-and-theme-icons.md) | System message `meta.action` button (game modal tab target via `navigateToTarget`), Lucide names in `meta.icon`, poll theme `optionIcon` (amends 0208) | Accepted |
+| [0219](0219-road-trip-van-motion-and-refill-window.md) | Room-scoped `roadTripVanMotionMachine` for van flourishes; `TripStore.fuel.refill` window animates the gauge during refuels | Accepted |
 
 ## Creating a New ADR
 

@@ -44,6 +44,7 @@ import {
   type QueueValidationResult,
   type ShoppingSessionInstance,
   type SystemEventPayload,
+  type ChatMessageAction,
 } from "@repo/types"
 import {
   isMediaCondition,
@@ -115,6 +116,10 @@ import { FAMILY_PHOTO_PERSONA_SHORT_ID } from "./items/family-photo/constants"
 const PLUGIN_NAME = ITEM_SHOPS_PLUGIN_NAME
 const AUTO_SHOP_TIMER_ID = "auto-shop"
 const MIN_AUTO_SHOP_INTERVAL_MS = 60_000
+const OPEN_SHOP_ACTION: ChatMessageAction = {
+  label: "Open shop",
+  target: { surface: "gameState", tabId: `${ITEM_SHOPS_PLUGIN_NAME}:${ITEM_SHOPS_TAB_ID}` },
+}
 
 /**
  * Shops eligible for random assignment. `playbackControllerId` drops shops that
@@ -221,6 +226,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     const { itemCatalog, shopCatalog } = this.localLibrary.applyConfig(grants)
     this.shopping = new ShoppingSessionHelper(this.name, context, itemCatalog, shopCatalog, {
       hooks: physicalMediaShopEconomyHooks(() => this.offerConditionBounds),
+      openingAction: OPEN_SHOP_ACTION,
     })
     this.context!.inventory.registerItemDefinitions(itemCatalog.map((e) => e.definition))
     this.commitDefinitionFingerprints(itemCatalog.map((e) => e.definition))
@@ -1003,6 +1009,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
         type: "alert",
         status: "info",
         ...(req.title ? { title: req.title } : {}),
+        action: OPEN_SHOP_ACTION,
       })
     }
     return { ok: true }

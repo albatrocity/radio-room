@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type ElementType } from "react"
 import { Badge, Stack, Text, VStack } from "@chakra-ui/react"
 import type { MyPollVote, Poll, PollOption } from "@repo/types/Poll"
 import { useAnimationsEnabled } from "../../hooks/useReducedMotion"
@@ -15,6 +15,7 @@ type Props = {
   confirmOptionId: string | null
   onVote: (option: PollOption) => void
   formatOptionLabel?: (option: PollOption) => string
+  optionIcon?: (option: PollOption) => ElementType | undefined
 }
 
 export function PollVotingSection({
@@ -25,6 +26,7 @@ export function PollVotingSection({
   confirmOptionId,
   onVote,
   formatOptionLabel,
+  optionIcon,
 }: Props) {
   const animationsEnabled = useAnimationsEnabled()
   const totalRef = useRef<HTMLSpanElement>(null)
@@ -72,6 +74,7 @@ export function PollVotingSection({
             <PollOptionButton
               key={option.id}
               label={formatOptionLabel ? formatOptionLabel(option) : option.label}
+              icon={optionIcon?.(option)}
               selected={selected}
               disabled={votePending}
               showConfirmAnimation={confirmOptionId === option.id}

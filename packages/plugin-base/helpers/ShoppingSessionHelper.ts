@@ -1,4 +1,5 @@
 import type {
+  ChatMessageAction,
   InventoryItem,
   ItemDefinition,
   ItemRarity,
@@ -47,6 +48,7 @@ export class ShoppingSessionHelper {
   private shopCatalog: readonly ShopCatalogEntry[]
   private readonly rarityWeights: Record<ItemRarity, number>
   private readonly hooks?: ShopEconomyHooks
+  private readonly openingAction?: ChatMessageAction
 
   constructor(
     private readonly pluginName: string,
@@ -56,6 +58,8 @@ export class ShoppingSessionHelper {
     options?: {
       rarityWeights?: Record<ItemRarity, number>
       hooks?: ShopEconomyHooks
+      /** Button on every private opening message (e.g. open the shop tab). */
+      openingAction?: ChatMessageAction
     },
   ) {
     this.itemCatalog = itemCatalog
@@ -63,6 +67,7 @@ export class ShoppingSessionHelper {
     this.catalogMap = buildItemCatalogMap(itemCatalog)
     this.rarityWeights = options?.rarityWeights ?? DEFAULT_RARITY_WEIGHTS
     this.hooks = options?.hooks
+    this.openingAction = options?.openingAction
   }
 
   /**
@@ -205,7 +210,9 @@ export class ShoppingSessionHelper {
       this.context.roomId,
       userId,
       displayMessage,
-      shop.openingMessageMeta,
+      this.openingAction
+        ? { ...shop.openingMessageMeta, action: this.openingAction }
+        : shop.openingMessageMeta,
     )
   }
 

@@ -429,7 +429,7 @@ function closeExitPollEvents(roomId: string): Array<{ type: string; data: Record
           "The room voted 2–1 to keep going.",
           "Kept driving past Dusty Boots Records",
           "info",
-          "⬆",
+          "MoveUp",
           now,
         ),
       },

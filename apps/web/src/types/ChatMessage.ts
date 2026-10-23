@@ -1,4 +1,4 @@
-import type { PresentationTheme, TextSegment } from "@repo/types"
+import type { ChatMessageAction, PresentationTheme, TextSegment } from "@repo/types"
 import { Reaction } from "./Reaction"
 import { User } from "./User"
 
@@ -20,6 +20,7 @@ export type ChatMessage = {
     /** Themed system message renderer (ADR 0208); unknown themes render plain. */
     theme?: PresentationTheme
     icon?: string
+    action?: ChatMessageAction
   }
   /** Unix epoch (ms) when this message should be hidden (ephemeral / sender-only previews). */
   expiresAt?: number
