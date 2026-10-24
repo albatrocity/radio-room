@@ -152,6 +152,7 @@ export function getComponentSchema(): PluginComponentSchema {
         label: "Trip",
         icon: "Map",
         showWhen: { field: "tripActive", value: true },
+        fillHeight: true,
         children: [
           {
             id: "road-trip-trip-panel",

@@ -111,6 +111,33 @@ export function siteNarrative(site: TripSite): string | undefined {
   return text ? text : undefined
 }
 
+export type TripNarrativeEntry = {
+  siteId: string
+  name: string
+  icon: string
+  at: number
+  body: string
+}
+
+/**
+ * Every narrative posted so far, oldest first. A site's narrative posts
+ * exactly when it gets `visitedAt` (park, destination arrival, tow).
+ */
+export function tripNarrative(
+  map: TripMap,
+  sites: Record<string, { visitedAt?: number }>,
+): TripNarrativeEntry[] {
+  return map.sites
+    .flatMap((site) => {
+      const at = sites[site.id]?.visitedAt
+      const body = siteNarrative(site)
+      return at !== undefined && body
+        ? [{ siteId: site.id, name: site.name, icon: site.icon, at, body }]
+        : []
+    })
+    .sort((a, b) => a.at - b.at)
+}
+
 /** Posted beside the exit sign, not as one. Only when the van actually stops. */
 export function narrate(site: TripSite): TripEffect | null {
   const body = siteNarrative(site)

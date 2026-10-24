@@ -748,6 +748,14 @@ describe("van and incidents (Phase 3)", () => {
     sim.apply(installPart("aero-spoiler", ADA))
     expect(sim.current.mph).toBeCloseTo(60 * 1.25 * 1.05, 9)
     expect(sim.legs.at(-1)?.reason).toBe("factor-off")
+    const events = buildTripStore(sim.state, sim.map, sim.current, sim.now, {
+      costScale: 1,
+      log: sim.log,
+    }).events
+    expect(events?.map((e) => e.text)).toEqual([
+      "🔥 ada installed Turbocharger",
+      "🪽 ada installed Aerodynamic Spoiler",
+    ])
     const sheet = buildTripStore(sim.state, sim.map, sim.current, sim.now).vanSheet
     expect(sheet.parts.map((p) => p.slot)).toEqual(["aero", "engine"])
     expect(sheet.speedFactors.map((f) => f.source)).toEqual(["aero-spoiler", "turbocharger"])
@@ -778,6 +786,12 @@ describe("van and incidents (Phase 3)", () => {
     sim.runUntil(T0 + 13 * MIN + 60_000 + 20_000 + 90_000 + 1_000)
     expect(sim.state.incident).toBeUndefined()
     expect(sim.current.mph).toBe(60)
+    const events = buildTripStore(sim.state, sim.map, sim.current, sim.now, {
+      costScale: 1,
+      log: sim.log,
+    }).events
+    expect(events?.map((e) => e.text)).toEqual(["🛞 Blown tire", "🛞 Blown tire cleared"])
+    expect(events?.[0]?.mile).toBeCloseTo(9, 6)
     sim.runUntil(T0 + 40 * MIN)
     expect(sim.state.status).toBe("arrived")
     expect(

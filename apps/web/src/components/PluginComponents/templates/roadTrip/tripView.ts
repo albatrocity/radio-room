@@ -1,5 +1,10 @@
 import { format } from "date-fns"
-import type { TripStore, TripStoreSite, TripStoreSiteState } from "@repo/road-trip-map"
+import type {
+  TripStore,
+  TripStoreEvent,
+  TripStoreSite,
+  TripStoreSiteState,
+} from "@repo/road-trip-map"
 import {
   FUND_PURPOSE_LABELS,
   INCIDENTS,
@@ -231,6 +236,36 @@ export type StripReadout = {
   countdown?: string
 }
 
+export type TripLogRow =
+  | { kind: "site"; key: string; site: TripStoreSite }
+  | { kind: "event"; key: string; event: TripStoreEvent }
+
+/**
+ * Sites in route order with van events slotted in by mile, so the list reads
+ * oldest to newest: the van only moves forward, and an event at a site's mile
+ * happened while it was there.
+ */
+export function tripLog(trip: TripStore): TripLogRow[] {
+  const events = trip.events ?? []
+  const rows: TripLogRow[] = []
+  let next = 0
+  const eventRow = (index: number): TripLogRow => ({
+    kind: "event",
+    key: `event:${index}`,
+    event: events[index]!,
+  })
+  for (const site of trip.sites) {
+    while (next < events.length && events[next]!.mile < site.mile) rows.push(eventRow(next++))
+    rows.push({ kind: "site", key: site.id, site })
+  }
+  while (next < events.length) rows.push(eventRow(next++))
+  return rows
+}
+
+function speedLabel(trip: TripStore): string {
+  return `${Math.round(trip.van.mph)} mph`
+}
+
 function revealedName(site: TripStoreSite | undefined): string | undefined {
   return site && site.state !== "unrevealed" ? site.name : undefined
 }
@@ -263,9 +298,11 @@ export function stripReadout(
   if (live?.kind === "incident") {
     const spec = INCIDENTS[live.incident]
     const fix = live.resolvesWith?.[0]
+    const destination =
+      trip.van.mph > 0 ? speedLabel(trip) : fix ? `${vanItemName(fix)}?` : undefined
     return {
       status: `${spec.emoji} ${live.name}`,
-      ...(fix ? { destination: `${vanItemName(fix)}?` } : {}),
+      ...(destination ? { destination } : {}),
       ...(live.endsAt !== undefined ? { countdown: formatDriveCountdown(live.endsAt - now) } : {}),
     }
   }
@@ -284,7 +321,7 @@ export function stripReadout(
       const ms = next ? msToSite(trip, next, mile) : null
       const destination = revealedName(next)
       if (!destination && phase === "cruising") {
-        return { status: VAN_PHASE_LABEL.cruising, destination: `${Math.round(trip.van.mph)} mph` }
+        return { status: VAN_PHASE_LABEL.cruising, destination: speedLabel(trip) }
       }
       return {
         status: VAN_PHASE_LABEL[phase],

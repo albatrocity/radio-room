@@ -18,11 +18,7 @@ import {
   useTabNotificationIds,
 } from "../../hooks/useActors"
 import { useActiveIntegratedPanelSlot } from "../../hooks/useIntegratedPanelPresentation"
-import {
-  ADMIN_LISTENERS_TAB,
-  STORAGE_TAB,
-  TRADES_GIFTS_TAB,
-} from "../../constants/gameStateTabs"
+import { ADMIN_LISTENERS_TAB, STORAGE_TAB, TRADES_GIFTS_TAB } from "../../constants/gameStateTabs"
 import { useGameStateNewPluginTabs } from "../GameStateNewPluginTabsProvider"
 import { getIcon } from "../PluginComponents/icons"
 import { SvgIcon } from "../ui/svg-icon"
@@ -143,6 +139,9 @@ function GameStateTabsBody({
     setGameStateTab(tabId)
   }
 
+  const activePluginTabFills =
+    pluginTabs.find((t) => t.id === gameStateTab)?.tab.fillHeight === true
+
   const tabContents = (
     <>
       <Tabs.Content value="inventory">
@@ -173,7 +172,10 @@ function GameStateTabsBody({
         </Tabs.Content>
       ) : null}
 
-      <GameStatePluginTabContents tabs={pluginTabs} />
+      <GameStatePluginTabContents
+        tabs={pluginTabs}
+        fillHeightTabId={fillHeight ? gameStateTab : undefined}
+      />
 
       {isAdmin ? (
         <Tabs.Content value={ADMIN_LISTENERS_TAB}>
@@ -331,7 +333,7 @@ function GameStateTabsBody({
           <Box
             flex="1"
             minH={0}
-            {...(gameStateTab === STORAGE_TAB
+            {...(gameStateTab === STORAGE_TAB || activePluginTabFills
               ? { display: "flex", flexDirection: "column", overflow: "hidden" }
               : { overflowY: "auto" })}
           >
@@ -554,7 +556,7 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
       placement="bottom"
       size="full"
       heading={INTEGRATED_PANEL_SLOTS.gameState.title}
-      footer={showGameFooter ? footer ?? undefined : undefined}
+      footer={showGameFooter ? (footer ?? undefined) : undefined}
       footerFlush
       fill
     >

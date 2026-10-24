@@ -5,6 +5,7 @@ import {
   refillingGallons,
   stripContext,
   stripReadout,
+  tripLog,
   vanPhase,
 } from "./tripView"
 
@@ -122,7 +123,42 @@ describe("stripReadout", () => {
     const towing = trip({
       live: { kind: "incident", label: "", incident: "engine-failure", name: "Engine failure" },
     })
-    expect(stripReadout(towing, 0, NOW, "cruising")).toEqual({ status: "🔧 Engine failure" })
+    expect(stripReadout(towing, 0, NOW, "cruising")).toEqual({
+      status: "🔧 Engine failure",
+      destination: "60 mph",
+    })
+  })
+
+  it("shows the speed through a slowdown, and the fix only once stopped", () => {
+    const live = {
+      kind: "incident" as const,
+      label: "",
+      incident: "traffic-jam" as const,
+      name: "Traffic jam",
+      resolvesWith: ["road-trip:cb-radio"],
+    }
+    const crawling = trip({ live, van: { anchorAt: NOW, anchorMile: 0, mph: 12 } })
+    expect(stripReadout(crawling, 0, NOW).destination).toBe("12 mph")
+    const stopped = trip({ live, van: { anchorAt: NOW, anchorMile: 0, mph: 0 } })
+    expect(stripReadout(stopped, 0, NOW).destination).toBe("CB Radio?")
+  })
+})
+
+describe("tripLog", () => {
+  it("slots van events between sites by mile, after a site at the same mile", () => {
+    const sites: TripStoreSite[] = [
+      { id: "a", mile: 2, state: "visited" },
+      { id: "b", mile: 5, state: "ahead" },
+    ]
+    const events = [
+      { at: NOW, mile: 0, text: "turbo" },
+      { at: NOW, mile: 2, text: "jam" },
+      { at: NOW, mile: 3, text: "cleared" },
+    ]
+    const order = tripLog(trip({ sites, events })).map((row) =>
+      row.kind === "site" ? row.site.id : row.event.text,
+    )
+    expect(order).toEqual(["turbo", "a", "jam", "cleared", "b"])
   })
 })
 

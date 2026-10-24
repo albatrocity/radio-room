@@ -103,6 +103,7 @@ export function freezeStoreForRoom(store: TripStore, simNow: number, wallNow: nu
   if (store.departedAt !== undefined) frozen.departedAt = shift(store.departedAt)
   if (store.arrivedAt !== undefined) frozen.arrivedAt = shift(store.arrivedAt)
   if (store.endedAt !== undefined) frozen.endedAt = shift(store.endedAt)
+  if (store.events) frozen.events = store.events.map((e) => ({ ...e, at: shift(e.at) }))
   if (store.live && "endsAt" in store.live && store.live.endsAt !== undefined) {
     frozen.live = { ...store.live, endsAt: shift(store.live.endsAt) }
   }
@@ -267,6 +268,7 @@ export class TripSimRoom {
     const built = buildTripStore(sim.state, sim.map, sim.current, sim.now, {
       costScale: sim.costScale,
       ...(fund?.mode === "voluntary" ? { poolRaised: raised } : {}),
+      log: sim.log,
     })
     const status = buildStatusLines(sim.state, sim.map, built)
     let tripPool = null

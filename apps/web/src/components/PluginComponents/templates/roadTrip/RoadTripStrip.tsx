@@ -59,7 +59,7 @@ export function RoadTripStripTemplateComponent({
       >
         <TripRouteLine trip={trip} mile={mile} motion={motion} />
         <HStack gap={2} fontSize="sm" lineHeight="short" minW={0}>
-          <Text fontWeight="medium" truncate flexShrink={0} maxW="60%">
+          <Text fontWeight="bold" truncate flexShrink={0} maxW="60%">
             {readout.status}
           </Text>
           <Box flex={1} />
@@ -69,7 +69,12 @@ export function RoadTripStripTemplateComponent({
             </Text>
           ) : null}
           {readout.countdown ? (
-            <Text color="fg.muted" flexShrink={0} fontVariantNumeric="tabular-nums">
+            <Text
+              color="fg.muted"
+              fontStyle="italic"
+              flexShrink={0}
+              fontVariantNumeric="tabular-nums"
+            >
               {readout.countdown}
             </Text>
           ) : null}

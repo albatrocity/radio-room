@@ -1,11 +1,7 @@
 import type { TripMap } from "@repo/road-trip-map"
-import {
-  FUND_PURPOSE_LABELS,
-  INCIDENTS,
-  resolveSiteSettings,
-  vanConsumable,
-  vanPart,
-} from "@repo/road-trip-map"
+import { FUND_PURPOSE_LABELS, resolveSiteSettings, vanPart } from "@repo/road-trip-map"
+import { describeIncident, describePartInstalled } from "../trip/describeEvent"
+import { tripNarrative } from "../trip/helpers"
 import type { SkipVotes, TripLogEntry, TripState } from "../trip/state"
 
 export type TripTimelineInput = {
@@ -105,10 +101,17 @@ export function formatTripTimelineMarkdown({
   }
 
   if (visited.length > 0) {
-    lines.push("", "### Sites visited", "")
-    for (const site of visited) {
+    const narrative = new Map(tripNarrative(map, state.sites).map((e) => [e.siteId, e.body]))
+    const byVisit = [...visited].sort(
+      (a, b) => state.sites[a.id]!.visitedAt! - state.sites[b.id]!.visitedAt!,
+    )
+    lines.push("", "### Trip summary")
+    for (const site of byVisit) {
       const image = site.imageUrl ? ` ([image](${site.imageUrl}))` : ""
-      lines.push(`- ${site.icon} **${site.name}** — ${site.description}${image}`)
+      const at = clock(state.sites[site.id]!.visitedAt!)
+      lines.push("", `**${site.icon} ${site.name}** · ${at} — ${site.description}${image}`)
+      const body = narrative.get(site.id)
+      if (body) lines.push("", body)
     }
   }
 
@@ -150,16 +153,12 @@ function describe(
       return describeFund(entry, undefined)
     case "incident":
       return describeIncident(entry)
-    case "part-installed": {
-      const part = vanPart(entry.partId)
-      const replaced = entry.replaced ? ` (replaced the ${entry.replaced})` : ""
-      return `${part?.emoji ?? "🔧"} ${entry.name} installed ${part?.name ?? entry.partId}${replaced}`
-    }
+    case "part-installed":
+      return describePartInstalled(entry)
   }
 }
 
 type FundEntry = Extract<TripLogEntry, { kind: "fund" }>
-type IncidentEntry = Extract<TripLogEntry, { kind: "incident" }>
 
 const FUND_ICONS: Record<FundEntry["purpose"], string> = {
   gas: "⛽",
@@ -193,32 +192,6 @@ function describeFund(entry: FundEntry, filled: number | undefined): string {
         : " (short; done anyway)"
       : ""
   return `${icon} ${name}: ${coins}${from}${fill}${short}`
-}
-
-function describeIncident(entry: IncidentEntry): string | null {
-  const spec = INCIDENTS[entry.incident]
-  switch (entry.step) {
-    case "started": {
-      const source =
-        entry.source === "host" ? " (host)" : entry.source === "scripted" ? " (scripted)" : ""
-      return `${spec.emoji} ${spec.name}${source}`
-    }
-    case "immune":
-      return `${spec.emoji} ${spec.name} shrugged off by Road-Grip Tires`
-    case "resolved": {
-      const by = entry.resolvedBy
-      const item = by ? (vanConsumable(by.itemId.split(":").pop() ?? "")?.name ?? "an item") : ""
-      return by ? `${spec.emoji} ${by.name} used ${item}` : `${spec.emoji} ${spec.name} resolved`
-    }
-    case "aaa":
-      return `💳 ${entry.resolvedBy?.name ?? "Someone"}'s AAA card covered it`
-    case "towed":
-      return `🚚 Towed ${(entry.miles ?? 0).toFixed(1)} mi to ${entry.siteName ?? "the mechanic"}`
-    case "skipped":
-      return `⏭ Host skipped a ${spec.name.toLowerCase()} step`
-    case "cleared":
-      return `${spec.emoji} ${spec.name} cleared`
-  }
 }
 
 /** Coins each traveler paid across every fund step and the parts they installed, biggest spender first. */

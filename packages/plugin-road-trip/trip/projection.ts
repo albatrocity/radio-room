@@ -26,7 +26,8 @@ import {
   vanPart,
   type StopDecision,
 } from "@repo/road-trip-map"
-import { hasSiteShop, nextSiteAhead } from "./helpers"
+import { describeVanEvent } from "./describeEvent"
+import { hasSiteShop, nextSiteAhead, siteNarrative } from "./helpers"
 import { MS_PER_HOUR, project, type Leg } from "./ledger"
 import {
   cruisingMph,
@@ -36,6 +37,7 @@ import {
   liveBlockers,
   refillInView,
   tankAt,
+  type TripLogEntry,
   type TripState,
 } from "./state"
 
@@ -44,6 +46,8 @@ export type TripStoreExtras = {
   costScale: number
   /** Voluntary pool total for the open fund, when there is one. */
   poolRaised?: number
+  /** The trip log, oldest first; part installs and incident steps become `events`. */
+  log?: TripLogEntry[]
 }
 
 /** Client projection of the trip (M7 store payload). Pure. */
@@ -84,6 +88,8 @@ export function buildTripStore(
     if (runtime.visitedAt !== undefined) {
       entry.visitedAt = runtime.visitedAt
       if (site.lore) entry.lore = site.lore
+      const narrative = siteNarrative(site)
+      if (narrative) entry.narrative = narrative
       if (site.model) entry.modelUrl = site.model.url
     }
     if (runtime.votes) entry.votes = runtime.votes
@@ -124,6 +130,11 @@ export function buildTripStore(
   if (state.departedAt !== undefined) store.departedAt = state.departedAt
   if (state.arrivedAt !== undefined) store.arrivedAt = state.arrivedAt
   if (state.endedAt !== undefined) store.endedAt = state.endedAt
+  const events = (extras.log ?? []).flatMap((entry) => {
+    const text = describeVanEvent(entry)
+    return text ? [{ at: entry.at, mile: entry.mile, text }] : []
+  })
+  if (events.length > 0) store.events = events
   return store
 }
 

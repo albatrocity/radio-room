@@ -104,7 +104,7 @@ import {
   triggerIncident,
   useIncidentItem,
 } from "./trip/incidents"
-import { LEVY_RETRY_MS, LEVY_STALE_MS } from "./trip/helpers"
+import { LEVY_RETRY_MS, LEVY_STALE_MS, tripNarrative } from "./trip/helpers"
 import { formatTripTimelineMarkdown } from "./export/formatTripTimelineMarkdown"
 import { poolCardView, skipPollPresentation } from "./presenters"
 
@@ -782,6 +782,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     const store: TripStore = buildTripStore(state, stored.map, state.leg ?? PARKED_AT_START, now, {
       costScale: await this.costScale(),
       ...(livePool ? { poolRaised: livePool.raised } : {}),
+      log: await this.trips.readLog(),
     })
     const shopWarning = state.status === "driving" ? await this.trips.readShopWarning() : null
     const tripPool = livePool && fund ? poolCardView(livePool, fund, stored.map) : null
@@ -1227,7 +1228,8 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
           .filter(([, runtime]) => runtime.visitedAt !== undefined)
           .map(([siteId]) => siteId),
       }
-      return { data: { summary, log }, markdownSections: [markdown] }
+      const narrative = tripNarrative(stored.map, state.sites)
+      return { data: { summary, log, narrative }, markdownSections: [markdown] }
     } catch (error) {
       console.warn(`[road-trip] augmentRoomExport failed in ${this.context.roomId}:`, error)
       return {}

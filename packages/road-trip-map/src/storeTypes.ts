@@ -36,6 +36,8 @@ export type TripStoreSite = {
   /** Engine Failure tows here. */
   mechanic?: true
   lore?: string
+  /** The chat prose posted on arrival; visited sites only. */
+  narrative?: string
   /** GLB URL for the detail stage; visited sites only (D12a). */
   modelUrl?: string
   visitedAt?: number
@@ -144,7 +146,12 @@ export type TripStore = {
   endedAt?: number
   visitedCount: number
   siteCount: number
+  /** Part installs and incident steps, oldest first, for the Trip tab log. */
+  events?: TripStoreEvent[]
 }
+
+/** A van event in the Trip tab log; `mile` places it between sites. */
+export type TripStoreEvent = { at: number; mile: number; text: string }
 
 const MS_PER_HOUR = 3_600_000
 

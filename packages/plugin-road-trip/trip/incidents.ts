@@ -136,7 +136,7 @@ function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident)
           variant: "success",
           icon: "🛞",
           title: "Road-Grip tires to the rescue",
-          body: "Something sharp on the road. The tires shrug it off.",
+          body: "Something sharp on the road. The enhanced tires handle it without a problem.",
         },
       ],
     }

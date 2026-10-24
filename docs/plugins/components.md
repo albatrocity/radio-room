@@ -370,6 +370,8 @@ Tabs render in **registration order**; the built-in **Inventory** tab is always 
 
 A tab's `showWhen` checks config fields first, then the plugin's store. So a tab can follow live state, e.g. road-trip's Trip tab uses `showWhen: { field: "tripActive", value: true }` with `tripActive` in `storeKeys` ([ADR 0205](../adrs/0205-road-trips-v1.md)).
 
+By default the whole tab body scrolls. Set `fillHeight: true` on the tab to make its body fill the Game surface's height instead, the way the built-in Storage tab does. Each child is stretched to share that height and must scroll its own overflow. Road-trip's Trip panel uses this to keep its header fixed above a scrolling trip log that stays pinned to the newest entries.
+
 ### Plugin detail pages
 
 A tab component can push a detail page onto the Game State nav stack with a generic plugin frame: `{ kind: "plugin", pluginName, view, title, params? }`. `view` is any registered template component name; it renders inside the plugin's component provider with `params` as props, and the breadcrumb returns to the tab. Road-trip's site detail (`road-trip-site-detail`, `params: { siteId }`) uses this via `useOpenTabDetail`.

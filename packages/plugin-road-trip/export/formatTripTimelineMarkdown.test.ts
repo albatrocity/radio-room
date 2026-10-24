@@ -56,11 +56,13 @@ describe("formatTripTimelineMarkdown", () => {
       | ada | 98 | — |
       | bo | 10 | — |
 
-      ### Sites visited
+      ### Trip summary
 
-      - ⛽ **Gas 'n' Go** — Two pumps, a humming ice machine, and a hand-lettered price sign.
-      - 🍎 **Farmers Market** — A roadside stand with honey, peaches, and hand-lettered signs.
-      - 🎸 **The Concert** — Lights, sound check, and a crowd waiting."
+      **⛽ Gas 'n' Go** · 3:06 PM — Two pumps, a humming ice machine, and a hand-lettered price sign.
+
+      **🍎 Farmers Market** · 3:10 PM — A roadside stand with honey, peaches, and hand-lettered signs.
+
+      **🎸 The Concert** · 3:18 PM — Lights, sound check, and a crowd waiting."
     `)
   })
 
@@ -77,11 +79,49 @@ describe("formatTripTimelineMarkdown", () => {
       timeZone: "America/Chicago",
     })
     expect(markdown).toContain("| Incidents | 1 |")
-    expect(markdown).toContain("| 3:15 PM | 0:15 | 9.0 | 🛞 Blown tire (scripted) |")
+    expect(markdown).toContain("| 3:15 PM | 0:15 | 9.0 | 🛞 Blown tire |")
     expect(markdown).toContain("💳 bo's AAA card covered it")
     expect(markdown).toContain("🛞 Blown tire cleared")
     expect(markdown).toContain("💳 bo installed AAA Card")
     expect(markdown).toContain("| bo | 10 | AAA Card |")
+  })
+
+  it("follows each visited site with its narrative, in visit order", () => {
+    const map = baseline()
+    const narrate = (id: string, narrative: string) => {
+      const site = map.sites.find((s) => s.id === id)!
+      site.narrative = narrative
+    }
+    narrate("farmers-market", "Peaches, still warm from the sun.")
+    narrate("gas-n-go", "The pump clicks off at an even number.")
+    narrate("record-store", "Driven past, so never posted.")
+    const sim = new TripSim(map)
+    sim.votes["record-store"] = { stop: 3, skip: 5 }
+    sim.apply(depart)
+    sim.runUntil(T0 + 30 * MIN)
+    const markdown = formatTripTimelineMarkdown({
+      map: sim.map,
+      state: sim.state,
+      log: sim.log,
+      timeZone: "America/Chicago",
+    })
+    expect(markdown.slice(markdown.indexOf("### Trip summary"))).toBe(
+      [
+        "### Trip summary",
+        "",
+        "**⛽ Gas 'n' Go** · 3:06 PM — Two pumps, a humming ice machine, and a hand-lettered price sign.",
+        "",
+        "The pump clicks off at an even number.",
+        "",
+        "**🍎 Farmers Market** · 3:10 PM — A roadside stand with honey, peaches, and hand-lettered signs.",
+        "",
+        "Peaches, still warm from the sun.",
+        "",
+        "**🎸 The Concert** · 3:18 PM — Lights, sound check, and a crowd waiting.",
+      ].join("\n"),
+    )
+    expect(markdown).not.toContain("Driven past")
+    expect(markdown).not.toContain("### Sites visited")
   })
 
   it("renders a trip that never departed", () => {

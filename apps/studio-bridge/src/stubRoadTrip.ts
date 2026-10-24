@@ -57,7 +57,15 @@ function vanSheet(fixture: RoadTripFixture, at: number): TripStoreVanSheet {
     parts: partIds.flatMap((id) => {
       const part = vanPart(id)
       return part
-        ? [{ slot: part.slot, partId: id, name: part.name, emoji: part.emoji, installedBy: "Studio" }]
+        ? [
+            {
+              slot: part.slot,
+              partId: id,
+              name: part.name,
+              emoji: part.emoji,
+              installedBy: "Studio",
+            },
+          ]
         : []
     }),
     baseMph: BASE_MPH,
@@ -131,8 +139,18 @@ function revealed(
     ...(site.services?.gas ? { gasPrice: site.services.gas.pricePerGallon } : {}),
     ...(site.services?.mechanic ? { mechanic: true as const } : {}),
     ...(state === "visited" && site.model ? { modelUrl: site.model.url } : {}),
+    ...(state === "visited" && PREVIEW_NARRATIVE[siteId]
+      ? { narrative: PREVIEW_NARRATIVE[siteId] }
+      : {}),
     ...extra,
   }
+}
+
+/** The sample map has no narrative copy; these fill the Trip tab's summary in the preview. */
+const PREVIEW_NARRATIVE: Record<string, string> = {
+  [GAS_SITE_ID]: "The pump clicks off at an even number. Somebody buys a bag of ice nobody needs.",
+  "farmers-market": "Peaches, still warm from the sun. The honey guy has opinions about the radio.",
+  concert: "The parking lot hums. Somewhere past the gate, a kick drum checks the room.",
 }
 
 function loreFor(siteId: string): string | undefined {
@@ -167,7 +185,10 @@ function fixtureStore(entry: FixtureEntry): Omit<TripStore, "siteCount"> {
       sites: [
         revealed("record-store", "skipped", { votes: { stop: 1, skip: 4 } }),
         revealed(GAS_SITE_ID, "visited", { visitedAt: at - 9 * MIN }),
-        revealed("farmers-market", "visited", { visitedAt: at - 5 * MIN, lore: loreFor("farmers-market") }),
+        revealed("farmers-market", "visited", {
+          visitedAt: at - 5 * MIN,
+          lore: loreFor("farmers-market"),
+        }),
         revealed("hanks-garage", "ahead"),
       ],
       van: { anchorAt: at, anchorMile: flatMile, mph: 0 },
@@ -183,6 +204,7 @@ function fixtureStore(entry: FixtureEntry): Omit<TripStore, "siteCount"> {
       },
       departedAt,
       visitedCount: 2,
+      events: [{ at, mile: flatMile, text: `${INCIDENTS["blown-tire"].emoji} Blown tire` }],
     }
   }
 
@@ -268,9 +290,7 @@ function fixtureStore(entry: FixtureEntry): Omit<TripStore, "siteCount"> {
   return {
     ...base,
     status: "driving",
-    sites: [
-      revealed("record-store", "polling"),
-    ],
+    sites: [revealed("record-store", "polling")],
     van: { anchorAt: at, anchorMile: mile, mph: cruisingMph("driving") },
     fuel: fuel(mile, true, at),
     eta: { projectedArrivalAt: at + 16.5 * MIN, targetArrivalAt: departedAt + 18 * MIN },
@@ -403,7 +423,9 @@ export function buildStubRoadTripPoll(roomId: string): Poll {
 }
 
 /** `closeExitPoll`: the card leaves and the outcome lands in chat as a road sign. */
-function closeExitPollEvents(roomId: string): Array<{ type: string; data: Record<string, unknown> }> {
+function closeExitPollEvents(
+  roomId: string,
+): Array<{ type: string; data: Record<string, unknown> }> {
   const now = Date.now()
   const poll = buildStubRoadTripPoll(roomId)
   return [
@@ -460,7 +482,13 @@ export function buildStubRoadTripSigns(now = Date.now()): ChatMessage[] {
       "⛽",
       now - 2 * MIN,
     ),
-    sign("Anyone holding a Fix-a-Flat? Otherwise roadside service.", "Blown tire", "error", "🛞", now - MIN),
+    sign(
+      "Anyone holding a Fix-a-Flat? Otherwise roadside service.",
+      "Blown tire",
+      "error",
+      "🛞",
+      now - MIN,
+    ),
   ]
 }
 
@@ -498,7 +526,8 @@ export function runStubRoadTripAction(
       return { success: false, message: "No gas pool is open.", events: [] }
     }
     const amount = Math.floor(Number(params?.amount ?? 0))
-    if (!(amount > 0)) return { success: false, message: "Enter a whole number of coins.", events: [] }
+    if (!(amount > 0))
+      return { success: false, message: "Enter a whole number of coins.", events: [] }
     entry.raised = Math.min(FILL_COST, entry.raised + amount)
     return {
       success: true,

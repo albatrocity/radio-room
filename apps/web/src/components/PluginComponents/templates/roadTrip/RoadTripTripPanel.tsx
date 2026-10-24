@@ -1,5 +1,7 @@
-import { Badge, Box, HStack, Stack, Text } from "@chakra-ui/react"
-import type { TripStore, TripStoreSite } from "@repo/road-trip-map"
+import { Badge, Box, Card, CardBody, HStack, ScrollArea, Stack, Text } from "@chakra-ui/react"
+import type { TripStore, TripStoreEvent, TripStoreSite } from "@repo/road-trip-map"
+import { useStickToBottom } from "use-stick-to-bottom"
+import ScrollShadowViewport from "../../../ScrollShadowViewport"
 import { useOpenTabDetail } from "../../../Modals/GameState/useOpenTabDetail"
 import type { RoadTripTripPanelComponentProps } from "../../../../types/PluginComponent"
 import { usePluginComponentContext } from "../../context"
@@ -13,6 +15,7 @@ import {
   siteLabel,
   sitePin,
   stripContext,
+  tripLog,
   tripTabTitle,
   useInterpolatedVanMile,
   useTripStore,
@@ -68,7 +71,13 @@ function SiteRow({
       py={2}
       borderRadius="md"
       borderWidth="1px"
-      opacity={site.state === "skipped" ? 0.65 : 1}
+      opacity={
+        site.state === "ahead" || site.state === "unrevealed"
+          ? 0.4
+          : site.state === "skipped"
+          ? 0.65
+          : 1
+      }
       cursor={onOpen ? "pointer" : "default"}
       _hover={onOpen ? { bg: "bg.muted" } : undefined}
       aria-label={
@@ -94,7 +103,12 @@ function SiteRow({
   )
 }
 
-/** Trip tab body: route, live context, "3 / 7 visited", and the site list (M7). */
+/**
+ * Trip tab body (M7): a fixed header (route, live context, "3 / 7 visited")
+ * over the trip log in its own scroll area, pinned to its newest entries like
+ * chat. The log is sites in route order, with each visited site's narrative and
+ * the van's part installs and incidents in between. The tab sets `fillHeight`.
+ */
 export function RoadTripTripPanelTemplateComponent({
   tripKey = DEFAULT_TRIP_KEY,
 }: RoadTripTripPanelComponentProps) {
@@ -106,6 +120,7 @@ export function RoadTripTripPanelTemplateComponent({
     `${pluginName ?? "road-trip"}:${tripKey}`,
     trip ? vanPhase(trip, mile) : null,
   )
+  const { scrollRef, contentRef } = useStickToBottom({ initial: "instant", resize: "instant" })
 
   if (!trip) {
     return (
@@ -121,51 +136,90 @@ export function RoadTripTripPanelTemplateComponent({
   const context = stripContext(trip, mile, now)
 
   return (
-    <Stack gap={4}>
-      <Stack gap={1}>
-        <HStack justify="space-between" align="center">
-          <Text fontWeight="bold" fontSize="md" truncate>
-            {title}
-          </Text>
-          <Badge colorPalette={badge.palette}>{badge.label}</Badge>
-        </HStack>
-        <Text fontSize="sm" color="fg.muted">
-          {formatMiles(mile)} / {formatMiles(trip.routeMiles)} mi · {trip.visitedCount} /{" "}
-          {trip.siteCount} visited
-          {eta ? ` · ${eta}` : ""}
-        </Text>
-      </Stack>
+    <Stack gap={3} flex="1" minH={0}>
+      <Card.Root bg="secondaryBg">
+        <Card.Body>
+          <Stack gap={3} flexShrink={0}>
+            <Stack gap={1}>
+              <HStack justify="space-between" align="center">
+                <Text fontWeight="bold" fontSize="md" truncate>
+                  {title}
+                </Text>
+                <Badge colorPalette={badge.palette}>{badge.label}</Badge>
+              </HStack>
+              <Text fontSize="sm" color="fg.muted">
+                {formatMiles(mile)} / {formatMiles(trip.routeMiles)} mi · {trip.visitedCount} /{" "}
+                {trip.siteCount} visited
+                {eta ? ` · ${eta}` : ""}
+              </Text>
+            </Stack>
 
-      <Box px={1}>
-        <TripRouteLine trip={trip} mile={mile} size="md" motion={motion} />
-      </Box>
+            <Box px={1}>
+              <TripRouteLine trip={trip} mile={mile} size="md" motion={motion} />
+            </Box>
 
-      {context !== trip.mapTitle && context !== title ? (
-        <Text fontSize="sm">{context}</Text>
-      ) : null}
+            {context !== trip.mapTitle && context !== title ? (
+              <Text fontSize="sm">{context}</Text>
+            ) : null}
+          </Stack>
+        </Card.Body>
+      </Card.Root>
 
-      <Stack gap={2}>
-        {trip.sites.map((site) => (
-          <SiteRow
-            key={site.id}
-            trip={trip}
-            site={site}
-            mile={mile}
-            onOpen={
-              site.state === "unrevealed" || !pluginName
-                ? undefined
-                : () =>
-                    openDetail({
-                      kind: "plugin",
-                      pluginName,
-                      view: "road-trip-site-detail",
-                      title: site.name ?? "Site",
-                      params: { siteId: site.id, tripKey },
-                    })
-            }
-          />
-        ))}
-      </Stack>
+      <ScrollArea.Root size="sm" variant="hover" flex="1 1 auto" minH={0} height="100%">
+        <ScrollShadowViewport ref={scrollRef} height="100%">
+          <ScrollArea.Content ref={contentRef}>
+            <Stack gap={3} pb={2}>
+              {tripLog(trip).map((row) =>
+                row.kind === "event" ? (
+                  <EventRow key={row.key} event={row.event} />
+                ) : (
+                  <Stack key={row.key} gap={2}>
+                    <SiteRow
+                      trip={trip}
+                      site={row.site}
+                      mile={mile}
+                      onOpen={
+                        row.site.state === "unrevealed" || !pluginName
+                          ? undefined
+                          : () =>
+                              openDetail({
+                                kind: "plugin",
+                                pluginName,
+                                view: "road-trip-site-detail",
+                                title: row.site.name ?? "Site",
+                                params: { siteId: row.site.id, tripKey },
+                              })
+                      }
+                    />
+                    {row.site.narrative && row.site.visitedAt !== undefined ? (
+                      <Text fontSize="sm" whiteSpace="pre-wrap" px={3} pb={1}>
+                        {row.site.narrative}
+                      </Text>
+                    ) : null}
+                  </Stack>
+                ),
+              )}
+            </Stack>
+          </ScrollArea.Content>
+        </ScrollShadowViewport>
+        <ScrollArea.Scrollbar>
+          <ScrollArea.Thumb />
+        </ScrollArea.Scrollbar>
+        <ScrollArea.Corner />
+      </ScrollArea.Root>
     </Stack>
+  )
+}
+
+function EventRow({ event }: { event: TripStoreEvent }) {
+  return (
+    <HStack gap={3} px={3} fontSize="sm">
+      <Text flex={1} minW={0}>
+        {event.text}
+      </Text>
+      <Text fontSize="xs" color="fg.muted" flexShrink={0}>
+        {formatClock(event.at)}
+      </Text>
+    </HStack>
   )
 }

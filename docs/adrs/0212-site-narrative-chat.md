@@ -28,6 +28,15 @@ A stop already posts a road sign: where the van parked, for how long, and whethe
 
 At a stop with a shop, chat reads top to bottom: the exit sign ("Parked for 4 min…"), then the site narrative, then the shop's opening message. `openShopAt` splits closing the previous scope's round (first) from opening this site's shop (after the narrative), in both `park` and a tow to the Mechanic. The Game Studio simulator posts only the shop's opening message, like the room, and no longer adds a generated "Sells …" summary (`describeSiteShop` is gone).
 
+## Amendment (2026-10-24): trip summary
+
+Narrative is also gathered into a trip summary, so the story isn't lost once it scrolls out of chat. A site's narrative posts exactly when the site gets `visitedAt`: parking, arriving at the destination, or a tow into a Mechanic. So `tripNarrative(map, state.sites)` builds the summary from visited sites with narrative copy, ordered by `visitedAt`, and nothing new is logged.
+
+- **Trip tab.** The projection puts `narrative` on visited `TripStoreSite`s, like `lore`. The Trip tab's site list shows each visited site's narrative under its row. Sites are in route order, which is the order the van visits them, so the list reads as a chronological log.
+- **Room export.** "Sites visited" becomes "Trip summary". Each visited site, in visit order, gets its clock time and description, then its narrative paragraph. The export data gains `narrative`.
+- **Game Studio.** studio-bridge's road-trip fixtures carry preview narrative on visited sites, because the sample map has none.
+- **Van events (2026-10-24).** `TripStore.events` adds part installs and incident steps from the trip log. They use the same wording as the export timeline (`trip/describeEvent.ts`). The Trip tab slots each event between sites by mile. The Trip tab sets the new `fillHeight` flag on its tab definition (`PluginTabComponent.fillHeight`), so it fills the Game surface the way the Storage tab does. Its header (title, meta, route line) stays fixed above the log. The log scrolls in its own `ScrollShadowViewport` and stays pinned to its newest entries with `use-stick-to-bottom`, like chat.
+
 ## See also
 
 - [0205. Road trips v1](0205-road-trips-v1.md)

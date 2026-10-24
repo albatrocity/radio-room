@@ -732,6 +732,11 @@ export interface PluginTabComponent extends PluginComponentMetadata {
   icon?: LucideIconName
   /** Components rendered when this tab is selected */
   children: PluginComponentDefinition[]
+  /**
+   * The tab body fills the Game surface's height instead of scrolling as a
+   * whole, so a child can run its own scroll area (like the Storage tab).
+   */
+  fillHeight?: boolean
 }
 
 // ============================================================================
