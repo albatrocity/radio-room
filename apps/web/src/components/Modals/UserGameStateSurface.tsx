@@ -191,12 +191,18 @@ function GameStateTabsBody({
     isItemDetailFrame(currentFrame) &&
     detailDefinition?.detailView?.layout === "trackList"
 
+  // Inactive tabs unmount so a hidden Trip or Van panel does not keep the 1 Hz
+  // ticker. The road-trip strip is a separate aboveChat PluginArea and is not
+  // under this root. Remount reads the room-scoped plugin store, which stays
+  // live for the room.
   return (
     <Tabs.Root
       value={gameStateTab}
       onValueChange={(d) => selectTab(d.value)}
       variant="line"
       colorPalette="action"
+      lazyMount
+      unmountOnExit
       {...(fillHeight
         ? {
             flex: "1",
