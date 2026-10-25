@@ -137,7 +137,7 @@ export function RoadTripTripPanelTemplateComponent({
 
   return (
     <Stack gap={3} flex="1" minH={0}>
-      <Card.Root bg="secondaryBg">
+      <Card.Root>
         <Card.Body>
           <Stack gap={3} flexShrink={0}>
             <Stack gap={1}>
