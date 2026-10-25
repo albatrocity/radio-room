@@ -59,6 +59,11 @@ export const pollPresentationSchema = z.object({
   footnote: z.string().max(120).optional(),
   /** The plugin posts the outcome to chat itself, so the card leaves on close instead of revealing results. */
   resultsInChat: z.boolean().optional(),
+  /**
+   * Id of whatever the sign names (a trip site, for road-trip). Omitted when the
+   * sign must not identify it. Themes may open it; voting ignores it (ADR 0221).
+   */
+  subjectId: z.string().min(1).max(64).optional(),
 })
 
 export type PollPresentation = z.infer<typeof pollPresentationSchema>

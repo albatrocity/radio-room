@@ -132,7 +132,7 @@ describe("polls data layer", () => {
 
   it("round-trips a plugin presentation (ADR 0208)", async () => {
     const poll = makePoll({
-      presentation: { theme: "road-trip", variant: "info", eyebrow: "EXIT 8", headline: "FARMERS MARKET", footnote: "No votes = pull off" },
+      presentation: { theme: "road-trip", variant: "info", eyebrow: "EXIT 8", headline: "FARMERS MARKET", footnote: "No votes = pull off", subjectId: "farmers-market" },
     })
     await writePoll({ context, poll })
     expect(await getPoll({ context, roomId: "room-1", pollId: "poll-1" })).toEqual(poll)

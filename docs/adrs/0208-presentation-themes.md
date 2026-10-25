@@ -1,7 +1,7 @@
 # 0208. Presentation themes for system messages and plugin-authored polls
 
 **Date:** 2026-10-02
-**Status:** Accepted (amended by [0218](0218-system-message-actions-and-theme-icons.md): Lucide `meta.icon`, poll `optionIcon`)
+**Status:** Accepted (amended by [0218](0218-system-message-actions-and-theme-icons.md): Lucide `meta.icon`, poll `optionIcon`; and [0221](0221-poll-presentation-subject-id.md): `subjectId`)
 
 ## Context
 
@@ -34,3 +34,4 @@ Most listeners follow a road trip ([0210](0210-road-trips-v1.md)) through chat. 
 ## See also
 
 - [0212. Site narrative is chat prose, not a road sign](0212-site-narrative-chat.md) — `meta.type: "prose"` renders in `SystemMessage` before theme lookup and does not use the road-trip theme.
+- [0221. Poll presentation can name its subject](0221-poll-presentation-subject-id.md) — optional `subjectId` on a plugin poll.

@@ -418,6 +418,7 @@ export function buildStubRoadTripPoll(roomId: string): Poll {
       eyebrow: "EXIT 4",
       headline: "DUSTY BOOTS RECORDS",
       icon: "📀",
+      subjectId: "record-store",
       footnote: "No votes = keep driving",
       resultsInChat: true,
     },

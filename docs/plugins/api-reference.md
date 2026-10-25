@@ -131,7 +131,7 @@ await this.context.api.sendSystemMessage(roomId, "Message text", {
 })
 ```
 
-**Themes:** add `theme` (and optionally `title` / `icon`) to render the line through a registered presentation theme, e.g. `{ type: "alert", status: "info", title: "On the road", theme: "road-trip", icon: "🚐" }` renders a road sign. Plugin-authored polls take a matching `presentation` on `createPoll` (`{ theme, variant?, eyebrow?, headline?, icon?, imageUrl?, footnote?, resultsInChat? }`; `resultsInChat` drops the card on close instead of revealing results, for plugins that post the outcome themselves); admin-created polls can't set it. Unknown themes render plain ([ADR 0208](../adrs/0208-presentation-themes.md)).
+**Themes:** add `theme` (and optionally `title` / `icon`) to render the line through a registered presentation theme, e.g. `{ type: "alert", status: "info", title: "On the road", theme: "road-trip", icon: "🚐" }` renders a road sign. Plugin-authored polls take a matching `presentation` on `createPoll` (`{ theme, variant?, eyebrow?, headline?, icon?, imageUrl?, footnote?, resultsInChat?, subjectId? }`; `resultsInChat` drops the card on close instead of revealing results, for plugins that post the outcome themselves; `subjectId` is the id of whatever the sign names, and themes may open it). Admin-created polls can't set it. Unknown themes render plain ([ADR 0208](../adrs/0208-presentation-themes.md), [ADR 0221](../adrs/0221-poll-presentation-subject-id.md)).
 
 ### User Toasts
 

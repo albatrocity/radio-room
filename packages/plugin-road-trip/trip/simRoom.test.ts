@@ -102,7 +102,11 @@ describe("TripSimRoom", () => {
     expect(sim.poll).toMatchObject({
       question: "Dusty Boots Records in 2 miles: pull off?",
       closesAt: null,
-      presentation: { theme: "road-trip", headline: "DUSTY BOOTS RECORDS" },
+      presentation: {
+        theme: "road-trip",
+        headline: "DUSTY BOOTS RECORDS",
+        subjectId: "record-store",
+      },
     })
     const pollId = sim.poll!.id
 

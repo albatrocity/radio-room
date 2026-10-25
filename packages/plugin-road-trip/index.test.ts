@@ -375,6 +375,7 @@ describe("RoadTripPlugin", () => {
       eyebrow: "EXIT 4",
       headline: "DUSTY BOOTS RECORDS",
       footnote: "No votes = keep driving",
+      subjectId: "record-store",
     })
     h.votes.set(poll.id, { "opt-stop": 1, "opt-skip": 4 })
 
@@ -387,6 +388,7 @@ describe("RoadTripPlugin", () => {
       variant: "warning",
       eyebrow: "⛽ 10% · last gas before the end",
       footnote: "No votes = pull off",
+      subjectId: "gas-n-go",
     })
 
     // Parks at 6:00; the automatic levy splits 108 coins by wealth (1,000 / 100).

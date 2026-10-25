@@ -96,7 +96,12 @@ describe("poll operations", () => {
     })
 
     it("keeps a presentation only for plugin-authored polls (ADR 0208)", async () => {
-      const presentation = { theme: "road-trip" as const, eyebrow: "EXIT 8", headline: "FARMERS MARKET" }
+      const presentation = {
+        theme: "road-trip" as const,
+        eyebrow: "EXIT 8",
+        headline: "FARMERS MARKET",
+        subjectId: "farmers-market",
+      }
       const admin = await createPoll({
         context,
         roomId: "room-1",

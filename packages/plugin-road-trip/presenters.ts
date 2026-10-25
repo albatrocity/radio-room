@@ -20,6 +20,7 @@ export function skipPollPresentation(
     ...(eyebrow ? { eyebrow } : {}),
     headline: mystery ? "SOMETHING UP AHEAD" : site.name.toUpperCase().slice(0, 80),
     icon: mystery ? "❓" : site.icon,
+    ...(!mystery ? { subjectId: site.id } : {}),
     ...(!mystery && site.imageUrl ? { imageUrl: site.imageUrl } : {}),
     footnote: skipDefault === "stop" ? "No votes = pull off" : "No votes = keep driving",
     resultsInChat: true,
