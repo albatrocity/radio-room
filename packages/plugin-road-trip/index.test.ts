@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest"
 import type { PluginContext, Poll } from "@repo/types"
-import { SAMPLE_TRIP_MAP, type TripStore } from "@repo/road-trip-map"
+import { SAMPLE_BRANCH_MAP, SAMPLE_TRIP_MAP, type TripStore } from "@repo/road-trip-map"
 import { RoadTripPlugin } from "./index"
 
 const T0 = Date.parse("2026-10-02T20:00:00.000Z")
@@ -346,6 +346,45 @@ describe("RoadTripPlugin", () => {
     })
   })
 
+  it("votes on a junction and an event choice through room polls (ADR 0222)", async () => {
+    const { plugin, h } = await setup()
+    await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(SAMPLE_BRANCH_MAP) })
+    await plugin.executeAction("depart", ADMIN)
+
+    // The Welcome Center unlocks Local tips on the visit.
+    await runUntil(plugin, h, T0 + 4 * MIN)
+    expect(h.signs.some((s) => s.title === "Local tips")).toBe(true)
+
+    // The junction poll opens a lead before the fork at mile 14; the room takes it.
+    await runUntil(plugin, h, T0 + 14.5 * MIN)
+    const poll = h.activePoll!
+    expect(poll.question).toBe("Scenic Byway in 2 miles: take it?")
+    expect(poll.presentation).toMatchObject({ eyebrow: "JUNCTION", headline: "SCENIC BYWAY" })
+    expect(lastTrip(h).junctions).toEqual([
+      expect.objectContaining({ routeId: "scenic-byway", state: "polling" }),
+    ])
+    h.votes.set(poll.id, { "opt-stop": 3, "opt-skip": 1 })
+    await runUntil(plugin, h, T0 + 15.5 * MIN)
+    expect(lastTrip(h).routeMiles).toBe(27)
+
+    // Past the fork: on the byway, then the road-closed choice polls the room.
+    await runUntil(plugin, h, T0 + 17 * MIN)
+    expect(lastTrip(h).route).toEqual({ id: "scenic-byway", name: "Scenic Byway", icon: "🌲" })
+    await runUntil(plugin, h, T0 + 22.2 * MIN)
+    expect(h.activePoll?.question).toBe("Take the detour?")
+
+    await runUntil(plugin, h, T0 + 60 * MIN)
+    expect(lastTrip(h).status).toBe("arrived")
+    expect(lastTrip(h).sites.map((s) => s.id)).not.toContain("diner")
+    expect(h.signs.map((s) => s.title)).toEqual(
+      expect.arrayContaining([
+        "Taking Scenic Byway",
+        "Turning onto Scenic Byway",
+        "Back on the main road",
+      ]),
+    )
+  })
+
   it("plays the sample trip end to end", async () => {
     const { plugin, h } = await setup()
     await plugin.executeAction("loadMap", ADMIN, { mapJson: BASE_MAP_JSON })
@@ -361,9 +400,9 @@ describe("RoadTripPlugin", () => {
       "reveal:farmers-market",
       "reveal:gas-n-go",
       "reveal:record-store",
-      "skip-poll:farmers-market",
-      "skip-poll:gas-n-go",
-      "skip-poll:record-store",
+      "vote-due:farmers-market",
+      "vote-due:gas-n-go",
+      "vote-due:record-store",
     ])
 
     // Record Store poll opens at 2:30; the room votes to keep driving.
@@ -554,19 +593,19 @@ describe("RoadTripPlugin", () => {
     const { plugin, h } = await setup()
     await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(map) })
     await plugin.executeAction("depart", ADMIN)
-    const staleGasPoll = h.schedules.get("skip-poll:gas-n-go")!
+    const staleGasPoll = h.schedules.get("vote-due:gas-n-go")!
 
     await runUntil(plugin, h, T0 + 2.5 * MIN)
     h.votes.set(h.activePoll!.id, { "opt-stop": 3, "opt-skip": 0 })
     await runUntil(plugin, h, T0 + 3.5 * MIN)
     expect(h.schedules.has("reveal:gas-n-go")).toBe(false)
-    expect(h.schedules.has("skip-poll:gas-n-go")).toBe(false)
+    expect(h.schedules.has("vote-due:gas-n-go")).toBe(false)
 
     // A stale schedule firing anyway opens no poll and re-arms nothing.
     const pollsBefore = h.api.createPoll.mock.calls.length
     await plugin.handleScheduled(staleGasPoll.kind, staleGasPoll.payload, staleGasPoll.id)
     expect(h.api.createPoll.mock.calls.length).toBe(pollsBefore)
-    expect(h.schedules.has("skip-poll:gas-n-go")).toBe(false)
+    expect(h.schedules.has("vote-due:gas-n-go")).toBe(false)
 
     // Parked at 4:00 for 4 min; nothing about Gas 'n' Go until the van leaves.
     await runUntil(plugin, h, T0 + 8 * MIN - 1)
@@ -697,6 +736,8 @@ describe("RoadTripPlugin", () => {
         "aaa-card",
         "fix-a-flat",
         "cb-radio",
+        "local-map",
+        "trip-guide",
       ])
     })
 

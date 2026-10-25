@@ -16,7 +16,9 @@ import {
 import { useEffect, useMemo, useState } from "react"
 import {
   GENERIC_SITE_PRESETS,
+  SAMPLE_BRANCH_MAP,
   SAMPLE_TRIP_MAP,
+  describeTripFlow,
   eventTrigger,
   type TripMapInput,
 } from "@repo/road-trip-map"
@@ -55,6 +57,16 @@ import {
 } from "../../tripMap/tripMapDraft"
 import { listSavedTripMaps, loadSavedTripMap, saveTripMapFile } from "../../tripMap/tripMapFiles"
 import {
+  addAltRoute,
+  addLayer,
+  moveRouteEnd,
+  moveRouteFork,
+  removeAltRoute,
+  removeLayer,
+  updateAltRoute,
+  updateLayer,
+} from "../../tripMap/branchesDraft"
+import {
   fetchSiteAssetStatus,
   pendingAssetIssues,
   pendingAssetKey,
@@ -64,7 +76,10 @@ import {
   type SiteAssetStatus,
 } from "../../tripMap/siteAssets"
 import { TripFuelCurve } from "./TripFuelCurve"
-import { TripRouteTrack } from "./TripRouteTrack"
+import { TripFlowPanel } from "./TripFlowPanel"
+import { TripLayerInspector } from "./TripLayerInspector"
+import { TripRouteInspector } from "./TripRouteInspector"
+import { TripRouteTrack, type TrackSelection } from "./TripRouteTrack"
 import { TripSiteArt } from "./TripSiteArt"
 import { TripEventInspector } from "./TripEventInspector"
 import { TripSiteInspector } from "./TripSiteInspector"
@@ -187,7 +202,7 @@ function BlankSiteButton({
   )
 }
 
-type MapSelection = { kind: "site"; id: string } | { kind: "event"; id: string } | null
+type MapSelection = TrackSelection
 
 export function TripMapEditor() {
   const [draft, setDraft] = useState<TripMapInput>(loadDraft)
@@ -213,10 +228,15 @@ export function TripMapEditor() {
   const parsed = useMemo(() => parseDraft(settledDraft, departAt), [settledDraft, departAt])
   const projection = resolved ? projectTrip(resolved, departAt) : null
   const fuel = useMemo(() => (resolved ? projectFuel(resolved, costScale) : null), [resolved, costScale])
+  const outline = useMemo(() => (resolved ? describeTripFlow(resolved) : null), [resolved])
   const selectedSiteId = selection?.kind === "site" ? selection.id : null
   const selectedEventId = selection?.kind === "event" ? selection.id : null
   const selected = draft.sites.find((s) => s.id === selectedSiteId)
   const selectedEvent = draft.events?.find((e) => e.id === selectedEventId)
+  const selectedRoute =
+    selection?.kind === "route" ? draft.routes?.find((r) => r.id === selection.id) : undefined
+  const selectedLayer =
+    selection?.kind === "layer" ? draft.layers?.find((l) => l.id === selection.id) : undefined
   const selectSite = (siteId: string | null) => {
     setSelection(siteId ? { kind: "site", id: siteId } : null)
   }
@@ -339,6 +359,18 @@ export function TripMapEditor() {
             }}
           >
             Reset to sample
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={() => {
+              if (window.confirm("Replace the draft with the branching sample (routes, a layer, a choice)?")) {
+                setDraft(structuredClone(SAMPLE_BRANCH_MAP))
+                setSelection(null)
+              }
+            }}
+          >
+            Branching sample
           </Button>
         </HStack>
       </HStack>
@@ -517,6 +549,28 @@ export function TripMapEditor() {
             return null
           }}
         />
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() => {
+            const next = addAltRoute(draft)
+            setDraft(next.draft)
+            setSelection({ kind: "route", id: next.routeId })
+          }}
+        >
+          🛣️ Route
+        </Button>
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={() => {
+            const next = addLayer(draft)
+            setDraft(next.draft)
+            setSelection({ kind: "layer", id: next.layerId })
+          }}
+        >
+          🗺️ Layer
+        </Button>
         {GENERIC_SITE_PRESETS.map((preset) => (
           <Button
             key={preset.id}
@@ -535,16 +589,14 @@ export function TripMapEditor() {
 
       <Box borderWidth="1px" borderRadius="md" p="3">
         <TripRouteTrack
-          sites={draft.sites}
-          events={draft.events ?? []}
-          routeMiles={miles}
+          draft={draft}
           resolved={resolved}
-          selectedSiteId={selectedSiteId}
-          selectedEventId={selectedEventId}
-          onSelect={selectSite}
-          onMove={(siteId, mile) => setDraft((d) => moveSite(d, siteId, mile))}
-          onSelectEvent={selectEvent}
+          selection={selection}
+          onSelect={setSelection}
+          onMoveSite={(siteId, mile) => setDraft((d) => moveSite(d, siteId, mile))}
           onMoveEvent={(eventId, mile) => setDraft((d) => moveEvent(d, eventId, mile))}
+          onMoveFork={(routeId, mile) => setDraft((d) => moveRouteFork(d, routeId, mile))}
+          onMoveEnd={(routeId, mile) => setDraft((d) => moveRouteEnd(d, routeId, mile))}
         />
         {fuel ? <TripFuelCurve fuel={fuel} routeMiles={miles} /> : null}
       </Box>
@@ -554,6 +606,7 @@ export function TripMapEditor() {
           {selected ? (
             <TripSiteInspector
               site={selected}
+              draft={draft}
               resolved={resolved}
               gasStop={fuel?.stops.find((s) => s.siteId === selected.id)}
               art={
@@ -576,6 +629,7 @@ export function TripMapEditor() {
           ) : selectedEvent ? (
             <TripEventInspector
               event={selectedEvent}
+              draft={draft}
               estimate={resolved ? estimateEvent(resolved, selectedEvent.id, costScale) : null}
               walletShare={(cost) => walletShareLabel(cost, walletsTotal)}
               onChange={(patch) => setDraft((d) => updateEvent(d, selectedEvent.id, patch))}
@@ -584,9 +638,29 @@ export function TripMapEditor() {
                 setSelection(null)
               }}
             />
+          ) : selectedRoute ? (
+            <TripRouteInspector
+              draft={draft}
+              route={selectedRoute}
+              onChange={(patch) => setDraft((d) => updateAltRoute(d, selectedRoute.id, patch))}
+              onRemove={() => {
+                setDraft((d) => removeAltRoute(d, selectedRoute.id))
+                setSelection(null)
+              }}
+            />
+          ) : selectedLayer ? (
+            <TripLayerInspector
+              layer={selectedLayer}
+              outline={outline?.layers.find((l) => l.id === selectedLayer.id) ?? null}
+              onChange={(patch) => setDraft((d) => updateLayer(d, selectedLayer.id, patch))}
+              onRemove={() => {
+                setDraft((d) => removeLayer(d, selectedLayer.id))
+                setSelection(null)
+              }}
+            />
           ) : (
             <Text fontSize="sm" color="fg.muted">
-              Select a pin to edit the site or event. Drag pins to set their mile; the destination stays at
+              Select a pin, route, or layer to edit it. Drag pins to set their mile; the destination stays at
               the end.
             </Text>
           )}
@@ -595,7 +669,18 @@ export function TripMapEditor() {
         <Stack gap="4">
           <Box borderWidth="1px" borderRadius="md" p="3">
             <Text fontSize="sm" fontWeight="semibold" mb="2">
-              Projections
+              Flow
+            </Text>
+            <TripFlowPanel
+              outline={outline}
+              onSelectRoute={(id) => setSelection({ kind: "route", id })}
+              onSelectLayer={(id) => setSelection({ kind: "layer", id })}
+            />
+          </Box>
+
+          <Box borderWidth="1px" borderRadius="md" p="3">
+            <Text fontSize="sm" fontWeight="semibold" mb="2">
+              Projections (main road)
             </Text>
             {projection ? (
               <Stack gap="1" fontSize="sm">

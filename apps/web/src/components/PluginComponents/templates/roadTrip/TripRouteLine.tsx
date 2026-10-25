@@ -1,10 +1,10 @@
 import { Box, Icon, Text } from "@chakra-ui/react"
 import { ClassNames, css, keyframes } from "@emotion/react"
-import { Van } from "lucide-react"
+import { Split, Van } from "lucide-react"
 import type { TripStore } from "@repo/road-trip-map"
 import { useAnimationsEnabled } from "../../../../hooks/useReducedMotion"
 import { VAN_FLOURISH_MS, type VanFlourish } from "../../../../machines/roadTripVanMotionMachine"
-import { siteLabel, sitePin } from "./tripView"
+import { junctionLabel, siteLabel, sitePin } from "./tripView"
 import type { VanMotion } from "./useRoadTripVanMotion"
 
 type Props = {
@@ -55,7 +55,10 @@ const FLOURISH_ANIM: Record<VanFlourish, ReturnType<typeof css>> = {
   `,
 }
 
-/** Route line: travelled solid, remaining dashed, icon pins, `?` for unrevealed sites, and the van riding it. */
+/**
+ * Route line: travelled solid, remaining dashed, icon pins, `?` for unrevealed
+ * sites, forks whose vote has opened (ADR 0222), and the van riding it.
+ */
 export function TripRouteLine({ trip, mile, size = "sm", motion }: Props) {
   const animationsEnabled = useAnimationsEnabled()
   const pct = (value: number) =>
@@ -105,6 +108,31 @@ export function TripRouteLine({ trip, mile, size = "sm", motion }: Props) {
         >
           {sitePin(site)}
         </Text>
+      ))}
+      {(trip.junctions ?? []).map((junction) => (
+        <Icon
+          key={`fork:${junction.routeId}`}
+          as={Split}
+          position="absolute"
+          top="50%"
+          left={`${pct(junction.mile)}%`}
+          transform="translate(-50%, -50%) rotate(90deg)"
+          boxSize={size === "md" ? "16px" : "13px"}
+          p="1px"
+          bg="bg"
+          borderRadius="full"
+          color={
+            junction.state === "take"
+              ? "action.solid"
+              : junction.state === "polling"
+                ? "orange.solid"
+                : "fg.muted"
+          }
+          opacity={junction.state === "stay" ? 0.5 : 1}
+          data-road-trip-junction={junction.state}
+        >
+          <title>{junctionLabel(junction)}</title>
+        </Icon>
       ))}
       <ClassNames>
         {({ css: emotionCss }) => (

@@ -1,4 +1,9 @@
-import type { TripStore, TripStoreLive, TripStoreSite } from "@repo/road-trip-map"
+import type {
+  TripStore,
+  TripStoreJunction,
+  TripStoreLive,
+  TripStoreSite,
+} from "@repo/road-trip-map"
 import { FUND_PURPOSE_LABELS, vanConsumable, vanPart } from "@repo/road-trip-map"
 import { formatCountdown } from "./formatCountdown"
 
@@ -36,10 +41,44 @@ export function siteLabel(site: TripStoreSite): string {
   return site.state === "unrevealed" ? "?" : (site.name ?? "?")
 }
 
+/**
+ * Forks (ADR 0222): the store sends one only once its vote opens, and a
+ * mystery fork has no name until the room takes it.
+ */
+export function junctionName(junction: TripStoreJunction): string {
+  return junction.name ?? "A turn-off"
+}
+
+export function junctionPin(junction: TripStoreJunction): string {
+  return junction.icon ?? (junction.name ? "🛣️" : "❓")
+}
+
+export const JUNCTION_STATE_LABEL: Record<TripStoreJunction["state"], string> = {
+  polling: "Voting",
+  take: "Taking it",
+  stay: "Staying on the road",
+}
+
+/** "Scenic Byway · Voting", "Taking Scenic Byway". */
+export function junctionLabel(junction: TripStoreJunction): string {
+  if (junction.state === "take") return `Taking ${junctionName(junction)}`
+  return `${junctionName(junction)} · ${JUNCTION_STATE_LABEL[junction.state]}`
+}
+
+/** The alternate route the van is on, as a label ("🌲 Scenic Byway"); null on the main road. */
+export function routeLabel(trip: TripStore): string | null {
+  return trip.route ? `${trip.route.icon ?? "🛣️"} ${trip.route.name}` : null
+}
+
+/** A fork whose vote is open ahead of the van. */
+export function openJunctionAhead(trip: TripStore, mile: number): TripStoreJunction | undefined {
+  return trip.junctions?.find((j) => j.state === "polling" && j.mile > mile)
+}
+
 const MS_PER_HOUR = 3_600_000
 
-/** Milliseconds of driving to `site` at the current speed, or null when stopped. */
-export function msToSite(trip: TripStore, site: TripStoreSite, mile: number): number | null {
+/** Milliseconds of driving to `site` (or a fork) at the current speed, or null when stopped. */
+export function msToSite(trip: TripStore, site: Pick<TripStoreSite, "mile">, mile: number): number | null {
   if (trip.van.mph <= 0 || site.mile <= mile) return null
   return ((site.mile - mile) / trip.van.mph) * MS_PER_HOUR
 }
@@ -218,6 +257,11 @@ export function stripContext(trip: TripStore, mile: number, now: number): string
   }
   if (trip.status === "ended" || trip.status === "stranded") return "Trip ended"
   const next = nextSiteAhead(trip, mile)
+  const fork = openJunctionAhead(trip, mile)
+  if (fork && (!next || fork.mile <= next.mile)) {
+    const forkMs = msToSite(trip, fork, mile)
+    return `Fork ahead: ${junctionName(fork)}${forkMs !== null ? ` · ${formatDriveCountdown(forkMs)}` : ""}`
+  }
   if (!next) return trip.mapTitle
   const ms = msToSite(trip, next, mile)
   return `Next: ${siteLabel(next)}${ms !== null ? ` · ${formatDriveCountdown(ms)}` : ""}`

@@ -1,13 +1,21 @@
 import type { TripMap } from "@repo/road-trip-map"
-import { mileEvents, resolveSiteSettings, sortedSites } from "@repo/road-trip-map"
+import { altRoute, mileEvents, resolveSiteSettings, sortedSites } from "@repo/road-trip-map"
+import { currentLeg, pathFor } from "./flow"
 import { project, timeToGallonsUsed, timeToMile, type Leg } from "./ledger"
 import { currentIncidentStep, isTowing, type FuelLevel, type TripState } from "./state"
 import { ARRIVAL_MILE_EPSILON, fuelLine, pullOffHold } from "./transitions"
 
 export type ThresholdKind =
   | "reveal"
+  /** Open a site's or junction's room vote (ADR 0222; was `skip-poll`). */
+  | "vote-due"
+  /** Schedules armed before ADR 0222; handled as `vote-due`. */
   | "skip-poll"
   | "arrive"
+  /** The van reaches a fork. */
+  | "junction"
+  /** The van reaches the end of the alternate route it's on (a rejoin). */
+  | "route-end"
   | "expire"
   | "fuel"
   | "incident"
@@ -17,6 +25,8 @@ export type ThresholdKind =
 export type ThresholdPayload = {
   tripId: string
   siteId?: string
+  /** `vote-due`, `junction`, `route-end`: the alternate route. */
+  routeId?: string
   blockerId?: string
   level?: FuelLevel
   incidentId?: string
@@ -42,7 +52,13 @@ export function thresholdId(kind: ThresholdKind, target: string): string {
 export function thresholdTarget(payload: ThresholdPayload): string | undefined {
   if (payload.incidentId !== undefined) return `${payload.incidentId}:${payload.step ?? 0}`
   if (payload.beat !== undefined) return `${payload.eventId}:${payload.beat}`
+  if (payload.routeId !== undefined) return routeTarget(payload.routeId)
   return payload.siteId ?? payload.blockerId ?? payload.level ?? payload.eventId
+}
+
+/** Route thresholds' target: `route:<id>` can't collide with a site id (no colons). */
+export function routeTarget(routeId: string): string {
+  return `route:${routeId}`
 }
 
 /** Never arm in the past; durable schedules fire "soon" instead. */
@@ -51,14 +67,17 @@ const MIN_DELAY_MS = 500
 /**
  * Solve every threshold from the current leg (ADR 0205). Re-solved after every
  * mutation; ids are fixed so re-arming replaces, and ids missing from the new
- * set are cancelled by the caller.
+ * set are cancelled by the caller. `source` is the authored map; everything is
+ * solved on the van's path (ADR 0222), at odometer miles.
  */
 export function solveThresholds(
   state: TripState,
-  map: TripMap,
+  source: TripMap,
   current: Leg,
   now: number,
 ): ThresholdRequest[] {
+  const path = pathFor(state, source)
+  const map = path.map
   const out: ThresholdRequest[] = []
   const tripId = state.tripId
   const soon = now + MIN_DELAY_MS
@@ -141,10 +160,52 @@ export function solveThresholds(
     })
   }
 
+  for (const fork of path.forks) {
+    const route = altRoute(source, fork.routeId)
+    const runtime = state.junctions[fork.routeId]
+    if (!route || runtime?.phase === "taken" || runtime?.phase === "passed") continue
+    const reachAt =
+      fork.odometer <= mile + ARRIVAL_MILE_EPSILON ? soon : timeToMile(current, fork.odometer)
+    if (reachAt === null) continue
+    out.push({
+      id: thresholdId("junction", routeTarget(route.id)),
+      kind: "junction",
+      at: Math.max(reachAt, soon),
+      payload: { tripId, routeId: route.id },
+    })
+    if (route.entry.kind !== "vote" || (runtime && runtime.phase !== "ahead")) continue
+    const leadMs = (route.entry.leadMinutes ?? source.tuning.skipPoll.leadMinutes) * 60_000
+    out.push({
+      id: thresholdId("vote-due", routeTarget(route.id)),
+      kind: "vote-due",
+      at: Math.max(reachAt - leadMs, runtime?.vote?.retryAt ?? 0, soon),
+      payload: { tripId, routeId: route.id },
+    })
+  }
+
+  const leg = currentLeg(state)
+  const end = path.ends.find((e) => e.routeId === leg?.route)
+  if (end) {
+    const endAt = end.odometer <= mile + ARRIVAL_MILE_EPSILON ? soon : timeToMile(current, end.odometer)
+    if (endAt !== null) {
+      out.push({
+        id: thresholdId("route-end", routeTarget(end.routeId)),
+        kind: "route-end",
+        at: Math.max(endAt, soon),
+        payload: { tripId, routeId: end.routeId },
+      })
+    }
+  }
+
   for (const site of sortedSites(map)) {
     const runtime = state.sites[site.id]
     if (!runtime) continue
-    if (runtime.phase === "skipped" || runtime.phase === "visited" || runtime.phase === "parked") {
+    if (
+      runtime.phase === "skipped" ||
+      runtime.phase === "visited" ||
+      runtime.phase === "parked" ||
+      runtime.phase === "bypassed"
+    ) {
       continue
     }
 
@@ -164,10 +225,10 @@ export function solveThresholds(
     const settings = resolveSiteSettings(map, site)
     let pollAt: number | null = null
     if (settings.optional && runtime.phase === "ahead") {
-      pollAt = Math.max(arriveAt - settings.pollLeadMs, runtime.pollRetryAt ?? 0, soon)
+      pollAt = Math.max(arriveAt - settings.pollLeadMs, runtime.vote?.retryAt ?? 0, soon)
       out.push({
-        id: thresholdId("skip-poll", site.id),
-        kind: "skip-poll",
+        id: thresholdId("vote-due", site.id),
+        kind: "vote-due",
         at: pollAt,
         payload: { tripId, siteId: site.id },
       })

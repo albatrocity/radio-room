@@ -1,5 +1,6 @@
-import type { TripMap, TripSite } from "@repo/road-trip-map"
+import type { LinearPath, PathMap, TripMap, TripSite } from "@repo/road-trip-map"
 import { formatShare, resolveSiteSettings, siteShopRequest, sortedSites } from "@repo/road-trip-map"
+import type { VoteTarget } from "./flow/events"
 import type { SiteRuntime, TripFund, TripLogEvent, TripState } from "./state"
 
 /**
@@ -17,6 +18,8 @@ export type TripEffect =
   | { type: "open-shop"; siteId: string; scopeId: string }
   | { type: "close-shop"; scopeId: string }
   | { type: "close-poll"; pollId: string }
+  /** Open a room poll for a vote now (an event choice step); the plugin runs `openVote`. */
+  | { type: "open-vote"; target: VoteTarget }
   | { type: "nudge-host" }
   /** Automatic: collect the levy now. Voluntary: open the pool. */
   | { type: "open-fund"; fund: TripFund; title: string }
@@ -27,13 +30,23 @@ export type TripEffect =
 
 export type TransitionContext = {
   now: number
-  /** Van mile at `now`, projected from the current leg. */
+  /** Van odometer mile at `now`, projected from the current leg. */
   mile: number
   /** Ledger `gallonsUsed` at `now`. */
   gallonsUsed: number
-  map: TripMap
+  /**
+   * The map laid flat along the van's path (ADR 0222): active sites and events
+   * at odometer miles. Everything but the flow reads this one.
+   */
+  map: PathMap
+  /** The path `map` was laid along (forks and rejoins ahead). */
+  path: LinearPath
+  /** The authored map. Only `flow/` reads it (routes, layers, junction definitions). */
+  source: TripMap
   /** Session `costScale`, read before the CAS; locks fund costs as they open (D15). */
   costScale: number
+  /** Open polls' counts by option order, read before the CAS (the only vote I/O a transition needs). */
+  tallies?: Record<string, number[]>
 }
 
 export type TransitionResult = {
@@ -60,7 +73,15 @@ export function findSite(map: TripMap, siteId: string): TripSite | undefined {
   return map.sites.find((site) => site.id === siteId)
 }
 
-export function withSite(state: TripState, siteId: string, patch: Partial<SiteRuntime>): TripState {
+/**
+ * Patch a site's data. Its `phase` and `vote` change only through the trip
+ * flow (ADR 0222), so the patch type leaves them out.
+ */
+export function withSite(
+  state: TripState,
+  siteId: string,
+  patch: Partial<Omit<SiteRuntime, "phase" | "vote">>,
+): TripState {
   const current = state.sites[siteId]
   if (!current) return state
   return { ...state, sites: { ...state.sites, [siteId]: { ...current, ...patch } } }

@@ -24,11 +24,17 @@ import {
   type EventFamily,
   type EventResolution,
   type NarrativeVariant,
+  type TripMapInput,
+  type TripOutcome,
 } from "@repo/road-trip-map"
 import type { EventEstimate, TripEventDraft } from "../../tripMap/tripMapDraft"
+import { TripOutcomesEditor, TripPlacementFields } from "./TripBranchFields"
+import { TripChoiceEditor } from "./TripChoiceEditor"
 
 type Props = {
   event: TripEventDraft
+  /** The whole draft, for route, layer, and outcome options (ADR 0222). */
+  draft: TripMapInput
   /** Null while the draft doesn't parse. */
   estimate: EventEstimate | null
   walletShare: (cost: number) => string
@@ -44,6 +50,7 @@ const RESOLUTION_LABELS: Record<ResolutionKind, string> = {
   wait: "Wait",
   tow: "Tow or shoulder repair",
   refuel: "Fuel truck",
+  choice: "Room choice",
 }
 
 const NEW_RESOLUTION: Record<ResolutionKind, EventResolution> = {
@@ -52,6 +59,15 @@ const NEW_RESOLUTION: Record<ResolutionKind, EventResolution> = {
   wait: { kind: "wait", minutes: 1 },
   tow: { kind: "tow" },
   refuel: { kind: "refuel" },
+  choice: {
+    kind: "choice",
+    question: "What now?",
+    default: "one",
+    options: [
+      { id: "one", label: "Option one", outcomes: [] },
+      { id: "two", label: "Option two", outcomes: [] },
+    ],
+  },
 }
 
 type NumberField = { key: string; label: string; step?: number; placeholder?: string }
@@ -93,6 +109,7 @@ const RESOLUTION_FIELDS: Record<ResolutionKind, { numbers: NumberField[]; texts:
     ],
     texts: [{ key: "status", label: "Headline while waiting", maxLength: 40 }],
   },
+  choice: { numbers: [], texts: [] },
 }
 
 function optionalNumber(value: string): number | undefined {
@@ -144,12 +161,14 @@ function VariantSelect({
 function ResolutionEntry({
   entry,
   family,
+  draft,
   onChange,
   onRemove,
   onMoveUp,
 }: {
   entry: EventResolution
   family: EventFamily
+  draft: TripMapInput
   onChange: (entry: EventResolution) => void
   onRemove: () => void
   onMoveUp?: () => void
@@ -174,6 +193,9 @@ function ResolutionEntry({
           </Button>
         </HStack>
       </HStack>
+      {entry.kind === "choice" ? (
+        <TripChoiceEditor draft={draft} choice={entry} onChange={onChange} />
+      ) : null}
       {entry.kind === "item" ? (
         <HStack gap="3" flexWrap="wrap" mb="2">
           {VAN_CONSUMABLES.map((item) => {
@@ -278,7 +300,14 @@ function ResolutionEntry({
 }
 
 /** Event inspector (ADR 0220): presentation, trigger, effect, resolution chain, beats, cost. */
-export function TripEventInspector({ event, estimate, walletShare, onChange, onRemove }: Props) {
+export function TripEventInspector({
+  event,
+  draft,
+  estimate,
+  walletShare,
+  onChange,
+  onRemove,
+}: Props) {
   const fuel = eventTrigger(event) === "fuel"
   const family = event.family ?? "none"
   const resolution = (event.resolution ?? []) as EventResolution[]
@@ -337,6 +366,24 @@ export function TripEventInspector({ event, estimate, walletShare, onChange, onR
           )}
         </Field.Root>
       </SimpleGrid>
+
+      {!fuel ? (
+        <TripPlacementFields
+          draft={draft}
+          route={event.route}
+          layer={event.layer}
+          onChange={(placement) => onChange(placement)}
+        />
+      ) : null}
+      {draft.routes?.length || draft.layers?.length ? (
+        <TripOutcomesEditor
+          draft={draft}
+          label="When it starts"
+          helper="Applied as the event starts, before anything else (a divert here steers a tow too)."
+          outcomes={(event.outcomes ?? []) as TripOutcome[]}
+          onChange={(outcomes) => onChange({ outcomes })}
+        />
+      ) : null}
 
       <Field.Root>
         <Field.Label fontSize="xs">Narrative</Field.Label>
@@ -467,17 +514,24 @@ export function TripEventInspector({ event, estimate, walletShare, onChange, onR
         ) : null}
       </Box>
 
-      {event.effect ? (
+      {event.effect || !fuel ? (
         <Box borderWidth="1px" borderRadius="md" p="3">
           <Text fontSize="sm" fontWeight="semibold" mb="2">
             Resolution
           </Text>
+          {!event.effect ? (
+            <Text fontSize="xs" color="fg.muted" mb="2">
+              Narrative only: just a room choice runs, and the van keeps driving while the room
+              votes.
+            </Text>
+          ) : null}
           <Stack gap="2">
             {resolution.map((entry, index) => (
               <ResolutionEntry
                 key={`${entry.kind}-${index}`}
                 entry={entry}
                 family={family}
+                draft={draft}
                 onChange={(next) =>
                   setResolution(resolution.map((e, i) => (i === index ? next : e)))
                 }
@@ -494,17 +548,24 @@ export function TripEventInspector({ event, estimate, walletShare, onChange, onR
               />
             ))}
             <HStack gap="1" flexWrap="wrap">
-              {(Object.keys(RESOLUTION_LABELS) as ResolutionKind[]).map((kind) => (
-                <Button
-                  key={kind}
-                  size="xs"
-                  variant="subtle"
-                  disabled={resolution.length >= 8}
-                  onClick={() => setResolution([...resolution, NEW_RESOLUTION[kind]])}
-                >
-                  + {RESOLUTION_LABELS[kind]}
-                </Button>
-              ))}
+              {(Object.keys(RESOLUTION_LABELS) as ResolutionKind[])
+                .filter((kind) => event.effect || kind === "choice")
+                .map((kind) => (
+                  <Button
+                    key={kind}
+                    size="xs"
+                    variant="subtle"
+                    disabled={
+                      resolution.length >= 8 ||
+                      (kind === "choice" &&
+                        event.effect?.kind !== "stop" &&
+                        resolution.some((entry) => entry.kind === "choice"))
+                    }
+                    onClick={() => setResolution([...resolution, NEW_RESOLUTION[kind]])}
+                  >
+                    + {RESOLUTION_LABELS[kind]}
+                  </Button>
+                ))}
             </HStack>
             {estimate ? (
               <Text fontSize="xs" color="fg.muted">

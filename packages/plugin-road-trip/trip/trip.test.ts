@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { eventFromPreset, SAMPLE_TRIP_MAP, type TripMapInput } from "@repo/road-trip-map"
+import { contextFor } from "./commit"
 import { buildStatusLines, buildTripStore } from "./projection"
 import { MIN, T0, TripSim } from "./testSim"
 import {
@@ -378,11 +379,9 @@ describe("trip lifecycle", () => {
     // cancelled) must not replace the current park or close its shop.
     const second = sim.map.sites[1]!
     const result = arriveAtSite(second.id)(sim.state, {
-      now: sim.now,
+      ...contextFor(sim.state, sim.map, sim.now),
       mile: second.mile,
       gallonsUsed: second.mile * sim.state.baseGpm,
-      map: sim.map,
-      costScale: 1,
     })
     expect(result).toBeNull()
 
@@ -410,7 +409,7 @@ describe("trip lifecycle", () => {
     const held = sim.thresholds().map((t) => t.id)
     expect(held).toContain("arrive:farmers-market")
     expect(held).not.toContain("reveal:farmers-market")
-    expect(held).not.toContain("skip-poll:farmers-market")
+    expect(held).not.toContain("vote-due:farmers-market")
 
     // A stray reveal (fired before its schedule was cancelled) does nothing.
     expect(sim.apply(revealSite("farmers-market"))).toBe(false)

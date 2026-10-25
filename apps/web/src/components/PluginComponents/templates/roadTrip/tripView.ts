@@ -2,6 +2,7 @@ import { format } from "date-fns"
 import type {
   TripStore,
   TripStoreEvent,
+  TripStoreJunction,
   TripStoreSite,
   TripStoreSiteState,
 } from "@repo/road-trip-map"
@@ -12,6 +13,11 @@ import { usePluginComponentContext } from "../../context"
 
 export {
   formatDriveCountdown,
+  JUNCTION_STATE_LABEL,
+  junctionLabel,
+  junctionName,
+  junctionPin,
+  routeLabel,
   siteLabel,
   stripContext,
   stripReadout,
@@ -119,8 +125,12 @@ export const SITE_STATE_LABEL: Record<TripStoreSiteState, string> = {
   visited: "Visited",
 }
 
-/** Minutes of driving to `site` at the current speed, or null when stopped. */
-export function minutesToSite(trip: TripStore, site: TripStoreSite, mile: number): number | null {
+/** Minutes of driving to `site` (or a fork) at the current speed, or null when stopped. */
+export function minutesToSite(
+  trip: TripStore,
+  site: Pick<TripStoreSite, "mile">,
+  mile: number,
+): number | null {
   if (trip.van.mph <= 0 || site.mile <= mile) return null
   return Math.max(1, Math.round(((site.mile - mile) / trip.van.mph) * 60))
 }
@@ -140,25 +150,38 @@ export function tripTabTitle(trip: TripStore, mile: number): string {
 export type TripLogRow =
   | { kind: "site"; key: string; site: TripStoreSite }
   | { kind: "event"; key: string; event: TripStoreEvent }
+  | { kind: "junction"; key: string; junction: TripStoreJunction }
 
 /**
- * Sites in route order with van events slotted in by mile, so the list reads
- * oldest to newest: the van only moves forward, and an event at a site's mile
- * happened while it was there.
+ * Sites in route order with van events and voted forks slotted in by mile,
+ * so the list reads oldest to newest: the van only moves forward, and an
+ * event at a site's mile happened while it was there. A fork at a site's
+ * mile comes first: the van reaches the turn-off before the exit.
  */
 export function tripLog(trip: TripStore): TripLogRow[] {
   const events = trip.events ?? []
+  const junctions = [...(trip.junctions ?? [])].sort((a, b) => a.mile - b.mile)
   const rows: TripLogRow[] = []
   let next = 0
+  let fork = 0
   const eventRow = (index: number): TripLogRow => ({
     kind: "event",
     key: `event:${index}`,
     event: events[index]!,
   })
+  const junctionRow = (index: number): TripLogRow => ({
+    kind: "junction",
+    key: `junction:${junctions[index]!.routeId}`,
+    junction: junctions[index]!,
+  })
   for (const site of trip.sites) {
     while (next < events.length && events[next]!.mile < site.mile) rows.push(eventRow(next++))
+    while (fork < junctions.length && junctions[fork]!.mile <= site.mile) {
+      rows.push(junctionRow(fork++))
+    }
     rows.push({ kind: "site", key: site.id, site })
   }
   while (next < events.length) rows.push(eventRow(next++))
+  while (fork < junctions.length) rows.push(junctionRow(fork++))
   return rows
 }

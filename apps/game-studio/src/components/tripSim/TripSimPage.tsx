@@ -116,12 +116,16 @@ function Decisions({ room }: { room: TripSimRoom }) {
   const pollSiteId = room.openPollSiteId()
   const pollSite = room.sim.map.sites.find((s) => s.id === pollSiteId)
   const votes = pollSiteId ? room.votesFor(pollSiteId) : null
+  // Junction and event-choice polls (ADR 0222): counts by option.
+  const otherPoll = !pollSite ? room.openPollCounts() : null
+  const otherQuestion = !pollSite ? room.sim.polls[0]?.question : undefined
+  const layers = room.layers()
   const fund = room.state.fund
   const items = room.incidentItems()
   const incident = room.state.incident
   const [pledge, setPledge] = useState("10")
 
-  if (!pollSite && !(fund?.mode === "voluntary") && !incident) {
+  if (!pollSite && !otherPoll && !(fund?.mode === "voluntary") && !incident && layers.length === 0) {
     return (
       <Text fontSize="sm" color="fg.muted">
         Nothing to decide right now. Exit polls, voluntary funds, and incidents show their
@@ -167,6 +171,63 @@ function Decisions({ room }: { room: TripSimRoom }) {
               />
             </Field.Root>
           </HStack>
+        </Stack>
+      ) : null}
+
+      {otherPoll ? (
+        <Stack gap="2">
+          <Text fontSize="sm" fontWeight="semibold">
+            Poll: {otherQuestion}
+          </Text>
+          <Text fontSize="xs" color="fg.muted">
+            The poll closes with these votes on the step that closes it. A tie or no votes uses the
+            default.
+          </Text>
+          <HStack gap="3" wrap="wrap">
+            {otherPoll.labels.map((label, i) => (
+              <Field.Root key={label} maxW="140px">
+                <Field.Label fontSize="xs">{label}</Field.Label>
+                <Input
+                  size="sm"
+                  type="number"
+                  min={0}
+                  value={otherPoll.counts[i] ?? 0}
+                  onChange={(e) =>
+                    runTripSim((r) =>
+                      r.setTally(
+                        otherPoll.labels.map((_, j) =>
+                          j === i ? wholeNumber(e.target.value) : (otherPoll.counts[j] ?? 0),
+                        ),
+                      ),
+                    )
+                  }
+                />
+              </Field.Root>
+            ))}
+          </HStack>
+        </Stack>
+      ) : null}
+
+      {layers.length > 0 ? (
+        <Stack gap="2">
+          <Text fontSize="sm" fontWeight="semibold">
+            Layers
+          </Text>
+          <HStack gap="2" wrap="wrap">
+            {layers.map((layer) => (
+              <Button
+                key={layer.id}
+                size="sm"
+                variant={layer.unlocked ? "solid" : "outline"}
+                onClick={() => runTripSim((r) => r.toggleLayer(layer.id))}
+              >
+                {layer.icon} {layer.name}: {layer.unlocked ? "unlocked" : "locked"}
+              </Button>
+            ))}
+          </HStack>
+          <Text fontSize="xs" color="fg.muted">
+            Toggle as the host would. Stops already behind the van are missed when a layer unlocks.
+          </Text>
         </Stack>
       ) : null}
 

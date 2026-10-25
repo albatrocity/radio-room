@@ -22,16 +22,34 @@ function siteName(map: TripMap, siteId: string | undefined): string {
   return map.sites.find((s) => s.id === siteId)?.name ?? siteId ?? "a site"
 }
 
+function routeName(map: TripMap, routeId: string | undefined): string {
+  return map.routes?.find((r) => r.id === routeId)?.name ?? routeId ?? "a route"
+}
+
+function votesTally(votes: number[] | undefined, defaulted?: boolean): string {
+  if (defaulted) return " (default)"
+  return votes ? ` (${votes.join("–")})` : ""
+}
+
 /** What the next step will fire, in designer terms. */
 export function describeSimEvent(event: SimEvent, map: TripMap, state: TripState): string {
   const payload = event.request?.payload
   switch (event.kind) {
     case "poll-close":
+      if (event.target?.kind === "junction") return `Junction poll closes: ${routeName(map, event.routeId)}`
+      if (event.target?.kind === "choice") return `Choice poll closes: ${state.incident?.name ?? "event"}`
       return `Exit poll closes: ${siteName(map, event.siteId)}`
     case "reveal":
       return `Reveal ${siteName(map, event.siteId)}`
+    case "vote-due":
     case "skip-poll":
-      return `Exit poll opens: ${siteName(map, event.siteId)}`
+      return event.routeId
+        ? `Junction poll opens: ${routeName(map, event.routeId)}`
+        : `Exit poll opens: ${siteName(map, event.siteId)}`
+    case "junction":
+      return `Reach the fork for ${routeName(map, event.routeId)}`
+    case "route-end":
+      return `End of ${routeName(map, event.routeId)}`
     case "arrive":
       return `Reach ${siteName(map, event.siteId)}`
     case "fuel":
@@ -77,8 +95,28 @@ export function describeLogEntry(entry: TripLogEntry): string {
           return `⬆ Kept driving past ${entry.name}${votesLabel(entry.votes, entry.defaulted)}`
         case "departed":
           return `🚐 Left ${entry.name}`
+        case "bypassed":
+          return `↪ ${entry.name} is off the route`
       }
-      return entry.name
+    case "layer":
+      return entry.phase === "unlocked" ? `🗺️ ${entry.name} unlocked` : `🗺️ ${entry.name} locked`
+    case "junction":
+      switch (entry.phase) {
+        case "poll":
+          return `🗳 Junction poll for ${entry.name}`
+        case "take":
+          return `🛣️ ${entry.name}: take it${votesTally(entry.votes, entry.defaulted)}`
+        case "stay":
+          return `🛣️ ${entry.name}: stay${votesTally(entry.votes, entry.defaulted)}`
+        case "taken":
+          return `↱ Turned onto ${entry.name}`
+        case "passed":
+          return `⬆ Passed the fork for ${entry.name}`
+        case "rejoined":
+          return `↳ ${entry.name} rejoined the road`
+      }
+    case "choice":
+      return `🗳 ${entry.question} ${entry.label}${votesTally(entry.votes, entry.defaulted)}`
     case "pause":
       return entry.reason === "admin" ? "⏸ Paused" : "⏸ Paused: no game session"
     case "resume":

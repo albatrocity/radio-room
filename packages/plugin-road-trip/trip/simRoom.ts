@@ -1,22 +1,20 @@
 import type { ChatMessage, OpenRoomShopRequest, Poll, PollHistoryEntry } from "@repo/types"
 import type { EscrowPoolState } from "@repo/plugin-base"
 import {
-  resolveSiteSettings,
   siteOpenRoomShopRequest,
   siteShopRequest,
   siteShopTitle,
-  skipPollQuestion,
   vanConsumable,
   type TripMapInput,
   type TripStore,
   type TriggerableIncidentId,
 } from "@repo/road-trip-map"
-import { poolCardView, skipPollPresentation } from "../presenters"
-import { project } from "./ledger"
+import { poolCardView } from "../presenters"
+import { dispatch, targetKey, type VoteTarget } from "./flow"
 import { buildStatusLines, buildTripStore } from "./projection"
 import type { SkipVotes, TripLogEntry } from "./state"
 import { TripSim, type OpenPoll, type SimEvent, type SimStep } from "./testSim"
-import { depart, endTrip, gasUrgency, liveSkipDefault, type TripEffect } from "./transitions"
+import { depart, endTrip, type TripEffect } from "./transitions"
 import { skipIncidentStep, triggerIncident, useIncidentItem } from "./incidents"
 
 /**
@@ -112,16 +110,15 @@ export function freezeStoreForRoom(store: TripStore, simNow: number, wallNow: nu
   return frozen
 }
 
-function tally(pollId: string, votes: SkipVotes, closedAt: number): PollHistoryEntry["results"] {
-  const stopId = `${pollId}:stop`
-  const skipId = `${pollId}:skip`
-  const winners =
-    votes.stop === votes.skip ? [] : votes.stop > votes.skip ? [stopId] : [skipId]
+function tally(poll: Poll, counts: number[], closedAt: number): PollHistoryEntry["results"] {
+  const optionTallies = Object.fromEntries(poll.options.map((o, i) => [o.id, counts[i] ?? 0]))
+  const top = Math.max(0, ...counts)
+  const leaders = poll.options.filter((_, i) => (counts[i] ?? 0) === top)
   return {
-    pollId,
-    totalVotes: votes.stop + votes.skip,
-    optionTallies: { [stopId]: votes.stop, [skipId]: votes.skip },
-    winners,
+    pollId: poll.id,
+    totalVotes: counts.reduce((sum, n) => sum + n, 0),
+    optionTallies,
+    winners: top > 0 && leaders.length === 1 ? [leaders[0]!.id] : [],
     closedAt,
   }
 }
@@ -188,6 +185,11 @@ export class TripSimRoom {
     return this.sim.polls[0]?.siteId ?? null
   }
 
+  /** The vote whose poll is open in the sim (a site exit, a junction, an event choice). */
+  openPollTarget(): VoteTarget | null {
+    return this.sim.polls[0]?.target ?? null
+  }
+
   depart(): boolean {
     return this.after(this.sim.apply(depart))
   }
@@ -209,6 +211,41 @@ export class TripSimRoom {
 
   votesFor(siteId: string): SkipVotes {
     return this.sim.votes[siteId] ?? { stop: 0, skip: 0 }
+  }
+
+  /** Counts (by option order) the open poll will close with: any vote, sites included. */
+  setTally(counts: number[]): void {
+    const target = this.openPollTarget()
+    if (!target) return
+    if (target.kind === "site") this.sim.votes[target.id] = { stop: counts[0] ?? 0, skip: counts[1] ?? 0 }
+    else this.sim.tallies[targetKey(target)] = counts
+    this.after(true)
+  }
+
+  /** The open poll's option labels and counts. */
+  openPollCounts(): { labels: string[]; counts: number[] } | null {
+    const open = this.sim.polls[0]
+    return open ? { labels: open.options, counts: this.sim.countsFor(open.target) } : null
+  }
+
+  /** The map's layers and whether each is unlocked (ADR 0222). */
+  layers(): { id: string; name: string; icon: string; unlocked: boolean }[] {
+    return (this.sim.map.layers ?? []).map((layer) => ({
+      id: layer.id,
+      name: layer.name,
+      icon: layer.icon,
+      unlocked: this.state.layers[layer.id]?.phase === "unlocked",
+    }))
+  }
+
+  /** Unlock or lock a layer as the host would. */
+  toggleLayer(layerId: string): boolean {
+    const unlocked = this.state.layers[layerId]?.phase === "unlocked"
+    return this.after(
+      this.sim.apply(
+        dispatch({ type: unlocked ? "LAYER_LOCK" : "LAYER_UNLOCK", layerId, by: { kind: "host" } }),
+      ),
+    )
   }
 
   /** A voluntary pledge; settles the fund once the goal is met. */
@@ -370,10 +407,10 @@ export class TripSimRoom {
       const closedAt = this.clock()
       const closing = this.poll
       if (closing) {
-        const votes = this.votesFor(this.openPoll.siteId)
+        const counts = this.sim.countsFor(this.openPoll.target)
         this.lastClosedPoll = {
           poll: { ...closing, status: "closed", closedAt },
-          results: tally(closing.id, votes, closedAt),
+          results: tally(closing, counts, closedAt),
         }
       }
       this.poll = null
@@ -388,23 +425,12 @@ export class TripSimRoom {
   }
 
   private buildPoll(open: OpenPoll, publishedAt = this.clock()): Poll | null {
-    const { sim } = this
-    const site = sim.map.sites.find((s) => s.id === open.siteId)
-    if (!site) return null
-    const settings = resolveSiteSettings(sim.map, site)
-    const projected = project(sim.current, sim.now)
-    const fuelCtx = { mile: projected.mile, gallonsUsed: projected.gallonsUsed }
-    const urgency = gasUrgency(sim.state, sim.map, site, fuelCtx)
-    const question = skipPollQuestion(site, site.mile - projected.mile, settings.mystery)
     const pollId = `${this.runId}:${open.pollId}`
     return {
       id: pollId,
       roomId: this.roomId,
-      question: urgency ? `${urgency}. ${question}` : question,
-      options: [
-        { id: `${pollId}:stop`, label: "Pull off" },
-        { id: `${pollId}:skip`, label: "Keep driving" },
-      ],
+      question: open.question,
+      options: open.options.map((label, i) => ({ id: `${pollId}:${open.optionKeys[i] ?? i}`, label })),
       status: "open",
       settings: { hideRunningTotal: false },
       createdAt: publishedAt,
@@ -413,12 +439,7 @@ export class TripSimRoom {
       closedAt: null,
       // The designer closes it by stepping; the room must not expire it.
       closesAt: null,
-      presentation: skipPollPresentation(
-        site,
-        settings.mystery,
-        liveSkipDefault(sim.state, sim.map, site, fuelCtx),
-        urgency,
-      ),
+      ...(open.presentation ? { presentation: open.presentation } : {}),
     }
   }
 }

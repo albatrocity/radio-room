@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest"
 import type { TripStore, TripStoreSite } from "@repo/road-trip-map"
 import {
   formatDriveCountdown,
+  junctionLabel,
+  junctionPin,
   refillingGallons,
+  routeLabel,
   stripContext,
   stripReadout,
   tripLog,
@@ -171,9 +174,58 @@ describe("tripLog", () => {
       { at: NOW, mile: 3, text: "cleared" },
     ]
     const order = tripLog(trip({ sites, events })).map((row) =>
-      row.kind === "site" ? row.site.id : row.event.text,
+      row.kind === "site" ? row.site.id : row.kind === "event" ? row.event.text : row.junction.routeId,
     )
     expect(order).toEqual(["turbo", "a", "jam", "cleared", "b"])
+  })
+
+  it("slots voted forks in by mile, ahead of a site at the same mile", () => {
+    const sites: TripStoreSite[] = [
+      { id: "a", mile: 2, state: "visited" },
+      { id: "b", mile: 5, state: "ahead" },
+    ]
+    const junctions = [
+      { routeId: "late", mile: 9, state: "polling" as const },
+      { routeId: "byway", mile: 5, state: "take" as const, name: "Scenic Byway" },
+    ]
+    const order = tripLog(trip({ sites, junctions })).map((row) =>
+      row.kind === "site" ? row.site.id : row.kind === "event" ? row.event.text : row.junction.routeId,
+    )
+    expect(order).toEqual(["a", "byway", "b", "late"])
+  })
+})
+
+describe("forks and routes (ADR 0222)", () => {
+  it("names the alternate route the van is on", () => {
+    expect(routeLabel(trip())).toBeNull()
+    expect(routeLabel(trip({ route: { id: "byway", name: "Scenic Byway", icon: "🌲" } }))).toBe(
+      "🌲 Scenic Byway",
+    )
+  })
+
+  it("labels forks, keeping a mystery fork nameless", () => {
+    expect(junctionLabel({ routeId: "x", mile: 5, state: "polling", name: "Scenic Byway" })).toBe(
+      "Scenic Byway · Voting",
+    )
+    expect(junctionLabel({ routeId: "x", mile: 5, state: "polling" })).toBe("A turn-off · Voting")
+    expect(junctionPin({ routeId: "x", mile: 5, state: "polling" })).toBe("❓")
+    expect(junctionLabel({ routeId: "x", mile: 5, state: "take", name: "Scenic Byway" })).toBe(
+      "Taking Scenic Byway",
+    )
+  })
+
+  it("puts an open fork vote in the strip context when it comes before the next site", () => {
+    const sites: TripStoreSite[] = [{ id: "far", mile: 50, state: "ahead", name: "Far" }]
+    const voting = trip({
+      sites,
+      junctions: [{ routeId: "byway", mile: 10, state: "polling", name: "Scenic Byway" }],
+    })
+    expect(stripContext(voting, 0, NOW)).toBe("Fork ahead: Scenic Byway · 10:00")
+    const decided = trip({
+      sites,
+      junctions: [{ routeId: "byway", mile: 10, state: "stay", name: "Scenic Byway" }],
+    })
+    expect(stripContext(decided, 0, NOW)).toBe("Next: Far · 50:00")
   })
 })
 

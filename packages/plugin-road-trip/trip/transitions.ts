@@ -1,47 +1,25 @@
-import type { FundsMode, SkipDefault, TripMap, TripSite } from "@repo/road-trip-map"
-import {
-  effectiveSkipDefault,
-  fuelEvent,
-  gasCost,
-  isDestination,
-  isGasSite,
-  milesToNextGas,
-  parkPlan,
-  resolveSiteSettings,
-  siteShopTitle,
-  sortedSites,
-} from "@repo/road-trip-map"
+import type { FundsMode, TripMap } from "@repo/road-trip-map"
+import { fuelEvent, isGasSite, sortedSites } from "@repo/road-trip-map"
+import { dispatch, flow } from "./flow"
 import {
   ARRIVAL_MILE_EPSILON,
-  AUTOMATIC_FUND_HOLD_MS,
   BACK_ON_THE_ROAD,
-  exitTitle,
   findSite,
-  narrate,
   fundShareCopy,
   milesLabel,
-  nextSiteAhead,
-  openShopAt,
   pct,
-  pullOffHold,
   seededIndex,
-  withSite,
   type Transition,
-  type TransitionContext,
-  type TransitionResult,
   type TripEffect,
 } from "./helpers"
 import { resolveIncidentFund, startOrQueueIncident, startQueuedIncident } from "./incidents"
 import {
-  effectiveGpm,
   gallonsLeft,
   refillShownAfterFill,
   type Blocker,
   type FuelLevel,
   type FundPayment,
-  type SiteRuntime,
   type SkipVotes,
-  type TripFund,
   type TripLogEvent,
   type TripState,
 } from "./state"
@@ -50,8 +28,12 @@ import {
  * Pure trip transitions (ADR 0205). `mutateTrip` runs them inside a CAS, so
  * they must not touch I/O and may run more than once. Side effects are
  * returned as intents and executed once after the write succeeds. Incidents
- * live in `./incidents`.
+ * live in `./incidents`. Phases (trip status, sites, votes) change only
+ * through the trip flow (`./flow`, ADR 0222); the site wrappers here dispatch
+ * flow events.
  */
+
+export { gallonsOnArrival, gasUrgency, liveSkipDefault } from "./siteRules"
 
 export {
   ARRIVAL_MILE_EPSILON,
@@ -69,114 +51,11 @@ export {
   type TripEffect,
 } from "./helpers"
 
-/** Gallons in the tank when the van reaches `site`, at the current burn and without refills. */
-export function gallonsOnArrival(
-  state: TripState,
-  site: TripSite,
-  ctx: Pick<TransitionContext, "mile" | "gallonsUsed">,
-): number {
-  const left = gallonsLeft(state, ctx.gallonsUsed)
-  return Math.max(0, left - Math.max(0, site.mile - ctx.mile) * effectiveGpm(state))
-}
-
-/** A site's no-vote default with fuel known: low on arrival at a gas site means "stop". */
-export function liveSkipDefault(
-  state: TripState,
-  map: TripMap,
-  site: TripSite,
-  ctx: Pick<TransitionContext, "mile" | "gallonsUsed">,
-): SkipDefault {
-  return effectiveSkipDefault(map, site, gallonsOnArrival(state, site, ctx))
-}
-
-/**
- * Urgent gas copy for a low-fuel gas site's poll ("⛽ 12% · last gas for
- * 20 mi"); null when the site sells no gas or the tank isn't low.
- */
-export function gasUrgency(
-  state: TripState,
-  map: TripMap,
-  site: TripSite,
-  ctx: Pick<TransitionContext, "mile" | "gallonsUsed">,
-): string | null {
-  if (!isGasSite(site)) return null
-  const gallons = gallonsOnArrival(state, site, ctx)
-  if (effectiveSkipDefault(map, site, gallons) !== "stop") return null
-  if (gallons >= map.tuning.lowFuelPct * state.tankGallons) return null
-  const after = milesToNextGas(map, site.mile)
-  const nextIsGas = sortedSites(map).some((s) => s.mile > site.mile && isGasSite(s))
-  return nextIsGas
-    ? `⛽ ${pct(gallons, state.tankGallons)}% · last gas for ${milesLabel(after)}`
-    : `⛽ ${pct(gallons, state.tankGallons)}% · last gas before the end`
-}
-
-function revealEvents(
-  state: TripState,
-  map: TripMap,
-  siteIds: string[],
-  mile: number,
-): { state: TripState; log: TripLogEvent[]; effects: TripEffect[] } {
-  let next = state
-  const log: TripLogEvent[] = []
-  const effects: TripEffect[] = []
-  for (const siteId of siteIds) {
-    const site = findSite(map, siteId)
-    const runtime = next.sites[siteId]
-    if (!site || !runtime || runtime.revealed) continue
-    next = withSite(next, siteId, { revealed: true })
-    log.push({ kind: "site", siteId, name: site.name, phase: "revealed" })
-    const settings = resolveSiteSettings(map, site)
-    if (settings.optional && !settings.mystery && site.mile > mile) {
-      effects.push({
-        type: "sign",
-        variant: "info",
-        icon: site.icon,
-        title: `Coming up: ${site.name}`,
-        body: `${milesLabel(site.mile - mile)} · ${site.description}`,
-      })
-    }
-  }
-  return { state: next, log, effects }
-}
-
 // ---------------------------------------------------------------------------
 // Departure and lifecycle
 // ---------------------------------------------------------------------------
 
-export const depart: Transition = (state, { now, map }) => {
-  if (state.status !== "loaded") return null
-  const deadline = map.route.deadlineAt ? Date.parse(map.route.deadlineAt) : undefined
-  let next: TripState = {
-    ...state,
-    status: "driving",
-    departedAt: now,
-    // Drive time plus the stops expected if nobody votes, so a fresh trip reads "On target".
-    targetArrivalAt: deadline ?? now + map.route.driveMinutes * 60_000 + parkPlan(map).expectedMs,
-    blockers: state.blockers.filter((b) => b.kind !== "admin-pause"),
-  }
-  const startReveals = map.sites
-    .filter((site) => {
-      const { revealMiles } = resolveSiteSettings(map, site)
-      return revealMiles > 0 && site.mile - revealMiles <= 0
-    })
-    .map((site) => site.id)
-  const revealed = revealEvents(next, map, startReveals, 0)
-  next = revealed.state
-  return {
-    next,
-    log: [{ kind: "departed" }, ...revealed.log],
-    effects: [
-      {
-        type: "sign",
-        variant: "info",
-        icon: "🚐",
-        title: `On the road · ${map.title}`,
-        body: `${milesLabel(state.routeMiles)} to go.`,
-      },
-      ...revealed.effects,
-    ],
-  }
-}
+export const depart: Transition = dispatch({ type: "TRIP_DEPART" })
 
 export const pauseTrip: Transition = (state, { now }) => {
   if (state.status !== "driving") return null
@@ -238,113 +117,23 @@ export const gameSessionStarted: Transition = (state) => {
   }
 }
 
-/** Close polls, shops, pools, and incidents when the trip stops for good. */
-function closeOpenWork(state: TripState): { effects: TripEffect[]; next: TripState } {
-  const effects: TripEffect[] = []
-  const sites = { ...state.sites }
-  for (const [siteId, runtime] of Object.entries(state.sites)) {
-    if (runtime.phase === "polling" && runtime.pollId) {
-      effects.push({ type: "close-poll", pollId: runtime.pollId })
-      sites[siteId] = { ...runtime, phase: "ahead", pollId: undefined, pollOptionIds: undefined }
-    }
-    if (runtime.phase === "parked") {
-      sites[siteId] = { ...runtime, phase: "visited" }
-    }
-  }
-  if (state.shopScopeId) effects.push({ type: "close-shop", scopeId: state.shopScopeId })
-  if (state.fund?.mode === "voluntary") effects.push({ type: "close-pool", fundId: state.fund.id })
-  return {
-    effects,
-    next: {
-      ...state,
-      sites,
-      blockers: [],
-      speedFactors: [],
-      shopScopeId: undefined,
-      fund: undefined,
-      incident: undefined,
-      incidentQueue: [],
-    },
-  }
-}
-
-export const endTrip: Transition = (state, { now }) => {
-  if (state.status === "loaded" || state.status === "ended" || state.status === "stranded")
-    return null
-  const stranded = state.status === "driving"
-  const { effects, next } = closeOpenWork(state)
-  return {
-    next: { ...next, status: stranded ? "stranded" : "ended", endedAt: now },
-    log: [{ kind: stranded ? "stranded" : "ended" }],
-    effects: [
-      ...effects,
-      stranded
-        ? {
-            type: "sign",
-            variant: "warning",
-            icon: "🛑",
-            title: "Trip ended",
-            body: "The van never made it. Maybe next time.",
-          }
-        : { type: "sign", variant: "info", icon: "🏁", title: "Trip complete" },
-    ],
-  }
-}
+export const endTrip: Transition = dispatch({ type: "TRIP_END" })
 
 // ---------------------------------------------------------------------------
-// Sites
+// Sites: thin wrappers over the trip flow (ADR 0222)
 // ---------------------------------------------------------------------------
 
 export function revealSite(siteId: string): Transition {
-  return (state, { map, mile }) => {
-    if (state.status !== "driving") return null
-    const runtime = state.sites[siteId]
-    if (!runtime || runtime.revealed) return null
-    const site = findSite(map, siteId)
-    if (site && pullOffHold(state, map, site)) return null
-    const result = revealEvents(state, map, [siteId], mile)
-    return { next: result.state, log: result.log, effects: result.effects }
-  }
+  return dispatch({ type: "SITE_REVEAL", siteId })
 }
 
-export function markPolling(
-  siteId: string,
-  pollId: string,
-  optionIds: [string, string],
-): Transition {
-  return (state, { map, mile }) => {
-    if (state.status !== "driving") return null
-    const site = findSite(map, siteId)
-    const runtime = state.sites[siteId]
-    if (!site || runtime?.phase !== "ahead") return null
-    if (pullOffHold(state, map, site)) return null
-    let next = withSite(state, siteId, {
-      phase: "polling",
-      pollId,
-      pollOptionIds: optionIds,
-      pollRetryAt: undefined,
-    })
-    const log: TripLogEvent[] = []
-    const effects: TripEffect[] = []
-    // Normally the reveal fired a second earlier. When both came due at once
-    // (e.g. released from a pull-off hold), the poll reveals and signs it.
-    if (!resolveSiteSettings(map, site).mystery && !runtime.revealed) {
-      const revealed = revealEvents(next, map, [siteId], mile)
-      next = revealed.state
-      log.push(...revealed.log)
-      effects.push(...revealed.effects)
-    }
-    log.push({ kind: "site", siteId, name: site.name, phase: "poll" })
-    return { next, log, effects }
-  }
+/** The site's exit poll opened. Null (refused) means the plugin closes the poll again. */
+export function markPolling(siteId: string, pollId: string, optionIds: string[]): Transition {
+  return dispatch({ type: "VOTE_OPENED", target: { kind: "site", id: siteId }, pollId, optionIds })
 }
 
 export function deferPoll(siteId: string, retryAt: number): Transition {
-  return (state) => {
-    const runtime = state.sites[siteId]
-    if (state.status !== "driving" || runtime?.phase !== "ahead") return null
-    return { next: withSite(state, siteId, { pollRetryAt: retryAt }) }
-  }
+  return dispatch({ type: "VOTE_DEFERRED", target: { kind: "site", id: siteId }, retryAt })
 }
 
 export type SkipDecisionInput = {
@@ -352,274 +141,33 @@ export type SkipDecisionInput = {
   votes?: SkipVotes
   /** Only resolve if the site's open poll is this one (POLL_CLOSED path). */
   pollId?: string
-  /** Close the open poll as part of this decision (arrival path). */
-  closePoll?: boolean
-}
-
-function decide(
-  votes: SkipVotes | undefined,
-  fallback: "stop" | "skip",
-): { decision: "stop" | "skip"; defaulted: boolean } {
-  if (!votes || votes.stop === votes.skip) return { decision: fallback, defaulted: true }
-  return { decision: votes.stop > votes.skip ? "stop" : "skip", defaulted: false }
-}
-
-function applyDecision(
-  state: TripState,
-  ctx: TransitionContext,
-  site: TripSite,
-  input: SkipDecisionInput,
-): TransitionResult {
-  const { map } = ctx
-  const runtime = state.sites[site.id]!
-  const { decision, defaulted } = decide(input.votes, liveSkipDefault(state, map, site, ctx))
-  const effects: TripEffect[] = []
-  if (input.closePoll && runtime.phase === "polling" && runtime.pollId) {
-    effects.push({ type: "close-poll", pollId: runtime.pollId })
-  }
-  const patch: Partial<SiteRuntime> = {
-    phase: decision === "stop" ? "stopping" : "skipped",
-    pollId: undefined,
-    pollOptionIds: undefined,
-    pollRetryAt: undefined,
-    defaulted,
-  }
-  if (input.votes) patch.votes = input.votes
-  const next = withSite(state, site.id, patch)
-  const log: TripLogEvent[] = []
-  if (decision === "skip") {
-    log.push({
-      kind: "site",
-      siteId: site.id,
-      name: site.name,
-      phase: "skipped",
-      ...(input.votes ? { votes: input.votes } : {}),
-      defaulted,
-    })
-  }
-  if (input.votes) {
-    effects.push(pollResultSign(site, resolveSiteSettings(map, site).mystery, decision, input.votes))
-  }
-  return { next, log, effects }
-}
-
-/** The exit poll's outcome as a road sign; the poll card leaves on close (`resultsInChat`). */
-function pollResultSign(
-  site: TripSite,
-  mystery: boolean,
-  decision: "stop" | "skip",
-  votes: SkipVotes,
-): TripEffect {
-  const stop = decision === "stop"
-  const outcome = stop ? "The van pulls off." : "The van stays on the highway."
-  const tally = stop ? `${votes.stop}–${votes.skip}` : `${votes.skip}–${votes.stop}`
-  const body =
-    votes.stop + votes.skip === 0
-      ? `No votes. ${outcome}`
-      : votes.stop === votes.skip
-        ? `Tied ${tally}. ${outcome}`
-        : `The room voted ${tally} to ${stop ? "stop" : "keep going"}.`
-  if (stop) {
-    return {
-      type: "sign",
-      variant: "info",
-      icon: "CornerUpRight",
-      title: mystery ? "Taking the exit" : `Taking the exit for ${site.name}`,
-      body,
-    }
-  }
-  return {
-    type: "sign",
-    variant: "info",
-    icon: "MoveUp",
-    title: mystery ? "Kept driving" : `Kept driving past ${site.name}`,
-    body,
-  }
 }
 
 /** Resolve an optional site's skip decision (poll closed, or no poll could run). */
 export function resolveSkip(siteId: string, input: SkipDecisionInput = {}): Transition {
-  return (state, ctx) => {
-    if (state.status !== "driving") return null
-    const site = findSite(ctx.map, siteId)
-    const runtime = state.sites[siteId]
-    if (!site || !runtime) return null
-    if (runtime.phase !== "ahead" && runtime.phase !== "polling") return null
-    if (input.pollId !== undefined && runtime.pollId !== input.pollId) return null
-    return applyDecision(state, ctx, site, input)
-  }
+  return dispatch({
+    type: "VOTE_CLOSED",
+    target: { kind: "site", id: siteId },
+    ...(input.pollId !== undefined ? { pollId: input.pollId } : {}),
+    ...(input.votes ? { tally: [input.votes.stop, input.votes.skip] } : {}),
+  })
 }
 
 export type ArrivalOptions = {
+  /** The open exit poll's counts; otherwise read from `ctx.tallies`. */
   votes?: SkipVotes
-}
-
-/** Open a gas fund step when the van parks at a gas site with room in the tank (M2). */
-function openGasFund(
-  state: TripState,
-  ctx: TransitionContext,
-  site: TripSite,
-): { fund: TripFund; blocker: Blocker; effect: TripEffect; summary: string } | null {
-  const price = site.services?.gas?.pricePerGallon
-  if (price === undefined || isDestination(site)) return null
-  const tank = Math.max(0, gallonsLeft(state, ctx.gallonsUsed))
-  const gallons = Math.max(0, state.tankGallons - tank)
-  const cost = gasCost(gallons, price, ctx.costScale)
-  if (cost <= 0) return null
-  const mode = state.fundsMode
-  const holdMs =
-    mode === "automatic" ? AUTOMATIC_FUND_HOLD_MS : ctx.map.tuning.funds.windowMinutes * 60_000
-  const id = `fund:${state.tripId}:${site.id}:${ctx.now}`
-  const fund: TripFund = {
-    id,
-    purpose: "gas",
-    mode,
-    siteId: site.id,
-    cost,
-    gallons,
-    openedAt: ctx.now,
-    endsAt: ctx.now + holdMs,
-  }
-  const gal = Math.round(gallons * 10) / 10
-  return {
-    fund,
-    blocker: {
-      id: `fund:${site.id}`,
-      kind: "fund",
-      since: ctx.now,
-      until: fund.endsAt,
-      siteId: site.id,
-    },
-    effect: { type: "open-fund", fund, title: `Gas at ${site.name}` },
-    summary:
-      mode === "automatic"
-        ? `Pumping ${gal} gal: ${cost} coins.`
-        : `${gal} gal for ${cost} coins. Chip in!`,
-  }
-}
-
-function park(state: TripState, ctx: TransitionContext, site: TripSite): TransitionResult {
-  const { map, now } = ctx
-  const runtime = state.sites[site.id]!
-  const settings = resolveSiteSettings(map, site)
-  const until = now + settings.parkMs
-  const blocker: Blocker = {
-    id: `park:${site.id}`,
-    kind: "parked",
-    since: now,
-    until,
-    siteId: site.id,
-  }
-  const shop = openShopAt(state, site)
-  // Exit sign, then narrative, then the shop opens (its opening line last).
-  const effects: TripEffect[] = [...shop.close]
-  const gas = state.fund ? null : openGasFund(state, ctx, site)
-  const minutes = Math.round(settings.parkMs / 60_000)
-  effects.push({
-    type: "sign",
-    variant: gas ? "success" : "info",
-    icon: site.icon,
-    title: exitTitle(site),
-    body: gas
-      ? `Parked for ${minutes} min. ${gas.summary}`
-      : shop.scopeId
-        ? `Parked for ${minutes} min. ${siteShopTitle(site)} is open.`
-        : `Parked for ${minutes} min. ${site.description}`,
-  })
-  const narrative = narrate(site)
-  if (narrative) effects.push(narrative)
-  effects.push(...shop.open)
-  if (gas) effects.push(gas.effect)
-  const blockers = [...state.blockers.filter((b) => b.kind !== "parked"), blocker]
-  if (gas) blockers.push(gas.blocker)
-  const next: TripState = {
-    ...withSite(state, site.id, {
-      phase: "parked",
-      revealed: true,
-      visitedAt: now,
-    }),
-    blockers,
-    shopScopeId: shop.scopeId,
-    ...(gas ? { fund: gas.fund } : {}),
-  }
-  const log: TripLogEvent[] = []
-  if (!runtime.revealed)
-    log.push({ kind: "site", siteId: site.id, name: site.name, phase: "revealed" })
-  log.push({
-    kind: "site",
-    siteId: site.id,
-    name: site.name,
-    phase: "stopped",
-    ...(runtime.votes ? { votes: runtime.votes } : {}),
-    ...(runtime.defaulted !== undefined ? { defaulted: runtime.defaulted } : {}),
-  })
-  return { next, log, effects }
-}
-
-function arriveDestination(
-  state: TripState,
-  map: TripMap,
-  site: TripSite,
-  now: number,
-): TransitionResult {
-  const deadline = map.route.deadlineAt
-  const late = deadline !== undefined && now > Date.parse(deadline)
-  const closed = closeOpenWork(state)
-  const runtime = closed.next.sites[site.id]!
-  const sites = {
-    ...closed.next.sites,
-    [site.id]: { ...runtime, phase: "visited" as const, revealed: true, visitedAt: now },
-  }
-  const log: TripLogEvent[] = []
-  if (!runtime.revealed)
-    log.push({ kind: "site", siteId: site.id, name: site.name, phase: "revealed" })
-  log.push(late ? { kind: "late", deadlineAt: deadline } : { kind: "arrived" })
-  const narrative = narrate(site)
-  return {
-    next: { ...closed.next, status: late ? "late" : "arrived", arrivedAt: now, sites },
-    log,
-    effects: [
-      ...closed.effects,
-      {
-        type: "sign",
-        variant: late ? "warning" : "info",
-        icon: site.icon,
-        title: late ? `Made it to ${site.name} · late` : `Made it to ${site.name}`,
-        body: site.description,
-      },
-      ...(narrative ? [narrative] : []),
-      { type: "nudge-host" },
-    ],
-  }
 }
 
 /** The van reached a site's mile. Resolves an undecided skip first, then parks or drives past. */
 export function arriveAtSite(siteId: string, input: ArrivalOptions = {}): Transition {
+  const arrive = dispatch({ type: "SITE_ARRIVE", siteId })
   return (state, ctx) => {
-    if (state.status !== "driving") return null
-    const site = findSite(ctx.map, siteId)
-    const runtime = state.sites[siteId]
-    if (!site || !runtime) return null
-    if (ctx.mile < site.mile - ARRIVAL_MILE_EPSILON) return null
-    // Already parked at another site: this arrival waits. The van is stopped,
-    // so the threshold re-arms when the park ends and the site is reached then.
-    if (state.blockers.some((b) => b.kind === "parked" && b.siteId !== siteId)) return null
-    // A tow carries the van past sites; the tow's own arrival handles the Mechanic.
-    if (state.incident?.steps[state.incident.step]?.kind === "tow") return null
-    if (isDestination(site)) return arriveDestination(state, ctx.map, site, ctx.now)
-
-    if (runtime.phase === "ahead" || runtime.phase === "polling") {
-      const decided = applyDecision(state, ctx, site, { votes: input.votes, closePoll: true })
-      if (decided.next.sites[siteId]?.phase !== "stopping") return decided
-      const parked = park(decided.next, ctx, site)
-      return {
-        next: parked.next,
-        log: [...(decided.log ?? []), ...(parked.log ?? [])],
-        effects: [...(decided.effects ?? []), ...(parked.effects ?? [])],
-      }
-    }
-    if (runtime.phase === "stopping") return park(state, ctx, site)
-    return null
+    const pollId = state.sites[siteId]?.vote?.pollId
+    if (!input.votes || !pollId) return arrive(state, ctx)
+    return arrive(state, {
+      ...ctx,
+      tallies: { ...ctx.tallies, [pollId]: [input.votes.stop, input.votes.skip] },
+    })
   }
 }
 
@@ -634,12 +182,22 @@ export function finishPark(siteId?: string): Transition {
     if (!site) return null
     const effects: TripEffect[] = []
     if (state.shopScopeId) effects.push({ type: "close-shop", scopeId: state.shopScopeId })
-    const next: TripState = {
-      ...withSite(state, site.id, { phase: "visited" }),
-      blockers: state.blockers.filter((b) => b.id !== blocker.id),
-      shopScopeId: undefined,
-    }
+    const left = flow(
+      {
+        next: {
+          ...state,
+          blockers: state.blockers.filter((b) => b.id !== blocker.id),
+          shopScopeId: undefined,
+        },
+        log: [],
+        effects,
+      },
+      ctx,
+      { type: "SITE_LEAVE", siteId: site.id },
+    )
+    const next = left.next
     const log: TripLogEvent[] = [
+      ...left.log,
       { kind: "site", siteId: site.id, name: site.name, phase: "departed" },
     ]
     const queued = startQueuedIncident(next, ctx)
@@ -647,12 +205,12 @@ export function finishPark(siteId?: string): Transition {
       return {
         next: queued.next,
         log: [...log, ...(queued.log ?? [])],
-        effects: [...effects, ...(queued.effects ?? [])],
+        effects: [...left.effects, ...(queued.effects ?? [])],
       }
     }
     // A gas fund still holding the van announces the departure when it resolves.
-    if (state.status === "driving" && !next.fund) effects.push(BACK_ON_THE_ROAD)
-    return { next, log, effects }
+    const tail: TripEffect[] = state.status === "driving" && !next.fund ? [BACK_ON_THE_ROAD] : []
+    return { next, log, effects: [...left.effects, ...tail] }
   }
 }
 

@@ -1,12 +1,17 @@
 import type { ItemDefinition, LucideIconName } from "@repo/types"
 import {
   EVENT_FAMILY_LABELS,
+  tripGuideItem,
+  TRIP_GUIDE_ITEMS,
   vanConsumable,
   vanPart,
   VAN_CONSUMABLES,
   VAN_ITEM_IDS,
   VAN_PARTS,
+  type TripMap,
 } from "@repo/road-trip-map"
+import { contextFor } from "../trip/commit"
+import { guideRevealTargets, nextLockedLayer } from "../trip/guide"
 import { itemEndsCurrentStep } from "../trip/incidents"
 import type { TripState } from "../trip/state"
 
@@ -20,6 +25,8 @@ const ICONS: Record<string, LucideIconName> = {
   [VAN_ITEM_IDS.aaa]: "CreditCard",
   [VAN_ITEM_IDS.fixAFlat]: "SprayCan",
   [VAN_ITEM_IDS.cbRadio]: "Radio",
+  [VAN_ITEM_IDS.localMap]: "Map",
+  [VAN_ITEM_IDS.tripGuide]: "BookOpen",
 }
 
 /**
@@ -69,18 +76,57 @@ export const ROAD_TRIP_ITEM_DEFINITIONS: RoadTripItemDefinition[] = [
       ...modelFields(item.shortId),
     }),
   ),
+  ...TRIP_GUIDE_ITEMS.map(
+    (item): RoadTripItemDefinition => ({
+      shortId: item.shortId,
+      name: item.name,
+      description: item.description,
+      icon: ICONS[item.shortId],
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: true,
+      coinValue: item.coinValue,
+      rarity: "common",
+      ...modelFields(item.shortId),
+    }),
+  ),
 ]
 
 export type RoadTripItemUse =
   | { kind: "install"; partId: string }
   | { kind: "resolve"; shortId: string }
+  /** Local Map: unlock the next layer that lists it (ADR 0222). */
+  | { kind: "unlock-layer"; shortId: string }
+  /** Trip Guide: reveal the non-secret sites ahead (ADR 0222). */
+  | { kind: "reveal-ahead"; shortId: string }
   | { kind: "refused"; message: string }
 
 /**
  * What using `shortId` does right now, or why it can't (the item is kept).
- * Checked before the CAS for the message; the transition re-checks.
+ * Checked before the CAS for the message; the transition re-checks. `map` is
+ * the authored map.
  */
-export function routeItemUse(state: TripState | null, shortId: string): RoadTripItemUse {
+export function routeItemUse(
+  state: TripState | null,
+  shortId: string,
+  map?: TripMap,
+  now = Date.now(),
+): RoadTripItemUse {
+  const guide = tripGuideItem(shortId)
+  if (guide) {
+    const idle: RoadTripItemUse = { kind: "refused", message: guide.idle }
+    if (!state || !map || (state.status !== "loaded" && state.status !== "driving")) {
+      return { kind: "refused", message: "Save it for a trip." }
+    }
+    if (guide.effect === "unlock-layer") {
+      return nextLockedLayer(state, map, shortId) ? { kind: "unlock-layer", shortId } : idle
+    }
+    if (state.status !== "driving") return { kind: "refused", message: "Save it for the road." }
+    return guideRevealTargets(state, contextFor(state, map, now)).length > 0
+      ? { kind: "reveal-ahead", shortId }
+      : idle
+  }
   const part = vanPart(shortId)
   if (part) {
     if (!state || (state.status !== "loaded" && state.status !== "driving")) {

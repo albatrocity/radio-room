@@ -177,6 +177,33 @@ export type EventEffect = z.infer<typeof eventEffectSchema>
 
 export const incidentFundPurposeSchema = z.enum(["roadside", "tow", "repair", "delivery"])
 
+/** `"main"` names `map.route`; alternate routes use their own ids (ADR 0222). */
+export const MAIN_ROUTE_ID = "main" as const
+
+/**
+ * A state change a site visit, event, choice option, or item applies (ADR 0222).
+ * Closed list, applied in order by the trip flow's `outcomes.ts` only.
+ */
+export const tripOutcomeSchema = z.discriminatedUnion("kind", [
+  /** Make a layer's sites and events ahead of the van live. */
+  z.object({ kind: z.literal("unlock"), layer: siteIdSchema }),
+  /** Make a layer inert again; commitments (a decided stop, a running event) carry on. */
+  z.object({ kind: z.literal("lock"), layer: siteIdSchema }),
+  /** Decide a fork ahead as "take". */
+  z.object({ kind: z.literal("divert"), route: siteIdSchema }),
+])
+export type TripOutcome = z.infer<typeof tripOutcomeSchema>
+export const tripOutcomesSchema = z.array(tripOutcomeSchema).max(8)
+
+export const choiceOptionSchema = z.object({
+  id: siteIdSchema,
+  label: z.string().min(1).max(60),
+  outcomes: tripOutcomesSchema.default([]),
+  /** Chat prose posted when this option wins. */
+  narrative: z.string().max(2000).optional(),
+})
+export type ChoiceOption = z.infer<typeof choiceOptionSchema>
+
 const eventMinutesSchema = z.number().positive().max(60)
 const eventLabelSchema = z.string().min(1).max(60)
 const eventCostSchema = z.number().min(0).max(100_000)
@@ -224,6 +251,17 @@ export const eventResolutionSchema = z.discriminatedUnion("kind", [
     waitMinutes: eventMinutesSchema.optional(),
     status: z.string().min(1).max(40).optional(),
   }),
+  /**
+   * A room vote whose winning option applies outcomes (ADR 0222). On a stop it
+   * holds the van; a slow step hosts it; with no effect the van keeps driving.
+   */
+  z.object({
+    kind: z.literal("choice"),
+    question: z.string().min(1).max(120),
+    seconds: z.number().int().min(10).max(600).optional(),
+    default: siteIdSchema,
+    options: z.array(choiceOptionSchema).min(2).max(4),
+  }),
 ])
 export type EventResolution = z.infer<typeof eventResolutionSchema>
 
@@ -259,6 +297,12 @@ export const tripEventSchema = z.object({
   durationMinutes: eventMinutesSchema.optional(),
   resolution: z.array(eventResolutionSchema).max(8).optional(),
   beats: z.array(eventBeatSchema).max(8).optional(),
+  /** The route its `mile` is on (default `main`); the mile is local to that route. */
+  route: siteIdSchema.optional(),
+  /** Inert until this layer unlocks. */
+  layer: siteIdSchema.optional(),
+  /** Applied when the event starts. */
+  outcomes: tripOutcomesSchema.optional(),
 })
 export type TripEvent = z.infer<typeof tripEventSchema>
 
@@ -289,8 +333,70 @@ export const siteSchema = z.object({
   parkMinutes: z.number().positive().max(60).optional(),
   shop: siteShopSchema.optional(),
   services: siteServicesSchema.optional(),
+  /** The route its `mile` is on (default `main`); the mile is local to that route. */
+  route: siteIdSchema.optional(),
+  /** Inert until this layer unlocks. */
+  layer: siteIdSchema.optional(),
+  /** Applied when the van parks here. */
+  onVisit: tripOutcomesSchema.optional(),
 })
 export type TripSite = z.infer<typeof siteSchema>
+
+/** A named group of sites and events, inert until unlocked (ADR 0222). */
+export const tripLayerSchema = z.object({
+  id: siteIdSchema,
+  name: z.string().min(1).max(60),
+  icon: z.string().min(1).max(16),
+  /** Sign body when it unlocks. */
+  unlockedNarrative: z.string().max(500).optional(),
+  /** Sign body when it locks. */
+  lockedNarrative: z.string().max(500).optional(),
+  /** Item short ids that unlock it on use (e.g. `local-map`). */
+  unlockItems: z.array(z.string().min(1).max(64)).max(4).optional(),
+})
+export type TripLayer = z.infer<typeof tripLayerSchema>
+
+export const junctionDecisionSchema = z.enum(["take", "stay"])
+export type JunctionDecision = z.infer<typeof junctionDecisionSchema>
+
+/**
+ * Alternate geometry that forks off a parent route (ADR 0222). It rejoins a
+ * route at a mile (the fork mile on the parent = "return") or ends at its own
+ * destination. The van is on one route at a time.
+ */
+export const tripAltRouteSchema = z.object({
+  id: siteIdSchema.refine((id) => id !== MAIN_ROUTE_ID, `"${MAIN_ROUTE_ID}" names map.route`),
+  name: z.string().min(1).max(60),
+  icon: z.string().min(1).max(16).optional(),
+  /** Its own length, authored in minutes at the map's base speed (ADR 0207 d3). */
+  driveMinutes: z
+    .number()
+    .positive()
+    .max(24 * 60),
+  from: z.object({ route: siteIdSchema.optional(), mile: z.number().min(0) }),
+  end: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("rejoin"),
+      route: siteIdSchema.optional(),
+      mile: z.number().min(0),
+    }),
+    z.object({ kind: z.literal("destination") }),
+  ]),
+  /** The fork exists only while this layer is unlocked. */
+  layer: siteIdSchema.optional(),
+  entry: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("vote"),
+      question: z.string().min(1).max(120).optional(),
+      leadMinutes: z.number().positive().max(30).optional(),
+      default: junctionDecisionSchema.default("stay"),
+      mystery: z.boolean().optional(),
+    }),
+    /** Only a `divert` outcome takes it. */
+    z.object({ kind: z.literal("outcome") }),
+  ]),
+})
+export type TripAltRoute = z.infer<typeof tripAltRouteSchema>
 
 export const tripRouteSchema = z.object({
   driveMinutes: z
@@ -368,6 +474,8 @@ export const tripMapSchema = z.object({
   }),
   sites: z.array(siteSchema).min(1).max(64),
   events: z.array(tripEventSchema).max(32).optional(),
+  layers: z.array(tripLayerSchema).max(8).optional(),
+  routes: z.array(tripAltRouteSchema).max(8).optional(),
 })
 
 /** A parsed map with defaults applied. */

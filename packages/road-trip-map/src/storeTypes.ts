@@ -45,6 +45,19 @@ export type TripStoreSite = {
   defaulted?: boolean
 }
 
+/**
+ * A fork the room is voting on or has decided (ADR 0222). Sent only once its
+ * vote opens; a mystery fork carries no name.
+ */
+export type TripStoreJunction = {
+  routeId: string
+  mile: number
+  state: "polling" | "take" | "stay"
+  name?: string
+  icon?: string
+  votes?: [number, number]
+}
+
 export type TripFundPurpose = "gas" | IncidentFundPurpose
 
 export type TripStoreLive =
@@ -135,6 +148,10 @@ export type TripStore = {
   mapTitle: string
   routeMiles: number
   sites: TripStoreSite[]
+  /** Forks ahead whose vote has opened (ADR 0222). */
+  junctions?: TripStoreJunction[]
+  /** The alternate route the van is on; absent on the main road. */
+  route?: { id: string; name: string; icon?: string }
   /** Interpolation anchor: `mile = anchorMile + mph × (now − anchorAt)`. */
   van: { anchorAt: number; anchorMile: number; mph: number }
   fuel: TripStoreFuel

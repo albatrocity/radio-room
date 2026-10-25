@@ -1,6 +1,8 @@
 import type {
+  PathMap,
   TripMap,
   TripStore,
+  TripStoreJunction,
   TripStoreIncident,
   TripStoreLive,
   TripStoreSite,
@@ -9,8 +11,10 @@ import type {
   VanFactor,
 } from "@repo/road-trip-map"
 import {
+  altRoute,
   compileVan,
   FUND_PURPOSE_LABELS,
+  MAIN_ROUTE_ID,
   isDestination,
   isGasSite,
   isSecretSite,
@@ -25,6 +29,7 @@ import {
   type StopDecision,
 } from "@repo/road-trip-map"
 import { describeVanEvent } from "./describeEvent"
+import { currentLeg, pathFor } from "./flow"
 import { hasSiteShop, nextSiteAhead, siteNarrative } from "./helpers"
 import { MS_PER_HOUR, project, type Leg } from "./ledger"
 import {
@@ -48,21 +53,28 @@ export type TripStoreExtras = {
   log?: TripLogEntry[]
 }
 
-/** Client projection of the trip (M7 store payload). Pure. */
+/**
+ * Client projection of the trip (M7 store payload). Pure. Linear and
+ * spoiler-safe (ADR 0222): miles are odometer miles along the van's path,
+ * locked layers and untaken routes are never sent, bypassed sites are dropped.
+ * `source` is the authored map.
+ */
 export function buildTripStore(
   state: TripState,
-  map: TripMap,
+  source: TripMap,
   current: Leg,
   now: number,
   extras: TripStoreExtras = { costScale: 1 },
 ): TripStore {
+  const path = pathFor(state, source)
+  const map = path.map
   const anchorMile = Math.min(state.routeMiles, project(current, now).mile)
   const anchorGallons = tankAt(state, current, now)
   const sites: TripStoreSite[] = []
   let visitedCount = 0
   for (const site of sortedSites(map)) {
     const runtime = state.sites[site.id]
-    if (!runtime) continue
+    if (!runtime || runtime.phase === "bypassed") continue
     if (runtime.visitedAt !== undefined) visitedCount++
     if (!runtime.revealed) {
       if (isSecretSite(site)) continue
@@ -101,6 +113,8 @@ export function buildTripStore(
     mapTitle: state.map.title,
     routeMiles: state.routeMiles,
     sites,
+    ...junctionMarkers(state, source, path.forks),
+    ...routeOf(state, source),
     van: { anchorAt: now, anchorMile, mph: current.mph },
     fuel: {
       anchorAt: now,
@@ -119,7 +133,10 @@ export function buildTripStore(
     },
     vanSheet: buildVanSheet(state, now),
     visitedCount,
-    siteCount: map.sites.filter((s) => !isSecretSite(s) || state.sites[s.id]?.revealed).length,
+    siteCount: map.sites.filter(
+      (s) =>
+        state.sites[s.id]?.phase !== "bypassed" && (!isSecretSite(s) || state.sites[s.id]?.revealed),
+    ).length,
   }
   const live = liveContext(state, map, now, extras)
   if (live) store.live = live
@@ -134,6 +151,38 @@ export function buildTripStore(
   })
   if (events.length > 0) store.events = events
   return store
+}
+
+/** Forks whose vote has opened or decided, never earlier (spoiler-safe). */
+function junctionMarkers(
+  state: TripState,
+  source: TripMap,
+  forks: { routeId: string; odometer: number }[],
+): { junctions?: TripStoreJunction[] } {
+  const junctions = forks.flatMap((fork): TripStoreJunction[] => {
+    const runtime = state.junctions[fork.routeId]
+    const route = altRoute(source, fork.routeId)
+    if (!runtime || !route) return []
+    if (runtime.phase !== "polling" && runtime.phase !== "take" && runtime.phase !== "stay") return []
+    const mystery = route.entry.kind === "vote" && route.entry.mystery === true
+    const marker: TripStoreJunction = { routeId: route.id, mile: fork.odometer, state: runtime.phase }
+    if (!mystery || runtime.phase === "take") {
+      marker.name = route.name
+      if (route.icon) marker.icon = route.icon
+    }
+    if (runtime.votes) marker.votes = runtime.votes
+    return [marker]
+  })
+  return junctions.length > 0 ? { junctions } : {}
+}
+
+function routeOf(state: TripState, source: TripMap): { route?: TripStore["route"] } {
+  const leg = currentLeg(state)
+  if (!leg || leg.route === MAIN_ROUTE_ID) return {}
+  const route = altRoute(source, leg.route)
+  return route
+    ? { route: { id: route.id, name: route.name, ...(route.icon ? { icon: route.icon } : {}) } }
+    : {}
 }
 
 /** Van tab: parts by slot, the factors shaping speed and burn, and the incident in progress. */
@@ -255,7 +304,7 @@ function liveContext(
  */
 export function projectArrival(
   state: TripState,
-  map: TripMap,
+  map: PathMap,
   mile: number,
   now: number,
   gallons: number,
@@ -319,10 +368,11 @@ const STATUS_LABEL: Record<TripState["status"], string> = {
 
 export function buildStatusLines(
   state: TripState,
-  map: TripMap,
+  source: TripMap,
   store: TripStore,
   extraWarnings: string[] = [],
 ): TripStatusLines {
+  const map = pathFor(state, source).map
   const mile = store.van.anchorMile
   const progress = `${STATUS_LABEL[state.status]} · ${map.title} · ${round1(mile)} / ${round1(state.routeMiles)} mi · ${store.visitedCount} / ${store.siteCount} visited`
 

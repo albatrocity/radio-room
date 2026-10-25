@@ -131,7 +131,23 @@ function describe(
         return `${icon} ${entry.name}: stopped${voteNote(entry.votes, entry.defaulted, "stop")}`
       if (entry.phase === "skipped")
         return `${icon} ${entry.name}: skipped${voteNote(entry.votes, entry.defaulted, "skip")}`
+      if (entry.phase === "bypassed") return `${icon} ${entry.name}: off the route`
       return null
+    }
+    case "layer":
+      return entry.phase === "unlocked" ? `🗺️ ${entry.name} unlocked` : `🗺️ ${entry.name} closed`
+    case "junction":
+      if (entry.phase === "taken") return `🛣️ Turned onto ${entry.name}`
+      if (entry.phase === "rejoined") return `🛣️ ${entry.name} rejoined the road`
+      if (entry.phase === "take" || entry.phase === "stay") {
+        const tally = entry.votes ? ` (${entry.votes[0]}–${entry.votes[1]})` : ""
+        const defaulted = entry.defaulted ? ", by default" : ""
+        return `🛣️ ${entry.name}: ${entry.phase === "take" ? "take it" : "stay"}${tally}${defaulted}`
+      }
+      return null
+    case "choice": {
+      const defaulted = entry.defaulted ? " (by default)" : ""
+      return `🗳️ ${entry.question} ${entry.label}${defaulted}`
     }
     case "pause":
       return entry.reason === "admin" ? "⏸ Paused by the host" : "⏸ Paused: no game session"

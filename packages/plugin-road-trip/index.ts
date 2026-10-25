@@ -23,11 +23,9 @@ import {
   INCIDENT_PRESETS,
   isDestination,
   parseTripMap,
-  resolveSiteSettings,
   resolveTripTuning,
   siteOpenRoomShopRequest,
   siteShopRequest,
-  skipPollQuestion,
   triggerableIncidentIdSchema,
   type TripMap,
   type TripStore,
@@ -37,24 +35,27 @@ import packageJson from "./package.json"
 import { getComponentSchema, getConfigSchema } from "./schema"
 import {
   PLUGIN_NAME,
-  POLL_CLOSE_BEFORE_EXIT_MS,
-  POLL_GIVE_UP_BEFORE_EXIT_MS,
-  POLL_MIN_DURATION_MS,
   POLL_RETRY_MS,
   ROAD_TRIP_TAB_ID,
-  SKIP_POLL_OPTIONS,
   defaultRoadTripConfig,
   roadTripConfigSchema,
   type RoadTripConfig,
 } from "./types"
-import { applyTransition, type AppliedTransition } from "./trip/commit"
-import { PARKED_AT_START, project, timeToMile } from "./trip/ledger"
+import { applyTransition, contextFor, type AppliedTransition } from "./trip/commit"
+import {
+  dispatch,
+  findVoteByPoll,
+  openVoteTargets,
+  pathFor,
+  VOTE_SPECS,
+  type VoteTarget,
+} from "./trip/flow"
+import { PARKED_AT_START } from "./trip/ledger"
 import { buildStatusLines, buildTripStore, type TripStatusLines } from "./trip/projection"
 import {
   createTripState,
   TRIP_STORAGE_KEYS,
   type FundPayment,
-  type SkipVotes,
   type StoredTripMap,
   type TripFund,
   type TripState,
@@ -69,7 +70,6 @@ import {
 } from "./trip/thresholds"
 import {
   arriveAtSite,
-  deferPoll,
   depart,
   endTrip,
   expireBlocker,
@@ -78,16 +78,11 @@ import {
   fuelThreshold,
   gameSessionEnded,
   gameSessionStarted,
-  gasUrgency,
-  liveSkipDefault,
-  markPolling,
   pauseTrip,
-  pullOffHold,
   extendFundHold,
   recordLevy,
   resolveFund,
   startLevy,
-  resolveSkip,
   resumeTrip,
   revealSite,
   setFundsMode,
@@ -105,9 +100,10 @@ import {
   triggerIncident,
   useIncidentItem,
 } from "./trip/incidents"
+import { revealAhead, unlockNextLayer } from "./trip/guide"
 import { LEVY_RETRY_MS, LEVY_STALE_MS, tripNarrative } from "./trip/helpers"
 import { formatTripTimelineMarkdown } from "./export/formatTripTimelineMarkdown"
-import { poolCardView, skipPollPresentation } from "./presenters"
+import { poolCardView } from "./presenters"
 
 export { poolCardView, skipPollPresentation } from "./presenters"
 
@@ -198,8 +194,11 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     context.inventory.registerItemDefinitions(ROAD_TRIP_ITEM_DEFINITIONS)
     const kinds: ThresholdKind[] = [
       "reveal",
+      "vote-due",
       "skip-poll",
       "arrive",
+      "junction",
+      "route-end",
       "expire",
       "fuel",
       "incident",
@@ -281,16 +280,18 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
    */
   private async mutateTrip(transition: Transition): Promise<TripState | null> {
     if (!this.context) return null
-    const stored = await this.mapFor(await this.trips.readState())
-    if (!stored) return null
+    const before = await this.trips.readState()
+    const stored = await this.mapFor(before)
+    if (!stored || !before) return null
     const costScale = await this.costScale()
+    const tallies = await this.openTallies(before)
     const now = Date.now()
     let applied: AppliedTransition | null = null
     try {
       await this.trips.updateState((prev) => {
         applied = null
         if (!prev || prev.map.hash !== stored.hash) throw new NoTripError()
-        applied = applyTransition(prev, transition, stored.map, now, costScale)
+        applied = applyTransition(prev, transition, stored.map, now, costScale, tallies)
         return applied ? applied.next : prev
       })
     } catch (error) {
@@ -306,6 +307,23 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     await this.runEffects(result.effects, stored.map, result.next)
     await this.settle()
     return result.next
+  }
+
+  /**
+   * Counts of every open room poll a vote holds, by option order, read before
+   * the CAS: the only vote I/O a transition needs (arrival, tow, timeouts).
+   * The room has one poll at a time, so this is at most one read.
+   */
+  private async openTallies(state: TripState): Promise<Record<string, number[]> | undefined> {
+    if (!this.context) return undefined
+    const tallies: Record<string, number[]> = {}
+    for (const target of openVoteTargets(state)) {
+      const vote = VOTE_SPECS[target.kind].read(state, target)
+      if (!vote?.pollId || !vote.optionIds) continue
+      const tally = await this.context.polls.tallyPoll(vote.pollId)
+      tallies[vote.pollId] = vote.optionIds.map((id) => tally[id] ?? 0)
+    }
+    return Object.keys(tallies).length > 0 ? tallies : undefined
   }
 
   /**
@@ -400,6 +418,9 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
           }
           case "nudge-host":
             await this.nudgeHost(map, state)
+            break
+          case "open-vote":
+            await this.openVote(state.tripId, effect.target)
             break
           case "open-fund":
             await this.openFund(effect.fund, effect.title, state.tripId)
@@ -658,7 +679,8 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     definition: ItemDefinition,
   ): Promise<ItemUseResult> {
     const state = await this.trips.readState()
-    const route = routeItemUse(state, definition.shortId)
+    const stored = await this.mapFor(state)
+    const route = routeItemUse(state, definition.shortId, stored?.map)
     if (route.kind === "refused" || !state) {
       return {
         success: false,
@@ -668,14 +690,15 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     }
     const name = (await this.usernames([userId])).get(userId) ?? "Someone"
     const traveler = { userId, name }
-    const saved = await this.mutateTrip(
-      this.forTrip(
-        state.tripId,
-        route.kind === "install"
-          ? installPart(route.partId, traveler)
-          : useIncidentItem(route.shortId, traveler),
-      ),
-    )
+    const transition =
+      route.kind === "install"
+        ? installPart(route.partId, traveler)
+        : route.kind === "unlock-layer"
+          ? unlockNextLayer(route.shortId, traveler)
+          : route.kind === "reveal-ahead"
+            ? revealAhead(route.shortId, traveler)
+            : useIncidentItem(route.shortId, traveler)
+    const saved = await this.mutateTrip(this.forTrip(state.tripId, transition))
     if (!saved) {
       return { success: false, consumed: false, message: "Too late: nothing to use it on now." }
     }
@@ -843,8 +866,21 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   }
 
   private async runThreshold(kind: ThresholdKind, payload: ThresholdPayload): Promise<void> {
-    const { tripId, siteId, blockerId, level, incidentId, step, eventId, beat } = payload
+    const { tripId, siteId, routeId, blockerId, level, incidentId, step, eventId, beat } = payload
     switch (kind) {
+      case "vote-due":
+      case "skip-poll":
+        if (routeId) await this.openVote(tripId, { kind: "junction", id: routeId })
+        else if (siteId) await this.openVote(tripId, { kind: "site", id: siteId })
+        return
+      case "junction":
+        if (routeId)
+          await this.mutateTrip(this.forTrip(tripId, dispatch({ type: "JUNCTION_REACH", routeId })))
+        return
+      case "route-end":
+        if (routeId)
+          await this.mutateTrip(this.forTrip(tripId, dispatch({ type: "ROUTE_END", routeId })))
+        return
       case "beat":
         if (eventId && beat !== undefined)
           await this.mutateTrip(this.forTrip(tripId, fireBeat(eventId, beat)))
@@ -866,10 +902,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
         if (blockerId) await this.handleExpire(tripId, blockerId)
         return
       case "arrive":
-        if (siteId) await this.handleArrive(tripId, siteId)
-        return
-      case "skip-poll":
-        if (siteId) await this.handleSkipPoll(tripId, siteId)
+        if (siteId) await this.mutateTrip(this.forTrip(tripId, arriveAtSite(siteId)))
         return
     }
   }
@@ -888,83 +921,57 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     await this.mutateTrip(this.forTrip(tripId, expireBlocker(blockerId)))
   }
 
-  private async handleArrive(tripId: string, siteId: string): Promise<void> {
-    const state = await this.trips.readState()
-    const runtime = state?.tripId === tripId ? state.sites[siteId] : undefined
-    let votes: SkipVotes | undefined
-    if (runtime?.phase === "polling" && runtime.pollId && runtime.pollOptionIds) {
-      const tally = await this.context!.polls.tallyPoll(runtime.pollId)
-      votes = {
-        stop: tally[runtime.pollOptionIds[0]] ?? 0,
-        skip: tally[runtime.pollOptionIds[1]] ?? 0,
-      }
-    }
-    await this.mutateTrip(this.forTrip(tripId, arriveAtSite(siteId, votes ? { votes } : {})))
-  }
-
-  /** Open a site's skip poll, deferring around other polls until 15s before the exit (M1). */
-  private async handleSkipPoll(tripId: string, siteId: string): Promise<void> {
+  /**
+   * Open a vote's room poll (ADR 0222): sites, junctions, and event choices
+   * alike. Copy and timing come from the vote's spec; a busy room retries
+   * until the spec's give-up time, then the default applies.
+   */
+  private async openVote(tripId: string, target: VoteTarget): Promise<void> {
     if (!this.context) return
     const state = await this.trips.readState()
     const stored = await this.mapFor(state)
     const leg = state?.leg
     if (!state || !stored || !leg || state.tripId !== tripId || state.status !== "driving") return
-    if (state.sites[siteId]?.phase !== "ahead" || leg.mph <= 0) return
-    const site = stored.map.sites.find((s) => s.id === siteId)
-    // Held by a pull-off just before it; the threshold re-arms when the van leaves the stop.
-    if (!site || pullOffHold(state, stored.map, site)) return
-    const arriveAt = timeToMile(leg, site.mile)
-    if (arriveAt === null) return
-
     const now = Date.now()
-    const applyDefault = () => this.mutateTrip(this.forTrip(tripId, resolveSkip(siteId)))
-    const settings = resolveSiteSettings(stored.map, site)
-    const closesAt = Math.min(now + settings.pollDurationMs, arriveAt - POLL_CLOSE_BEFORE_EXIT_MS)
-    if (arriveAt - now < POLL_GIVE_UP_BEFORE_EXIT_MS || closesAt - now < POLL_MIN_DURATION_MS) {
+    const ctx = contextFor(state, stored.map, now, await this.costScale())
+    const spec = VOTE_SPECS[target.kind]
+    if (spec.read(state, target)?.phase !== "pending" || !spec.votable(state, ctx, target)) return
+    const prompt = spec.prompt(state, ctx, target, leg)
+    if (!prompt) return
+    const applyDefault = () =>
+      this.mutateTrip(this.forTrip(tripId, dispatch({ type: "VOTE_CLOSED", target })))
+    const creator = prompt.kind === "open" ? await this.roomCreator() : null
+    if (prompt.kind === "default" || !creator) {
       await applyDefault()
       return
     }
-
-    const creator = await this.roomCreator()
-    if (!creator) {
-      await applyDefault()
-      return
-    }
-    const projected = project(leg, now)
-    const milesAway = site.mile - projected.mile
-    const fuelCtx = { mile: projected.mile, gallonsUsed: projected.gallonsUsed }
-    const urgency = gasUrgency(state, stored.map, site, fuelCtx)
-    const question = skipPollQuestion(site, milesAway, settings.mystery)
     const created = await this.context.polls.createPoll({
       roomId: this.context.roomId,
       userId: creator,
-      question: urgency ? `${urgency}. ${question}` : question,
-      options: SKIP_POLL_OPTIONS.map((o) => ({ label: o.label })),
-      closesAt,
+      question: prompt.question,
+      options: prompt.options.map((label) => ({ label })),
+      closesAt: prompt.closesAt,
       announce: false,
-      presentation: skipPollPresentation(
-        site,
-        settings.mystery,
-        liveSkipDefault(state, stored.map, site, fuelCtx),
-        urgency,
-      ),
+      ...(prompt.presentation ? { presentation: prompt.presentation } : {}),
     })
     if (!created.ok) {
       const retryAt = now + POLL_RETRY_MS
-      if (created.error.status === 409 && retryAt < arriveAt - POLL_GIVE_UP_BEFORE_EXIT_MS) {
-        await this.mutateTrip(this.forTrip(tripId, deferPoll(siteId, retryAt)))
+      if (created.error.status === 409 && retryAt < prompt.giveUpAt) {
+        await this.mutateTrip(
+          this.forTrip(tripId, dispatch({ type: "VOTE_DEFERRED", target, retryAt })),
+        )
       } else {
         await applyDefault()
       }
       return
     }
-    const [stopOption, skipOption] = created.poll.options
+    const optionIds = created.poll.options.map((option) => option.id)
     const marked =
-      stopOption && skipOption
+      optionIds.length === prompt.options.length
         ? await this.mutateTrip(
             this.forTrip(
               tripId,
-              markPolling(siteId, created.poll.id, [stopOption.id, skipOption.id]),
+              dispatch({ type: "VOTE_OPENED", target, pollId: created.poll.id, optionIds }),
             ),
           )
         : null
@@ -982,20 +989,16 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     if (!this.context || data.roomId !== this.context.roomId) return
     const state = await this.trips.readState()
     if (!state) return
-    const entry = Object.entries(state.sites).find(([, runtime]) => runtime.pollId === data.poll.id)
-    if (!entry) return
-    const [siteId, runtime] = entry
-    const [stopId, skipId] = runtime.pollOptionIds ?? [
-      data.poll.options[0]?.id,
-      data.poll.options[1]?.id,
-    ]
+    const found = findVoteByPoll(state, data.poll.id)
+    if (!found) return
+    const optionIds = found.vote.optionIds ?? data.poll.options.map((option) => option.id)
     const tallies = data.results.optionTallies
-    const votes: SkipVotes = {
-      stop: (stopId && tallies[stopId]) || 0,
-      skip: (skipId && tallies[skipId]) || 0,
-    }
+    const tally = optionIds.map((id) => tallies[id] ?? 0)
     await this.mutateTrip(
-      this.forTrip(state.tripId, resolveSkip(siteId, { pollId: data.poll.id, votes })),
+      this.forTrip(
+        state.tripId,
+        dispatch({ type: "VOTE_CLOSED", target: found.target, pollId: data.poll.id, tally }),
+      ),
     )
   }
 

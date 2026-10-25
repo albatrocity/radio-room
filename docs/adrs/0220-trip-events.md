@@ -23,7 +23,7 @@ Alternatives considered:
    - `effect?`: `{ kind: "slow", factor, label? }` with `durationMinutes`, or `{ kind: "stop" }`. With no effect, the event only narrates: it does not hold the van and does not queue.
    - `resolution?`: an ordered chain of at most 8 entries: `item`, `fund`, `wait`, `tow`, `refuel`
    - `beats?`: at most 8 `{ atMinutes, narrative, narrativeVariant? }`
-2. **One compiler, in `@repo/road-trip-map`.** `compileEventSteps(map, event, { mile, parts })` turns an event into the existing `IncidentStep` list when the incident starts. `tow` expands to the tow-or-shoulder branch, and `refuel` expands to the delivery fund plus a `refills` wait. `incidentSteps(map, presetId, ctx)` is a wrapper over the built-in presets (`INCIDENT_PRESETS`). Game Studio cost estimates and the plugin share it. A parity test pins the presets to the old switch's output.
+2. *(Choice steps, and the no-effect choice exception: [0222](0222-trip-flow-and-branches.md).)* **One compiler, in `@repo/road-trip-map`.** `compileEventSteps(map, event, { mile, parts })` turns an event into the existing `IncidentStep` list when the incident starts. `tow` expands to the tow-or-shoulder branch, and `refuel` expands to the delivery fund plus a `refills` wait. `incidentSteps(map, presetId, ctx)` is a wrapper over the built-in presets (`INCIDENT_PRESETS`). Game Studio cost estimates and the plugin share it. A parity test pins the presets to the old switch's output.
 3. **Families carry part behavior.** Part `immuneTo` and consumable `resolves` are keyed by family:
    - `jam`: the horn sets a floor on the slow factor and shortens the duration.
    - `flat`: Road-Grip Tires are immune.

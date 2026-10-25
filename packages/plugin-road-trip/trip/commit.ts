@@ -1,4 +1,6 @@
 import type { TripMap } from "@repo/road-trip-map"
+import { pathFor } from "./flow"
+import type { TransitionContext } from "./helpers"
 import { nextLeg, PARKED_AT_START, project, ratesChanged, type Leg, type LegReason } from "./ledger"
 import { currentRates, type TripLogEntry, type TripLogEvent, type TripState } from "./state"
 import type { Transition, TripEffect } from "./transitions"
@@ -55,25 +57,45 @@ export type AppliedTransition = {
  * leg, run the transition, and commit the new leg into the same state. Runs
  * inside the CAS, so the leg can never be read from an older state.
  */
+/**
+ * What a transition sees at `now`: the van's odometer mile and fuel, and the
+ * map laid flat along its path (ADR 0222). `map` is the authored map.
+ */
+export function contextFor(
+  state: TripState,
+  map: TripMap,
+  now: number,
+  costScale = 1,
+  tallies?: Record<string, number[]>,
+): TransitionContext {
+  const path = pathFor(state, map)
+  const projected = project(state.leg ?? PARKED_AT_START, now)
+  return {
+    now,
+    mile: Math.min(path.miles, projected.mile),
+    gallonsUsed: projected.gallonsUsed,
+    map: path.map,
+    path,
+    source: map,
+    costScale,
+    ...(tallies ? { tallies } : {}),
+  }
+}
+
 export function applyTransition(
   prev: TripState,
   transition: Transition,
   map: TripMap,
   now: number,
   costScale = 1,
+  tallies?: Record<string, number[]>,
 ): AppliedTransition | null {
   const prevLeg = prev.leg ?? null
-  const projected = project(prevLeg ?? PARKED_AT_START, now)
-  const mile = Math.min(prev.routeMiles, projected.mile)
-  const result = transition(prev, {
-    now,
-    mile,
-    gallonsUsed: projected.gallonsUsed,
-    map,
-    costScale,
-  })
+  const result = transition(prev, contextFor(prev, map, now, costScale, tallies))
   if (!result) return null
-  const next: TripState = { ...result.next, version: prev.version + 1 }
+  // The path's length follows decided forks and the route the van is on.
+  const routeMiles = pathFor(result.next, map).miles
+  const next: TripState = { ...result.next, routeMiles, version: prev.version + 1 }
   const committed = commitTransition(next, prevLeg, result.log ?? [], now)
   if (committed.appended) next.leg = committed.appended
   return {

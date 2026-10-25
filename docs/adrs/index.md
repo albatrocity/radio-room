@@ -227,6 +227,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0219](0219-road-trip-van-motion-and-refill-window.md) | Room-scoped `roadTripVanMotionMachine` for van flourishes; `TripStore.fuel.refill` window animates the gauge during refuels | Accepted |
 | [0220](0220-trip-events.md) | Trip events: incidents composed from presets (`map.events`, `compileEventSteps`, families, beats; partially supersedes 0205 decision 12 and 0207's `scriptedEvents`) | Accepted |
 | [0221](0221-poll-presentation-subject-id.md) | Poll presentation `subjectId`: the id of whatever a plugin poll's sign names (amends 0208) | Accepted |
+| [0222](0222-trip-flow-and-branches.md) | Trip flow (one statechart of flat typed machines behind `dispatch`) and trip branches: layers, routes, outcomes, choices (`linearize`, `describeTripFlow`; amends 0205 d5 and 0220) | Accepted |
 
 ## Creating a New ADR
 

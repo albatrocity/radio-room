@@ -2,6 +2,7 @@ import {
   GENERIC_SITE_PRESETS,
   INCIDENT_PRESETS,
   SAMPLE_TRIP_MAP,
+  TRIP_GUIDE_ITEMS,
   VAN_CONSUMABLES,
   VAN_PARTS,
   fuelPlan,
@@ -13,8 +14,11 @@ import {
   levyRate,
   liftLegacyTripMap,
   isDestination,
+  linearize,
+  MAIN_ROUTE_ID,
   parkPlan,
   parseTripMap,
+  startView,
   roadTripItemId,
   routeMiles,
   SITE_SHOP_POOL_CAP,
@@ -155,7 +159,7 @@ const ITEM_SOURCES: { plugin: OfferOption["plugin"]; items: OfferSourceItem[] }[
   },
   {
     plugin: "road-trip",
-    items: [...VAN_PARTS, ...VAN_CONSUMABLES].map((item) => ({
+    items: [...VAN_PARTS, ...VAN_CONSUMABLES, ...TRIP_GUIDE_ITEMS].map((item) => ({
       definitionId: roadTripItemId(item.shortId),
       name: item.name,
       icon: item.emoji,
@@ -293,10 +297,17 @@ export function updateSite(
   }
 }
 
+/** A route's length in miles: the main road's, or an alternate's drive minutes at base speed (ADR 0222). */
+export function routeLengthOf(draft: TripMapInput, routeId: string | undefined): number {
+  const route = routeId ? draft.routes?.find((r) => r.id === routeId) : undefined
+  return route ? ((draft.route.baseMph ?? 55) * route.driveMinutes) / 60 : draftRouteMiles(draft)
+}
+
+/** Move a pin along its own route (miles are local to the route). */
 export function moveSite(draft: TripMapInput, siteId: string, mile: number): TripMapInput {
-  const end = draftRouteMiles(draft)
   const site = draft.sites.find((s) => s.id === siteId)
   if (!site || isDestination(site)) return draft
+  const end = routeLengthOf(draft, site.route)
   return updateSite(draft, siteId, { mile: roundMile(Math.min(Math.max(0.1, mile), end - 0.1)) })
 }
 
@@ -410,8 +421,13 @@ export type FuelProjection = {
   emptyAtMile: number | null
 }
 
-/** No-vote fuel curve and gas bill (`fuelPlan`), with costs scaled for a preview economy. */
-export function projectFuel(map: TripMap, costScale: number): FuelProjection {
+/**
+ * No-vote fuel curve and gas bill (`fuelPlan`), with costs scaled for a preview
+ * economy. Runs on the main road with nothing unlocked (ADR 0222); the Flow
+ * panel covers every other path.
+ */
+export function projectFuel(source: TripMap, costScale: number): FuelProjection {
+  const map = linearize(source, startView()).map
   const plan = fuelPlan(map)
   const byId = new Map(map.sites.map((s) => [s.id, s]))
   const stops = plan.gasStops.map((stop) => {
@@ -497,7 +513,8 @@ export function updateEvent(
 }
 
 export function moveEvent(draft: TripMapInput, eventId: string, mile: number): TripMapInput {
-  const end = draftRouteMiles(draft)
+  const event = draft.events?.find((e) => e.id === eventId)
+  const end = routeLengthOf(draft, event?.route)
   return updateEvent(draft, eventId, { mile: roundMile(Math.min(Math.max(0, mile), end)) })
 }
 
@@ -516,7 +533,14 @@ export type EventEstimate = {
  * What an event would charge at the preview economy (no parts). A fuel event
  * is priced where the no-vote plan runs dry, or at the end of the route.
  */
-export function estimateEvent(map: TripMap, eventId: string, costScale: number): EventEstimate | null {
+export function estimateEvent(source: TripMap, eventId: string, costScale: number): EventEstimate | null {
+  // Laid along the event's own route (ADR 0222), with every layer live.
+  const route = source.events?.find((e) => e.id === eventId)?.route
+  const map = linearize(source, {
+    ...startView(),
+    layersActive: new Set((source.layers ?? []).map((l) => l.id)),
+    junctionDecisions: route && route !== MAIN_ROUTE_ID ? { [route]: "take" } : {},
+  }).map
   const event = map.events?.find((e) => e.id === eventId)
   if (!event) return null
   const mile =
@@ -558,8 +582,9 @@ export function tripShareLabel(totalCost: number, walletsTotal: number): string 
   return `≈ ${formatShare(rate)} of wallets over the trip, before earnings`
 }
 
-/** ETA range at base speed from park times (`parkPlan`); incident delays aren't forecast. */
-export function projectTrip(map: TripMap, departAt: number): TripProjection {
+/** ETA range at base speed from park times (`parkPlan`) on the main road; incident delays aren't forecast. */
+export function projectTrip(source: TripMap, departAt: number): TripProjection {
+  const map = linearize(source, startView()).map
   const plan = parkPlan(map)
   const drive = map.route.driveMinutes
   const deadline = map.route.deadlineAt ? Date.parse(map.route.deadlineAt) : NaN

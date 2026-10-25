@@ -19,7 +19,10 @@ import {
   skipPollQuestion,
   type NarrativeVariant,
   type TripMap,
+  type TripMapInput,
+  type TripOutcome,
 } from "@repo/road-trip-map"
+import { TripOutcomesEditor, TripPlacementFields } from "./TripBranchFields"
 import { TripOfferPicker } from "./TripOfferPicker"
 import { TripPhysicalMediaService } from "./TripPhysicalMediaService"
 import { type FuelProjectionStop, type TripSiteDraft } from "../../tripMap/tripMapDraft"
@@ -28,6 +31,8 @@ const DEFAULT_GAS_PRICE = 8
 
 type Props = {
   site: TripSiteDraft
+  /** The whole draft, for route and layer options (ADR 0222). */
+  draft: TripMapInput
   resolved: TripMap | null
   /** This site's row in the no-vote fuel plan, when it sells gas. */
   gasStop?: FuelProjectionStop
@@ -72,7 +77,15 @@ function Toggle({
 }
 
 /** Site inspector (M8): presentation, art, stop behavior, reveal, skip poll, services, and shop. */
-export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRemove }: Props) {
+export function TripSiteInspector({
+  site,
+  draft,
+  resolved,
+  gasStop,
+  art,
+  onChange,
+  onRemove,
+}: Props) {
   const destination = isDestination(site)
   const resolvedSite = resolved?.sites.find((s) => s.id === site.id)
   const settings = resolved && resolvedSite ? resolveSiteSettings(resolved, resolvedSite) : null
@@ -153,6 +166,22 @@ export function TripSiteInspector({ site, resolved, gasStop, art, onChange, onRe
           />
         </Field.Root>
       </SimpleGrid>
+
+      <TripPlacementFields
+        draft={draft}
+        route={site.route}
+        layer={site.layer}
+        onChange={(placement) => onChange(placement)}
+      />
+      {draft.routes?.length || draft.layers?.length ? (
+        <TripOutcomesEditor
+          draft={draft}
+          label="On visit"
+          helper="Applied when the van parks here (a tow-in counts)."
+          outcomes={(site.onVisit ?? []) as TripOutcome[]}
+          onChange={(onVisit) => onChange({ onVisit })}
+        />
+      ) : null}
 
       <Field.Root>
         <Field.Label fontSize="xs">Description</Field.Label>

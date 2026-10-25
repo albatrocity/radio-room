@@ -7,12 +7,14 @@ import type {
 import {
   builtInEvent,
   compileEventSteps,
+  eventChoice,
   eventRefuels,
   FUND_PURPOSE_LABELS,
   fuelEvent,
   immunePart,
   isDestination,
   mileEvents,
+  nearestMechanicAhead,
   roadTripItemId,
   siteShopTitle,
   sortedSites,
@@ -20,6 +22,7 @@ import {
   vanConsumable,
   vanPart,
 } from "@repo/road-trip-map"
+import { flow, refresh, type Emit, type FlowHandler } from "./flow"
 import {
   ARRIVAL_MILE_EPSILON,
   AUTOMATIC_FUND_HOLD_MS,
@@ -30,7 +33,6 @@ import {
   openShopAt,
   narrate,
   seededIndex,
-  withSite,
   type Transition,
   type TransitionContext,
   type TransitionResult,
@@ -56,7 +58,12 @@ import {
  * The incident engine (M4): one incident at a time, one step at a time,
  * every step ending on its own (D22). Incidents start from trip events
  * compiled by `compileEventSteps` (ADR 0220). Pure, like `./transitions`.
+ * Sites, junctions, layers, and votes change only through the trip flow
+ * (ADR 0222): this module returns flow events for them, never writes them.
  */
+
+/** A choice step's backstop: this long after its poll should have closed, the default applies. */
+export const CHOICE_GRACE_MS = 5_000
 
 type Acc = { next: TripState; log: TripLogEvent[]; effects: TripEffect[] }
 
@@ -204,10 +211,47 @@ function thenStartQueued(acc: Acc, ctx: TransitionContext): Acc {
     : acc
 }
 
-function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident): Acc {
+/** Apply an event's start outcomes (ADR 0222) before anything is compiled from the path. */
+function applyStartOutcomes(acc: Acc, ctx: TransitionContext, event: TripEvent): Acc {
+  if (!event.outcomes?.length) return acc
+  return flow(acc, ctx, {
+    type: "APPLY_OUTCOMES",
+    outcomes: event.outcomes,
+    source: { kind: "event", id: event.id },
+  })
+}
+
+/**
+ * Before a tow picks its Mechanic, settle each fork ahead until a Mechanic
+ * lies before the next one: an open vote resolves from its tally, an unpolled
+ * fork is passed, a decided fork is honored (ADR 0222).
+ */
+function settleForksForTow(acc: Acc, ctx: TransitionContext): Acc {
+  let next = acc
+  for (let guard = 0; guard < 16; guard++) {
+    const live = refresh(ctx, next.next)
+    const fork = live.path.forks.find(
+      (f) => f.decision === undefined && f.odometer >= ctx.mile - ARRIVAL_MILE_EPSILON,
+    )
+    if (!fork) return next
+    const mechanic = nearestMechanicAhead(live.map, ctx.mile)
+    if (mechanic && mechanic.mile <= fork.odometer) return next
+    const settled = flow(next, live, { type: "JUNCTION_TOW_SETTLE", routeId: fork.routeId })
+    if (settled.next === next.next) return next
+    next = settled
+  }
+  return next
+}
+
+function beginIncident(acc: Acc, rawCtx: TransitionContext, queued: QueuedIncident): Acc {
+  const event = eventFor(rawCtx, queued)
+  if (!event) return thenStartQueued(acc, rawCtx)
+  acc = applyStartOutcomes(acc, rawCtx, event)
+  if ((event.resolution ?? []).some((entry) => entry.kind === "tow") && event.effect?.kind === "stop") {
+    acc = settleForksForTow(acc, refresh(rawCtx, acc.next))
+  }
+  const ctx = refresh(rawCtx, acc.next)
   const state = acc.next
-  const event = eventFor(ctx, queued)
-  if (!event) return thenStartQueued(acc, ctx)
   const snapshot = snapshotOf(event)
   const named = { incident: event.id, source: queued.source, ...snapshot }
   const seq = state.incidentSeq + 1
@@ -215,7 +259,7 @@ function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident)
   const steps = compileEventSteps(ctx.map, event, { mile: ctx.mile, parts })
   if (steps.length === 0) {
     const part = event.effect ? immunePart(parts, snapshot.family) : undefined
-    if (!part) return thenStartQueued(noteEvent(acc, ctx, event, queued.source), ctx)
+    if (!part) return thenStartQueued(noteEvent(acc, ctx, event, queued.source, true), ctx)
     const copy = part.immuneCopy ?? {
       title: `${part.name} to the rescue`,
       body: `${snapshot.name}? Not with the ${part.name}.`,
@@ -250,7 +294,8 @@ function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident)
   const hint = startHint(first, fund)
   const sign: TripEffect = {
     type: "sign",
-    variant: first.kind === "slow" ? "warning" : "error",
+    variant:
+      first.kind === "slow" ? "warning" : first.kind === "choice" && !first.holds ? "info" : "error",
     icon: snapshot.icon,
     title: snapshot.name,
     ...(hint ? { body: hint } : {}),
@@ -263,8 +308,15 @@ function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident)
   }
 }
 
-/** An event that doesn't hold the van: its narrative and beats only. */
-function noteEvent(acc: Acc, ctx: TransitionContext, event: TripEvent, source: IncidentSource): Acc {
+/** An event that doesn't hold the van: its outcomes, narrative, and beats only. */
+function noteEvent(
+  acc: Acc,
+  ctx: TransitionContext,
+  event: TripEvent,
+  source: IncidentSource,
+  outcomesApplied = false,
+): Acc {
+  if (!outcomesApplied) acc = applyStartOutcomes(acc, ctx, event)
   const narrative = prose(event.narrative, event.narrativeVariant)
   return {
     next: startBeats(acc.next, event, ctx.now),
@@ -286,6 +338,8 @@ function startHint(step: IncidentStep, fund: TripFund | undefined): string {
     }
     case "window":
       return `Got a ${itemNames(step.resolvesWith)}? Use it from the Van tab.`
+    case "choice":
+      return step.holds ? "The van waits while the room decides." : ""
     case "fund":
       return fund ? `${FUND_PURPOSE_LABELS[step.purpose]}: ${fund.cost} coins.` : ""
     default:
@@ -310,7 +364,22 @@ function enterStep(
   }
   let state = acc.next
   const effects: TripEffect[] = []
+  delete current.choice
+  const choice = step.kind === "choice" ? step.choice : step.kind === "slow" ? step.choice : undefined
+  if (choice) {
+    // The room votes now; `CHOICE_DECIDED` resolves it (ADR 0222).
+    current.choice = { vote: { phase: "pending" } }
+    effects.push({
+      type: "open-vote",
+      target: { kind: "choice", incidentId: incident.id, step: index },
+    })
+  }
   switch (step.kind) {
+    case "choice":
+      current.stepEndsAt = ctx.now + step.choice.ms + CHOICE_GRACE_MS
+      if (step.holds) state = hold(state, incident, ctx.now)
+      else state = release(state, incident)
+      break
     case "slow": {
       const until = ctx.now + step.ms
       current.stepEndsAt = until
@@ -353,7 +422,7 @@ function enterStep(
       const site = findSite(ctx.map, step.siteId)
       if (!site) return enterStep(acc, ctx, incident, index + 1)
       current.towFromMile = ctx.mile
-      const passed = towPast(release(state, incident), ctx, site.mile)
+      const passed = towPast({ next: release(state, incident), log: [], effects: [] }, ctx, site.mile)
       state = passed.next
       acc = { ...acc, log: [...acc.log, ...passed.log] }
       effects.push(...passed.effects, {
@@ -373,38 +442,46 @@ function enterStep(
   }
 }
 
-/** Sites and mile events the tow passes are skipped (M4: tow legs). */
-function towPast(state: TripState, ctx: TransitionContext, targetMile: number): Acc {
-  let next = state
-  const log: TripLogEvent[] = []
-  const effects: TripEffect[] = []
+/** Sites and mile events the tow passes are skipped (M4: tow legs); its Mechanic's poll closes. */
+function towPast(acc: Acc, ctx: TransitionContext, targetMile: number): Acc {
+  let next = acc
   for (const site of sortedSites(ctx.map)) {
     if (site.mile <= ctx.mile - ARRIVAL_MILE_EPSILON || site.mile > targetMile) continue
-    const runtime = next.sites[site.id]
-    if (!runtime || isDestination(site)) continue
-    if (runtime.phase === "polling" && runtime.pollId) {
-      effects.push({ type: "close-poll", pollId: runtime.pollId })
-    }
-    if (site.mile >= targetMile) {
-      next = withSite(next, site.id, { pollId: undefined, pollOptionIds: undefined })
-      continue
-    }
-    if (runtime.phase !== "ahead" && runtime.phase !== "polling" && runtime.phase !== "stopping")
-      continue
-    next = withSite(next, site.id, {
-      phase: "skipped",
-      pollId: undefined,
-      pollOptionIds: undefined,
-    })
-    log.push({ kind: "site", siteId: site.id, name: site.name, phase: "skipped" })
+    if (isDestination(site)) continue
+    next =
+      site.mile >= targetMile
+        ? flow(next, ctx, { type: "VOTE_CANCEL", target: { kind: "site", id: site.id } })
+        : flow(next, ctx, { type: "SITE_TOW_PAST", siteId: site.id })
   }
   const passedEvents = mileEvents(ctx.map)
-    .filter((e) => e.mile < targetMile && !next.scriptedFired.includes(e.id))
+    .filter((e) => e.mile < targetMile && !next.next.scriptedFired.includes(e.id))
     .map((e) => e.id)
   if (passedEvents.length > 0) {
-    next = { ...next, scriptedFired: [...next.scriptedFired, ...passedEvents] }
+    next = {
+      ...next,
+      next: { ...next.next, scriptedFired: [...next.next.scriptedFired, ...passedEvents] },
+    }
   }
-  return { next, log, effects }
+  return next
+}
+
+/** At the tow's arrival: forks and rejoins it carried the van past, in order (ADR 0222). */
+function passOnTheHook(acc: Acc, ctx: TransitionContext): Acc {
+  let next = acc
+  for (let guard = 0; guard < 16; guard++) {
+    const live = refresh(ctx, next.next)
+    const fork = live.path.forks.find((f) => f.odometer <= ctx.mile + ARRIVAL_MILE_EPSILON)
+    const end = live.path.ends.find((e) => e.odometer <= ctx.mile + ARRIVAL_MILE_EPSILON)
+    const first = fork && (!end || fork.odometer <= end.odometer) ? fork : undefined
+    const moved = first
+      ? flow(next, live, { type: "JUNCTION_REACH", routeId: first.routeId, towed: true })
+      : end
+        ? flow(next, live, { type: "ROUTE_END", routeId: end.routeId, towed: true })
+        : next
+    if (moved.next === next.next) return next
+    next = moved
+  }
+  return next
 }
 
 function openIncidentFund(
@@ -605,7 +682,13 @@ function finishIncident(
   if (incident.atSiteId) {
     const site = findSite(ctx.map, incident.atSiteId)
     if (state.shopScopeId) effects.push({ type: "close-shop", scopeId: state.shopScopeId })
-    state = { ...withSite(state, incident.atSiteId, { phase: "visited" }), shopScopeId: undefined }
+    const left = flow({ next: state, log: [], effects: [] }, ctx, {
+      type: "SITE_LEAVE",
+      siteId: incident.atSiteId,
+    })
+    state = { ...left.next, shopScopeId: undefined }
+    log.push(...left.log)
+    effects.push(...left.effects)
     if (site) log.push({ kind: "site", siteId: site.id, name: site.name, phase: "departed" })
   }
   log.push(incidentEntry(incident, "cleared", incident.refuels ? { refueled: true } : {}))
@@ -634,14 +717,17 @@ export function triggerIncident(incident: TriggerableIncidentId): Transition {
   }
 }
 
-/** A mile event was reached (D23). One with no effect only narrates; it never queues. */
+/** A mile event was reached (D23). One with no effect (and no choice) only narrates; it never queues. */
 export function fireScripted(eventId: string): Transition {
   return (state, ctx) => {
     if (state.status !== "driving" || state.scriptedFired.includes(eventId)) return null
     const event = mileEvents(ctx.map).find((e) => e.id === eventId)
     if (!event || ctx.mile < event.mile - ARRIVAL_MILE_EPSILON) return null
     const next = { ...state, scriptedFired: [...state.scriptedFired, eventId] }
-    if (!event.effect) return result(noteEvent({ next, log: [], effects: [] }, ctx, event, "scripted"))
+    // Narrative-only events never queue; one with a choice holds the incident slot (ADR 0222).
+    if (!event.effect && !eventChoice(event)) {
+      return result(noteEvent({ next, log: [], effects: [] }, ctx, event, "scripted"))
+    }
     return startOrQueueIncident(next, ctx, {
       incident: event.id,
       source: "scripted",
@@ -684,9 +770,96 @@ export function advanceIncident(incidentId: string, step: number): Transition {
     if (current.kind === "tow") return towArrived(acc, ctx, incident, current.siteId)
     if (current.kind === "fund") return null
     if (incident.stepEndsAt === undefined || ctx.now < incident.stepEndsAt) return null
+    const choice = current.kind === "choice" ? current.choice : current.kind === "slow" ? current.choice : undefined
+    if (choice && incident.choice?.winner === undefined) {
+      const deadline = incident.stepStartedAt + choice.ms + CHOICE_GRACE_MS
+      if (current.kind === "slow" && ctx.now < deadline) {
+        // The slowdown ran out first: keep crawling until the vote closes.
+        return { next: extendSlow(state, incident, deadline) }
+      }
+      // Backstop: the poll should have closed by now. The tally or the default wins.
+      return result(flow(acc, ctx, { type: "VOTE_CLOSED", target: choiceTarget(incident) }))
+    }
     const next = current.kind === "slow" ? release(state, incident) : state
     return result(enterStep({ ...acc, next }, ctx, incident, step + 1))
   }
+}
+
+function choiceTarget(incident: ActiveIncident) {
+  return { kind: "choice" as const, incidentId: incident.id, step: incident.step }
+}
+
+/** Keep a hosting slowdown going until `until` (its vote is still open). */
+function extendSlow(state: TripState, incident: ActiveIncident, until: number): TripState {
+  const id = holdId(incident)
+  return {
+    ...state,
+    incident: { ...incident, stepEndsAt: until },
+    speedFactors: state.speedFactors.map((f) => (f.id === id ? { ...f, until } : f)),
+  }
+}
+
+/**
+ * CHOICE_DECIDED (flow handler): the winning option's outcomes and narrative
+ * apply, then the step advances. A slowdown hosting the choice advances once
+ * its own time is up too; an item that already ended it ends the incident.
+ */
+export const choiceDecidedHandler: FlowHandler = (acc, event, ctx, emit: Emit) => {
+  if (event.type !== "CHOICE_DECIDED") return acc
+  const incident = acc.next.incident
+  if (!incident || incident.id !== event.incidentId || incident.step !== event.step) return acc
+  const step = incident.steps[incident.step]
+  const choice = step?.kind === "choice" ? step.choice : step?.kind === "slow" ? step.choice : undefined
+  if (!choice || incident.choice?.winner !== undefined) return acc
+  const option = choice.options.find((o) => o.id === event.winner) ?? choice.options[0]!
+  const recorded: ActiveIncident = {
+    ...incident,
+    choice: {
+      ...(incident.choice ?? { vote: { phase: "decided" } }),
+      winner: option.id,
+      defaulted: event.defaulted,
+      ...(event.votes ? { votes: event.votes } : {}),
+    },
+  }
+  const total = event.votes?.reduce((sum, n) => sum + n, 0) ?? 0
+  const body =
+    total === 0
+      ? `No votes. ${option.label}.`
+      : event.defaulted
+        ? `Tied. ${option.label}.`
+        : `The room voted ${option.label}.`
+  let next: Acc = {
+    next: { ...acc.next, incident: recorded },
+    log: [
+      ...acc.log,
+      {
+        kind: "choice",
+        eventId: incident.incident,
+        question: choice.question,
+        winner: option.id,
+        label: option.label,
+        ...(event.votes ? { votes: event.votes } : {}),
+        defaulted: event.defaulted,
+      },
+    ],
+    effects: [
+      ...acc.effects,
+      { type: "sign", variant: "info", icon: incident.icon, title: choice.question, body },
+      ...(option.narrative?.trim() ? [{ type: "narrate" as const, body: option.narrative.trim() }] : []),
+    ],
+  }
+  next = emit(next, {
+    type: "APPLY_OUTCOMES",
+    outcomes: option.outcomes,
+    source: { kind: "choice", eventId: incident.incident, optionId: option.id },
+  })
+  const live = next.next.incident
+  if (!live || live.id !== incident.id || live.step !== incident.step) return next
+  const liveCtx = refresh(ctx, next.next)
+  if (live.choice?.endAfter) return finishIncident(next, liveCtx, live, { quiet: true })
+  if (step!.kind === "slow" && ctx.now < incident.stepStartedAt + step!.ms) return next
+  const released = step!.kind === "slow" ? { ...next, next: release(next.next, live) } : next
+  return enterStep(released, liveCtx, live, live.step + 1)
 }
 
 function towArrived(
@@ -698,12 +871,14 @@ function towArrived(
   const site = findSite(ctx.map, siteId)
   const runtime = acc.next.sites[siteId]
   if (!site || !runtime || ctx.mile < site.mile - ARRIVAL_MILE_EPSILON) return null
-  let state = withSite(acc.next, siteId, { phase: "parked", revealed: true, visitedAt: ctx.now })
+  const hooked = passOnTheHook(acc, ctx)
+  const towedIn = flow(hooked, ctx, { type: "SITE_TOWED_IN", siteId })
+  let state = towedIn.next
   const shop = openShopAt(state, site)
   state = { ...hold(state, incident, ctx.now), shopScopeId: shop.scopeId }
   const atMechanic: ActiveIncident = { ...incident, atSiteId: siteId }
   state = { ...state, incident: atMechanic }
-  const log: TripLogEvent[] = []
+  const log: TripLogEvent[] = [...towedIn.log]
   if (!runtime.revealed) log.push({ kind: "site", siteId, name: site.name, phase: "revealed" })
   log.push(
     { kind: "site", siteId, name: site.name, phase: "stopped" },
@@ -714,6 +889,7 @@ function towArrived(
     }),
   )
   const effects: TripEffect[] = [
+    ...towedIn.effects,
     ...shop.close,
     {
       type: "sign",
@@ -745,6 +921,30 @@ export function useIncidentItem(shortId: string, user: Traveler): Transition {
     const incident = state.incident
     const item = vanConsumable(shortId)
     if (!incident || !item || !itemEndsCurrentStep(state, shortId)) return null
+    const step = incident.steps[incident.step]
+    if (step?.kind === "slow" && step.choice && incident.choice?.winner === undefined) {
+      // The slowdown ends now; the event ends once the room's vote closes.
+      return {
+        next: {
+          ...release(state, incident),
+          incident: { ...incident, choice: { ...incident.choice!, endAfter: true } },
+        },
+        log: [
+          incidentEntry(incident, "resolved", {
+            resolvedBy: { userId: user.userId, name: user.name, itemId: roadTripItemId(shortId) },
+          }),
+        ],
+        effects: [
+          {
+            type: "sign",
+            variant: "success",
+            icon: item.emoji,
+            title: `${user.name} ${item.resolvedCopy.title}`,
+            body: item.resolvedCopy.body,
+          },
+        ],
+      }
+    }
     const done = finishIncident(
       {
         next: state,
@@ -776,19 +976,17 @@ export const skipIncidentStep: Transition = (state, ctx) => {
   const incident = state.incident
   const step = incident?.steps[incident.step]
   if (!incident || !step || step.kind === "fund" || step.kind === "tow") return null
-  const next = step.kind === "slow" ? release(state, incident) : state
-  return result(
-    enterStep(
-      {
-        next,
-        log: [incidentEntry(incident, "skipped")],
-        effects: [],
-      },
-      ctx,
-      incident,
-      incident.step + 1,
-    ),
-  )
+  let acc: Acc = { next: state, log: [incidentEntry(incident, "skipped")], effects: [] }
+  const hostsChoice = step.kind === "choice" || (step.kind === "slow" && step.choice)
+  if (hostsChoice && incident.choice?.winner === undefined) {
+    // A host skip closes the vote: the tally so far, or the default.
+    acc = flow(acc, ctx, { type: "VOTE_CLOSED", target: choiceTarget(incident) })
+    const live = acc.next.incident
+    if (!live || live.id !== incident.id || live.step !== incident.step) return result(acc)
+  }
+  const live = acc.next.incident!
+  const next = step.kind === "slow" ? release(acc.next, live) : acc.next
+  return result(enterStep({ ...acc, next }, refresh(ctx, next), live, live.step + 1))
 }
 
 /** Install a part (D20): one per slot, announced. Refused (null) for the same part twice or outside a trip. */

@@ -22,6 +22,15 @@
         "apps/studio-bridge"
       ],
       "port": 3099
+    },
+    {
+      "name": "web-studio-bridge",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "set -a; if [ -f apps/web/.env.studio-bridge ]; then . ./apps/web/.env.studio-bridge; fi; set +a; exec npm run dev:studio-bridge -w web -- --port 8010 --strictPort"
+      ],
+      "port": 8010
     }
   ]
 }

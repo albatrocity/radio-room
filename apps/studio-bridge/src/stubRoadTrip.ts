@@ -38,7 +38,16 @@ const GAS_SITE_ID = "gas-n-go"
 const GAS_SITE = SAMPLE_TRIP_MAP.sites.find((s) => s.id === GAS_SITE_ID)!
 const POOL_WINDOW_MS = SAMPLE_TRIP_MAP.tuning.funds.windowMinutes * MIN
 
-export type RoadTripFixture = "driving" | "fueling" | "parked" | "incident" | "arrived"
+export type RoadTripFixture =
+  | "driving"
+  | "fueling"
+  | "parked"
+  | "incident"
+  | "arrived"
+  /** A fork vote open ahead (ADR 0222). */
+  | "junction"
+  /** On an alternate route, with a later fork decided "stay". */
+  | "route"
 
 const BASE_MPH = SAMPLE_TRIP_MAP.route.baseMph
 /** Parts on the preview van: a spoiler from the start; the AAA card joins by the flat. */
@@ -48,6 +57,8 @@ const FIXTURE_PARTS: Record<RoadTripFixture, string[]> = {
   parked: ["aero-spoiler"],
   incident: ["aero-spoiler", "aaa-card"],
   arrived: ["aero-spoiler", "aaa-card"],
+  junction: ["aero-spoiler"],
+  route: ["aero-spoiler"],
 }
 
 function vanSheet(fixture: RoadTripFixture, at: number): TripStoreVanSheet {
@@ -287,6 +298,49 @@ function fixtureStore(entry: FixtureEntry): Omit<TripStore, "siteCount"> {
     }
   }
 
+  if (fixture === "junction" || fixture === "route") {
+    // The sample map is one road; these stand in for a branching map's store (ADR 0222).
+    const onRoute = fixture === "route"
+    const mile = onRoute ? 6 : 2.5
+    const departedAt = at - mile * MIN
+    return {
+      ...base,
+      status: "driving",
+      sites: onRoute
+        ? [
+            revealed("record-store", "skipped", { votes: { stop: 1, skip: 4 } }),
+            revealed(GAS_SITE_ID, "visited", { visitedAt: at - 2 * MIN }),
+          ]
+        : [],
+      junctions: onRoute
+        ? [
+            {
+              routeId: "dirt-road",
+              mile: 9.5,
+              state: "stay",
+              name: "Dirt Road",
+              icon: "🚜",
+              votes: [1, 3],
+            },
+          ]
+        : [
+            {
+              routeId: "old-highway",
+              mile: 3.5,
+              state: "polling",
+              name: "Old Highway",
+              icon: "🛣️",
+            },
+          ],
+      ...(onRoute ? { route: { id: "old-highway", name: "Old Highway", icon: "🛣️" } } : {}),
+      van: { anchorAt: at, anchorMile: mile, mph: cruisingMph(fixture) },
+      fuel: fuel(mile, true, at),
+      eta: { projectedArrivalAt: at + (12 - mile) * MIN, targetArrivalAt: departedAt + 18 * MIN },
+      departedAt,
+      visitedCount: onRoute ? 1 : 0,
+    }
+  }
+
   const departedAt = at - 2.5 * MIN
   const mile = 2.5
   return {
@@ -302,6 +356,20 @@ function fixtureStore(entry: FixtureEntry): Omit<TripStore, "siteCount"> {
 }
 
 const STATUS_LINES: Record<RoadTripFixture, Record<string, string>> = {
+  junction: {
+    tripProgress: "Driving · Concert Run · 2.5 / 12 mi · 0 / 0 visited",
+    tripEta: "On target",
+    tripNextSite: "—",
+    tripFuel: "Gas 63% · Funds: automatic (split by wealth)",
+    tripWarnings: "None",
+  },
+  route: {
+    tripProgress: "Driving · Concert Run · 6 / 12 mi · 1 / 2 visited",
+    tripEta: "On target",
+    tripNextSite: "—",
+    tripFuel: "Gas 55% · Funds: automatic (split by wealth)",
+    tripWarnings: "None",
+  },
   driving: {
     tripProgress: "Driving · Concert Run · 2.5 / 12 mi · 0 / 1 visited",
     tripEta: "1 min behind target",
@@ -514,6 +582,8 @@ export function runStubRoadTripAction(
     triggerIncident: "incident",
     skipIncidentStep: "driving",
     previewArrived: "arrived",
+    previewJunction: "junction",
+    previewRoute: "route",
   }
   const fixture = fixtureFor[action]
   if (fixture) {

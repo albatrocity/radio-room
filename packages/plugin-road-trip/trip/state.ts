@@ -3,6 +3,7 @@ import type {
   FundsMode,
   IncidentStep,
   PartSlot,
+  PathLeg,
   TripFundPurpose,
   TripMap,
   TripStoreRefill,
@@ -19,8 +20,12 @@ import {
   productOf,
   refillGallonsAt,
   routeMiles,
+  START_LEG,
 } from "@repo/road-trip-map"
+import type { JunctionPhase, LayerPhase, SitePhase, VotePhase } from "./flow/machines"
 import { project, type Leg, type LegRates } from "./ledger"
+
+export type { JunctionPhase, LayerPhase, SitePhase, VotePhase } from "./flow/machines"
 
 export type TripStatus = "loaded" | "driving" | "arrived" | "late" | "ended" | "stranded"
 
@@ -45,26 +50,51 @@ export type SpeedFactor = {
   label?: string
 }
 
-/**
- * `ahead`: optional site awaiting its skip poll · `polling`: poll open ·
- * `stopping`: will park on arrival (mandatory, or the room chose to stop) ·
- * `parked` · `visited` · `skipped`.
- */
-export type SitePhase = "ahead" | "polling" | "stopping" | "parked" | "visited" | "skipped"
-
 export type SkipVotes = { stop: number; skip: number }
 
+/**
+ * One room poll's lifecycle (`voteMachine`), for a site exit, a junction, or an
+ * event choice. Only `flow/entities/vote.ts` writes it.
+ */
+export type VoteRuntime = {
+  phase: VotePhase
+  pollId?: string
+  /** Option ids of the open poll, in option order. */
+  optionIds?: string[]
+  /** Earliest time to retry opening the poll after a conflict. */
+  retryAt?: number
+}
+
+/** A site's runtime (`siteMachine`). `phase` and `vote` change only through the trip flow. */
 export type SiteRuntime = {
   phase: SitePhase
   revealed: boolean
-  pollId?: string
-  /** Option ids of the open poll: [stop, skip] by option order. */
-  pollOptionIds?: [string, string]
-  /** Earliest time to retry opening the poll after a conflict. */
-  pollRetryAt?: number
+  vote?: VoteRuntime
   votes?: SkipVotes
   defaulted?: boolean
   visitedAt?: number
+}
+
+/** A fork's runtime (`junctionMachine`), keyed by the alternate route's id. */
+export type JunctionRuntime = {
+  phase: JunctionPhase
+  vote?: VoteRuntime
+  /** Tally by option order: [take, stay]. */
+  votes?: [number, number]
+  defaulted?: boolean
+}
+
+/** A layer's runtime (`layerMachine`). */
+export type LayerRuntime = { phase: LayerPhase; at?: number; by?: string }
+
+/** A choice step's vote (ADR 0222): open while the step runs, then its winner. */
+export type IncidentChoiceRuntime = {
+  vote: VoteRuntime
+  winner?: string
+  votes?: number[]
+  defaulted?: boolean
+  /** An item ended the hosting slowdown: the event ends once the vote closes. */
+  endAfter?: true
 }
 
 /** Tank level at the last fill, against the ledger's `gallonsUsed` prefix sum (M2). */
@@ -143,6 +173,8 @@ export type ActiveIncident = IncidentSnapshot & {
   atSiteId?: string
   /** Where the tow picked the van up, for the "towed 3 mi" log. */
   towFromMile?: number
+  /** The current step's choice vote (a `choice` step, or a slow step hosting one). */
+  choice?: IncidentChoiceRuntime
 }
 
 /**
@@ -172,6 +204,10 @@ export type TripState = {
   speedFactors: SpeedFactor[]
   blockers: Blocker[]
   sites: Record<string, SiteRuntime>
+  /** Legs driven so far (ADR 0222); the last is the one the van is on. */
+  path: PathLeg[]
+  layers: Record<string, LayerRuntime>
+  junctions: Record<string, JunctionRuntime>
   departedAt?: number
   arrivedAt?: number
   endedAt?: number
@@ -211,8 +247,26 @@ export type TripLogEvent =
       kind: "site"
       siteId: string
       name: string
-      phase: "revealed" | "poll" | "stopped" | "skipped" | "departed"
+      phase: "revealed" | "poll" | "stopped" | "skipped" | "departed" | "bypassed"
       votes?: SkipVotes
+      defaulted?: boolean
+    }
+  | { kind: "layer"; layerId: string; name: string; phase: "unlocked" | "locked" }
+  | {
+      kind: "junction"
+      routeId: string
+      name: string
+      phase: "poll" | "take" | "stay" | "taken" | "passed" | "rejoined"
+      votes?: [number, number]
+      defaulted?: boolean
+    }
+  | {
+      kind: "choice"
+      eventId: string
+      question: string
+      winner: string
+      label: string
+      votes?: number[]
       defaulted?: boolean
     }
   | { kind: "pause"; reason: "admin" | "no-session" }
@@ -313,6 +367,9 @@ export function createTripState(stored: StoredTripMap, tripId: string, seed: num
     speedFactors: [],
     blockers: [],
     sites,
+    path: [START_LEG],
+    layers: Object.fromEntries((map.layers ?? []).map((layer) => [layer.id, { phase: "locked" }])),
+    junctions: Object.fromEntries((map.routes ?? []).map((route) => [route.id, { phase: "ahead" }])),
     baseGpm: baseGallonsPerMile(map),
     tankGallons: map.tuning.tankGallons,
     lastFill: { gallons: map.tuning.tankGallons, gallonsUsed: 0 },
@@ -326,15 +383,54 @@ export function createTripState(stored: StoredTripMap, tripId: string, seed: num
   }
 }
 
-/** Fill Phase 3 and ADR 0220 fields on a state saved before they existed. */
+/** A site saved before ADR 0222 kept its poll on the site itself. */
+type LegacySiteRuntime = SiteRuntime & {
+  pollId?: string
+  pollOptionIds?: [string, string]
+  pollRetryAt?: number
+}
+
+function liftLegacySite(runtime: LegacySiteRuntime): SiteRuntime {
+  if (!("pollId" in runtime || "pollOptionIds" in runtime || "pollRetryAt" in runtime)) {
+    return runtime
+  }
+  const { pollId, pollOptionIds, pollRetryAt, ...rest } = runtime
+  if (runtime.phase === "polling" && pollId) {
+    return { ...rest, vote: { phase: "open", pollId, ...(pollOptionIds ? { optionIds: pollOptionIds } : {}) } }
+  }
+  return pollRetryAt !== undefined ? { ...rest, vote: { phase: "pending", retryAt: pollRetryAt } } : rest
+}
+
+/** Fill Phase 3, ADR 0220, and ADR 0222 fields on a state saved before they existed. */
 export function normalizeTripState(state: TripState): TripState {
   const incident = state.incident
   const legacyIncident = incident !== undefined && incident.name === undefined
-  if (state.parts && state.incidentQueue && state.scriptedFired && state.beatRuns && !legacyIncident) {
+  const legacySites = Object.values(state.sites).some(
+    (runtime) => "pollId" in runtime || "pollOptionIds" in runtime || "pollRetryAt" in runtime,
+  )
+  if (
+    state.parts &&
+    state.incidentQueue &&
+    state.scriptedFired &&
+    state.beatRuns &&
+    state.path &&
+    state.layers &&
+    state.junctions &&
+    !legacyIncident &&
+    !legacySites
+  ) {
     return state
   }
   return {
     ...state,
+    sites: legacySites
+      ? Object.fromEntries(
+          Object.entries(state.sites).map(([id, runtime]) => [id, liftLegacySite(runtime)]),
+        )
+      : state.sites,
+    path: state.path ?? [START_LEG],
+    layers: state.layers ?? {},
+    junctions: state.junctions ?? {},
     parts: state.parts ?? {},
     incidentQueue: state.incidentQueue ?? [],
     incidentSeq: state.incidentSeq ?? 0,

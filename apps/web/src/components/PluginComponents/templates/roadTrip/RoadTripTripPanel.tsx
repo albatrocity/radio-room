@@ -1,5 +1,10 @@
 import { Badge, Box, Card, CardBody, HStack, ScrollArea, Stack, Text } from "@chakra-ui/react"
-import type { TripStore, TripStoreEvent, TripStoreSite } from "@repo/road-trip-map"
+import type {
+  TripStore,
+  TripStoreEvent,
+  TripStoreJunction,
+  TripStoreSite,
+} from "@repo/road-trip-map"
 import { useStickToBottom } from "use-stick-to-bottom"
 import ScrollShadowViewport from "../../../ScrollShadowViewport"
 import { useOpenTabDetail } from "../../../Modals/GameState/useOpenTabDetail"
@@ -11,7 +16,11 @@ import {
   SITE_STATE_LABEL,
   formatClock,
   formatMiles,
+  JUNCTION_STATE_LABEL,
+  junctionName,
+  junctionPin,
   minutesToSite,
+  routeLabel,
   siteLabel,
   sitePin,
   stripContext,
@@ -134,6 +143,7 @@ export function RoadTripTripPanelTemplateComponent({
   const eta = etaLine(trip)
   const title = tripTabTitle(trip, mile)
   const context = stripContext(trip, mile, now)
+  const route = routeLabel(trip)
 
   return (
     <Stack gap={3} flex="1" minH={0}>
@@ -152,6 +162,11 @@ export function RoadTripTripPanelTemplateComponent({
                 {trip.siteCount} visited
                 {eta ? ` · ${eta}` : ""}
               </Text>
+              {route ? (
+                <Text fontSize="sm" data-road-trip-route>
+                  On {route}
+                </Text>
+              ) : null}
             </Stack>
 
             <Box px={1}>
@@ -172,6 +187,8 @@ export function RoadTripTripPanelTemplateComponent({
               {tripLog(trip).map((row) =>
                 row.kind === "event" ? (
                   <EventRow key={row.key} event={row.event} />
+                ) : row.kind === "junction" ? (
+                  <JunctionRow key={row.key} trip={trip} junction={row.junction} mile={mile} />
                 ) : (
                   <Stack key={row.key} gap={2}>
                     <SiteRow
@@ -208,6 +225,50 @@ export function RoadTripTripPanelTemplateComponent({
         <ScrollArea.Corner />
       </ScrollArea.Root>
     </Stack>
+  )
+}
+
+/** A fork whose vote opened (ADR 0222): where it is and how the room went. */
+function JunctionRow({
+  trip,
+  junction,
+  mile,
+}: {
+  trip: TripStore
+  junction: TripStoreJunction
+  mile: number
+}) {
+  const minutes = minutesToSite(trip, junction, mile)
+  const votes = junction.votes ? ` · ${junction.votes[0]}–${junction.votes[1]}` : ""
+  return (
+    <HStack
+      w="full"
+      gap={3}
+      px={3}
+      py={2}
+      borderRadius="md"
+      borderWidth="1px"
+      borderStyle="dashed"
+      opacity={junction.state === "stay" ? 0.65 : 1}
+      data-road-trip-junction={junction.state}
+    >
+      <Text as="span" fontSize="lg" lineHeight={1} w="1.5em" textAlign="center" aria-hidden>
+        {junctionPin(junction)}
+      </Text>
+      <Stack gap={0} flex={1} minW={0}>
+        <Text fontSize="sm" fontWeight="medium" truncate>
+          {junctionName(junction)}
+        </Text>
+        <Text fontSize="xs" color="fg.muted">
+          Fork · {JUNCTION_STATE_LABEL[junction.state]}
+          {votes}
+        </Text>
+      </Stack>
+      <Text fontSize="xs" color="fg.muted" flexShrink={0}>
+        mile {formatMiles(junction.mile)}
+        {minutes !== null ? ` · ${minutes} min` : ""}
+      </Text>
+    </HStack>
   )
 }
 

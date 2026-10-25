@@ -7,6 +7,7 @@ import { TripRouteLine } from "./TripRouteLine"
 import {
   DEFAULT_TRIP_KEY,
   fuelView,
+  routeLabel,
   stripContext,
   stripReadout,
   useInterpolatedVanMile,
@@ -33,6 +34,7 @@ export function RoadTripStripTemplateComponent({
   }
   const context = stripContext(trip, mile, now)
   const readout = stripReadout(trip, mile, now, motion.phase ?? phase)
+  const route = routeLabel(trip)
 
   return (
     // inline-size containment: the status row mustn't widen the chat column.
@@ -48,7 +50,7 @@ export function RoadTripStripTemplateComponent({
         cursor="pointer"
         role="button"
         tabIndex={0}
-        aria-label={`Road trip: ${context}. Open the Trip tab`}
+        aria-label={`Road trip: ${context}${route ? `, via ${route}` : ""}. Open the Trip tab`}
         onClick={openTripTab}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -62,6 +64,18 @@ export function RoadTripStripTemplateComponent({
           <Text fontWeight="bold" truncate flexShrink={0} maxW="60%">
             {readout.status}
           </Text>
+          {route ? (
+            <Text
+              color="fg.muted"
+              fontSize="xs"
+              truncate
+              minW={0}
+              flexShrink={1}
+              data-road-trip-route
+            >
+              via {route}
+            </Text>
+          ) : null}
           <Box flex={1} />
           {readout.destination ? (
             <Text color="fg.muted" truncate minW={0} textAlign="right">

@@ -1,5 +1,6 @@
 import { isDestination, sortedSites } from "./derive"
 import type {
+  ChoiceOption,
   EventResolution,
   IncidentId,
   TripEvent,
@@ -17,9 +18,37 @@ import { compileVan, itemsResolving } from "./van"
 
 export type IncidentFundPurpose = "roadside" | "tow" | "repair" | "delivery"
 
+/** A room vote compiled from a `choice` resolution (ADR 0222). */
+export type IncidentChoice = {
+  question: string
+  /** Option id that wins on a tie, a timeout, or a missed poll. */
+  default: string
+  options: ChoiceOption[]
+  /** How long the vote stays open. */
+  ms: number
+}
+
+export const DEFAULT_CHOICE_MS = 60_000
+
 export type IncidentStep =
-  /** Not a blocker: the van crawls under a speed factor; `resolvesWith` items end it early. */
-  | { kind: "slow"; label: string; factor: number; ms: number; resolvesWith?: string[] }
+  /**
+   * Not a blocker: the van crawls under a speed factor; `resolvesWith` items end it
+   * early. A hosted `choice` opens with it, and the step ends once both the
+   * slowdown and the vote are over.
+   */
+  | {
+      kind: "slow"
+      label: string
+      factor: number
+      ms: number
+      resolvesWith?: string[]
+      choice?: IncidentChoice
+    }
+  /**
+   * The room votes; the winner's outcomes apply. `holds`: the van waits on the
+   * shoulder (a `stop` event); otherwise it keeps driving.
+   */
+  | { kind: "choice"; label: string; ms: number; holds: boolean; choice: IncidentChoice }
   /** The van waits; using one of `resolvesWith` (item short ids) ends the incident. */
   | { kind: "window"; label: string; ms: number; resolvesWith: string[] }
   /** A cost step (D15). `waivable`: a AAA Card covers it. */
@@ -195,6 +224,16 @@ function resolutionSteps(
   switch (entry.kind) {
     case "item":
       return []
+    case "choice":
+      return [
+        {
+          kind: "choice",
+          label: entry.question,
+          ms: choiceOf(entry).ms,
+          holds: true,
+          choice: choiceOf(entry),
+        },
+      ]
     case "fund":
       return [
         {
@@ -274,9 +313,26 @@ function resolutionSteps(
   }
 }
 
+function choiceOf(entry: Extract<EventResolution, { kind: "choice" }>): IncidentChoice {
+  return {
+    question: entry.question,
+    default: entry.default,
+    options: entry.options,
+    ms: entry.seconds !== undefined ? entry.seconds * 1000 : DEFAULT_CHOICE_MS,
+  }
+}
+
+/** The event's first `choice` resolution, if any. */
+export function eventChoice(event: Pick<TripEvent, "resolution">): IncidentChoice | undefined {
+  const entry = (event.resolution ?? []).find((e) => e.kind === "choice")
+  return entry?.kind === "choice" ? choiceOf(entry) : undefined
+}
+
 /**
  * The concrete steps for `event` here and now. Empty when the event has no
  * effect (it only narrates) or a part makes the van immune to its family.
+ * Exception (ADR 0222): an event with no effect and a `choice` compiles to that
+ * choice alone; the van keeps driving while the room votes.
  */
 export function compileEventSteps(
   map: TripMap,
@@ -284,7 +340,12 @@ export function compileEventSteps(
   ctx: IncidentStepContext,
 ): IncidentStep[] {
   const effect = event.effect
-  if (!effect) return []
+  if (!effect) {
+    const choice = eventChoice(event)
+    return choice
+      ? [{ kind: "choice", label: choice.question, ms: choice.ms, holds: false, choice }]
+      : []
+  }
   const family = event.family ?? "none"
   const van = compileVan(ctx.parts)
   if (van.immunities.includes(family)) return []
@@ -292,6 +353,8 @@ export function compileEventSteps(
   const itemsOf = (entry: Extract<EventResolution, { kind: "item" }>) =>
     entry.items ?? itemsResolving(family)
   const steps: IncidentStep[] = []
+  // A slowdown hosts the event's choice; the van crawls while the room votes.
+  const hosted = effect.kind === "slow" ? eventChoice(event) : undefined
   if (effect.kind === "slow") {
     const jam = family === "jam" ? van.jam : null
     const resolvesWith = Array.from(
@@ -303,9 +366,11 @@ export function compileEventSteps(
       factor: jam ? Math.max(effect.factor, jam.factor) : effect.factor,
       ms: Math.round(minutesMs(event.durationMinutes ?? 0) * (jam?.durationScale ?? 1)),
       ...(resolvesWith.length > 0 ? { resolvesWith } : {}),
+      ...(hosted ? { choice: hosted } : {}),
     })
   }
   for (const entry of chain) {
+    if (entry.kind === "choice" && effect.kind === "slow") continue
     if (entry.kind === "item") {
       if (effect.kind !== "stop") continue
       steps.push({
