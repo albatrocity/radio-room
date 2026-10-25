@@ -1,5 +1,5 @@
 import { assign, enqueueActions, setup } from "xstate"
-import type { VanPhase } from "../components/PluginComponents/templates/roadTrip/tripView"
+import type { VanPhase } from "../lib/roadTripVanPhase"
 
 export type VanFlourish = "depart" | "park" | "hold"
 

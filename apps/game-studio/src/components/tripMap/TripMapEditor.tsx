@@ -187,10 +187,11 @@ function BlankSiteButton({
   )
 }
 
+type MapSelection = { kind: "site"; id: string } | { kind: "event"; id: string } | null
+
 export function TripMapEditor() {
   const [draft, setDraft] = useState<TripMapInput>(loadDraft)
-  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null)
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+  const [selection, setSelection] = useState<MapSelection>(null)
   const [departAt, setDepartAt] = useState(() => Date.now())
   const [importText, setImportText] = useState("")
   const [savedIds, setSavedIds] = useState<string[]>([])
@@ -212,17 +213,15 @@ export function TripMapEditor() {
   const parsed = useMemo(() => parseDraft(settledDraft, departAt), [settledDraft, departAt])
   const projection = resolved ? projectTrip(resolved, departAt) : null
   const fuel = useMemo(() => (resolved ? projectFuel(resolved, costScale) : null), [resolved, costScale])
+  const selectedSiteId = selection?.kind === "site" ? selection.id : null
+  const selectedEventId = selection?.kind === "event" ? selection.id : null
   const selected = draft.sites.find((s) => s.id === selectedSiteId)
-  const selectedEvent = selected
-    ? undefined
-    : draft.events?.find((e) => e.id === selectedEventId)
+  const selectedEvent = draft.events?.find((e) => e.id === selectedEventId)
   const selectSite = (siteId: string | null) => {
-    setSelectedSiteId(siteId)
-    if (siteId) setSelectedEventId(null)
+    setSelection(siteId ? { kind: "site", id: siteId } : null)
   }
   const selectEvent = (eventId: string | null) => {
-    setSelectedEventId(eventId)
-    if (eventId) setSelectedSiteId(null)
+    setSelection(eventId ? { kind: "event", id: eventId } : null)
   }
   const assetIssues = pendingAssetIssues(draft, pendingAssets)
   const issues = [...assetIssues, ...parsed.issues]
@@ -294,8 +293,7 @@ export function TripMapEditor() {
   const importJson = (text: string) => {
     try {
       setDraft(liftDraft(JSON.parse(text)))
-      setSelectedSiteId(null)
-      setSelectedEventId(null)
+      setSelection(null)
       setImportText("")
     } catch (error) {
       toaster.create({ title: "Not valid JSON", description: String(error), type: "error" })
@@ -336,8 +334,7 @@ export function TripMapEditor() {
             onClick={() => {
               if (window.confirm("Replace the draft with the sample map?")) {
                 setDraft(structuredClone(SAMPLE_TRIP_MAP))
-                setSelectedSiteId(null)
-                setSelectedEventId(null)
+                setSelection(null)
               }
             }}
           >
@@ -516,7 +513,7 @@ export function TripMapEditor() {
             const result = addBlankSite(draft, { name, slug })
             if (!result.ok) return result.error
             setDraft(result.draft)
-            setSelectedSiteId(result.siteId)
+            selectSite(result.siteId)
             return null
           }}
         />
@@ -573,7 +570,7 @@ export function TripMapEditor() {
               onChange={(patch) => setDraft((d) => updateSite(d, selected.id, patch))}
               onRemove={() => {
                 setDraft((d) => removeSite(d, selected.id))
-                setSelectedSiteId(null)
+                setSelection(null)
               }}
             />
           ) : selectedEvent ? (
@@ -584,7 +581,7 @@ export function TripMapEditor() {
               onChange={(patch) => setDraft((d) => updateEvent(d, selectedEvent.id, patch))}
               onRemove={() => {
                 setDraft((d) => removeEvent(d, selectedEvent.id))
-                setSelectedEventId(null)
+                setSelection(null)
               }}
             />
           ) : (

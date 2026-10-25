@@ -201,4 +201,18 @@ describe("stripContext", () => {
   it("uses the ticking countdown in the Next sentence", () => {
     expect(stripContext(trip({ sites: [diner()] }), 0, NOW + 0)).toBe("Next: Diner · 10:00")
   })
+
+  it("keeps the fix in the one-line incident sentence", () => {
+    const live = {
+      kind: "incident" as const,
+      label: "",
+      incident: "traffic-jam",
+      name: "Traffic jam",
+      icon: "🚗",
+      resolvesWith: ["road-trip:cb-radio"],
+    }
+    expect(stripContext(trip({ live, van: { anchorAt: NOW, anchorMile: 0, mph: 12 } }), 0, NOW)).toBe(
+      "🚗 Traffic jam · CB Radio?",
+    )
+  })
 })

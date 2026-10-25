@@ -58,7 +58,7 @@ The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (dr
    - `live` describes a parked stop (with `endsAt` and whether the shop is open) or a pause.
 9. **UI is one strip plus a tab (D24).**
    - The strip is `road-trip-strip` in `aboveChat`, one line about 32 px tall, always shown while a trip is loaded. It shows the route line, the van dot, and "Next: …" or the live context. Tapping it opens the Trip tab.
-   - The **Trip** Game State tab (`road-trip-trip-panel`) shows the route, the visited count, the ETA, and a site list.
+   - The Trip tab log (visited sites' narratives and van events) follows [0212](0212-site-narrative-chat.md). The **Trip** Game State tab (`road-trip-trip-panel`) shows the route, the visited count, the ETA, and a site list.
    - Site detail (`road-trip-site-detail`) opens on the Game State nav stack ([0106](0106-game-state-nav-machine.md)) through a new generic **plugin detail frame** `{ kind: "plugin", pluginName, view, params }`. The frame renders any registered template component with params, so plugins get detail pages without a dedicated frame kind.
    - Status messages go through one `tripAnnounce()` helper and render as road signs. Site narrative does not: it is chat prose ([0212](0212-site-narrative-chat.md)).
 10. **Two small generic seams on the web.**
@@ -71,7 +71,7 @@ The full design is in `plans/road-trip-v1/plan.md`. This ADR records Phase 1 (dr
     - The store adds `fuel` (an interpolation anchor like `van`, read by `interpolateFuelGallons`), `funds.mode`, `costScale`, site `gasPrice`, and `live.kind: "fund"`. New store keys are `tripPool` / `tripPoolOpen` (the voluntary pool card) and `tripFuel` (Quick Access status).
     - The strip gains a gas gauge and fund context. A **Van** tab (`road-trip-van-panel`) shows speed, the gauge, range, the next gas site with its scaled price and fill estimate, and the funds mode.
     - New actions are `chipIn` (open to everyone) and `switchFundsMode` (admins, until departure).
-12. **Phase 3: van parts and incidents.**
+12. **Phase 3: van parts and incidents.** Authored incidents follow [0220](0220-trip-events.md) (`map.events`, `compileEventSteps`). The closed catalog below is the original shape.
     - **Catalog in `@repo/road-trip-map`.** Parts, consumables, `compileVan(parts)`, incident step lists (`incidentSteps`), and constant costs and timings live in the map package, so the plugin, Game Studio, and web share one source. Item definitions and `onItemUsed` routing live in `plugin-road-trip/items`, so road-trip owns its items ([0042](0042-game-sessions-and-inventory.md)).
     - **Parts** fill one slot each (`aero`, `engine`, `tires`, `horn`, `membership`). Installing consumes the inventory item and records who installed it; a filled slot is replaced. `compileVan` turns parts into speed and fuel-economy factors (applied in slot order), immunities, a softer Traffic Jam, and the AAA Card's fee waiver. The AAA Card is a `membership` part that waives the next roadside or tow fee and then comes off the van.
     - **Consumables** (Fix-a-Flat, CB Radio) are consumed only when they end an incident step. A use with nothing to resolve, or a part with no van to install on, returns a message and keeps the item.

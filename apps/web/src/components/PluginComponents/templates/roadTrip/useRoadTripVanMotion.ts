@@ -3,7 +3,7 @@ import { useSelector } from "@xstate/react"
 import { ensureRoadTripVanMotionActor } from "../../../../actors/roadTripVanMotionRegistry"
 import { useAnimationsEnabled } from "../../../../hooks/useReducedMotion"
 import type { VanFlourish } from "../../../../machines/roadTripVanMotionMachine"
-import type { VanPhase } from "./tripView"
+import type { VanPhase } from "../../../../lib/roadTripVanPhase"
 
 export type VanMotion = {
   /** Null until the first sync; fall back to the store's phase. */
