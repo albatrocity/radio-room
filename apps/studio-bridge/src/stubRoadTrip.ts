@@ -9,12 +9,12 @@ import type { Poll } from "@repo/types/Poll"
 import type { PoolCardView } from "@repo/types/PluginComponent"
 import {
   SAMPLE_TRIP_MAP as SAMPLE_TRIP_MAP_INPUT,
-  INCIDENTS,
   INCIDENT_TIMING,
   baseGallonsPerMile,
   compileVan,
   gasCost,
   itemsResolving,
+  mileEvents,
   roadTripItemId,
   routeMiles as mapRouteMiles,
   siteShopRequest,
@@ -32,6 +32,7 @@ export const ROAD_TRIP_PREVIEW_PLUGIN = "road-trip"
 const MIN = 60_000
 const SAMPLE_TRIP_MAP = tripMapSchema.parse(SAMPLE_TRIP_MAP_INPUT)
 const TANK = SAMPLE_TRIP_MAP.tuning.tankGallons
+const FLAT_EVENT = mileEvents(SAMPLE_TRIP_MAP)[0]!
 const GPM = baseGallonsPerMile(SAMPLE_TRIP_MAP)
 const GAS_SITE_ID = "gas-n-go"
 const GAS_SITE = SAMPLE_TRIP_MAP.sites.find((s) => s.id === GAS_SITE_ID)!
@@ -76,13 +77,13 @@ function vanSheet(fixture: RoadTripFixture, at: number): TripStoreVanSheet {
   }
   if (fixture === "incident") {
     sheet.incident = {
-      incident: "blown-tire",
-      name: INCIDENTS["blown-tire"].name,
-      emoji: INCIDENTS["blown-tire"].emoji,
+      incident: FLAT_EVENT.id,
+      name: FLAT_EVENT.name,
+      icon: FLAT_EVENT.icon,
       step: "Waiting on the shoulder",
       stepKind: "window",
       endsAt: at + INCIDENT_TIMING.flatWindowMs,
-      resolvesWith: itemsResolving("blown-tire").map(roadTripItemId),
+      resolvesWith: itemsResolving("flat").map(roadTripItemId),
     }
   }
   return sheet
@@ -178,7 +179,7 @@ function fixtureStore(entry: FixtureEntry): Omit<TripStore, "siteCount"> {
 
   if (fixture === "incident") {
     const departedAt = at - 15 * MIN
-    const flatMile = SAMPLE_TRIP_MAP.scriptedEvents?.[0]?.atMile ?? 9
+    const flatMile = FLAT_EVENT.mile ?? 9
     return {
       ...base,
       status: "driving",
@@ -196,15 +197,16 @@ function fixtureStore(entry: FixtureEntry): Omit<TripStore, "siteCount"> {
       eta: { projectedArrivalAt: at + 5 * MIN, targetArrivalAt: departedAt + 18 * MIN },
       live: {
         kind: "incident",
-        label: "🛞 Blown tire · Waiting on the shoulder",
-        incident: "blown-tire",
-        name: INCIDENTS["blown-tire"].name,
+        label: `${FLAT_EVENT.icon} ${FLAT_EVENT.name} · Waiting on the shoulder`,
+        incident: FLAT_EVENT.id,
+        name: FLAT_EVENT.name,
+        icon: FLAT_EVENT.icon,
         endsAt: at + INCIDENT_TIMING.flatWindowMs,
-        resolvesWith: itemsResolving("blown-tire").map(roadTripItemId),
+        resolvesWith: itemsResolving("flat").map(roadTripItemId),
       },
       departedAt,
       visitedCount: 2,
-      events: [{ at, mile: flatMile, text: `${INCIDENTS["blown-tire"].emoji} Blown tire` }],
+      events: [{ at, mile: flatMile, text: `${FLAT_EVENT.icon} ${FLAT_EVENT.name}` }],
     }
   }
 

@@ -11,11 +11,9 @@ import type {
 import {
   compileVan,
   FUND_PURPOSE_LABELS,
-  INCIDENTS,
   isDestination,
   isGasSite,
   isSecretSite,
-  itemsResolving,
   PART_SLOTS,
   parkPlan,
   resolveSiteSettings,
@@ -152,7 +150,7 @@ function buildVanSheet(state: TripState, now: number): TripStoreVanSheet {
     .filter((f) => f.until === undefined || f.until > now)
     .map((f) => ({
       source: f.source,
-      label: f.source in INCIDENTS ? INCIDENTS[f.source as keyof typeof INCIDENTS].name : f.source,
+      label: f.label ?? f.source,
       factor: f.factor,
     }))
   const sheet: TripStoreVanSheet = {
@@ -172,21 +170,20 @@ function incidentView(state: TripState): TripStoreIncident | undefined {
   const incident = state.incident
   const step = currentIncidentStep(state)
   if (!incident || !step) return undefined
-  const spec = INCIDENTS[incident.incident]
   const label =
     step.kind === "fund"
       ? `${FUND_PURPOSE_LABELS[step.purpose]}${state.fund ? ` · ${state.fund.cost} coins` : ""}`
       : step.label
   return {
     incident: incident.incident,
-    name: (step.kind === "wait" && step.status) || spec.name,
-    emoji: spec.emoji,
+    name: (step.kind === "wait" && step.status) || incident.name,
+    icon: incident.icon,
     step: label,
     stepKind: step.kind,
     ...(incident.stepEndsAt !== undefined ? { endsAt: incident.stepEndsAt } : {}),
     resolvesWith:
       step.kind === "window" || step.kind === "slow"
-        ? itemsResolving(incident.incident).map(roadTripItemId)
+        ? (step.resolvesWith ?? []).map(roadTripItemId)
         : [],
   }
 }
@@ -226,9 +223,10 @@ function liveContext(
   if (incident) {
     return {
       kind: "incident",
-      label: `${incident.emoji} ${incident.name} · ${incident.step}`,
+      label: `${incident.icon} ${incident.name} · ${incident.step}`,
       incident: incident.incident,
       name: incident.name,
+      icon: incident.icon,
       ...(incident.endsAt !== undefined ? { endsAt: incident.endsAt } : {}),
       ...(incident.resolvesWith.length > 0 ? { resolvesWith: incident.resolvesWith } : {}),
     }
@@ -365,10 +363,10 @@ export function buildStatusLines(
   }
   const incident = store.vanSheet.incident
   if (incident && state.status === "driving") {
-    warnings.unshift(`${incident.emoji} ${incident.name}: ${incident.step}`)
+    warnings.unshift(`${incident.icon} ${incident.name}: ${incident.step}`)
   }
   if (store.vanSheet.queued > 0) warnings.push(`${store.vanSheet.queued} incident(s) queued`)
-  if (state.status === "driving" && incident?.incident !== "out-of-gas") {
+  if (state.status === "driving" && !state.incident?.refuels) {
     if (state.fuelFlags.includes("empty") && !incident) warnings.push("Out of gas")
     else if (state.fuelFlags.includes("low")) warnings.push("Low fuel")
   }

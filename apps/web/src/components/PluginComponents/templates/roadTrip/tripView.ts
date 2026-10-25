@@ -7,7 +7,6 @@ import type {
 } from "@repo/road-trip-map"
 import {
   FUND_PURPOSE_LABELS,
-  INCIDENTS,
   interpolateFuelGallons,
   interpolateVanMile,
   refillGallonsAt,
@@ -181,10 +180,9 @@ export function stripContext(trip: TripStore, mile: number, now: number): string
       : `${icon} ${trip.live.label} · ${trip.live.cost} coins`
   }
   if (trip.live?.kind === "incident") {
-    const spec = INCIDENTS[trip.live.incident]
     const fix = trip.live.resolvesWith?.[0]
     const left = trip.live.endsAt !== undefined ? ` · ${formatCountdown(trip.live.endsAt - now)}` : ""
-    return `${spec.emoji} ${trip.live.name}${fix ? ` · ${vanItemName(fix)}?` : ""}${left}`
+    return `${trip.live.icon} ${trip.live.name}${fix ? ` · ${vanItemName(fix)}?` : ""}${left}`
   }
   if (trip.live?.kind === "parked") {
     const left = formatCountdown(trip.live.endsAt - now)
@@ -296,12 +294,11 @@ export function stripReadout(
     }
   }
   if (live?.kind === "incident") {
-    const spec = INCIDENTS[live.incident]
     const fix = live.resolvesWith?.[0]
     const destination =
       trip.van.mph > 0 ? speedLabel(trip) : fix ? `${vanItemName(fix)}?` : undefined
     return {
-      status: `${spec.emoji} ${live.name}`,
+      status: `${live.icon} ${live.name}`,
       ...(destination ? { destination } : {}),
       ...(live.endsAt !== undefined ? { countdown: formatDriveCountdown(live.endsAt - now) } : {}),
     }

@@ -200,7 +200,7 @@ export function pullOffHold(state: TripState, map: TripMap, site: TripSite): Tri
 }
 
 /** The next stop isn't named: its sign and poll arrive when it comes into sight. */
-export const BACK_ON_THE_ROAD: TripEffect = {
+export const BACK_ON_THE_ROAD: Extract<TripEffect, { type: "sign" }> = {
   type: "sign",
   variant: "info",
   icon: "Van",

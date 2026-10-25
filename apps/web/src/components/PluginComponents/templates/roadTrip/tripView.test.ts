@@ -121,7 +121,13 @@ describe("stripReadout", () => {
 
   it("keeps the incident headline even while the van rolls", () => {
     const towing = trip({
-      live: { kind: "incident", label: "", incident: "engine-failure", name: "Engine failure" },
+      live: {
+        kind: "incident",
+        label: "",
+        incident: "engine-failure",
+        name: "Engine failure",
+        icon: "🔧",
+      },
     })
     expect(stripReadout(towing, 0, NOW, "cruising")).toEqual({
       status: "🔧 Engine failure",
@@ -133,14 +139,23 @@ describe("stripReadout", () => {
     const live = {
       kind: "incident" as const,
       label: "",
-      incident: "traffic-jam" as const,
+      incident: "traffic-jam",
       name: "Traffic jam",
+      icon: "🚗",
       resolvesWith: ["road-trip:cb-radio"],
     }
     const crawling = trip({ live, van: { anchorAt: NOW, anchorMile: 0, mph: 12 } })
     expect(stripReadout(crawling, 0, NOW).destination).toBe("12 mph")
     const stopped = trip({ live, van: { anchorAt: NOW, anchorMile: 0, mph: 0 } })
     expect(stripReadout(stopped, 0, NOW).destination).toBe("CB Radio?")
+  })
+
+  it("reads a custom event's name and icon from the store", () => {
+    const fog = trip({
+      live: { kind: "incident", label: "", incident: "fog-bank", name: "Fog bank", icon: "🌫️" },
+      van: { anchorAt: NOW, anchorMile: 0, mph: 30 },
+    })
+    expect(stripReadout(fog, 0, NOW).status).toBe("🌫️ Fog bank")
   })
 })
 

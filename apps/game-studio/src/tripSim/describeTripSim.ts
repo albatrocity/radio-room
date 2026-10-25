@@ -1,5 +1,22 @@
-import { FUND_PURPOSE_LABELS, INCIDENTS, vanPart, type TripMap } from "@repo/road-trip-map"
+import {
+  FUND_PURPOSE_LABELS,
+  INCIDENT_PRESETS,
+  isIncidentPresetId,
+  vanPart,
+  type TripMap,
+} from "@repo/road-trip-map"
 import type { SimEvent, TripLogEntry, TripState } from "@repo/plugin-road-trip/sim"
+
+function eventLabel(map: TripMap, eventId: string | undefined): string {
+  const event = map.events?.find((e) => e.id === eventId)
+  return event ? `${event.icon} ${event.name}` : (eventId ?? "event")
+}
+
+/** Logged name and icon; entries from before ADR 0220 fall back to the preset. */
+function incidentLabel(entry: { incident: string; name?: string; icon?: string }): string {
+  const preset = isIncidentPresetId(entry.incident) ? INCIDENT_PRESETS[entry.incident] : undefined
+  return `${entry.icon ?? preset?.icon ?? "⚠️"} ${entry.name ?? preset?.name ?? entry.incident}`
+}
 
 function siteName(map: TripMap, siteId: string | undefined): string {
   return map.sites.find((s) => s.id === siteId)?.name ?? siteId ?? "a site"
@@ -19,14 +36,14 @@ export function describeSimEvent(event: SimEvent, map: TripMap, state: TripState
       return `Reach ${siteName(map, event.siteId)}`
     case "fuel":
       return payload?.level === "empty" ? "Tank runs empty" : "Fuel runs low"
-    case "scripted": {
-      const scripted = map.scriptedEvents?.find((e) => e.id === payload?.eventId)
-      return scripted ? `Scripted ${INCIDENTS[scripted.incident].name}` : "Scripted incident"
-    }
+    case "scripted":
+      return `Event: ${eventLabel(map, payload?.eventId)}`
+    case "beat":
+      return `Beat ${(payload?.beat ?? 0) + 1}: ${eventLabel(map, payload?.eventId)}`
     case "incident": {
       const incident = state.incident
       const step = incident?.steps[incident.step]
-      const name = incident ? INCIDENTS[incident.incident].name : "Incident"
+      const name = incident ? `${incident.icon} ${incident.name}` : "Incident"
       return step ? `${name}: ${step.kind} step ends` : `${name} step ends`
     }
     case "expire": {
@@ -77,10 +94,9 @@ export function describeLogEntry(entry: TripLogEntry): string {
       return entry.level === "low" ? `⛽ Low fuel (${gal} gal)` : "⛽ Out of gas"
     }
     case "incident": {
-      const spec = INCIDENTS[entry.incident]
       const where = entry.siteName ? ` · ${entry.siteName}` : ""
       const by = entry.resolvedBy ? ` by ${entry.resolvedBy.name}` : ""
-      return `${spec.emoji} ${spec.name}: ${entry.step}${by}${where}`
+      return `${incidentLabel(entry)}: ${entry.step}${by}${where}`
     }
     case "part-installed":
       return `🔧 Installed ${vanPart(entry.partId)?.name ?? entry.partId}`

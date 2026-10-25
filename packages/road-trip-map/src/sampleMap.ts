@@ -1,3 +1,4 @@
+import { eventFromPreset } from "./incidents"
 import type { TripMapInput } from "./schema"
 
 /**
@@ -94,5 +95,5 @@ export const SAMPLE_TRIP_MAP: TripMapInput = {
       },
     },
   ],
-  scriptedEvents: [{ id: "flat-at-9", atMile: 9, incident: "blown-tire" }],
+  events: [{ ...eventFromPreset("blown-tire", "flat-at-9"), mile: 9 }],
 }

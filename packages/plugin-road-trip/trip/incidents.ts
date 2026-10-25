@@ -1,12 +1,22 @@
-import type { IncidentId, IncidentStep, TriggerableIncidentId } from "@repo/road-trip-map"
+import type {
+  IncidentStep,
+  NarrativeVariant,
+  TripEvent,
+  TriggerableIncidentId,
+} from "@repo/road-trip-map"
 import {
+  builtInEvent,
+  compileEventSteps,
+  eventRefuels,
   FUND_PURPOSE_LABELS,
-  INCIDENTS,
-  incidentSteps,
+  fuelEvent,
+  immunePart,
   isDestination,
+  mileEvents,
   roadTripItemId,
   siteShopTitle,
   sortedSites,
+  TRIGGERABLE_INCIDENT_IDS,
   vanConsumable,
   vanPart,
 } from "@repo/road-trip-map"
@@ -34,6 +44,8 @@ import {
   type ActiveIncident,
   type Blocker,
   type FundPayment,
+  type IncidentSnapshot,
+  type IncidentSource,
   type QueuedIncident,
   type TripFund,
   type TripLogEvent,
@@ -42,12 +54,75 @@ import {
 
 /**
  * The incident engine (M4): one incident at a time, one step at a time,
- * every step ending on its own (D22). Pure, like `./transitions`.
+ * every step ending on its own (D22). Incidents start from trip events
+ * compiled by `compileEventSteps` (ADR 0220). Pure, like `./transitions`.
  */
 
 type Acc = { next: TripState; log: TripLogEvent[]; effects: TripEffect[] }
 
 type Traveler = { userId: string; name: string }
+
+type IncidentLogEvent = TripLogEvent & { kind: "incident" }
+
+/** The event a queued incident runs: hosts fire built-in presets, maps their own events. */
+function eventFor(ctx: TransitionContext, queued: QueuedIncident): TripEvent | undefined {
+  switch (queued.source) {
+    case "host":
+      return (TRIGGERABLE_INCIDENT_IDS as readonly string[]).includes(queued.incident)
+        ? builtInEvent(queued.incident as TriggerableIncidentId)
+        : undefined
+    case "scripted":
+      return ctx.map.events?.find((e) => e.id === (queued.eventId ?? queued.incident))
+    case "fuel":
+      return fuelEvent(ctx.map)
+  }
+}
+
+function snapshotOf(event: TripEvent): IncidentSnapshot {
+  const cleared = event.clearedNarrative?.trim()
+  return {
+    name: event.name,
+    icon: event.icon,
+    family: event.family ?? "none",
+    refuels: eventRefuels(event),
+    ...(cleared ? { clearedNarrative: cleared } : {}),
+  }
+}
+
+/** A log line for an incident step, carrying the event's name and icon. */
+function incidentEntry(
+  incident: { incident: string; source: IncidentSource; name: string; icon: string },
+  step: IncidentLogEvent["step"],
+  extra: Partial<IncidentLogEvent> = {},
+): IncidentLogEvent {
+  return {
+    kind: "incident",
+    incident: incident.incident,
+    name: incident.name,
+    icon: incident.icon,
+    source: incident.source,
+    step,
+    ...extra,
+  }
+}
+
+function prose(body: string | undefined, variant?: NarrativeVariant): TripEffect | null {
+  const text = body?.trim()
+  if (!text) return null
+  return { type: "narrate", body: text, ...(variant ? { variant } : {}) }
+}
+
+/** Start a map event's timed narratives; `incidentId` drops them when that incident clears. */
+function startBeats(state: TripState, event: TripEvent, now: number, incidentId?: string): TripState {
+  if (!event.beats?.length || state.beatRuns.some((run) => run.eventId === event.id)) return state
+  return {
+    ...state,
+    beatRuns: [
+      ...state.beatRuns,
+      { eventId: event.id, startedAt: now, fired: [], ...(incidentId ? { incidentId } : {}) },
+    ],
+  }
+}
 
 function holdId(incident: ActiveIncident): string {
   return `incident:${incident.id}`
@@ -84,7 +159,7 @@ function itemNames(shortIds: readonly string[]): string {
   return shortIds.map((id) => vanConsumable(id)?.name ?? id).join(" or ")
 }
 
-/** Start now, or queue behind the incident or stop in progress. Out of Gas cuts a Traffic Jam short. */
+/** Start now, or queue behind the incident or stop in progress. An empty tank cuts a slowdown short. */
 export function startOrQueueIncident(
   state: TripState,
   ctx: TransitionContext,
@@ -93,7 +168,7 @@ export function startOrQueueIncident(
   if (state.status !== "driving") return { next: state }
   let acc: Acc = { next: state, log: [], effects: [] }
   const active = state.incident
-  if (active && queued.incident === "out-of-gas" && active.incident === "traffic-jam") {
+  if (active && queued.source === "fuel" && active.steps[active.step]?.kind === "slow") {
     acc = finishIncident(acc, ctx, active, { quiet: true, startQueue: false })
   } else if (active || isStopped(state)) {
     if (queued.eventId && state.incidentQueue.some((q) => q.eventId === queued.eventId)) {
@@ -117,83 +192,98 @@ export function startQueuedIncident(
   )
 }
 
+/** Then start whatever was queued behind it. */
+function thenStartQueued(acc: Acc, ctx: TransitionContext): Acc {
+  const queuedNext = startQueuedIncident(acc.next, ctx)
+  return queuedNext
+    ? {
+        next: queuedNext.next,
+        log: [...acc.log, ...(queuedNext.log ?? [])],
+        effects: [...acc.effects, ...(queuedNext.effects ?? [])],
+      }
+    : acc
+}
+
 function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident): Acc {
   const state = acc.next
-  const spec = INCIDENTS[queued.incident]
+  const event = eventFor(ctx, queued)
+  if (!event) return thenStartQueued(acc, ctx)
+  const snapshot = snapshotOf(event)
+  const named = { incident: event.id, source: queued.source, ...snapshot }
   const seq = state.incidentSeq + 1
-  const steps = incidentStepsFor(state, ctx, queued.incident)
+  const parts = installedPartIds(state)
+  const steps = compileEventSteps(ctx.map, event, { mile: ctx.mile, parts })
   if (steps.length === 0) {
-    const immune: Acc = {
-      next: { ...state, incidentSeq: seq },
-      log: [
-        ...acc.log,
-        { kind: "incident", incident: queued.incident, source: queued.source, step: "immune" },
-      ],
-      effects: [
-        ...acc.effects,
-        {
-          type: "sign",
-          variant: "success",
-          icon: "🛞",
-          title: "Road-Grip tires to the rescue",
-          body: "Something sharp on the road. The enhanced tires handle it without a problem.",
-        },
-      ],
+    const part = event.effect ? immunePart(parts, snapshot.family) : undefined
+    if (!part) return thenStartQueued(noteEvent(acc, ctx, event, queued.source), ctx)
+    const copy = part.immuneCopy ?? {
+      title: `${part.name} to the rescue`,
+      body: `${snapshot.name}? Not with the ${part.name}.`,
     }
-    const queuedNext = startQueuedIncident(immune.next, ctx)
-    return queuedNext
-      ? {
-          next: queuedNext.next,
-          log: [...immune.log, ...(queuedNext.log ?? [])],
-          effects: [...immune.effects, ...(queuedNext.effects ?? [])],
-        }
-      : immune
+    return thenStartQueued(
+      {
+        next: { ...state, incidentSeq: seq },
+        log: [...acc.log, incidentEntry(named, "immune", { partId: part.shortId })],
+        effects: [
+          ...acc.effects,
+          { type: "sign", variant: "success", icon: part.emoji, ...copy },
+        ],
+      },
+      ctx,
+    )
   }
   const incident: ActiveIncident = {
     id: `incident-${seq}`,
-    incident: queued.incident,
-    source: queued.source,
+    ...named,
     steps,
     step: 0,
     stepStartedAt: ctx.now,
   }
   const started: Acc = {
-    next: { ...state, incidentSeq: seq, incident },
-    log: [
-      ...acc.log,
-      { kind: "incident", incident: queued.incident, source: queued.source, step: "started" },
-    ],
+    next: startBeats({ ...state, incidentSeq: seq, incident }, event, ctx.now, incident.id),
+    log: [...acc.log, incidentEntry(named, "started")],
     effects: [],
   }
   const entered = enterStep(started, ctx, incident, 0, { announceFund: false })
   const first = steps[0]!
   const fund = entered.next.fund?.incidentId === incident.id ? entered.next.fund : undefined
+  const hint = startHint(first, fund)
   const sign: TripEffect = {
     type: "sign",
-    variant: queued.incident === "traffic-jam" ? "warning" : "error",
-    icon: spec.emoji,
-    title: spec.headline,
-    body: `${spec.body} ${startHint(first, fund)}`.trim(),
+    variant: first.kind === "slow" ? "warning" : "error",
+    icon: snapshot.icon,
+    title: snapshot.name,
+    ...(hint ? { body: hint } : {}),
   }
+  const narrative = prose(event.narrative, event.narrativeVariant)
   return {
     next: entered.next,
     log: entered.log,
-    effects: [...acc.effects, sign, ...entered.effects],
+    effects: [...acc.effects, sign, ...(narrative ? [narrative] : []), ...entered.effects],
   }
 }
 
-function incidentStepsFor(
-  state: TripState,
-  ctx: TransitionContext,
-  incident: IncidentId,
-): IncidentStep[] {
-  return incidentSteps(ctx.map, incident, { mile: ctx.mile, parts: installedPartIds(state) })
+/** An event that doesn't hold the van: its narrative and beats only. */
+function noteEvent(acc: Acc, ctx: TransitionContext, event: TripEvent, source: IncidentSource): Acc {
+  const narrative = prose(event.narrative, event.narrativeVariant)
+  return {
+    next: startBeats(acc.next, event, ctx.now),
+    log: [
+      ...acc.log,
+      incidentEntry({ incident: event.id, source, name: event.name, icon: event.icon }, "noted"),
+    ],
+    effects: [...acc.effects, ...(narrative ? [narrative] : [])],
+  }
 }
 
 function startHint(step: IncidentStep, fund: TripFund | undefined): string {
   switch (step.kind) {
-    case "slow":
-      return "Maybe some radio communication will help."
+    case "slow": {
+      const items = step.resolvesWith ?? []
+      const teaser = items.map((id) => vanConsumable(id)?.hint).find(Boolean)
+      if (teaser) return teaser
+      return items.length > 0 ? `Got a ${itemNames(items)}? Use it from the Van tab.` : ""
+    }
     case "window":
       return `Got a ${itemNames(step.resolvesWith)}? Use it from the Van tab.`
     case "fund":
@@ -229,7 +319,7 @@ function enterStep(
         ...release(state, incident),
         speedFactors: [
           ...state.speedFactors.filter((f) => f.id !== id),
-          { id, factor: step.factor, until, source: incident.incident },
+          { id, factor: step.factor, until, source: incident.incident, label: incident.name },
         ],
       }
       break
@@ -240,7 +330,7 @@ function enterStep(
       effects.push({
         type: "nudge-holders",
         itemIds: step.resolvesWith.map(roadTripItemId),
-        message: `${INCIDENTS[incident.incident].emoji} ${INCIDENTS[incident.incident].name}! You have a ${itemNames(step.resolvesWith)}: use it from the Van tab in the next ${Math.round(step.ms / 1000)}s.`,
+        message: `${incident.icon} ${incident.name}! You have a ${itemNames(step.resolvesWith)}: use it from the Van tab in the next ${Math.round(step.ms / 1000)}s.`,
       })
       break
     case "wait":
@@ -283,7 +373,7 @@ function enterStep(
   }
 }
 
-/** Sites and scripted events the tow passes are skipped (M4: tow legs). */
+/** Sites and mile events the tow passes are skipped (M4: tow legs). */
 function towPast(state: TripState, ctx: TransitionContext, targetMile: number): Acc {
   let next = state
   const log: TripLogEvent[] = []
@@ -308,8 +398,8 @@ function towPast(state: TripState, ctx: TransitionContext, targetMile: number): 
     })
     log.push({ kind: "site", siteId: site.id, name: site.name, phase: "skipped" })
   }
-  const passedEvents = (ctx.map.scriptedEvents ?? [])
-    .filter((e) => e.atMile < targetMile && !next.scriptedFired.includes(e.id))
+  const passedEvents = mileEvents(ctx.map)
+    .filter((e) => e.mile < targetMile && !next.scriptedFired.includes(e.id))
     .map((e) => e.id)
   if (passedEvents.length > 0) {
     next = { ...next, scriptedFired: [...next.scriptedFired, ...passedEvents] }
@@ -335,17 +425,13 @@ function openIncidentFund(
         next: { ...state, parts },
         log: [
           ...acc.log,
-          {
-            kind: "incident",
-            incident: incident.incident,
-            source: incident.source,
-            step: "aaa",
+          incidentEntry(incident, "aaa", {
             resolvedBy: {
               userId: card.userId,
               name: card.name,
               itemId: roadTripItemId(card.partId),
             },
-          },
+          }),
         ],
         effects: [
           ...acc.effects,
@@ -399,7 +485,7 @@ function openIncidentFund(
     effects.unshift({
       type: "sign",
       variant: "warning",
-      icon: INCIDENTS[incident.incident].emoji,
+      icon: incident.icon,
       title: `${label}: ${cost} coins`,
       body: mode === "automatic" ? `Paying ${step.provider}.` : `Chip in for ${step.provider}!`,
     })
@@ -494,10 +580,14 @@ function finishIncident(
   incident: ActiveIncident,
   options: { quiet?: boolean; startQueue?: boolean } = {},
 ): Acc {
-  let state: TripState = { ...release(acc.next, incident), incident: undefined }
+  let state: TripState = {
+    ...release(acc.next, incident),
+    incident: undefined,
+    beatRuns: acc.next.beatRuns.filter((run) => run.incidentId !== incident.id),
+  }
   const log: TripLogEvent[] = [...acc.log]
   const effects: TripEffect[] = [...acc.effects]
-  if (incident.incident === "out-of-gas") {
+  if (incident.refuels) {
     const preGallons = Math.max(0, gallonsLeft(state, ctx.gallonsUsed))
     const added = Math.max(0, state.tankGallons - preGallons)
     const shown = refillShownAfterFill({ ...state, incident }, preGallons, ctx.now)
@@ -518,45 +608,17 @@ function finishIncident(
     state = { ...withSite(state, incident.atSiteId, { phase: "visited" }), shopScopeId: undefined }
     if (site) log.push({ kind: "site", siteId: site.id, name: site.name, phase: "departed" })
   }
-  log.push({
-    kind: "incident",
-    incident: incident.incident,
-    source: incident.source,
-    step: "cleared",
-  })
-  if (!options.quiet) {
-    if (incident.incident === "traffic-jam") {
-      effects.push({
-        type: "sign",
-        variant: "info",
-        icon: "🚗",
-        title: "Traffic clears",
-        body: "The jam breaks up. Back to cruising speed.",
-      })
-    } else if (state.status === "driving" && liveBlockers(state, ctx.now).length === 0) {
-      effects.push(
-        incident.incident === "out-of-gas"
-          ? {
-              type: "sign",
-              variant: "success",
-              icon: "⛽",
-              title: "Fuel's in",
-              body: "Full tank. Back on the road.",
-            }
-          : BACK_ON_THE_ROAD,
-      )
-    }
+  log.push(incidentEntry(incident, "cleared", incident.refuels ? { refueled: true } : {}))
+  if (!options.quiet && state.status === "driving" && liveBlockers(state, ctx.now).length === 0) {
+    effects.push(
+      incident.clearedNarrative
+        ? { ...BACK_ON_THE_ROAD, icon: incident.icon, body: incident.clearedNarrative }
+        : BACK_ON_THE_ROAD,
+    )
   }
   const done: Acc = { next: state, log, effects }
   if (options.startQueue === false) return done
-  const queued = startQueuedIncident(state, ctx)
-  return queued
-    ? {
-        next: queued.next,
-        log: [...log, ...(queued.log ?? [])],
-        effects: [...effects, ...(queued.effects ?? [])],
-      }
-    : done
+  return thenStartQueued(done, ctx)
 }
 
 // ---------------------------------------------------------------------------
@@ -572,18 +634,42 @@ export function triggerIncident(incident: TriggerableIncidentId): Transition {
   }
 }
 
-/** A scripted event's mile was reached (D23). */
+/** A mile event was reached (D23). One with no effect only narrates; it never queues. */
 export function fireScripted(eventId: string): Transition {
   return (state, ctx) => {
     if (state.status !== "driving" || state.scriptedFired.includes(eventId)) return null
-    const event = ctx.map.scriptedEvents?.find((e) => e.id === eventId)
-    if (!event || ctx.mile < event.atMile - ARRIVAL_MILE_EPSILON) return null
+    const event = mileEvents(ctx.map).find((e) => e.id === eventId)
+    if (!event || ctx.mile < event.mile - ARRIVAL_MILE_EPSILON) return null
     const next = { ...state, scriptedFired: [...state.scriptedFired, eventId] }
+    if (!event.effect) return result(noteEvent({ next, log: [], effects: [] }, ctx, event, "scripted"))
     return startOrQueueIncident(next, ctx, {
-      incident: event.incident,
+      incident: event.id,
       source: "scripted",
       eventId,
     })
+  }
+}
+
+/** A map event's timed narrative came due. Idempotent on (event, beat). */
+export function fireBeat(eventId: string, index: number): Transition {
+  return (state, ctx) => {
+    if (state.status !== "driving") return null
+    const run = state.beatRuns.find((r) => r.eventId === eventId)
+    const beats = ctx.map.events?.find((e) => e.id === eventId)?.beats ?? []
+    const beat = beats[index]
+    if (!run || !beat || run.fired.includes(index)) return null
+    if (run.incidentId !== undefined && state.incident?.id !== run.incidentId) return null
+    if (ctx.now < run.startedAt + beat.atMinutes * 60_000) return null
+    const fired = [...run.fired, index]
+    const others = state.beatRuns.filter((r) => r !== run)
+    const narrative = prose(beat.narrative, beat.narrativeVariant)
+    return {
+      next: {
+        ...state,
+        beatRuns: fired.length >= beats.length ? others : [...others, { ...run, fired }],
+      },
+      effects: narrative ? [narrative] : [],
+    }
   }
 }
 
@@ -621,15 +707,11 @@ function towArrived(
   if (!runtime.revealed) log.push({ kind: "site", siteId, name: site.name, phase: "revealed" })
   log.push(
     { kind: "site", siteId, name: site.name, phase: "stopped" },
-    {
-      kind: "incident",
-      incident: incident.incident,
-      source: incident.source,
-      step: "towed",
+    incidentEntry(incident, "towed", {
       siteId,
       siteName: site.name,
       miles: Math.max(0, site.mile - (incident.towFromMile ?? site.mile)),
-    },
+    }),
   )
   const effects: TripEffect[] = [
     ...shop.close,
@@ -649,41 +731,35 @@ function towArrived(
   return result(enterStep({ next: state, log, effects }, ctx, atMechanic, incident.step + 1))
 }
 
+/** Whether `shortId` ends the current step: a window or slowdown that names it. */
+export function itemEndsCurrentStep(state: TripState, shortId: string): boolean {
+  const incident = state.incident
+  const step = incident?.steps[incident.step]
+  if (step?.kind !== "window" && step?.kind !== "slow") return false
+  return (step.resolvesWith ?? []).includes(shortId)
+}
+
 /** Fix-a-Flat / CB Radio: end the incident they resolve. Null when there's nothing to fix. */
 export function useIncidentItem(shortId: string, user: Traveler): Transition {
   return (state, ctx) => {
     const incident = state.incident
     const item = vanConsumable(shortId)
-    if (!incident || !item || item.resolves !== incident.incident) return null
-    const step = incident.steps[incident.step]
-    const usable =
-      (step?.kind === "window" && step.resolvesWith.includes(shortId)) || step?.kind === "slow"
-    if (!usable) return null
+    if (!incident || !item || !itemEndsCurrentStep(state, shortId)) return null
     const done = finishIncident(
       {
         next: state,
         log: [
-          {
-            kind: "incident",
-            incident: incident.incident,
-            source: incident.source,
-            step: "resolved",
+          incidentEntry(incident, "resolved", {
             resolvedBy: { userId: user.userId, name: user.name, itemId: roadTripItemId(shortId) },
-          },
+          }),
         ],
         effects: [
           {
             type: "sign",
             variant: "success",
             icon: item.emoji,
-            title:
-              incident.incident === "traffic-jam"
-                ? `${user.name} found a way around`
-                : `${user.name} patched the tire`,
-            body:
-              incident.incident === "traffic-jam"
-                ? "A trucker on channel 19 knew a back road. Back to cruising speed."
-                : `${item.name} to the rescue. Back on the road.`,
+            title: `${user.name} ${item.resolvedCopy.title}`,
+            body: item.resolvedCopy.body,
           },
         ],
       },
@@ -705,14 +781,7 @@ export const skipIncidentStep: Transition = (state, ctx) => {
     enterStep(
       {
         next,
-        log: [
-          {
-            kind: "incident",
-            incident: incident.incident,
-            source: incident.source,
-            step: "skipped",
-          },
-        ],
+        log: [incidentEntry(incident, "skipped")],
         effects: [],
       },
       ctx,

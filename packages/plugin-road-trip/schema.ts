@@ -1,6 +1,6 @@
 import { z } from "zod"
 import type { PluginActionElement, PluginComponentSchema, PluginConfigSchema } from "@repo/types"
-import { INCIDENTS, TRIGGERABLE_INCIDENT_IDS, TRIP_MAP_MAX_BYTES } from "@repo/road-trip-map"
+import { INCIDENT_PRESETS, TRIGGERABLE_INCIDENT_IDS, TRIP_MAP_MAX_BYTES } from "@repo/road-trip-map"
 import {
   ROAD_TRIP_TAB_ID,
   ROAD_TRIP_VAN_TAB_ID,
@@ -41,7 +41,7 @@ const triggerIncidentAction = {
       required: true,
       options: TRIGGERABLE_INCIDENT_IDS.map((id) => ({
         value: id,
-        label: `${INCIDENTS[id].emoji} ${INCIDENTS[id].name}`,
+        label: `${INCIDENT_PRESETS[id].icon} ${INCIDENT_PRESETS[id].name}`,
       })),
       helperText: "Starts now, or queues until the van leaves a stop.",
     },

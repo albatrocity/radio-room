@@ -11,7 +11,7 @@ const ADMIN = { userId: "host", username: "Host" }
 const BASE_MAP_JSON = JSON.stringify({
   ...SAMPLE_TRIP_MAP,
   sites: SAMPLE_TRIP_MAP.sites.filter((site) => !site.services?.mechanic),
-  scriptedEvents: undefined,
+  events: undefined,
 })
 
 type Schedule = { id: string; kind: string; at: number; payload: unknown }
@@ -736,7 +736,11 @@ describe("RoadTripPlugin", () => {
       })
       await plugin.executeAction("depart", ADMIN)
       await runUntil(plugin, h, T0 + 13 * MIN + 5_000)
-      expect(lastTrip(h).live).toMatchObject({ kind: "incident", incident: "blown-tire" })
+      expect(lastTrip(h).live).toMatchObject({
+        kind: "incident",
+        incident: "flat-at-9",
+        icon: "🛞",
+      })
       expect(h.schedules.has("incident:incident-1:0")).toBe(true)
       expect(h.api.sendUserSystemMessage).toHaveBeenCalledWith(
         "room-1",

@@ -1,6 +1,6 @@
 import type {
+  EventFamily,
   FundsMode,
-  IncidentId,
   IncidentStep,
   PartSlot,
   TripFundPurpose,
@@ -10,6 +10,9 @@ import type {
 import {
   baseGallonsPerMile,
   compileVan,
+  eventRefuels,
+  INCIDENT_PRESETS,
+  isIncidentPresetId,
   INCIDENT_TIMING,
   isOptionalSite,
   PART_SLOTS,
@@ -32,8 +35,15 @@ export type Blocker = {
   siteId?: string
 }
 
-/** A timed speed change (Traffic Jam). Installed parts compile to factors in `currentRates`. */
-export type SpeedFactor = { id: string; factor: number; until?: number; source: string }
+/** A timed speed change (a slow event). Installed parts compile to factors in `currentRates`. */
+export type SpeedFactor = {
+  id: string
+  factor: number
+  until?: number
+  source: string
+  /** Van tab copy ("Traffic jam"); falls back to `source`. */
+  label?: string
+}
 
 /**
  * `ahead`: optional site awaiting its skip poll · `polling`: poll open ·
@@ -106,11 +116,22 @@ export type InstalledPart = { partId: string; userId: string; name: string; at: 
 
 export type IncidentSource = "host" | "scripted" | "fuel"
 
+/** What an incident keeps from its event when it starts (ADR 0220). */
+export type IncidentSnapshot = {
+  name: string
+  icon: string
+  family: EventFamily
+  clearedNarrative?: string
+  /** The event refuels: the tank fills when the incident clears. */
+  refuels: boolean
+}
+
 /** One incident at a time (M4); the rest wait in `incidentQueue`. */
-export type ActiveIncident = {
+export type ActiveIncident = IncidentSnapshot & {
   /** Unique per trip: `incident-<seq>`. */
   id: string
-  incident: IncidentId
+  /** Event id: a built-in preset id (host, default Out of Gas) or the map event's id. */
+  incident: string
   source: IncidentSource
   /** Resolved when it started (Mechanic ahead, parts installed). */
   steps: IncidentStep[]
@@ -124,7 +145,21 @@ export type ActiveIncident = {
   towFromMile?: number
 }
 
-export type QueuedIncident = { incident: IncidentId; source: IncidentSource; eventId?: string }
+/**
+ * `host` names a built-in preset; `scripted` a map event (`eventId`); `fuel`
+ * the map's fuel event or the built-in Out of Gas.
+ */
+export type QueuedIncident = { incident: string; source: IncidentSource; eventId?: string }
+
+/** A map event's timed narratives (ADR 0220), dropped when its incident clears. */
+export type BeatRun = {
+  eventId: string
+  startedAt: number
+  /** Beat indexes already posted. */
+  fired: number[]
+  /** The incident they belong to; absent for a narrative-only event. */
+  incidentId?: string
+}
 
 export type TripState = {
   version: number
@@ -158,8 +193,9 @@ export type TripState = {
   incidentQueue: QueuedIncident[]
   /** Bumped per incident started, for unique incident ids. */
   incidentSeq: number
-  /** Scripted event ids already fired this run. */
+  /** Mile event ids already fired this run. */
   scriptedFired: string[]
+  beatRuns: BeatRun[]
   /**
    * The leg in force. Lives in state so a transition and its leg commit in
    * one CAS; `trip:legs` is append-only history for the export.
@@ -194,22 +230,39 @@ export type TripLogEvent =
       topContributors?: FundPayment[]
       /** Per-payer coins, for the export's Travelers table. */
       paid?: FundPayment[]
-      incident?: IncidentId
+      /** Event id of the incident the fund belongs to. */
+      incident?: string
       /** The host skipped the step: nothing charged. */
       waived?: boolean
     }
   | { kind: "fuel"; level: FuelLevel | "filled"; gallons: number }
   | {
       kind: "incident"
-      incident: IncidentId
+      /** Event id. */
+      incident: string
+      /** The event's name and icon when it ran (absent on logs written before ADR 0220). */
+      name?: string
+      icon?: string
       source: IncidentSource
       /**
-       * `started` · `immune` (a part shrugged it off) · `resolved` (an item ended
-       * it) · `aaa` (a AAA Card paid a fee) · `towed` · `skipped` (host skipped a
-       * step) · `cleared` (over).
+       * `started` · `noted` (a narrative-only event) · `immune` (a part shrugged
+       * it off) · `resolved` (an item ended it) · `aaa` (a AAA Card paid a fee) ·
+       * `towed` · `skipped` (host skipped a step) · `cleared` (over).
        */
-      step: "started" | "immune" | "resolved" | "aaa" | "towed" | "skipped" | "cleared"
+      step:
+        | "started"
+        | "noted"
+        | "immune"
+        | "resolved"
+        | "aaa"
+        | "towed"
+        | "skipped"
+        | "cleared"
       resolvedBy?: { userId: string; name: string; itemId: string }
+      /** `immune`: the part that shrugged it off. */
+      partId?: string
+      /** `cleared`: the tank filled. */
+      refueled?: true
       siteId?: string
       siteName?: string
       miles?: number
@@ -269,18 +322,38 @@ export function createTripState(stored: StoredTripMap, tripId: string, seed: num
     incidentQueue: [],
     incidentSeq: 0,
     scriptedFired: [],
+    beatRuns: [],
   }
 }
 
-/** Fill Phase 3 fields on a state saved before they existed. */
+/** Fill Phase 3 and ADR 0220 fields on a state saved before they existed. */
 export function normalizeTripState(state: TripState): TripState {
-  if (state.parts && state.incidentQueue && state.scriptedFired) return state
+  const incident = state.incident
+  const legacyIncident = incident !== undefined && incident.name === undefined
+  if (state.parts && state.incidentQueue && state.scriptedFired && state.beatRuns && !legacyIncident) {
+    return state
+  }
   return {
     ...state,
     parts: state.parts ?? {},
     incidentQueue: state.incidentQueue ?? [],
     incidentSeq: state.incidentSeq ?? 0,
     scriptedFired: state.scriptedFired ?? [],
+    beatRuns: state.beatRuns ?? [],
+    ...(legacyIncident ? { incident: { ...legacySnapshot(incident.incident), ...incident } } : {}),
+  }
+}
+
+/** An incident saved before ADR 0220 carried only its preset id. */
+function legacySnapshot(id: string): IncidentSnapshot {
+  if (!isIncidentPresetId(id)) return { name: id, icon: "⚠️", family: "none", refuels: false }
+  const preset = INCIDENT_PRESETS[id]
+  return {
+    name: preset.name,
+    icon: preset.icon,
+    family: preset.family ?? "none",
+    refuels: eventRefuels(preset),
+    ...(preset.clearedNarrative ? { clearedNarrative: preset.clearedNarrative } : {}),
   }
 }
 
@@ -325,11 +398,8 @@ export function pendingRefill(state: TripState, gallons: number): TripStoreRefil
     return { fromGallons: gallons, startedAt: fund.openedAt, endsAt: fund.endsAt }
   }
   const incident = state.incident
-  if (
-    incident?.incident === "out-of-gas" &&
-    currentIncidentStep(state)?.kind === "wait" &&
-    incident.stepEndsAt !== undefined
-  ) {
+  const step = currentIncidentStep(state)
+  if (incident && step?.kind === "wait" && step.refills && incident.stepEndsAt !== undefined) {
     return { fromGallons: gallons, startedAt: incident.stepStartedAt, endsAt: incident.stepEndsAt }
   }
   return undefined

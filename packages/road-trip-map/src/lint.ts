@@ -17,8 +17,9 @@ import {
   type PhysicalMediaFormat,
   type PhysicalMediaStock,
 } from "@repo/types"
-import { INCIDENTS, nearestMechanicAhead } from "./incidents"
+import { eventTrigger, nearestMechanicAhead } from "./incidents"
 import type { TripMap } from "./schema"
+import { vanConsumable } from "./van"
 
 export type TripMapIssueSeverity = "error" | "warning"
 
@@ -256,37 +257,7 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
   })
 
   const destinationMile = destinations[0]?.mile ?? miles
-  const eventIds = new Set<string>()
-  ;(map.scriptedEvents ?? []).forEach((event, index) => {
-    const path = `scriptedEvents.${index}`
-    const label = INCIDENTS[event.incident].name
-    if (eventIds.has(event.id)) {
-      issues.push({
-        severity: "error",
-        code: "duplicate-event-id",
-        message: `Scripted event id "${event.id}" is used more than once.`,
-        path: `${path}.id`,
-      })
-    }
-    eventIds.add(event.id)
-    if (event.atMile >= destinationMile) {
-      issues.push({
-        severity: "error",
-        code: "event-beyond-route",
-        message: `${label} at mile ${fmt(event.atMile)} is at or past the destination, so it never fires.`,
-        path: `${path}.atMile`,
-      })
-      return
-    }
-    if (event.incident === "engine-failure" && !nearestMechanicAhead(map, event.atMile)) {
-      issues.push({
-        severity: "warning",
-        code: "no-mechanic",
-        message: `${label} at mile ${fmt(event.atMile)} has no Mechanic ahead; a mobile mechanic repairs it on the shoulder.`,
-        path: `${path}.atMile`,
-      })
-    }
-  })
+  issues.push(...lintEvents(map, destinationMile))
 
   const ordered = sortedSites(map)
   for (let i = 1; i < ordered.length; i++) {
@@ -352,6 +323,102 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
 
 export function hasLintErrors(issues: TripMapIssue[]): boolean {
   return issues.some((issue) => issue.severity === "error")
+}
+
+/** Trip event rules (ADR 0220). */
+function lintEvents(map: TripMap, destinationMile: number): TripMapIssue[] {
+  const issues: TripMapIssue[] = []
+  const events = map.events ?? []
+  const eventIds = new Set<string>()
+  let fuelEvents = 0
+  events.forEach((event, index) => {
+    const path = `events.${index}`
+    const error = (code: string, message: string, at = path) =>
+      issues.push({ severity: "error", code, message, path: at })
+    const label = event.name
+    if (eventIds.has(event.id)) {
+      error("duplicate-event-id", `Event id "${event.id}" is used more than once.`, `${path}.id`)
+    }
+    eventIds.add(event.id)
+
+    const chain = event.resolution ?? []
+    if (event.effect?.kind === "slow" && event.durationMinutes === undefined) {
+      error("slow-without-duration", `${label} slows the van but has no duration.`, `${path}.durationMinutes`)
+    }
+    if (event.effect?.kind === "stop" && chain.length === 0) {
+      error("stop-without-resolution", `${label} stops the van but nothing resolves it.`, `${path}.resolution`)
+    }
+    chain.forEach((entry, entryIndex) => {
+      if (entry.kind !== "item") return
+      for (const item of entry.items ?? []) {
+        if (!vanConsumable(item)) {
+          error(
+            "unknown-event-item",
+            `${label}: "${item}" isn't a road-trip consumable, so it can't end the event.`,
+            `${path}.resolution.${entryIndex}.items`,
+          )
+        }
+      }
+    })
+    ;(event.beats ?? []).forEach((beat, beatIndex) => {
+      if (beat.atMinutes <= 0) {
+        error(
+          "beat-not-after-start",
+          `${label}: timed narratives must come after the event starts. Put opening copy in its narrative.`,
+          `${path}.beats.${beatIndex}.atMinutes`,
+        )
+      }
+    })
+
+    if (eventTrigger(event) === "fuel") {
+      fuelEvents++
+      if (event.mile !== undefined) {
+        error("fuel-event-with-mile", `${label} follows an empty tank, so it can't also have a mile.`, `${path}.mile`)
+      }
+      if (event.effect?.kind !== "stop" || !chain.some((entry) => entry.kind === "refuel")) {
+        error(
+          "fuel-event-without-refuel",
+          `${label} follows an empty tank, so it must stop the van and refuel it.`,
+          `${path}.resolution`,
+        )
+      }
+      return
+    }
+
+    if (event.mile === undefined) {
+      error("event-missing-mile", `${label} has no mile, so it never fires.`, `${path}.mile`)
+      return
+    }
+    if (event.mile >= destinationMile) {
+      error(
+        "event-beyond-route",
+        `${label} at mile ${fmt(event.mile)} is at or past the destination, so it never fires.`,
+        `${path}.mile`,
+      )
+      return
+    }
+    if (
+      event.effect?.kind === "stop" &&
+      chain.some((entry) => entry.kind === "tow") &&
+      !nearestMechanicAhead(map, event.mile)
+    ) {
+      issues.push({
+        severity: "warning",
+        code: "no-mechanic",
+        message: `${label} at mile ${fmt(event.mile)} has no Mechanic ahead; a mobile mechanic repairs it on the shoulder.`,
+        path: `${path}.mile`,
+      })
+    }
+  })
+  if (fuelEvents > 1) {
+    issues.push({
+      severity: "error",
+      code: "multiple-fuel-events",
+      message: "Only one event can follow an empty tank.",
+      path: "events",
+    })
+  }
+  return issues
 }
 
 function fmt(value: number): string {

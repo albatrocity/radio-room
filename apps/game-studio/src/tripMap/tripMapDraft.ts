@@ -1,15 +1,17 @@
 import {
   GENERIC_SITE_PRESETS,
-  INCIDENTS,
+  INCIDENT_PRESETS,
   SAMPLE_TRIP_MAP,
-  TRIGGERABLE_INCIDENT_IDS,
   VAN_CONSUMABLES,
   VAN_PARTS,
   fuelPlan,
   gasCost,
   formatShare,
-  incidentCostEstimate,
+  eventCostEstimate,
+  eventFromPreset,
+  eventTrigger,
   levyRate,
+  liftLegacyTripMap,
   isDestination,
   parkPlan,
   parseTripMap,
@@ -20,9 +22,9 @@ import {
   siteFromPreset,
   tripMapSchema,
   type IncidentCostLine,
+  type IncidentId,
   type ParseTripMapResult,
   type SiteShopRequest,
-  type TriggerableIncidentId,
   type SitePreset,
   type TripMap,
   type TripMapInput,
@@ -70,11 +72,16 @@ export function studioBridgeUrl(): string {
 export function loadDraft(): TripMapInput {
   try {
     const raw = localStorage.getItem(DRAFT_STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as TripMapInput
+    if (raw) return liftDraft(JSON.parse(raw))
   } catch {
     // Corrupt draft: start from the sample.
   }
   return structuredClone(SAMPLE_TRIP_MAP)
+}
+
+/** Old `scriptedEvents` drafts become `events` (ADR 0220). */
+export function liftDraft(raw: unknown): TripMapInput {
+  return liftLegacyTripMap(raw) as TripMapInput
 }
 
 export function saveDraft(draft: TripMapInput): void {
@@ -433,57 +440,100 @@ export function projectFuel(map: TripMap, costScale: number): FuelProjection {
   }
 }
 
-export type ScriptedEventDraft = NonNullable<TripMapInput["scriptedEvents"]>[number]
+export type TripEventDraft = NonNullable<TripMapInput["events"]>[number]
 
-export function addScriptedEvent(draft: TripMapInput, incident: TriggerableIncidentId): TripMapInput {
-  const events = draft.scriptedEvents ?? []
-  const taken = new Set(events.map((e) => e.id))
-  let id = incident
-  for (let n = 2; taken.has(id); n++) id = `${incident}-${n}` as TriggerableIncidentId
-  const atMile = roundMile(draftRouteMiles(draft) / 2)
-  return { ...draft, scriptedEvents: [...events, { id, atMile, incident }] }
+function uniqueEventId(draft: TripMapInput, base: string): string {
+  const taken = new Set([...(draft.events ?? []).map((e) => e.id)])
+  if (!taken.has(base)) return base
+  for (let n = 2; ; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`
 }
 
-export function updateScriptedEvent(
+/** Whether the map already replaces Out of Gas; a map holds one fuel event. */
+export function hasFuelEvent(draft: TripMapInput): boolean {
+  return (draft.events ?? []).some((e) => eventTrigger(e) === "fuel")
+}
+
+/** Stamp a preset: mile events land mid-route, the fuel event has no mile. */
+export function addEventFromPreset(
+  draft: TripMapInput,
+  presetId: IncidentId,
+): { draft: TripMapInput; eventId: string } {
+  const id = uniqueEventId(draft, presetId)
+  const event = eventFromPreset(presetId, id, roundMile(draftRouteMiles(draft) / 2))
+  return { draft: { ...draft, events: [...(draft.events ?? []), event] }, eventId: id }
+}
+
+/**
+ * An event with no preset: narrative only at mid-route. The inspector adds an
+ * effect, resolution, and beats.
+ */
+export function addBlankEvent(draft: TripMapInput): { draft: TripMapInput; eventId: string } {
+  const id = uniqueEventId(draft, "event")
+  const event: TripEventDraft = {
+    id,
+    name: "Roadside event",
+    icon: "⚠️",
+    mile: roundMile(draftRouteMiles(draft) / 2),
+    narrative: "Something happens on the road.",
+  }
+  return { draft: { ...draft, events: [...(draft.events ?? []), event] }, eventId: id }
+}
+
+/** `undefined` in `patch` clears that field. */
+export function updateEvent(
   draft: TripMapInput,
   eventId: string,
-  patch: Partial<ScriptedEventDraft>,
+  patch: Partial<TripEventDraft>,
 ): TripMapInput {
   return {
     ...draft,
-    scriptedEvents: (draft.scriptedEvents ?? []).map((e) =>
-      e.id === eventId ? { ...e, ...patch } : e,
-    ),
+    events: (draft.events ?? []).map((e) => {
+      if (e.id !== eventId) return e
+      const next: Record<string, unknown> = { ...e, ...patch }
+      for (const key of Object.keys(next)) if (next[key] === undefined) delete next[key]
+      return next as TripEventDraft
+    }),
   }
 }
 
-export function removeScriptedEvent(draft: TripMapInput, eventId: string): TripMapInput {
-  const events = (draft.scriptedEvents ?? []).filter((e) => e.id !== eventId)
-  const { scriptedEvents: _drop, ...rest } = draft
-  return events.length > 0 ? { ...rest, scriptedEvents: events } : rest
+export function moveEvent(draft: TripMapInput, eventId: string, mile: number): TripMapInput {
+  const end = draftRouteMiles(draft)
+  return updateEvent(draft, eventId, { mile: roundMile(Math.min(Math.max(0, mile), end)) })
 }
 
-export type IncidentEstimate = {
-  incident: TriggerableIncidentId
-  name: string
-  emoji: string
+export function removeEvent(draft: TripMapInput, eventId: string): TripMapInput {
+  const events = (draft.events ?? []).filter((e) => e.id !== eventId)
+  const { events: _drop, ...rest } = draft
+  return events.length > 0 ? { ...rest, events } : rest
+}
+
+export type EventEstimate = {
   lines: IncidentCostLine[]
   total: number
 }
 
-/** What each triggerable incident would charge at `mile`, at the preview economy (no parts). */
-export function estimateIncidents(map: TripMap, mile: number, costScale: number): IncidentEstimate[] {
-  return TRIGGERABLE_INCIDENT_IDS.map((incident) => {
-    const lines = incidentCostEstimate(map, incident, mile, costScale)
-    return {
-      incident,
-      name: INCIDENTS[incident].name,
-      emoji: INCIDENTS[incident].emoji,
-      lines,
-      total: lines.reduce((sum, l) => sum + l.cost, 0),
-    }
-  })
+/**
+ * What an event would charge at the preview economy (no parts). A fuel event
+ * is priced where the no-vote plan runs dry, or at the end of the route.
+ */
+export function estimateEvent(map: TripMap, eventId: string, costScale: number): EventEstimate | null {
+  const event = map.events?.find((e) => e.id === eventId)
+  if (!event) return null
+  const mile =
+    eventTrigger(event) === "fuel"
+      ? (fuelPlan(map).emptyAtMile ?? routeMiles(map.route))
+      : (event.mile ?? 0)
+  const lines = eventCostEstimate(map, event, mile, costScale)
+  return { lines, total: lines.reduce((sum, l) => sum + l.cost, 0) }
 }
+
+/** Preset buttons in catalog order. */
+export const EVENT_PRESET_BUTTONS = (Object.keys(INCIDENT_PRESETS) as IncidentId[]).map((id) => ({
+  id,
+  name: INCIDENT_PRESETS[id].name,
+  icon: INCIDENT_PRESETS[id].icon,
+  fuel: eventTrigger(INCIDENT_PRESETS[id]) === "fuel",
+}))
 
 /**
  * Default "room wallets" estimate for cost previews: 12 travelers × 500 coins.

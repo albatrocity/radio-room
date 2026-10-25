@@ -13,7 +13,7 @@ import {
 } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 import {
-  INCIDENTS,
+  INCIDENT_PRESETS,
   TRIGGERABLE_INCIDENT_IDS,
   type TripMapInput,
   type TripMapIssue,
@@ -203,7 +203,7 @@ function Decisions({ room }: { room: TripSimRoom }) {
       {incident ? (
         <Stack gap="2">
           <Text fontSize="sm" fontWeight="semibold">
-            {INCIDENTS[incident.incident].emoji} {INCIDENTS[incident.incident].name} · step{" "}
+            {incident.icon} {incident.name} · step{" "}
             {incident.step + 1} of {incident.steps.length} (
             {incident.steps[incident.step]?.kind ?? "done"})
           </Text>
@@ -303,7 +303,7 @@ function SimPanel({ room }: { room: TripSimRoom }) {
                 variant="outline"
                 onClick={() => runTripSim((r) => r.triggerIncident(id))}
               >
-                {INCIDENTS[id].emoji} {INCIDENTS[id].name}
+                {INCIDENT_PRESETS[id].icon} {INCIDENT_PRESETS[id].name}
               </Button>
             ))}
           </HStack>

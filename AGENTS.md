@@ -59,7 +59,7 @@ listening-room/
 │   ├── plugins/           # `pluginFactories` registry imported by the API and studio-bridge
 │   ├── plugin-base/       # Base class for plugins
 │   ├── plugin-config-ui/  # Shared schema-driven config forms (web + scheduler)
-│   ├── road-trip-map/     # Trip Map schema, lint, store types, van and incident catalog
+│   ├── road-trip-map/     # Trip Map schema, lint, store types, van parts, trip events (incident presets + compiler)
 │   ├── model-viewer/      # GLB viewer for web + Game Studio; the only `three` importer
 │   ├── factories/         # Test factories
 │   ├── utils/             # Shared utilities

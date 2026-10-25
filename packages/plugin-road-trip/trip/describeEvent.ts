@@ -1,32 +1,42 @@
-import { INCIDENTS, vanConsumable, vanPart } from "@repo/road-trip-map"
+import { INCIDENT_PRESETS, isIncidentPresetId, vanConsumable, vanPart } from "@repo/road-trip-map"
 import type { TripLogEntry } from "./state"
 
 type IncidentEntry = Extract<TripLogEntry, { kind: "incident" }>
 type PartEntry = Extract<TripLogEntry, { kind: "part-installed" }>
 
+/** The event's name and icon as logged; logs written before ADR 0220 fall back to the preset. */
+function incidentLabel(entry: IncidentEntry): { name: string; icon: string } {
+  const preset = isIncidentPresetId(entry.incident) ? INCIDENT_PRESETS[entry.incident] : undefined
+  return {
+    name: entry.name ?? preset?.name ?? entry.incident,
+    icon: entry.icon ?? preset?.icon ?? "⚠️",
+  }
+}
+
 /** One line per incident step, shared by the Trip tab log and the room export. */
 export function describeIncident(entry: IncidentEntry): string {
-  const spec = INCIDENTS[entry.incident]
+  const { name, icon } = incidentLabel(entry)
   switch (entry.step) {
     case "started":
-      return `${spec.emoji} ${spec.name}`
-    case "immune":
-      return `${spec.emoji} ${spec.name} shrugged off by Road-Grip Tires`
+    case "noted":
+      return `${icon} ${name}`
+    case "immune": {
+      const part = entry.partId ? vanPart(entry.partId)?.name : undefined
+      return `${icon} ${name} shrugged off${part ? ` by ${part}` : ""}`
+    }
     case "resolved": {
       const by = entry.resolvedBy
       const item = by ? (vanConsumable(by.itemId.split(":").pop() ?? "")?.name ?? "an item") : ""
-      return by ? `${spec.emoji} ${by.name} used ${item}` : `${spec.emoji} ${spec.name} resolved`
+      return by ? `${icon} ${by.name} used ${item}` : `${icon} ${name} resolved`
     }
     case "aaa":
       return `💳 ${entry.resolvedBy?.name ?? "Someone"}'s AAA card covered it`
     case "towed":
       return `🚚 Towed ${(entry.miles ?? 0).toFixed(1)} mi to ${entry.siteName ?? "the mechanic"}`
     case "skipped":
-      return `⏭ Host skipped a ${spec.name.toLowerCase()} step`
+      return `⏭ Host skipped a ${name.toLowerCase()} step`
     case "cleared":
-      return entry.incident === "out-of-gas"
-        ? `${spec.emoji} Refuelled by the fuel truck`
-        : `${spec.emoji} ${spec.name} cleared`
+      return entry.refueled ? `${icon} Refuelled by the fuel truck` : `${icon} ${name} cleared`
   }
 }
 

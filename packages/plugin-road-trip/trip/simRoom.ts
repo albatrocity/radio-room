@@ -1,8 +1,6 @@
 import type { ChatMessage, OpenRoomShopRequest, Poll, PollHistoryEntry } from "@repo/types"
 import type { EscrowPoolState } from "@repo/plugin-base"
 import {
-  INCIDENTS,
-  itemsResolving,
   resolveSiteSettings,
   siteOpenRoomShopRequest,
   siteShopRequest,
@@ -231,7 +229,7 @@ export class TripSimRoom {
     const step = incident?.steps[incident.step]
     if (!incident || !step) return []
     if (step.kind !== "window" && step.kind !== "slow") return []
-    return itemsResolving(incident.incident).flatMap((shortId) => {
+    return (step.resolvesWith ?? []).flatMap((shortId) => {
       const item = vanConsumable(shortId)
       return item ? [{ shortId, name: item.name, emoji: item.emoji }] : []
     })
@@ -257,7 +255,7 @@ export class TripSimRoom {
 
   incidentName(): string | null {
     const incident = this.state.incident
-    return incident ? INCIDENTS[incident.incident].name : null
+    return incident ? incident.name : null
   }
 
   /** The plugin store payload, frozen onto the wall clock for the Room UI. */

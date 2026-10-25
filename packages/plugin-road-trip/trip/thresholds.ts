@@ -1,5 +1,5 @@
 import type { TripMap } from "@repo/road-trip-map"
-import { resolveSiteSettings, sortedSites } from "@repo/road-trip-map"
+import { mileEvents, resolveSiteSettings, sortedSites } from "@repo/road-trip-map"
 import { project, timeToGallonsUsed, timeToMile, type Leg } from "./ledger"
 import { currentIncidentStep, isTowing, type FuelLevel, type TripState } from "./state"
 import { ARRIVAL_MILE_EPSILON, fuelLine, pullOffHold } from "./transitions"
@@ -12,6 +12,7 @@ export type ThresholdKind =
   | "fuel"
   | "incident"
   | "scripted"
+  | "beat"
 
 export type ThresholdPayload = {
   tripId: string
@@ -21,6 +22,8 @@ export type ThresholdPayload = {
   incidentId?: string
   step?: number
   eventId?: string
+  /** `beat`: index into the event's `beats`. */
+  beat?: number
 }
 
 export type ThresholdRequest = {
@@ -38,6 +41,7 @@ export function thresholdId(kind: ThresholdKind, target: string): string {
 /** The id target a payload was armed under (the inverse of `solveThresholds`' ids). */
 export function thresholdTarget(payload: ThresholdPayload): string | undefined {
   if (payload.incidentId !== undefined) return `${payload.incidentId}:${payload.step ?? 0}`
+  if (payload.beat !== undefined) return `${payload.eventId}:${payload.beat}`
   return payload.siteId ?? payload.blockerId ?? payload.level ?? payload.eventId
 }
 
@@ -91,6 +95,21 @@ export function solveThresholds(
     }
   }
 
+  if (state.status === "driving") {
+    for (const run of state.beatRuns) {
+      const beats = map.events?.find((e) => e.id === run.eventId)?.beats ?? []
+      beats.forEach((beat, index) => {
+        if (run.fired.includes(index)) return
+        out.push({
+          id: thresholdId("beat", `${run.eventId}:${index}`),
+          kind: "beat",
+          at: Math.max(run.startedAt + beat.atMinutes * 60_000, soon),
+          payload: { tripId, eventId: run.eventId, beat: index },
+        })
+      })
+    }
+  }
+
   // A tow carries the van past everything to its Mechanic; only the tow's arrival matters.
   if (state.status !== "driving" || current.mph <= 0 || isTowing(state)) return out
 
@@ -109,10 +128,10 @@ export function solveThresholds(
 
   const mile = project(current, now).mile
 
-  for (const event of map.scriptedEvents ?? []) {
+  for (const event of mileEvents(map)) {
     if (state.scriptedFired.includes(event.id)) continue
     const at =
-      event.atMile <= mile + ARRIVAL_MILE_EPSILON ? soon : timeToMile(current, event.atMile)
+      event.mile <= mile + ARRIVAL_MILE_EPSILON ? soon : timeToMile(current, event.mile)
     if (at === null) continue
     out.push({
       id: thresholdId("scripted", event.id),

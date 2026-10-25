@@ -15,41 +15,43 @@ import {
 } from "@chakra-ui/react"
 import { useEffect, useMemo, useState } from "react"
 import {
-  FUND_PURPOSE_LABELS,
   GENERIC_SITE_PRESETS,
-  INCIDENTS,
   SAMPLE_TRIP_MAP,
-  TRIGGERABLE_INCIDENT_IDS,
+  eventTrigger,
   type TripMapInput,
 } from "@repo/road-trip-map"
 import { toaster } from "../ui/toaster"
 import { useDebouncedValue } from "../../hooks/useDebouncedValue"
 import {
   DEFAULT_PREVIEW_WALLETS,
+  EVENT_PRESET_BUTTONS,
+  addBlankEvent,
   addBlankSite,
-  addScriptedEvent,
+  addEventFromPreset,
   addSiteFromPreset,
   siteSlugFromName,
   draftRouteMiles,
-  estimateIncidents,
+  estimateEvent,
+  hasFuelEvent,
+  liftDraft,
   loadDraft,
   mapJson,
+  moveEvent,
   moveSite,
   parseDraft,
   projectFuel,
   projectTrip,
-  removeScriptedEvent,
+  removeEvent,
   removeSite,
   resolvedMap,
   saveDraft,
   updateFunds,
   updateRoute,
-  updateScriptedEvent,
+  updateEvent,
   updateSite,
   updateTuning,
   tripShareLabel,
   walletShareLabel,
-  type ScriptedEventDraft,
 } from "../../tripMap/tripMapDraft"
 import { listSavedTripMaps, loadSavedTripMap, saveTripMapFile } from "../../tripMap/tripMapFiles"
 import {
@@ -64,6 +66,7 @@ import {
 import { TripFuelCurve } from "./TripFuelCurve"
 import { TripRouteTrack } from "./TripRouteTrack"
 import { TripSiteArt } from "./TripSiteArt"
+import { TripEventInspector } from "./TripEventInspector"
 import { TripSiteInspector } from "./TripSiteInspector"
 import { TripVanPlayback } from "./TripVanPlayback"
 
@@ -84,8 +87,8 @@ function numberOr(value: string): number | undefined {
 
 /**
  * Trip Map editor v1 (M8): route, site pins, inspector, site art published to the
- * CDN, shop and offers picker, projections, fuel curve and gas bill, scripted
- * incidents with cost estimates, trip settings, lint, and Copy JSON /
+ * CDN, shop and offers picker, projections, fuel curve and gas bill, trip
+ * events (ADR 0220) with cost estimates, trip settings, lint, and Copy JSON /
  * save `maps/<id>.json`. Runs no plugin code;
  * only pure `@repo/road-trip-map` modules.
  */
@@ -210,6 +213,17 @@ export function TripMapEditor() {
   const projection = resolved ? projectTrip(resolved, departAt) : null
   const fuel = useMemo(() => (resolved ? projectFuel(resolved, costScale) : null), [resolved, costScale])
   const selected = draft.sites.find((s) => s.id === selectedSiteId)
+  const selectedEvent = selected
+    ? undefined
+    : draft.events?.find((e) => e.id === selectedEventId)
+  const selectSite = (siteId: string | null) => {
+    setSelectedSiteId(siteId)
+    if (siteId) setSelectedEventId(null)
+  }
+  const selectEvent = (eventId: string | null) => {
+    setSelectedEventId(eventId)
+    if (eventId) setSelectedSiteId(null)
+  }
   const assetIssues = pendingAssetIssues(draft, pendingAssets)
   const issues = [...assetIssues, ...parsed.issues]
   const errors = issues.filter((i) => i.severity === "error")
@@ -279,7 +293,7 @@ export function TripMapEditor() {
 
   const importJson = (text: string) => {
     try {
-      setDraft(JSON.parse(text) as TripMapInput)
+      setDraft(liftDraft(JSON.parse(text)))
       setSelectedSiteId(null)
       setSelectedEventId(null)
       setImportText("")
@@ -514,7 +528,7 @@ export function TripMapEditor() {
             onClick={() => {
               const next = addSiteFromPreset(draft, preset)
               setDraft(next.draft)
-              setSelectedSiteId(next.siteId)
+              selectSite(next.siteId)
             }}
           >
             {preset.site.icon} {preset.label}
@@ -525,17 +539,15 @@ export function TripMapEditor() {
       <Box borderWidth="1px" borderRadius="md" p="3">
         <TripRouteTrack
           sites={draft.sites}
-          events={draft.scriptedEvents ?? []}
+          events={draft.events ?? []}
           routeMiles={miles}
           resolved={resolved}
           selectedSiteId={selectedSiteId}
           selectedEventId={selectedEventId}
-          onSelect={setSelectedSiteId}
+          onSelect={selectSite}
           onMove={(siteId, mile) => setDraft((d) => moveSite(d, siteId, mile))}
-          onSelectEvent={setSelectedEventId}
-          onMoveEvent={(eventId, atMile) =>
-            setDraft((d) => updateScriptedEvent(d, eventId, { atMile }))
-          }
+          onSelectEvent={selectEvent}
+          onMoveEvent={(eventId, mile) => setDraft((d) => moveEvent(d, eventId, mile))}
         />
         {fuel ? <TripFuelCurve fuel={fuel} routeMiles={miles} /> : null}
       </Box>
@@ -564,9 +576,20 @@ export function TripMapEditor() {
                 setSelectedSiteId(null)
               }}
             />
+          ) : selectedEvent ? (
+            <TripEventInspector
+              event={selectedEvent}
+              estimate={resolved ? estimateEvent(resolved, selectedEvent.id, costScale) : null}
+              walletShare={(cost) => walletShareLabel(cost, walletsTotal)}
+              onChange={(patch) => setDraft((d) => updateEvent(d, selectedEvent.id, patch))}
+              onRemove={() => {
+                setDraft((d) => removeEvent(d, selectedEvent.id))
+                setSelectedEventId(null)
+              }}
+            />
           ) : (
             <Text fontSize="sm" color="fg.muted">
-              Select a pin to edit the site. Drag pins to set their mile; the destination stays at
+              Select a pin to edit the site or event. Drag pins to set their mile; the destination stays at
               the end.
             </Text>
           )}
@@ -620,7 +643,7 @@ export function TripMapEditor() {
                       fontSize="xs"
                       cursor="pointer"
                       color={stop.stops ? undefined : "fg.muted"}
-                      onClick={() => setSelectedSiteId(stop.siteId)}
+                      onClick={() => selectSite(stop.siteId)}
                     >
                       {stop.icon} {stop.name} · mile {stop.mile.toFixed(1)} · arrives{" "}
                       {Math.round(stop.arrivalPct * 100)}% ·{" "}
@@ -640,92 +663,70 @@ export function TripMapEditor() {
 
           <Box borderWidth="1px" borderRadius="md" p="3">
             <Text fontSize="sm" fontWeight="semibold" mb="2">
-              Scripted incidents
+              Events
             </Text>
             <Stack gap="2">
-              {(draft.scriptedEvents ?? []).map((event) => {
-                const estimate = resolved
-                  ? estimateIncidents(resolved, event.atMile, costScale).find(
-                      (e) => e.incident === event.incident,
-                    )
-                  : undefined
+              {(draft.events ?? []).map((event) => {
+                const estimate = resolved ? estimateEvent(resolved, event.id, costScale) : null
+                const selectedRow = event.id === selectedEventId
                 return (
-                  <Stack
+                  <Box
                     key={event.id}
-                    gap="1"
                     p="2"
                     borderRadius="md"
-                    borderWidth={event.id === selectedEventId ? "2px" : "1px"}
-                    borderColor={event.id === selectedEventId ? "blue.solid" : undefined}
-                    onClick={() => setSelectedEventId(event.id)}
+                    cursor="pointer"
+                    borderWidth={selectedRow ? "2px" : "1px"}
+                    borderColor={selectedRow ? "blue.solid" : undefined}
+                    onClick={() => selectEvent(event.id)}
                   >
-                    <HStack gap="2">
-                      <NativeSelect.Root size="xs" flex="1">
-                        <NativeSelect.Field
-                          value={event.incident}
-                          onChange={(e) =>
-                            setDraft((d) =>
-                              updateScriptedEvent(d, event.id, {
-                                incident: e.target.value as ScriptedEventDraft["incident"],
-                              }),
-                            )
-                          }
-                        >
-                          {TRIGGERABLE_INCIDENT_IDS.map((id) => (
-                            <option key={id} value={id}>
-                              {INCIDENTS[id].emoji} {INCIDENTS[id].name}
-                            </option>
-                          ))}
-                        </NativeSelect.Field>
-                        <NativeSelect.Indicator />
-                      </NativeSelect.Root>
-                      <Input
-                        size="xs"
-                        type="number"
-                        step="0.1"
-                        maxW="80px"
-                        aria-label="Mile"
-                        value={event.atMile}
-                        onChange={(e) =>
-                          setDraft((d) =>
-                            updateScriptedEvent(d, event.id, { atMile: Number(e.target.value) }),
-                          )
-                        }
-                      />
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        colorPalette="red"
-                        onClick={() => setDraft((d) => removeScriptedEvent(d, event.id))}
-                      >
-                        Remove
-                      </Button>
-                    </HStack>
+                    <Text fontSize="sm">
+                      {event.icon} {event.name} ·{" "}
+                      {eventTrigger(event) === "fuel"
+                        ? "when the tank runs dry"
+                        : `mile ${event.mile?.toFixed(1) ?? "?"}`}
+                    </Text>
                     {estimate ? (
                       <Text fontSize="xs" color="fg.muted">
-                        {estimate.lines.length > 0
-                          ? `${estimate.lines.map((l) => `${FUND_PURPOSE_LABELS[l.purpose]} ${l.cost}${l.waivable ? " (AAA covers)" : ""}`).join(" + ")} = ${estimate.total} coins (${walletShareLabel(estimate.total, walletsTotal)})`
-                          : "No cost (items or a wait only)"}
+                        {estimate.total > 0
+                          ? `${estimate.total} coins (${walletShareLabel(estimate.total, walletsTotal)})`
+                          : "No cost"}
                       </Text>
                     ) : null}
-                  </Stack>
+                  </Box>
                 )
               })}
               <HStack gap="1" flexWrap="wrap">
-                {TRIGGERABLE_INCIDENT_IDS.map((id) => (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => {
+                    const next = addBlankEvent(draft)
+                    setDraft(next.draft)
+                    selectEvent(next.eventId)
+                  }}
+                >
+                  + Add event
+                </Button>
+                {EVENT_PRESET_BUTTONS.map((preset) => (
                   <Button
-                    key={id}
+                    key={preset.id}
                     size="xs"
                     variant="subtle"
-                    onClick={() => setDraft((d) => addScriptedEvent(d, id))}
+                    disabled={preset.fuel && hasFuelEvent(draft)}
+                    title={preset.fuel ? "Replaces Out of Gas; a map has one" : undefined}
+                    onClick={() => {
+                      const next = addEventFromPreset(draft, preset.id)
+                      setDraft(next.draft)
+                      selectEvent(next.eventId)
+                    }}
                   >
-                    + {INCIDENTS[id].emoji} {INCIDENTS[id].name}
+                    + {preset.icon} {preset.name}
                   </Button>
                 ))}
               </HStack>
               <Text fontSize="xs" color="fg.muted">
-                Hosts can also trigger these live from Quick Access. Out of Gas only follows an
-                empty tank.
+                Start blank or from a preset, then rename and retune it. Hosts can still trigger the built-in
+                jam, flat, and breakdown live from Quick Access.
               </Text>
             </Stack>
           </Box>
@@ -746,7 +747,7 @@ export function TripMapEditor() {
                     fontSize="xs"
                     color={issue.severity === "error" ? "red.fg" : "yellow.fg"}
                     cursor={issue.siteId ? "pointer" : undefined}
-                    onClick={() => issue.siteId && setSelectedSiteId(issue.siteId)}
+                    onClick={() => issue.siteId && selectSite(issue.siteId)}
                   >
                     {issue.severity === "error" ? "✖" : "⚠"} {issue.message}
                   </Text>

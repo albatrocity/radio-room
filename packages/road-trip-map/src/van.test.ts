@@ -20,7 +20,7 @@ describe("compileVan", () => {
     const van = compileVan([VAN_ITEM_IDS.spoiler, VAN_ITEM_IDS.turbo, VAN_ITEM_IDS.tires])
     expect(productOf(van.speedFactors)).toBeCloseTo(1.05 * 1.25 * 1.04, 9)
     expect(van.mpgFactors).toEqual([{ source: "turbocharger", label: "Turbocharger", factor: 0.75 }])
-    expect(van.immunities).toEqual(["blown-tire"])
+    expect(van.immunities).toEqual(["flat"])
     expect(van.jam).toBeNull()
     expect(van.waivesNextFee).toBe(false)
     expect(compileVan([VAN_ITEM_IDS.horn, VAN_ITEM_IDS.aaa])).toMatchObject({
@@ -33,17 +33,17 @@ describe("compileVan", () => {
     expect(compileVan(["jetpack"]).speedFactors).toEqual([])
   })
 
-  it("maps consumables to the incident they end", () => {
-    expect(itemsResolving("blown-tire")).toEqual(["fix-a-flat"])
-    expect(itemsResolving("traffic-jam")).toEqual(["cb-radio"])
-    expect(itemsResolving("engine-failure")).toEqual([])
+  it("maps consumables to the event family they end", () => {
+    expect(itemsResolving("flat")).toEqual(["fix-a-flat"])
+    expect(itemsResolving("jam")).toEqual(["cb-radio"])
+    expect(itemsResolving("engine")).toEqual([])
   })
 })
 
 describe("incidentSteps", () => {
   it("Traffic Jam is one slow step, softened by the Horn", () => {
     expect(incidentSteps(map, "traffic-jam", { mile: 1, parts: [] })).toEqual([
-      { kind: "slow", label: "Stuck in traffic", factor: 0.4, ms: 8 * 60_000 },
+      { kind: "slow", label: "Stuck in traffic", factor: 0.4, ms: 8 * 60_000, resolvesWith: ["cb-radio"] },
     ])
     expect(incidentSteps(map, "traffic-jam", { mile: 1, parts: ["obnoxious-horn"] })[0]).toMatchObject({
       factor: 0.55,

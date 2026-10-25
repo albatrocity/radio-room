@@ -15,6 +15,7 @@ import {
 import { tripMapContentHash } from "./hash"
 import { TRIP_MAP_MAX_BYTES, type TripMapInput } from "./schema"
 import { GENERIC_SITE_PRESETS, siteFromPreset } from "./presets"
+import { eventFromPreset } from "./incidents"
 
 function clone(): TripMapInput {
   return structuredClone(SAMPLE_TRIP_MAP)
@@ -471,29 +472,75 @@ describe("van and incidents (Phase 3)", () => {
     ).toBe(false)
   })
 
-  it("lints scripted events: duplicates, past the destination, no Mechanic ahead", () => {
+  it("lints events: duplicates, past the destination, no Mechanic ahead", () => {
     const result = parsed((m) => {
-      m.scriptedEvents = [
-        { id: "a", atMile: 3, incident: "traffic-jam" },
-        { id: "a", atMile: 5, incident: "traffic-jam" },
-        { id: "late", atMile: 12, incident: "blown-tire" },
-        { id: "boom", atMile: 11, incident: "engine-failure" },
+      m.events = [
+        eventFromPreset("traffic-jam", "a", 3),
+        eventFromPreset("traffic-jam", "a", 5),
+        eventFromPreset("blown-tire", "late", 12),
+        eventFromPreset("engine-failure", "boom", 11),
       ]
     })
     expect(codes(result)).toEqual(
       expect.arrayContaining(["duplicate-event-id", "event-beyond-route", "no-mechanic"]),
     )
     const covered = parsed((m) => {
-      m.scriptedEvents = [{ id: "boom", atMile: 7, incident: "engine-failure" }]
+      m.events = [eventFromPreset("engine-failure", "boom", 7)]
     })
     expect(codes(covered)).not.toContain("no-mechanic")
   })
 
-  it("won't script Out of Gas", () => {
+  it("lints event shapes: fuel triggers, missing miles, durations, resolutions, beats, items", () => {
+    const fuel = eventFromPreset("out-of-gas", "dry")
     const result = parsed((m) => {
-      m.scriptedEvents = [{ id: "dry", atMile: 3, incident: "out-of-gas" as "traffic-jam" }]
+      m.events = [
+        fuel,
+        { ...fuel, id: "dry-2" },
+        { ...fuel, id: "dry-3", mile: 3 },
+        { id: "nowhere", name: "Nowhere", icon: "?" },
+        { id: "slow", name: "Slow", icon: "🐢", mile: 2, effect: { kind: "slow", factor: 0.5 } },
+        { id: "stuck", name: "Stuck", icon: "🧱", mile: 2, effect: { kind: "stop" } },
+        {
+          ...eventFromPreset("traffic-jam", "early", 4),
+          beats: [{ atMinutes: 0, narrative: "Too soon." }],
+          resolution: [{ kind: "item", items: ["jetpack"] }],
+        },
+      ]
     })
-    expect(result.ok).toBe(false)
+    expect(codes(result)).toEqual(
+      expect.arrayContaining([
+        "multiple-fuel-events",
+        "fuel-event-with-mile",
+        "event-missing-mile",
+        "slow-without-duration",
+        "stop-without-resolution",
+        "beat-not-after-start",
+        "unknown-event-item",
+      ]),
+    )
+    const noRefuel = parsed((m) => {
+      m.events = [{ ...fuel, resolution: [{ kind: "wait", minutes: 1 }] }]
+    })
+    expect(codes(noRefuel)).toContain("fuel-event-without-refuel")
+  })
+
+  it("lifts legacy scriptedEvents into events, and won't script Out of Gas", () => {
+    const legacy = {
+      ...clone(),
+      events: undefined,
+      scriptedEvents: [{ id: "jam-at-3", atMile: 3, incident: "traffic-jam" }],
+    }
+    const result = parseTripMap(legacy)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.map.events).toEqual([eventFromPreset("traffic-jam", "jam-at-3", 3)])
+    const dry = parseTripMap({
+      ...clone(),
+      events: undefined,
+      scriptedEvents: [{ id: "dry", atMile: 3, incident: "out-of-gas" }],
+    })
+    expect(dry.ok).toBe(false)
+    expect(codes(dry)).toContain("fuel-event-with-mile")
   })
 
   it("warns about a Mechanic at the destination", () => {

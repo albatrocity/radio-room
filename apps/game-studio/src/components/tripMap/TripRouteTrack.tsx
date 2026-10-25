@@ -1,16 +1,16 @@
 import { Box, HStack, Text } from "@chakra-ui/react"
 import { useRef, useState } from "react"
 import {
-  INCIDENTS,
+  eventTrigger,
   isDestination,
   revealMileAtBaseSpeed,
   type TripMap,
 } from "@repo/road-trip-map"
-import type { ScriptedEventDraft, TripSiteDraft } from "../../tripMap/tripMapDraft"
+import type { TripEventDraft, TripSiteDraft } from "../../tripMap/tripMapDraft"
 
 type Props = {
   sites: TripSiteDraft[]
-  events: ScriptedEventDraft[]
+  events: TripEventDraft[]
   routeMiles: number
   /** Resolved map for reveal ticks; null while the draft doesn't parse. */
   resolved: TripMap | null
@@ -22,7 +22,7 @@ type Props = {
   onMoveEvent: (eventId: string, mile: number) => void
 }
 
-/** Route line with draggable site pins above, scripted-event pins below, and reveal ticks (M8). */
+/** Route line with draggable site pins above, mile-event pins below, and reveal ticks (M8). */
 export function TripRouteTrack({
   sites,
   events,
@@ -36,6 +36,11 @@ export function TripRouteTrack({
   onMoveEvent,
 }: Props) {
   const trackRef = useRef<HTMLDivElement>(null)
+  const pinned = events.flatMap((event) =>
+    eventTrigger(event) === "mile" && event.mile !== undefined
+      ? [{ id: event.id, name: event.name, icon: event.icon, mile: event.mile }]
+      : [],
+  )
   const [dragging, setDragging] = useState<string | null>(null)
   const pct = (mile: number) =>
     routeMiles > 0 ? Math.min(100, Math.max(0, (mile / routeMiles) * 100)) : 0
@@ -51,7 +56,7 @@ export function TripRouteTrack({
 
   return (
     <Box>
-      <Box ref={trackRef} position="relative" h={events.length > 0 ? "96px" : "64px"} mx="4">
+      <Box ref={trackRef} position="relative" h={pinned.length > 0 ? "96px" : "64px"} mx="4">
         <Box
           position="absolute"
           top="32px"
@@ -127,7 +132,7 @@ export function TripRouteTrack({
             </Box>
           )
         })}
-        {events.map((event) => {
+        {pinned.map((event) => {
           const key = `event:${event.id}`
           const selected = event.id === selectedEventId
           return (
@@ -135,13 +140,13 @@ export function TripRouteTrack({
               key={key}
               position="absolute"
               top="36px"
-              left={`${pct(event.atMile)}%`}
+              left={`${pct(event.mile)}%`}
               transform="translateX(-50%)"
               textAlign="center"
               cursor="grab"
               userSelect="none"
               touchAction="none"
-              title={`${INCIDENTS[event.incident].name} at mile ${event.atMile}`}
+              title={`${event.name} at mile ${event.mile}`}
               onPointerDown={(e) => {
                 onSelectEvent(event.id)
                 e.currentTarget.setPointerCapture(e.pointerId)
@@ -165,10 +170,10 @@ export function TripRouteTrack({
                 borderColor={selected ? "blue.solid" : "orange.muted"}
                 bg="bg"
               >
-                {INCIDENTS[event.incident].emoji}
+                {event.icon || "⚠️"}
               </Text>
               <Text fontSize="2xs" color="orange.fg" whiteSpace="nowrap">
-                {event.atMile.toFixed(1)}
+                {event.mile.toFixed(1)}
               </Text>
             </Box>
           )

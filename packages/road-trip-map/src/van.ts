@@ -1,4 +1,4 @@
-import type { IncidentId } from "./schema"
+import type { EventFamily } from "./schema"
 
 /**
  * Van parts and consumables (M3). Pure catalog data shared by the plugin
@@ -35,8 +35,11 @@ export type VanPartSpec = {
   speed?: number
   /** Fuel economy multiplier: 0.75 burns a third more per mile. */
   mpg?: number
-  immuneTo?: IncidentId[]
-  /** Traffic Jam softened to this speed factor, for this share of the duration. */
+  /** Event families this part shrugs off (ADR 0220). */
+  immuneTo?: EventFamily[]
+  /** The sign posted when it shrugs one off. */
+  immuneCopy?: { title: string; body: string }
+  /** `jam` slowdowns crawl no slower than this factor, for this share of the duration. */
   jam?: { factor: number; durationScale: number }
   /** Spent on the next waivable fee (roadside, tow), which then costs nothing. */
   waivesNextFee?: true
@@ -48,8 +51,20 @@ export type VanConsumableSpec = {
   emoji: string
   description: string
   coinValue: number
-  /** The incident this item ends while it's running. */
-  resolves: IncidentId
+  /** The event family this item ends by default while one is running. */
+  resolves: EventFamily
+  /** The sign when it does; `title` follows the user's name ("Sam patched the tire"). */
+  resolvedCopy: { title: string; body: string }
+  /** Teaser on a slowdown's start sign when this item can end it. */
+  hint?: string
+}
+
+/** "Save it for a traffic jam." */
+export const EVENT_FAMILY_LABELS: Record<EventFamily, string> = {
+  jam: "traffic jam",
+  flat: "blown tire",
+  engine: "breakdown",
+  none: "roadside incident",
 }
 
 export const VAN_ITEM_IDS = {
@@ -93,7 +108,11 @@ export const VAN_PARTS: readonly VanPartSpec[] = [
     coinValue: 90,
     installed: "fitted Road-Grip tires",
     speed: 1.04,
-    immuneTo: ["blown-tire"],
+    immuneTo: ["flat"],
+    immuneCopy: {
+      title: "Road-Grip tires to the rescue",
+      body: "Something sharp on the road. The enhanced tires handle it without a problem.",
+    },
   },
   {
     shortId: VAN_ITEM_IDS.horn,
@@ -124,7 +143,8 @@ export const VAN_CONSUMABLES: readonly VanConsumableSpec[] = [
     emoji: "🧴",
     description: "Use during a blown tire to patch it on the spot.",
     coinValue: 30,
-    resolves: "blown-tire",
+    resolves: "flat",
+    resolvedCopy: { title: "patched the tire", body: "Fix-a-Flat to the rescue. Back on the road." },
   },
   {
     shortId: VAN_ITEM_IDS.cbRadio,
@@ -132,7 +152,12 @@ export const VAN_CONSUMABLES: readonly VanConsumableSpec[] = [
     emoji: "📻",
     description: "Use during a traffic jam to find a way around it.",
     coinValue: 35,
-    resolves: "traffic-jam",
+    resolves: "jam",
+    resolvedCopy: {
+      title: "found a way around",
+      body: "A trucker on channel 19 knew a back road. Back to cruising speed.",
+    },
+    hint: "Maybe some radio communication will help.",
   },
 ]
 
@@ -144,9 +169,14 @@ export function vanConsumable(shortId: string): VanConsumableSpec | undefined {
   return VAN_CONSUMABLES.find((item) => item.shortId === shortId)
 }
 
-/** Short ids of the consumables that end `incident`. */
-export function itemsResolving(incident: IncidentId): string[] {
-  return VAN_CONSUMABLES.filter((item) => item.resolves === incident).map((item) => item.shortId)
+/** Short ids of the consumables that end `family` events by default. */
+export function itemsResolving(family: EventFamily): string[] {
+  return VAN_CONSUMABLES.filter((item) => item.resolves === family).map((item) => item.shortId)
+}
+
+/** The first installed part that shrugs off `family`. */
+export function immunePart(partIds: readonly string[], family: EventFamily): VanPartSpec | undefined {
+  return partIds.map(vanPart).find((part) => part?.immuneTo?.includes(family))
 }
 
 export type VanFactor = { source: string; label: string; factor: number }
@@ -154,7 +184,7 @@ export type VanFactor = { source: string; label: string; factor: number }
 export type CompiledVan = {
   speedFactors: VanFactor[]
   mpgFactors: VanFactor[]
-  immunities: IncidentId[]
+  immunities: EventFamily[]
   jam: { factor: number; durationScale: number } | null
   waivesNextFee: boolean
 }

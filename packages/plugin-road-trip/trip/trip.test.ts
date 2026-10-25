@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { SAMPLE_TRIP_MAP, type TripMapInput } from "@repo/road-trip-map"
+import { eventFromPreset, SAMPLE_TRIP_MAP, type TripMapInput } from "@repo/road-trip-map"
 import { buildStatusLines, buildTripStore } from "./projection"
 import { MIN, T0, TripSim } from "./testSim"
 import {
@@ -32,7 +32,7 @@ function withIncidents(mutate?: (map: TripMapInput) => void): TripMapInput {
 function sample(mutate?: (map: TripMapInput) => void): TripMapInput {
   return withIncidents((map) => {
     map.sites = map.sites.filter((site) => !site.services?.mechanic)
-    delete map.scriptedEvents
+    delete map.events
     mutate?.(map)
   })
 }
@@ -678,7 +678,17 @@ describe("gas and money (Phase 2)", () => {
     // 12 min drive + 4 min stand + 20s levy hold + 2 min delivery
     expect(Math.abs(sim.state.arrivedAt! - (T0 + 18 * MIN + 20_000))).toBeLessThan(10)
     expect(sim.signs()).toContain("Out of gas")
-    expect(sim.signs()).toContain("Fuel's in")
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual(
+      expect.objectContaining({ type: "sign", title: "Back on the road", body: "Fuel's in. Full tank." }),
+    )
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual({
+      type: "narrate",
+      body: "The engine sputters and dies. Time to call for fuel.",
+    })
+    expect(sim.log.filter((e) => e.kind === "incident").at(-1)).toMatchObject({
+      step: "cleared",
+      refueled: true,
+    })
     expect(sim.log.find((e) => e.kind === "fund")).toMatchObject({
       purpose: "delivery",
       incident: "out-of-gas",
@@ -770,7 +780,9 @@ describe("van and incidents (Phase 3)", () => {
     sim.runUntil(T0 + 9 * MIN + 4 * MIN + 1_000)
     // Mile 9 comes after the 4 min stand at the market.
     expect(sim.state.incident).toMatchObject({
-      incident: "blown-tire",
+      incident: "flat-at-9",
+      name: "Blown tire",
+      family: "flat",
       source: "scripted",
       step: 0,
     })
@@ -901,7 +913,7 @@ describe("van and incidents (Phase 3)", () => {
   })
 
   it("queues an incident while parked and starts it once the van leaves", () => {
-    const sim = incidentTrip((m) => delete m.scriptedEvents)
+    const sim = incidentTrip((m) => delete m.events)
     sim.apply(depart)
     sim.runUntil(T0 + 8 * MIN + 1_000)
     expect(sim.state.sites["farmers-market"]?.phase).toBe("parked")
@@ -934,5 +946,127 @@ describe("van and incidents (Phase 3)", () => {
     sim.runUntil(T0 + 9 * MIN)
     expect(sim.state.incident).toMatchObject({ incident: "out-of-gas" })
     expect(sim.state.speedFactors).toEqual([])
+  })
+})
+
+describe("trip events (ADR 0220)", () => {
+  const narrations = (sim: TripSim) =>
+    sim.effects.flatMap(({ effect }) => (effect.type === "narrate" ? [effect.body] : []))
+
+  const crawl = (beats: { atMinutes: number; narrative: string }[]) => ({
+    ...eventFromPreset("traffic-jam", "crawl", 1),
+    effect: { kind: "slow" as const, factor: 0.2, label: "Bumper to bumper" },
+    durationMinutes: 4,
+    beats,
+  })
+
+  it("a custom jam runs its own factor and narrative; beats stop once a CB Radio resolves it", () => {
+    const sim = incidentTrip((m) => {
+      m.events = [
+        crawl([
+          { atMinutes: 1, narrative: "Someone honks." },
+          { atMinutes: 3, narrative: "Still crawling." },
+        ]),
+      ]
+    })
+    sim.apply(depart)
+    sim.runUntil(T0 + MIN + 1_000)
+    expect(sim.state.incident).toMatchObject({ incident: "crawl", name: "Traffic jam", family: "jam" })
+    expect(sim.current.mph).toBeCloseTo(12, 9)
+    expect(narrations(sim)).toContain("Hit some traffic. The van crawls along.")
+    expect(sim.signs()).toContain("Traffic jam")
+
+    sim.runUntil(T0 + 2 * MIN + 30_000)
+    expect(narrations(sim)).toContain("Someone honks.")
+    expect(sim.apply(useIncidentItem("cb-radio", ADA))).toBe(true)
+    expect(sim.state.beatRuns).toEqual([])
+    sim.runUntil(T0 + 10 * MIN)
+    expect(narrations(sim)).not.toContain("Still crawling.")
+  })
+
+  it("beats never fire after the host skips to the end", () => {
+    const sim = incidentTrip((m) => {
+      m.events = [crawl([{ atMinutes: 2, narrative: "Still here." }])]
+    })
+    sim.apply(depart)
+    sim.runUntil(T0 + MIN + 1_000)
+    expect(sim.apply(skipIncidentStep)).toBe(true)
+    expect(sim.state.incident).toBeUndefined()
+    sim.runUntil(T0 + 6 * MIN)
+    expect(narrations(sim)).not.toContain("Still here.")
+  })
+
+  it("an empty tank cuts short any slowdown, whatever its family", () => {
+    const sim = new TripSim(
+      sample((m) => {
+        m.sites = m.sites.filter((s) => !s.services?.gas)
+        m.events = [
+          { id: "fog", name: "Fog bank", icon: "🌫️", mile: 6, effect: { kind: "slow", factor: 0.5 }, durationMinutes: 10 },
+        ]
+      }),
+    )
+    sim.apply(depart)
+    sim.runUntil(T0 + 6 * MIN + 30_000)
+    expect(sim.state.incident).toMatchObject({ incident: "fog", family: "none" })
+    sim.runUntil(T0 + 9 * MIN)
+    expect(sim.state.incident).toMatchObject({ incident: "out-of-gas", source: "fuel" })
+    expect(sim.state.speedFactors).toEqual([])
+  })
+
+  it("Road-Grip tires shrug off a custom flat with the part's copy", () => {
+    const sim = incidentTrip((m) => {
+      m.events = [{ ...eventFromPreset("blown-tire", "nails", 2), name: "Roofing nails", icon: "📌" }]
+    })
+    sim.apply(installPart("road-grip-tires", ADA))
+    sim.apply(depart)
+    sim.runUntil(T0 + 2 * MIN + 10_000)
+    expect(sim.state.incident).toBeUndefined()
+    expect(sim.signs()).toContain("Road-Grip tires to the rescue")
+    expect(sim.log.find((e) => e.kind === "incident")).toMatchObject({
+      step: "immune",
+      name: "Roofing nails",
+      partId: "road-grip-tires",
+    })
+  })
+
+  it("a narrative-only event posts its copy and beats without stopping the van", () => {
+    const sim = incidentTrip((m) => {
+      m.events = [
+        {
+          id: "welcome",
+          name: "Welcome sign",
+          icon: "🪧",
+          mile: 1,
+          narrative: "Welcome to Nowhere, pop. 12.",
+          beats: [{ atMinutes: 1, narrative: "The sign fades behind you." }],
+        },
+      ]
+    })
+    sim.apply(depart)
+    sim.runUntil(T0 + MIN + 1_000)
+    expect(sim.state.incident).toBeUndefined()
+    expect(sim.state.incidentQueue).toEqual([])
+    expect(sim.current.mph).toBe(60)
+    expect(narrations(sim)).toContain("Welcome to Nowhere, pop. 12.")
+    expect(sim.log.find((e) => e.kind === "incident")).toMatchObject({ step: "noted" })
+    sim.runUntil(T0 + 2 * MIN + 1_000)
+    expect(narrations(sim)).toContain("The sign fades behind you.")
+    expect(sim.state.beatRuns).toEqual([])
+  })
+
+  it("the map's fuel event replaces Out of Gas", () => {
+    const sim = new TripSim(
+      sample((m) => {
+        m.sites = m.sites.filter((s) => !s.services?.gas)
+        m.events = [{ ...eventFromPreset("out-of-gas", "bone-dry"), name: "Bone dry", icon: "🏜️" }]
+      }),
+    )
+    sim.apply(depart)
+    sim.runUntil(T0 + 60 * MIN)
+    expect(sim.log.filter((e) => e.kind === "incident")).toMatchObject([
+      { incident: "bone-dry", name: "Bone dry", step: "started", source: "fuel" },
+      { incident: "bone-dry", step: "cleared", refueled: true },
+    ])
+    expect(sim.signs()).toContain("Bone dry")
   })
 })

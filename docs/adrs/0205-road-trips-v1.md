@@ -1,7 +1,7 @@
 # 0205. Road trips v1: a ledger of legs, trip mode as a loaded map, sites as timed stops
 
 **Date:** 2026-10-02
-**Status:** Partially superseded by [0212](0212-site-narrative-chat.md) (decision 9; the rest stands)
+**Status:** Partially superseded by [0212](0212-site-narrative-chat.md) (decision 9) and [0220](0220-trip-events.md) (decision 12's closed incident catalog and `scriptedEvents`); the rest stands
 
 ## Context
 

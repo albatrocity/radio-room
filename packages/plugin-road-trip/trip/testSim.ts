@@ -11,7 +11,7 @@ import {
   type TripLogEntry,
   type TripState,
 } from "./state"
-import { advanceIncident, fireScripted } from "./incidents"
+import { advanceIncident, fireBeat, fireScripted } from "./incidents"
 import { solveThresholds, type ThresholdRequest } from "./thresholds"
 import {
   arriveAtSite,
@@ -242,6 +242,9 @@ export class TripSim {
         return
       case "scripted":
         this.apply(fireScripted(request.payload.eventId!))
+        return
+      case "beat":
+        this.apply(fireBeat(request.payload.eventId!, request.payload.beat!))
         return
       case "fuel":
         this.apply(fuelThreshold(request.payload.level!))

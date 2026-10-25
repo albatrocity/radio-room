@@ -210,9 +210,9 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0202](0202-plugin-registry-package-and-generic-settings-state.md) | Plugin registry package (`@repo/plugins`) and generic `settings.plugin` state | Accepted |
 | [0203](0203-departed-user-record-ttl.md) | Departed listener user records kept for two days | Accepted |
 | [0204](0204-device-trust-boundary.md) | Device trust boundary (HTTP now-playing, `/device` socket for playback and segment cues) | Accepted |
-| [0205](0205-road-trips-v1.md) | Road trips v1: ledger of legs, trip mode as a loaded map, sites as timed stops, van parts and incidents (+ `schedulesIgnoreEnabled`, store-aware tab `showWhen`, Quick Access live status, plugin detail frame) | Partially superseded by [0212](0212-site-narrative-chat.md) (decision 9; the rest stands) |
+| [0205](0205-road-trips-v1.md) | Road trips v1: ledger of legs, trip mode as a loaded map, sites as timed stops, van parts and incidents (+ `schedulesIgnoreEnabled`, store-aware tab `showWhen`, Quick Access live status, plugin detail frame) | Partially superseded by [0212](0212-site-narrative-chat.md) (decision 9) and [0220](0220-trip-events.md) (decision 12's closed incident catalog); the rest stands |
 | [0206](0206-declared-plugin-capabilities.md) | Declared plugin capabilities (`requestCapability`); Item Shops `shopAccess` with custom offers | Accepted (composed-offer amendment 2026-10-16). Partially superseded by [0214](0214-physical-media-carry.md) (`shopIds` removed) |
-| [0207](0207-trip-maps-portable-json.md) | Trip Maps as portable JSON (`@repo/road-trip-map`, `parseTripMap`, Game Studio editor) | Accepted (composed site shops amendment 2026-10-16). Partially superseded by [0214](0214-physical-media-carry.md) (catalog shop picker and per-shop presets removed) |
+| [0207](0207-trip-maps-portable-json.md) | Trip Maps as portable JSON (`@repo/road-trip-map`, `parseTripMap`, Game Studio editor) | Accepted (composed site shops amendment 2026-10-16). Partially superseded by [0214](0214-physical-media-carry.md) (catalog shop picker and per-shop presets removed) and [0220](0220-trip-events.md) (`scriptedEvents` replaced by `events`) |
 | [0208](0208-presentation-themes.md) | Presentation themes for system messages and plugin-authored polls | Accepted |
 | [0209](0209-trip-funds-escrow-pool-and-levy.md) | Trip funds: shared `EscrowPoolHelper` and proportional levy in plugin-base, `pool-card`, short funds still served, fuel on the ledger (amends [0188](0188-kickstarter-campaigns-coin-escrow.md)) | Accepted |
 | [0210](0210-shared-model-viewer-and-studio-site-assets.md) | Shared `@repo/model-viewer` (sole `three` importer) for items and sites; Game Studio publishes content-addressed site art to the CDN with designer credentials (extends 0199, amends 0207) | Accepted |
@@ -225,6 +225,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0217](0217-pull-off-sign-hold.md) | Pulling off holds signs and skip polls for sites within 3 mi past the stop until the van leaves (`pullOffHold`; amends 0205) | Accepted |
 | [0218](0218-system-message-actions-and-theme-icons.md) | System message `meta.action` button (game modal tab target via `navigateToTarget`), Lucide names in `meta.icon`, poll theme `optionIcon` (amends 0208) | Accepted |
 | [0219](0219-road-trip-van-motion-and-refill-window.md) | Room-scoped `roadTripVanMotionMachine` for van flourishes; `TripStore.fuel.refill` window animates the gauge during refuels | Accepted |
+| [0220](0220-trip-events.md) | Trip events: incidents composed from presets (`map.events`, `compileEventSteps`, families, beats; partially supersedes 0205 decision 12 and 0207's `scriptedEvents`) | Accepted |
 
 ## Creating a New ADR
 

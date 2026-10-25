@@ -9,7 +9,7 @@ import { depart } from "./transitions"
 function noGas(): TripMapInput {
   const map = structuredClone(SAMPLE_TRIP_MAP)
   map.sites = map.sites.filter((site) => !site.services?.gas && !site.services?.mechanic)
-  delete map.scriptedEvents
+  delete map.events
   map.route.tanksPerTrip = 0.8
   return map
 }

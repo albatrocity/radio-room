@@ -1,6 +1,7 @@
 import type { FundsMode, SkipDefault, TripMap, TripSite } from "@repo/road-trip-map"
 import {
   effectiveSkipDefault,
+  fuelEvent,
   gasCost,
   isDestination,
   isGasSite,
@@ -819,7 +820,7 @@ export function fuelLine(state: TripState, map: TripMap, level: FuelLevel): numb
   return level === "low" ? map.tuning.lowFuelPct * state.tankGallons : 0
 }
 
-/** Gas fell to `level` (M2). Empty starts Out of Gas (M4). */
+/** Gas fell to `level` (M2). Empty starts the map's fuel event, else Out of Gas (M4, ADR 0220). */
 export function fuelThreshold(level: FuelLevel): Transition {
   return (state, ctx) => {
     if (state.status !== "driving" || state.fuelFlags.includes(level)) return null
@@ -831,7 +832,10 @@ export function fuelThreshold(level: FuelLevel): Transition {
     if (level === "empty") {
       // Running dry as the van rolls into the destination: it coasts in.
       if (ctx.mile >= state.routeMiles - ARRIVAL_MILE_EPSILON) return { next, log }
-      const started = startOrQueueIncident(next, ctx, { incident: "out-of-gas", source: "fuel" })
+      const started = startOrQueueIncident(next, ctx, {
+        incident: fuelEvent(ctx.map).id,
+        source: "fuel",
+      })
       return { next: started.next, log: [...log, ...(started.log ?? [])], effects: started.effects }
     }
     const gas = sortedSites(ctx.map).find(

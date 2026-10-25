@@ -9,7 +9,7 @@ import { depart } from "../trip/transitions"
 function baseline(): TripMapInput {
   const map = structuredClone(SAMPLE_TRIP_MAP)
   map.sites = map.sites.filter((site) => !site.services?.mechanic)
-  delete map.scriptedEvents
+  delete map.events
   return map
 }
 

@@ -5,7 +5,7 @@
  */
 
 import type { IncidentFundPurpose, IncidentStep } from "./incidents"
-import type { FundsMode, IncidentId } from "./schema"
+import type { FundsMode } from "./schema"
 import type { PartSlot, VanFactor } from "./van"
 
 export type TripStoreStatus = "loaded" | "driving" | "arrived" | "late" | "ended" | "stranded"
@@ -53,9 +53,11 @@ export type TripStoreLive =
   | {
       kind: "incident"
       label: string
-      incident: IncidentId
+      /** Event id: a built-in preset id, or the map event's id. */
+      incident: string
       /** Headline for the current step: the incident's name, or the step's own status ("Refuelling"). */
       name: string
+      icon: string
       /** Ends on its own then (D22); absent while towing. */
       endsAt?: number
       /** Full item ids that end the current step ("🛞 Blown tire · Fix-a-Flat?"). */
@@ -102,9 +104,10 @@ export type TripStoreVanPart = {
 }
 
 export type TripStoreIncident = {
-  incident: IncidentId
+  /** Event id: a built-in preset id, or the map event's id. */
+  incident: string
   name: string
-  emoji: string
+  icon: string
   /** Current step's label ("Waiting on the shoulder", "Tow · 60 coins"). */
   step: string
   stepKind: IncidentStep["kind"]

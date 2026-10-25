@@ -1,14 +1,32 @@
 import { ITEM_CATALOG } from "@repo/plugin-item-shops"
-import { roadTripItemId, SAMPLE_TRIP_MAP, VAN_CONSUMABLES, VAN_PARTS } from "@repo/road-trip-map"
+import {
+  parseTripMap,
+  roadTripItemId,
+  SAMPLE_TRIP_MAP,
+  tripMapSchema,
+  VAN_CONSUMABLES,
+  VAN_PARTS,
+  type TripMapInput,
+} from "@repo/road-trip-map"
 import { ITEM_SHOPS_PLUGIN_NAME } from "@repo/types"
 import { describe, expect, it } from "vitest"
 import { sampleComposableOffers } from "@repo/game-logic"
 import {
+  addBlankEvent,
   addBlankSite,
+  addEventFromPreset,
+  estimateEvent,
+  EVENT_PRESET_BUTTONS,
+  hasFuelEvent,
+  liftDraft,
+  mapJson,
+  moveEvent,
   OFFER_CATALOG,
   parseDraft,
   previewOfferSample,
+  removeEvent,
   siteSlugFromName,
+  updateEvent,
   validateCatalogShop,
 } from "./tripMapDraft"
 
@@ -146,5 +164,90 @@ describe("previewOfferSample", () => {
       { definitionId: "item-shops:does-not-exist" },
     ]
     expect(previewOfferSample(offers, { count: 2 }, seq([0.5]))).toEqual([first.name])
+  })
+})
+
+describe("trip events", () => {
+  const base = (): TripMapInput => {
+    const { events: _sample, ...rest } = structuredClone(SAMPLE_TRIP_MAP)
+    return rest
+  }
+
+  it("stamps every preset and round-trips through Copy JSON", () => {
+    let draft = base()
+    for (const preset of EVENT_PRESET_BUTTONS) draft = addEventFromPreset(draft, preset.id).draft
+    expect(draft.events?.map((e) => e.id)).toEqual([
+      "traffic-jam",
+      "blown-tire",
+      "engine-failure",
+      "out-of-gas",
+    ])
+    expect(draft.events?.find((e) => e.id === "out-of-gas")?.mile).toBeUndefined()
+    expect(draft.events?.find((e) => e.id === "traffic-jam")?.mile).toBe(6)
+    expect(hasFuelEvent(draft)).toBe(true)
+
+    draft = updateEvent(draft, "traffic-jam", {
+      icon: "🐄",
+      effect: { kind: "slow", factor: 0.2 },
+      beats: [{ atMinutes: 2, narrative: "A cow stares at the van." }],
+    })
+    draft = moveEvent(draft, "traffic-jam", 3.04)
+    const parsed = parseTripMap(JSON.parse(mapJson(draft)))
+    expect(parsed.ok).toBe(true)
+    expect(parsed.map?.events?.find((e) => e.id === "traffic-jam")).toMatchObject({
+      icon: "🐄",
+      mile: 3,
+      effect: { kind: "slow", factor: 0.2 },
+      beats: [{ atMinutes: 2, narrative: "A cow stares at the van." }],
+    })
+  })
+
+  it("adds a blank narrative-only event that lints clean", () => {
+    const first = addBlankEvent(base())
+    const second = addBlankEvent(first.draft)
+    expect([first.eventId, second.eventId]).toEqual(["event", "event-2"])
+    const parsed = parseTripMap(JSON.parse(mapJson(second.draft)))
+    expect(parsed.issues.filter((i) => i.severity === "error")).toEqual([])
+    expect(parsed.map?.events?.[0]).toMatchObject({ name: "Roadside event", mile: 6 })
+    expect(parsed.map?.events?.[0]?.effect).toBeUndefined()
+  })
+
+  it("gives a second stamp of the same preset its own id", () => {
+    const once = addEventFromPreset(base(), "blown-tire")
+    const twice = addEventFromPreset(once.draft, "blown-tire")
+    expect(twice.eventId).toBe("blown-tire-2")
+    expect(removeEvent(twice.draft, "blown-tire-2").events?.map((e) => e.id)).toEqual([
+      "blown-tire",
+    ])
+    expect(removeEvent(once.draft, "blown-tire").events).toBeUndefined()
+  })
+
+  it("clears a field patched to undefined", () => {
+    const { draft } = addEventFromPreset(base(), "traffic-jam")
+    expect(updateEvent(draft, "traffic-jam", { narrative: undefined }).events?.[0]).not.toHaveProperty(
+      "narrative",
+    )
+  })
+
+  it("prices an engine failure as a tow before the Mechanic and the shoulder after it", () => {
+    let draft = addEventFromPreset(base(), "engine-failure").draft
+    const purposes = (mile: number) => {
+      const map = tripMapSchema.parse(moveEvent(draft, "engine-failure", mile))
+      return estimateEvent(map, "engine-failure", 1)?.lines.map((l) => l.purpose)
+    }
+    expect(purposes(2)).toEqual(["tow", "repair"])
+    expect(purposes(11)).toEqual(["repair"])
+    draft = updateEvent(draft, "engine-failure", {
+      resolution: [{ kind: "tow", towCost: 0, repairCost: 0 }],
+    })
+    expect(estimateEvent(tripMapSchema.parse(draft), "engine-failure", 1)?.total).toBe(0)
+  })
+
+  it("lifts a legacy scripted-event draft", () => {
+    const { events: _sample, ...rest } = structuredClone(SAMPLE_TRIP_MAP)
+    const legacy = { ...rest, scriptedEvents: [{ id: "jam-1", atMile: 5, incident: "traffic-jam" }] }
+    expect(liftDraft(legacy).events).toEqual([
+      expect.objectContaining({ id: "jam-1", presetId: "traffic-jam", mile: 5, name: "Traffic jam" }),
+    ])
   })
 })

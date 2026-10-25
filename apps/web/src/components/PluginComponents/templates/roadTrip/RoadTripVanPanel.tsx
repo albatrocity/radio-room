@@ -195,7 +195,7 @@ function IncidentSection({ trip, now }: { trip: TripStore; now: number }) {
       {incident ? (
         <>
           <Text fontSize="sm" fontWeight="medium">
-            {incident.emoji} {incident.name}
+            {incident.icon} {incident.name}
           </Text>
           <Text fontSize="xs" color="fg.muted">
             {incident.step}

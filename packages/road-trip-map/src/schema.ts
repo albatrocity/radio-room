@@ -141,7 +141,7 @@ export const incidentIdSchema = z.enum([
 ])
 export type IncidentId = z.infer<typeof incidentIdSchema>
 
-/** Out of Gas only follows an empty tank, so it can't be triggered or scripted. */
+/** Out of Gas only follows an empty tank, so hosts can't trigger it. */
 export const triggerableIncidentIdSchema = z.enum(["traffic-jam", "blown-tire", "engine-failure"])
 export type TriggerableIncidentId = z.infer<typeof triggerableIncidentIdSchema>
 export const TRIGGERABLE_INCIDENT_IDS = triggerableIncidentIdSchema.options
@@ -151,13 +151,116 @@ export const narrativeVariantSchema = z.enum(["info", "success", "warning", "err
 export type NarrativeVariant = z.infer<typeof narrativeVariantSchema>
 export const NARRATIVE_VARIANTS = narrativeVariantSchema.options
 
-/** A story beat at a mile marker (D23). Server-only: never sent to clients. */
-export const scriptedEventSchema = z.object({
-  id: siteIdSchema,
-  atMile: z.number().min(0),
-  incident: triggerableIncidentIdSchema,
+/**
+ * Which van parts and consumables an event answers to (ADR 0220): `jam` (horn,
+ * CB Radio), `flat` (Road-Grip Tires, Fix-a-Flat), `engine`, or `none`.
+ */
+export const eventFamilySchema = z.enum(["jam", "flat", "engine", "none"])
+export type EventFamily = z.infer<typeof eventFamilySchema>
+export const EVENT_FAMILIES = eventFamilySchema.options
+
+/** `mile`: fires when the van reaches `mile`. `fuel`: replaces Out of Gas when the tank runs dry. */
+export const eventTriggerSchema = z.enum(["mile", "fuel"])
+export type EventTrigger = z.infer<typeof eventTriggerSchema>
+
+export const eventEffectSchema = z.discriminatedUnion("kind", [
+  /** The van crawls at `factor` × its speed for the event's `durationMinutes`. */
+  z.object({
+    kind: z.literal("slow"),
+    factor: z.number().gt(0).lt(1),
+    label: z.string().min(1).max(60).optional(),
+  }),
+  /** The van is held until the resolution chain finishes. */
+  z.object({ kind: z.literal("stop") }),
+])
+export type EventEffect = z.infer<typeof eventEffectSchema>
+
+export const incidentFundPurposeSchema = z.enum(["roadside", "tow", "repair", "delivery"])
+
+const eventMinutesSchema = z.number().positive().max(60)
+const eventLabelSchema = z.string().min(1).max(60)
+const eventCostSchema = z.number().min(0).max(100_000)
+
+/** One link of an event's resolution chain; compiled to incident steps when it starts. */
+export const eventResolutionSchema = z.discriminatedUnion("kind", [
+  /**
+   * Items that end the event. On a slow effect they end it early; on a stop
+   * they open a window. `items` defaults to the family's consumables.
+   */
+  z.object({
+    kind: z.literal("item"),
+    items: z.array(z.string().min(1).max(64)).min(1).max(8).optional(),
+    windowMinutes: eventMinutesSchema.optional(),
+    label: eventLabelSchema.optional(),
+  }),
+  /** A cost step; omitted fields default by purpose. */
+  z.object({
+    kind: z.literal("fund"),
+    purpose: incidentFundPurposeSchema,
+    baseCost: eventCostSchema.optional(),
+    provider: eventLabelSchema.optional(),
+    waivable: z.boolean().optional(),
+  }),
+  /** `status` replaces the event's name as the headline while it runs ("Refuelling"). */
+  z.object({
+    kind: z.literal("wait"),
+    minutes: eventMinutesSchema,
+    label: eventLabelSchema.optional(),
+    status: z.string().min(1).max(40).optional(),
+  }),
+  /** A tow to the nearest Mechanic ahead and repairs there, or repairs on the shoulder. */
+  z.object({
+    kind: z.literal("tow"),
+    towCost: eventCostSchema.optional(),
+    towWaitMinutes: eventMinutesSchema.optional(),
+    repairCost: eventCostSchema.optional(),
+    repairMinutes: eventMinutesSchema.optional(),
+  }),
+  /** A fuel truck delivers a full tank. The only resolution that fills the tank. */
+  z.object({
+    kind: z.literal("refuel"),
+    fee: eventCostSchema.optional(),
+    pricePerGallon: z.number().min(0).max(1000).optional(),
+    waitMinutes: eventMinutesSchema.optional(),
+    status: z.string().min(1).max(40).optional(),
+  }),
+])
+export type EventResolution = z.infer<typeof eventResolutionSchema>
+
+/** Chat prose `atMinutes` after the event starts, unless it has cleared by then. */
+export const eventBeatSchema = z.object({
+  atMinutes: z.number().max(240),
+  narrative: z.string().min(1).max(2000),
+  narrativeVariant: narrativeVariantSchema.optional(),
 })
-export type ScriptedEvent = z.infer<typeof scriptedEventSchema>
+export type EventBeat = z.infer<typeof eventBeatSchema>
+
+/** A trip event (ADR 0220), composed like a site. Server-only: never sent to clients. */
+export const tripEventSchema = z.object({
+  id: siteIdSchema,
+  /** Provenance only: which incident preset the designer started from. */
+  presetId: z.string().max(64).optional(),
+  name: z.string().min(1).max(60),
+  icon: z.string().min(1).max(16),
+  /** Chat prose posted when the event starts. */
+  narrative: z.string().max(2000).optional(),
+  narrativeVariant: narrativeVariantSchema.optional(),
+  /** Body of the sign posted when it clears. Blank posts the plain "Back on the road". */
+  clearedNarrative: z.string().max(500).optional(),
+  /** Defaults to `mile`. */
+  trigger: eventTriggerSchema.optional(),
+  /** Where a `mile` event fires. */
+  mile: z.number().min(0).optional(),
+  /** Defaults to `none`. */
+  family: eventFamilySchema.optional(),
+  /** Omitted: the event only narrates; the van keeps driving. */
+  effect: eventEffectSchema.optional(),
+  /** Length of a `slow` effect. */
+  durationMinutes: eventMinutesSchema.optional(),
+  resolution: z.array(eventResolutionSchema).max(8).optional(),
+  beats: z.array(eventBeatSchema).max(8).optional(),
+})
+export type TripEvent = z.infer<typeof tripEventSchema>
 
 export const siteSchema = z.object({
   id: siteIdSchema,
@@ -264,7 +367,7 @@ export const tripMapSchema = z.object({
     vanPlayback: DEFAULT_VAN_PLAYBACK,
   }),
   sites: z.array(siteSchema).min(1).max(64),
-  scriptedEvents: z.array(scriptedEventSchema).max(32).optional(),
+  events: z.array(tripEventSchema).max(32).optional(),
 })
 
 /** A parsed map with defaults applied. */

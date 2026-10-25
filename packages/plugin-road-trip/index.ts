@@ -20,7 +20,7 @@ import {
 } from "@repo/plugin-base"
 import {
   FUND_PURPOSE_LABELS,
-  INCIDENTS,
+  INCIDENT_PRESETS,
   isDestination,
   parseTripMap,
   resolveSiteSettings,
@@ -98,6 +98,7 @@ import {
 } from "./trip/transitions"
 import {
   advanceIncident,
+  fireBeat,
   fireScripted,
   installPart,
   skipIncidentStep,
@@ -203,6 +204,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
       "fuel",
       "incident",
       "scripted",
+      "beat",
     ]
     for (const kind of kinds) {
       this.onScheduled(kind, async (payload) =>
@@ -622,7 +624,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     const before = state.incidentQueue.length
     const saved = await this.mutateTrip(triggerIncident(parsed.data))
     if (!saved) return { success: false, message: "Couldn't trigger it." }
-    const name = INCIDENTS[parsed.data].name
+    const name = INCIDENT_PRESETS[parsed.data].name
     return saved.incidentQueue.length > before
       ? { success: true, message: `${name} queued: it starts once the van's moving again.` }
       : { success: true, message: `${name}!` }
@@ -841,8 +843,12 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   }
 
   private async runThreshold(kind: ThresholdKind, payload: ThresholdPayload): Promise<void> {
-    const { tripId, siteId, blockerId, level, incidentId, step, eventId } = payload
+    const { tripId, siteId, blockerId, level, incidentId, step, eventId, beat } = payload
     switch (kind) {
+      case "beat":
+        if (eventId && beat !== undefined)
+          await this.mutateTrip(this.forTrip(tripId, fireBeat(eventId, beat)))
+        return
       case "incident":
         if (incidentId && step !== undefined)
           await this.mutateTrip(this.forTrip(tripId, advanceIncident(incidentId, step)))

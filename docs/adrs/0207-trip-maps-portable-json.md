@@ -1,7 +1,7 @@
 # 0207. Trip Maps as portable JSON
 
 **Date:** 2026-10-02
-**Status:** Accepted. Amended 2026-10-16 (composed site shops). Partially superseded by [0214](0214-physical-media-carry.md)
+**Status:** Accepted. Amended 2026-10-16 (composed site shops). Partially superseded by [0214](0214-physical-media-carry.md) and [0220](0220-trip-events.md) (`scriptedEvents` replaced by `events`)
 
 > **Partially superseded by [0214](0214-physical-media-carry.md):** sites no longer name catalog shops (`shop.shopIds`). Records sell through `services.physicalMedia`, Game Studio has no catalog shop picker, and the per-shop site presets are replaced by a generic Record shop preset. [0215](0215-van-shared-playback-formats.md) adds `tuning.vanPlayback`.
 

@@ -1,4 +1,5 @@
 import { tripMapContentHash } from "./hash"
+import { liftLegacyTripMap } from "./incidents"
 import { hasLintErrors, lintTripMap, type LintTripMapDeps, type TripMapIssue } from "./lint"
 import { TRIP_MAP_MAX_BYTES, tripMapSchema, type TripMap } from "./schema"
 
@@ -44,7 +45,7 @@ export function parseTripMap(
     }
   }
 
-  const parsed = tripMapSchema.safeParse(raw)
+  const parsed = tripMapSchema.safeParse(liftLegacyTripMap(raw))
   if (!parsed.success) {
     return {
       ok: false,

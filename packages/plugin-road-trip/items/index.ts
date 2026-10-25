@@ -1,12 +1,13 @@
 import type { ItemDefinition, LucideIconName } from "@repo/types"
 import {
-  INCIDENTS,
+  EVENT_FAMILY_LABELS,
   vanConsumable,
   vanPart,
   VAN_CONSUMABLES,
   VAN_ITEM_IDS,
   VAN_PARTS,
 } from "@repo/road-trip-map"
+import { itemEndsCurrentStep } from "../trip/incidents"
 import type { TripState } from "../trip/state"
 
 type RoadTripItemDefinition = Omit<ItemDefinition, "id" | "sourcePlugin">
@@ -92,16 +93,8 @@ export function routeItemUse(state: TripState | null, shortId: string): RoadTrip
   }
   const item = vanConsumable(shortId)
   if (!item) return { kind: "refused", message: "That isn't a road-trip item." }
-  const incident = state?.status === "driving" ? state.incident : undefined
-  const step = incident?.steps[incident.step]
-  const usable =
-    incident?.incident === item.resolves &&
-    ((step?.kind === "window" && step.resolvesWith.includes(shortId)) || step?.kind === "slow")
-  if (!usable) {
-    return {
-      kind: "refused",
-      message: `Save it for a ${INCIDENTS[item.resolves].name.toLowerCase()}.`,
-    }
+  if (state?.status !== "driving" || !itemEndsCurrentStep(state, shortId)) {
+    return { kind: "refused", message: `Save it for a ${EVENT_FAMILY_LABELS[item.resolves]}.` }
   }
   return { kind: "resolve", shortId }
 }
