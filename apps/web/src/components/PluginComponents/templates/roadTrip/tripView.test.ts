@@ -153,6 +153,27 @@ describe("stripReadout", () => {
     expect(stripReadout(stopped, 0, NOW).destination).toBe("CB Radio?")
   })
 
+  it("puts a wait headline beside the countdown and keeps the event name", () => {
+    const fixing = trip({
+      van: { anchorAt: NOW, anchorMile: 9, mph: 0 },
+      live: {
+        kind: "incident",
+        label: "",
+        incident: "flat-at-9",
+        name: "Fixing the flat",
+        eventName: "Blown tire",
+        icon: "🛞",
+        endsAt: NOW + 90_000,
+      },
+    })
+    expect(stripReadout(fixing, 9, NOW)).toEqual({
+      status: "🛞 Blown tire",
+      destination: "Fixing the flat",
+      countdown: "1:30",
+    })
+    expect(stripContext(fixing, 9, NOW)).toBe("🛞 Blown tire · Fixing the flat · 1:30")
+  })
+
   it("reads a custom event's name and icon from the store", () => {
     const fog = trip({
       live: { kind: "incident", label: "", incident: "fog-bank", name: "Fog bank", icon: "🌫️" },

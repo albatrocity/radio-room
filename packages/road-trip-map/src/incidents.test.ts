@@ -24,9 +24,10 @@ const map = parsed.map
 
 /**
  * The step lists the closed incident switch produced before ADR 0220, kept as
- * the golden reference for the presets. Two intentional additions: slow steps
- * name the items that end them (formerly implied by the incident id), and the
- * fuel truck's wait is marked `refills`.
+ * the golden reference for the presets. Intentional additions: slow steps
+ * name the items that end them (formerly implied by the incident id), the
+ * fuel truck's wait is marked `refills`, and the blown-tire wait carries the
+ * "Fixing the flat" headline.
  */
 function legacyIncidentSteps(
   m: TripMap,
@@ -64,7 +65,12 @@ function legacyIncidentSteps(
           provider: "roadside service",
           waivable: true,
         },
-        { kind: "wait", label: "Changing the tire", ms: t.roadsideWaitMs },
+        {
+          kind: "wait",
+          label: "Changing the tire",
+          ms: t.roadsideWaitMs,
+          status: "Fixing the flat",
+        },
       ]
     case "engine-failure": {
       const mechanic = nearestMechanicAhead(m, mile)

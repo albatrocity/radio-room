@@ -228,7 +228,10 @@ export const eventResolutionSchema = z.discriminatedUnion("kind", [
     provider: eventLabelSchema.optional(),
     waivable: z.boolean().optional(),
   }),
-  /** `status` replaces the event's name as the headline while it runs ("Refuelling"). */
+  /**
+   * `status` is the headline while this wait runs ("Refuelling", "Fixing the flat").
+   * The strip keeps the event name and shows this beside the countdown.
+   */
   z.object({
     kind: z.literal("wait"),
     minutes: eventMinutesSchema,

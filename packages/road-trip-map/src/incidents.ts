@@ -60,9 +60,10 @@ export type IncidentStep =
       waivable: boolean
     }
   /**
-   * `status` replaces the incident's name as the headline once help is on the
-   * way ("Refuelling"). `refills`: the gauge climbs across it and the tank fills
-   * when the incident clears.
+   * `status` is the headline once help is on the way ("Refuelling",
+   * "Fixing the flat"). The strip keeps the event name and shows this beside
+   * the countdown. `refills`: the gauge climbs across the wait and the tank
+   * fills when the incident clears.
    */
   | { kind: "wait"; label: string; ms: number; status?: string; refills?: true }
   /** Tow the van to a Mechanic: engine off, no fuel burns. The Mechanic's shop opens on arrival. */
@@ -113,7 +114,12 @@ export const INCIDENT_PRESETS: Record<IncidentId, TripEventPresetBody> = {
     resolution: [
       { kind: "item", windowMinutes: INCIDENT_TIMING.flatWindowMs / 60_000 },
       { kind: "fund", purpose: "roadside" },
-      { kind: "wait", minutes: INCIDENT_TIMING.roadsideWaitMs / 60_000, label: "Changing the tire" },
+      {
+        kind: "wait",
+        minutes: INCIDENT_TIMING.roadsideWaitMs / 60_000,
+        label: "Changing the tire",
+        status: "Fixing the flat",
+      },
     ],
   },
   "engine-failure": {

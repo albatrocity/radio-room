@@ -68,8 +68,16 @@ export type TripStoreLive =
       label: string
       /** Event id: a built-in preset id, or the map event's id. */
       incident: string
-      /** Headline for the current step: the incident's name, or the step's own status ("Refuelling"). */
+      /**
+       * Headline for the current step: the incident's name, or the wait step's
+       * status ("Refuelling", "Fixing the flat").
+       */
       name: string
+      /**
+       * The event's own name, set when `name` is a wait-step headline. The strip
+       * keeps this on the left and puts `name` beside the countdown.
+       */
+      eventName?: string
       icon: string
       /** Ends on its own then (D22); absent while towing. */
       endsAt?: number

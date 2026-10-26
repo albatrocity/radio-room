@@ -124,7 +124,10 @@ export type LiveHold =
   | {
       kind: "incident"
       icon: string
+      /** Event name. A wait headline, when set, sits beside the countdown. */
       name: string
+      /** Wait-step headline ("Fixing the flat"), beside the countdown. */
+      headline?: string
       fixName?: string
       endsAt?: number
     }
@@ -153,10 +156,12 @@ export function liveHold(trip: TripStore): LiveHold | null {
       }
     case "incident": {
       const fix = live.resolvesWith?.[0]
+      const headline = live.eventName ? live.name : undefined
       return {
         kind: "incident",
         icon: live.icon,
-        name: live.name,
+        name: live.eventName ?? live.name,
+        ...(headline ? { headline } : {}),
         ...(fix ? { fixName: vanItemName(fix) } : {}),
         ...(live.endsAt !== undefined ? { endsAt: live.endsAt } : {}),
       }
@@ -194,7 +199,8 @@ function holdContext(hold: LiveHold, now: number): string {
     }
     case "incident": {
       const left = hold.endsAt !== undefined ? ` · ${formatCountdown(hold.endsAt - now)}` : ""
-      return `${hold.icon} ${hold.name}${hold.fixName ? ` · ${hold.fixName}?` : ""}${left}`
+      const detail = hold.fixName ? ` · ${hold.fixName}?` : hold.headline ? ` · ${hold.headline}` : ""
+      return `${hold.icon} ${hold.name}${detail}${left}`
     }
     case "parked": {
       const left = formatCountdown(hold.endsAt - now)
@@ -229,7 +235,11 @@ function holdReadout(trip: TripStore, hold: LiveHold, now: number): StripReadout
     }
     case "incident": {
       const destination =
-        trip.van.mph > 0 ? speedLabel(trip) : hold.fixName ? `${hold.fixName}?` : undefined
+        trip.van.mph > 0
+          ? speedLabel(trip)
+          : hold.fixName
+            ? `${hold.fixName}?`
+            : hold.headline
       return {
         status: `${hold.icon} ${hold.name}`,
         ...(destination ? { destination } : {}),

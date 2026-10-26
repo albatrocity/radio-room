@@ -270,11 +270,13 @@ function liveContext(
   }
   const incident = state.status === "driving" ? incidentView(state) : undefined
   if (incident) {
+    const eventName = state.incident?.name
     return {
       kind: "incident",
       label: `${incident.icon} ${incident.name} · ${incident.step}`,
       incident: incident.incident,
       name: incident.name,
+      ...(eventName && eventName !== incident.name ? { eventName } : {}),
       icon: incident.icon,
       ...(incident.endsAt !== undefined ? { endsAt: incident.endsAt } : {}),
       ...(incident.resolvesWith.length > 0 ? { resolvesWith: incident.resolvesWith } : {}),

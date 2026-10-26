@@ -652,6 +652,7 @@ describe("gas and money (Phase 2)", () => {
       kind: "incident",
       incident: "out-of-gas",
       name: "Refuelling",
+      eventName: "Out of gas",
       label: "⛽ Refuelling · Waiting for the fuel truck",
     })
     expect(refuelling.vanSheet.incident).toMatchObject({ name: "Refuelling", stepKind: "wait" })
