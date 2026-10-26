@@ -27,7 +27,7 @@ import {
   type TripMapInput,
   type TripOutcome,
 } from "@repo/road-trip-map"
-import type { EventEstimate, TripEventDraft } from "../../tripMap/tripMapDraft"
+import { arrivalClock, type EventEstimate, type TripEventDraft } from "../../tripMap/tripMapDraft"
 import { TripOutcomesEditor, TripPlacementFields } from "./TripBranchFields"
 import { TripChoiceEditor } from "./TripChoiceEditor"
 
@@ -37,6 +37,8 @@ type Props = {
   draft: TripMapInput
   /** Null while the draft doesn't parse. */
   estimate: EventEstimate | null
+  /** When the event starts. `null` is a fuel event whose tank never runs dry. */
+  arrivalAt?: number | null
   walletShare: (cost: number) => string
   onChange: (patch: Partial<TripEventDraft>) => void
   onRemove: () => void
@@ -304,6 +306,7 @@ export function TripEventInspector({
   event,
   draft,
   estimate,
+  arrivalAt,
   walletShare,
   onChange,
   onRemove,
@@ -366,6 +369,17 @@ export function TripEventInspector({
           )}
         </Field.Root>
       </SimpleGrid>
+      {arrivalAt === null ? (
+        <Text fontSize="xs" color="fg.muted">
+          The tank doesn't run dry on this road, so this doesn't start.
+        </Text>
+      ) : arrivalAt !== undefined ? (
+        <Text fontSize="xs" color="fg.muted">
+          Starts {arrivalClock(arrivalAt)}
+          {fuel ? ", when the tank runs dry" : ""}. Poll defaults, before this point. Other events aren't
+          included.
+        </Text>
+      ) : null}
 
       {!fuel ? (
         <TripPlacementFields

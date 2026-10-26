@@ -2,6 +2,7 @@ import { ITEM_CATALOG } from "@repo/plugin-item-shops"
 import {
   parseTripMap,
   roadTripItemId,
+  SAMPLE_BRANCH_MAP,
   SAMPLE_TRIP_MAP,
   tripMapSchema,
   VAN_CONSUMABLES,
@@ -24,6 +25,8 @@ import {
   OFFER_CATALOG,
   parseDraft,
   previewOfferSample,
+  eventArrivalEstimates,
+  siteArrivalEstimates,
   removeEvent,
   siteSlugFromName,
   updateEvent,
@@ -241,6 +244,45 @@ describe("trip events", () => {
       resolution: [{ kind: "tow", towCost: 0, repairCost: 0 }],
     })
     expect(estimateEvent(tripMapSchema.parse(draft), "engine-failure", 1)?.total).toBe(0)
+  })
+
+  it("estimates each site's arrival from the drive and poll-default stops before it", () => {
+    const map = tripMapSchema.parse(SAMPLE_TRIP_MAP)
+    const depart = Date.parse("2026-10-26T13:00:00.000Z")
+    const eta = siteArrivalEstimates(map, depart)
+    const minutes = (id: string) => (eta.get(id)! - depart) / 60_000
+    // One mile a minute. The record shop is skipped, gas stops for 2, the market stops for 4.
+    expect(minutes("record-store")).toBe(4)
+    expect(minutes("gas-n-go")).toBe(6)
+    expect(minutes("farmers-market")).toBe(10)
+    expect(minutes("hanks-garage")).toBe(16)
+    expect(minutes("concert")).toBe(18)
+    const events = eventArrivalEstimates(map, depart)
+    expect((events.get("flat-at-9")! - depart) / 60_000).toBe(15)
+  })
+
+  it("starts a fuel event when the tank runs dry, and not when a stop refills it", () => {
+    const depart = Date.parse("2026-10-26T13:00:00.000Z")
+    const dry = structuredClone(SAMPLE_TRIP_MAP)
+    dry.sites = dry.sites.filter((site) => site.id !== "gas-n-go")
+    dry.events = [...(dry.events ?? []), { id: "dry", name: "Out of gas", icon: "⛽", trigger: "fuel" }]
+    const eta = eventArrivalEstimates(tripMapSchema.parse(dry), depart)
+    expect((eta.get("dry")! - depart) / 60_000).toBe(7)
+
+    const wetSource = structuredClone(SAMPLE_TRIP_MAP)
+    wetSource.events = [...(wetSource.events ?? []), { id: "dry", name: "Out of gas", icon: "⛽", trigger: "fuel" }]
+    const wet = tripMapSchema.parse(wetSource)
+    expect(eventArrivalEstimates(wet, depart).get("dry")).toBeNull()
+  })
+
+  it("estimates a side-road site from the fork, skipping the stops that road bypasses", () => {
+    const map = tripMapSchema.parse(SAMPLE_BRANCH_MAP)
+    const depart = Date.parse("2026-10-26T13:00:00.000Z")
+    const eta = siteArrivalEstimates(map, depart)
+    const minutes = (id: string) => (eta.get(id)! - depart) / 60_000
+    expect(minutes("welcome-center")).toBe(3)
+    expect(minutes("hidden-falls")).toBe(10)
+    expect(minutes("overlook")).toBe(18)
   })
 
   it("lifts a legacy scripted-event draft", () => {

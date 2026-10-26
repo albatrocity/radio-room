@@ -25,7 +25,7 @@ import {
 import { TripOutcomesEditor, TripPlacementFields } from "./TripBranchFields"
 import { TripOfferPicker } from "./TripOfferPicker"
 import { TripPhysicalMediaService } from "./TripPhysicalMediaService"
-import { type FuelProjectionStop, type TripSiteDraft } from "../../tripMap/tripMapDraft"
+import { arrivalClock, type FuelProjectionStop, type TripSiteDraft } from "../../tripMap/tripMapDraft"
 
 const DEFAULT_GAS_PRICE = 8
 
@@ -36,6 +36,8 @@ type Props = {
   resolved: TripMap | null
   /** This site's row in the no-vote fuel plan, when it sells gas. */
   gasStop?: FuelProjectionStop
+  /** When the van reaches this site, if the draft parses. */
+  arrivalAt?: number
   /** Image and 3D model section (`TripSiteArt`), owned by the editor's upload state. */
   art: ReactNode
   onChange: (patch: Partial<TripSiteDraft>) => void
@@ -82,6 +84,7 @@ export function TripSiteInspector({
   draft,
   resolved,
   gasStop,
+  arrivalAt,
   art,
   onChange,
   onRemove,
@@ -166,6 +169,11 @@ export function TripSiteInspector({
           />
         </Field.Root>
       </SimpleGrid>
+      {arrivalAt !== undefined ? (
+        <Text fontSize="xs" color="fg.muted">
+          Arrives {arrivalClock(arrivalAt)}. Poll defaults, before this stop parks. Events aren't included.
+        </Text>
+      ) : null}
 
       <TripPlacementFields
         draft={draft}

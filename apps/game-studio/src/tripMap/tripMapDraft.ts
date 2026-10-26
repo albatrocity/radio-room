@@ -582,6 +582,87 @@ export function tripShareLabel(totalCost: number, walletsTotal: number): string 
   return `≈ ${formatShare(rate)} of wallets over the trip, before earnings`
 }
 
+/**
+ * Clock time the van reaches each site if it takes that site's road and poll
+ * defaults hold. Parking at earlier stops counts; this stop's own parking, and
+ * event delays, do not.
+ */
+export function siteArrivalEstimates(source: TripMap, departAt: number): Map<string, number> {
+  const paths = new Map<string, TripMap>()
+  const arrivals = new Map<string, number>()
+  for (const site of source.sites) {
+    const path = pathReaching(source, site, paths)
+    const placed = path.sites.find((s) => s.id === site.id)
+    if (!placed) continue
+    arrivals.set(site.id, clockAt(path, placed.mile, departAt))
+  }
+  return arrivals
+}
+
+/**
+ * When each event starts, on the same terms as {@link siteArrivalEstimates}.
+ * A fuel event maps to `null` when the tank never runs dry on its road.
+ */
+export function eventArrivalEstimates(source: TripMap, departAt: number): Map<string, number | null> {
+  const paths = new Map<string, TripMap>()
+  const arrivals = new Map<string, number | null>()
+  for (const event of source.events ?? []) {
+    const path = pathReaching(source, event, paths)
+    if (eventTrigger(event) === "fuel") {
+      const dry = fuelPlan(path).emptyAtMile
+      arrivals.set(event.id, dry === null ? null : clockAt(path, dry, departAt))
+      continue
+    }
+    const placed = path.events?.find((e) => e.id === event.id)
+    if (placed?.mile === undefined) continue
+    arrivals.set(event.id, clockAt(path, placed.mile, departAt))
+  }
+  return arrivals
+}
+
+function clockAt(path: TripMap, mile: number, departAt: number): number {
+  const earlier = path.sites.filter((s) => s.mile < mile - 1e-9)
+  const parkMs = earlier.length === 0 ? 0 : parkPlan({ ...path, sites: earlier }).expectedMs
+  const driveMs = (mile / path.route.baseMph) * 3_600_000
+  return Math.round((departAt + driveMs + parkMs) / 60_000) * 60_000
+}
+
+function pathReaching(
+  source: TripMap,
+  item: { route?: string; layer?: string },
+  paths: Map<string, TripMap>,
+): TripMap {
+  const key = `${item.route ?? MAIN_ROUTE_ID}|${item.layer ?? ""}`
+  const cached = paths.get(key)
+  if (cached) return cached
+  const path = linearize(source, viewReaching(source, item)).map
+  paths.set(key, path)
+  return path
+}
+
+/** A site's arrival as a clock time, matching the planned-departure field. */
+export function arrivalClock(ms: number): string {
+  return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+}
+
+/** The path that reaches a site: its road taken, its layer unlocked. */
+function viewReaching(map: TripMap, item: { route?: string; layer?: string }) {
+  const layersActive = new Set<string>()
+  if (item.layer) layersActive.add(item.layer)
+  const junctionDecisions: Record<string, "take"> = {}
+  const seen = new Set<string>()
+  let routeId = item.route
+  while (routeId && routeId !== MAIN_ROUTE_ID && !seen.has(routeId)) {
+    seen.add(routeId)
+    const route = map.routes?.find((r) => r.id === routeId)
+    if (!route) break
+    junctionDecisions[route.id] = "take"
+    if (route.layer) layersActive.add(route.layer)
+    routeId = route.from.route
+  }
+  return { ...startView(), layersActive, junctionDecisions }
+}
+
 /** ETA range at base speed from park times (`parkPlan`) on the main road; incident delays aren't forecast. */
 export function projectTrip(source: TripMap, departAt: number): TripProjection {
   const map = linearize(source, startView()).map

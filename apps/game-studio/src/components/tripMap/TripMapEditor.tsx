@@ -47,6 +47,8 @@ import {
   removeEvent,
   removeSite,
   resolvedMap,
+  eventArrivalEstimates,
+  siteArrivalEstimates,
   saveDraft,
   updateFunds,
   updateRoute,
@@ -229,6 +231,14 @@ export function TripMapEditor() {
   const resolved = useMemo(() => resolvedMap(draft), [draft])
   const parsed = useMemo(() => parseDraft(settledDraft, departAt), [settledDraft, departAt])
   const projection = resolved ? projectTrip(resolved, departAt) : null
+  const arrivals = useMemo(
+    () => (resolved ? siteArrivalEstimates(resolved, departAt) : null),
+    [resolved, departAt],
+  )
+  const eventArrivals = useMemo(
+    () => (resolved ? eventArrivalEstimates(resolved, departAt) : null),
+    [resolved, departAt],
+  )
   const fuel = useMemo(
     () => (resolved ? projectFuel(resolved, costScale) : null),
     [resolved, costScale],
@@ -670,6 +680,7 @@ export function TripMapEditor() {
               draft={draft}
               resolved={resolved}
               gasStop={fuel?.stops.find((s) => s.siteId === selected.id)}
+              arrivalAt={arrivals?.get(selected.id)}
               art={
                 <TripSiteArt
                   site={selected}
@@ -692,6 +703,7 @@ export function TripMapEditor() {
               event={selectedEvent}
               draft={draft}
               estimate={resolved ? estimateEvent(resolved, selectedEvent.id, costScale) : null}
+              arrivalAt={eventArrivals?.get(selectedEvent.id)}
               walletShare={(cost) => walletShareLabel(cost, walletsTotal)}
               onChange={(patch) => setDraft((d) => updateEvent(d, selectedEvent.id, patch))}
               onRemove={() => {
