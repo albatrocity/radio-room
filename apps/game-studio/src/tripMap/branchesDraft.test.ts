@@ -12,6 +12,7 @@ import {
   moveRouteFork,
   removeAltRoute,
   removeLayer,
+  scaleTripDrive,
   trackLayout,
   updateAltRoute,
 } from "./branchesDraft"
@@ -81,5 +82,57 @@ describe("branch drafts (ADR 0222)", () => {
       ["detour", 24, 4],
     ])
     expect(scale).toBe(30)
+  })
+})
+
+describe("scaleTripDrive", () => {
+  it("doubles miles, routes, forks, and rejoins, keeping the destination at the end", () => {
+    const result = scaleTripDrive(structuredClone(SAMPLE_BRANCH_MAP), 60)
+    if (!result.ok) throw new Error(result.error)
+    const { draft } = result
+    expect(draft.route.driveMinutes).toBe(60)
+    expect(draft.sites.map((s) => [s.id, s.mile])).toEqual([
+      ["welcome-center", 6],
+      ["hidden-falls", 16],
+      ["gas-stop", 24],
+      ["overlook", 4],
+      ["diner", 40],
+      ["arena", 60],
+    ])
+    expect(draft.events!.map((e) => [e.id, e.mile])).toEqual([
+      ["busker", 20],
+      ["road-closed", 46],
+    ])
+    expect(draft.routes!.map((r) => [r.id, r.driveMinutes, r.from.mile, r.end])).toEqual([
+      ["scenic-byway", 10, 28, { kind: "rejoin", mile: 44 }],
+      ["detour", 8, 48, { kind: "rejoin", mile: 52 }],
+    ])
+    ok(draft)
+  })
+
+  it("leaves fuel events, stop lengths, and event durations alone", () => {
+    const source = structuredClone(SAMPLE_BRANCH_MAP)
+    source.sites = source.sites.map((s) => (s.id === "diner" ? { ...s, parkMinutes: 5 } : s))
+    source.events = [
+      ...source.events!,
+      { id: "dry", name: "Out of gas", icon: "⛽", trigger: "fuel" },
+      { id: "jam", name: "Jam", icon: "🚗", mile: 5, effect: { kind: "slow", factor: 0.5 }, durationMinutes: 3 },
+    ]
+    const result = scaleTripDrive(source, 45)
+    if (!result.ok) throw new Error(result.error)
+    const { draft } = result
+    expect(draft.events!.find((e) => e.id === "dry")!.mile).toBeUndefined()
+    expect(draft.events!.find((e) => e.id === "jam")).toMatchObject({ mile: 7.5, durationMinutes: 3 })
+    expect(draft.sites.find((s) => s.id === "diner")!.parkMinutes).toBe(5)
+    expect(draft.tuning).toEqual(source.tuning)
+  })
+
+  it("refuses a drive time that would push an alternate past 24 hours", () => {
+    const source = updateAltRoute(structuredClone(SAMPLE_BRANCH_MAP), "scenic-byway", { driveMinutes: 60 })
+    const before = structuredClone(source)
+    const result = scaleTripDrive(source, 24 * 60)
+    expect(result).toEqual({ ok: false, error: "Scenic Byway would drive longer than 24 hours." })
+    expect(source).toEqual(before)
+    expect(scaleTripDrive(source, 0).ok).toBe(false)
   })
 })

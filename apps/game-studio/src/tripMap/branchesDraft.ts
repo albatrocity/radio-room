@@ -234,6 +234,77 @@ export function removeLayer(draft: TripMapInput, layerId: string): TripMapInput 
   return layers.length > 0 ? { ...rest, layers } : rest
 }
 
+const MAX_DRIVE_MINUTES = 24 * 60
+
+export type ScaleTripDriveResult = { ok: true; draft: TripMapInput } | { ok: false; error: string }
+
+/**
+ * Set the main road's drive time and keep everything at the same fraction of
+ * its road: site and event miles, alternate lengths, forks, and rejoins scale
+ * by one factor. Stop lengths, event durations, and poll leads don't change.
+ */
+export function scaleTripDrive(draft: TripMapInput, driveMinutes: number): ScaleTripDriveResult {
+  if (!Number.isFinite(driveMinutes) || driveMinutes <= 0 || driveMinutes > MAX_DRIVE_MINUTES) {
+    return { ok: false, error: "Drive time must be more than 0 and at most 24 hours." }
+  }
+  const factor = driveMinutes / draft.route.driveMinutes
+  const routes = draft.routes?.map((route) => ({
+    ...route,
+    driveMinutes: Math.max(0.01, Math.round(route.driveMinutes * factor * 100) / 100),
+    from: { ...route.from, mile: route.from.mile * factor },
+    end: route.end.kind === "rejoin" ? { ...route.end, mile: route.end.mile * factor } : route.end,
+  }))
+  const tooLong = routes?.find((route) => route.driveMinutes > MAX_DRIVE_MINUTES)
+  if (tooLong) return { ok: false, error: `${tooLong.name} would drive longer than 24 hours.` }
+
+  const resized: TripMapInput = {
+    ...draft,
+    route: { ...draft.route, driveMinutes },
+    ...(routes ? { routes } : {}),
+  }
+  const lengthOf = (routeId: string | undefined) => routeLengthOf(resized, routeId)
+  const scaled: TripMapInput = {
+    ...resized,
+    ...(routes
+      ? {
+          routes: routes.map((route) => ({
+            ...route,
+            from: {
+              ...route.from,
+              mile: roundMile(clamp(route.from.mile, 0, lengthOf(route.from.route) - 0.1)),
+            },
+            end:
+              route.end.kind === "rejoin"
+                ? {
+                    ...route.end,
+                    mile: roundMile(
+                      clamp(route.end.mile, 0, lengthOf(route.end.route ?? route.from.route) - 0.1),
+                    ),
+                  }
+                : route.end,
+          })),
+        }
+      : {}),
+    sites: draft.sites.map((site) => {
+      const end = lengthOf(site.route)
+      return { ...site, mile: roundMile(clamp(site.mile * factor, 0.1, end - 0.1)) }
+    }),
+    ...(draft.events
+      ? {
+          events: draft.events.map((event) =>
+            event.mile === undefined
+              ? event
+              : {
+                  ...event,
+                  mile: roundMile(clamp(event.mile * factor, 0, lengthOf(event.route))),
+                },
+          ),
+        }
+      : {}),
+  }
+  return { ok: true, draft: pinRouteDestinations(scaled) }
+}
+
 /** The main road with nothing unlocked or decided: what projections assume when nobody votes. */
 export function mainPath(map: TripMap): PathMap {
   return linearize(map, startView()).map

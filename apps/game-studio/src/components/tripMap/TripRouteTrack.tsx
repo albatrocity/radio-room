@@ -1,5 +1,5 @@
 import { Box, Button, HStack, Text } from "@chakra-ui/react"
-import { useMemo, useRef, useState, type ReactNode } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   MAIN_ROUTE_ID,
   eventTrigger,
@@ -33,6 +33,105 @@ type Props = {
 
 const ROW_HEIGHT = 84
 const LINE_Y = 34
+const MIN_ZOOM = 1
+const MAX_ZOOM = 8
+const ZOOM_LEVELS = [1, 1.5, 2, 3, 4, 6, 8]
+
+function nextZoomLevel(current: number, direction: 1 | -1): number {
+  if (direction > 0) return ZOOM_LEVELS.find((level) => level > current + 0.001) ?? MAX_ZOOM
+  for (let i = ZOOM_LEVELS.length - 1; i >= 0; i--) {
+    const level = ZOOM_LEVELS[i]!
+    if (level < current - 0.001) return level
+  }
+  return MIN_ZOOM
+}
+
+/**
+ * Scrolls the route track and the gas curve together. Zoom widens them past
+ * the pane so pins that share a mile can be dragged apart.
+ */
+export function TripTimelineFrame({ children }: { children: ReactNode }) {
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef(MIN_ZOOM)
+  const pendingScroll = useRef<{ ratio: number; viewportX: number } | null>(null)
+  const [zoom, setZoom] = useState(MIN_ZOOM)
+
+  const queueZoom = (next: number, ratio: number, viewportX: number) => {
+    const clamped = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next))
+    if (clamped === zoomRef.current) return
+    pendingScroll.current = { ratio, viewportX }
+    zoomRef.current = clamped
+    setZoom(clamped)
+  }
+  const queueZoomRef = useRef(queueZoom)
+  queueZoomRef.current = queueZoom
+
+  useLayoutEffect(() => {
+    const pending = pendingScroll.current
+    const scroller = scrollerRef.current
+    if (!pending || !scroller) return
+    pendingScroll.current = null
+    scroller.scrollLeft = pending.ratio * scroller.scrollWidth - pending.viewportX
+  }, [zoom])
+
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return
+      event.preventDefault()
+      const viewportX = event.clientX - el.getBoundingClientRect().left
+      const ratio = el.scrollWidth > 0 ? (el.scrollLeft + viewportX) / el.scrollWidth : 0
+      const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1
+      queueZoomRef.current(zoomRef.current * factor, ratio, viewportX)
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [])
+
+  const zoomAroundCenter = (next: number) => {
+    const el = scrollerRef.current
+    const ratio = el && el.scrollWidth > 0 ? (el.scrollLeft + el.clientWidth / 2) / el.scrollWidth : 0
+    queueZoom(next, ratio, el ? el.clientWidth / 2 : 0)
+  }
+
+  return (
+    <Box>
+      <HStack gap="1" mb="2" justify="flex-end">
+        <Text fontSize="xs" color="fg.muted">
+          Zoom
+        </Text>
+        <Button
+          size="xs"
+          variant="outline"
+          aria-label="Zoom out"
+          disabled={zoom <= MIN_ZOOM}
+          onClick={() => zoomAroundCenter(nextZoomLevel(zoom, -1))}
+        >
+          −
+        </Button>
+        <Text fontSize="xs" minW="9" textAlign="center" fontVariantNumeric="tabular-nums">
+          {Math.round(zoom * 100)}%
+        </Text>
+        <Button
+          size="xs"
+          variant="outline"
+          aria-label="Zoom in"
+          disabled={zoom >= MAX_ZOOM}
+          onClick={() => zoomAroundCenter(nextZoomLevel(zoom, 1))}
+        >
+          +
+        </Button>
+        <Button size="xs" variant="ghost" disabled={zoom === MIN_ZOOM} onClick={() => zoomAroundCenter(MIN_ZOOM)}>
+          Fit
+        </Button>
+      </HStack>
+      <Box ref={scrollerRef} overflowX="auto">
+        <Box w={`${zoom * 100}%`}>{children}</Box>
+      </Box>
+    </Box>
+  )
+}
 
 type Band = { key: string; row: TrackRow; layer?: string; top: number }
 

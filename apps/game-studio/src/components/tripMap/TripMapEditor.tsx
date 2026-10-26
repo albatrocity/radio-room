@@ -2,6 +2,7 @@ import {
   Badge,
   Box,
   Button,
+  Checkbox,
   Field,
   HStack,
   Heading,
@@ -13,7 +14,7 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   GENERIC_SITE_PRESETS,
   SAMPLE_BRANCH_MAP,
@@ -63,6 +64,7 @@ import {
   moveRouteFork,
   removeAltRoute,
   removeLayer,
+  scaleTripDrive,
   updateAltRoute,
   updateLayer,
 } from "../../tripMap/branchesDraft"
@@ -79,7 +81,7 @@ import { TripFuelCurve } from "./TripFuelCurve"
 import { TripFlowPanel } from "./TripFlowPanel"
 import { TripLayerInspector } from "./TripLayerInspector"
 import { TripRouteInspector } from "./TripRouteInspector"
-import { TripRouteTrack, type TrackSelection } from "./TripRouteTrack"
+import { TripRouteTrack, TripTimelineFrame, type TrackSelection } from "./TripRouteTrack"
 import { TripSiteArt } from "./TripSiteArt"
 import { TripEventInspector } from "./TripEventInspector"
 import { TripSiteInspector } from "./TripSiteInspector"
@@ -110,11 +112,7 @@ function numberOr(value: string): number | undefined {
 const LINT_DEBOUNCE_MS = 250
 
 /** A site with no preset. Name and slug are typed here; the inspector fills in the rest. */
-function BlankSiteButton({
-  onAdd,
-}: {
-  onAdd: (name: string, slug: string) => string | null
-}) {
+function BlankSiteButton({ onAdd }: { onAdd: (name: string, slug: string) => string | null }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
@@ -211,6 +209,10 @@ export function TripMapEditor() {
   const [importText, setImportText] = useState("")
   const [savedIds, setSavedIds] = useState<string[]>([])
   const [costScale, setCostScale] = useState(1)
+  const [scaleLocations, setScaleLocations] = useState(false)
+  // The map when this drive-minutes edit began. Each keystroke scales from here,
+  // so typing 120 doesn't round the pins at 1 and again at 12.
+  const scaleFrom = useRef<TripMapInput | null>(null)
   const [walletsTotal, setWalletsTotal] = useState(DEFAULT_PREVIEW_WALLETS)
   const [assetStatus, setAssetStatus] = useState<SiteAssetStatus | null>(null)
   const [pendingAssets, setPendingAssets] = useState<PendingSiteAssets>({})
@@ -227,7 +229,10 @@ export function TripMapEditor() {
   const resolved = useMemo(() => resolvedMap(draft), [draft])
   const parsed = useMemo(() => parseDraft(settledDraft, departAt), [settledDraft, departAt])
   const projection = resolved ? projectTrip(resolved, departAt) : null
-  const fuel = useMemo(() => (resolved ? projectFuel(resolved, costScale) : null), [resolved, costScale])
+  const fuel = useMemo(
+    () => (resolved ? projectFuel(resolved, costScale) : null),
+    [resolved, costScale],
+  )
   const outline = useMemo(() => (resolved ? describeTripFlow(resolved) : null), [resolved])
   const selectedSiteId = selection?.kind === "site" ? selection.id : null
   const selectedEventId = selection?.kind === "event" ? selection.id : null
@@ -259,7 +264,11 @@ export function TripMapEditor() {
     const result = await uploadSiteAsset(kind, file)
     if (result.ok) {
       setDraft((d) =>
-        updateSite(d, siteId, kind === "image" ? { imageUrl: result.url } : { model: { url: result.url } }),
+        updateSite(
+          d,
+          siteId,
+          kind === "image" ? { imageUrl: result.url } : { model: { url: result.url } },
+        ),
       )
       setPendingAssets((p) => {
         if (p[key]?.previewUrl !== previewUrl) return p
@@ -364,7 +373,11 @@ export function TripMapEditor() {
             size="xs"
             variant="ghost"
             onClick={() => {
-              if (window.confirm("Replace the draft with the branching sample (routes, a layer, a choice)?")) {
+              if (
+                window.confirm(
+                  "Replace the draft with the branching sample (routes, a layer, a choice)?",
+                )
+              ) {
                 setDraft(structuredClone(SAMPLE_BRANCH_MAP))
                 setSelection(null)
               }
@@ -398,8 +411,50 @@ export function TripMapEditor() {
             size="sm"
             type="number"
             value={draft.route.driveMinutes}
-            onChange={(e) => setDraft(updateRoute(draft, { driveMinutes: Number(e.target.value) }))}
+            title={
+              scaleLocations
+                ? "Sites, events, and side roads keep their place along the drive. Stop lengths stay the same."
+                : undefined
+            }
+            onFocus={() => {
+              if (scaleLocations) scaleFrom.current = structuredClone(draft)
+            }}
+            onChange={(e) => {
+              const next = Number(e.target.value)
+              if (!scaleLocations) {
+                setDraft(updateRoute(draft, { driveMinutes: next }))
+                return
+              }
+              if (!Number.isFinite(next) || next <= 0) return
+              const result = scaleTripDrive(scaleFrom.current ?? draft, next)
+              if (!result.ok) {
+                toaster.create({
+                  title: "Can't scale locations",
+                  description: result.error,
+                  type: "error",
+                })
+                return
+              }
+              setDraft(result.draft)
+            }}
           />
+          <Field.Root>
+            <Checkbox.Root
+              size="sm"
+              checked={scaleLocations}
+              onCheckedChange={(details) => {
+                const on = details.checked === true
+                setScaleLocations(on)
+                scaleFrom.current = on ? structuredClone(draft) : null
+              }}
+            >
+              <Checkbox.HiddenInput />
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <Checkbox.Label fontSize="xs">Scale locations</Checkbox.Label>
+            </Checkbox.Root>
+          </Field.Root>
         </Field.Root>
         <Field.Root>
           <Field.Label fontSize="xs">Base mph</Field.Label>
@@ -469,11 +524,15 @@ export function TripMapEditor() {
             type="number"
             placeholder="15"
             value={
-              draft.tuning?.lowFuelPct !== undefined ? Math.round(draft.tuning.lowFuelPct * 100) : ""
+              draft.tuning?.lowFuelPct !== undefined
+                ? Math.round(draft.tuning.lowFuelPct * 100)
+                : ""
             }
             onChange={(e) => {
               const pct = numberOr(e.target.value)
-              setDraft(updateTuning(draft, { lowFuelPct: pct === undefined ? undefined : pct / 100 }))
+              setDraft(
+                updateTuning(draft, { lowFuelPct: pct === undefined ? undefined : pct / 100 }),
+              )
             }}
           />
         </Field.Root>
@@ -588,17 +647,19 @@ export function TripMapEditor() {
       </HStack>
 
       <Box borderWidth="1px" borderRadius="md" p="3">
-        <TripRouteTrack
-          draft={draft}
-          resolved={resolved}
-          selection={selection}
-          onSelect={setSelection}
-          onMoveSite={(siteId, mile) => setDraft((d) => moveSite(d, siteId, mile))}
-          onMoveEvent={(eventId, mile) => setDraft((d) => moveEvent(d, eventId, mile))}
-          onMoveFork={(routeId, mile) => setDraft((d) => moveRouteFork(d, routeId, mile))}
-          onMoveEnd={(routeId, mile) => setDraft((d) => moveRouteEnd(d, routeId, mile))}
-        />
-        {fuel ? <TripFuelCurve fuel={fuel} routeMiles={miles} /> : null}
+        <TripTimelineFrame>
+          <TripRouteTrack
+            draft={draft}
+            resolved={resolved}
+            selection={selection}
+            onSelect={setSelection}
+            onMoveSite={(siteId, mile) => setDraft((d) => moveSite(d, siteId, mile))}
+            onMoveEvent={(eventId, mile) => setDraft((d) => moveEvent(d, eventId, mile))}
+            onMoveFork={(routeId, mile) => setDraft((d) => moveRouteFork(d, routeId, mile))}
+            onMoveEnd={(routeId, mile) => setDraft((d) => moveRouteEnd(d, routeId, mile))}
+          />
+          {fuel ? <TripFuelCurve fuel={fuel} routeMiles={miles} /> : null}
+        </TripTimelineFrame>
       </Box>
 
       <SimpleGrid columns={{ base: 1, lg: 3 }} gap="4" alignItems="start">
@@ -660,8 +721,8 @@ export function TripMapEditor() {
             />
           ) : (
             <Text fontSize="sm" color="fg.muted">
-              Select a pin, route, or layer to edit it. Drag pins to set their mile; the destination stays at
-              the end.
+              Select a pin, route, or layer to edit it. Drag pins to set their mile; the destination
+              stays at the end.
             </Text>
           )}
         </Box>
@@ -807,8 +868,8 @@ export function TripMapEditor() {
                 ))}
               </HStack>
               <Text fontSize="xs" color="fg.muted">
-                Start blank or from a preset, then rename and retune it. Hosts can still trigger the built-in
-                jam, flat, and breakdown live from Quick Access.
+                Start blank or from a preset, then rename and retune it. Hosts can still trigger the
+                built-in jam, flat, and breakdown live from Quick Access.
               </Text>
             </Stack>
           </Box>
