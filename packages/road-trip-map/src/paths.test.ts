@@ -134,6 +134,20 @@ describe("paths (ADR 0222)", () => {
     ])
     expect(outline.paths.map((p) => p.label)).toContain("Main → Scenic Byway → Main")
   })
+
+  it("names a departure unlock apart from the visit", () => {
+    const outline = describeTripFlow(
+      parse(
+        branch((map) => {
+          map.sites[0]!.onDepart = [{ kind: "unlock", layer: "local-tips" }]
+        }),
+      ),
+    )
+    expect(outline.layers[0]?.unlockedBy).toEqual([
+      "Welcome Center",
+      "Welcome Center, on departure",
+    ])
+  })
 })
 
 describe("branch lint (ADR 0222)", () => {
@@ -145,6 +159,7 @@ describe("branch lint (ADR 0222)", () => {
     ["unknown-route", (m) => void (m.sites[1]!.route = "nowhere")],
     ["unknown-layer", (m) => void (m.sites[1]!.layer = "nope")],
     ["unknown-layer", (m) => void (m.sites[0]!.onVisit = [{ kind: "unlock", layer: "nope" }])],
+    ["unknown-layer", (m) => void (m.sites[0]!.onDepart = [{ kind: "unlock", layer: "nope" }])],
     ["unknown-route", (m) => void (m.events![1]!.outcomes = [{ kind: "divert", route: "nope" }])],
     ["fork-beyond-route", (m) => void (m.routes![0]!.from.mile = 40)],
     ["rejoin-beyond-route", (m) => void (m.routes![0]!.end = { kind: "rejoin", mile: 45 })],

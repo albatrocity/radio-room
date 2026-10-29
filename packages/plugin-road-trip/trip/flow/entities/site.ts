@@ -252,6 +252,19 @@ export const siteEntity: FlowEntity<SitePhase, SiteMachineEvent> = {
         : parked
     },
     visited: (acc, { id, ctx, event, emit }) => {
+      // Departure outcomes apply when the van pulls back onto the road (ADR 0223).
+      // Ending the trip while parked also leaves, after status has left `driving`.
+      if (event.type === "SITE_LEAVE") {
+        if (acc.next.status !== "driving") return acc
+        const site = findSite(ctx.map, id)
+        return site?.onDepart?.length
+          ? emit(acc, {
+              type: "APPLY_OUTCOMES",
+              outcomes: site.onDepart,
+              source: { kind: "site", id },
+            })
+          : acc
+      }
       if (event.type !== "SITE_ARRIVE") return acc
       const site = findSite(ctx.map, id)
       const before = acc.next.sites[id]

@@ -100,6 +100,11 @@ export function saveDraft(draft: TripMapInput): void {
 export const OFFER_SHELF_CAP = SITE_SHOP_SHELF_CAP
 export const OFFER_POOL_CAP = SITE_SHOP_POOL_CAP
 
+export const TRIP_ROOM_TYPES = ["jukebox", "radio", "live"] as const
+export type TripRoomType = (typeof TRIP_ROOM_TYPES)[number]
+/** The editor's lint assumes a radio room until the designer picks another. */
+export const DEFAULT_TRIP_ROOM_TYPE: TripRoomType = "radio"
+
 export type OfferOption = {
   definitionId: string
   name: string
@@ -108,7 +113,7 @@ export type OfferOption = {
   plugin: "item-shops" | "road-trip"
   rarity: ItemRarity
   /** From `availableInRoomTypes`. Omitted when the item sells in every room type. */
-  roomTypes?: ("jukebox" | "radio" | "live")[]
+  roomTypes?: TripRoomType[]
   /** Physical Media: the price is the rolled condition price, not `coinValue`. */
   decorated?: "condition"
   /**
@@ -179,7 +184,7 @@ const OFFER_BY_ID = new Map(OFFER_CATALOG.map((option) => [option.definitionId, 
  * Names a seeded roll would put on one traveler's shelf. The whole pool when
  * `count` covers it. Uses the runtime's `sampleComposableOffers`, so the preview
  * dedupes (by `shortId`) and weights exactly like a live stop. Unknown ids are
- * skipped; the studio has no room type, so nothing is gated here.
+ * skipped; sampling isn't gated by the editor's room type.
  */
 export function previewOfferSample(
   offers: { definitionId: string }[],
@@ -200,33 +205,40 @@ function shortIdOf(definitionId: string): string {
 
 const KNOWN_DEFINITION_IDS = new Set(OFFER_CATALOG.map((option) => option.definitionId))
 
-function offerRoomWarnings(offers: { definitionId: string }[] | undefined): string[] {
+function offerRoomWarnings(
+  offers: { definitionId: string }[] | undefined,
+  roomType: TripRoomType,
+): string[] {
   if (!offers) return []
   const warnings: string[] = []
   for (const offer of offers) {
     const option = OFFER_BY_ID.get(offer.definitionId)
-    if (!option?.roomTypes?.length) continue
+    if (!option?.roomTypes?.length || option.roomTypes.includes(roomType)) continue
     const where =
       option.roomTypes.length === 1 ? `${option.roomTypes[0]} only` : option.roomTypes.join(", ")
-    warnings.push(`${option.name} isn't sold in every room (${where}); the van still stops`)
+    warnings.push(`${option.name} isn't sold in a ${roomType} room (${where}); the van still stops`)
   }
   return warnings
 }
 
 /**
- * Item Shops' own check, plus room-type warnings for composed offers. The
- * studio has no room library, so a record bin is never warned about here.
+ * Item Shops' own check, plus a warning for an offer the chosen room type
+ * doesn't sell. A record bin is never warned about here.
  */
-export function validateCatalogShop(req: SiteShopRequest) {
+export function validateCatalogShop(req: SiteShopRequest, roomType: TripRoomType = DEFAULT_TRIP_ROOM_TYPE) {
   const result = validateRoomShopRequest(req, { definitionIds: KNOWN_DEFINITION_IDS })
   if (!result.ok) return result
-  const warnings = [...(result.warnings ?? []), ...offerRoomWarnings(req.offers)]
+  const warnings = [...(result.warnings ?? []), ...offerRoomWarnings(req.offers, roomType)]
   return warnings.length > 0 ? { ok: true as const, warnings } : { ok: true as const }
 }
 
-export function parseDraft(draft: TripMapInput, departAt: number): ParseTripMapResult {
+export function parseDraft(
+  draft: TripMapInput,
+  departAt: number,
+  roomType: TripRoomType = DEFAULT_TRIP_ROOM_TYPE,
+): ParseTripMapResult {
   return parseTripMap(draft, {
-    validateShop: validateCatalogShop,
+    validateShop: (req) => validateCatalogShop(req, roomType),
     departAt,
     assetBaseUrl: import.meta.env.VITE_ASSET_CDN_BASE_URL || undefined,
   })

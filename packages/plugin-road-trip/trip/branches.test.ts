@@ -7,7 +7,7 @@ import { revealAhead, unlockNextLayer } from "./guide"
 import { skipIncidentStep, triggerIncident } from "./incidents"
 import { buildTripStore } from "./projection"
 import { MIN, T0, TripSim } from "./testSim"
-import { depart } from "./transitions"
+import { depart, endTrip } from "./transitions"
 
 /** Trip branches (ADR 0222): layers, routes, outcomes, and choices on the trip flow. */
 
@@ -60,6 +60,39 @@ describe("layers (ADR 0222)", () => {
       sim.log.some((e) => e.kind === "incident" && e.incident === "busker" && e.step === "noted"),
     ).toBe(true)
     expect(sim.state.status).toBe("arrived")
+  })
+
+  it("onDepart unlocks when the van leaves, and not while it is still parked", () => {
+    const sim = start(
+      branchMap((map) => {
+        const welcome = map.sites[0]!
+        welcome.onDepart = welcome.onVisit
+        delete welcome.onVisit
+      }),
+    )
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "parked")
+    expect(sim.state.sites["welcome-center"]?.phase).toBe("parked")
+    expect(sim.state.layers["local-tips"]?.phase).toBe("locked")
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "visited")
+    expect(sim.state.layers["local-tips"]?.phase).toBe("unlocked")
+    sim.votes["hidden-falls"] = { stop: 2, skip: 0 }
+    runToEnd(sim)
+    expect(sim.state.sites["hidden-falls"]).toMatchObject({ phase: "visited", revealed: true })
+  })
+
+  it("ending the trip while parked does not apply onDepart", () => {
+    const sim = start(
+      branchMap((map) => {
+        const welcome = map.sites[0]!
+        welcome.onDepart = welcome.onVisit
+        delete welcome.onVisit
+      }),
+    )
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "parked")
+    expect(sim.apply(endTrip)).toBe(true)
+    expect(sim.state.status).toBe("stranded")
+    expect(sim.state.layers["local-tips"]?.phase).toBe("locked")
+    expect(logged(sim, "layer", "unlocked", "Local tips")).toBe(false)
   })
 
   it("locked content never shows, polls, or fires", () => {

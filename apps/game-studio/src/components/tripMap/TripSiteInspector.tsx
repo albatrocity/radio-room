@@ -182,13 +182,27 @@ export function TripSiteInspector({
         onChange={(placement) => onChange(placement)}
       />
       {draft.routes?.length || draft.layers?.length ? (
-        <TripOutcomesEditor
-          draft={draft}
-          label="On visit"
-          helper="Applied when the van parks here (a tow-in counts)."
-          outcomes={(site.onVisit ?? []) as TripOutcome[]}
-          onChange={(onVisit) => onChange({ onVisit })}
-        />
+        <Box borderWidth="1px" borderRadius="md" p="3">
+          <Text fontSize="sm" fontWeight="semibold" mb="2">
+            Lifecycle
+          </Text>
+          <Stack gap="3">
+            <TripOutcomesEditor
+              draft={draft}
+              label="On visit"
+              helper="Applied when the van parks here (a tow-in counts)."
+              outcomes={(site.onVisit ?? []) as TripOutcome[]}
+              onChange={(onVisit) => onChange({ onVisit })}
+            />
+            <TripOutcomesEditor
+              draft={draft}
+              label="On departure"
+              helper="Applied when the van pulls back onto the road. Ending the trip while parked doesn't count."
+              outcomes={(site.onDepart ?? []) as TripOutcome[]}
+              onChange={(onDepart) => onChange({ onDepart })}
+            />
+          </Stack>
+        </Box>
       ) : null}
 
       <Field.Root>

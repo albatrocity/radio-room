@@ -91,13 +91,18 @@ function withoutOutcomes(
   return kept.length > 0 ? kept : undefined
 }
 
-/** Strip outcomes everywhere they're authored (visits, event starts, choice options). */
+/** Strip outcomes everywhere they're authored (visits, departures, event starts, choice options). */
 function mapOutcomes(draft: TripMapInput, drop: (outcome: TripOutcome) => boolean): TripMapInput {
   const sites = draft.sites.map((site) => {
-    if (!site.onVisit) return site
-    const { onVisit, ...rest } = site
-    const kept = withoutOutcomes(onVisit as TripOutcome[], drop)
-    return kept ? { ...rest, onVisit: kept } : rest
+    if (!site.onVisit && !site.onDepart) return site
+    const { onVisit, onDepart, ...rest } = site
+    const visit = withoutOutcomes(onVisit as TripOutcome[] | undefined, drop)
+    const depart = withoutOutcomes(onDepart as TripOutcome[] | undefined, drop)
+    return {
+      ...rest,
+      ...(visit ? { onVisit: visit } : {}),
+      ...(depart ? { onDepart: depart } : {}),
+    }
   })
   const events = draft.events?.map((event) => {
     const { outcomes, ...rest } = event

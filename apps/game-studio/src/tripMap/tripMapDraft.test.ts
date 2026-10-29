@@ -84,17 +84,28 @@ describe("validateCatalogShop", () => {
     })
   })
 
-  it("warns when an offer is only sold in some room types", () => {
+  it("warns only when the chosen room type doesn't sell the offer", () => {
     expect(validateCatalogShop({ offers: [{ definitionId: "item-shops:beat-detector" }] })).toEqual({
       ok: true,
-      warnings: ["Beat Detector isn't sold in every room (radio only); the van still stops"],
     })
+    expect(
+      validateCatalogShop({ offers: [{ definitionId: "item-shops:beat-detector" }] }, "jukebox"),
+    ).toEqual({
+      ok: true,
+      warnings: ["Beat Detector isn't sold in a jukebox room (radio only); the van still stops"],
+    })
+    expect(
+      validateCatalogShop({ offers: [{ definitionId: "item-shops:burner-phone" }] }, "live"),
+    ).toEqual({ ok: true })
   })
 
-  it("surfaces that warning from parseDraft", () => {
+  it("surfaces that warning from parseDraft for the chosen room", () => {
     const draft = structuredClone(SAMPLE_TRIP_MAP)
     draft.sites[0]!.shop = { offers: [{ definitionId: "item-shops:beat-detector" }] }
-    const result = parseDraft(draft, Date.now())
+    expect(parseDraft(draft, Date.now()).issues.some((issue) => issue.code === "shop-availability")).toBe(
+      false,
+    )
+    const result = parseDraft(draft, Date.now(), "jukebox")
     expect(result.ok).toBe(true)
     expect(result.issues).toEqual(
       expect.arrayContaining([
@@ -102,7 +113,7 @@ describe("validateCatalogShop", () => {
           severity: "warning",
           code: "shop-availability",
           message: expect.stringContaining(
-            "Beat Detector isn't sold in every room (radio only); the van still stops",
+            "Beat Detector isn't sold in a jukebox room (radio only); the van still stops",
           ),
         }),
       ]),

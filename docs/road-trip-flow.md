@@ -230,5 +230,5 @@ stateDiagram-v2
 
 | Move | When |
 |---|---|
-| `locked` → `unlocked` on `UNLOCK` | An unlock outcome (site visit, event, choice, Local Map). |
+| `locked` → `unlocked` on `UNLOCK` | An unlock outcome (site visit or departure, event, choice, Local Map). |
 | `unlocked` → `locked` on `LOCK` | A lock outcome. |

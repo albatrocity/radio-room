@@ -34,6 +34,15 @@ export function outcomeSources(map: TripMap): OutcomeSourceRef[] {
         mile: site.mile,
       }),
     )
+    ;(site.onDepart ?? []).forEach((outcome, i) =>
+      out.push({
+        outcome,
+        path: `sites.${index}.onDepart.${i}`,
+        name: `${site.name}, on departure`,
+        route: siteRoute(site),
+        mile: site.mile,
+      }),
+    )
   })
   ;(map.events ?? []).forEach((event, index) => {
     const at = event.mile !== undefined ? { route: siteRoute(event), mile: event.mile } : {}

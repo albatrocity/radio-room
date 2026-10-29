@@ -62,3 +62,4 @@ A trip map was one line: a scalar `route`, and every site and event at one `mile
 - [0205. Road trips v1](0205-road-trips-v1.md) (decision 5: transitions now include `dispatch`)
 - [0213. Game Studio trip simulator](0213-game-studio-trip-simulator.md)
 - [0220. Trip events](0220-trip-events.md) (choice steps; the no-effect exception)
+- [0223. Site departure outcomes](0223-site-departure-outcomes.md) (`onDepart`, applied on `SITE_LEAVE` while driving)

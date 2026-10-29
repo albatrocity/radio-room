@@ -49,6 +49,8 @@ import {
   resolvedMap,
   eventArrivalEstimates,
   siteArrivalEstimates,
+  TRIP_ROOM_TYPES,
+  type TripRoomType,
   saveDraft,
   updateFunds,
   updateRoute,
@@ -208,6 +210,7 @@ export function TripMapEditor() {
   const [draft, setDraft] = useState<TripMapInput>(loadDraft)
   const [selection, setSelection] = useState<MapSelection>(null)
   const [departAt, setDepartAt] = useState(() => Date.now())
+  const [roomType, setRoomType] = useState<TripRoomType>("radio")
   const [importText, setImportText] = useState("")
   const [savedIds, setSavedIds] = useState<string[]>([])
   const [costScale, setCostScale] = useState(1)
@@ -229,7 +232,10 @@ export function TripMapEditor() {
 
   const miles = draftRouteMiles(draft)
   const resolved = useMemo(() => resolvedMap(draft), [draft])
-  const parsed = useMemo(() => parseDraft(settledDraft, departAt), [settledDraft, departAt])
+  const parsed = useMemo(
+    () => parseDraft(settledDraft, departAt, roomType),
+    [settledDraft, departAt, roomType],
+  )
   const projection = resolved ? projectTrip(resolved, departAt) : null
   const arrivals = useMemo(
     () => (resolved ? siteArrivalEstimates(resolved, departAt) : null),
@@ -502,6 +508,22 @@ export function TripMapEditor() {
       </SimpleGrid>
 
       <SimpleGrid columns={{ base: 2, md: 6 }} gap="3">
+        <Field.Root>
+          <Field.Label fontSize="xs">Room type</Field.Label>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={roomType}
+              onChange={(e) => setRoomType(e.target.value as TripRoomType)}
+            >
+              {TRIP_ROOM_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type[0]!.toUpperCase() + type.slice(1)}
+                </option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </Field.Root>
         <Field.Root>
           <Field.Label fontSize="xs">Tanks per trip</Field.Label>
           <Input

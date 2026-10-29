@@ -67,10 +67,15 @@ describe("branch drafts (ADR 0222)", () => {
   })
 
   it("removing a layer keeps its stops on the road and drops its unlocks", () => {
-    const draft = removeLayer(structuredClone(SAMPLE_BRANCH_MAP), "local-tips")
+    let draft = structuredClone(SAMPLE_BRANCH_MAP)
+    draft = updateSite(draft, "gas-stop", {
+      onDepart: [{ kind: "lock", layer: "local-tips" }],
+    })
+    draft = removeLayer(draft, "local-tips")
     expect(draft.layers).toBeUndefined()
     expect(draft.sites.find((s) => s.id === "hidden-falls")!.layer).toBeUndefined()
     expect(draft.sites.find((s) => s.id === "welcome-center")!.onVisit).toBeUndefined()
+    expect(draft.sites.find((s) => s.id === "gas-stop")!.onDepart).toBeUndefined()
     ok(draft)
   })
 

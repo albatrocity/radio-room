@@ -4,8 +4,8 @@ import type { OutcomeSource, TripFlowEvent } from "./events"
 
 /**
  * The single interpreter of `TripOutcome`s (ADR 0222). Every source (a site
- * visit, an event start, a choice option, an item) hands its outcomes here as
- * APPLY_OUTCOMES; no other module switches on `outcome.kind`.
+ * visit, a site departure, an event start, a choice option, an item) hands
+ * its outcomes here as APPLY_OUTCOMES; no other module switches on `outcome.kind`.
  */
 export function outcomeEvents(
   outcomes: readonly TripOutcome[],

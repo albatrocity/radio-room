@@ -340,8 +340,10 @@ export const siteSchema = z.object({
   route: siteIdSchema.optional(),
   /** Inert until this layer unlocks. */
   layer: siteIdSchema.optional(),
-  /** Applied when the van parks here. */
+  /** Applied when the van parks here (a tow-in counts). */
   onVisit: tripOutcomesSchema.optional(),
+  /** Applied when the van leaves and the trip is still driving (ADR 0223). */
+  onDepart: tripOutcomesSchema.optional(),
 })
 export type TripSite = z.infer<typeof siteSchema>
 
