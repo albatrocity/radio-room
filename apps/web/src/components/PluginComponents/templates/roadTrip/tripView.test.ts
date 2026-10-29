@@ -6,6 +6,7 @@ import {
   junctionPin,
   refillingGallons,
   routeLabel,
+  siteStateLabel,
   stripContext,
   stripReadout,
   tripLog,
@@ -120,6 +121,29 @@ describe("stripReadout", () => {
       destination: "Diner · shop open",
       countdown: "1:30",
     })
+  })
+
+  it("uses a site's parked status instead of Parked", () => {
+    const parked = trip({
+      van: { anchorAt: NOW, anchorMile: 10, mph: 0 },
+      live: {
+        kind: "parked",
+        label: "Moon Crater",
+        siteId: "crater",
+        endsAt: NOW + 90_000,
+        shopOpen: false,
+        status: "Investigating",
+      },
+    })
+    expect(stripReadout(parked, 10, NOW).status).toBe("Investigating")
+    expect(stripContext(parked, 10, NOW)).toBe("Investigating · Moon Crater · back on the road in 1:30")
+  })
+
+  it("labels a parked site with its status, and Visited once the van has left", () => {
+    const parked = diner("parked")
+    parked.parkedStatus = "Investigating"
+    expect(siteStateLabel(parked)).toBe("Investigating")
+    expect(siteStateLabel({ ...parked, state: "visited", parkedStatus: undefined })).toBe("Visited")
   })
 
   it("keeps the incident headline even while the van rolls", () => {

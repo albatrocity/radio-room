@@ -136,6 +136,8 @@ export type LiveHold =
       label: string
       shopOpen: boolean
       endsAt: number
+      /** Site override for the "Parked" word (ADR 0224). */
+      status?: string
     }
 
 /** Fund, incident, and parked. A pause stays on `trip.live` for each formatter. */
@@ -172,6 +174,7 @@ export function liveHold(trip: TripStore): LiveHold | null {
         label: live.label,
         shopOpen: live.shopOpen,
         endsAt: live.endsAt,
+        ...(live.status ? { status: live.status } : {}),
       }
     case "paused":
       return null
@@ -204,9 +207,10 @@ function holdContext(hold: LiveHold, now: number): string {
     }
     case "parked": {
       const left = formatCountdown(hold.endsAt - now)
+      const word = hold.status ?? VAN_PHASE_LABEL.parked
       return hold.shopOpen
-        ? `Parked · ${hold.label} · shop open ${left}`
-        : `Parked · ${hold.label} · back on the road in ${left}`
+        ? `${word} · ${hold.label} · shop open ${left}`
+        : `${word} · ${hold.label} · back on the road in ${left}`
     }
   }
 }
@@ -248,7 +252,7 @@ function holdReadout(trip: TripStore, hold: LiveHold, now: number): StripReadout
     }
     case "parked":
       return {
-        status: VAN_PHASE_LABEL.parked,
+        status: hold.status ?? VAN_PHASE_LABEL.parked,
         destination: hold.shopOpen ? `${hold.label} · shop open` : hold.label,
         countdown: formatDriveCountdown(hold.endsAt - now),
       }

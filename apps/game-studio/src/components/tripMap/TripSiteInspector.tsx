@@ -316,6 +316,21 @@ export function TripSiteInspector({
               />
             </Field.Root>
           </SimpleGrid>
+          <Field.Root maxW="240px" mt="3">
+            <Field.Label fontSize="xs">Parked status</Field.Label>
+            <Input
+              size="sm"
+              maxLength={40}
+              placeholder="Parked"
+              value={site.parkedStatus ?? ""}
+              onChange={(e) =>
+                onChange({ parkedStatus: e.target.value.trim() ? e.target.value : undefined })
+              }
+            />
+            <Field.HelperText fontSize="xs">
+              Replaces Parked on the van while stopped here.
+            </Field.HelperText>
+          </Field.Root>
           {site.mandatory !== true ? (
             <SimpleGrid columns={{ base: 1, md: 2 }} gap="3" mt="3">
               <Field.Root>

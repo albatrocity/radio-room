@@ -229,6 +229,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0221](0221-poll-presentation-subject-id.md) | Poll presentation `subjectId`: the id of whatever a plugin poll's sign names (amends 0208) | Accepted |
 | [0222](0222-trip-flow-and-branches.md) | Trip flow (one statechart of flat typed machines behind `dispatch`) and trip branches: layers, routes, outcomes, choices (`linearize`, `describeTripFlow`; amends 0205 d5 and 0220) | Accepted |
 | [0223](0223-site-departure-outcomes.md) | Site `onDepart` outcomes apply when the van leaves a stop, while the trip is still driving (amends 0222) | Accepted |
+| [0224](0224-site-parked-status.md) | Site `parkedStatus` replaces the van's "Parked" word while stopped there | Accepted |
 
 ## Creating a New ADR
 

@@ -174,6 +174,26 @@ describe("trip playable (Phase 1)", () => {
     })
   })
 
+  it("projects a site's parked status only while the van is stopped there", () => {
+    const sim = new TripSim(
+      noGas((m) => {
+        m.sites.find((s) => s.id === "farmers-market")!.parkedStatus = "Browsing"
+      }),
+    )
+    sim.apply(depart)
+    sim.runUntil(T0 + 8 * MIN)
+    const parked = buildTripStore(sim.state, sim.map, sim.current, sim.now)
+    expect(parked.live).toMatchObject({ kind: "parked", status: "Browsing" })
+    expect(parked.sites.find((s) => s.id === "farmers-market")).toMatchObject({
+      state: "parked",
+      parkedStatus: "Browsing",
+    })
+    sim.apply(finishPark("farmers-market"))
+    const left = buildTripStore(sim.state, sim.map, sim.current, sim.now)
+    expect(left.live?.kind).not.toBe("parked")
+    expect(left.sites.find((s) => s.id === "farmers-market")?.parkedStatus).toBeUndefined()
+  })
+
   it("defers a poll while another is open, then applies the default before the exit", () => {
     const sim = new TripSim(noGas())
     sim.pollBusy = true

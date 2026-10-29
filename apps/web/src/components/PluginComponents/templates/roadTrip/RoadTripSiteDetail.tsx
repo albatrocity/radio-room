@@ -4,7 +4,7 @@ import SiteArtwork from "../../../SiteArtwork"
 import type { RoadTripSiteDetailComponentProps } from "../../../../types/PluginComponent"
 import {
   DEFAULT_TRIP_KEY,
-  SITE_STATE_LABEL,
+  siteStateLabel,
   formatClock,
   formatMiles,
   useTripStore,
@@ -47,7 +47,7 @@ export function RoadTripSiteDetailTemplateComponent({
             {site.name}
           </Text>
           <HStack gap={2} flexWrap="wrap">
-            <Badge>{SITE_STATE_LABEL[site.state]}</Badge>
+            <Badge>{siteStateLabel(site)}</Badge>
             <Text fontSize="xs" color="fg.muted">
               mile {formatMiles(site.mile)}
               {visited ? ` · Visited ${formatClock(site.visitedAt!)}` : ""}

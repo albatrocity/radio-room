@@ -102,6 +102,7 @@ export function buildTripStore(
       if (narrative) entry.narrative = narrative
       if (site.model) entry.modelUrl = site.model.url
     }
+    if (runtime.phase === "parked" && site.parkedStatus) entry.parkedStatus = site.parkedStatus
     if (runtime.votes) entry.votes = runtime.votes
     if (runtime.defaulted !== undefined) entry.defaulted = runtime.defaulted
     sites.push(entry)
@@ -291,6 +292,7 @@ function liveContext(
       siteId: parked.siteId,
       endsAt: parked.until,
       shopOpen: state.shopScopeId !== undefined,
+      ...(site?.parkedStatus ? { status: site.parkedStatus } : {}),
     }
   }
   if (blockers.some((b) => b.kind === "no-session"))

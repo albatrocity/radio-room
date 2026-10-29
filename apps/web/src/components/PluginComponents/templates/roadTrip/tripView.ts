@@ -125,6 +125,12 @@ export const SITE_STATE_LABEL: Record<TripStoreSiteState, string> = {
   visited: "Visited",
 }
 
+/** "Parked here", or the site's own word while the van is stopped there (ADR 0224). */
+export function siteStateLabel(site: TripStoreSite): string {
+  if (site.state === "parked" && site.parkedStatus) return site.parkedStatus
+  return SITE_STATE_LABEL[site.state]
+}
+
 /** Minutes of driving to `site` (or a fork) at the current speed, or null when stopped. */
 export function minutesToSite(
   trip: TripStore,

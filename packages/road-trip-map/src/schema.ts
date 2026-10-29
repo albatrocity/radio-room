@@ -334,6 +334,8 @@ export const siteSchema = z.object({
   secret: z.boolean().optional(),
   skipPoll: siteSkipPollSchema.optional(),
   parkMinutes: z.number().positive().max(60).optional(),
+  /** Replaces the van's "Parked" status while stopped here (ADR 0224). */
+  parkedStatus: z.string().trim().min(1).max(40).optional(),
   shop: siteShopSchema.optional(),
   services: siteServicesSchema.optional(),
   /** The route its `mile` is on (default `main`); the mile is local to that route. */

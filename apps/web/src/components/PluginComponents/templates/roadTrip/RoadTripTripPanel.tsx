@@ -13,7 +13,7 @@ import { usePluginComponentContext } from "../../context"
 import { TripRouteLine } from "./TripRouteLine"
 import {
   DEFAULT_TRIP_KEY,
-  SITE_STATE_LABEL,
+  siteStateLabel,
   formatClock,
   formatMiles,
   JUNCTION_STATE_LABEL,
@@ -90,7 +90,7 @@ function SiteRow({
       cursor={onOpen ? "pointer" : "default"}
       _hover={onOpen ? { bg: "bg.muted" } : undefined}
       aria-label={
-        onOpen ? `${siteLabel(site)}, ${SITE_STATE_LABEL[site.state]}. Open details` : undefined
+        onOpen ? `${siteLabel(site)}, ${siteStateLabel(site)}. Open details` : undefined
       }
     >
       <Text as="span" fontSize="lg" lineHeight={1} w="1.5em" textAlign="center" aria-hidden>
@@ -101,7 +101,7 @@ function SiteRow({
           {site.state === "unrevealed" ? "Something up ahead" : siteLabel(site)}
         </Text>
         <Text fontSize="xs" color="fg.muted">
-          {SITE_STATE_LABEL[site.state]}
+          {siteStateLabel(site)}
           {site.destination ? " · Destination" : site.mandatory ? " · Planned stop" : ""}
         </Text>
       </Stack>

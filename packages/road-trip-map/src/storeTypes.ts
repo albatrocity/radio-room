@@ -40,6 +40,8 @@ export type TripStoreSite = {
   narrative?: string
   /** GLB URL for the detail stage; visited sites only (D12a). */
   modelUrl?: string
+  /** Replaces "Parked here" while this stop is the one the van is parked at (ADR 0224). */
+  parkedStatus?: string
   visitedAt?: number
   votes?: { stop: number; skip: number }
   defaulted?: boolean
@@ -61,7 +63,15 @@ export type TripStoreJunction = {
 export type TripFundPurpose = "gas" | IncidentFundPurpose
 
 export type TripStoreLive =
-  | { kind: "parked"; label: string; siteId: string; endsAt: number; shopOpen: boolean }
+  | {
+      kind: "parked"
+      label: string
+      siteId: string
+      endsAt: number
+      shopOpen: boolean
+      /** Replaces the strip's "Parked" word (ADR 0224). */
+      status?: string
+    }
   | { kind: "paused"; label: string }
   | {
       kind: "incident"
