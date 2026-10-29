@@ -14,6 +14,16 @@ describe("skipPollPresentation", () => {
     expect(skipPollPresentation(site, false, "skip").subjectId).toBe("record-store")
   })
 
+  it("puts an authored skip-poll question under the sign", () => {
+    const presentation = skipPollPresentation(
+      { ...site, skipPoll: { question: "Worth the stop?" } },
+      false,
+      "skip",
+    )
+    expect(presentation.body).toBe("Worth the stop?")
+    expect(presentation.headline).toBe("DUSTY BOOTS RECORDS")
+  })
+
   it("omits the site id on a mystery sign", () => {
     const presentation = skipPollPresentation(site, true, "stop")
     expect(presentation.subjectId).toBeUndefined()

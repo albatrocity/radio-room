@@ -1,6 +1,11 @@
 import type { PollPresentation, PoolCardView } from "@repo/types"
 import { topContributors, type EscrowPoolState } from "@repo/plugin-base"
-import { FUND_PURPOSE_LABELS, type SkipDefault, type TripMap, type TripSite } from "@repo/road-trip-map"
+import {
+  FUND_PURPOSE_LABELS,
+  type SkipDefault,
+  type TripMap,
+  type TripSite,
+} from "@repo/road-trip-map"
 import type { TripFund } from "./trip/state"
 
 /**
@@ -22,6 +27,7 @@ export function skipPollPresentation(
     icon: mystery ? "❓" : site.icon,
     ...(!mystery ? { subjectId: site.id } : {}),
     ...(!mystery && site.imageUrl ? { imageUrl: site.imageUrl } : {}),
+    ...(site.skipPoll?.question ? { body: site.skipPoll.question } : {}),
     footnote: skipDefault === "stop" ? "No votes = pull off" : "No votes = keep driving",
     resultsInChat: true,
   }

@@ -200,6 +200,24 @@ describe("routes and junctions (ADR 0222)", () => {
     expect(sim.state.status).toBe("arrived")
   })
 
+  it("puts a shortcut's question on the exit poll", () => {
+    const sim = start(
+      branchMap((map) => {
+        const byway = map.routes![0]!
+        if (byway.entry.kind === "vote") byway.entry.question = "Cut through the canyon?"
+      }),
+    )
+    stepUntil(sim, () => sim.state.junctions["scenic-byway"]!.phase === "polling")
+    expect(sim.polls[0]).toMatchObject({
+      question: "Cut through the canyon?",
+      presentation: {
+        eyebrow: "JUNCTION",
+        headline: "SCENIC BYWAY",
+        body: "Cut through the canyon?",
+      },
+    })
+  })
+
   it("a 'stay' vote passes the fork, and the route's content never shows", () => {
     const sim = start()
     sim.tallies["junction:scenic-byway"] = [0, 2]
@@ -228,6 +246,7 @@ describe("routes and junctions (ADR 0222)", () => {
     expect(store.junctions).toEqual([
       expect.objectContaining({ routeId: "scenic-byway", state: "polling", name: "Scenic Byway" }),
     ])
+    expect(sim.polls[0]?.presentation?.body).toBeUndefined()
     // No votes: the default takes it.
     stepUntil(sim, () => sim.state.junctions["scenic-byway"]!.phase !== "polling")
     expect(sim.state.junctions["scenic-byway"]).toMatchObject({ phase: "take", defaulted: true })
@@ -385,6 +404,7 @@ describe("event choices (ADR 0222)", () => {
       }),
     )
     stepUntil(sim, () => sim.state.incident?.incident === "parade")
+    expect(sim.polls[0]?.presentation?.body).toBe("Join the parade?")
     const started = sim.now
     sim.runUntil(started + 20_000)
     // The slowdown's 15 s are up, but the vote is still open: still crawling.

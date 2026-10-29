@@ -54,6 +54,8 @@ export const pollPresentationSchema = z.object({
   /** Small label above the headline, e.g. "EXIT 41". */
   eyebrow: z.string().max(24).optional(),
   headline: z.string().max(80).optional(),
+  /** Sentence under the headline. Road-trip uses an authored poll question (ADR 0225). */
+  body: z.string().max(120).optional(),
   icon: z.string().max(16).optional(),
   imageUrl: z.string().url().optional(),
   footnote: z.string().max(120).optional(),

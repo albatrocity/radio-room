@@ -230,6 +230,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0222](0222-trip-flow-and-branches.md) | Trip flow (one statechart of flat typed machines behind `dispatch`) and trip branches: layers, routes, outcomes, choices (`linearize`, `describeTripFlow`; amends 0205 d5 and 0220) | Accepted |
 | [0223](0223-site-departure-outcomes.md) | Site `onDepart` outcomes apply when the van leaves a stop, while the trip is still driving (amends 0222) | Accepted |
 | [0224](0224-site-parked-status.md) | Site `parkedStatus` replaces the van's "Parked" word while stopped there | Accepted |
+| [0225](0225-poll-presentation-body.md) | Poll presentation `body`: the sentence under a themed poll's headline (amends 0208) | Accepted |
 
 ## Creating a New ADR
 

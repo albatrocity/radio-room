@@ -9,7 +9,11 @@ import { useAnimationsEnabled } from "../../../hooks/useReducedMotion"
 import { usePluginStoresSelector } from "../../../hooks/usePluginStores"
 import { ROAD_SIGN_FONT, roadSignColors } from "../roadSignStyle"
 import type { PollTheme, PollThemeHeaderProps } from "../types"
-import { parseSignDestinationKey, signDestinationKey, type SignDestination } from "./signDestination"
+import {
+  parseSignDestinationKey,
+  signDestinationKey,
+  type SignDestination,
+} from "./signDestination"
 
 /** Trip tab key (`${pluginName}:${ROAD_TRIP_TAB_ID}`). */
 const ROAD_TRIP_TRIP_TAB = "road-trip:trip"
@@ -98,6 +102,17 @@ function RoadTripPollHeader({ poll, actions }: PollThemeHeaderProps) {
         >
           {name}
         </Text>
+        {presentation?.body ? (
+          <Text
+            fontSize="xs"
+            fontWeight="medium"
+            letterSpacing="normal"
+            textTransform="none"
+            lineClamp={3}
+          >
+            {presentation.body}
+          </Text>
+        ) : null}
       </Box>
       {presentation?.imageUrl ? (
         <Image
@@ -207,9 +222,10 @@ function RoadTripPollFooter({ poll }: { poll: Poll }) {
 export const roadTripPollTheme: PollTheme = {
   Header: RoadTripPollHeader,
   collapsedLabel: (poll) => {
-    const { eyebrow, headline } = poll.presentation ?? {}
-    if (!headline) return poll.question
-    return eyebrow ? `${eyebrow} · ${headline}` : headline
+    const { eyebrow, headline, body } = poll.presentation ?? {}
+    const name = body || headline
+    if (!name) return poll.question
+    return eyebrow ? `${eyebrow} · ${name}` : name
   },
   optionLabel: (_poll, option) => option.label,
   optionIcon: (poll, option) => laneIcon(poll, option.id),

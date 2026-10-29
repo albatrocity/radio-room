@@ -209,6 +209,7 @@ const junctionSpec: VoteSpec = {
         eyebrow: "JUNCTION",
         headline: mystery ? "A TURN-OFF AHEAD" : route.name.toUpperCase().slice(0, 80),
         icon: mystery ? "❓" : (route.icon ?? "🛣️"),
+        ...(route.entry.question ? { body: route.entry.question } : {}),
         footnote:
           route.entry.default === "take" ? "No votes = take it" : "No votes = stay on the road",
         resultsInChat: true,
@@ -273,6 +274,7 @@ const choiceSpec: VoteSpec = {
         variant: "warning",
         headline: incident.name.toUpperCase().slice(0, 80),
         icon: incident.icon,
+        body: choice.question,
         footnote:
           `No votes = ${choice.options.find((o) => o.id === choice.default)?.label ?? choice.default}`.slice(
             0,
