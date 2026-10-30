@@ -1,8 +1,8 @@
 import { fuelPlan, parkPlan } from "./derive"
 import { enumeratePaths, forkParent, pathLabel, rejoinRoute, routeLength, siteRoute } from "./paths"
 import type { JunctionDecision, TripMap, TripOutcome } from "./schema"
-import { tripGuideItem } from "./van"
-
+import { tripMapItemShortId } from "./tripMaps"
+import { roadTripItemId } from "./van"
 /**
  * How a trip map flows, for authors (ADR 0222): the road network, which
  * layers exist and what unlocks them, what diverts to each route, and every
@@ -87,8 +87,8 @@ export type TripFlowLayer = {
   icon: string
   unlockedBy: string[]
   lockedBy: string[]
-  /** Item names whose use unlocks it. */
-  items: string[]
+  /** Names of the trip maps whose use unlocks it (ADR 0227). */
+  maps: string[]
   sites: string[]
   events: string[]
   /** Routes whose fork it gates. */
@@ -107,9 +107,20 @@ export type TripFlowPath = {
   destination?: string
 }
 
+/** A map the trip sells and the layers that opt into it (ADR 0227). */
+export type TripFlowMap = {
+  id: string
+  name: string
+  icon: string
+  layers: string[]
+  /** Sites whose shop sells it. */
+  soldAt: string[]
+}
+
 export type TripFlowOutline = {
   routes: TripFlowRoute[]
   layers: TripFlowLayer[]
+  maps: TripFlowMap[]
   paths: TripFlowPath[]
   /** Too many fork combinations: `paths` lists the main road only. */
   capped: boolean
@@ -146,7 +157,7 @@ export function describeTripFlow(map: TripMap): TripFlowOutline {
     lockedBy: sources
       .filter((s) => s.outcome.kind === "lock" && s.outcome.layer === layer.id)
       .map((s) => s.name),
-    items: (layer.unlockItems ?? []).map((id) => tripGuideItem(id)?.name ?? id),
+    maps: (layer.maps ?? []).map((id) => map.maps?.find((m) => m.id === id)?.name ?? id),
     sites: map.sites.filter((s) => s.layer === layer.id).map((s) => s.name),
     events: (map.events ?? []).filter((e) => e.layer === layer.id).map((e) => e.name),
     forks: (map.routes ?? []).filter((r) => r.layer === layer.id).map((r) => r.name),
@@ -155,6 +166,18 @@ export function describeTripFlow(map: TripMap): TripFlowOutline {
   return {
     routes,
     layers,
+    maps: (map.maps ?? []).map((item) => {
+      const definitionId = roadTripItemId(tripMapItemShortId(item.id))
+      return {
+        id: item.id,
+        name: item.name,
+        icon: item.icon,
+        layers: (map.layers ?? []).filter((l) => l.maps?.includes(item.id)).map((l) => l.name),
+        soldAt: map.sites
+          .filter((s) => s.shop?.offers?.some((o) => o.definitionId === definitionId))
+          .map((s) => s.name),
+      }
+    }),
     capped,
     paths: paths.map(({ decisions, path }) => {
       const destination = path.map.sites.find((s) => s.role === "destination")

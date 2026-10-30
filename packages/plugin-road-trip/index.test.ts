@@ -736,9 +736,36 @@ describe("RoadTripPlugin", () => {
         "aaa-card",
         "fix-a-flat",
         "cb-radio",
-        "local-map",
         "trip-guide",
       ])
+    })
+
+    it("registers the trip's maps before checking site shops, and a map unlocks its layers (ADR 0227)", async () => {
+      const { plugin, h } = await setup()
+      const branch = structuredClone(SAMPLE_BRANCH_MAP)
+      delete branch.sites[0]!.onVisit
+      let registeredAtValidate: string[] = []
+      h.api.requestCapability.mockImplementation(async (...args: unknown[]) => {
+        if (args[2] === "validateShop" && registeredAtValidate.length === 0) {
+          registeredAtValidate = h.registeredItems.map((d) => d.shortId)
+        }
+        h.shopCalls.push(args)
+        return { ok: true, value: { ok: true } as unknown, provider: "item-shops" }
+      })
+      const loaded = await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(branch) })
+      expect(loaded.success).toBe(true)
+      expect(registeredAtValidate).toContain("map-local")
+      expect(h.shopCalls.find((c) => c[2] === "validateShop")?.[3]).toMatchObject({
+        offers: [{ definitionId: "road-trip:map-local" }],
+      })
+
+      expect(await use(plugin, "u1", "map-local")).toMatchObject({ success: true, consumed: true })
+      expect(h.signs.some((s) => s.title === "Local tips")).toBe(true)
+      expect(await use(plugin, "u1", "map-local")).toEqual({
+        success: false,
+        consumed: false,
+        message: "This map has nothing more to show you.",
+      })
     })
 
     it("installs a part on use and keeps items it can't use", async () => {

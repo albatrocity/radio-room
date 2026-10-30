@@ -3,7 +3,7 @@ import { SAMPLE_BRANCH_MAP, type TripMapInput } from "@repo/road-trip-map"
 import { routeItemUse } from "../items"
 import { contextFor } from "./commit"
 import { dispatch } from "./flow"
-import { revealAhead, unlockNextLayer } from "./guide"
+import { openTripMap, revealAhead } from "./guide"
 import { skipIncidentStep, triggerIncident } from "./incidents"
 import { buildTripStore } from "./projection"
 import { MIN, T0, TripSim } from "./testSim"
@@ -12,6 +12,7 @@ import { depart, endTrip } from "./transitions"
 /** Trip branches (ADR 0222): layers, routes, outcomes, and choices on the trip flow. */
 
 const ADA = { userId: "ada", name: "Ada" }
+const LOCAL_MAP = "map-local"
 
 function branchMap(edit: (map: TripMapInput) => void = () => {}): TripMapInput {
   const map = structuredClone(SAMPLE_BRANCH_MAP)
@@ -192,7 +193,7 @@ describe("layers (ADR 0222)", () => {
   it("unlocking after the van passed layer content marks it missed, firing nothing", () => {
     const sim = start(branchMap((map) => delete map.sites[0]!.onVisit))
     stepUntil(sim, () => sim.mile() >= 11)
-    expect(sim.apply(unlockNextLayer("local-map", ADA))).toBe(true)
+    expect(sim.apply(openTripMap(LOCAL_MAP, ADA))).toBe(true)
     expect(sim.state.sites["hidden-falls"]!.phase).toBe("bypassed")
     expect(sim.state.scriptedFired).toContain("busker")
     expect(sim.thresholds().some((t) => t.payload.siteId === "hidden-falls")).toBe(false)
@@ -200,26 +201,71 @@ describe("layers (ADR 0222)", () => {
     expect(logged(sim, "incident", undefined, "Roadside busker")).toBe(false)
     expect(storeSites(sim)).not.toContain("hidden-falls")
   })
+})
 
-  it("Local Map unlocks one layer per use, in authored order, and is refused when none are left", () => {
+describe("trip maps (ADR 0227)", () => {
+  it("one use unlocks every opted-in locked layer, and a second use is refused", () => {
     const map = branchMap((m) => {
       delete m.sites[0]!.onVisit
-      m.layers!.push({ id: "more-tips", name: "More tips", icon: "📍", unlockItems: ["local-map"] })
-      m.sites[0]!.onVisit = [{ kind: "lock", layer: "more-tips" }]
+      m.layers!.push({ id: "more-tips", name: "More tips", icon: "📍", maps: ["local"] })
+      m.layers!.push({ id: "elsewhere", name: "Elsewhere", icon: "🧭" })
     })
     const sim = start(map)
-    expect(routeItemUse(sim.state, "local-map", sim.map, sim.now)).toEqual({
-      kind: "unlock-layer",
-      shortId: "local-map",
+    expect(routeItemUse(sim.state, LOCAL_MAP, sim.map, sim.now)).toEqual({
+      kind: "unlock-layers",
+      shortId: LOCAL_MAP,
     })
-    sim.apply(unlockNextLayer("local-map", ADA))
+    expect(sim.apply(openTripMap(LOCAL_MAP, ADA))).toBe(true)
     expect(sim.state.layers["local-tips"]!.phase).toBe("unlocked")
-    expect(sim.state.layers["more-tips"]!.phase).toBe("locked")
-    sim.apply(unlockNextLayer("local-map", ADA))
     expect(sim.state.layers["more-tips"]!.phase).toBe("unlocked")
-    expect(routeItemUse(sim.state, "local-map", sim.map, sim.now).kind).toBe("refused")
-    expect(sim.apply(unlockNextLayer("local-map", ADA))).toBe(false)
+    expect(sim.state.layers["elsewhere"]!.phase).toBe("locked")
+    expect(sim.signs()).toContain("Local tips")
+    expect(routeItemUse(sim.state, LOCAL_MAP, sim.map, sim.now)).toEqual({
+      kind: "refused",
+      message: "This map has nothing more to show you.",
+    })
+    expect(sim.apply(openTripMap(LOCAL_MAP, ADA))).toBe(false)
   })
+
+  it("skips a layer a site already unlocked and opens the rest", () => {
+    const map = branchMap((m) => {
+      m.layers!.push({ id: "more-tips", name: "More tips", icon: "📍", maps: ["local"] })
+    })
+    const sim = start(map)
+    stepUntil(sim, () => sim.state.layers["local-tips"]?.phase === "unlocked")
+    expect(sim.state.layers["more-tips"]!.phase).toBe("locked")
+    const before = sim.log.filter((e) => e.kind === "layer").length
+    expect(sim.apply(openTripMap(LOCAL_MAP, ADA))).toBe(true)
+    expect(sim.state.layers["more-tips"]!.phase).toBe("unlocked")
+    expect(sim.log.filter((e) => e.kind === "layer").length).toBe(before + 1)
+  })
+
+  it("opens a layer whose unlocking site the van passed: stops ahead appear, stops behind are missed", () => {
+    const sim = start(branchMap((m) => delete m.sites[0]!.onVisit))
+    sim.votes["gas-stop"] = { stop: 2, skip: 0 }
+    stepUntil(sim, () => sim.state.sites["gas-stop"]?.phase === "parked")
+    expect(sim.state.sites["gas-stop"]!.phase).toBe("parked")
+    expect(sim.state.layers["local-tips"]!.phase).toBe("locked")
+    expect(storeSites(sim)).not.toContain("swimming-hole")
+    expect(sim.apply(openTripMap(LOCAL_MAP, ADA))).toBe(true)
+    expect(sim.state.sites["hidden-falls"]!.phase).toBe("bypassed")
+    expect(sim.state.sites["swimming-hole"]!.phase).toBe("ahead")
+    sim.votes["swimming-hole"] = { stop: 2, skip: 0 }
+    runToEnd(sim)
+    expect(sim.state.sites["swimming-hole"]).toMatchObject({ phase: "visited", revealed: true })
+  })
+
+  it("refuses a map the loaded trip doesn't define, and outside a trip", () => {
+    const sim = start()
+    expect(routeItemUse(sim.state, "map-elsewhere", sim.map, sim.now)).toEqual({
+      kind: "refused",
+      message: "This map is for a different trip.",
+    })
+    expect(routeItemUse(null, LOCAL_MAP, sim.map, sim.now).kind).toBe("refused")
+  })
+})
+
+describe("trip guide and layer locks (ADR 0222)", () => {
 
   it("Trip Guide names the non-secret stops ahead and is refused once there's nothing new", () => {
     const sim = start()

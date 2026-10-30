@@ -1,4 +1,4 @@
-import { mileEvents, tripGuideItem, type TripLayer } from "@repo/road-trip-map"
+import { mileEvents, tripGuideItem, tripMapForItem, type TripLayer } from "@repo/road-trip-map"
 import { ARRIVAL_MILE_EPSILON, type TransitionContext, type TripEffect } from "../../helpers"
 import type { LayerRuntime } from "../../state"
 import type { FlowAcc, FlowEntity } from "../dispatch"
@@ -33,10 +33,18 @@ function byLabel(by: OutcomeSource): string {
   }
 }
 
-function sign(layer: TripLayer, by: OutcomeSource, unlocked: boolean): TripEffect {
+function sign(
+  ctx: TransitionContext,
+  layer: TripLayer,
+  by: OutcomeSource,
+  unlocked: boolean,
+): TripEffect {
   const fallback = unlocked ? "New stops are on the map." : "Those stops are off the map."
   const narrative = (unlocked ? layer.unlockedNarrative : layer.lockedNarrative)?.trim() || fallback
-  const item = by.kind === "item" ? tripGuideItem(by.shortId) : undefined
+  const item =
+    by.kind === "item"
+      ? (tripMapForItem(ctx.source, by.shortId) ?? tripGuideItem(by.shortId))
+      : undefined
   return {
     type: "sign",
     variant: unlocked ? "success" : "info",
@@ -78,7 +86,7 @@ export const layerEntity: FlowEntity<LayerPhase, LayerMachineEvent> = {
       next = {
         ...next,
         log: [...next.log, { kind: "layer", layerId: id, name: layer.name, phase: "unlocked" }],
-        effects: [...next.effects, sign(layer, event.by, true)],
+        effects: [...next.effects, sign(ctx, layer, event.by, true)],
       }
       // Content the van already passed is missed, not fired late.
       const behind = ctx.mile - ARRIVAL_MILE_EPSILON
@@ -108,7 +116,7 @@ export const layerEntity: FlowEntity<LayerPhase, LayerMachineEvent> = {
       next = {
         ...next,
         log: [...next.log, { kind: "layer", layerId: id, name: layer.name, phase: "locked" }],
-        effects: [...next.effects, sign(layer, event.by, false)],
+        effects: [...next.effects, sign(ctx, layer, event.by, false)],
       }
       // Open votes on its content and on forks it gates close undecided.
       const siteVotes = ctx.source.sites

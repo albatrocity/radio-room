@@ -1,7 +1,7 @@
 # 0222. Trip flow and branches: one statechart of small machines; layers, routes, outcomes, choices
 
 **Date:** 2026-10-25
-**Status:** Accepted
+**Status:** Partially superseded by [0227](0227-trip-defined-maps.md) (decisions 9 `unlockItems` and 14 Local Map)
 
 ## Context
 
@@ -29,7 +29,7 @@ A trip map was one line: a scalar `route`, and every site and event at one `mile
 ### Branches
 
 9. **Schema** (`schemaVersion` stays 1; every field is optional):
-   - `map.layers[]`: `id`, `name`, `icon`, sign copy, `unlockItems`.
+   - `map.layers[]`: `id`, `name`, `icon`, sign copy, `unlockItems` (replaced by `maps`, [0227](0227-trip-defined-maps.md)).
    - `map.routes[]`: `id`, `name`, `driveMinutes`, `from {route, mile}`, `end` (`rejoin {route, mile}` or `destination`), an optional `layer` gate, and `entry` (`vote` with a default, question, lead, and mystery flag; or `outcome`).
    - `route`, `layer` on sites and events (miles are local to their route), `onVisit` on sites, `outcomes` on events.
    - A `choice` resolution with 2–4 options, each with its own outcomes and narrative.
@@ -42,7 +42,7 @@ A trip map was one line: a scalar `route`, and every site and event at one `mile
     - A `slow` step hosts the event's choice. The van crawls until both the slowdown and the vote are over. An item that ends the slowdown early ends the event once the vote closes.
     - An event with no effect but a choice compiles to that choice alone. The van keeps driving, and the choice holds the incident slot.
     - The winner's outcomes and narrative apply, then the step advances. A host skip closes the vote with the tally so far.
-14. **Items.** Local Map unlocks the next locked layer, in authored order, that lists it. Trip Guide reveals every non-secret, unrevealed site ahead on the path. Each is spent only if it changes something.
+14. **Items.** (Local Map superseded by trip-defined maps, [0227](0227-trip-defined-maps.md).) Local Map unlocks the next locked layer, in authored order, that lists it. Trip Guide reveals every non-secret, unrevealed site ahead on the path. Each is spent only if it changes something.
 15. **Client store.** Clients still see one line: odometer miles along the path. Locked layers and untaken routes are never sent, and bypassed stops are dropped. `junctions[]` markers appear once a fork's vote opens, and `route` names the alternate the van is on.
 16. **Authors.** `describeTripFlow(map)` (`flowOutline.ts`) lists the forks, layers, outcome sources, and every path with its miles, time, and fuel. Lint and Game Studio's Flow panel both read it. Lint covers references, fork and rejoin bounds, cycles, route destinations, diverts behind their source, choice defaults, and spacing per route; it warns on layers nothing unlocks, routes nothing takes, and bypassable mandatory stops. Fuel and deadline checks run on every enumerated path, capped at 32 combinations.
 

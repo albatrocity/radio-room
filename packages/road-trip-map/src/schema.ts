@@ -362,10 +362,26 @@ export const tripLayerSchema = z.object({
   unlockedNarrative: z.string().max(500).optional(),
   /** Sign body when it locks. */
   lockedNarrative: z.string().max(500).optional(),
-  /** Item short ids that unlock it on use (e.g. `local-map`). */
-  unlockItems: z.array(z.string().min(1).max(64)).max(4).optional(),
+  /** Ids of the trip's `maps` that unlock it on use (ADR 0227). */
+  maps: z.array(siteIdSchema).max(8).optional(),
 })
 export type TripLayer = z.infer<typeof tripLayerSchema>
+
+/**
+ * A map this trip sells (ADR 0227): the inventory item `road-trip:map-{id}`.
+ * Using one unlocks every locked layer that lists it in `maps`.
+ */
+export const TRIP_MAP_DEFAULT_ICON = "🗺️"
+export const TRIP_MAP_DEFAULT_COIN_VALUE = 25
+
+export const tripMapItemSchema = z.object({
+  id: siteIdSchema,
+  name: z.string().min(1).max(60),
+  icon: z.string().min(1).max(16).default(TRIP_MAP_DEFAULT_ICON),
+  description: z.string().min(1).max(160).optional(),
+  coinValue: z.number().int().min(0).max(100_000).default(TRIP_MAP_DEFAULT_COIN_VALUE),
+})
+export type TripMapItem = z.infer<typeof tripMapItemSchema>
 
 export const junctionDecisionSchema = z.enum(["take", "stay"])
 export type JunctionDecision = z.infer<typeof junctionDecisionSchema>
@@ -487,6 +503,7 @@ export const tripMapSchema = z.object({
   events: z.array(tripEventSchema).max(32).optional(),
   layers: z.array(tripLayerSchema).max(8).optional(),
   routes: z.array(tripAltRouteSchema).max(8).optional(),
+  maps: z.array(tripMapItemSchema).max(16).optional(),
 })
 
 /** A parsed map with defaults applied. */

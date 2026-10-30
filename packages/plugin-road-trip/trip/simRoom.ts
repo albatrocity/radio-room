@@ -4,6 +4,7 @@ import {
   siteOpenRoomShopRequest,
   siteShopRequest,
   siteShopTitle,
+  tripMapItemShortId,
   vanConsumable,
   type TripMapInput,
   type TripStore,
@@ -16,6 +17,7 @@ import type { SkipVotes, TripLogEntry } from "./state"
 import { TripSim, type OpenPoll, type SimEvent, type SimStep } from "./testSim"
 import { depart, endTrip, type TripEffect } from "./transitions"
 import { skipIncidentStep, triggerIncident, useIncidentItem } from "./incidents"
+import { layersToUnlock, openTripMap } from "./guide"
 
 /**
  * What the Game Studio trip simulator posts to studio-bridge (`POST /trip-sim`,
@@ -229,6 +231,23 @@ export class TripSimRoom {
   }
 
   /** The map's layers and whether each is unlocked (ADR 0222). */
+  /** The trip's maps (ADR 0227) and whether using one now would unlock anything. */
+  tripMaps(): { shortId: string; name: string; icon: string; usable: boolean }[] {
+    return (this.sim.map.maps ?? []).map((item) => {
+      const shortId = tripMapItemShortId(item.id)
+      return {
+        shortId,
+        name: item.name,
+        icon: item.icon,
+        usable: layersToUnlock(this.state, this.sim.map, shortId).length > 0,
+      }
+    })
+  }
+
+  useTripMap(shortId: string, who: SimTraveler = SIM_TRAVELER): boolean {
+    return this.after(this.sim.apply(openTripMap(shortId, who)))
+  }
+
   layers(): { id: string; name: string; icon: string; unlocked: boolean }[] {
     return (this.sim.map.layers ?? []).map((layer) => ({
       id: layer.id,

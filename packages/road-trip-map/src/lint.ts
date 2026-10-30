@@ -29,7 +29,7 @@ import {
   siteRoute,
 } from "./paths"
 import { MAIN_ROUTE_ID, type TripMap } from "./schema"
-import { tripGuideItem, vanConsumable } from "./van"
+import { vanConsumable } from "./van"
 
 export type TripMapIssueSeverity = "error" | "warning"
 
@@ -371,13 +371,26 @@ function lintBranches(
   const seenRoutes = new Set<string>()
   const seenLayers = new Set<string>()
 
+  const tripMaps = map.maps ?? []
+  const mapIds = new Set<string>()
+  tripMaps.forEach((tripMap, index) => {
+    if (mapIds.has(tripMap.id)) error("duplicate-map-id", `Map id "${tripMap.id}" is used more than once.`, `maps.${index}.id`)
+    mapIds.add(tripMap.id)
+  })
+
   layers.forEach((layer, index) => {
     if (seenLayers.has(layer.id)) error("duplicate-layer-id", `Layer id "${layer.id}" is used more than once.`, `layers.${index}.id`)
     seenLayers.add(layer.id)
-    for (const item of layer.unlockItems ?? []) {
-      if (tripGuideItem(item)?.effect !== "unlock-layer") {
-        error("unknown-unlock-item", `${layer.name}: "${item}" isn't an item that unlocks layers.`, `layers.${index}.unlockItems`)
+    for (const mapId of layer.maps ?? []) {
+      if (!mapIds.has(mapId)) {
+        error("unknown-map", `${layer.name} opts into map "${mapId}", which this trip doesn't define.`, `layers.${index}.maps`)
       }
+    }
+  })
+
+  tripMaps.forEach((tripMap, index) => {
+    if (!layers.some((layer) => layer.maps?.includes(tripMap.id))) {
+      warn("map-reveals-nothing", `No layer opts into ${tripMap.name}, so using it does nothing.`, `maps.${index}`)
     }
   })
 
@@ -487,7 +500,7 @@ function lintBranches(
     outcomeSources(map).flatMap((s) => (s.outcome.kind === "unlock" ? [s.outcome.layer] : [])),
   )
   layers.forEach((layer, index) => {
-    if (!unlocked.has(layer.id) && !(layer.unlockItems?.length)) {
+    if (!unlocked.has(layer.id) && !layer.maps?.some((id) => mapIds.has(id))) {
       warn("layer-never-unlocked", `Nothing unlocks ${layer.name}, so its stops never appear.`, `layers.${index}`)
     }
   })

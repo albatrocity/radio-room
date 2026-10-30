@@ -190,7 +190,7 @@ export const layerMachine = defineMachine<LayerPhase, LayerMachineEvent>({
     unlocked: { on: { LOCK: "locked" }, description: "Its content ahead of the van is live." },
   },
   events: {
-    UNLOCK: "An unlock outcome (site visit or departure, event, choice, Local Map).",
+    UNLOCK: "An unlock outcome (site visit or departure, event, choice) or a trip map.",
     LOCK: "A lock outcome.",
   },
 })

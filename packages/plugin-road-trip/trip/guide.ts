@@ -1,27 +1,30 @@
-import { isSecretSite, tripGuideItem, type TripLayer, type TripMap } from "@repo/road-trip-map"
+import {
+  isSecretSite,
+  layersRevealedBy,
+  tripGuideItem,
+  tripMapForItem,
+  type TripLayer,
+  type TripMap,
+} from "@repo/road-trip-map"
 import { flow } from "./flow"
 import { ARRIVAL_MILE_EPSILON, type Transition, type TransitionContext } from "./helpers"
 import type { TripState } from "./state"
 
 /**
- * Trip knowledge items (ADR 0222): Local Map unlocks the next locked layer
- * that lists it (authored order); Trip Guide reveals every unrevealed site
+ * Trip knowledge items: a trip's own maps (ADR 0227) unlock every locked layer
+ * that opts into them; Trip Guide (ADR 0222) reveals every unrevealed site
  * ahead that isn't secret-until-revealed. Each is spent only if it changes
  * something.
  */
 
 type Traveler = { userId: string; name: string }
 
-/** The first locked layer, in authored order, whose `unlockItems` lists `shortId`. */
-export function nextLockedLayer(
-  state: TripState,
-  map: TripMap,
-  shortId: string,
-): TripLayer | undefined {
-  return (map.layers ?? []).find(
-    (layer) =>
-      layer.unlockItems?.includes(shortId) &&
-      (state.layers[layer.id]?.phase ?? "locked") === "locked",
+/** The still-locked layers, in authored order, that the map item `shortId` opens. */
+export function layersToUnlock(state: TripState, map: TripMap, shortId: string): TripLayer[] {
+  const item = tripMapForItem(map, shortId)
+  if (!item) return []
+  return layersRevealedBy(map, item.id).filter(
+    (layer) => (state.layers[layer.id]?.phase ?? "locked") === "locked",
   )
 }
 
@@ -43,16 +46,17 @@ export function guideRevealTargets(state: TripState, ctx: TransitionContext): st
     .map((site) => site.id)
 }
 
-export function unlockNextLayer(shortId: string, user: Traveler): Transition {
+export function openTripMap(shortId: string, user: Traveler): Transition {
   return (state, ctx) => {
     if (state.status !== "loaded" && state.status !== "driving") return null
-    const layer = nextLockedLayer(state, ctx.source, shortId)
-    if (!layer) return null
-    const acc = flow({ next: state, log: [], effects: [] }, ctx, {
-      type: "LAYER_UNLOCK",
-      layerId: layer.id,
-      by: { kind: "item", shortId, userId: user.userId, name: user.name },
-    })
+    const layers = layersToUnlock(state, ctx.source, shortId)
+    if (layers.length === 0) return null
+    const by = { kind: "item" as const, shortId, userId: user.userId, name: user.name }
+    const acc = flow(
+      { next: state, log: [], effects: [] },
+      ctx,
+      ...layers.map((layer) => ({ type: "LAYER_UNLOCK" as const, layerId: layer.id, by })),
+    )
     return acc.next === state ? null : acc
   }
 }

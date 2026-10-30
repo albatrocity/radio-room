@@ -24,6 +24,9 @@ import {
   SITE_SHOP_POOL_CAP,
   SITE_SHOP_SHELF_CAP,
   siteFromPreset,
+  TRIP_MAP_DEFAULT_COIN_VALUE,
+  TRIP_MAP_DEFAULT_ICON,
+  tripMapItemShortId,
   tripMapSchema,
   type IncidentCostLine,
   type IncidentId,
@@ -180,6 +183,23 @@ export const OFFER_CATALOG: OfferOption[] = ITEM_SOURCES.flatMap((source) =>
 
 const OFFER_BY_ID = new Map(OFFER_CATALOG.map((option) => [option.definitionId, option]))
 
+/** This draft's own maps as offers (ADR 0227), so a site can sell them. */
+export function tripMapOffers(draft: Pick<TripMapInput, "maps">): OfferOption[] {
+  return (draft.maps ?? []).map((item) => ({
+    definitionId: roadTripItemId(tripMapItemShortId(item.id)),
+    name: item.name,
+    icon: item.icon ?? TRIP_MAP_DEFAULT_ICON,
+    coinValue: item.coinValue ?? TRIP_MAP_DEFAULT_COIN_VALUE,
+    plugin: "road-trip",
+    rarity: "common",
+  }))
+}
+
+/** Every offer the editor can pick for this draft: the shared catalog plus its maps. */
+export function offerCatalogFor(draft: Pick<TripMapInput, "maps">): OfferOption[] {
+  return [...OFFER_CATALOG, ...tripMapOffers(draft)]
+}
+
 /**
  * Names a seeded roll would put on one traveler's shelf. The whole pool when
  * `count` covers it. Uses the runtime's `sampleComposableOffers`, so the preview
@@ -190,9 +210,11 @@ export function previewOfferSample(
   offers: { definitionId: string }[],
   sample: { count: number; weights?: SiteShopSample["weights"] },
   random: () => number,
+  catalog: OfferOption[] = OFFER_CATALOG,
 ): string[] {
+  const byId = catalog === OFFER_CATALOG ? OFFER_BY_ID : new Map(catalog.map((o) => [o.definitionId, o]))
   const pool = offers.flatMap((offer) => {
-    const option = OFFER_BY_ID.get(offer.definitionId)
+    const option = byId.get(offer.definitionId)
     return option ? [{ ...option, shortId: shortIdOf(option.definitionId) }] : []
   })
   return sampleComposableOffers(pool, sample, random).map((option) => option.name)
@@ -225,8 +247,16 @@ function offerRoomWarnings(
  * Item Shops' own check, plus a warning for an offer the chosen room type
  * doesn't sell. A record bin is never warned about here.
  */
-export function validateCatalogShop(req: SiteShopRequest, roomType: TripRoomType = DEFAULT_TRIP_ROOM_TYPE) {
-  const result = validateRoomShopRequest(req, { definitionIds: KNOWN_DEFINITION_IDS })
+export function validateCatalogShop(
+  req: SiteShopRequest,
+  roomType: TripRoomType = DEFAULT_TRIP_ROOM_TYPE,
+  draftOffers: OfferOption[] = [],
+) {
+  const definitionIds =
+    draftOffers.length > 0
+      ? new Set([...KNOWN_DEFINITION_IDS, ...draftOffers.map((o) => o.definitionId)])
+      : KNOWN_DEFINITION_IDS
+  const result = validateRoomShopRequest(req, { definitionIds })
   if (!result.ok) return result
   const warnings = [...(result.warnings ?? []), ...offerRoomWarnings(req.offers, roomType)]
   return warnings.length > 0 ? { ok: true as const, warnings } : { ok: true as const }
@@ -237,8 +267,9 @@ export function parseDraft(
   departAt: number,
   roomType: TripRoomType = DEFAULT_TRIP_ROOM_TYPE,
 ): ParseTripMapResult {
+  const draftOffers = tripMapOffers(draft)
   return parseTripMap(draft, {
-    validateShop: (req) => validateCatalogShop(req, roomType),
+    validateShop: (req) => validateCatalogShop(req, roomType, draftOffers),
     departAt,
     assetBaseUrl: import.meta.env.VITE_ASSET_CDN_BASE_URL || undefined,
   })

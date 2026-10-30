@@ -120,12 +120,20 @@ function Decisions({ room }: { room: TripSimRoom }) {
   const otherPoll = !pollSite ? room.openPollCounts() : null
   const otherQuestion = !pollSite ? room.sim.polls[0]?.question : undefined
   const layers = room.layers()
+  const tripMaps = room.tripMaps()
   const fund = room.state.fund
   const items = room.incidentItems()
   const incident = room.state.incident
   const [pledge, setPledge] = useState("10")
 
-  if (!pollSite && !otherPoll && !(fund?.mode === "voluntary") && !incident && layers.length === 0) {
+  if (
+    !pollSite &&
+    !otherPoll &&
+    !(fund?.mode === "voluntary") &&
+    !incident &&
+    layers.length === 0 &&
+    tripMaps.length === 0
+  ) {
     return (
       <Text fontSize="sm" color="fg.muted">
         Nothing to decide right now. Exit polls, voluntary funds, and incidents show their
@@ -227,6 +235,30 @@ function Decisions({ room }: { room: TripSimRoom }) {
           </HStack>
           <Text fontSize="xs" color="fg.muted">
             Toggle as the host would. Stops already behind the van are missed when a layer unlocks.
+          </Text>
+        </Stack>
+      ) : null}
+
+      {tripMaps.length > 0 ? (
+        <Stack gap="2">
+          <Text fontSize="sm" fontWeight="semibold">
+            Maps
+          </Text>
+          <HStack gap="2" wrap="wrap">
+            {tripMaps.map((item) => (
+              <Button
+                key={item.shortId}
+                size="sm"
+                variant="outline"
+                disabled={!item.usable}
+                onClick={() => runTripSim((r) => r.useTripMap(item.shortId))}
+              >
+                {item.icon} Use {item.name}
+              </Button>
+            ))}
+          </HStack>
+          <Text fontSize="xs" color="fg.muted">
+            As if a traveler bought and used it: every locked layer that opts in unlocks.
           </Text>
         </Stack>
       ) : null}

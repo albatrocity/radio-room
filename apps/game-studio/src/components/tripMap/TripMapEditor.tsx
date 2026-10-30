@@ -64,6 +64,9 @@ import { listSavedTripMaps, loadSavedTripMap, saveTripMapFile } from "../../trip
 import {
   addAltRoute,
   addLayer,
+  addTripMap,
+  removeTripMap,
+  updateTripMap,
   moveRouteEnd,
   moveRouteFork,
   removeAltRoute,
@@ -84,6 +87,7 @@ import {
 import { TripFuelCurve } from "./TripFuelCurve"
 import { TripFlowPanel } from "./TripFlowPanel"
 import { TripLayerInspector } from "./TripLayerInspector"
+import { TripMapItemInspector } from "./TripMapItemInspector"
 import { TripRouteInspector } from "./TripRouteInspector"
 import { TripRouteTrack, TripTimelineFrame, type TrackSelection } from "./TripRouteTrack"
 import { TripSiteArt } from "./TripSiteArt"
@@ -254,10 +258,13 @@ export function TripMapEditor() {
   const selectedEventId = selection?.kind === "event" ? selection.id : null
   const selected = draft.sites.find((s) => s.id === selectedSiteId)
   const selectedEvent = draft.events?.find((e) => e.id === selectedEventId)
+  const fuelEvents = (draft.events ?? []).filter((e) => eventTrigger(e) === "fuel")
   const selectedRoute =
     selection?.kind === "route" ? draft.routes?.find((r) => r.id === selection.id) : undefined
   const selectedLayer =
     selection?.kind === "layer" ? draft.layers?.find((l) => l.id === selection.id) : undefined
+  const selectedMap =
+    selection?.kind === "map" ? draft.maps?.find((m) => m.id === selection.id) : undefined
   const selectSite = (siteId: string | null) => {
     setSelection(siteId ? { kind: "site", id: siteId } : null)
   }
@@ -404,279 +411,355 @@ export function TripMapEditor() {
         </HStack>
       </HStack>
 
-      <SimpleGrid columns={{ base: 2, md: 6 }} gap="3">
-        <Field.Root>
-          <Field.Label fontSize="xs">Map id</Field.Label>
-          <Input
-            size="sm"
-            value={draft.id}
-            onChange={(e) => setDraft({ ...draft, id: e.target.value })}
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Title</Field.Label>
-          <Input
-            size="sm"
-            value={draft.title}
-            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Drive minutes</Field.Label>
-          <Input
-            size="sm"
-            type="number"
-            value={draft.route.driveMinutes}
-            title={
-              scaleLocations
-                ? "Sites, events, and side roads keep their place along the drive. Stop lengths stay the same."
-                : undefined
-            }
-            onFocus={() => {
-              if (scaleLocations) scaleFrom.current = structuredClone(draft)
-            }}
-            onChange={(e) => {
-              const next = Number(e.target.value)
-              if (!scaleLocations) {
-                setDraft(updateRoute(draft, { driveMinutes: next }))
-                return
-              }
-              if (!Number.isFinite(next) || next <= 0) return
-              const result = scaleTripDrive(scaleFrom.current ?? draft, next)
-              if (!result.ok) {
-                toaster.create({
-                  title: "Can't scale locations",
-                  description: result.error,
-                  type: "error",
-                })
-                return
-              }
-              setDraft(result.draft)
-            }}
-          />
+      <Box borderWidth="1px" borderRadius="md" p="3">
+        <Text fontSize="sm" fontWeight="semibold" mb="2">
+          Trip
+        </Text>
+        <SimpleGrid columns={{ base: 2, md: 6 }} gap="3">
           <Field.Root>
-            <Checkbox.Root
+            <Field.Label fontSize="xs">Map id</Field.Label>
+            <Input
               size="sm"
-              checked={scaleLocations}
-              onCheckedChange={(details) => {
-                const on = details.checked === true
-                setScaleLocations(on)
-                scaleFrom.current = on ? structuredClone(draft) : null
+              value={draft.id}
+              onChange={(e) => setDraft({ ...draft, id: e.target.value })}
+            />
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Title</Field.Label>
+            <Input
+              size="sm"
+              value={draft.title}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+            />
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Drive minutes</Field.Label>
+            <Input
+              size="sm"
+              type="number"
+              value={draft.route.driveMinutes}
+              title={
+                scaleLocations
+                  ? "Sites, events, and side roads keep their place along the drive. Stop lengths stay the same."
+                  : undefined
+              }
+              onFocus={() => {
+                if (scaleLocations) scaleFrom.current = structuredClone(draft)
+              }}
+              onChange={(e) => {
+                const next = Number(e.target.value)
+                if (!scaleLocations) {
+                  setDraft(updateRoute(draft, { driveMinutes: next }))
+                  return
+                }
+                if (!Number.isFinite(next) || next <= 0) return
+                const result = scaleTripDrive(scaleFrom.current ?? draft, next)
+                if (!result.ok) {
+                  toaster.create({
+                    title: "Can't scale locations",
+                    description: result.error,
+                    type: "error",
+                  })
+                  return
+                }
+                setDraft(result.draft)
+              }}
+            />
+            <Field.Root>
+              <Checkbox.Root
+                size="sm"
+                checked={scaleLocations}
+                onCheckedChange={(details) => {
+                  const on = details.checked === true
+                  setScaleLocations(on)
+                  scaleFrom.current = on ? structuredClone(draft) : null
+                }}
+              >
+                <Checkbox.HiddenInput />
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <Checkbox.Label fontSize="xs">Scale locations</Checkbox.Label>
+              </Checkbox.Root>
+            </Field.Root>
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Deadline (optional)</Field.Label>
+            <Input
+              size="sm"
+              type="datetime-local"
+              value={draft.route.deadlineAt ? toLocalInput(Date.parse(draft.route.deadlineAt)) : ""}
+              onChange={(e) =>
+                setDraft(
+                  updateRoute(draft, {
+                    deadlineAt: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                  }),
+                )
+              }
+            />
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Planned departure</Field.Label>
+            <Input
+              size="sm"
+              type="datetime-local"
+              value={toLocalInput(departAt)}
+              onChange={(e) => e.target.value && setDepartAt(new Date(e.target.value).getTime())}
+            />
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Room type</Field.Label>
+            <NativeSelect.Root size="sm">
+              <NativeSelect.Field
+                value={roomType}
+                onChange={(e) => setRoomType(e.target.value as TripRoomType)}
+              >
+                {TRIP_ROOM_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type[0]!.toUpperCase() + type.slice(1)}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Funds</Field.Label>
+            <NativeSelect.Root size="sm">
+              <NativeSelect.Field
+                value={draft.tuning?.funds?.mode ?? "automatic"}
+                onChange={(e) =>
+                  setDraft(
+                    updateFunds(draft, { mode: e.target.value as "automatic" | "voluntary" }),
+                  )
+                }
+              >
+                <option value="automatic">Automatic (split by wealth)</option>
+                <option value="voluntary">Voluntary (chip-in pool)</option>
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Pool window minutes</Field.Label>
+            <Input
+              size="sm"
+              type="number"
+              placeholder="3"
+              disabled={(draft.tuning?.funds?.mode ?? "automatic") !== "voluntary"}
+              value={draft.tuning?.funds?.windowMinutes ?? ""}
+              onChange={(e) =>
+                setDraft(updateFunds(draft, { windowMinutes: numberOr(e.target.value) }))
+              }
+            />
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Preview cost scale</Field.Label>
+            <Input
+              size="sm"
+              type="number"
+              step="0.1"
+              min="0"
+              value={costScale}
+              onChange={(e) => setCostScale(Math.max(0, numberOr(e.target.value) ?? 1))}
+            />
+          </Field.Root>
+          <Field.Root>
+            <Field.Label fontSize="xs">Room wallets (estimate)</Field.Label>
+            <Input
+              size="sm"
+              type="number"
+              step="100"
+              min="0"
+              value={walletsTotal}
+              onChange={(e) =>
+                setWalletsTotal(Math.max(0, numberOr(e.target.value) ?? DEFAULT_PREVIEW_WALLETS))
+              }
+            />
+            <Field.HelperText fontSize="xs">
+              Total coins across travelers when costs hit. Default: 12 × 500.
+            </Field.HelperText>
+          </Field.Root>
+        </SimpleGrid>
+      </Box>
+
+      <Box borderWidth="1px" borderRadius="md" p="3">
+        <Text fontSize="sm" fontWeight="semibold" mb="2">
+          Van
+        </Text>
+        <Stack gap="3">
+          <SimpleGrid columns={{ base: 2, md: 6 }} gap="3">
+            <Field.Root>
+              <Field.Label fontSize="xs">Base mph</Field.Label>
+              <Input
+                size="sm"
+                type="number"
+                value={draft.route.baseMph ?? 55}
+                onChange={(e) => setDraft(updateRoute(draft, { baseMph: Number(e.target.value) }))}
+              />
+            </Field.Root>
+            <Field.Root>
+              <Field.Label fontSize="xs">Tanks per trip</Field.Label>
+              <Input
+                size="sm"
+                type="number"
+                step="0.1"
+                placeholder="1.6"
+                value={draft.route.tanksPerTrip ?? ""}
+                onChange={(e) =>
+                  setDraft(updateRoute(draft, { tanksPerTrip: numberOr(e.target.value) }))
+                }
+              />
+            </Field.Root>
+            <Field.Root>
+              <Field.Label fontSize="xs">Tank gallons</Field.Label>
+              <Input
+                size="sm"
+                type="number"
+                placeholder="15"
+                value={draft.tuning?.tankGallons ?? ""}
+                onChange={(e) =>
+                  setDraft(updateTuning(draft, { tankGallons: numberOr(e.target.value) }))
+                }
+              />
+            </Field.Root>
+            <Field.Root>
+              <Field.Label fontSize="xs">Low fuel %</Field.Label>
+              <Input
+                size="sm"
+                type="number"
+                placeholder="15"
+                value={
+                  draft.tuning?.lowFuelPct !== undefined
+                    ? Math.round(draft.tuning.lowFuelPct * 100)
+                    : ""
+                }
+                onChange={(e) => {
+                  const pct = numberOr(e.target.value)
+                  setDraft(
+                    updateTuning(draft, { lowFuelPct: pct === undefined ? undefined : pct / 100 }),
+                  )
+                }}
+              />
+            </Field.Root>
+          </SimpleGrid>
+          <TripVanPlayback draft={draft} onChange={setDraft} />
+        </Stack>
+      </Box>
+
+      <Stack gap="2">
+        <HStack gap="2" flexWrap="wrap">
+          <Text fontSize="xs" color="fg.muted" minW="72px">
+            Add site:
+          </Text>
+          <BlankSiteButton
+            onAdd={(name, slug) => {
+              const result = addBlankSite(draft, { name, slug })
+              if (!result.ok) return result.error
+              setDraft(result.draft)
+              selectSite(result.siteId)
+              return null
+            }}
+          />
+          {GENERIC_SITE_PRESETS.map((preset) => (
+            <Button
+              key={preset.id}
+              size="xs"
+              variant="subtle"
+              onClick={() => {
+                const next = addSiteFromPreset(draft, preset)
+                setDraft(next.draft)
+                selectSite(next.siteId)
               }}
             >
-              <Checkbox.HiddenInput />
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
-              <Checkbox.Label fontSize="xs">Scale locations</Checkbox.Label>
-            </Checkbox.Root>
-          </Field.Root>
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Base mph</Field.Label>
-          <Input
-            size="sm"
-            type="number"
-            value={draft.route.baseMph ?? 55}
-            onChange={(e) => setDraft(updateRoute(draft, { baseMph: Number(e.target.value) }))}
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Deadline (optional)</Field.Label>
-          <Input
-            size="sm"
-            type="datetime-local"
-            value={draft.route.deadlineAt ? toLocalInput(Date.parse(draft.route.deadlineAt)) : ""}
-            onChange={(e) =>
-              setDraft(
-                updateRoute(draft, {
-                  deadlineAt: e.target.value ? new Date(e.target.value).toISOString() : undefined,
-                }),
-              )
-            }
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Planned departure</Field.Label>
-          <Input
-            size="sm"
-            type="datetime-local"
-            value={toLocalInput(departAt)}
-            onChange={(e) => e.target.value && setDepartAt(new Date(e.target.value).getTime())}
-          />
-        </Field.Root>
-      </SimpleGrid>
+              {preset.site.icon} {preset.label}
+            </Button>
+          ))}
+        </HStack>
 
-      <SimpleGrid columns={{ base: 2, md: 6 }} gap="3">
-        <Field.Root>
-          <Field.Label fontSize="xs">Room type</Field.Label>
-          <NativeSelect.Root size="sm">
-            <NativeSelect.Field
-              value={roomType}
-              onChange={(e) => setRoomType(e.target.value as TripRoomType)}
-            >
-              {TRIP_ROOM_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type[0]!.toUpperCase() + type.slice(1)}
-                </option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Tanks per trip</Field.Label>
-          <Input
-            size="sm"
-            type="number"
-            step="0.1"
-            placeholder="1.6"
-            value={draft.route.tanksPerTrip ?? ""}
-            onChange={(e) =>
-              setDraft(updateRoute(draft, { tanksPerTrip: numberOr(e.target.value) }))
-            }
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Tank gallons</Field.Label>
-          <Input
-            size="sm"
-            type="number"
-            placeholder="15"
-            value={draft.tuning?.tankGallons ?? ""}
-            onChange={(e) =>
-              setDraft(updateTuning(draft, { tankGallons: numberOr(e.target.value) }))
-            }
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Low fuel %</Field.Label>
-          <Input
-            size="sm"
-            type="number"
-            placeholder="15"
-            value={
-              draft.tuning?.lowFuelPct !== undefined
-                ? Math.round(draft.tuning.lowFuelPct * 100)
-                : ""
-            }
-            onChange={(e) => {
-              const pct = numberOr(e.target.value)
-              setDraft(
-                updateTuning(draft, { lowFuelPct: pct === undefined ? undefined : pct / 100 }),
-              )
-            }}
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Funds</Field.Label>
-          <NativeSelect.Root size="sm">
-            <NativeSelect.Field
-              value={draft.tuning?.funds?.mode ?? "automatic"}
-              onChange={(e) =>
-                setDraft(updateFunds(draft, { mode: e.target.value as "automatic" | "voluntary" }))
-              }
-            >
-              <option value="automatic">Automatic (split by wealth)</option>
-              <option value="voluntary">Voluntary (chip-in pool)</option>
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Pool window minutes</Field.Label>
-          <Input
-            size="sm"
-            type="number"
-            placeholder="3"
-            disabled={(draft.tuning?.funds?.mode ?? "automatic") !== "voluntary"}
-            value={draft.tuning?.funds?.windowMinutes ?? ""}
-            onChange={(e) =>
-              setDraft(updateFunds(draft, { windowMinutes: numberOr(e.target.value) }))
-            }
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Preview cost scale</Field.Label>
-          <Input
-            size="sm"
-            type="number"
-            step="0.1"
-            min="0"
-            value={costScale}
-            onChange={(e) => setCostScale(Math.max(0, numberOr(e.target.value) ?? 1))}
-          />
-        </Field.Root>
-        <Field.Root>
-          <Field.Label fontSize="xs">Room wallets (estimate)</Field.Label>
-          <Input
-            size="sm"
-            type="number"
-            step="100"
-            min="0"
-            value={walletsTotal}
-            onChange={(e) =>
-              setWalletsTotal(Math.max(0, numberOr(e.target.value) ?? DEFAULT_PREVIEW_WALLETS))
-            }
-          />
-          <Field.HelperText fontSize="xs">
-            Total coins across travelers when costs hit. Default: 12 × 500.
-          </Field.HelperText>
-        </Field.Root>
-      </SimpleGrid>
-
-      <TripVanPlayback draft={draft} onChange={setDraft} />
-
-      <HStack gap="2" flexWrap="wrap">
-        <Text fontSize="xs" color="fg.muted">
-          Add site:
-        </Text>
-        <BlankSiteButton
-          onAdd={(name, slug) => {
-            const result = addBlankSite(draft, { name, slug })
-            if (!result.ok) return result.error
-            setDraft(result.draft)
-            selectSite(result.siteId)
-            return null
-          }}
-        />
-        <Button
-          size="xs"
-          variant="outline"
-          onClick={() => {
-            const next = addAltRoute(draft)
-            setDraft(next.draft)
-            setSelection({ kind: "route", id: next.routeId })
-          }}
-        >
-          🛣️ Route
-        </Button>
-        <Button
-          size="xs"
-          variant="outline"
-          onClick={() => {
-            const next = addLayer(draft)
-            setDraft(next.draft)
-            setSelection({ kind: "layer", id: next.layerId })
-          }}
-        >
-          🗺️ Layer
-        </Button>
-        {GENERIC_SITE_PRESETS.map((preset) => (
+        <HStack gap="2" flexWrap="wrap">
+          <Text fontSize="xs" color="fg.muted" minW="72px">
+            Add branch:
+          </Text>
           <Button
-            key={preset.id}
             size="xs"
-            variant="subtle"
+            variant="outline"
             onClick={() => {
-              const next = addSiteFromPreset(draft, preset)
+              const next = addAltRoute(draft)
               setDraft(next.draft)
-              selectSite(next.siteId)
+              setSelection({ kind: "route", id: next.routeId })
             }}
           >
-            {preset.site.icon} {preset.label}
+            🛣️ Route
           </Button>
-        ))}
-      </HStack>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => {
+              const next = addLayer(draft)
+              setDraft(next.draft)
+              setSelection({ kind: "layer", id: next.layerId })
+            }}
+          >
+            🗺️ Layer
+          </Button>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => {
+              const next = addTripMap(draft)
+              setDraft(next.draft)
+              setSelection({ kind: "map", id: next.mapId })
+            }}
+          >
+            🧭 Map
+          </Button>
+        </HStack>
+
+        <HStack gap="2" flexWrap="wrap">
+          <Text fontSize="xs" color="fg.muted" minW="72px">
+            Add event:
+          </Text>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => {
+              const next = addBlankEvent(draft)
+              setDraft(next.draft)
+              selectEvent(next.eventId)
+            }}
+          >
+            + Blank
+          </Button>
+          {EVENT_PRESET_BUTTONS.map((preset) => (
+            <Button
+              key={preset.id}
+              size="xs"
+              variant="subtle"
+              disabled={preset.fuel && hasFuelEvent(draft)}
+              title={preset.fuel ? "Replaces Out of Gas; a map has one" : undefined}
+              onClick={() => {
+                const next = addEventFromPreset(draft, preset.id)
+                setDraft(next.draft)
+                selectEvent(next.eventId)
+              }}
+            >
+              {preset.icon} {preset.name}
+            </Button>
+          ))}
+          {fuelEvents.map((event) => (
+            <Button
+              key={event.id}
+              size="xs"
+              variant={event.id === selectedEventId ? "solid" : "ghost"}
+              title="Fires when the tank runs dry, so it isn't on the track"
+              onClick={() => selectEvent(event.id)}
+            >
+              ⛽ Edit {event.icon} {event.name}
+            </Button>
+          ))}
+        </HStack>
+      </Stack>
 
       <Box borderWidth="1px" borderRadius="md" p="3">
         <TripTimelineFrame>
@@ -746,10 +829,21 @@ export function TripMapEditor() {
           ) : selectedLayer ? (
             <TripLayerInspector
               layer={selectedLayer}
+              maps={draft.maps ?? []}
               outline={outline?.layers.find((l) => l.id === selectedLayer.id) ?? null}
               onChange={(patch) => setDraft((d) => updateLayer(d, selectedLayer.id, patch))}
               onRemove={() => {
                 setDraft((d) => removeLayer(d, selectedLayer.id))
+                setSelection(null)
+              }}
+            />
+          ) : selectedMap ? (
+            <TripMapItemInspector
+              item={selectedMap}
+              draft={draft}
+              onChange={(patch) => setDraft((d) => updateTripMap(d, selectedMap.id, patch))}
+              onRemove={() => {
+                setDraft((d) => removeTripMap(d, selectedMap.id))
                 setSelection(null)
               }}
             />
@@ -770,6 +864,7 @@ export function TripMapEditor() {
               outline={outline}
               onSelectRoute={(id) => setSelection({ kind: "route", id })}
               onSelectLayer={(id) => setSelection({ kind: "layer", id })}
+              onSelectMap={(id) => setSelection({ kind: "map", id })}
             />
           </Box>
 
@@ -837,76 +932,6 @@ export function TripMapEditor() {
               )}
             </Box>
           ) : null}
-
-          <Box borderWidth="1px" borderRadius="md" p="3">
-            <Text fontSize="sm" fontWeight="semibold" mb="2">
-              Events
-            </Text>
-            <Stack gap="2">
-              {(draft.events ?? []).map((event) => {
-                const estimate = resolved ? estimateEvent(resolved, event.id, costScale) : null
-                const selectedRow = event.id === selectedEventId
-                return (
-                  <Box
-                    key={event.id}
-                    p="2"
-                    borderRadius="md"
-                    cursor="pointer"
-                    borderWidth={selectedRow ? "2px" : "1px"}
-                    borderColor={selectedRow ? "blue.solid" : undefined}
-                    onClick={() => selectEvent(event.id)}
-                  >
-                    <Text fontSize="sm">
-                      {event.icon} {event.name} ·{" "}
-                      {eventTrigger(event) === "fuel"
-                        ? "when the tank runs dry"
-                        : `mile ${event.mile?.toFixed(1) ?? "?"}`}
-                    </Text>
-                    {estimate ? (
-                      <Text fontSize="xs" color="fg.muted">
-                        {estimate.total > 0
-                          ? `${estimate.total} coins (${walletShareLabel(estimate.total, walletsTotal)})`
-                          : "No cost"}
-                      </Text>
-                    ) : null}
-                  </Box>
-                )
-              })}
-              <HStack gap="1" flexWrap="wrap">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => {
-                    const next = addBlankEvent(draft)
-                    setDraft(next.draft)
-                    selectEvent(next.eventId)
-                  }}
-                >
-                  + Add event
-                </Button>
-                {EVENT_PRESET_BUTTONS.map((preset) => (
-                  <Button
-                    key={preset.id}
-                    size="xs"
-                    variant="subtle"
-                    disabled={preset.fuel && hasFuelEvent(draft)}
-                    title={preset.fuel ? "Replaces Out of Gas; a map has one" : undefined}
-                    onClick={() => {
-                      const next = addEventFromPreset(draft, preset.id)
-                      setDraft(next.draft)
-                      selectEvent(next.eventId)
-                    }}
-                  >
-                    + {preset.icon} {preset.name}
-                  </Button>
-                ))}
-              </HStack>
-              <Text fontSize="xs" color="fg.muted">
-                Start blank or from a preset, then rename and retune it. Hosts can still trigger the
-                built-in jam, flat, and breakdown live from Quick Access.
-              </Text>
-            </Stack>
-          </Box>
 
           <Box borderWidth="1px" borderRadius="md" p="3">
             <Text fontSize="sm" fontWeight="semibold" mb="2">

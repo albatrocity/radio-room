@@ -6,6 +6,7 @@ type Props = {
   outline: TripFlowOutline | null
   onSelectRoute: (routeId: string) => void
   onSelectLayer: (layerId: string) => void
+  onSelectMap: (mapId: string) => void
 }
 
 function round1(value: number): string {
@@ -21,7 +22,7 @@ function routeName(outline: TripFlowOutline, id: string): string {
  * and what unlocks it, and each path through the forks with its length,
  * stops, and fuel if nobody votes. From `describeTripFlow`, which lint reads too.
  */
-export function TripFlowPanel({ outline, onSelectRoute, onSelectLayer }: Props) {
+export function TripFlowPanel({ outline, onSelectRoute, onSelectLayer, onSelectMap }: Props) {
   if (!outline) {
     return (
       <Text fontSize="sm" color="fg.muted">
@@ -67,12 +68,23 @@ export function TripFlowPanel({ outline, onSelectRoute, onSelectLayer }: Props) 
           </Text>
           <Text color="fg.muted">
             Unlocked by{" "}
-            {[...layer.unlockedBy, ...layer.items].join(", ") || "nothing (it never appears)"}
+            {[...layer.unlockedBy, ...layer.maps].join(", ") || "nothing (it never appears)"}
             {layer.lockedBy.length > 0 ? `; locked by ${layer.lockedBy.join(", ")}` : ""}.
           </Text>
           <Text color="fg.muted">
             {[...layer.sites, ...layer.events, ...layer.forks.map((f) => `${f} fork`)].join(", ") ||
               "Empty."}
+          </Text>
+        </Box>
+      ))}
+      {outline.maps.map((item) => (
+        <Box key={item.id} cursor="pointer" onClick={() => onSelectMap(item.id)}>
+          <Text fontWeight="semibold">
+            {item.icon} {item.name} · map
+          </Text>
+          <Text color="fg.muted">
+            Reveals {item.layers.join(", ") || "nothing yet"}; sold at{" "}
+            {item.soldAt.join(", ") || "no site yet"}.
           </Text>
         </Box>
       ))}

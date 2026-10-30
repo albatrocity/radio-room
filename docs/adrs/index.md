@@ -227,11 +227,12 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0219](0219-road-trip-van-motion-and-refill-window.md) | Room-scoped `roadTripVanMotionMachine` for van flourishes; `TripStore.fuel.refill` window animates the gauge during refuels | Accepted |
 | [0220](0220-trip-events.md) | Trip events: incidents composed from presets (`map.events`, `compileEventSteps`, families, beats; partially supersedes 0205 decision 12 and 0207's `scriptedEvents`) | Accepted |
 | [0221](0221-poll-presentation-subject-id.md) | Poll presentation `subjectId`: the id of whatever a plugin poll's sign names (amends 0208) | Accepted |
-| [0222](0222-trip-flow-and-branches.md) | Trip flow (one statechart of flat typed machines behind `dispatch`) and trip branches: layers, routes, outcomes, choices (`linearize`, `describeTripFlow`; amends 0205 d5 and 0220) | Accepted |
+| [0222](0222-trip-flow-and-branches.md) | Trip flow (one statechart of flat typed machines behind `dispatch`) and trip branches: layers, routes, outcomes, choices (`linearize`, `describeTripFlow`; amends 0205 d5 and 0220) | Partially superseded by [0227](0227-trip-defined-maps.md) |
 | [0223](0223-site-departure-outcomes.md) | Site `onDepart` outcomes apply when the van leaves a stop, while the trip is still driving (amends 0222) | Accepted |
 | [0224](0224-site-parked-status.md) | Site `parkedStatus` replaces the van's "Parked" word while stopped there | Accepted |
 | [0225](0225-poll-presentation-body.md) | Poll presentation `body`: the sentence under a themed poll's headline (amends 0208) | Accepted |
 | [0226](0226-site-departure-narrative.md) | Site `departNarrative` posts when the van leaves a stop, before `onDepart` outcomes; `narrative` is the on-visit prose (amends 0212, 0223) | Accepted |
+| [0227](0227-trip-defined-maps.md) | Trip-defined maps (`map.maps`, `road-trip:map-{id}`) unlock every locked layer that opts in via `layers[].maps`; replaces Local Map and `unlockItems` (partially supersedes 0222) | Accepted |
 
 ## Creating a New ADR
 

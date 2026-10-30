@@ -2,7 +2,8 @@ import type { TripMapInput } from "./schema"
 
 /**
  * Half-hour dev map for trip branches (ADR 0222): the Welcome Center unlocks
- * a "Local tips" layer (Hidden Falls and a busker), the Scenic Byway forks off
+ * a "Local tips" layer (Hidden Falls, a busker, and the Swimming Hole), and the
+ * Gas Stop sells the Local Map that opens it too (ADR 0227). The Scenic Byway forks off
  * at mile 14 and rejoins at mile 22 (skipping the Diner), and a road closure
  * at mile 23 asks the room whether to take the Detour.
  */
@@ -26,7 +27,16 @@ export const SAMPLE_BRANCH_MAP: TripMapInput = {
       name: "Local tips",
       icon: "🗺️",
       unlockedNarrative: "The clerk circles a few spots on your map.",
-      unlockItems: ["local-map"],
+      maps: ["local"],
+    },
+  ],
+  maps: [
+    {
+      id: "local",
+      name: "Local Map",
+      icon: "🗺️",
+      description: "Hand-drawn by the locals. Use it to find their spots.",
+      coinValue: 25,
     },
   ],
   routes: [
@@ -75,6 +85,16 @@ export const SAMPLE_BRANCH_MAP: TripMapInput = {
       icon: "⛽",
       mile: 12,
       services: { gas: { pricePerGallon: 4 } },
+      shop: { offers: [{ definitionId: "road-trip:map-local" }] },
+    },
+    {
+      id: "swimming-hole",
+      name: "Swimming Hole",
+      description: "Cold, clear, and off every tourist map.",
+      icon: "🏊",
+      mile: 27,
+      layer: "local-tips",
+      secret: false,
     },
     {
       id: "overlook",

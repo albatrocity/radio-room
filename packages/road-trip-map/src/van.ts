@@ -75,7 +75,6 @@ export const VAN_ITEM_IDS = {
   aaa: "aaa-card",
   fixAFlat: "fix-a-flat",
   cbRadio: "cb-radio",
-  localMap: "local-map",
   tripGuide: "trip-guide",
 } as const
 
@@ -165,7 +164,8 @@ export const VAN_CONSUMABLES: readonly VanConsumableSpec[] = [
 
 /**
  * Trip knowledge items (ADR 0222): they change what the van knows, not how it
- * drives. Spent only when they change something.
+ * drives. Spent only when they change something. Maps that unlock layers are
+ * authored per trip (`tripMaps.ts`, ADR 0227).
  */
 export type TripGuideItemSpec = {
   shortId: string
@@ -173,22 +173,13 @@ export type TripGuideItemSpec = {
   emoji: string
   description: string
   coinValue: number
-  /** `unlock-layer`: the next locked layer listing it in `unlockItems`. `reveal-ahead`: every non-secret site ahead. */
-  effect: "unlock-layer" | "reveal-ahead"
+  /** `reveal-ahead`: every non-secret site ahead. */
+  effect: "reveal-ahead"
   /** Refusal copy when there's nothing for it to do. */
   idle: string
 }
 
 export const TRIP_GUIDE_ITEMS: readonly TripGuideItemSpec[] = [
-  {
-    shortId: VAN_ITEM_IDS.localMap,
-    name: "Local Map",
-    emoji: "🗺️",
-    description: "Use it on a trip to mark the local spots this map knows about.",
-    coinValue: 25,
-    effect: "unlock-layer",
-    idle: "This map has nothing more to show you.",
-  },
   {
     shortId: VAN_ITEM_IDS.tripGuide,
     name: "Trip Guide",

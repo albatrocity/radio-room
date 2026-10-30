@@ -27,6 +27,7 @@ import {
   siteOpenRoomShopRequest,
   siteShopRequest,
   triggerableIncidentIdSchema,
+  tripMapItemDefinitions,
   type TripMap,
   type TripStore,
 } from "@repo/road-trip-map"
@@ -100,7 +101,7 @@ import {
   triggerIncident,
   useIncidentItem,
 } from "./trip/incidents"
-import { revealAhead, unlockNextLayer } from "./trip/guide"
+import { openTripMap, revealAhead } from "./trip/guide"
 import { LEVY_RETRY_MS, LEVY_STALE_MS, tripNarrative } from "./trip/helpers"
 import { formatTripTimelineMarkdown } from "./export/formatTripTimelineMarkdown"
 import { poolCardView } from "./presenters"
@@ -227,6 +228,9 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     this.onConfigChange(async ({ config, previousConfig }) => {
       if (config?.enabled !== previousConfig?.enabled) await this.syncVanPlayback()
     })
+    this.registerTripMapItems().catch((error) =>
+      console.warn(`[road-trip] couldn't register trip maps in ${context.roomId}`, error),
+    )
     // Item Shops storage can outlive a restart or a missed clear; re-assert it.
     // `requestCapability` initializes Item Shops on demand, and
     // `PluginRegistry.initializePluginForRoom` has no in-flight guard, so this
@@ -235,6 +239,14 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     this.syncVanPlayback().catch((error) =>
       console.warn(`[road-trip] couldn't sync van playback in ${context.roomId}`, error),
     )
+  }
+
+  /** The loaded trip's maps as inventory items (ADR 0227), so shops can sell them. */
+  private async registerTripMapItems(map?: TripMap): Promise<void> {
+    if (!this.context) return
+    const source = map ?? (await this.trips.readMap())?.map
+    const definitions = tripMapItemDefinitions(source)
+    if (definitions.length > 0) this.context.inventory.registerItemDefinitions(definitions)
   }
 
   /**
@@ -693,8 +705,8 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     const transition =
       route.kind === "install"
         ? installPart(route.partId, traveler)
-        : route.kind === "unlock-layer"
-          ? unlockNextLayer(route.shortId, traveler)
+        : route.kind === "unlock-layers"
+          ? openTripMap(route.shortId, traveler)
           : route.kind === "reveal-ahead"
             ? revealAhead(route.shortId, traveler)
             : useIncidentItem(route.shortId, traveler)
@@ -1100,6 +1112,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
       const errors = parsed.issues.filter((i) => i.severity === "error").map((i) => i.message)
       return { success: false, message: `Map not loaded: ${errors.slice(0, 3).join(" · ")}` }
     }
+    await this.registerTripMapItems(parsed.map)
     const shopIssues = await this.validateSiteShops(parsed.map)
     if (shopIssues.errors.length > 0) {
       return {

@@ -36,7 +36,7 @@ Ownership rules (enforced by `trip/flow/architecture.test.ts`):
 | `JUNCTION_TOW_SETTLE` | junction machine | A tow is about to pass this fork: an open vote resolves, an unpolled fork passes. |
 | `DIVERT` | junction machine | A divert outcome takes a fork ahead. |
 | `ROUTE_END` | handler | The van reaches the end of a rejoining route; it continues on the target route. |
-| `LAYER_UNLOCK` | layer machine | An unlock outcome or Local Map; content behind the van is missed. |
+| `LAYER_UNLOCK` | layer machine | An unlock outcome or one of the trip's maps; content behind the van is missed. |
 | `LAYER_LOCK` | layer machine | A lock outcome; open votes on its content cancel, commitments carry on. |
 | `VOTE_OPENED` | vote machine | The plugin opened the room poll. |
 | `VOTE_DEFERRED` | vote machine | Another poll holds the room; retry later. |
@@ -230,5 +230,5 @@ stateDiagram-v2
 
 | Move | When |
 |---|---|
-| `locked` → `unlocked` on `UNLOCK` | An unlock outcome (site visit or departure, event, choice, Local Map). |
+| `locked` → `unlocked` on `UNLOCK` | An unlock outcome (site visit or departure, event, choice) or a trip map. |
 | `unlocked` → `locked` on `LOCK` | A lock outcome. |

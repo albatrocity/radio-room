@@ -125,7 +125,7 @@ export const FLOW_EVENT_DOCS: Record<TripFlowEventType, string> = {
     "A tow is about to pass this fork: an open vote resolves, an unpolled fork passes.",
   DIVERT: "A divert outcome takes a fork ahead.",
   ROUTE_END: "The van reaches the end of a rejoining route; it continues on the target route.",
-  LAYER_UNLOCK: "An unlock outcome or Local Map; content behind the van is missed.",
+  LAYER_UNLOCK: "An unlock outcome or one of the trip's maps; content behind the van is missed.",
   LAYER_LOCK: "A lock outcome; open votes on its content cancel, commitments carry on.",
   VOTE_OPENED: "The plugin opened the room poll.",
   VOTE_DEFERRED: "Another poll holds the room; retry later.",

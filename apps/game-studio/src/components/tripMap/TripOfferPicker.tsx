@@ -23,6 +23,8 @@ type Props = {
   sample?: ShopSample
   onChange: (offers: SiteShopOffer[]) => void
   onSampleChange: (sample: ShopSample | undefined) => void
+  /** Items it can add; defaults to the shared catalog (pass `offerCatalogFor(draft)` for trip maps). */
+  catalog?: OfferOption[]
 }
 
 /** mulberry32. A new seed on each preview click rolls a different traveler. */
@@ -87,14 +89,20 @@ function OfferChips({ option }: { option: OfferOption }) {
 }
 
 /** Selected shelf plus a search over every item Item Shops can sell. */
-export function TripOfferPicker({ offers, sample, onChange, onSampleChange }: Props) {
+export function TripOfferPicker({
+  offers,
+  sample,
+  onChange,
+  onSampleChange,
+  catalog = OFFER_CATALOG,
+}: Props) {
   const [query, setQuery] = useState("")
   const [preview, setPreview] = useState<string[] | null>(null)
   const cap = sample ? OFFER_POOL_CAP : OFFER_SHELF_CAP
   const atCap = offers.length >= cap
   const selectedIds = new Set(offers.map((offer) => offer.definitionId))
   const q = query.trim().toLowerCase()
-  const matches = OFFER_CATALOG.filter((option) => {
+  const matches = catalog.filter((option) => {
     if (selectedIds.has(option.definitionId)) return false
     if (!q) return true
     return option.name.toLowerCase().includes(q) || option.definitionId.toLowerCase().includes(q)
@@ -165,7 +173,7 @@ export function TripOfferPicker({ offers, sample, onChange, onSampleChange }: Pr
               size="xs"
               variant="outline"
               disabled={offers.length === 0}
-              onClick={() => setPreview(previewOfferSample(offers, sample, mulberry32(Date.now())))}
+              onClick={() => setPreview(previewOfferSample(offers, sample, mulberry32(Date.now()), catalog))}
             >
               Preview a traveler
             </Button>
@@ -187,7 +195,7 @@ export function TripOfferPicker({ offers, sample, onChange, onSampleChange }: Pr
       {offers.length > 0 ? (
         <Stack gap="2">
           {offers.map((offer, index) => {
-            const option = OFFER_CATALOG.find((item) => item.definitionId === offer.definitionId)
+            const option = catalog.find((item) => item.definitionId === offer.definitionId)
             return (
               <Box key={`${offer.definitionId}:${index}`} borderWidth="1px" borderRadius="md" p="2">
                 <HStack justify="space-between" align="start" gap="2">

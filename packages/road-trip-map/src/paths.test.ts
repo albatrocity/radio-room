@@ -80,6 +80,7 @@ describe("paths (ADR 0222)", () => {
       ["hidden-falls", 8],
       ["gas-stop", 12],
       ["overlook", 16],
+      ["swimming-hole", 24],
       ["arena", 27],
     ])
     expect(path.ends).toEqual([
@@ -125,9 +126,12 @@ describe("paths (ADR 0222)", () => {
     const outline = describeTripFlow(parse(SAMPLE_BRANCH_MAP))
     expect(outline.layers[0]).toMatchObject({
       unlockedBy: ["Welcome Center"],
-      items: ["Local Map"],
-      sites: ["Hidden Falls"],
+      maps: ["Local Map"],
+      sites: ["Hidden Falls", "Swimming Hole"],
     })
+    expect(outline.maps).toEqual([
+      { id: "local", name: "Local Map", icon: "🗺️", layers: ["Local tips"], soldAt: ["Gas Stop"] },
+    ])
     expect(outline.routes.map((r) => [r.id, r.divertedBy])).toEqual([
       ["scenic-byway", []],
       ["detour", ["Road closed (Take the detour)"]],
@@ -213,6 +217,8 @@ describe("branch lint (ADR 0222)", () => {
           layer: "local-tips",
         }),
     ],
+    ["unknown-map", (m) => void (m.layers![0]!.maps = ["atlas"])],
+    ["duplicate-map-id", (m) => void m.maps!.push({ id: "local", name: "Another" })],
     [
       "route-cycle",
       (m) => {
@@ -236,9 +242,10 @@ describe("branch lint (ADR 0222)", () => {
       "layer-never-unlocked",
       (m) => {
         delete m.sites[0]!.onVisit
-        delete m.layers![0]!.unlockItems
+        delete m.layers![0]!.maps
       },
     ],
+    ["map-reveals-nothing", (m) => void delete m.layers![0]!.maps],
     ["route-never-taken", (m) => void (m.events![1]!.resolution = [{ kind: "wait", minutes: 1 }])],
     ["mandatory-bypassable", (m) => void (m.sites.find((s) => s.id === "diner")!.mandatory = true)],
   ])("warns: %s", (code, edit) => {

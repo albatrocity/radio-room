@@ -1,6 +1,11 @@
 import { useSyncExternalStore } from "react"
 import { TripSimRoom, type SimShops } from "@repo/plugin-road-trip/sim"
-import type { TripMapInput } from "@repo/road-trip-map"
+import {
+  ROAD_TRIP_PLUGIN_NAME,
+  roadTripItemId,
+  tripMapItemDefinitions,
+  type TripMapInput,
+} from "@repo/road-trip-map"
 import type { OpenRoomShopRequest, ShopAccessCapability } from "@repo/types"
 import { STUDIO_ROOM_ID } from "../studio/constants"
 import { getStudio } from "../studio/studioEnvironment"
@@ -62,7 +67,28 @@ const sandboxShops: SimShops = {
 export function loadTripSim(map: TripMapInput): void {
   room?.closeOpenShop()
   room = new TripSimRoom(map, { roomId: STUDIO_ROOM_ID, shops: sandboxShops })
+  registerTripMapItems(room)
   notify()
+}
+
+/**
+ * The trip's maps as sandbox items under the road-trip plugin id (ADR 0227),
+ * so a stop's shop can sell `road-trip:map-{id}`.
+ */
+function registerTripMapItems(sim: TripSimRoom): void {
+  const definitions = tripMapItemDefinitions(sim.sim.map)
+  if (definitions.length === 0) return
+  try {
+    getStudio().room.registerDefinitions(
+      definitions.map((d) => ({
+        ...d,
+        id: roadTripItemId(d.shortId),
+        sourcePlugin: ROAD_TRIP_PLUGIN_NAME,
+      })),
+    )
+  } catch {
+    // The sandbox isn't up; the shop just won't list the maps.
+  }
 }
 
 export function clearTripSim(): void {

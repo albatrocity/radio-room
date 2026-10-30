@@ -1,24 +1,24 @@
 import { Button, Checkbox, Field, HStack, Input, SimpleGrid, Stack, Text } from "@chakra-ui/react"
-import { TRIP_GUIDE_ITEMS, type TripFlowLayer } from "@repo/road-trip-map"
-import type { TripLayerDraft } from "../../tripMap/branchesDraft"
+import type { TripFlowLayer } from "@repo/road-trip-map"
+import type { TripLayerDraft, TripMapItemDraft } from "../../tripMap/branchesDraft"
 
 type Props = {
   layer: TripLayerDraft
+  /** The trip's maps; the layer opts into the ones that reveal it (ADR 0227). */
+  maps: TripMapItemDraft[]
   /** What the flow outline knows about it (null while the draft doesn't parse). */
   outline: TripFlowLayer | null
   onChange: (patch: Partial<TripLayerDraft>) => void
   onRemove: () => void
 }
 
-const UNLOCK_ITEMS = TRIP_GUIDE_ITEMS.filter((item) => item.effect === "unlock-layer")
-
 function list(names: string[], none: string): string {
   return names.length > 0 ? names.join(", ") : none
 }
 
 /** Layer inspector (ADR 0222): a named group of stops that stay hidden until unlocked. */
-export function TripLayerInspector({ layer, outline, onChange, onRemove }: Props) {
-  const items = layer.unlockItems ?? []
+export function TripLayerInspector({ layer, maps, outline, onChange, onRemove }: Props) {
+  const optedIn = layer.maps ?? []
   return (
     <Stack gap="3">
       <HStack justify="space-between">
@@ -72,33 +72,39 @@ export function TripLayerInspector({ layer, outline, onChange, onRemove }: Props
           />
         </Field.Root>
       </SimpleGrid>
-      <HStack gap="3" flexWrap="wrap">
-        {UNLOCK_ITEMS.map((item) => (
-          <Checkbox.Root
-            key={item.shortId}
-            size="sm"
-            checked={items.includes(item.shortId)}
-            onCheckedChange={(d) => {
-              const next =
-                d.checked === true
-                  ? [...items, item.shortId]
-                  : items.filter((id) => id !== item.shortId)
-              onChange({ unlockItems: next.length > 0 ? next : undefined })
-            }}
-          >
-            <Checkbox.HiddenInput />
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            <Checkbox.Label>
-              {item.emoji} {item.name} unlocks it
-            </Checkbox.Label>
-          </Checkbox.Root>
-        ))}
-      </HStack>
+      {maps.length > 0 ? (
+        <HStack gap="3" flexWrap="wrap">
+          {maps.map((item) => (
+            <Checkbox.Root
+              key={item.id}
+              size="sm"
+              checked={optedIn.includes(item.id)}
+              onCheckedChange={(d) => {
+                const next =
+                  d.checked === true
+                    ? [...optedIn, item.id]
+                    : optedIn.filter((id) => id !== item.id)
+                onChange({ maps: next.length > 0 ? next : undefined })
+              }}
+            >
+              <Checkbox.HiddenInput />
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <Checkbox.Label>
+                {item.icon ?? "🗺️"} {item.name} reveals it
+              </Checkbox.Label>
+            </Checkbox.Root>
+          ))}
+        </HStack>
+      ) : (
+        <Text fontSize="xs" color="fg.muted">
+          Add a Map to sell one that reveals this layer.
+        </Text>
+      )}
       {outline ? (
         <Stack gap="1" fontSize="xs">
-          <Text>Unlocked by: {list([...outline.unlockedBy, ...outline.items], "nothing yet")}</Text>
+          <Text>Unlocked by: {list([...outline.unlockedBy, ...outline.maps], "nothing yet")}</Text>
           <Text>Locked by: {list(outline.lockedBy, "nothing")}</Text>
           <Text>Stops: {list(outline.sites, "none")}</Text>
           <Text>Events: {list(outline.events, "none")}</Text>

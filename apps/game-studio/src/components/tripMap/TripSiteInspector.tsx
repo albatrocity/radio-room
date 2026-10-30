@@ -25,7 +25,12 @@ import {
 import { TripOutcomesEditor, TripPlacementFields } from "./TripBranchFields"
 import { TripOfferPicker } from "./TripOfferPicker"
 import { TripPhysicalMediaService } from "./TripPhysicalMediaService"
-import { arrivalClock, type FuelProjectionStop, type TripSiteDraft } from "../../tripMap/tripMapDraft"
+import {
+  arrivalClock,
+  offerCatalogFor,
+  type FuelProjectionStop,
+  type TripSiteDraft,
+} from "../../tripMap/tripMapDraft"
 
 const DEFAULT_GAS_PRICE = 8
 
@@ -476,6 +481,7 @@ export function TripSiteInspector({
             sample={site.shop?.sample}
             onChange={(next) => setShop({ offers: next })}
             onSampleChange={(sample) => setShop({ sample })}
+            catalog={offerCatalogFor(draft)}
           />
         </Box>
         <Field.Root maxW="180px" mb="2">

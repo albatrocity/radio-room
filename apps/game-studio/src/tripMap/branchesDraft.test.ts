@@ -8,21 +8,49 @@ import {
 import {
   addAltRoute,
   addLayer,
+  addTripMap,
   moveRouteEnd,
   moveRouteFork,
   removeAltRoute,
   removeLayer,
+  removeTripMap,
   scaleTripDrive,
   trackLayout,
   updateAltRoute,
+  updateLayer,
+  updateTripMap,
 } from "./branchesDraft"
-import { mapJson, moveSite, updateSite } from "./tripMapDraft"
+import { mapJson, moveSite, offerCatalogFor, parseDraft, updateSite } from "./tripMapDraft"
 
 function ok(draft: TripMapInput) {
   const parsed = parseTripMap(mapJson(draft))
   expect(parsed.issues.filter((i) => i.severity === "error")).toEqual([])
   return parsed
 }
+
+describe("trip map drafts (ADR 0227)", () => {
+  it("adds a map a layer opts into and a site sells, and the draft parses with its offer", () => {
+    let draft = structuredClone(SAMPLE_TRIP_MAP)
+    const layer = addLayer(draft)
+    draft = layer.draft
+    const added = addTripMap(draft)
+    draft = updateTripMap(added.draft, added.mapId, { name: "Back roads" })
+    draft = updateLayer(draft, layer.layerId, { maps: [added.mapId] })
+    draft = updateSite(draft, "gas-n-go", {
+      shop: { offers: [{ definitionId: `road-trip:map-${added.mapId}` }] },
+    })
+    const parsed = parseDraft(draft, Date.now())
+    expect(parsed.issues.filter((i) => i.severity === "error")).toEqual([])
+    expect(offerCatalogFor(draft).map((o) => o.name)).toContain("Back roads")
+  })
+
+  it("removing a map drops it from layers and site shops", () => {
+    const draft = removeTripMap(structuredClone(SAMPLE_BRANCH_MAP), "local")
+    expect(draft.maps).toBeUndefined()
+    expect(draft.layers![0]!.maps).toBeUndefined()
+    expect(draft.sites.find((s) => s.id === "gas-stop")!.shop!.offers).toEqual([])
+  })
+})
 
 describe("branch drafts (ADR 0222)", () => {
   it("stamps a shortcut and a layer, drags the handles, and round-trips through parseTripMap", () => {
@@ -100,6 +128,7 @@ describe("scaleTripDrive", () => {
       ["welcome-center", 6],
       ["hidden-falls", 16],
       ["gas-stop", 24],
+      ["swimming-hole", 54],
       ["overlook", 4],
       ["diner", 40],
       ["arena", 60],

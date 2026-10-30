@@ -15,6 +15,7 @@ export type TrackSelection =
   | { kind: "event"; id: string }
   | { kind: "route"; id: string }
   | { kind: "layer"; id: string }
+  | { kind: "map"; id: string }
   | null
 
 type Props = {

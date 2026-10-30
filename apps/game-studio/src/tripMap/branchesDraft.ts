@@ -1,7 +1,9 @@
 import {
   MAIN_ROUTE_ID,
   linearize,
+  roadTripItemId,
   startView,
+  tripMapItemShortId,
   type PathMap,
   type TripMap,
   type TripMapInput,
@@ -237,6 +239,61 @@ export function removeLayer(draft: TripMapInput, layerId: string): TripMapInput 
   const layers = (draft.layers ?? []).filter((layer) => layer.id !== layerId)
   const { layers: _drop, ...rest } = pruned
   return layers.length > 0 ? { ...rest, layers } : rest
+}
+
+export type TripMapItemDraft = NonNullable<TripMapInput["maps"]>[number]
+
+/** A map the trip can sell (ADR 0227). Layers opt into it from their inspector. */
+export function addTripMap(draft: TripMapInput): { draft: TripMapInput; mapId: string } {
+  const id = uniqueId(
+    (draft.maps ?? []).map((m) => m.id),
+    "local-map",
+  )
+  const item: TripMapItemDraft = { id, name: "Local map", icon: "🗺️", coinValue: 25 }
+  return { draft: { ...draft, maps: [...(draft.maps ?? []), item] }, mapId: id }
+}
+
+export function updateTripMap(
+  draft: TripMapInput,
+  mapId: string,
+  patch: Partial<TripMapItemDraft>,
+): TripMapInput {
+  return {
+    ...draft,
+    maps: (draft.maps ?? []).map((item) => {
+      if (item.id !== mapId) return item
+      const next: Record<string, unknown> = { ...item, ...patch }
+      for (const key of Object.keys(next)) if (next[key] === undefined) delete next[key]
+      return next as TripMapItemDraft
+    }),
+  }
+}
+
+/** Remove a map: layers stop opting into it and sites stop selling it. */
+export function removeTripMap(draft: TripMapInput, mapId: string): TripMapInput {
+  const definitionId = roadTripItemId(tripMapItemShortId(mapId))
+  const maps = (draft.maps ?? []).filter((item) => item.id !== mapId)
+  const layers = draft.layers?.map((layer) => {
+    if (!layer.maps?.includes(mapId)) return layer
+    const rest = layer.maps.filter((id) => id !== mapId)
+    const { maps: _drop, ...without } = layer
+    return rest.length > 0 ? { ...without, maps: rest } : without
+  })
+  const sites = draft.sites.map((site) => {
+    const offers = site.shop?.offers
+    if (!offers?.some((offer) => offer.definitionId === definitionId)) return site
+    return {
+      ...site,
+      shop: { ...site.shop, offers: offers.filter((offer) => offer.definitionId !== definitionId) },
+    }
+  })
+  const { maps: _maps, ...rest } = draft
+  return {
+    ...rest,
+    sites,
+    ...(layers ? { layers } : {}),
+    ...(maps.length > 0 ? { maps } : {}),
+  }
 }
 
 const MAX_DRIVE_MINUTES = 24 * 60
