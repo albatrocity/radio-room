@@ -80,6 +80,87 @@ describe("layers (ADR 0222)", () => {
     expect(sim.state.sites["hidden-falls"]).toMatchObject({ phase: "visited", revealed: true })
   })
 
+  it("posts the departure narrative on leave, before the onDepart unlock sign", () => {
+    const sim = start(
+      branchMap((map) => {
+        const welcome = map.sites[0]!
+        welcome.narrative = "The clerk waves hello."
+        welcome.departNarrative = "Before you leave, the clerk leans in close."
+        welcome.departNarrativeVariant = "info"
+        welcome.onDepart = welcome.onVisit
+        delete welcome.onVisit
+      }),
+    )
+    const bodies = () =>
+      sim.effects.flatMap(({ effect }) =>
+        effect.type === "narrate" ? [effect.body] : effect.type === "sign" ? [effect.title] : [],
+      )
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "parked")
+    expect(bodies()).toContain("The clerk waves hello.")
+    expect(bodies()).not.toContain("Before you leave, the clerk leans in close.")
+    expect(sim.state.sites["welcome-center"]?.leftAt).toBeUndefined()
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "visited")
+    const after = bodies()
+    const prose = after.indexOf("Before you leave, the clerk leans in close.")
+    expect(prose).toBeGreaterThan(-1)
+    expect(after.indexOf("Local tips")).toBeGreaterThan(prose)
+    expect(
+      sim.effects.find(
+        ({ effect }) => effect.type === "narrate" && effect.body.startsWith("Before you leave"),
+      )?.effect,
+    ).toMatchObject({ variant: "info" })
+    expect(sim.state.sites["welcome-center"]?.leftAt).toBe(sim.now)
+  })
+
+  it("the store sends the departure narrative only once the van has left", () => {
+    const sim = start(
+      branchMap((map) => {
+        map.sites[0]!.narrative = "The clerk waves hello."
+        map.sites[0]!.departNarrative = "Before you leave, the clerk leans in close."
+      }),
+    )
+    const welcome = () =>
+      buildTripStore(sim.state, sim.map, sim.current, sim.now).sites.find(
+        (s) => s.id === "welcome-center",
+      )
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "parked")
+    expect(welcome()).toMatchObject({ narrative: "The clerk waves hello." })
+    expect(welcome()?.departNarrative).toBeUndefined()
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "visited")
+    expect(welcome()).toMatchObject({
+      narrative: "The clerk waves hello.",
+      departNarrative: "Before you leave, the clerk leans in close.",
+    })
+  })
+
+  it("arriving at the destination posts its visit narrative only", () => {
+    const sim = start(
+      branchMap((map) => {
+        const destination = map.sites.find((s) => s.role === "destination")!
+        destination.narrative = "Made it."
+        destination.departNarrative = "Never posted."
+      }),
+    )
+    runToEnd(sim)
+    const prose = sim.effects.flatMap(({ effect }) => (effect.type === "narrate" ? [effect.body] : []))
+    expect(prose).toContain("Made it.")
+    expect(prose).not.toContain("Never posted.")
+  })
+
+  it("ending the trip while parked posts no departure narrative", () => {
+    const sim = start(
+      branchMap((map) => {
+        map.sites[0]!.departNarrative = "Before you leave, the clerk leans in close."
+      }),
+    )
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "parked")
+    expect(sim.apply(endTrip)).toBe(true)
+    expect(
+      sim.effects.some(({ effect }) => effect.type === "narrate" && effect.body.startsWith("Before")),
+    ).toBe(false)
+    expect(sim.state.sites["welcome-center"]?.leftAt).toBeUndefined()
+  })
+
   it("ending the trip while parked does not apply onDepart", () => {
     const sim = start(
       branchMap((map) => {

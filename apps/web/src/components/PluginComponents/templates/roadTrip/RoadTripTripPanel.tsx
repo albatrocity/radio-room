@@ -213,6 +213,11 @@ export function RoadTripTripPanelTemplateComponent({
                         {row.site.narrative}
                       </Text>
                     ) : null}
+                    {row.site.departNarrative ? (
+                      <Text fontSize="sm" whiteSpace="pre-wrap" px={3} pb={1}>
+                        {row.site.departNarrative}
+                      </Text>
+                    ) : null}
                   </Stack>
                 ),
               )}

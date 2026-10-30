@@ -95,6 +95,7 @@ describe("formatTripTimelineMarkdown", () => {
     narrate("farmers-market", "Peaches, still warm from the sun.")
     narrate("gas-n-go", "The pump clicks off at an even number.")
     narrate("record-store", "Driven past, so never posted.")
+    map.sites.find((s) => s.id === "gas-n-go")!.departNarrative = "The attendant waves you off."
     const sim = new TripSim(map)
     sim.votes["record-store"] = { stop: 3, skip: 5 }
     sim.apply(depart)
@@ -112,6 +113,8 @@ describe("formatTripTimelineMarkdown", () => {
         "**⛽ Gas 'n' Go** · 3:06 PM — Two pumps, a humming ice machine, and a hand-lettered price sign.",
         "",
         "The pump clicks off at an even number.",
+        "",
+        "The attendant waves you off.",
         "",
         "**🍎 Farmers Market** · 3:10 PM — A roadside stand with honey, peaches, and hand-lettered signs.",
         "",

@@ -346,6 +346,10 @@ export const siteSchema = z.object({
   onVisit: tripOutcomesSchema.optional(),
   /** Applied when the van leaves and the trip is still driving (ADR 0223). */
   onDepart: tripOutcomesSchema.optional(),
+  /** Chat prose posted when the van leaves, before `onDepart` applies (ADR 0226). */
+  departNarrative: z.string().min(1).max(2000).optional(),
+  /** System-alert status for `departNarrative`. */
+  departNarrativeVariant: narrativeVariantSchema.optional(),
 })
 export type TripSite = z.infer<typeof siteSchema>
 

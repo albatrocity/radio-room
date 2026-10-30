@@ -101,7 +101,10 @@ export function formatTripTimelineMarkdown({
   }
 
   if (visited.length > 0) {
-    const narrative = new Map(tripNarrative(map, state.sites).map((e) => [e.siteId, e.body]))
+    const narrative = new Map<string, string[]>()
+    for (const entry of tripNarrative(map, state.sites)) {
+      narrative.set(entry.siteId, [...(narrative.get(entry.siteId) ?? []), entry.body])
+    }
     const byVisit = [...visited].sort(
       (a, b) => state.sites[a.id]!.visitedAt! - state.sites[b.id]!.visitedAt!,
     )
@@ -110,8 +113,7 @@ export function formatTripTimelineMarkdown({
       const image = site.imageUrl ? ` ([image](${site.imageUrl}))` : ""
       const at = clock(state.sites[site.id]!.visitedAt!)
       lines.push("", `**${site.icon} ${site.name}** · ${at} — ${site.description}${image}`)
-      const body = narrative.get(site.id)
-      if (body) lines.push("", body)
+      for (const body of narrative.get(site.id) ?? []) lines.push("", body)
     }
   }
 

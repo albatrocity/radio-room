@@ -30,7 +30,7 @@ import {
 } from "@repo/road-trip-map"
 import { describeVanEvent } from "./describeEvent"
 import { currentLeg, pathFor } from "./flow"
-import { hasSiteShop, nextSiteAhead, siteNarrative } from "./helpers"
+import { hasSiteShop, nextSiteAhead, siteDepartNarrative, siteNarrative } from "./helpers"
 import { MS_PER_HOUR, project, type Leg } from "./ledger"
 import {
   cruisingMph,
@@ -101,6 +101,10 @@ export function buildTripStore(
       const narrative = siteNarrative(site)
       if (narrative) entry.narrative = narrative
       if (site.model) entry.modelUrl = site.model.url
+    }
+    if (runtime.leftAt !== undefined) {
+      const departNarrative = siteDepartNarrative(site)
+      if (departNarrative) entry.departNarrative = departNarrative
     }
     if (runtime.phase === "parked" && site.parkedStatus) entry.parkedStatus = site.parkedStatus
     if (runtime.votes) entry.votes = runtime.votes

@@ -132,29 +132,45 @@ export function siteNarrative(site: TripSite): string | undefined {
   return text ? text : undefined
 }
 
+/** Chat prose for leaving a stop (ADR 0226). Blank copy posts nothing. */
+export function siteDepartNarrative(site: TripSite): string | undefined {
+  const text = site.departNarrative?.trim()
+  return text ? text : undefined
+}
+
 export type TripNarrativeEntry = {
   siteId: string
   name: string
   icon: string
+  /** `visit` posts when the van stops; `depart` when it leaves (ADR 0226). */
+  moment: "visit" | "depart"
   at: number
   body: string
 }
 
 /**
- * Every narrative posted so far, oldest first. A site's narrative posts
- * exactly when it gets `visitedAt` (park, destination arrival, tow).
+ * Every narrative posted so far, oldest first. A site's visit narrative posts
+ * exactly when it gets `visitedAt` (park, destination arrival, tow); its
+ * departure narrative exactly when it gets `leftAt`.
  */
 export function tripNarrative(
   map: TripMap,
-  sites: Record<string, { visitedAt?: number }>,
+  sites: Record<string, { visitedAt?: number; leftAt?: number }>,
 ): TripNarrativeEntry[] {
   return map.sites
     .flatMap((site) => {
-      const at = sites[site.id]?.visitedAt
-      const body = siteNarrative(site)
-      return at !== undefined && body
-        ? [{ siteId: site.id, name: site.name, icon: site.icon, at, body }]
-        : []
+      const runtime = sites[site.id]
+      const base = { siteId: site.id, name: site.name, icon: site.icon }
+      const entries: TripNarrativeEntry[] = []
+      const visit = siteNarrative(site)
+      if (runtime?.visitedAt !== undefined && visit) {
+        entries.push({ ...base, moment: "visit", at: runtime.visitedAt, body: visit })
+      }
+      const depart = siteDepartNarrative(site)
+      if (runtime?.leftAt !== undefined && depart) {
+        entries.push({ ...base, moment: "depart", at: runtime.leftAt, body: depart })
+      }
+      return entries
     })
     .sort((a, b) => a.at - b.at)
 }
@@ -167,6 +183,17 @@ export function narrate(site: TripSite): TripEffect | null {
     type: "narrate",
     body,
     ...(site.narrativeVariant ? { variant: site.narrativeVariant } : {}),
+  }
+}
+
+/** Posted as the van pulls back onto the road, before departure outcomes. */
+export function departNarrate(site: TripSite): TripEffect | null {
+  const body = siteDepartNarrative(site)
+  if (!body) return null
+  return {
+    type: "narrate",
+    body,
+    ...(site.departNarrativeVariant ? { variant: site.departNarrativeVariant } : {}),
   }
 }
 

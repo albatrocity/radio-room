@@ -42,3 +42,4 @@ Narrative is also gathered into a trip summary, so the story isn't lost once it 
 - [0205. Road trips v1](0205-road-trips-v1.md)
 - [0207. Trip Maps as portable JSON](0207-trip-maps-portable-json.md)
 - [0208. Presentation themes](0208-presentation-themes.md)
+- [0226. Site departure narrative](0226-site-departure-narrative.md) — `narrative` is the on-visit prose; `departNarrative` posts on leave

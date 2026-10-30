@@ -65,6 +65,15 @@ describe("parseTripMap", () => {
     expect(result.issues[0]?.path).toBe("schemaVersion")
   })
 
+  it("accepts a departure narrative and rejects an empty one", () => {
+    const input = clone()
+    input.sites[0]!.departNarrative = "The owner leans in close."
+    input.sites[0]!.departNarrativeVariant = "info"
+    expect(parseTripMap(input).ok).toBe(true)
+    input.sites[0]!.departNarrative = ""
+    expect(parseTripMap(input).ok).toBe(false)
+  })
+
   it("rejects non-https image URLs", () => {
     const input = clone()
     input.sites[0]!.imageUrl = "http://example.com/a.png"

@@ -2,6 +2,7 @@ import type { TripSite } from "@repo/road-trip-map"
 import { isDestination, resolveSiteSettings } from "@repo/road-trip-map"
 import {
   ARRIVAL_MILE_EPSILON,
+  departNarrate,
   findSite,
   milesLabel,
   pullOffHold,
@@ -252,18 +253,23 @@ export const siteEntity: FlowEntity<SitePhase, SiteMachineEvent> = {
         : parked
     },
     visited: (acc, { id, ctx, event, emit }) => {
-      // Departure outcomes apply when the van pulls back onto the road (ADR 0223).
-      // Ending the trip while parked also leaves, after status has left `driving`.
+      // Departure narrative and outcomes apply when the van pulls back onto the
+      // road (ADR 0223, 0226). Ending the trip while parked also leaves, after
+      // status has left `driving`.
       if (event.type === "SITE_LEAVE") {
         if (acc.next.status !== "driving") return acc
         const site = findSite(ctx.map, id)
-        return site?.onDepart?.length
-          ? emit(acc, {
+        const left = patchSite(acc, id, { leftAt: ctx.now })
+        if (!site) return left
+        const narrative = departNarrate(site)
+        const narrated = narrative ? { ...left, effects: [...left.effects, narrative] } : left
+        return site.onDepart?.length
+          ? emit(narrated, {
               type: "APPLY_OUTCOMES",
               outcomes: site.onDepart,
               source: { kind: "site", id },
             })
-          : acc
+          : narrated
       }
       if (event.type !== "SITE_ARRIVE") return acc
       const site = findSite(ctx.map, id)

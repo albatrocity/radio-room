@@ -24,3 +24,4 @@ A site's `onVisit` outcomes apply when the van parks ([0222](0222-trip-flow-and-
 ## See also
 
 - [0222. Trip flow and branches](0222-trip-flow-and-branches.md)
+- [0226. Site departure narrative](0226-site-departure-narrative.md) — prose posted on the same leave, before these outcomes

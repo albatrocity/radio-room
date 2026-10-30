@@ -38,6 +38,8 @@ export type TripStoreSite = {
   lore?: string
   /** The chat prose posted on arrival; visited sites only. */
   narrative?: string
+  /** The chat prose posted on departure; only once the van has left (ADR 0226). */
+  departNarrative?: string
   /** GLB URL for the detail stage; visited sites only (D12a). */
   modelUrl?: string
   /** Replaces "Parked here" while this stop is the one the van is parked at (ADR 0224). */

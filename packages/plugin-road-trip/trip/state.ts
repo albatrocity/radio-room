@@ -73,6 +73,8 @@ export type SiteRuntime = {
   votes?: SkipVotes
   defaulted?: boolean
   visitedAt?: number
+  /** When the van pulled away while still driving; its departure narrative posted then (ADR 0226). */
+  leftAt?: number
 }
 
 /** A fork's runtime (`junctionMachine`), keyed by the alternate route's id. */

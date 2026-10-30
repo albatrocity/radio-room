@@ -231,6 +231,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0223](0223-site-departure-outcomes.md) | Site `onDepart` outcomes apply when the van leaves a stop, while the trip is still driving (amends 0222) | Accepted |
 | [0224](0224-site-parked-status.md) | Site `parkedStatus` replaces the van's "Parked" word while stopped there | Accepted |
 | [0225](0225-poll-presentation-body.md) | Poll presentation `body`: the sentence under a themed poll's headline (amends 0208) | Accepted |
+| [0226](0226-site-departure-narrative.md) | Site `departNarrative` posts when the van leaves a stop, before `onDepart` outcomes; `narrative` is the on-visit prose (amends 0212, 0223) | Accepted |
 
 ## Creating a New ADR
 

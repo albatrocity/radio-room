@@ -48,6 +48,52 @@ function narrativeVariant(value: string): NarrativeVariant | undefined {
   return NARRATIVE_VARIANTS.find((variant) => variant === value)
 }
 
+/** A chat narrative and its system-message variant, for one lifecycle moment. */
+function NarrativeFields({
+  text,
+  variant,
+  helper,
+  onChange,
+}: {
+  text: string | undefined
+  variant: NarrativeVariant | undefined
+  helper: string
+  onChange: (text: string | undefined, variant: NarrativeVariant | undefined) => void
+}) {
+  return (
+    <>
+      <Field.Root>
+        <Field.Label fontSize="xs">Narrative</Field.Label>
+        <Textarea
+          size="sm"
+          rows={4}
+          maxLength={2000}
+          value={text ?? ""}
+          onChange={(e) => onChange(e.target.value.trim() ? e.target.value : undefined, variant)}
+        />
+        <Field.HelperText fontSize="xs">{helper}</Field.HelperText>
+      </Field.Root>
+      <Field.Root maxW="240px">
+        <Field.Label fontSize="xs">System message</Field.Label>
+        <NativeSelect.Root size="sm">
+          <NativeSelect.Field
+            value={variant ?? ""}
+            onChange={(e) => onChange(text, narrativeVariant(e.target.value))}
+          >
+            <option value="">Plain</option>
+            {NARRATIVE_VARIANTS.map((v) => (
+              <option key={v} value={v}>
+                {v.charAt(0).toUpperCase() + v.slice(1)}
+              </option>
+            ))}
+          </NativeSelect.Field>
+          <NativeSelect.Indicator />
+        </NativeSelect.Root>
+      </Field.Root>
+    </>
+  )
+}
+
 function optionalNumber(value: string): number | undefined {
   if (value.trim() === "") return undefined
   const n = Number(value)
@@ -181,30 +227,6 @@ export function TripSiteInspector({
         layer={site.layer}
         onChange={(placement) => onChange(placement)}
       />
-      {draft.routes?.length || draft.layers?.length ? (
-        <Box borderWidth="1px" borderRadius="md" p="3">
-          <Text fontSize="sm" fontWeight="semibold" mb="2">
-            Lifecycle
-          </Text>
-          <Stack gap="3">
-            <TripOutcomesEditor
-              draft={draft}
-              label="On visit"
-              helper="Applied when the van parks here (a tow-in counts)."
-              outcomes={(site.onVisit ?? []) as TripOutcome[]}
-              onChange={(onVisit) => onChange({ onVisit })}
-            />
-            <TripOutcomesEditor
-              draft={draft}
-              label="On departure"
-              helper="Applied when the van pulls back onto the road. Ending the trip while parked doesn't count."
-              outcomes={(site.onDepart ?? []) as TripOutcome[]}
-              onChange={(onDepart) => onChange({ onDepart })}
-            />
-          </Stack>
-        </Box>
-      ) : null}
-
       <Field.Root>
         <Field.Label fontSize="xs">Description</Field.Label>
         <Input
@@ -214,38 +236,58 @@ export function TripSiteInspector({
           onChange={(e) => onChange({ description: e.target.value })}
         />
       </Field.Root>
-      <Field.Root>
-        <Field.Label fontSize="xs">Narrative</Field.Label>
-        <Textarea
-          size="sm"
-          rows={5}
-          maxLength={2000}
-          value={site.narrative ?? ""}
-          onChange={(e) =>
-            onChange({ narrative: e.target.value.trim() ? e.target.value : undefined })
-          }
-        />
-        <Field.HelperText fontSize="xs">
-          Posted in chat when the van stops. The exit sign still says where you parked.
-        </Field.HelperText>
-      </Field.Root>
-      <Field.Root maxW="240px">
-        <Field.Label fontSize="xs">System message</Field.Label>
-        <NativeSelect.Root size="sm">
-          <NativeSelect.Field
-            value={site.narrativeVariant ?? ""}
-            onChange={(e) => onChange({ narrativeVariant: narrativeVariant(e.target.value) })}
-          >
-            <option value="">Plain</option>
-            {NARRATIVE_VARIANTS.map((variant) => (
-              <option key={variant} value={variant}>
-                {variant.charAt(0).toUpperCase() + variant.slice(1)}
-              </option>
-            ))}
-          </NativeSelect.Field>
-          <NativeSelect.Indicator />
-        </NativeSelect.Root>
-      </Field.Root>
+
+      <Box borderWidth="1px" borderRadius="md" p="3">
+        <Text fontSize="sm" fontWeight="semibold" mb="2">
+          Lifecycle
+        </Text>
+        <Stack gap="4">
+          <Stack gap="2">
+            <Text fontSize="xs" fontWeight="semibold">
+              On visit
+            </Text>
+            <NarrativeFields
+              text={site.narrative}
+              variant={site.narrativeVariant}
+              helper="Posted in chat when the van stops. The exit sign still says where you parked."
+              onChange={(narrative, narrativeVariant) =>
+                onChange({ narrative, narrativeVariant })
+              }
+            />
+            <TripOutcomesEditor
+              draft={draft}
+              label="Outcomes"
+              helper="Applied when the van parks here (a tow-in counts)."
+              outcomes={(site.onVisit ?? []) as TripOutcome[]}
+              onChange={(onVisit) => onChange({ onVisit })}
+            />
+          </Stack>
+          <Stack gap="2">
+            <Text fontSize="xs" fontWeight="semibold">
+              On departure
+            </Text>
+            <NarrativeFields
+              text={site.departNarrative}
+              variant={site.departNarrativeVariant}
+              helper={
+                destination
+                  ? "The trip ends here, so the van never leaves and this never posts."
+                  : "Posted when the van pulls back onto the road, before departure outcomes. Ending the trip while parked doesn't post it."
+              }
+              onChange={(departNarrative, departNarrativeVariant) =>
+                onChange({ departNarrative, departNarrativeVariant })
+              }
+            />
+            <TripOutcomesEditor
+              draft={draft}
+              label="Outcomes"
+              helper="Applied when the van pulls back onto the road. Ending the trip while parked doesn't count."
+              outcomes={(site.onDepart ?? []) as TripOutcome[]}
+              onChange={(onDepart) => onChange({ onDepart })}
+            />
+          </Stack>
+        </Stack>
+      </Box>
       {art}
       <Field.Root>
         <Field.Label fontSize="xs">Lore (Markdown, shown once visited)</Field.Label>
