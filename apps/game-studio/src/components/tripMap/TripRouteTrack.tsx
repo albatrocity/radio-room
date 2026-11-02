@@ -1,5 +1,6 @@
 import { Box, Button, HStack, Text } from "@chakra-ui/react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { LuCornerRightUp } from "react-icons/lu"
 import {
   MAIN_ROUTE_ID,
   eventTrigger,
@@ -470,7 +471,7 @@ export function TripRouteTrack({
             const targetRow = rows.find((r) => r.route === end.route)
             if (target && targetRow) {
               out.push(
-                handle(`end:${route.id}`, "⤵", targetRow.x + end.mile, target.top + LINE_Y, `${route.name} rejoins here (drag)`, select, (clientX) =>
+                handle(`end:${route.id}`, <LuCornerRightUp style={{ display: "block" }} />, targetRow.x + end.mile, target.top + LINE_Y, `${route.name} rejoins here (drag)`, select, (clientX) =>
                   onMoveEnd(route.id, sharedAt(clientX) - targetRow.x),
                 ),
               )
