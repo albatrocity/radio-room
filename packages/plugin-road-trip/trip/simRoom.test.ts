@@ -134,6 +134,7 @@ describe("TripSimRoom", () => {
     const map = noGas()
     const site = map.sites.find((s) => s.id === "record-store")!
     site.narrative = "The bell over the door jangles."
+    site.narrativeVariant = "site"
     site.shop = { ...site.shop, openingMessage: "Crates are open. Dig in." }
     const sim = parkAtRecordStore(map)
     const exit = sim.messages.findIndex((m) => /Parked for \d+ min/.test(m.content))
@@ -141,6 +142,7 @@ describe("TripSimRoom", () => {
     const shop = sim.messages.findIndex((m) => m.content === "Crates are open. Dig in.")
     expect(exit).toBeGreaterThanOrEqual(0)
     expect(narrative).toBe(exit + 1)
+    expect(sim.messages[narrative]?.meta).toMatchObject({ type: "site", icon: "📀" })
     expect(shop).toBe(narrative + 1)
     expect(sim.messages.some((m) => m.content.startsWith("Sells "))).toBe(false)
   })

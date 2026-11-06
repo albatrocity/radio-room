@@ -31,7 +31,7 @@ import {
   type WeightedCandidate,
 } from "./shoppingSessionCatalog"
 import type { ShopEconomyHooks, ShoppingExtraOffer } from "./shoppingSessionCatalog"
-import { resolveEconomy, scalePrice } from "@repo/game-logic"
+import { resolveEconomy, scalePrice, shopPriceScale } from "@repo/game-logic"
 
 const KEYS = ITEM_SHOPS_SESSION_STORAGE_KEYS
 
@@ -112,8 +112,15 @@ export class ShoppingSessionHelper {
     } catch {
       return null
     }
-    const session = await this.context.game.getActiveSession()
-    return applyLiveCostScale(parsed, session?.config?.economy)
+    const [session, state] = await Promise.all([
+      this.context.game.getActiveSession(),
+      this.context.game.getUserState(userId),
+    ])
+    return applyLiveCostScale(
+      parsed,
+      session?.config?.economy,
+      shopPriceScale(state?.modifiers, Date.now()),
+    )
   }
 
   async persistInstance(userId: string, instance: ShoppingSessionInstance): Promise<void> {

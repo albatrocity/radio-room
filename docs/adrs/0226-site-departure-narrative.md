@@ -25,4 +25,5 @@ A site's `narrative` posts when the van stops ([0212](0212-site-narrative-chat.m
 ## See also
 
 - [0212. Site narrative is chat prose](0212-site-narrative-chat.md)
+- [0229. Site system messages](0229-site-system-message.md) — the departure System message select can post `meta.type: "site"` with the site icon
 - [0223. Site departure outcomes](0223-site-departure-outcomes.md)

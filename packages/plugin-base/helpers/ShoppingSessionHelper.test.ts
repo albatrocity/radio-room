@@ -174,6 +174,46 @@ describe("ShoppingSessionHelper purchase / sell hooks", () => {
     })
   })
 
+  it("shows and charges the reader's shop:price discount (Negotiating for Dummies)", async () => {
+    const { context, addScore } = makeContext({
+      instance: {
+        shopId: "record-store",
+        offers: [
+          {
+            offerId: 0,
+            shortId: "fuzz-pedal",
+            name: "Fuzz Pedal",
+            description: "Blur",
+            price: 20,
+            available: true,
+            rarity: "common",
+          },
+        ],
+      },
+    })
+    context.game.getUserState = vi.fn(async () => ({
+      attributes: { coin: 100 },
+      modifiers: [
+        {
+          id: "book",
+          name: "road-trip-book:negotiating",
+          source: "road-trip",
+          effects: [{ type: "multiplier", target: "shop:price", value: 0.9, intent: "positive" }],
+          startAt: 0,
+          endAt: Date.now() + 60_000,
+          stackBehavior: "replace",
+        },
+      ],
+    })) as unknown as PluginContext["game"]["getUserState"]
+    const helper = new ShoppingSessionHelper("item-shops", context, [PM, PEDAL], [SHOP])
+    expect((await helper.getInstance("u1"))?.offers[0]).toMatchObject({ basePrice: 20, price: 18 })
+    const result = await helper.purchase({ userId: "u1", username: "U" }, 0)
+    expect(result).toMatchObject({ success: true, message: "Bought Fuzz Pedal for 18 coins." })
+    expect(addScore).toHaveBeenCalledWith("u1", "coin", -18, "item-shops:purchase", {
+      intent: "exact",
+    })
+  })
+
   it("scales sell proceeds once from the catalog base", async () => {
     const item: InventoryItem = {
       itemId: "fuzz-1",

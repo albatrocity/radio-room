@@ -229,7 +229,7 @@ describe("trip playable (Phase 1)", () => {
       noGas((map) => {
         const record = map.sites.find((site) => site.id === "record-store")!
         record.narrative = narrative
-        record.narrativeVariant = "warning"
+        record.narrativeVariant = "site"
         const stand = map.sites.find((site) => site.id === "farmers-market")!
         stand.narrative = "Honey, peaches, and a hand-lettered sign."
         stand.skipPoll = { default: "skip" }
@@ -242,17 +242,19 @@ describe("trip playable (Phase 1)", () => {
     expect(sim.effects.map(({ effect }) => effect)).toContainEqual({
       type: "narrate",
       body: narrative,
-      variant: "warning",
+      icon: "📀",
     })
     expect(sim.signs()).toContain("EXIT 4 · DUSTY BOOTS RECORDS")
     expect(sim.signs()).not.toContain(narrative)
 
     sim.runUntil(T0 + 13 * MIN)
     expect(sim.state.sites["farmers-market"]?.phase).toBe("skipped")
-    expect(sim.effects.map(({ effect }) => effect)).not.toContainEqual({
-      type: "narrate",
-      body: "Honey, peaches, and a hand-lettered sign.",
-    })
+    expect(
+      sim.effects.some(
+        ({ effect }) =>
+          effect.type === "narrate" && effect.body === "Honey, peaches, and a hand-lettered sign.",
+      ),
+    ).toBe(false)
   })
 
   it("posts destination narrative when the van arrives", () => {

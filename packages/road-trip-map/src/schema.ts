@@ -146,10 +146,18 @@ export const triggerableIncidentIdSchema = z.enum(["traffic-jam", "blown-tire", 
 export type TriggerableIncidentId = z.infer<typeof triggerableIncidentIdSchema>
 export const TRIGGERABLE_INCIDENT_IDS = triggerableIncidentIdSchema.options
 
-/** System-alert status for a site's chat narrative. Omitted posts the paragraph on its own. */
+/** System-alert status for chat narrative. Omitted posts the paragraph on its own. */
 export const narrativeVariantSchema = z.enum(["info", "success", "warning", "error"])
 export type NarrativeVariant = z.infer<typeof narrativeVariantSchema>
 export const NARRATIVE_VARIANTS = narrativeVariantSchema.options
+
+/**
+ * A site's arrival or departure line (ADR 0229). `site` posts the info-alert
+ * row with the site's icon. The other values are alert statuses. Omitted is plain.
+ */
+export const siteNarrativeVariantSchema = z.enum(["info", "success", "warning", "error", "site"])
+export type SiteNarrativeVariant = z.infer<typeof siteNarrativeVariantSchema>
+export const SITE_NARRATIVE_VARIANTS = siteNarrativeVariantSchema.options
 
 /**
  * Which van parts and consumables an event answers to (ADR 0220): `jam` (horn,
@@ -322,8 +330,8 @@ export const siteSchema = z.object({
    * and from a shop's opening message.
    */
   narrative: z.string().min(1).max(2000).optional(),
-  /** System-alert status for `narrative`. Omitted posts the paragraph on its own. */
-  narrativeVariant: narrativeVariantSchema.optional(),
+  /** System message for `narrative`: an alert status, `site`, or omitted for plain. */
+  narrativeVariant: siteNarrativeVariantSchema.optional(),
   lore: z.string().max(4000).optional(),
   model: siteModelSchema.optional(),
   mile: z.number().min(0),
@@ -348,8 +356,8 @@ export const siteSchema = z.object({
   onDepart: tripOutcomesSchema.optional(),
   /** Chat prose posted when the van leaves, before `onDepart` applies (ADR 0226). */
   departNarrative: z.string().min(1).max(2000).optional(),
-  /** System-alert status for `departNarrative`. */
-  departNarrativeVariant: narrativeVariantSchema.optional(),
+  /** System message for `departNarrative`: an alert status, `site`, or omitted for plain. */
+  departNarrativeVariant: siteNarrativeVariantSchema.optional(),
 })
 export type TripSite = z.infer<typeof siteSchema>
 

@@ -9,8 +9,12 @@ import { userSchema } from "./User"
 
 export const chatMessageMetaSchema = z.object({
   status: z.enum(["error", "success", "warning", "info"]).optional(),
-  /** `alert` is a notice. `prose` is a wrapping paragraph, not a road sign. */
-  type: z.enum(["alert", "prose"]).nullable().optional(),
+  /**
+   * `alert` is a notice. `prose` is a wrapping paragraph, not a road sign.
+   * `site` is a site's arrival or departure narrative: the info-alert row,
+   * with `icon` as the site glyph instead of the status indicator (ADR 0229).
+   */
+  type: z.enum(["alert", "prose", "site"]).nullable().optional(),
   title: z.string().nullable().optional(),
   /**
    * User ids whose public label was masked in `content`, in left-to-right order
@@ -82,6 +86,7 @@ export const textEffectSchema = z.discriminatedUnion("type", [
       "green",
       "yellow",
       "orange",
+      "brown",
     ]),
     /**
      * Semantic token within the palette; Chakra resolves light/dark.

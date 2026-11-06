@@ -36,6 +36,7 @@ export function PollOptionButton({
       justifyContent="flex-start"
       w="100%"
       h="auto"
+      whiteSpace="normal"
       py={3}
       px={4}
       disabled={disabled}

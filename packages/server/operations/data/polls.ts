@@ -29,6 +29,11 @@ function votesKey(roomId: string, pollId: string) {
   return `room:${roomId}:poll:${pollId}:votes`
 }
 
+/** userId → weight, only for voters whose vote counts more than once (ADR 0228). */
+function weightsKey(roomId: string, pollId: string) {
+  return `room:${roomId}:poll:${pollId}:weights`
+}
+
 function resultsKey(roomId: string, pollId: string) {
   return `room:${roomId}:poll:${pollId}:results`
 }
@@ -122,15 +127,23 @@ function hashFieldsToPollRecord(raw: Record<string, string>): PollRecord | null 
 // Pure helper — tally votes into PollResults
 // =============================================================================
 
+/** A voter's weight: 1 unless a one-shot weight was stored with their first vote. */
+export function voteWeight(weights: Record<string, number> | undefined, userId: string): number {
+  const weight = weights?.[userId]
+  return weight !== undefined && Number.isFinite(weight) && weight > 1 ? weight : 1
+}
+
 export function reduceVotesToResults({
   pollId,
   options,
   votes,
+  weights,
   closedAt,
 }: {
   pollId: string
   options: PollOption[]
   votes: Record<string, string>
+  weights?: Record<string, number>
   closedAt: number
 }): PollResults {
   const optionTallies: Record<string, number> = {}
@@ -138,13 +151,15 @@ export function reduceVotesToResults({
     optionTallies[option.id] = 0
   }
 
-  for (const optionId of Object.values(votes)) {
+  let totalVotes = 0
+  for (const [userId, optionId] of Object.entries(votes)) {
+    const weight = voteWeight(weights, userId)
+    totalVotes += weight
     if (optionId in optionTallies) {
-      optionTallies[optionId] += 1
+      optionTallies[optionId] += weight
     }
   }
 
-  const totalVotes = Object.values(votes).length
   let winners: string[] = []
 
   if (totalVotes > 0) {
@@ -260,6 +275,7 @@ export async function deletePollKeys({
   await Promise.all([
     context.redis.pubClient.unlink(pollKey(roomId, pollId)),
     context.redis.pubClient.unlink(votesKey(roomId, pollId)),
+    context.redis.pubClient.unlink(weightsKey(roomId, pollId)),
     context.redis.pubClient.unlink(resultsKey(roomId, pollId)),
   ])
 }
@@ -379,12 +395,15 @@ export async function tryCastVote({
   pollId,
   userId,
   optionId,
+  weight = 1,
 }: {
   context: AppContext
   roomId: string
   pollId: string
   userId: string
   optionId: string
+  /** Stored only with the user's first vote on this poll; a changed vote keeps it. */
+  weight?: number
 }): Promise<TryCastVoteResult> {
   const poll = await getPoll({ context, roomId, pollId })
   if (!poll) {
@@ -408,12 +427,33 @@ export async function tryCastVote({
   const isFirstVote =
     (await context.redis.pubClient.hSet(votesKey(roomId, pollId), userId, optionId)) === 1
 
+  if (isFirstVote && weight > 1) {
+    await context.redis.pubClient.hSet(weightsKey(roomId, pollId), userId, String(weight))
+  }
+
   if (poll.settings.hideRunningTotal) {
     return { ok: true, isFirstVote, totalVotes: null }
   }
 
-  const totalVotes = await context.redis.pubClient.hLen(votesKey(roomId, pollId))
+  const totalVotes = await getLiveTotalVotes({ context, roomId, pollId })
   return { ok: true, isFirstVote, totalVotes }
+}
+
+export async function getPollVoteWeights({
+  context,
+  roomId,
+  pollId,
+}: {
+  context: AppContext
+  roomId: string
+  pollId: string
+}): Promise<Record<string, number>> {
+  const raw = await context.redis.pubClient.hGetAll(weightsKey(roomId, pollId))
+  const weights: Record<string, number> = {}
+  for (const [userId, value] of Object.entries(raw ?? {})) {
+    weights[userId] = Number(value)
+  }
+  return weights
 }
 
 export async function getPollVotes({
@@ -466,7 +506,13 @@ export async function getLiveTotalVotes({
   roomId: string
   pollId: string
 }): Promise<number> {
-  return context.redis.pubClient.hLen(votesKey(roomId, pollId))
+  const [voters, weights] = await Promise.all([
+    context.redis.pubClient.hLen(votesKey(roomId, pollId)),
+    getPollVoteWeights({ context, roomId, pollId }),
+  ])
+  let extra = 0
+  for (const userId of Object.keys(weights)) extra += voteWeight(weights, userId) - 1
+  return voters + extra
 }
 
 // =============================================================================

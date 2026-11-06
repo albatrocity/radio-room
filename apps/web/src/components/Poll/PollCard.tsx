@@ -361,6 +361,8 @@ function PollCard() {
               onVote={handleVote}
               formatOptionLabel={formatOptionLabel}
               optionIcon={optionIcon}
+              pairOptions={theme?.pairOptions?.(poll) ?? false}
+              exitOnRight={theme?.exitOnRight?.(poll) ?? false}
             />
           )}
         </Box>

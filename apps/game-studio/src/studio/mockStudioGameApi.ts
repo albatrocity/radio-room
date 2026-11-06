@@ -109,7 +109,9 @@ export class MockStudioGameSessionApi implements GameSessionPluginAPI {
 
     for (const { attribute, amount } of changes) {
       const scaled = scaleReward(amount, attribute, economy, intent)
-      const delta = evaluateModifiers(scaled, attribute, state.modifiers, now)
+      const delta = evaluateModifiers(scaled, attribute, state.modifiers, now, {
+        exact: intent === "exact",
+      })
       if (delta === null) {
         results.push(state.attributes[attribute] ?? 0)
         continue

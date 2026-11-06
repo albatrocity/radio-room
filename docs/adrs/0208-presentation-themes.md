@@ -33,6 +33,6 @@ Most listeners follow a road trip ([0210](0210-road-trips-v1.md)) through chat. 
 
 ## See also
 
-- [0212. Site narrative is chat prose, not a road sign](0212-site-narrative-chat.md) — `meta.type: "prose"` renders in `SystemMessage` before theme lookup and does not use the road-trip theme.
+- [0212. Site narrative is chat prose, not a road sign](0212-site-narrative-chat.md) — a site narrative whose system message is `site` renders as `meta.type: "site"` ([0229](0229-site-system-message.md)); other narrative stays `prose`. Both render in `SystemMessage` before theme lookup and do not use the road-trip theme.
 - [0221. Poll presentation can name its subject](0221-poll-presentation-subject-id.md) — optional `subjectId` on a plugin poll.
 - [0225. Poll presentation body](0225-poll-presentation-body.md) — optional `body` line under the headline.

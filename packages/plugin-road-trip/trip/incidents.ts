@@ -1,12 +1,16 @@
 import type {
   IncidentStep,
+  IncidentStepContext,
   NarrativeVariant,
   TripEvent,
   TriggerableIncidentId,
 } from "@repo/road-trip-map"
 import {
+  bookAt,
+  bookCreditLine,
   builtInEvent,
   compileEventSteps,
+  knowledgeCredit,
   eventChoice,
   eventRefuels,
   FUND_PURPOSE_LABELS,
@@ -42,7 +46,9 @@ import {
   gallonsLeft,
   installedPartIds,
   liveBlockers,
+  readersAt,
   refillShownAfterFill,
+  vanKnowledge,
   type ActiveIncident,
   type Blocker,
   type FundPayment,
@@ -256,7 +262,8 @@ function beginIncident(acc: Acc, rawCtx: TransitionContext, queued: QueuedIncide
   const named = { incident: event.id, source: queued.source, ...snapshot }
   const seq = state.incidentSeq + 1
   const parts = installedPartIds(state)
-  const steps = compileEventSteps(ctx.map, event, { mile: ctx.mile, parts })
+  const stepCtx = { mile: ctx.mile, parts, knowledge: vanKnowledge(state) }
+  const steps = compileEventSteps(ctx.map, event, stepCtx)
   if (steps.length === 0) {
     const part = event.effect ? immunePart(parts, snapshot.family) : undefined
     if (!part) return thenStartQueued(noteEvent(acc, ctx, event, queued.source, true), ctx)
@@ -291,14 +298,16 @@ function beginIncident(acc: Acc, rawCtx: TransitionContext, queued: QueuedIncide
   const entered = enterStep(started, ctx, incident, 0, { announceFund: false })
   const first = steps[0]!
   const fund = entered.next.fund?.incidentId === incident.id ? entered.next.fund : undefined
-  const hint = startHint(first, fund)
+  const body = [bookCredit(state, ctx, event, stepCtx), startHint(first, fund)]
+    .filter(Boolean)
+    .join(" ")
   const sign: TripEffect = {
     type: "sign",
     variant:
       first.kind === "slow" ? "warning" : first.kind === "choice" && !first.holds ? "info" : "error",
     icon: snapshot.icon,
     title: snapshot.name,
-    ...(hint ? { body: hint } : {}),
+    ...(body ? { body } : {}),
   }
   const narrative = prose(event.narrative, event.narrativeVariant)
   return {
@@ -326,6 +335,20 @@ function noteEvent(
     ],
     effects: [...acc.effects, ...(narrative ? [narrative] : [])],
   }
+}
+
+/** "Doug read Defensive Driving, so the jam isn't quite so slow." when a van book changed the incident. */
+function bookCredit(
+  state: TripState,
+  ctx: TransitionContext,
+  event: TripEvent,
+  stepCtx: IncidentStepContext,
+): string {
+  const series = knowledgeCredit(ctx.map, event, stepCtx)
+  const level = series ? stepCtx.knowledge?.[series] : undefined
+  const book = series && level ? bookAt(series, level) : undefined
+  if (!series || !level || !book) return ""
+  return bookCreditLine(book, readersAt(state, series, level))
 }
 
 function startHint(step: IncidentStep, fund: TripFund | undefined): string {

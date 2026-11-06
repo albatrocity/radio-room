@@ -5,6 +5,7 @@ import {
   clearActivePollId,
   getPollRecord,
   getPollVotes,
+  getPollVoteWeights,
   reduceVotesToResults,
   writePoll,
   writeResultsSnapshot,
@@ -74,11 +75,15 @@ export async function closePoll({
   }
 
   const closedAt = Date.now()
-  const votes = await getPollVotes({ context, roomId, pollId })
+  const [votes, weights] = await Promise.all([
+    getPollVotes({ context, roomId, pollId }),
+    getPollVoteWeights({ context, roomId, pollId }),
+  ])
   const results = reduceVotesToResults({
     pollId,
     options: poll.options,
     votes,
+    weights,
     closedAt,
   })
 

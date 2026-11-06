@@ -15,6 +15,7 @@ import { dispatch, targetKey, type VoteTarget } from "./flow"
 import { buildStatusLines, buildTripStore } from "./projection"
 import type { SkipVotes, TripLogEntry } from "./state"
 import { TripSim, type OpenPoll, type SimEvent, type SimStep } from "./testSim"
+import { narrateMessageMeta } from "./helpers"
 import { depart, endTrip, type TripEffect } from "./transitions"
 import { skipIncidentStep, triggerIncident, useIncidentItem } from "./incidents"
 import { layersToUnlock, openTripMap } from "./guide"
@@ -69,11 +70,7 @@ export function effectToChat(effect: TripEffect, at: number): ChatMessage | null
     )
   }
   if (effect.type === "narrate") {
-    return systemChat(
-      effect.body,
-      { type: "prose", ...(effect.variant ? { status: effect.variant } : {}) },
-      at,
-    )
+    return systemChat(effect.body, narrateMessageMeta(effect), at)
   }
   return null
 }

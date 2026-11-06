@@ -14,10 +14,10 @@ import {
 import type { ReactNode } from "react"
 import {
   isDestination,
-  NARRATIVE_VARIANTS,
+  SITE_NARRATIVE_VARIANTS,
   resolveSiteSettings,
   skipPollQuestion,
-  type NarrativeVariant,
+  type SiteNarrativeVariant,
   type TripMap,
   type TripMapInput,
   type TripOutcome,
@@ -49,8 +49,8 @@ type Props = {
   onRemove: () => void
 }
 
-function narrativeVariant(value: string): NarrativeVariant | undefined {
-  return NARRATIVE_VARIANTS.find((variant) => variant === value)
+function narrativeVariant(value: string): SiteNarrativeVariant | undefined {
+  return SITE_NARRATIVE_VARIANTS.find((variant) => variant === value)
 }
 
 /** A chat narrative and its system-message variant, for one lifecycle moment. */
@@ -61,9 +61,9 @@ function NarrativeFields({
   onChange,
 }: {
   text: string | undefined
-  variant: NarrativeVariant | undefined
+  variant: SiteNarrativeVariant | undefined
   helper: string
-  onChange: (text: string | undefined, variant: NarrativeVariant | undefined) => void
+  onChange: (text: string | undefined, variant: SiteNarrativeVariant | undefined) => void
 }) {
   return (
     <>
@@ -86,7 +86,7 @@ function NarrativeFields({
             onChange={(e) => onChange(text, narrativeVariant(e.target.value))}
           >
             <option value="">Plain</option>
-            {NARRATIVE_VARIANTS.map((v) => (
+            {SITE_NARRATIVE_VARIANTS.map((v) => (
               <option key={v} value={v}>
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </option>

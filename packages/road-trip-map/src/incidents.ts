@@ -8,6 +8,7 @@ import type {
   TripSite,
 } from "./schema"
 import { compileVan, itemsResolving } from "./van"
+import { BOOK_BUFFS, type BookSeries, type VanKnowledge } from "./books"
 
 /**
  * Trip events (ADR 0220): authored data compiled to a short step list, run one
@@ -203,6 +204,8 @@ export type IncidentStepContext = {
   mile: number
   /** Installed part short ids. */
   parts: readonly string[]
+  /** Van books read this trip (ADR 0228). */
+  knowledge?: VanKnowledge
 }
 
 const FUND_DEFAULTS: Record<IncidentFundPurpose, { provider: string; waivable: boolean }> = {
@@ -363,13 +366,17 @@ export function compileEventSteps(
   const hosted = effect.kind === "slow" ? eventChoice(event) : undefined
   if (effect.kind === "slow") {
     const jam = family === "jam" ? van.jam : null
+    const drivingFactor =
+      family === "jam" && (ctx.knowledge?.["defensive-driving"] ?? 0) >= 1
+        ? BOOK_BUFFS.defensiveDrivingJamFactor
+        : 0
     const resolvesWith = Array.from(
       new Set(chain.flatMap((entry) => (entry.kind === "item" ? itemsOf(entry) : []))),
     )
     steps.push({
       kind: "slow",
       label: effect.label ?? "Slowed down",
-      factor: jam ? Math.max(effect.factor, jam.factor) : effect.factor,
+      factor: Math.max(effect.factor, jam?.factor ?? 0, drivingFactor),
       ms: Math.round(minutesMs(event.durationMinutes ?? 0) * (jam?.durationScale ?? 1)),
       ...(resolvesWith.length > 0 ? { resolvesWith } : {}),
       ...(hosted ? { choice: hosted } : {}),
@@ -389,7 +396,34 @@ export function compileEventSteps(
     }
     steps.push(...resolutionSteps(map, entry, ctx))
   }
-  return steps
+  const mechanics = family === "engine" ? (ctx.knowledge?.mechanics ?? 0) : 0
+  const timeScale = BOOK_BUFFS.mechanicsTimeScale[mechanics]
+  if (timeScale === undefined) return steps
+  return steps.map((step) =>
+    step.kind === "wait" ? { ...step, ms: Math.round(step.ms * timeScale) } : step,
+  )
+}
+
+const SERIES_BY_FAMILY: Partial<Record<string, BookSeries>> = {
+  jam: "defensive-driving",
+  engine: "mechanics",
+}
+
+/**
+ * The van book that changed `event`'s steps here and now, so its readers get
+ * credit. Null when no book applies, or a part already does better (the horn
+ * beats Defensive Driving).
+ */
+export function knowledgeCredit(
+  map: TripMap,
+  event: TripEvent,
+  ctx: IncidentStepContext,
+): BookSeries | null {
+  const series = SERIES_BY_FAMILY[event.family ?? "none"]
+  if (!series || !ctx.knowledge?.[series]) return null
+  const withBook = compileEventSteps(map, event, ctx)
+  const without = compileEventSteps(map, event, { mile: ctx.mile, parts: ctx.parts })
+  return JSON.stringify(withBook) === JSON.stringify(without) ? null : series
 }
 
 /** The concrete steps for a built-in incident here and now; empty when a part makes the van immune. */

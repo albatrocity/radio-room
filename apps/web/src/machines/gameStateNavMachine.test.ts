@@ -283,20 +283,23 @@ describe("gameStateNavMachine", () => {
     expect(currentDetailFrame(actor.getSnapshot().context)?.source).toBe("shop")
   })
 
-  it("snaps on activate when the stored list already omits the current tab", () => {
+  it("ignores a tab list reported before the view is open so a deep link survives activate", () => {
     const actor = createActor(gameStateNavMachine).start()
-    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORAGE_TAB })
-    actor.send({
-      type: "SET_AVAILABLE_TABS",
-      tabIds: ["inventory", TRADES_GIFTS_TAB],
-    })
-    expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
-
-    actor.send({ type: "SET_ACTIVE_TAB", tabId: STORAGE_TAB })
+    // Closed surface (or the modal that mounts before the desktop breakpoint
+    // resolves) can report Inventory only, before plugin tabs exist.
+    actor.send({ type: "SET_AVAILABLE_TABS", tabIds: ["inventory"] })
+    actor.send({ type: "SET_ACTIVE_TAB", tabId: SHOP_TAB })
     actor.send({ type: "ACTIVATE" })
 
     expect(actor.getSnapshot().status).toBe("active")
-    expect(actor.getSnapshot().context.activeTabId).toBe("inventory")
+    expect(actor.getSnapshot().context.availableTabIds).toBeNull()
+    expect(actor.getSnapshot().context.activeTabId).toBe(SHOP_TAB)
+
+    actor.send({
+      type: "SET_AVAILABLE_TABS",
+      tabIds: ["inventory", SHOP_TAB, "road-trip:trip"],
+    })
+    expect(actor.getSnapshot().context.activeTabId).toBe(SHOP_TAB)
   })
 
   it("clears available tabs on deactivate so a trade deep-link is not snapped on reopen", () => {

@@ -256,7 +256,8 @@ export const gameStateNavMachine = setup({
       syncChildren(context, false)
     },
     /** Drop the list on close so ACTIVATE cannot snap using a stale set (e.g. trading
-     * enabled after a prior open, or Accept-toast deep-link before the surface reports). */
+     * enabled after a prior open, or Accept-toast deep-link before the surface reports).
+     * Lists reported while inactive are ignored for the same reason. */
     clearAvailableTabs: assign({
       availableTabIds: () => null as string[] | null,
     }),
@@ -289,13 +290,6 @@ export const gameStateNavMachine = setup({
     RECONCILE_INVENTORY_DETAILS: {
       actions: ["reconcileInventoryDetails", "syncChildrenIfActive"],
     },
-    SET_AVAILABLE_TABS: [
-      {
-        guard: "incomingTabsOmitCurrent",
-        actions: ["setAvailableTabs", "snapToInventory", "syncChildrenAfterSnap"],
-      },
-      { actions: "setAvailableTabs" },
-    ],
     SESSION_SNAPSHOT: {
       actions: ["assignSessionSnapshot", "syncChildrenIfActive"],
     },
@@ -319,6 +313,15 @@ export const gameStateNavMachine = setup({
         // to the tab index while it is still animating out. Reopening resumes
         // the detail view, the way the selected tab already persists.
         DEACTIVATE: "inactive",
+        // Ignored while inactive: a list from a closed or not-yet-mounted surface
+        // must not be waiting to snap the next deep link.
+        SET_AVAILABLE_TABS: [
+          {
+            guard: "incomingTabsOmitCurrent",
+            actions: ["setAvailableTabs", "snapToInventory", "syncChildrenAfterSnap"],
+          },
+          { actions: "setAvailableTabs" },
+        ],
         SET_ACTIVE_TAB: {
           actions: ["setActiveTab", "syncChildrenAfterTab"],
         },

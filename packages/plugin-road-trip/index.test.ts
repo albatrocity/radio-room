@@ -27,6 +27,7 @@ function createHarness() {
     body: string
     status?: string
     theme?: string
+    icon?: string
   }[] = []
   const emitted: Record<string, unknown>[] = []
   let activePoll: Poll | null = null
@@ -36,7 +37,8 @@ function createHarness() {
   const wallets: Record<string, number> = { host: 100, ada: 1_000 }
   /** Item definition ids each user holds. */
   const holdings: Record<string, string[]> = {}
-  const registeredItems: { shortId: string }[] = []
+  const registeredItems: { shortId: string; useLabel?: string }[] = []
+  const modifiers: Record<string, { id: string; name: string }[]> = {}
 
   const storage = {
     getJson: async (key: string) => {
@@ -89,6 +91,7 @@ function createHarness() {
         body: content,
         status: meta.status,
         theme: meta.theme,
+        icon: meta.icon,
       })
     }),
     sendUserSystemMessage: vi.fn(async () => {}),
@@ -124,6 +127,7 @@ function createHarness() {
       return { ok: true }
     }),
     tallyPoll: vi.fn(async (pollId: string) => votes.get(pollId) ?? {}),
+    queueSoundEffect: vi.fn(async () => {}),
     requestCapability: vi.fn(async (...args: unknown[]) => {
       shopCalls.push(args)
       return {
@@ -149,8 +153,19 @@ function createHarness() {
       getEconomyScale: vi.fn(async () => ({ costScale: 1, earnScale: 1 })),
       getUserState: async (userId: string) =>
         userId in wallets
-          ? { userId, attributes: { coin: wallets[userId], score: 0 }, modifiers: [] }
+          ? { userId, attributes: { coin: wallets[userId], score: 0 }, modifiers: modifiers[userId] ?? [] }
           : null,
+      applyTimedModifier: vi.fn(async (userId: string, _ms: number, modifier: any) => {
+        modifiers[userId] = [
+          ...(modifiers[userId] ?? []).filter((m) => m.name !== modifier.name),
+          { ...modifier, id: `mod-${modifier.name}` },
+        ]
+        return { success: true }
+      }),
+      removeModifier: vi.fn(async (userId: string, modifierId: string) => {
+        modifiers[userId] = (modifiers[userId] ?? []).filter((m) => m.id !== modifierId)
+        return true
+      }),
       addScore: vi.fn(async (userId: string, _attr: string, amount: number) => {
         wallets[userId] = (wallets[userId] ?? 0) + amount
         return wallets[userId]
@@ -178,6 +193,7 @@ function createHarness() {
     api,
     wallets,
     holdings,
+    modifiers,
     registeredItems,
     signs,
     emitted,
@@ -360,6 +376,11 @@ describe("RoadTripPlugin", () => {
     const poll = h.activePoll!
     expect(poll.question).toBe("Scenic Byway in 2 miles: take it?")
     expect(poll.presentation).toMatchObject({ eyebrow: "JUNCTION", headline: "SCENIC BYWAY" })
+    expect(h.api.queueSoundEffect).toHaveBeenLastCalledWith({
+      url: "https://cdn.listeningroom.club/assets/sfx/car-lock-beep.mp3",
+      volume: 0.6,
+      duck: true,
+    })
     expect(lastTrip(h).junctions).toEqual([
       expect.objectContaining({ routeId: "scenic-byway", state: "polling" }),
     ])
@@ -370,8 +391,10 @@ describe("RoadTripPlugin", () => {
     // Past the fork: on the byway, then the road-closed choice polls the room.
     await runUntil(plugin, h, T0 + 17 * MIN)
     expect(lastTrip(h).route).toEqual({ id: "scenic-byway", name: "Scenic Byway", icon: "🌲" })
+    const soundsBeforeChoice = h.api.queueSoundEffect.mock.calls.length
     await runUntil(plugin, h, T0 + 22.2 * MIN)
     expect(h.activePoll?.question).toBe("Take the detour?")
+    expect(h.api.queueSoundEffect.mock.calls.length).toBe(soundsBeforeChoice + 1)
 
     await runUntil(plugin, h, T0 + 60 * MIN)
     expect(lastTrip(h).status).toBe("arrived")
@@ -416,6 +439,12 @@ describe("RoadTripPlugin", () => {
       footnote: "No votes = keep driving",
       subjectId: "record-store",
     })
+    expect(h.api.queueSoundEffect).toHaveBeenCalledTimes(1)
+    expect(h.api.queueSoundEffect).toHaveBeenCalledWith({
+      url: "https://cdn.listeningroom.club/assets/sfx/car-lock-beep.mp3",
+      volume: 0.6,
+      duck: true,
+    })
     h.votes.set(poll.id, { "opt-stop": 1, "opt-skip": 4 })
 
     // The gas poll opens at 4:30 with the van due to arrive at 10%: urgent, defaults to stop.
@@ -429,16 +458,17 @@ describe("RoadTripPlugin", () => {
       footnote: "No votes = pull off",
       subjectId: "gas-n-go",
     })
+    expect(h.api.queueSoundEffect).toHaveBeenCalledTimes(2)
 
     // Parks at 6:00; the automatic levy splits 108 coins by wealth (1,000 / 100).
     await runUntil(plugin, h, T0 + 6 * MIN + 1)
     expect(lastTrip(h).live).toMatchObject({ kind: "fund", mode: "automatic", cost: 108 })
     expect(h.wallets).toEqual({ host: 90, ada: 902 })
-    expect(h.api.sendUserSystemMessage).toHaveBeenCalledWith(
+    expect(h.api.sendUserSystemMessage).not.toHaveBeenCalledWith(
       "room-1",
-      "ada",
-      "Gas took 9.8% of everyone's wallet. Your share: 98 coins.",
-      expect.objectContaining({ theme: "road-trip" }),
+      expect.anything(),
+      expect.stringContaining("Gas took"),
+      expect.anything(),
     )
 
     await runUntil(plugin, h, T0 + 10 * MIN)
@@ -471,7 +501,13 @@ describe("RoadTripPlugin", () => {
     const trip = lastTrip(h)
     expect(trip.status).toBe("arrived")
     expect(trip.arrivedAt).toBe(T0 + 18 * MIN)
-    expect(h.signs.map((s) => s.status)).toContain("success")
+    expect(h.signs).toContainEqual(
+      expect.objectContaining({
+        title: "Filled up at Gas 'n' Go",
+        body: expect.stringMatching(/108 coins, 9\.8% of the van's wallets\. .+ gal in the tank\./),
+        status: "success",
+      }),
+    )
     expect(trip.sites.find((s) => s.id === "record-store")?.state).toBe("skipped")
     expect(trip.sites.find((s) => s.id === "farmers-market")).toMatchObject({
       state: "visited",
@@ -486,9 +522,11 @@ describe("RoadTripPlugin", () => {
       "openRoomShop",
       "closeRoomShop",
     ])
-    expect(h.signs.filter((s) => s.type !== "prose").every((s) => s.theme === "road-trip")).toBe(
-      true,
-    )
+    expect(
+      h.signs
+        .filter((s) => s.type !== "prose" && s.type !== "site")
+        .every((s) => s.theme === "road-trip"),
+    ).toBe(true)
     expect(h.api.sendUserSystemMessage).toHaveBeenCalledWith(
       "room-1",
       "host",
@@ -507,13 +545,13 @@ describe("RoadTripPlugin", () => {
     expect((exported.data as { summary: { status: string } }).summary.status).toBe("arrived")
   })
 
-  it("posts a stop's narrative as prose, without the road-trip theme", async () => {
+  it("posts a stop's narrative as a site message, without the road-trip theme", async () => {
     const narrative =
       "In 1960, Alex Jordan opened his dream house built atop a chimney of rock to the public."
     const map = JSON.parse(BASE_MAP_JSON) as typeof SAMPLE_TRIP_MAP
     const record = map.sites.find((site) => site.id === "record-store")!
     record.narrative = narrative
-    record.narrativeVariant = "warning"
+    record.narrativeVariant = "site"
     const { plugin, h } = await setup()
     await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(map) })
     expect(await plugin.executeAction("depart", ADMIN)).toMatchObject({ success: true })
@@ -525,14 +563,17 @@ describe("RoadTripPlugin", () => {
 
     expect(h.signs).toContainEqual(
       expect.objectContaining({
-        type: "prose",
+        type: "site",
         body: narrative,
-        status: "warning",
+        status: undefined,
+        icon: "📀",
         theme: undefined,
       }),
     )
     expect(
-      h.signs.filter((sign) => sign.type !== "prose").every((sign) => sign.theme === "road-trip"),
+      h.signs
+        .filter((sign) => sign.type !== "prose" && sign.type !== "site")
+        .every((sign) => sign.theme === "road-trip"),
     ).toBe(true)
   })
 
@@ -584,6 +625,8 @@ describe("RoadTripPlugin", () => {
     expect(
       h.api.createPoll.mock.calls.filter((c) => c[0].question !== "Host poll").length,
     ).toBeGreaterThan(1)
+    // The pull-off never got the slot, so the chirp stays quiet.
+    expect(h.api.queueSoundEffect).not.toHaveBeenCalled()
   })
 
   it("holds the next site's sign and poll while pulling off just before it", async () => {
@@ -737,7 +780,14 @@ describe("RoadTripPlugin", () => {
         "fix-a-flat",
         "cb-radio",
         "trip-guide",
+        "gas-canister",
+        "investment-advice",
+        "negotiating-for-dummies",
+        "defensive-driving",
+        "basics-of-automobile-mechanics",
+        "advanced-automobile-mechanics",
       ])
+      expect(h.registeredItems.find((d) => d.shortId === "defensive-driving")?.useLabel).toBe("Read")
     })
 
     it("registers the trip's maps before checking site shops, and a map unlocks its layers (ADR 0227)", async () => {
@@ -793,6 +843,62 @@ describe("RoadTripPlugin", () => {
       expect(lastTrip(h).vanSheet.parts).toEqual([
         expect.objectContaining({ slot: "engine", partId: "turbocharger", installedBy: "ADA" }),
       ])
+    })
+
+    it("reads books for the trip and forgets reader buffs when it ends (ADR 0228)", async () => {
+      const { plugin, h } = await setup()
+      expect(await use(plugin, "ada", "investment-advice")).toEqual({
+        success: false,
+        consumed: false,
+        message: "Save it for a trip.",
+      })
+      await plugin.executeAction("loadMap", ADMIN, { mapJson: FULL_MAP_JSON })
+
+      expect(await use(plugin, "ada", "investment-advice")).toMatchObject({ success: true, consumed: true })
+      expect(h.modifiers.ada).toEqual([
+        expect.objectContaining({
+          name: "road-trip-book:investment",
+          effects: [{ type: "multiplier", target: "coin", value: 1.1, intent: "positive" }],
+          stackBehavior: "replace",
+          itemDefinitionId: "road-trip:investment-advice",
+        }),
+      ])
+      expect(await use(plugin, "ada", "investment-advice")).toEqual({
+        success: false,
+        consumed: false,
+        message: "You already know this stuff.",
+      })
+      expect(await use(plugin, "ada", "advanced-automobile-mechanics")).toEqual({
+        success: true,
+        consumed: true,
+        message: "All of this stuff kind of went over your head.",
+      })
+      expect(await use(plugin, "ada", "basics-of-automobile-mechanics")).toMatchObject({ success: true })
+      expect(h.modifiers.ada).toHaveLength(1)
+      expect(h.signs.map((s) => s.title)).toContain("ADA read The Basics of Automobile Mechanics")
+
+      await plugin.executeAction("depart", ADMIN)
+      expect((await plugin.executeAction("endTrip", ADMIN)).success).toBe(true)
+      expect(h.modifiers.ada).toEqual([])
+    })
+
+    it("pours a Gas Canister only while driving (ADR 0228)", async () => {
+      const { plugin, h } = await setup()
+      await plugin.executeAction("loadMap", ADMIN, { mapJson: BASE_MAP_JSON })
+      expect(await use(plugin, "ada", "gas-canister")).toEqual({
+        success: false,
+        consumed: false,
+        message: "Save it for the road.",
+      })
+      await plugin.executeAction("depart", ADMIN)
+      expect(await use(plugin, "ada", "gas-canister")).toEqual({
+        success: false,
+        consumed: false,
+        message: "The tank's already full.",
+      })
+      vi.setSystemTime(T0 + 30 * MIN)
+      expect(await use(plugin, "ada", "gas-canister")).toMatchObject({ success: true, consumed: true })
+      expect(h.signs.map((s) => s.title)).toContain("ADA poured in a Gas Canister")
     })
 
     it("a scripted flat nudges Fix-a-Flat holders, and using one patches it", async () => {

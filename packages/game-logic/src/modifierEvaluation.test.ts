@@ -35,3 +35,21 @@ describe("evaluateModifiers lock", () => {
     expect(evaluateModifiers(10, "coin", [expired], now)).toBe(10)
   })
 })
+
+describe("evaluateModifiers multiplier", () => {
+  const coinBoost = () =>
+    lockCoinModifier({ effects: [{ type: "multiplier", target: "coin", value: 1.1 }] })
+
+  it("scales a gain", () => {
+    expect(evaluateModifiers(100, "coin", [coinBoost()], Date.now())).toBe(110)
+    expect(evaluateModifiers(5, "coin", [coinBoost()], Date.now())).toBe(6)
+  })
+
+  it("leaves a charge alone", () => {
+    expect(evaluateModifiers(-40, "coin", [coinBoost()], Date.now())).toBe(-40)
+  })
+
+  it("leaves an exact credit alone", () => {
+    expect(evaluateModifiers(40, "coin", [coinBoost()], Date.now(), { exact: true })).toBe(40)
+  })
+})

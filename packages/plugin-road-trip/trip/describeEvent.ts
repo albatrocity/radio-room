@@ -1,8 +1,17 @@
-import { INCIDENT_PRESETS, isIncidentPresetId, vanConsumable, vanPart } from "@repo/road-trip-map"
+import {
+  GAS_CANISTER,
+  INCIDENT_PRESETS,
+  isIncidentPresetId,
+  tripBook,
+  vanConsumable,
+  vanPart,
+} from "@repo/road-trip-map"
 import type { TripLogEntry } from "./state"
 
 type IncidentEntry = Extract<TripLogEntry, { kind: "incident" }>
 type PartEntry = Extract<TripLogEntry, { kind: "part-installed" }>
+type BookEntry = Extract<TripLogEntry, { kind: "book-read" }>
+type FuelEntry = Extract<TripLogEntry, { kind: "fuel" }>
 
 /** The event's name and icon as logged; logs written before ADR 0220 fall back to the preset. */
 function incidentLabel(entry: IncidentEntry): { name: string; icon: string } {
@@ -46,9 +55,24 @@ export function describePartInstalled(entry: PartEntry): string {
   return `${part?.emoji ?? "🔧"} ${entry.name} installed ${part?.name ?? entry.partId}${replaced}`
 }
 
-/** Van events for the Trip tab log: part installs and incident steps. */
+export function describeBookRead(entry: BookEntry): string {
+  const book = tripBook(entry.shortId)
+  const title = book?.name ?? entry.shortId
+  return entry.learned
+    ? `${book?.emoji ?? "📖"} ${entry.name} read ${title}`
+    : `${book?.emoji ?? "📖"} ${entry.name} read ${title} (it went over their head)`
+}
+
+export function describePour(entry: FuelEntry): string {
+  const who = entry.name ? `${entry.name} poured` : "Poured"
+  return `${GAS_CANISTER.emoji} ${who} ${entry.gallons.toFixed(1)} gal from a ${GAS_CANISTER.name}`
+}
+
+/** Van events for the Trip tab log: part installs, books, pours, and incident steps. */
 export function describeVanEvent(entry: TripLogEntry): string | null {
   if (entry.kind === "incident") return describeIncident(entry)
   if (entry.kind === "part-installed") return describePartInstalled(entry)
+  if (entry.kind === "book-read") return describeBookRead(entry)
+  if (entry.kind === "fuel" && entry.level === "poured") return describePour(entry)
   return null
 }

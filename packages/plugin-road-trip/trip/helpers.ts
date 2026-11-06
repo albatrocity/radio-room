@@ -13,8 +13,11 @@ export type SignVariant = "info" | "success" | "warning" | "error"
 
 export type TripEffect =
   | { type: "sign"; variant: SignVariant; title: string; body?: string; icon?: string }
-  /** Site narrative. Chat prose, not a road sign. `variant` is the system-alert status. */
-  | { type: "narrate"; body: string; variant?: SignVariant }
+  /**
+   * Narrative. `icon` is set only when a site's system message is `site`
+   * (ADR 0229): that line posts with the site glyph. `variant` is an alert status.
+   */
+  | { type: "narrate"; body: string; variant?: SignVariant; icon?: string }
   | { type: "open-shop"; siteId: string; scopeId: string }
   | { type: "close-shop"; scopeId: string }
   | { type: "close-poll"; pollId: string }
@@ -27,6 +30,10 @@ export type TripEffect =
   | { type: "close-pool"; fundId: string }
   /** One private message to each online user holding any of `itemIds` (M4 discoverability). */
   | { type: "nudge-holders"; itemIds: string[]; message: string }
+  /** A reader-scope book was understood: apply its buff to the reader (ADR 0228). */
+  | { type: "book-buff"; userId: string; shortId: string }
+  /** The trip is over: take reader-scope book buffs back off these travelers. */
+  | { type: "forget-books"; userIds: string[] }
 
 export type TransitionContext = {
   now: number
@@ -175,26 +182,44 @@ export function tripNarrative(
     .sort((a, b) => a.at - b.at)
 }
 
+/** A site narrative whose system message is `site` carries the site glyph and no alert status. */
+function siteNarrate(
+  body: string,
+  icon: string,
+  variant: TripSite["narrativeVariant"],
+): TripEffect {
+  if (variant === "site") return { type: "narrate", body, icon }
+  return { type: "narrate", body, ...(variant ? { variant } : {}) }
+}
+
 /** Posted beside the exit sign, not as one. Only when the van actually stops. */
 export function narrate(site: TripSite): TripEffect | null {
   const body = siteNarrative(site)
   if (!body) return null
-  return {
-    type: "narrate",
-    body,
-    ...(site.narrativeVariant ? { variant: site.narrativeVariant } : {}),
-  }
+  return siteNarrate(body, site.icon, site.narrativeVariant)
 }
 
 /** Posted as the van pulls back onto the road, before departure outcomes. */
 export function departNarrate(site: TripSite): TripEffect | null {
   const body = siteDepartNarrative(site)
   if (!body) return null
-  return {
-    type: "narrate",
-    body,
-    ...(site.departNarrativeVariant ? { variant: site.departNarrativeVariant } : {}),
+  return siteNarrate(body, site.icon, site.departNarrativeVariant)
+}
+
+/** Chat meta for a `narrate` effect. An `icon` means the author picked the site message. */
+export function narrateMessageMeta(effect: Extract<TripEffect, { type: "narrate" }>): {
+  type: "site" | "prose"
+  icon?: string
+  status?: SignVariant
+} {
+  if (effect.icon) {
+    return {
+      type: "site",
+      icon: effect.icon,
+      ...(effect.variant ? { status: effect.variant } : {}),
+    }
   }
+  return { type: "prose", ...(effect.variant ? { status: effect.variant } : {}) }
 }
 
 export function milesLabel(miles: number): string {

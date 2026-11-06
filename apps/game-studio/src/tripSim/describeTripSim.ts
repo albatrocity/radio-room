@@ -2,6 +2,7 @@ import {
   FUND_PURPOSE_LABELS,
   INCIDENT_PRESETS,
   isIncidentPresetId,
+  tripBook,
   vanPart,
   type TripMap,
 } from "@repo/road-trip-map"
@@ -129,6 +130,7 @@ export function describeLogEntry(entry: TripLogEntry): string {
     case "fuel": {
       const gal = Math.round(entry.gallons * 10) / 10
       if (entry.level === "filled") return `⛽ Filled up (${gal} gal)`
+      if (entry.level === "poured") return `⛽ Poured ${gal} gal from a Gas Canister`
       return entry.level === "low" ? `⛽ Low fuel (${gal} gal)` : "⛽ Out of gas"
     }
     case "incident": {
@@ -138,6 +140,8 @@ export function describeLogEntry(entry: TripLogEntry): string {
     }
     case "part-installed":
       return `🔧 Installed ${vanPart(entry.partId)?.name ?? entry.partId}`
+    case "book-read":
+      return `📖 ${entry.name} read ${tripBook(entry.shortId)?.name ?? entry.shortId}${entry.learned ? "" : " (over their head)"}`
     case "arrived":
       return "🏁 Arrived"
     case "late":

@@ -33,7 +33,12 @@ interface InventoryUseButtonProps {
 }
 
 /** Must be a plain element — Popover.Trigger `asChild` cannot merge through a wrapper component. */
-function useTriggerButton(loading: boolean, onClick?: () => void, fullWidth = true) {
+function useTriggerButton(
+  loading: boolean,
+  onClick?: () => void,
+  fullWidth = true,
+  label = "Use",
+) {
   return (
     <Button
       size="sm"
@@ -43,7 +48,7 @@ function useTriggerButton(loading: boolean, onClick?: () => void, fullWidth = tr
       loading={loading}
       onClick={onClick}
     >
-      Use
+      {label}
     </Button>
   )
 }
@@ -67,6 +72,7 @@ function TargetThenFormUse({
   useLoading,
   onUse,
   fullWidth,
+  label,
 }: {
   itemId: string
   requiresTarget: NonNullable<ItemDefinition["requiresTarget"]>
@@ -77,11 +83,12 @@ function TargetThenFormUse({
   useLoading: boolean
   onUse: (extra?: UseExtra) => void
   fullWidth: boolean
+  label: string
 }) {
   const [phase, setPhase] = useState<TargetThenFormPhase>("pick")
   const [pendingTarget, setPendingTarget] = useState<UseExtra | null>(null)
   const formOpen = phase === "form" && pendingTarget != null
-  const trigger = useTriggerButton(useLoading, undefined, fullWidth)
+  const trigger = useTriggerButton(useLoading, undefined, fullWidth, label)
 
   const beginForm = (extra: UseExtra) => {
     setPendingTarget(extra)
@@ -202,10 +209,12 @@ export function InventoryUseButton({
   fullWidth = true,
 }: InventoryUseButtonProps) {
   const useForm = definition?.useForm
+  const label = definition?.useLabel ?? "Use"
 
   if (requiresTarget && shouldPickTargetThenForm(requiresTarget, definition) && useForm) {
     return (
       <TargetThenFormUse
+        label={label}
         itemId={itemId}
         requiresTarget={requiresTarget}
         useForm={useForm}
@@ -227,7 +236,7 @@ export function InventoryUseButton({
         coinBalance={coinBalance}
         onConfirm={(formValues) => onUse({ formValues })}
       >
-        {useTriggerButton(useLoading, undefined, fullWidth)}
+        {useTriggerButton(useLoading, undefined, fullWidth, label)}
       </ItemUseFormPopover>,
     )
   }
@@ -237,7 +246,7 @@ export function InventoryUseButton({
       return wrapFullWidth(
         fullWidth,
         <InventoryUseQueueItemPicker onPick={(targetQueueItemId) => onUse({ targetQueueItemId })}>
-          {useTriggerButton(useLoading, undefined, fullWidth)}
+          {useTriggerButton(useLoading, undefined, fullWidth, label)}
         </InventoryUseQueueItemPicker>,
       )
     case "storedArtifact":
@@ -247,7 +256,7 @@ export function InventoryUseButton({
           definitionMap={definitionMap}
           onPick={(targetArtifactId) => onUse({ targetArtifactId })}
         >
-          {useTriggerButton(useLoading, undefined, fullWidth)}
+          {useTriggerButton(useLoading, undefined, fullWidth, label)}
         </InventoryUseStashTargetPicker>,
       )
     case "user":
@@ -257,7 +266,7 @@ export function InventoryUseButton({
           size="sm"
           onPick={(targetUserId) => onUse({ targetUserId })}
         >
-          {useTriggerButton(useLoading, undefined, fullWidth)}
+          {useTriggerButton(useLoading, undefined, fullWidth, label)}
         </InventoryTargetUserPopover>
       )
     case "userInventoryItem":
@@ -270,7 +279,7 @@ export function InventoryUseButton({
             onUse({ targetUserId, targetInventoryItemId })
           }
         >
-          {useTriggerButton(useLoading, undefined, fullWidth)}
+          {useTriggerButton(useLoading, undefined, fullWidth, label)}
         </UserInventoryItemPicker>,
       )
     case "inventoryItems": {
@@ -285,7 +294,7 @@ export function InventoryUseButton({
           capacity={actingDef?.storageCapacity ?? 1}
           onConfirm={(targetInventoryItemIds) => onUse({ targetInventoryItemIds })}
         >
-          {useTriggerButton(useLoading, undefined, fullWidth)}
+          {useTriggerButton(useLoading, undefined, fullWidth, label)}
         </InventoryItemStoragePopover>,
       )
     }
@@ -298,10 +307,10 @@ export function InventoryUseButton({
           definitionMap={definitionMap}
           onPick={(targetInventoryItemId) => onUse({ targetInventoryItemId })}
         >
-          {useTriggerButton(useLoading, undefined, fullWidth)}
+          {useTriggerButton(useLoading, undefined, fullWidth, label)}
         </UseTargetPopover>,
       )
     default:
-      return useTriggerButton(useLoading, () => onUse(), fullWidth)
+      return useTriggerButton(useLoading, () => onUse(), fullWidth, label)
   }
 }

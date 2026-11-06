@@ -1,7 +1,7 @@
 # 0212. Site narrative is chat prose, not a road sign
 
 **Date:** 2026-10-18
-**Status:** Accepted
+**Status:** Accepted (amended by [0229](0229-site-system-message.md))
 
 ## Context
 
@@ -37,9 +37,14 @@ Narrative is also gathered into a trip summary, so the story isn't lost once it 
 - **Game Studio.** studio-bridge's road-trip fixtures carry preview narrative on visited sites, because the sample map has none.
 - **Van events (2026-10-24).** `TripStore.events` adds part installs and incident steps from the trip log. They use the same wording as the export timeline (`trip/describeEvent.ts`). The Trip tab slots each event between sites by mile. The Trip tab sets the new `fillHeight` flag on its tab definition (`PluginTabComponent.fillHeight`), so it fills the Game surface the way the Storage tab does. Its header (title, meta, route line) stays fixed above the log. The log scrolls in its own `ScrollShadowViewport` and stays pinned to its newest entries with `use-stick-to-bottom`, like chat.
 
+## Amendment (2026-11-02): site messages
+
+[0229](0229-site-system-message.md) adds `site` to the system-message select on arrival and departure narrative. That choice posts as `meta.type: "site"` with the site's icon, in the info-alert row, and it is still not a road sign. Plain and the alert statuses stay as they were. Event and choice narrative stay `prose`.
+
 ## See also
 
 - [0205. Road trips v1](0205-road-trips-v1.md)
 - [0207. Trip Maps as portable JSON](0207-trip-maps-portable-json.md)
 - [0208. Presentation themes](0208-presentation-themes.md)
 - [0226. Site departure narrative](0226-site-departure-narrative.md) — `narrative` is the on-visit prose; `departNarrative` posts on leave
+- [0229. Site system messages](0229-site-system-message.md) — arrival and departure render as `meta.type: "site"`

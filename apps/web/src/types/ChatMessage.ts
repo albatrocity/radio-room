@@ -11,7 +11,7 @@ export type ChatMessage = {
   reactions?: Reaction["type"][]
   meta?: {
     status?: "error" | "success" | "warning" | "info"
-    type?: "alert" | "prose" | null
+    type?: "alert" | "prose" | "site" | null
     title?: string | null
     /** Anonymous attribution ids for X-Ray pierce (ADR 0149). */
     maskedUserIds?: string[]

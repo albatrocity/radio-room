@@ -89,6 +89,40 @@ describe("SystemMessage prose", () => {
   })
 })
 
+describe("SystemMessage site", () => {
+  it("stays an info-style row with the site icon, even when a road-trip theme is set", () => {
+    harness.peek = false
+    harness.username = "ada"
+    const html = render(
+      <SystemMessage
+        {...prose(
+          { type: "site", icon: "📀", theme: "road-trip" },
+          { content: "The bell over the door jangles." },
+        )}
+      />,
+    )
+    expect(html).toContain('data-site-message=""')
+    expect(html).toContain("📀")
+    expect(html).toContain("The bell over the door jangles.")
+    expect(html).not.toContain("data-road-sign")
+  })
+
+  it("draws a Lucide icon when the site glyph names one", () => {
+    harness.peek = false
+    const html = render(
+      <SystemMessage
+        {...prose(
+          { type: "site", status: "warning", icon: "Map" },
+          { content: "A gravel pull-off." },
+        )}
+      />,
+    )
+    expect(html).toContain('data-site-message=""')
+    expect(html).toContain("<svg")
+    expect(html).not.toContain(">Map<")
+  })
+})
+
 describe("SystemMessage action", () => {
   it("renders the action button under a themed alert", () => {
     harness.peek = false

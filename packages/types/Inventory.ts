@@ -602,6 +602,8 @@ export interface ItemDefinition {
    * and coerces values against this schema before dispatch (ADR 0187).
    */
   useForm?: PluginActionFormField[]
+  /** Inventory use button label ("Read" for books). The UI shows "Use" when omitted. */
+  useLabel?: string
   /**
    * When set, holding this item passively blocks matching modifiers / queue
    * moves; one block consumes one from stack `quantity`.

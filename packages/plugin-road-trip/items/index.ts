@@ -1,6 +1,12 @@
 import type { ItemDefinition, LucideIconName } from "@repo/types"
 import {
+  BOOK_IDS,
+  BOOK_USE_LABEL,
   EVENT_FAMILY_LABELS,
+  GAS_CANISTER,
+  TRIP_BOOKS,
+  VAN_FUEL_ITEMS,
+  vanFuelItem,
   tripGuideItem,
   isTripMapItemShortId,
   tripMapForItem,
@@ -12,10 +18,12 @@ import {
   VAN_PARTS,
   type TripMap,
 } from "@repo/road-trip-map"
+import { routeRead } from "../trip/books"
 import { contextFor } from "../trip/commit"
 import { guideRevealTargets, layersToUnlock } from "../trip/guide"
 import { itemEndsCurrentStep } from "../trip/incidents"
 import type { TripState } from "../trip/state"
+import { pourRefusal } from "../trip/transitions"
 
 type RoadTripItemDefinition = Omit<ItemDefinition, "id" | "sourcePlugin">
 
@@ -28,6 +36,12 @@ const ICONS: Record<string, LucideIconName> = {
   [VAN_ITEM_IDS.fixAFlat]: "SprayCan",
   [VAN_ITEM_IDS.cbRadio]: "Radio",
   [VAN_ITEM_IDS.tripGuide]: "BookOpen",
+  [GAS_CANISTER.shortId]: "Fuel",
+  [BOOK_IDS.investmentAdvice]: "TrendingUp",
+  [BOOK_IDS.negotiating]: "Handshake",
+  [BOOK_IDS.defensiveDriving]: "Shield",
+  [BOOK_IDS.basicMechanics]: "Wrench",
+  [BOOK_IDS.advancedMechanics]: "GraduationCap",
 }
 
 /**
@@ -92,6 +106,37 @@ export const ROAD_TRIP_ITEM_DEFINITIONS: RoadTripItemDefinition[] = [
       ...modelFields(item.shortId),
     }),
   ),
+  ...VAN_FUEL_ITEMS.map(
+    (item): RoadTripItemDefinition => ({
+      shortId: item.shortId,
+      name: item.name,
+      description: item.description,
+      icon: ICONS[item.shortId],
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: true,
+      coinValue: item.coinValue,
+      rarity: "common",
+      ...modelFields(item.shortId),
+    }),
+  ),
+  ...TRIP_BOOKS.map(
+    (book): RoadTripItemDefinition => ({
+      shortId: book.shortId,
+      name: book.name,
+      description: book.description,
+      icon: ICONS[book.shortId],
+      stackable: true,
+      maxStack: 3,
+      tradeable: true,
+      consumable: true,
+      useLabel: BOOK_USE_LABEL,
+      coinValue: book.coinValue,
+      rarity: book.rarity,
+      ...modelFields(book.shortId),
+    }),
+  ),
 ]
 
 export type RoadTripItemUse =
@@ -101,19 +146,34 @@ export type RoadTripItemUse =
   | { kind: "unlock-layers"; shortId: string }
   /** Trip Guide: reveal the non-secret sites ahead (ADR 0222). */
   | { kind: "reveal-ahead"; shortId: string }
+  /** A book (ADR 0228); `learned` false when it goes over the reader's head (still spent). */
+  | { kind: "read"; shortId: string; learned: boolean }
+  /** Gas Canister: pour its gallons into the tank (ADR 0228). */
+  | { kind: "pour"; shortId: string; gallons: number }
   | { kind: "refused"; message: string }
 
 /**
  * What using `shortId` does right now, or why it can't (the item is kept).
  * Checked before the CAS for the message; the transition re-checks. `map` is
- * the authored map.
+ * the authored map; `userId` is the reader, for books.
  */
 export function routeItemUse(
   state: TripState | null,
   shortId: string,
   map?: TripMap,
   now = Date.now(),
+  userId?: string,
 ): RoadTripItemUse {
+  const read = userId !== undefined ? routeRead(state, shortId, userId) : null
+  if (read) return read.kind === "read" ? { kind: "read", shortId, learned: read.learned } : read
+  const fuel = vanFuelItem(shortId)
+  if (fuel) {
+    if (!state || !map) return { kind: "refused", message: "Save it for the road." }
+    const refusal = pourRefusal(state, contextFor(state, map, now).gallonsUsed)
+    return refusal
+      ? { kind: "refused", message: refusal }
+      : { kind: "pour", shortId, gallons: fuel.gallons }
+  }
   const live = state && map && (state.status === "loaded" || state.status === "driving")
   if (isTripMapItemShortId(shortId)) {
     if (!live) return { kind: "refused", message: "Save it for a trip." }

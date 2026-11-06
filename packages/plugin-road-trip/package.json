@@ -25,6 +25,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
+    "@repo/game-logic": "*",
     "@repo/plugin-base": "*",
     "@repo/road-trip-map": "*",
     "@repo/types": "*",

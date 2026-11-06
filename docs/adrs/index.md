@@ -217,7 +217,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0209](0209-trip-funds-escrow-pool-and-levy.md) | Trip funds: shared `EscrowPoolHelper` and proportional levy in plugin-base, `pool-card`, short funds still served, fuel on the ledger (amends [0188](0188-kickstarter-campaigns-coin-escrow.md)) | Accepted |
 | [0210](0210-shared-model-viewer-and-studio-site-assets.md) | Shared `@repo/model-viewer` (sole `three` importer) for items and sites; Game Studio publishes content-addressed site art to the CDN with designer credentials (extends 0199, amends 0207) | Accepted |
 | [0211](0211-trip-timeline-room-export.md) | Trip timeline in the room export | Accepted |
-| [0212](0212-site-narrative-chat.md) | Site narrative is chat prose, not a road sign | Accepted (arrival order amendment 2026-10-19) |
+| [0212](0212-site-narrative-chat.md) | Site narrative is chat prose, not a road sign | Accepted (arrival order amendment 2026-10-19). Amended by [0229](0229-site-system-message.md) (arrival and departure render as `site` messages) |
 | [0213](0213-game-studio-trip-simulator.md) | Game Studio trip simulator steps the pure trip runtime (`TripSim.stepNext`, `@repo/plugin-road-trip/sim`, `POST /trip-sim`) | Accepted (shop rounds amendment 2026-10-19) |
 | [0214](0214-physical-media-carry.md) | Physical media carry (`{ formats?, genres? }`) on trip site services and shop entries; record genres from Navidrome; trips stop naming catalog shops (partially supersedes 0206, 0207) | Accepted (amended by [0216](0216-record-picks.md): the carry moves under `library`) |
 | [0215](0215-van-shared-playback-formats.md) | The van shares playback formats while a trip map is loaded (`tuning.vanPlayback`, `shopAccess.setSharedPlayback`; amends 0160) | Accepted |
@@ -233,6 +233,8 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0225](0225-poll-presentation-body.md) | Poll presentation `body`: the sentence under a themed poll's headline (amends 0208) | Accepted |
 | [0226](0226-site-departure-narrative.md) | Site `departNarrative` posts when the van leaves a stop, before `onDepart` outcomes; `narrative` is the on-visit prose (amends 0212, 0223) | Accepted |
 | [0227](0227-trip-defined-maps.md) | Trip-defined maps (`map.maps`, `road-trip:map-{id}`) unlock every locked layer that opts in via `layers[].maps`; replaces Local Map and `unlockItems` (partially supersedes 0222) | Accepted |
+| [0228](0228-trip-books-gas-canister-weighted-votes.md) | Trip books (series levels, reader buffs cleared at trip end, van knowledge credited on incident signs), a driving-only Gas Canister that tops up without resolving anything, multipliers on positive gains only, `shop:price` modifiers, and one-shot weighted poll votes | Accepted |
+| [0229](0229-site-system-message.md) | Site system messages: the site narrative System message select can post the info-alert row with the site icon (amends 0212) | Accepted |
 
 ## Creating a New ADR
 

@@ -251,6 +251,42 @@ describe("poll operations", () => {
       expect(swap).toMatchObject({ ok: true, isFirstVote: false, totalVotes: 1 })
       expect(emit).not.toHaveBeenCalled()
     })
+
+    it("spends a Pizza Slice charge on the first vote and counts it twice", async () => {
+      const charge = {
+        id: "pizza-1",
+        name: "pizza-slice",
+        source: "item-shops",
+        effects: [{ type: "flag", name: "double_vote", value: true }],
+        startAt: 0,
+        endAt: Date.now() + 60_000,
+        stackBehavior: "replace",
+      }
+      const removeModifier = vi.fn().mockResolvedValue(true)
+      const getUserState = vi.fn().mockResolvedValue({ modifiers: [charge] })
+      context.gameSessions = { getUserState, removeModifier }
+
+      const first = await castVote({
+        context,
+        roomId: "room-1",
+        pollId: poll.id,
+        userId: "u1",
+        optionId: poll.options[0]!.id,
+      })
+      expect(first).toMatchObject({ ok: true, isFirstVote: true, totalVotes: 2 })
+      expect(removeModifier).toHaveBeenCalledWith("room-1", "u1", "pizza-1")
+
+      removeModifier.mockClear()
+      const swap = await castVote({
+        context,
+        roomId: "room-1",
+        pollId: poll.id,
+        userId: "u1",
+        optionId: poll.options[1]!.id,
+      })
+      expect(swap).toMatchObject({ ok: true, isFirstVote: false, totalVotes: 2 })
+      expect(removeModifier).not.toHaveBeenCalled()
+    })
   })
 
   describe("closePoll", () => {

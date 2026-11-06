@@ -27,6 +27,13 @@ export type PollTheme = {
   optionLabel: (poll: Poll, option: PollOption) => string
   /** Leading icon for an option, on the vote buttons and the results bars. */
   optionIcon?: (poll: Poll, option: PollOption) => ElementType | undefined
+  /**
+   * Lay this poll's vote buttons in a row when the chat column is wide enough.
+   * A narrow column, including phones, keeps them stacked.
+   */
+  pairOptions?: (poll: Poll) => boolean
+  /** In that row, put the first option on the right. Stacked order stays put. */
+  exitOnRight?: (poll: Poll) => boolean
   /** Replaces the plain `closesAt` ExpiryBar on the expanded card. */
   CloseBar: ComponentType<{ poll: Poll; endAt: number }>
   Footer?: ComponentType<{ poll: Poll }>

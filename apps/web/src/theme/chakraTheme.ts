@@ -1,5 +1,6 @@
 // Chakra UI v3 theme configuration with dynamic theme support
 import { createSystem, defaultConfig, defineConfig, defineRecipe } from "@chakra-ui/react"
+import { BROWN_COLOR_TOKENS, BROWN_SEMANTIC_TOKENS } from "@repo/game-logic"
 import themes from "../themes"
 import type { AppTheme } from "../types/AppTheme"
 import { listItemUserRecipe } from "./listItemUserRecipe"
@@ -206,12 +207,13 @@ const config = defineConfig({
         heading: { value: '"Nunito", sans-serif' },
         handwriting: { value: '"Caveat", cursive' },
       },
-      colors: colorTokens,
+      colors: { ...colorTokens, brown: BROWN_COLOR_TOKENS },
     },
     semanticTokens: {
       colors: {
         // Dynamic theme colors with all shades and palette tokens
         ...semanticColorTokens,
+        brown: BROWN_SEMANTIC_TOKENS,
 
         // Additional app-specific semantic tokens (using palette tokens)
         appBg: {

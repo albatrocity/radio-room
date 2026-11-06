@@ -12,6 +12,7 @@ import {
 } from "./helpers"
 import {
   gallonsLeft,
+  personalBookReaderIds,
   type Blocker,
   type TripFund,
   type TripLogEvent,
@@ -144,6 +145,8 @@ export function closeOpenWork(acc: FlowAcc, emit: Emit): FlowAcc {
   const effects: TripEffect[] = []
   if (state.shopScopeId) effects.push({ type: "close-shop", scopeId: state.shopScopeId })
   if (state.fund?.mode === "voluntary") effects.push({ type: "close-pool", fundId: state.fund.id })
+  const readers = personalBookReaderIds(state)
+  if (readers.length > 0) effects.push({ type: "forget-books", userIds: readers })
   return {
     next: {
       ...state,

@@ -13,6 +13,7 @@ import {
   getPoll,
   getPollHistoryEntries,
   getPollHistorySince,
+  getPollVoteWeights,
   getResultsSnapshot,
   listPollIds,
   reduceVotesToResults,
@@ -96,6 +97,20 @@ describe("reduceVotesToResults", () => {
     })
 
     expect(results.winners).toEqual(["a", "b", "c"])
+  })
+
+  it("adds weighted voters to tallies and the total", () => {
+    const results = reduceVotesToResults({
+      pollId: "p1",
+      options,
+      votes: { u1: "a", u2: "b", u3: "b" },
+      weights: { u1: 2 },
+      closedAt: 9_000,
+    })
+
+    expect(results.optionTallies).toEqual({ a: 2, b: 2, c: 0 })
+    expect(results.totalVotes).toBe(4)
+    expect(results.winners).toEqual(["a", "b"])
   })
 
   it("pads zero-vote options into optionTallies", () => {
@@ -202,6 +217,24 @@ describe("polls data layer", () => {
       expect(await getMyVote({ context, roomId: "room-1", pollId: "poll-1", userId: "u1" })).toBe(
         "opt-b",
       )
+    })
+
+    it("counts a weighted first vote twice and keeps the weight across a change", async () => {
+      const ids = { context, roomId: "room-1", pollId: "poll-1" }
+      const first = await tryCastVote({ ...ids, userId: "u1", optionId: "opt-a", weight: 2 })
+      expect(first).toEqual({ ok: true, isFirstVote: true, totalVotes: 2 })
+
+      await tryCastVote({ ...ids, userId: "u2", optionId: "opt-b" })
+      const changed = await tryCastVote({ ...ids, userId: "u1", optionId: "opt-b", weight: 1 })
+      expect(changed).toEqual({ ok: true, isFirstVote: false, totalVotes: 3 })
+      expect(await getPollVoteWeights(ids)).toEqual({ u1: 2 })
+    })
+
+    it("ignores a weight on a changed vote", async () => {
+      const ids = { context, roomId: "room-1", pollId: "poll-1" }
+      await tryCastVote({ ...ids, userId: "u1", optionId: "opt-a" })
+      await tryCastVote({ ...ids, userId: "u1", optionId: "opt-b", weight: 2 })
+      expect(await getLiveTotalVotes(ids)).toBe(1)
     })
 
     it("rejects vote on closed poll", async () => {

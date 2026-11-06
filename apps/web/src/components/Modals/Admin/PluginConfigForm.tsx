@@ -40,6 +40,12 @@ function modeButtonLabel(mode: ConfigImportMode, itemNoun: string): string {
   return mode === "replace" ? `Replace ${itemNoun}` : `Append ${itemNoun}`
 }
 
+/**
+ * Load map validates every site shop and may page the whole Navidrome catalog
+ * before PLUGIN_ACTION_RESULT. 10s fired the timeout toast while that was still running.
+ */
+const PLUGIN_ACTION_TIMEOUT_MS = 30_000
+
 type PluginActionResultData = {
   success: boolean
   message?: string
@@ -129,7 +135,7 @@ function ActionButton({
           subscriptionIdRef.current = null
           toaster.create({ title: "Timeout", description: "Action timed out", type: "error" })
         }
-      }, 10000)
+      }, PLUGIN_ACTION_TIMEOUT_MS)
     },
     [element.action, pluginName],
   )

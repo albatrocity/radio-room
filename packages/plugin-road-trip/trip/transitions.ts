@@ -373,6 +373,48 @@ export function resolveFund(fundId: string, outcome: FundOutcome): Transition {
   }
 }
 
+/** Why a Gas Canister can't be poured now, or null when it can (ADR 0228). */
+export function pourRefusal(state: TripState, gallonsUsed: number): string | null {
+  if (state.status !== "driving") return "Save it for the road."
+  if (state.fuelFlags.includes("empty")) return "The tank's dry. Help is already on the way."
+  if (gallonsLeft(state, gallonsUsed) >= state.tankGallons - 1e-6) return "The tank's already full."
+  return null
+}
+
+/**
+ * Gas Canister (ADR 0228): pour `gallons` into the tank while driving, capped
+ * at the tank. Never ends an incident or a fund, and never skips a stop.
+ */
+export function pourGas(gallons: number, user: { userId: string; name: string }): Transition {
+  return (state, ctx) => {
+    if (pourRefusal(state, ctx.gallonsUsed)) return null
+    const before = Math.max(0, gallonsLeft(state, ctx.gallonsUsed))
+    const after = Math.min(state.tankGallons, before + gallons)
+    const added = after - before
+    const shown = refillShownAfterFill(state, before, ctx.now)
+    const lowLine = fuelLine(state, ctx.map, "low")
+    const next: TripState = {
+      ...state,
+      lastFill: { gallons: after, gallonsUsed: ctx.gallonsUsed, ...(shown ? { shown } : {}) },
+      fuelFlags: after > lowLine + 1e-6 ? state.fuelFlags.filter((f) => f !== "low") : state.fuelFlags,
+    }
+    const gal = Math.round(added * 10) / 10
+    return {
+      next,
+      log: [{ kind: "fuel", level: "poured", gallons: added, name: user.name }],
+      effects: [
+        {
+          type: "sign",
+          variant: "success",
+          icon: "⛽",
+          title: `${user.name} poured in a Gas Canister`,
+          body: `${gal} gal in the tank · ${pct(after, state.tankGallons)}%`,
+        },
+      ],
+    }
+  }
+}
+
 /** Line the tank level crosses for a fuel threshold, in gallons. */
 export function fuelLine(state: TripState, map: TripMap, level: FuelLevel): number {
   return level === "low" ? map.tuning.lowFuelPct * state.tankGallons : 0

@@ -43,6 +43,7 @@ describe("ItemShopsPlugin.contributeToUserGameState", () => {
       api: {},
       game: {
         getActiveSession: vi.fn(async () => null),
+        getUserState: vi.fn(async () => null),
       },
       inventory: {},
     } as any
@@ -152,6 +153,7 @@ describe("ItemShopsPlugin.referencedItemDefinitionIdsForUser", () => {
       api: {},
       game: {
         getActiveSession: vi.fn(async () => null),
+        getUserState: vi.fn(async () => null),
       },
       inventory: {},
     } as any

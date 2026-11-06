@@ -191,6 +191,34 @@ export const TRIP_GUIDE_ITEMS: readonly TripGuideItemSpec[] = [
   },
 ]
 
+/**
+ * Fuel the van carries (ADR 0228): poured in while driving, never more than
+ * the tank holds. It never ends an incident or a fund.
+ */
+export type VanFuelSpec = {
+  shortId: string
+  name: string
+  emoji: string
+  description: string
+  coinValue: number
+  gallons: number
+}
+
+export const GAS_CANISTER: VanFuelSpec = {
+  shortId: "gas-canister",
+  name: "Gas Canister",
+  emoji: "⛽",
+  description: "Pour 3 gallons into the tank while the van is driving. It won't fill past full.",
+  coinValue: 40,
+  gallons: 3,
+}
+
+export const VAN_FUEL_ITEMS: readonly VanFuelSpec[] = [GAS_CANISTER]
+
+export function vanFuelItem(shortId: string): VanFuelSpec | undefined {
+  return VAN_FUEL_ITEMS.find((item) => item.shortId === shortId)
+}
+
 export function tripGuideItem(shortId: string): TripGuideItemSpec | undefined {
   return TRIP_GUIDE_ITEMS.find((item) => item.shortId === shortId)
 }

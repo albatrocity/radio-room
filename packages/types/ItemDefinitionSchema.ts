@@ -31,6 +31,8 @@ export const itemDefinitionAuthoringSchema = z.object({
   gentlePlayback: z.boolean().optional(),
   /** Max stash content entries; presence marks a reusable container (ADR 0179). */
   storageCapacity: z.number().int().positive().optional(),
+  /** Inventory use button label ("Read" for books); "Use" when omitted. */
+  useLabel: z.string().min(1).max(20).optional(),
   detailView: z
     .object({
       actionLabel: z.string().optional(),

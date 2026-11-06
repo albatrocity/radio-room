@@ -19,6 +19,20 @@ const mentionCss = {
   },
 } as const
 
+/** Site glyph for a `site` message: a Lucide icon when `icon` names one, otherwise the emoji. */
+function SiteGlyph({ icon }: { icon?: string }) {
+  const LucideIcon = icon ? getIcon(icon) : undefined
+  if (LucideIcon) {
+    return <Icon as={LucideIcon} boxSize={5} flexShrink={0} aria-hidden />
+  }
+  if (!icon) return null
+  return (
+    <Text as="span" fontSize="xl" lineHeight={1} flexShrink={0} aria-hidden>
+      {icon}
+    </Text>
+  )
+}
+
 function MessageActionButton({ action }: { action: ChatMessageAction }) {
   return (
     <Button
@@ -118,6 +132,31 @@ const SystemMessage = ({ content, timestamp, meta = {}, mentions = [] }: ChatMes
           </Text>
         </HStack>
       </Flex>
+    )
+  }
+
+  if (type === "site") {
+    return (
+      <Alert.Root
+        status={status ?? "info"}
+        bg="secondaryBg"
+        color="secondaryText"
+        borderRadius={0}
+        alignItems="flex-start"
+        w="full"
+        data-site-message=""
+        data-mention={isMention || undefined}
+        css={mentionCss}
+      >
+        <SiteGlyph icon={meta.icon} />
+        <Alert.Description flex="1" minW={0}>
+          <HStack gap={1.5} align="start">
+            {showPierce ? <Icon as={PierceIcon} boxSize={3.5} flexShrink={0} /> : null}
+            <ParsedEmojiMessage content={displayContent} />
+          </HStack>
+        </Alert.Description>
+        {action}
+      </Alert.Root>
     )
   }
 

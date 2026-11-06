@@ -2,13 +2,17 @@ import type { GameAttributeName, GameStateModifier } from "@repo/types"
 
 /**
  * Compute the effective delta to apply to `attribute` given the user's active
- * modifiers. Returns `null` when the attribute is locked.
+ * modifiers. Returns `null` when the attribute is locked. Multipliers scale
+ * gains only: a charge (gas, shop, pledge) is never inflated or shrunk.
+ * `exact` amounts (refunds, sellbacks, transfers) skip multipliers too, so a
+ * coin multiplier can't mint coins by moving them around.
  */
 export function evaluateModifiers(
   amount: number,
   attribute: GameAttributeName,
   modifiers: GameStateModifier[],
   now: number,
+  options?: { exact?: boolean },
 ): number | null {
   let multiplier = 1
   let additive = 0
@@ -28,7 +32,9 @@ export function evaluateModifiers(
     }
   }
 
-  return amount * multiplier + additive
+  const scaled =
+    amount > 0 && !options?.exact && multiplier !== 1 ? Math.round(amount * multiplier) : amount
+  return scaled + additive
 }
 
 /**

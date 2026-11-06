@@ -1,4 +1,5 @@
 import type {
+  BookSeries,
   EventFamily,
   FundsMode,
   IncidentStep,
@@ -7,8 +8,10 @@ import type {
   TripFundPurpose,
   TripMap,
   TripStoreRefill,
+  VanKnowledge,
 } from "@repo/road-trip-map"
 import {
+  BOOK_SERIES,
   baseGallonsPerMile,
   compileVan,
   eventRefuels,
@@ -146,6 +149,12 @@ export type FundPayment = { userId: string; name: string; amount: number }
 
 export type InstalledPart = { partId: string; userId: string; name: string; at: number }
 
+/** A traveler's level in a book series this trip (ADR 0228). */
+export type BookReader = { level: number; name: string; at: number }
+
+/** Series → userId → level. Cleared with the trip. */
+export type TripBooks = Partial<Record<BookSeries, Record<string, BookReader>>>
+
 export type IncidentSource = "host" | "scripted" | "fuel"
 
 /** What an incident keeps from its event when it starts (ADR 0220). */
@@ -227,6 +236,8 @@ export type TripState = {
   fund?: TripFund
   /** One part per slot (D20). */
   parts: Partial<Record<PartSlot, InstalledPart>>
+  /** Books understood this trip (ADR 0228); absent until someone reads one. */
+  books?: TripBooks
   incident?: ActiveIncident
   incidentQueue: QueuedIncident[]
   /** Bumped per incident started, for unique incident ids. */
@@ -291,7 +302,8 @@ export type TripLogEvent =
       /** The host skipped the step: nothing charged. */
       waived?: boolean
     }
-  | { kind: "fuel"; level: FuelLevel | "filled"; gallons: number }
+  /** `poured`: a Gas Canister added `gallons` on the road (ADR 0228). */
+  | { kind: "fuel"; level: FuelLevel | "filled" | "poured"; gallons: number; name?: string }
   | {
       kind: "incident"
       /** Event id. */
@@ -331,6 +343,8 @@ export type TripLogEvent =
       name: string
       replaced?: string
     }
+  /** A book read on the trip; `learned` false when it went over the reader's head. */
+  | { kind: "book-read"; shortId: string; userId: string; name: string; learned: boolean }
   | { kind: "arrived" | "late" | "stranded" | "ended"; deadlineAt?: string }
 
 export const TRIP_STORAGE_KEYS = {
@@ -461,6 +475,39 @@ export function installedPartIds(state: Pick<TripState, "parts">): string[] {
     const part = state.parts[slot]
     return part ? [part.partId] : []
   })
+}
+
+/** `userId`'s level in `series` this trip; 0 when they haven't read it. */
+export function readerLevel(state: Pick<TripState, "books">, series: BookSeries, userId: string): number {
+  return state.books?.[series]?.[userId]?.level ?? 0
+}
+
+/** The van's level in each van-scope series: its best reader's. */
+export function vanKnowledge(state: Pick<TripState, "books">): VanKnowledge {
+  const out: VanKnowledge = {}
+  for (const [series, readers] of Object.entries(state.books ?? {}) as [BookSeries, Record<string, BookReader>][]) {
+    if (BOOK_SERIES[series].scope !== "van") continue
+    const best = Math.max(0, ...Object.values(readers).map((r) => r.level))
+    if (best > 0) out[series] = best
+  }
+  return out
+}
+
+/** Names of the readers at `level` in `series`, in reading order. */
+export function readersAt(state: Pick<TripState, "books">, series: BookSeries, level: number): string[] {
+  return Object.values(state.books?.[series] ?? {})
+    .filter((reader) => reader.level === level)
+    .sort((a, b) => a.at - b.at)
+    .map((reader) => reader.name)
+}
+
+/** Everyone holding a reader-scope buff (their modifiers clear with the trip). */
+export function personalBookReaderIds(state: Pick<TripState, "books">): string[] {
+  const ids = new Set<string>()
+  for (const [series, readers] of Object.entries(state.books ?? {}) as [BookSeries, Record<string, BookReader>][]) {
+    if (BOOK_SERIES[series].scope === "reader") for (const id of Object.keys(readers)) ids.add(id)
+  }
+  return Array.from(ids)
 }
 
 /** Burn per mile with parts' mpg factors applied. */

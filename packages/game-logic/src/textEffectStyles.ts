@@ -22,6 +22,34 @@ function fontFamilyFor(value: FontValue): string | undefined {
 }
 
 /**
+ * Chakra ships no brown palette. Hosts that render text effects register these
+ * under `colors.brown` (tokens and semantic tokens) so `brown.fg` resolves.
+ */
+export const BROWN_COLOR_TOKENS = {
+  50: { value: "#faf5f0" },
+  100: { value: "#f0e4d7" },
+  200: { value: "#e0c8ae" },
+  300: { value: "#c9a47f" },
+  400: { value: "#b08257" },
+  500: { value: "#93643a" },
+  600: { value: "#7a4f2c" },
+  700: { value: "#5f3c21" },
+  800: { value: "#432a17" },
+  900: { value: "#2b1b0f" },
+}
+
+export const BROWN_SEMANTIC_TOKENS = {
+  solid: { value: "{colors.brown.600}" },
+  contrast: { value: "white" },
+  fg: { value: { base: "{colors.brown.700}", _dark: "{colors.brown.300}" } },
+  muted: { value: { base: "{colors.brown.200}", _dark: "{colors.brown.800}" } },
+  subtle: { value: { base: "{colors.brown.100}", _dark: "{colors.brown.900}" } },
+  emphasized: { value: { base: "{colors.brown.300}", _dark: "{colors.brown.700}" } },
+  focusRing: { value: "{colors.brown.600}" },
+  border: { value: { base: "{colors.brown.500}", _dark: "{colors.brown.400}" } },
+}
+
+/**
  * CSS-like style properties generated from text effects.
  * Compatible with Chakra's SystemStyleObject and plain CSS.
  */

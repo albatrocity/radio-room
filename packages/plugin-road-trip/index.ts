@@ -28,10 +28,16 @@ import {
   siteShopRequest,
   triggerableIncidentIdSchema,
   tripMapItemDefinitions,
+  BOOK_BUFFS,
+  BOOK_COPY,
+  roadTripItemId,
+  tripBook,
   type TripMap,
   type TripStore,
 } from "@repo/road-trip-map"
-import { ROAD_TRIP_ITEM_DEFINITIONS, routeItemUse } from "./items"
+import { SHOP_PRICE_ATTRIBUTE } from "@repo/game-logic"
+import { ROAD_TRIP_ITEM_DEFINITIONS, routeItemUse, type RoadTripItemUse } from "./items"
+import { readBook } from "./trip/books"
 import packageJson from "./package.json"
 import { getComponentSchema, getConfigSchema } from "./schema"
 import {
@@ -77,6 +83,7 @@ import {
   finishPark,
   formatShare,
   fuelThreshold,
+  pourGas,
   gameSessionEnded,
   gameSessionStarted,
   pauseTrip,
@@ -102,9 +109,12 @@ import {
   useIncidentItem,
 } from "./trip/incidents"
 import { openTripMap, revealAhead } from "./trip/guide"
-import { LEVY_RETRY_MS, LEVY_STALE_MS, tripNarrative } from "./trip/helpers"
+import { LEVY_RETRY_MS, LEVY_STALE_MS, narrateMessageMeta, tripNarrative } from "./trip/helpers"
 import { formatTripTimelineMarkdown } from "./export/formatTripTimelineMarkdown"
 import { poolCardView } from "./presenters"
+
+/** Car-lock chirp when a trip poll opens. The S3 object is private; this CDN URL is the public copy. */
+const TRIP_POLL_SOUND_URL = "https://cdn.listeningroom.club/assets/sfx/car-lock-beep.mp3"
 
 export { poolCardView, skipPollPresentation } from "./presenters"
 
@@ -140,6 +150,46 @@ const COST_SCALE_TTL_MS = 30_000
 
 /** Settle passes before giving up on a state that keeps changing underneath. */
 const MAX_SETTLE_PASSES = 3
+
+/** Reader-scope book buffs carry this name prefix so `forget-books` can find them. */
+const BOOK_MODIFIER_PREFIX = "road-trip-book:"
+
+/** A backstop only: `forget-books` takes the buff off when the trip ends. */
+const BOOK_BUFF_MAX_MS = 12 * 60 * 60_000
+
+type Traveler = { userId: string; name: string }
+
+type ItemRoute = Exclude<RoadTripItemUse, { kind: "refused" }>
+
+function transitionForItem(route: ItemRoute, traveler: Traveler): Transition {
+  switch (route.kind) {
+    case "install":
+      return installPart(route.partId, traveler)
+    case "unlock-layers":
+      return openTripMap(route.shortId, traveler)
+    case "reveal-ahead":
+      return revealAhead(route.shortId, traveler)
+    case "read":
+      return readBook(route.shortId, traveler)
+    case "pour":
+      return pourGas(route.gallons, traveler)
+    case "resolve":
+      return useIncidentItem(route.shortId, traveler)
+  }
+}
+
+function itemUsedMessage(route: ItemRoute, name: string): string {
+  switch (route.kind) {
+    case "install":
+      return `${name} installed.`
+    case "read":
+      return route.learned ? `You read ${name}.` : BOOK_COPY.overHead
+    case "pour":
+      return `${name} poured into the tank.`
+    default:
+      return `${name} used.`
+  }
+}
 
 /**
  * Road Trip (ADR 0205): a van drives a Trip Map's route in real time. Progress
@@ -406,10 +456,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
             await this.tripAnnounce(effect.variant, effect.title, effect.body, effect.icon)
             break
           case "narrate":
-            await api.sendSystemMessage(roomId, effect.body, {
-              type: "prose",
-              ...(effect.variant ? { status: effect.variant } : {}),
-            })
+            await api.sendSystemMessage(roomId, effect.body, narrateMessageMeta(effect))
             break
           case "open-shop":
             await this.openSiteShop(map, effect.siteId, effect.scopeId)
@@ -442,6 +489,12 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
             break
           case "nudge-holders":
             await this.nudgeHolders(effect.itemIds, effect.message)
+            break
+          case "book-buff":
+            await this.applyBookBuff(effect.userId, effect.shortId)
+            break
+          case "forget-books":
+            await this.forgetBooks(effect.userIds)
             break
         }
       } catch (error) {
@@ -498,24 +551,28 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
       ...p,
       name: names.get(p.userId) ?? "Someone",
     }))
-    const rate = formatShare(result.rate)
-    const label = FUND_PURPOSE_LABELS[fund.purpose]
-    await Promise.all(
-      paid.map((payment) =>
-        api.sendUserSystemMessage(
-          roomId,
-          payment.userId,
-          `${label} took ${rate} of everyone's wallet. Your share: ${payment.amount} coin${payment.amount === 1 ? "" : "s"}.`,
-          {
-            type: "alert",
-            status: "info",
-            title: "Road Trip",
-            theme: "road-trip",
-            icon: fund.purpose === "gas" ? "⛽" : "🧾",
-          },
+    // Gas is announced by the fill-up sign when the fund settles. Other levies
+    // have no room line that names each payer's share.
+    if (fund.purpose !== "gas") {
+      const rate = formatShare(result.rate)
+      const label = FUND_PURPOSE_LABELS[fund.purpose]
+      await Promise.all(
+        paid.map((payment) =>
+          api.sendUserSystemMessage(
+            roomId,
+            payment.userId,
+            `${label} took ${rate} of everyone's wallet. Your share: ${payment.amount} coin${payment.amount === 1 ? "" : "s"}.`,
+            {
+              type: "alert",
+              status: "info",
+              title: "Road Trip",
+              theme: "road-trip",
+              icon: "🧾",
+            },
+          ),
         ),
-      ),
-    )
+      )
+    }
     await this.mutateTrip(
       this.forTrip(
         tripId,
@@ -692,7 +749,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   ): Promise<ItemUseResult> {
     const state = await this.trips.readState()
     const stored = await this.mapFor(state)
-    const route = routeItemUse(state, definition.shortId, stored?.map)
+    const route = routeItemUse(state, definition.shortId, stored?.map, Date.now(), userId)
     if (route.kind === "refused" || !state) {
       return {
         success: false,
@@ -702,22 +759,46 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     }
     const name = (await this.usernames([userId])).get(userId) ?? "Someone"
     const traveler = { userId, name }
-    const transition =
-      route.kind === "install"
-        ? installPart(route.partId, traveler)
-        : route.kind === "unlock-layers"
-          ? openTripMap(route.shortId, traveler)
-          : route.kind === "reveal-ahead"
-            ? revealAhead(route.shortId, traveler)
-            : useIncidentItem(route.shortId, traveler)
+    const transition = transitionForItem(route, traveler)
     const saved = await this.mutateTrip(this.forTrip(state.tripId, transition))
     if (!saved) {
       return { success: false, consumed: false, message: "Too late: nothing to use it on now." }
     }
-    return {
-      success: true,
-      consumed: true,
-      message: route.kind === "install" ? `${definition.name} installed.` : `${definition.name} used.`,
+    return { success: true, consumed: true, message: itemUsedMessage(route, definition.name) }
+  }
+
+  /** A reader-scope book's buff, until the trip ends (`forget-books`) or the session does. */
+  private async applyBookBuff(userId: string, shortId: string): Promise<void> {
+    const book = tripBook(shortId)
+    if (!book) return
+    const buff =
+      book.series === "investment"
+        ? { target: "coin" as const, value: BOOK_BUFFS.investmentCoinMultiplier }
+        : book.series === "negotiating"
+          ? { target: SHOP_PRICE_ATTRIBUTE, value: BOOK_BUFFS.negotiatingPriceScale }
+          : null
+    if (!buff) return
+    await this.game.applyTimedModifier(
+      userId,
+      BOOK_BUFF_MAX_MS,
+      {
+        name: `${BOOK_MODIFIER_PREFIX}${book.series}`,
+        effects: [{ type: "multiplier", ...buff, intent: "positive" }],
+        stackBehavior: "replace",
+        itemDefinitionId: roadTripItemId(shortId),
+      },
+      userId,
+    )
+  }
+
+  private async forgetBooks(userIds: string[]): Promise<void> {
+    for (const userId of userIds) {
+      const state = await this.game.getUserState(userId)
+      for (const modifier of state?.modifiers ?? []) {
+        if (modifier.name.startsWith(BOOK_MODIFIER_PREFIX)) {
+          await this.game.removeModifier(userId, modifier.id)
+        }
+      }
     }
   }
 
@@ -994,7 +1075,14 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
         pollId: created.poll.id,
         announce: false,
       })
+      return
     }
+    // Clients drop this when Sound effects is off (soundEffectsMachine).
+    await this.context.api.queueSoundEffect({
+      url: TRIP_POLL_SOUND_URL,
+      volume: 0.6,
+      duck: true,
+    })
   }
 
   private async handlePollClosed(data: SystemEventPayload<"POLL_CLOSED">): Promise<void> {

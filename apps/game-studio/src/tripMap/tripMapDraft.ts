@@ -2,8 +2,10 @@ import {
   GENERIC_SITE_PRESETS,
   INCIDENT_PRESETS,
   SAMPLE_TRIP_MAP,
+  TRIP_BOOKS,
   TRIP_GUIDE_ITEMS,
   VAN_CONSUMABLES,
+  VAN_FUEL_ITEMS,
   VAN_PARTS,
   fuelPlan,
   gasCost,
@@ -167,13 +169,22 @@ const ITEM_SOURCES: { plugin: OfferOption["plugin"]; items: OfferSourceItem[] }[
   },
   {
     plugin: "road-trip",
-    items: [...VAN_PARTS, ...VAN_CONSUMABLES, ...TRIP_GUIDE_ITEMS].map((item) => ({
-      definitionId: roadTripItemId(item.shortId),
-      name: item.name,
-      icon: item.emoji,
-      coinValue: item.coinValue,
-      rarity: "common" as const,
-    })),
+    items: [
+      ...[...VAN_PARTS, ...VAN_CONSUMABLES, ...TRIP_GUIDE_ITEMS, ...VAN_FUEL_ITEMS].map((item) => ({
+        definitionId: roadTripItemId(item.shortId),
+        name: item.name,
+        icon: item.emoji,
+        coinValue: item.coinValue,
+        rarity: "common" as const,
+      })),
+      ...TRIP_BOOKS.map((book) => ({
+        definitionId: roadTripItemId(book.shortId),
+        name: book.name,
+        icon: book.emoji,
+        coinValue: book.coinValue,
+        rarity: book.rarity,
+      })),
+    ],
   },
 ]
 

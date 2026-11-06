@@ -67,6 +67,13 @@ import { beatDetector } from "./beat-detector"
 import { vuMeter } from "./vu-meter"
 import { chromaticTuner } from "./chromatic-tuner"
 import { familyPhoto } from "./family-photo"
+import { coffee } from "./coffee"
+import { matchaLatte } from "./matcha-latte"
+import { neapolitan } from "./neapolitan"
+import { beefJerky } from "./beef-jerky"
+import { potatoChips } from "./potato-chips"
+import { pizzaSlice } from "./pizza-slice"
+import { antacid } from "./antacid"
 
 /**
  * All registered items. Import from here in shops: `import { items } from "../items"` or
@@ -136,6 +143,13 @@ export const items = {
   vuMeter,
   chromaticTuner,
   familyPhoto,
+  coffee,
+  matchaLatte,
+  neapolitan,
+  beefJerky,
+  potatoChips,
+  pizzaSlice,
+  antacid,
 } as const
 
 /**

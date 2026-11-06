@@ -9,6 +9,7 @@ import { useAnimationsEnabled } from "../../../hooks/useReducedMotion"
 import { usePluginStoresSelector } from "../../../hooks/usePluginStores"
 import { ROAD_SIGN_FONT, roadSignColors } from "../roadSignStyle"
 import type { PollTheme, PollThemeHeaderProps } from "../types"
+import { roadTripExitOnRight, roadTripPairsOptions } from "./roadTripPairOptions"
 import {
   parseSignDestinationKey,
   signDestinationKey,
@@ -229,6 +230,8 @@ export const roadTripPollTheme: PollTheme = {
   },
   optionLabel: (_poll, option) => option.label,
   optionIcon: (poll, option) => laneIcon(poll, option.id),
+  pairOptions: roadTripPairsOptions,
+  exitOnRight: roadTripExitOnRight,
   CloseBar: RoadTripExitBar,
   Footer: RoadTripPollFooter,
 }

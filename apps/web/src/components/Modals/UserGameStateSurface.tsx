@@ -419,9 +419,13 @@ export function UserGameStateSurface({ variant }: SurfaceProps) {
   }, [pluginTabs, showStoredTab, includeTradesGiftsTab, isAdmin])
 
   useEffect(() => {
-    // Plugin tab ids live in this tree; invalid-tab snap is on SET_AVAILABLE_TABS.
+    // Publish only while this view is open. A closed surface — including the
+    // modal mounted for a frame before the lg breakpoint resolves — would
+    // otherwise store an inventory-only list, and the next deep link would
+    // snap to Inventory on ACTIVATE (ADR 0130).
+    if (!isOpen) return
     sendNav({ type: "SET_AVAILABLE_TABS", tabIds: availableTabIds })
-  }, [availableTabIds, sendNav])
+  }, [availableTabIds, isOpen, sendNav])
 
   const gameStateValue = useMemo<UserGameStateSnapshot>(() => {
     const pluginUserState = payload?.pluginUserState ?? {}

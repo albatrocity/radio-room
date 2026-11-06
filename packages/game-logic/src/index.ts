@@ -5,6 +5,13 @@ export {
 } from "./defenseMatching"
 export { evaluateModifiers, pruneExpiredModifiers } from "./modifierEvaluation"
 export { getActiveFlags } from "./getActiveFlags"
+export {
+  DOUBLE_VOTE_FLAG,
+  DOUBLE_VOTE_WEIGHT,
+  SHOP_PRICE_ATTRIBUTE,
+  activeFlagModifier,
+  shopPriceScale,
+} from "./itemPerks"
 export { countFlagStacks } from "./textEffectStacks"
 export { ANONYMOUS_ACTIONS_FLAG, hasAnonymousActions } from "./anonymousActionsFlag"
 export { INVENTORY_PEEK_FLAG, hasInventoryPeek } from "./inventoryPeekFlag"
@@ -69,7 +76,12 @@ export {
   type NextCostScaleResult,
   type WealthStatistic,
 } from "./economyController"
-export { textEffectStyles, type TextEffectStyleObject } from "./textEffectStyles"
+export {
+  BROWN_COLOR_TOKENS,
+  BROWN_SEMANTIC_TOKENS,
+  textEffectStyles,
+  type TextEffectStyleObject,
+} from "./textEffectStyles"
 export { shuffleQueueItems } from "./shuffleQueueItems"
 export {
   PARTICIPATION_MODES,

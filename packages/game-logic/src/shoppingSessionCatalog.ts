@@ -412,10 +412,14 @@ export type ShopEconomyHooks = {
   adjustSellBase?(item: InventoryItem, definition: ItemDefinition, base: number): number
 }
 
-/** Re-price offers from `basePrice` against the live cost scale. */
+/**
+ * Re-price offers from `basePrice` against the live cost scale. `priceScale`
+ * is the shopper's own discount (`shopPriceScale`), applied before rounding.
+ */
 export function applyLiveCostScale(
   instance: ShoppingSessionInstance,
   economy?: EconomyScaleState | null,
+  priceScale = 1,
 ): ShoppingSessionInstance {
   const resolved = resolveEconomy(economy)
   const offers: ShopOffer[] = instance.offers.map((offer) => {
@@ -423,7 +427,7 @@ export function applyLiveCostScale(
     return {
       ...offer,
       basePrice: base,
-      price: scalePrice(base, resolved.costScale, resolved.priceRounding),
+      price: scalePrice(base, resolved.costScale * priceScale, resolved.priceRounding),
     }
   })
   return { ...instance, offers }

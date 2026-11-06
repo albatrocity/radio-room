@@ -70,6 +70,8 @@ describe("parseTripMap", () => {
     input.sites[0]!.departNarrative = "The owner leans in close."
     input.sites[0]!.departNarrativeVariant = "info"
     expect(parseTripMap(input).ok).toBe(true)
+    input.sites[0]!.narrativeVariant = "site"
+    expect(parseTripMap(input).ok).toBe(true)
     input.sites[0]!.departNarrative = ""
     expect(parseTripMap(input).ok).toBe(false)
   })

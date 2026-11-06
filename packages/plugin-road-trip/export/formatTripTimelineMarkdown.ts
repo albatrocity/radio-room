@@ -1,6 +1,11 @@
 import type { TripMap } from "@repo/road-trip-map"
 import { FUND_PURPOSE_LABELS, resolveSiteSettings, vanPart } from "@repo/road-trip-map"
-import { describeIncident, describePartInstalled } from "../trip/describeEvent"
+import {
+  describeBookRead,
+  describeIncident,
+  describePartInstalled,
+  describePour,
+} from "../trip/describeEvent"
 import { tripNarrative } from "../trip/helpers"
 import type { SkipVotes, TripLogEntry, TripState } from "../trip/state"
 
@@ -166,6 +171,7 @@ function describe(
     case "fuel":
       if (entry.level === "low") return `⛽ Low fuel (${entry.gallons.toFixed(1)} gal)`
       if (entry.level === "empty") return "⛽ Ran out of gas"
+      if (entry.level === "poured") return describePour(entry)
       return `⛽ Filled ${entry.gallons.toFixed(1)} gal`
     case "fund":
       return describeFund(entry, undefined)
@@ -173,6 +179,8 @@ function describe(
       return describeIncident(entry)
     case "part-installed":
       return describePartInstalled(entry)
+    case "book-read":
+      return describeBookRead(entry)
   }
 }
 
