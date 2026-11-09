@@ -52,7 +52,14 @@ function NextGasLine({ trip, mile, fuel }: { trip: TripStore; mile: number; fuel
     const station = trip.sites.find((s) => s.id === live.siteId)
     return (
       <Text fontSize="sm">
-        Filling up{station ? <> at <b>{siteLabel(station)}</b></> : null} · {live.cost} coins
+        Filling up
+        {station ? (
+          <>
+            {" "}
+            at <b>{siteLabel(station)}</b>
+          </>
+        ) : null}{" "}
+        · {live.cost} coins
       </Text>
     )
   }
@@ -186,6 +193,32 @@ function ModsSection({ trip }: { trip: TripStore }) {
   )
 }
 
+function KeyItemsSection({ trip }: { trip: TripStore }) {
+  const keys = trip.vanSheet.keyItems
+  if (!keys || keys.length === 0) return null
+  return (
+    <Section title="In the van">
+      <Stack gap={2}>
+        {keys.map((key) => (
+          <Stack key={key.id} gap={0}>
+            <Text fontSize="sm">
+              {key.icon} {key.name}
+            </Text>
+            {key.description ? (
+              <Text fontSize="xs" color="fg.muted">
+                {key.description}
+              </Text>
+            ) : null}
+            <Text fontSize="xs" color="fg.muted">
+              from {key.givenBy}
+            </Text>
+          </Stack>
+        ))}
+      </Stack>
+    </Section>
+  )
+}
+
 function IncidentSection({ trip, now }: { trip: TripStore; now: number }) {
   const incident = trip.vanSheet.incident
   const { held, pendingItemId, use } = useVanItems(incident?.resolvesWith ?? [])
@@ -230,7 +263,7 @@ function IncidentSection({ trip, now }: { trip: TripStore; now: number }) {
   )
 }
 
-/** Van tab body (M7): incident, speed breakdown, mods, gas, and funds. */
+/** Van tab body (M7): incident, speed breakdown, mods, key items, gas, and funds. */
 export function RoadTripVanPanelTemplateComponent({
   tripKey = DEFAULT_TRIP_KEY,
 }: RoadTripVanPanelComponentProps) {
@@ -255,6 +288,7 @@ export function RoadTripVanPanelTemplateComponent({
       <IncidentSection trip={trip} now={now} />
       <SpeedSection trip={trip} />
       <ModsSection trip={trip} />
+      <KeyItemsSection trip={trip} />
 
       <Section title="Gas">
         <HStack justify="space-between">

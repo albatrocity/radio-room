@@ -63,9 +63,12 @@ import {
 import { listSavedTripMaps, loadSavedTripMap, saveTripMapFile } from "../../tripMap/tripMapFiles"
 import {
   addAltRoute,
+  addKeyItem,
   addLayer,
   addTripMap,
+  removeKeyItem,
   removeTripMap,
+  updateKeyItem,
   updateTripMap,
   moveRouteEnd,
   moveRouteFork,
@@ -87,6 +90,7 @@ import {
 import { TripFuelCurve } from "./TripFuelCurve"
 import { TripFlowPanel } from "./TripFlowPanel"
 import { TripLayerInspector } from "./TripLayerInspector"
+import { TripKeyItemInspector } from "./TripKeyItemInspector"
 import { TripMapItemInspector } from "./TripMapItemInspector"
 import { TripRouteInspector } from "./TripRouteInspector"
 import { TripRouteTrack, TripTimelineFrame, type TrackSelection } from "./TripRouteTrack"
@@ -265,6 +269,8 @@ export function TripMapEditor() {
     selection?.kind === "layer" ? draft.layers?.find((l) => l.id === selection.id) : undefined
   const selectedMap =
     selection?.kind === "map" ? draft.maps?.find((m) => m.id === selection.id) : undefined
+  const selectedKey =
+    selection?.kind === "key" ? draft.keyItems?.find((key) => key.id === selection.id) : undefined
   const selectSite = (siteId: string | null) => {
     setSelection(siteId ? { kind: "site", id: siteId } : null)
   }
@@ -714,6 +720,18 @@ export function TripMapEditor() {
           >
             🧭 Map
           </Button>
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={(draft.keyItems?.length ?? 0) >= 16}
+            onClick={() => {
+              const next = addKeyItem(draft)
+              setDraft(next.draft)
+              setSelection({ kind: "key", id: next.keyId })
+            }}
+          >
+            🔑 Key
+          </Button>
         </HStack>
 
         <HStack gap="2" flexWrap="wrap">
@@ -847,6 +865,16 @@ export function TripMapEditor() {
                 setSelection(null)
               }}
             />
+          ) : selectedKey ? (
+            <TripKeyItemInspector
+              item={selectedKey}
+              outline={outline?.keyItems.find((key) => key.id === selectedKey.id) ?? null}
+              onChange={(patch) => setDraft((d) => updateKeyItem(d, selectedKey.id, patch))}
+              onRemove={() => {
+                setDraft((d) => removeKeyItem(d, selectedKey.id))
+                setSelection(null)
+              }}
+            />
           ) : (
             <Text fontSize="sm" color="fg.muted">
               Select a pin, route, or layer to edit it. Drag pins to set their mile; the destination
@@ -865,6 +893,7 @@ export function TripMapEditor() {
               onSelectRoute={(id) => setSelection({ kind: "route", id })}
               onSelectLayer={(id) => setSelection({ kind: "layer", id })}
               onSelectMap={(id) => setSelection({ kind: "map", id })}
+              onSelectKey={(id) => setSelection({ kind: "key", id })}
             />
           </Box>
 

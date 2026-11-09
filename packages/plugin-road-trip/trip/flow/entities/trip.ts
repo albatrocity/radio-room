@@ -117,7 +117,7 @@ function arrive(
   const site = findSite(ctx.map, event.siteId)
   const deadline = ctx.map.route.deadlineAt
   const closed = closeOpenWork(acc, emit)
-  const narrative = site ? narrate(site) : null
+  const narrative = site ? narrate(site, acc.next.sites[site.id]?.narrativeCase) : null
   return {
     next: { ...closed.next, arrivedAt: ctx.now },
     log: [...closed.log, late ? { kind: "late", deadlineAt: deadline } : { kind: "arrived" }],

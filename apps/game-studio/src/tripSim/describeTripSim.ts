@@ -37,8 +37,10 @@ export function describeSimEvent(event: SimEvent, map: TripMap, state: TripState
   const payload = event.request?.payload
   switch (event.kind) {
     case "poll-close":
-      if (event.target?.kind === "junction") return `Junction poll closes: ${routeName(map, event.routeId)}`
-      if (event.target?.kind === "choice") return `Choice poll closes: ${state.incident?.name ?? "event"}`
+      if (event.target?.kind === "junction")
+        return `Junction poll closes: ${routeName(map, event.routeId)}`
+      if (event.target?.kind === "choice")
+        return `Choice poll closes: ${state.incident?.name ?? "event"}`
       return `Exit poll closes: ${siteName(map, event.siteId)}`
     case "reveal":
       return `Reveal ${siteName(map, event.siteId)}`
@@ -74,7 +76,10 @@ export function describeSimEvent(event: SimEvent, map: TripMap, state: TripState
   }
 }
 
-function votesLabel(votes: { stop: number; skip: number } | undefined, defaulted?: boolean): string {
+function votesLabel(
+  votes: { stop: number; skip: number } | undefined,
+  defaulted?: boolean,
+): string {
   if (defaulted) return " (default)"
   return votes ? ` (${votes.stop}–${votes.skip})` : ""
 }
@@ -154,7 +159,20 @@ export function describeLogEntry(entry: TripLogEntry): string {
 }
 
 export function formatClock(ms: number): string {
-  return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })
+  return new Date(ms).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  })
+}
+
+/** Key items the van is holding, for the sim panel (ADR 0230). Null when it holds none. */
+export function describeVanKeys(
+  keys: readonly { icon: string; name: string; held: boolean }[],
+): string | null {
+  const held = keys.filter((key) => key.held)
+  if (held.length === 0) return null
+  return held.map((key) => `${key.icon} ${key.name}`).join(" · ")
 }
 
 /** "T+12:30" from departure. */

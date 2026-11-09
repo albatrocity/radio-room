@@ -153,7 +153,11 @@ function createHarness() {
       getEconomyScale: vi.fn(async () => ({ costScale: 1, earnScale: 1 })),
       getUserState: async (userId: string) =>
         userId in wallets
-          ? { userId, attributes: { coin: wallets[userId], score: 0 }, modifiers: modifiers[userId] ?? [] }
+          ? {
+              userId,
+              attributes: { coin: wallets[userId], score: 0 },
+              modifiers: modifiers[userId] ?? [],
+            }
           : null,
       applyTimedModifier: vi.fn(async (userId: string, _ms: number, modifier: any) => {
         modifiers[userId] = [
@@ -176,6 +180,16 @@ function createHarness() {
         registeredItems.push(...definitions),
       hasItem: async (userId: string, definitionId: string) =>
         holdings[userId]?.includes(definitionId) ?? false,
+      giveItem: vi.fn(async (userId: string, definitionId: string, quantity = 1) => {
+        holdings[userId] = [...(holdings[userId] ?? []), definitionId]
+        return { itemId: `${userId}-given`, definitionId, quantity }
+      }),
+      removeItem: vi.fn(async () => true),
+      getItemDefinition: vi.fn(async (definitionId: string) =>
+        definitionId === "road-trip:fix-a-flat"
+          ? { id: definitionId, shortId: "fix-a-flat", name: "Fix-a-Flat", icon: "🛞" }
+          : null,
+      ),
       getInventory: async (userId: string) => ({
         userId,
         items: (holdings[userId] ?? []).map((definitionId, i) => ({
@@ -360,6 +374,166 @@ describe("RoadTripPlugin", () => {
       success: false,
       message: "Start a game session before the van can leave.",
     })
+  })
+
+  describe("key item shops (ADR 0230)", () => {
+    const TRAIL_PASS = "road-trip:key-trail-pass"
+    const FOUND =
+      "On the way out, a ranger tears off a trail pass and hands it through the window. Someone tucks it in the visor."
+
+    function shopMap(
+      offers: { definitionId: string; basePrice?: number; when?: { has: string } }[],
+    ) {
+      const branch = structuredClone(SAMPLE_BRANCH_MAP)
+      const gas = branch.sites.find((site) => site.id === "gas-stop")!
+      gas.mandatory = true
+      gas.shop = { offers }
+      return JSON.stringify(branch)
+    }
+
+    const offers = [
+      { definitionId: "road-trip:map-local" },
+      { definitionId: TRAIL_PASS, basePrice: 12 },
+      { definitionId: "road-trip:trip-guide", basePrice: 5, when: { has: "trail-pass" } },
+    ]
+
+    async function buyKey(h: ReturnType<typeof createHarness>, userId = "ada") {
+      await h.fire("INVENTORY_ITEM_ACQUIRED", {
+        roomId: "room-1",
+        sessionId: "game-1",
+        userId,
+        item: { itemId: "stack-key", definitionId: TRAIL_PASS, quantity: 1 },
+        source: "shop",
+      })
+    }
+
+    it("omits an offer whose when fails and still lists a key the van does not hold", async () => {
+      const { plugin, h } = await setup()
+      const mapJson = shopMap(offers)
+      let registeredAtValidate: string[] = []
+      h.api.requestCapability.mockImplementation(async (...args: unknown[]) => {
+        if (args[2] === "validateShop" && registeredAtValidate.length === 0) {
+          registeredAtValidate = h.registeredItems.map((d) => d.shortId)
+        }
+        h.shopCalls.push(args)
+        return { ok: true, value: { ok: true } as unknown, provider: "item-shops" }
+      })
+      expect((await plugin.executeAction("loadMap", ADMIN, { mapJson })).success).toBe(true)
+      expect(registeredAtValidate).toContain("key-trail-pass")
+      expect(h.shopCalls.find((c) => c[2] === "validateShop")?.[3]).toMatchObject({
+        offers: [
+          { definitionId: "road-trip:map-local" },
+          { definitionId: TRAIL_PASS, basePrice: 12 },
+          { definitionId: "road-trip:trip-guide", basePrice: 5 },
+        ],
+      })
+
+      await plugin.executeAction("depart", ADMIN)
+      await runUntil(plugin, h, T0 + 25 * MIN)
+      const opened = h.shopCalls.filter((c) => c[2] === "openRoomShop")
+      expect(opened.map((c) => (c[3] as { scopeId: string }).scopeId)).toEqual([
+        expect.stringContaining(":site:gas-stop"),
+      ])
+      expect(opened[0]?.[3]).toMatchObject({
+        offers: [
+          { definitionId: "road-trip:map-local" },
+          { definitionId: TRAIL_PASS, basePrice: 12 },
+        ],
+      })
+    })
+
+    it("omits a key the van already holds and lists the offer that key unlocks", async () => {
+      const { plugin, h } = await setup()
+      await plugin.executeAction("loadMap", ADMIN, { mapJson: shopMap(offers) })
+      await buyKey(h)
+      await plugin.executeAction("depart", ADMIN)
+      await runUntil(plugin, h, T0 + 25 * MIN)
+      const opened = h.shopCalls.filter((c) => c[2] === "openRoomShop")
+      expect(opened[0]?.[3]).toMatchObject({
+        offers: [
+          { definitionId: "road-trip:map-local" },
+          { definitionId: "road-trip:trip-guide", basePrice: 5 },
+        ],
+      })
+    })
+
+    it("moves a bought key into the van and posts its found narrative", async () => {
+      const { plugin, h } = await setup()
+      await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(SAMPLE_BRANCH_MAP) })
+      await buyKey(h)
+      expect(h.context.inventory.removeItem).toHaveBeenCalledWith("ada", "stack-key", 1)
+      expect(lastTrip(h).vanSheet.keyItems).toEqual([
+        expect.objectContaining({
+          id: "trail-pass",
+          name: "Trail Pass",
+          icon: "🎟️",
+          givenBy: "ADA",
+        }),
+      ])
+      expect(h.signs).toContainEqual(expect.objectContaining({ type: "prose", body: FOUND }))
+
+      h.signs.length = 0
+      await buyKey(h)
+      expect(h.signs).toEqual([])
+      expect(lastTrip(h).vanSheet.keyItems).toHaveLength(1)
+    })
+
+    it("leaves the key in inventory when no trip is running", async () => {
+      const { h } = await setup()
+      await buyKey(h)
+      expect(h.context.inventory.removeItem).not.toHaveBeenCalled()
+    })
+
+    it("leaves an unknown key, and a key whose remove failed, with the buyer", async () => {
+      const { plugin, h } = await setup()
+      await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(SAMPLE_BRANCH_MAP) })
+      await h.fire("INVENTORY_ITEM_ACQUIRED", {
+        roomId: "room-1",
+        sessionId: "game-1",
+        userId: "ada",
+        item: { itemId: "stack-other", definitionId: "road-trip:key-not-on-this-map", quantity: 1 },
+        source: "shop",
+      })
+      expect(h.context.inventory.removeItem).not.toHaveBeenCalled()
+      ;(h.context.inventory.removeItem as Mock).mockResolvedValueOnce(false)
+      await buyKey(h)
+      expect(h.context.inventory.removeItem).toHaveBeenCalledWith("ada", "stack-key", 1)
+      expect(lastTrip(h).vanSheet.keyItems).toBeUndefined()
+      expect(h.signs.some((sign) => sign.body === FOUND)).toBe(false)
+    })
+
+    it("refuses to use a key item", async () => {
+      const { plugin } = await setup()
+      expect(
+        await plugin.onItemUsed(
+          "ada",
+          { itemId: "stack-key", definitionId: TRAIL_PASS } as never,
+          { id: TRAIL_PASS, shortId: "key-trail-pass", name: "Trail Pass" } as never,
+        ),
+      ).toEqual({ success: false, consumed: false, message: "That rides in the van." })
+    })
+  })
+
+  it("hands a give-item outcome to every online traveler and registers key items (ADR 0230)", async () => {
+    const { plugin, h } = await setup()
+    const branch = structuredClone(SAMPLE_BRANCH_MAP)
+    branch.sites[0]!.onVisit!.push({
+      kind: "give-item",
+      item: "road-trip:fix-a-flat",
+      to: "everyone",
+    })
+    await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(branch) })
+    expect(h.registeredItems.map((d) => d.shortId)).toContain("key-trail-pass")
+    await plugin.executeAction("depart", ADMIN)
+    await runUntil(plugin, h, T0 + 4 * MIN)
+    const giveItem = h.context.inventory.giveItem as Mock
+    expect(giveItem.mock.calls).toEqual([
+      ["host", "road-trip:fix-a-flat", 1, undefined, "plugin"],
+      ["ada", "road-trip:fix-a-flat", 1, undefined, "plugin"],
+    ])
+    expect(h.signs).toContainEqual(
+      expect.objectContaining({ title: "Everyone got Fix-a-Flat", icon: "🛞", theme: "road-trip" }),
+    )
   })
 
   it("votes on a junction and an event choice through room polls (ADR 0222)", async () => {
@@ -787,7 +961,9 @@ describe("RoadTripPlugin", () => {
         "basics-of-automobile-mechanics",
         "advanced-automobile-mechanics",
       ])
-      expect(h.registeredItems.find((d) => d.shortId === "defensive-driving")?.useLabel).toBe("Read")
+      expect(h.registeredItems.find((d) => d.shortId === "defensive-driving")?.useLabel).toBe(
+        "Read",
+      )
     })
 
     it("registers the trip's maps before checking site shops, and a map unlocks its layers (ADR 0227)", async () => {
@@ -802,7 +978,9 @@ describe("RoadTripPlugin", () => {
         h.shopCalls.push(args)
         return { ok: true, value: { ok: true } as unknown, provider: "item-shops" }
       })
-      const loaded = await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(branch) })
+      const loaded = await plugin.executeAction("loadMap", ADMIN, {
+        mapJson: JSON.stringify(branch),
+      })
       expect(loaded.success).toBe(true)
       expect(registeredAtValidate).toContain("map-local")
       expect(h.shopCalls.find((c) => c[2] === "validateShop")?.[3]).toMatchObject({
@@ -854,7 +1032,10 @@ describe("RoadTripPlugin", () => {
       })
       await plugin.executeAction("loadMap", ADMIN, { mapJson: FULL_MAP_JSON })
 
-      expect(await use(plugin, "ada", "investment-advice")).toMatchObject({ success: true, consumed: true })
+      expect(await use(plugin, "ada", "investment-advice")).toMatchObject({
+        success: true,
+        consumed: true,
+      })
       expect(h.modifiers.ada).toEqual([
         expect.objectContaining({
           name: "road-trip-book:investment",
@@ -873,7 +1054,9 @@ describe("RoadTripPlugin", () => {
         consumed: true,
         message: "All of this stuff kind of went over your head.",
       })
-      expect(await use(plugin, "ada", "basics-of-automobile-mechanics")).toMatchObject({ success: true })
+      expect(await use(plugin, "ada", "basics-of-automobile-mechanics")).toMatchObject({
+        success: true,
+      })
       expect(h.modifiers.ada).toHaveLength(1)
       expect(h.signs.map((s) => s.title)).toContain("ADA read The Basics of Automobile Mechanics")
 
@@ -897,7 +1080,10 @@ describe("RoadTripPlugin", () => {
         message: "The tank's already full.",
       })
       vi.setSystemTime(T0 + 30 * MIN)
-      expect(await use(plugin, "ada", "gas-canister")).toMatchObject({ success: true, consumed: true })
+      expect(await use(plugin, "ada", "gas-canister")).toMatchObject({
+        success: true,
+        consumed: true,
+      })
       expect(h.signs.map((s) => s.title)).toContain("ADA poured in a Gas Canister")
     })
 

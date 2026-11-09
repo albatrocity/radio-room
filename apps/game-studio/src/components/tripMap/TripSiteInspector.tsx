@@ -14,15 +14,18 @@ import {
 import type { ReactNode } from "react"
 import {
   isDestination,
+  NARRATIVE_CASES_MAX,
   SITE_NARRATIVE_VARIANTS,
   resolveSiteSettings,
   skipPollQuestion,
+  type NarrativeCase,
   type SiteNarrativeVariant,
   type TripMap,
   type TripMapInput,
   type TripOutcome,
 } from "@repo/road-trip-map"
 import { TripOutcomesEditor, TripPlacementFields } from "./TripBranchFields"
+import { TripConditionField } from "./TripConditionField"
 import { TripOfferPicker } from "./TripOfferPicker"
 import { TripPhysicalMediaService } from "./TripPhysicalMediaService"
 import {
@@ -129,6 +132,111 @@ function Toggle({
   )
 }
 
+function NarrativeCasesEditor({
+  cases,
+  keys,
+  onChange,
+}: {
+  cases: NarrativeCase[]
+  keys: { id: string; name: string }[]
+  onChange: (cases: NarrativeCase[] | undefined) => void
+}) {
+  const set = (next: NarrativeCase[]) => onChange(next.length > 0 ? next : undefined)
+  return (
+    <Stack gap="2">
+      <Text fontSize="xs" fontWeight="semibold">
+        Narrative cases
+      </Text>
+      {cases.map((entry, index) => (
+        <Stack key={index} gap="2" borderWidth="1px" borderRadius="md" p="2">
+          <HStack justify="space-between">
+            <Text fontSize="xs" color="fg.muted">
+              Case {index + 1} · first match wins
+            </Text>
+            <Button
+              size="2xs"
+              variant="ghost"
+              colorPalette="red"
+              onClick={() => set(cases.filter((_, i) => i !== index))}
+            >
+              Remove
+            </Button>
+          </HStack>
+          <TripConditionField
+            when={entry.when}
+            keys={keys}
+            allowAlways={false}
+            onChange={(when) => {
+              if (!when) return
+              set(cases.map((item, i) => (i === index ? { ...item, when } : item)))
+            }}
+          />
+          <Textarea
+            size="sm"
+            rows={3}
+            maxLength={2000}
+            aria-label={`Narrative case ${index + 1}`}
+            value={entry.text}
+            onChange={(event) =>
+              set(
+                cases.map((item, i) =>
+                  i === index ? { ...item, text: event.target.value } : item,
+                ),
+              )
+            }
+          />
+          <Field.Root maxW="240px">
+            <Field.Label fontSize="xs">System message</Field.Label>
+            <NativeSelect.Root size="sm">
+              <NativeSelect.Field
+                value={entry.variant ?? ""}
+                onChange={(event) => {
+                  const variant = narrativeVariant(event.target.value)
+                  set(
+                    cases.map((item, i) => {
+                      if (i !== index) return item
+                      if (!variant) {
+                        const { variant: _drop, ...rest } = item
+                        return rest
+                      }
+                      return { ...item, variant }
+                    }),
+                  )
+                }}
+              >
+                <option value="">Same as the narrative above</option>
+                {SITE_NARRATIVE_VARIANTS.map((variant) => (
+                  <option key={variant} value={variant}>
+                    {variant.charAt(0).toUpperCase() + variant.slice(1)}
+                  </option>
+                ))}
+              </NativeSelect.Field>
+              <NativeSelect.Indicator />
+            </NativeSelect.Root>
+          </Field.Root>
+        </Stack>
+      ))}
+      <Button
+        size="xs"
+        variant="subtle"
+        disabled={cases.length >= NARRATIVE_CASES_MAX || keys.length === 0}
+        onClick={() => {
+          const key = keys[0]
+          if (!key) return
+          set([...cases, { when: { has: key.id }, text: "They notice." }])
+        }}
+      >
+        + Narrative case
+      </Button>
+      <Text fontSize="xs" color="fg.muted">
+        {keys.length === 0
+          ? "Add a key item to write a case. The first match replaces the narrative above."
+          : "The first case whose condition holds replaces the narrative above."}
+      </Text>
+    </Stack>
+  )
+}
+
 /** Site inspector (M8): presentation, art, stop behavior, reveal, skip poll, services, and shop. */
 export function TripSiteInspector({
   site,
@@ -152,6 +260,7 @@ export function TripSiteInspector({
         )
       : null
   const offers = site.shop?.offers ?? []
+  const keys = (draft.keyItems ?? []).map((key) => ({ id: key.id, name: key.name }))
 
   const setSkipPoll = (patch: Partial<NonNullable<TripSiteDraft["skipPoll"]>>) =>
     onChange({ skipPoll: { ...site.skipPoll, ...patch } })
@@ -222,7 +331,8 @@ export function TripSiteInspector({
       </SimpleGrid>
       {arrivalAt !== undefined ? (
         <Text fontSize="xs" color="fg.muted">
-          Arrives {arrivalClock(arrivalAt)}. Poll defaults, before this stop parks. Events aren't included.
+          Arrives {arrivalClock(arrivalAt)}. Poll defaults, before this stop parks. Events aren't
+          included.
         </Text>
       ) : null}
 
@@ -255,9 +365,12 @@ export function TripSiteInspector({
               text={site.narrative}
               variant={site.narrativeVariant}
               helper="Posted in chat when the van stops. The exit sign still says where you parked."
-              onChange={(narrative, narrativeVariant) =>
-                onChange({ narrative, narrativeVariant })
-              }
+              onChange={(narrative, narrativeVariant) => onChange({ narrative, narrativeVariant })}
+            />
+            <NarrativeCasesEditor
+              cases={site.narrativeCases ?? []}
+              keys={keys}
+              onChange={(narrativeCases) => onChange({ narrativeCases })}
             />
             <TripOutcomesEditor
               draft={draft}
@@ -282,6 +395,11 @@ export function TripSiteInspector({
               onChange={(departNarrative, departNarrativeVariant) =>
                 onChange({ departNarrative, departNarrativeVariant })
               }
+            />
+            <NarrativeCasesEditor
+              cases={site.departNarrativeCases ?? []}
+              keys={keys}
+              onChange={(departNarrativeCases) => onChange({ departNarrativeCases })}
             />
             <TripOutcomesEditor
               draft={draft}
@@ -482,6 +600,7 @@ export function TripSiteInspector({
             onChange={(next) => setShop({ offers: next })}
             onSampleChange={(sample) => setShop({ sample })}
             catalog={offerCatalogFor(draft)}
+            keys={keys}
           />
         </Box>
         <Field.Root maxW="180px" mb="2">

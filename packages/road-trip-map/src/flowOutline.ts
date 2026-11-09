@@ -1,6 +1,8 @@
+import { conditionKeys, describeCondition } from "./conditions"
 import { fuelPlan, parkPlan } from "./derive"
 import { enumeratePaths, forkParent, pathLabel, rejoinRoute, routeLength, siteRoute } from "./paths"
-import type { JunctionDecision, TripMap, TripOutcome } from "./schema"
+import type { JunctionDecision, TripCondition, TripMap, TripOutcome } from "./schema"
+import { tripKeyItemDefinitionId } from "./tripKeyItems"
 import { tripMapItemShortId } from "./tripMaps"
 import { roadTripItemId } from "./van"
 /**
@@ -19,6 +21,55 @@ export type OutcomeSourceRef = {
   /** The source's route and route mile, when it has one (sites and mile events). */
   route?: string
   mile?: number
+}
+
+/** A `when` in the map (ADR 0230), with where it's authored. */
+export type ConditionSourceRef = {
+  condition: TripCondition
+  /** JSON path of the `when`, for editor highlighting. */
+  path: string
+  /** "Belfry Legacy Media, on arrival", "Scenic Overlook shop". */
+  name: string
+}
+
+/** Every condition in the map: on outcomes, narrative cases, and shop offers. */
+export function conditionSources(map: TripMap): ConditionSourceRef[] {
+  const out: ConditionSourceRef[] = []
+  for (const { outcome, path, name } of outcomeSources(map)) {
+    if (outcome.when) out.push({ condition: outcome.when, path: `${path}.when`, name })
+  }
+  map.sites.forEach((site, index) => {
+    const cases = [
+      { list: site.narrativeCases, field: "narrativeCases", label: "on arrival" },
+      { list: site.departNarrativeCases, field: "departNarrativeCases", label: "on departure" },
+    ]
+    for (const { list, field, label } of cases) {
+      ;(list ?? []).forEach((entry, i) =>
+        out.push({
+          condition: entry.when,
+          path: `sites.${index}.${field}.${i}.when`,
+          name: `${site.name}, ${label}`,
+        }),
+      )
+    }
+    ;(site.shop?.offers ?? []).forEach((offer, i) => {
+      if (offer.when) {
+        out.push({
+          condition: offer.when,
+          path: `sites.${index}.shop.offers.${i}.when`,
+          name: `${site.name} shop`,
+        })
+      }
+    })
+  })
+  return out
+}
+
+/** A source's name with its condition: "Belfry (if van has Overlook Ticket Stub)". */
+function conditionalName(map: TripMap, source: OutcomeSourceRef): string {
+  if (!source.outcome.when) return source.name
+  const keyName = (id: string) => map.keyItems?.find((k) => k.id === id)?.name ?? id
+  return `${source.name} (if ${describeCondition(source.outcome.when, keyName)})`
 }
 
 /** Every outcome in the map, with where it's authored. */
@@ -117,10 +168,25 @@ export type TripFlowMap = {
   soldAt: string[]
 }
 
+/** A key item the trip defines (ADR 0230): what puts it in the van, takes it out, and reads it. */
+export type TripFlowKeyItem = {
+  id: string
+  name: string
+  icon: string
+  /** Outcome sources that give it, with their conditions. */
+  givenBy: string[]
+  takenBy: string[]
+  /** Sites whose shop sells it. */
+  soldAt: string[]
+  /** Where a condition reads it. */
+  readBy: string[]
+}
+
 export type TripFlowOutline = {
   routes: TripFlowRoute[]
   layers: TripFlowLayer[]
   maps: TripFlowMap[]
+  keyItems: TripFlowKeyItem[]
   paths: TripFlowPath[]
   /** Too many fork combinations: `paths` lists the main road only. */
   capped: boolean
@@ -145,7 +211,7 @@ export function describeTripFlow(map: TripMap): TripFlowOutline {
     miles: routeLength(map, route.id),
     divertedBy: sources
       .filter((s) => s.outcome.kind === "divert" && s.outcome.route === route.id)
-      .map((s) => s.name),
+      .map((s) => conditionalName(map, s)),
   }))
   const layers: TripFlowLayer[] = (map.layers ?? []).map((layer) => ({
     id: layer.id,
@@ -153,10 +219,10 @@ export function describeTripFlow(map: TripMap): TripFlowOutline {
     icon: layer.icon,
     unlockedBy: sources
       .filter((s) => s.outcome.kind === "unlock" && s.outcome.layer === layer.id)
-      .map((s) => s.name),
+      .map((s) => conditionalName(map, s)),
     lockedBy: sources
       .filter((s) => s.outcome.kind === "lock" && s.outcome.layer === layer.id)
-      .map((s) => s.name),
+      .map((s) => conditionalName(map, s)),
     maps: (layer.maps ?? []).map((id) => map.maps?.find((m) => m.id === id)?.name ?? id),
     sites: map.sites.filter((s) => s.layer === layer.id).map((s) => s.name),
     events: (map.events ?? []).filter((e) => e.layer === layer.id).map((e) => e.name),
@@ -178,6 +244,7 @@ export function describeTripFlow(map: TripMap): TripFlowOutline {
           .map((s) => s.name),
       }
     }),
+    keyItems: describeKeyItems(map, sources),
     capped,
     paths: paths.map(({ decisions, path }) => {
       const destination = path.map.sites.find((s) => s.role === "destination")
@@ -193,3 +260,29 @@ export function describeTripFlow(map: TripMap): TripFlowOutline {
     }),
   }
 }
+
+function describeKeyItems(map: TripMap, sources: OutcomeSourceRef[]): TripFlowKeyItem[] {
+  const conditions = conditionSources(map)
+  const unique = (names: string[]) => Array.from(new Set(names))
+  return (map.keyItems ?? []).map((key) => {
+    const definitionId = tripKeyItemDefinitionId(key.id)
+    return {
+      id: key.id,
+      name: key.name,
+      icon: key.icon,
+      givenBy: sources
+        .filter((s) => s.outcome.kind === "give-key" && s.outcome.key === key.id)
+        .map((s) => conditionalName(map, s)),
+      takenBy: sources
+        .filter((s) => s.outcome.kind === "take-key" && s.outcome.key === key.id)
+        .map((s) => conditionalName(map, s)),
+      soldAt: map.sites
+        .filter((s) => s.shop?.offers?.some((o) => o.definitionId === definitionId))
+        .map((s) => s.name),
+      readBy: unique(
+        conditions.filter((c) => conditionKeys(c.condition).includes(key.id)).map((c) => c.name),
+      ),
+    }
+  })
+}
+

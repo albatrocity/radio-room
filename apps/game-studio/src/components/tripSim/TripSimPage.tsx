@@ -24,6 +24,7 @@ import { listSavedTripMaps, loadSavedTripMap } from "../../tripMap/tripMapFiles"
 import {
   describeLogEntry,
   describeSimEvent,
+  describeVanKeys,
   formatClock,
   formatElapsed,
 } from "../../tripSim/describeTripSim"
@@ -121,6 +122,7 @@ function Decisions({ room }: { room: TripSimRoom }) {
   const otherQuestion = !pollSite ? room.sim.polls[0]?.question : undefined
   const layers = room.layers()
   const tripMaps = room.tripMaps()
+  const keys = room.keyItems()
   const fund = room.state.fund
   const items = room.incidentItems()
   const incident = room.state.incident
@@ -132,12 +134,13 @@ function Decisions({ room }: { room: TripSimRoom }) {
     !(fund?.mode === "voluntary") &&
     !incident &&
     layers.length === 0 &&
-    tripMaps.length === 0
+    tripMaps.length === 0 &&
+    keys.length === 0
   ) {
     return (
       <Text fontSize="sm" color="fg.muted">
-        Nothing to decide right now. Exit polls, voluntary funds, and incidents show their
-        controls here.
+        Nothing to decide right now. Exit polls, voluntary funds, and incidents show their controls
+        here.
       </Text>
     )
   }
@@ -150,8 +153,8 @@ function Decisions({ room }: { room: TripSimRoom }) {
             Exit poll: {pollSite.name}
           </Text>
           <Text fontSize="xs" color="fg.muted">
-            The poll closes with these votes on the step that closes it. A tie or no votes uses
-            the site's default.
+            The poll closes with these votes on the step that closes it. A tie or no votes uses the
+            site's default.
           </Text>
           <HStack gap="3">
             <Field.Root maxW="120px">
@@ -239,6 +242,29 @@ function Decisions({ room }: { room: TripSimRoom }) {
         </Stack>
       ) : null}
 
+      {keys.length > 0 ? (
+        <Stack gap="2">
+          <Text fontSize="sm" fontWeight="semibold">
+            Key items
+          </Text>
+          <HStack gap="2" wrap="wrap">
+            {keys.map((key) => (
+              <Button
+                key={key.id}
+                size="sm"
+                variant={key.held ? "solid" : "outline"}
+                onClick={() => runTripSim((r) => r.toggleKeyItem(key.id))}
+              >
+                {key.icon} {key.name}: {key.held ? "in the van" : "not held"}
+              </Button>
+            ))}
+          </HStack>
+          <Text fontSize="xs" color="fg.muted">
+            Toggle as the host. Giving a key the van already holds does nothing.
+          </Text>
+        </Stack>
+      ) : null}
+
       {tripMaps.length > 0 ? (
         <Stack gap="2">
           <Text fontSize="sm" fontWeight="semibold">
@@ -296,8 +322,7 @@ function Decisions({ room }: { room: TripSimRoom }) {
       {incident ? (
         <Stack gap="2">
           <Text fontSize="sm" fontWeight="semibold">
-            {incident.icon} {incident.name} · step{" "}
-            {incident.step + 1} of {incident.steps.length} (
+            {incident.icon} {incident.name} · step {incident.step + 1} of {incident.steps.length} (
             {incident.steps[incident.step]?.kind ?? "done"})
           </Text>
           <HStack gap="2" wrap="wrap">
@@ -311,7 +336,11 @@ function Decisions({ room }: { room: TripSimRoom }) {
                 {item.emoji} Use {item.name}
               </Button>
             ))}
-            <Button size="sm" variant="ghost" onClick={() => runTripSim((r) => r.skipIncidentStep())}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => runTripSim((r) => r.skipIncidentStep())}
+            >
               Host skip step
             </Button>
           </HStack>
@@ -323,6 +352,7 @@ function Decisions({ room }: { room: TripSimRoom }) {
 
 function SimPanel({ room }: { room: TripSimRoom }) {
   const { state, sim } = room
+  const heldKeys = describeVanKeys(room.keyItems())
   const next = room.peekNext()
   const driving = state.status === "driving"
   const departedAt = state.departedAt
@@ -360,16 +390,14 @@ function SimPanel({ room }: { room: TripSimRoom }) {
             </Button>
           </HStack>
         </HStack>
+        {heldKeys ? <Text fontSize="sm">In the van: {heldKeys}</Text> : null}
         <SimpleGrid columns={{ base: 2, md: 4 }} gap="3">
           <Stat label="Sim clock" value={formatClock(sim.now)} />
           <Stat
             label="Since departure"
             value={departedAt !== undefined ? `T+${formatElapsed(sim.now - departedAt)}` : "—"}
           />
-          <Stat
-            label="Mile"
-            value={`${room.mile().toFixed(1)} / ${state.routeMiles.toFixed(1)}`}
-          />
+          <Stat label="Mile" value={`${room.mile().toFixed(1)} / ${state.routeMiles.toFixed(1)}`} />
           <Stat label="Speed" value={`${Math.round(sim.current.mph)} mph`} />
         </SimpleGrid>
         <Box>

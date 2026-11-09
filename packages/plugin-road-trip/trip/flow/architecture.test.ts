@@ -59,7 +59,10 @@ describe("trip flow ownership (ADR 0222)", () => {
 
   it("rule 2: only outcomes.ts interprets outcomes", () => {
     expect(
-      offenders(/(case|===)\s*"(unlock|lock|divert)"/, (path) => path === "trip/flow/outcomes.ts"),
+      offenders(
+        /(case|===)\s*"(unlock|lock|divert|give-key|take-key|give-item)"/,
+        (path) => path === "trip/flow/outcomes.ts",
+      ),
     ).toEqual([])
   })
 
@@ -67,6 +70,15 @@ describe("trip flow ownership (ADR 0222)", () => {
     expect(
       offenders(/\bsource\.(sites|events)\b|\blinearize\(/, (path) =>
         path.startsWith("trip/flow/"),
+      ),
+    ).toEqual([])
+  })
+
+  it("rule 4: only the van entity writes the van's key items (ADR 0230)", () => {
+    expect(
+      offenders(
+        /\bkeyItems:\s*\{|\.keyItems\[[^\]]*\]\s*=[^=]/,
+        (path) => path === "trip/flow/entities/van.ts" || path === "trip/state.ts",
       ),
     ).toEqual([])
   })

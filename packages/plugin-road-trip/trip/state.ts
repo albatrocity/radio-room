@@ -9,9 +9,11 @@ import type {
   TripMap,
   TripStoreRefill,
   VanKnowledge,
+  ConditionFacts,
 } from "@repo/road-trip-map"
 import {
   BOOK_SERIES,
+  keyItemFacts,
   baseGallonsPerMile,
   compileVan,
   eventRefuels,
@@ -25,6 +27,7 @@ import {
   routeMiles,
   START_LEG,
 } from "@repo/road-trip-map"
+import type { KeyItemSource } from "./flow/events"
 import type { JunctionPhase, LayerPhase, SitePhase, VotePhase } from "./flow/machines"
 import { project, type Leg, type LegRates } from "./ledger"
 
@@ -78,6 +81,10 @@ export type SiteRuntime = {
   visitedAt?: number
   /** When the van pulled away while still driving; its departure narrative posted then (ADR 0226). */
   leftAt?: number
+  /** The `narrativeCases` index that posted on arrival; absent = the plain `narrative` (ADR 0230). */
+  narrativeCase?: number
+  /** The `departNarrativeCases` index that posted on leaving; absent = `departNarrative`. */
+  departNarrativeCase?: number
 }
 
 /** A fork's runtime (`junctionMachine`), keyed by the alternate route's id. */
@@ -91,6 +98,12 @@ export type JunctionRuntime = {
 
 /** A layer's runtime (`layerMachine`). */
 export type LayerRuntime = { phase: LayerPhase; at?: number; by?: string }
+
+/**
+ * A key item in the van (ADR 0230), keyed by `map.keyItems` id. Present means
+ * held (`keyMachine`'s `held`). Only `flow/entities/van.ts` writes it.
+ */
+export type KeyItemRuntime = { at: number; by: KeyItemSource }
 
 /** A choice step's vote (ADR 0222): open while the step runs, then its winner. */
 export type IncidentChoiceRuntime = {
@@ -238,6 +251,8 @@ export type TripState = {
   parts: Partial<Record<PartSlot, InstalledPart>>
   /** Books understood this trip (ADR 0228); absent until someone reads one. */
   books?: TripBooks
+  /** Key items in the van (ADR 0230). A set: each key is held once. */
+  keyItems: Record<string, KeyItemRuntime>
   incident?: ActiveIncident
   incidentQueue: QueuedIncident[]
   /** Bumped per incident started, for unique incident ids. */
@@ -392,6 +407,7 @@ export function createTripState(stored: StoredTripMap, tripId: string, seed: num
     fuelFlags: [],
     fundsMode: map.tuning.funds.mode,
     parts: {},
+    keyItems: {},
     incidentQueue: [],
     incidentSeq: 0,
     scriptedFired: [],
@@ -417,7 +433,7 @@ function liftLegacySite(runtime: LegacySiteRuntime): SiteRuntime {
   return pollRetryAt !== undefined ? { ...rest, vote: { phase: "pending", retryAt: pollRetryAt } } : rest
 }
 
-/** Fill Phase 3, ADR 0220, and ADR 0222 fields on a state saved before they existed. */
+/** Fill Phase 3, ADR 0220, ADR 0222, and ADR 0230 fields on a state saved before they existed. */
 export function normalizeTripState(state: TripState): TripState {
   const incident = state.incident
   const legacyIncident = incident !== undefined && incident.name === undefined
@@ -432,6 +448,7 @@ export function normalizeTripState(state: TripState): TripState {
     state.path &&
     state.layers &&
     state.junctions &&
+    state.keyItems &&
     !legacyIncident &&
     !legacySites
   ) {
@@ -448,6 +465,7 @@ export function normalizeTripState(state: TripState): TripState {
     layers: state.layers ?? {},
     junctions: state.junctions ?? {},
     parts: state.parts ?? {},
+    keyItems: state.keyItems ?? {},
     incidentQueue: state.incidentQueue ?? [],
     incidentSeq: state.incidentSeq ?? 0,
     scriptedFired: state.scriptedFired ?? [],
@@ -467,6 +485,11 @@ function legacySnapshot(id: string): IncidentSnapshot {
     refuels: eventRefuels(preset),
     ...(preset.clearedNarrative ? { clearedNarrative: preset.clearedNarrative } : {}),
   }
+}
+
+/** What conditions can ask about this trip (ADR 0230): today, the key items in the van. */
+export function conditionFacts(state: Pick<TripState, "keyItems">): ConditionFacts {
+  return keyItemFacts(Object.keys(state.keyItems ?? {}))
 }
 
 /** Installed part short ids, in slot order. */

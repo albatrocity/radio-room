@@ -5,6 +5,7 @@
 export {
   TripSimRoom,
   effectToChat,
+  giveItemsToChat,
   freezeStoreForRoom,
   type SimIncidentItem,
   type SimShops,

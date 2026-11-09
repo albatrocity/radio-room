@@ -17,6 +17,7 @@ export type TrackSelection =
   | { kind: "route"; id: string }
   | { kind: "layer"; id: string }
   | { kind: "map"; id: string }
+  | { kind: "key"; id: string }
   | null
 
 type Props = {
@@ -93,7 +94,8 @@ export function TripTimelineFrame({ children }: { children: ReactNode }) {
 
   const zoomAroundCenter = (next: number) => {
     const el = scrollerRef.current
-    const ratio = el && el.scrollWidth > 0 ? (el.scrollLeft + el.clientWidth / 2) / el.scrollWidth : 0
+    const ratio =
+      el && el.scrollWidth > 0 ? (el.scrollLeft + el.clientWidth / 2) / el.scrollWidth : 0
     queueZoom(next, ratio, el ? el.clientWidth / 2 : 0)
   }
 
@@ -124,7 +126,12 @@ export function TripTimelineFrame({ children }: { children: ReactNode }) {
         >
           +
         </Button>
-        <Button size="xs" variant="ghost" disabled={zoom === MIN_ZOOM} onClick={() => zoomAroundCenter(MIN_ZOOM)}>
+        <Button
+          size="xs"
+          variant="ghost"
+          disabled={zoom === MIN_ZOOM}
+          onClick={() => zoomAroundCenter(MIN_ZOOM)}
+        >
           Fit
         </Button>
       </HStack>
@@ -183,7 +190,12 @@ export function TripRouteTrack({
         events.some((e) => e.layer === layer.id && routeOf(e) === row.route),
     )
     for (const layer of layers) {
-      bands.push({ key: `${row.route}:${layer.id}`, row, layer: layer.id, top: bands.length * ROW_HEIGHT })
+      bands.push({
+        key: `${row.route}:${layer.id}`,
+        row,
+        layer: layer.id,
+        top: bands.length * ROW_HEIGHT,
+      })
     }
   }
   const bandOf = (route: string, layer?: string) =>
@@ -197,7 +209,10 @@ export function TripRouteTrack({
     return ((clientX - rect.left) / rect.width) * scale
   }
   const isSelected = (select: TrackSelection) =>
-    selection !== null && select !== null && selection.kind === select.kind && selection.id === select.id
+    selection !== null &&
+    select !== null &&
+    selection.kind === select.kind &&
+    selection.id === select.id
 
   const drag = (key: string, onMove: (clientX: number) => void) => ({
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
@@ -248,7 +263,15 @@ export function TripRouteTrack({
     return [...sites, ...pins]
   }
 
-  const handle = (key: string, children: ReactNode, x: number, y: number, title: string, select: TrackSelection, onMove?: (clientX: number) => void) => (
+  const handle = (
+    key: string,
+    children: ReactNode,
+    x: number,
+    y: number,
+    title: string,
+    select: TrackSelection,
+    onMove?: (clientX: number) => void,
+  ) => (
     <Box
       key={key}
       position="absolute"
@@ -324,7 +347,11 @@ export function TripRouteTrack({
                 )
               }
             }
-            return <g key={row.route} opacity={0.5}>{lines}</g>
+            return (
+              <g key={row.route} opacity={0.5}>
+                {lines}
+              </g>
+            )
           })}
         </svg>
 
@@ -344,7 +371,9 @@ export function TripRouteTrack({
                 width={`${pct(band.row.length)}%`}
                 borderTopWidth={layer ? "1px" : "3px"}
                 borderStyle={layer ? "dashed" : "solid"}
-                borderColor={isSelected(select) ? "blue.solid" : layer ? "purple.muted" : "fg.muted"}
+                borderColor={
+                  isSelected(select) ? "blue.solid" : layer ? "purple.muted" : "fg.muted"
+                }
               />
               <HStack
                 position="absolute"
@@ -425,7 +454,14 @@ export function TripRouteTrack({
                   }}
                 >
                   {pin.below ? (
-                    <Box mx="auto" h="8px" w="0" borderLeftWidth="2px" borderStyle="dashed" borderColor="orange.solid" />
+                    <Box
+                      mx="auto"
+                      h="8px"
+                      w="0"
+                      borderLeftWidth="2px"
+                      borderStyle="dashed"
+                      borderColor="orange.solid"
+                    />
                   ) : null}
                   <Text
                     fontSize={pin.below ? "md" : "xl"}
@@ -439,9 +475,19 @@ export function TripRouteTrack({
                     {pin.icon}
                   </Text>
                   {!pin.below ? (
-                    <Box mx="auto" mt="2px" h="10px" w="2px" bg={pin.marked ? "red.solid" : "fg.muted"} />
+                    <Box
+                      mx="auto"
+                      mt="2px"
+                      h="10px"
+                      w="2px"
+                      bg={pin.marked ? "red.solid" : "fg.muted"}
+                    />
                   ) : null}
-                  <Text fontSize="2xs" color={pin.below ? "orange.fg" : "fg.muted"} whiteSpace="nowrap">
+                  <Text
+                    fontSize="2xs"
+                    color={pin.below ? "orange.fg" : "fg.muted"}
+                    whiteSpace="nowrap"
+                  >
                     {pin.label}
                   </Text>
                 </Box>
@@ -460,8 +506,14 @@ export function TripRouteTrack({
           const out: ReactNode[] = []
           if (parent && parentRow) {
             out.push(
-              handle(`fork:${route.id}`, "◆", row.x, parent.top + LINE_Y, `${route.name} forks here (drag)`, select, (clientX) =>
-                onMoveFork(route.id, sharedAt(clientX) - parentRow.x),
+              handle(
+                `fork:${route.id}`,
+                "◆",
+                row.x,
+                parent.top + LINE_Y,
+                `${route.name} forks here (drag)`,
+                select,
+                (clientX) => onMoveFork(route.id, sharedAt(clientX) - parentRow.x),
               ),
             )
           }
@@ -471,13 +523,28 @@ export function TripRouteTrack({
             const targetRow = rows.find((r) => r.route === end.route)
             if (target && targetRow) {
               out.push(
-                handle(`end:${route.id}`, <LuCornerRightUp style={{ display: "block" }} />, targetRow.x + end.mile, target.top + LINE_Y, `${route.name} rejoins here (drag)`, select, (clientX) =>
-                  onMoveEnd(route.id, sharedAt(clientX) - targetRow.x),
+                handle(
+                  `end:${route.id}`,
+                  <LuCornerRightUp style={{ display: "block" }} />,
+                  targetRow.x + end.mile,
+                  target.top + LINE_Y,
+                  `${route.name} rejoins here (drag)`,
+                  select,
+                  (clientX) => onMoveEnd(route.id, sharedAt(clientX) - targetRow.x),
                 ),
               )
             }
           } else {
-            out.push(handle(`flag:${route.id}`, "🏁", row.x + row.length, own.top + LINE_Y, `${route.name} ends at its own destination`, select))
+            out.push(
+              handle(
+                `flag:${route.id}`,
+                "🏁",
+                row.x + row.length,
+                own.top + LINE_Y,
+                `${route.name} ends at its own destination`,
+                select,
+              ),
+            )
           }
           return out
         })}

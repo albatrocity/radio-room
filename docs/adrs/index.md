@@ -235,6 +235,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0227](0227-trip-defined-maps.md) | Trip-defined maps (`map.maps`, `road-trip:map-{id}`) unlock every locked layer that opts in via `layers[].maps`; replaces Local Map and `unlockItems` (partially supersedes 0222) | Accepted |
 | [0228](0228-trip-books-gas-canister-weighted-votes.md) | Trip books (series levels, reader buffs cleared at trip end, van knowledge credited on incident signs), a driving-only Gas Canister that tops up without resolving anything, multipliers on positive gains only, `shop:price` modifiers, and one-shot weighted poll votes | Accepted |
 | [0229](0229-site-system-message.md) | Site system messages: the site narrative System message select can post the info-alert row with the site icon (amends 0212) | Accepted |
+| [0230](0230-trip-conditions-and-key-items.md) | Trip conditions (`when` on outcomes, narrative cases, and shop offers; snapshot semantics; `ConditionFacts`) and trip key items (`map.keyItems`, `road-trip:key-{id}`, held by the van; `give-key`, `take-key`, `give-item` outcomes) | Accepted |
 
 ## Creating a New ADR
 

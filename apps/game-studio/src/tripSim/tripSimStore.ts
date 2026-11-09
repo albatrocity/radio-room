@@ -3,6 +3,7 @@ import { TripSimRoom, type SimShops } from "@repo/plugin-road-trip/sim"
 import {
   ROAD_TRIP_PLUGIN_NAME,
   roadTripItemId,
+  tripKeyItemDefinitions,
   tripMapItemDefinitions,
   type TripMapInput,
 } from "@repo/road-trip-map"
@@ -55,7 +56,9 @@ const sandboxShops: SimShops = {
         result = await shopAccess.openRoomShop(request)
       }
       if (!result.ok) {
-        console.warn(`[trip-sim] ${request.title ?? request.scopeId}'s shop didn't open (${result.reason})`)
+        console.warn(
+          `[trip-sim] ${request.title ?? request.scopeId}'s shop didn't open (${result.reason})`,
+        )
       }
     })()
   },
@@ -72,11 +75,14 @@ export function loadTripSim(map: TripMapInput): void {
 }
 
 /**
- * The trip's maps as sandbox items under the road-trip plugin id (ADR 0227),
- * so a stop's shop can sell `road-trip:map-{id}`.
+ * The trip's maps and key items as sandbox items under the road-trip plugin id
+ * (ADR 0227, 0230), so a stop's shop can sell them.
  */
 function registerTripMapItems(sim: TripSimRoom): void {
-  const definitions = tripMapItemDefinitions(sim.sim.map)
+  const definitions = [
+    ...tripMapItemDefinitions(sim.sim.map),
+    ...tripKeyItemDefinitions(sim.sim.map),
+  ]
   if (definitions.length === 0) return
   try {
     getStudio().room.registerDefinitions(

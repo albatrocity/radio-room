@@ -6,6 +6,7 @@ import type {
   TripStoreIncident,
   TripStoreLive,
   TripStoreSite,
+  TripStoreVanKeyItem,
   TripStoreVanSheet,
   TripSite,
   VanFactor,
@@ -40,6 +41,7 @@ import {
   liveBlockers,
   refillInView,
   tankAt,
+  type KeyItemRuntime,
   type TripLogEntry,
   type TripState,
 } from "./state"
@@ -98,12 +100,12 @@ export function buildTripStore(
     if (runtime.visitedAt !== undefined) {
       entry.visitedAt = runtime.visitedAt
       if (site.lore) entry.lore = site.lore
-      const narrative = siteNarrative(site)
+      const narrative = siteNarrative(site, runtime)
       if (narrative) entry.narrative = narrative
       if (site.model) entry.modelUrl = site.model.url
     }
     if (runtime.leftAt !== undefined) {
-      const departNarrative = siteDepartNarrative(site)
+      const departNarrative = siteDepartNarrative(site, runtime)
       if (departNarrative) entry.departNarrative = departNarrative
     }
     if (runtime.phase === "parked" && site.parkedStatus) entry.parkedStatus = site.parkedStatus
@@ -136,7 +138,7 @@ export function buildTripStore(
       projectedArrivalAt: projectArrival(state, map, anchorMile, now, anchorGallons),
       targetArrivalAt: state.targetArrivalAt ?? null,
     },
-    vanSheet: buildVanSheet(state, now),
+    vanSheet: buildVanSheet(state, map, now),
     visitedCount,
     siteCount: map.sites.filter(
       (s) =>
@@ -190,8 +192,45 @@ function routeOf(state: TripState, source: TripMap): { route?: TripStore["route"
     : {}
 }
 
-/** Van tab: parts by slot, the factors shaping speed and burn, and the incident in progress. */
-function buildVanSheet(state: TripState, now: number): TripStoreVanSheet {
+/** Who put a key in the van, for the Van tab (ADR 0230). `map` is the van's path. */
+function keyGiver(map: PathMap, by: KeyItemRuntime["by"]): string {
+  switch (by.kind) {
+    case "site":
+      return map.sites.find((site) => site.id === by.id)?.name ?? "A stop"
+    case "event":
+      return map.events?.find((event) => event.id === by.id)?.name ?? "Something on the road"
+    case "choice":
+      return map.events?.find((event) => event.id === by.eventId)?.name ?? "The room's choice"
+    case "item":
+    case "purchase":
+      return by.name
+    case "host":
+      return "The host"
+  }
+}
+
+/** The van's key items, oldest first (ADR 0230). */
+function vanKeyItems(state: TripState, map: PathMap): TripStoreVanKeyItem[] {
+  return Object.entries(state.keyItems ?? {})
+    .flatMap(([id, held]): TripStoreVanKeyItem[] => {
+      const key = map.keyItems?.find((k) => k.id === id)
+      if (!key) return []
+      return [
+        {
+          id,
+          name: key.name,
+          icon: key.icon,
+          ...(key.description ? { description: key.description } : {}),
+          givenBy: keyGiver(map, held.by),
+          at: held.at,
+        },
+      ]
+    })
+    .sort((a, b) => a.at - b.at)
+}
+
+/** Van tab: parts by slot, the factors shaping speed and burn, the incident in progress, and key items. */
+function buildVanSheet(state: TripState, map: PathMap, now: number): TripStoreVanSheet {
   const van = compileVan(installedPartIds(state))
   const parts = PART_SLOTS.flatMap(({ slot }) => {
     const installed = state.parts[slot]
@@ -217,6 +256,8 @@ function buildVanSheet(state: TripState, now: number): TripStoreVanSheet {
   }
   const incident = incidentView(state)
   if (incident) sheet.incident = incident
+  const keyItems = vanKeyItems(state, map)
+  if (keyItems.length > 0) sheet.keyItems = keyItems
   return sheet
 }
 

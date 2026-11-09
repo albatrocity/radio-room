@@ -6,6 +6,11 @@ import type { TripMapInput } from "./schema"
  * Gas Stop sells the Local Map that opens it too (ADR 0227). The Scenic Byway forks off
  * at mile 14 and rejoins at mile 22 (skipping the Diner), and a road closure
  * at mile 23 asks the room whether to take the Detour.
+ *
+ * Key items (ADR 0230): leaving Hidden Falls puts a Trail Pass in the van. At
+ * the Swimming Hole the lifeguard recognizes it (a narrative case) and the
+ * stop unlocks the Ridge path layer; without it, one traveler gets a Trip
+ * Guide instead.
  */
 export const SAMPLE_BRANCH_MAP: TripMapInput = {
   schemaVersion: 1,
@@ -29,6 +34,12 @@ export const SAMPLE_BRANCH_MAP: TripMapInput = {
       unlockedNarrative: "The clerk circles a few spots on your map.",
       maps: ["local"],
     },
+    {
+      id: "ridge",
+      name: "Ridge path",
+      icon: "⛰️",
+      unlockedNarrative: "A dirt path climbs off the lot toward the ridge.",
+    },
   ],
   maps: [
     {
@@ -37,6 +48,16 @@ export const SAMPLE_BRANCH_MAP: TripMapInput = {
       icon: "🗺️",
       description: "Hand-drawn by the locals. Use it to find their spots.",
       coinValue: 25,
+    },
+  ],
+  keyItems: [
+    {
+      id: "trail-pass",
+      name: "Trail Pass",
+      icon: "🎟️",
+      description: "A ranger's pass from Hidden Falls.",
+      foundNarrative:
+        "On the way out, a ranger tears off a trail pass and hands it through the window. Someone tucks it in the visor.",
     },
   ],
   routes: [
@@ -77,6 +98,7 @@ export const SAMPLE_BRANCH_MAP: TripMapInput = {
       mile: 8,
       layer: "local-tips",
       secret: false,
+      onDepart: [{ kind: "give-key", key: "trail-pass" }],
     },
     {
       id: "gas-stop",
@@ -94,6 +116,31 @@ export const SAMPLE_BRANCH_MAP: TripMapInput = {
       icon: "🏊",
       mile: 27,
       layer: "local-tips",
+      secret: false,
+      narrative: "The water's cold. Nobody admits it.",
+      narrativeCases: [
+        {
+          when: { has: "trail-pass" },
+          text: "The lifeguard spots the trail pass on the visor. \"Falls people? Take the ridge path. Tell nobody.\"",
+        },
+      ],
+      onVisit: [
+        { kind: "unlock", layer: "ridge", when: { has: "trail-pass" } },
+        {
+          kind: "give-item",
+          item: "road-trip:trip-guide",
+          to: "random",
+          when: { not: { has: "trail-pass" } },
+        },
+      ],
+    },
+    {
+      id: "ridge-lookout",
+      name: "Ridge Lookout",
+      description: "Three counties and a fire tower.",
+      icon: "🔭",
+      mile: 28.5,
+      layer: "ridge",
       secret: false,
     },
     {

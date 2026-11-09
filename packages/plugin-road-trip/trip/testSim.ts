@@ -2,7 +2,8 @@ import type { PollPresentation } from "@repo/types"
 import { parseTripMap, SAMPLE_TRIP_MAP, type TripMap, type TripMapInput } from "@repo/road-trip-map"
 import { splitProportional } from "@repo/plugin-base"
 import { applyTransition, contextFor } from "./commit"
-import { dispatch, targetKey, VOTE_SPECS, type VoteTarget } from "./flow"
+import { dispatch, targetKey, VOTE_SPECS, type OutcomeSource, type VoteTarget } from "./flow"
+import { giveItemsRecipients } from "./helpers"
 import { PARKED_AT_START, project, type Leg } from "./ledger"
 import {
   createTripState,
@@ -65,7 +66,8 @@ export class TripSim {
   state: TripState
   legs: Leg[] = []
   log: TripLogEntry[] = []
-  effects: { at: number; effect: TripEffect }[] = []
+  /** Every effect so far; a `give-items` effect carries who got the item. */
+  effects: { at: number; effect: TripEffect; recipients?: string[] }[] = []
   now = T0
   polls: OpenPoll[] = []
   /** Votes each site's poll receives; missing = no votes. */
@@ -80,6 +82,14 @@ export class TripSim {
   pledges: FundPayment[] = []
   /** Session `costScale`, passed to every transition like `mutateTrip`. */
   costScale = 1
+  /** Online travelers a `give-items` effect picks from; null = everyone with a wallet. */
+  online: string[] | null = null
+  /** Items `give-items` effects handed out (ADR 0230), as the plugin's `giveItem` calls. */
+  given: { userId: string; item: string; qty: number }[] = []
+  /** Mirrors `inventory.giveItem`; tests may replace it. */
+  giveItem = (userId: string, item: string, qty: number): void => {
+    this.given.push({ userId, item, qty })
+  }
   private pollSeq = 0
 
   constructor(input: TripMapInput = SAMPLE_TRIP_MAP, start = T0) {
@@ -133,6 +143,16 @@ export class TripSim {
     if (applied.appended) this.legs.push(applied.appended)
     this.log.push(...applied.log)
     for (const effect of applied.effects) {
+      if (effect.type === "give-items") {
+        const recipients = giveItemsRecipients(
+          effect,
+          this.online ?? Object.keys(this.wallets),
+          this.state.seed,
+        )
+        for (const userId of recipients) this.giveItem(userId, effect.item, effect.qty)
+        this.effects.push({ at: this.now, effect, recipients })
+        continue
+      }
       this.effects.push({ at: this.now, effect })
       if (effect.type === "close-poll")
         this.polls = this.polls.filter((p) => p.pollId !== effect.pollId)
@@ -140,6 +160,13 @@ export class TripSim {
       if (effect.type === "open-vote") this.openPoll(effect.target)
     }
     return true
+  }
+
+  /** Put a key item in the van or take it out, as the host (ADR 0230). */
+  setKeyItem(keyId: string, held: boolean, by: OutcomeSource = { kind: "host" }): boolean {
+    return this.apply(
+      dispatch(held ? { type: "KEY_GIVE", key: keyId, by } : { type: "KEY_TAKE", key: keyId, by }),
+    )
   }
 
   /** Mirrors the plugin's `openFund`: levy straight away, or start an empty pool. */

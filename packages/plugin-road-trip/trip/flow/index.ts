@@ -5,6 +5,7 @@ import { junctionEntity } from "./entities/junction"
 import { layerEntity } from "./entities/layer"
 import { siteEntity } from "./entities/site"
 import { tripEntity } from "./entities/trip"
+import { itemsGiveHandler, vanEntity } from "./entities/van"
 import { voteEntity } from "./entities/vote"
 import { applyOutcomesHandler } from "./outcomes"
 
@@ -15,9 +16,10 @@ import { applyOutcomesHandler } from "./outcomes"
  */
 
 registerFlow(() => ({
-  entities: [tripEntity, siteEntity, voteEntity, junctionEntity, layerEntity],
+  entities: [tripEntity, siteEntity, voteEntity, junctionEntity, layerEntity, vanEntity],
   handlers: {
     APPLY_OUTCOMES: applyOutcomesHandler,
+    ITEMS_GIVE: itemsGiveHandler,
     ROUTE_END: routeEndHandler,
     CHOICE_DECIDED: choiceDecidedHandler,
   },
@@ -25,7 +27,7 @@ registerFlow(() => ({
 
 export { absorb, dispatch, flow, MAX_FLOW_EVENTS, FlowOverflowError } from "./dispatch"
 export type { Emit, FlowAcc, FlowEntity, FlowHandler } from "./dispatch"
-export type { OutcomeSource, TripFlowEvent, VoteTally, VoteTarget } from "./events"
+export type { KeyItemSource, OutcomeSource, TripFlowEvent, VoteTally, VoteTarget } from "./events"
 export { sameTarget } from "./events"
 export { flowView, pathFor, refresh } from "./view"
 export {

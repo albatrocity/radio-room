@@ -195,10 +195,31 @@ export const layerMachine = defineMachine<LayerPhase, LayerMachineEvent>({
   },
 })
 
+/** One key item in the van (ADR 0230). A set, not a stack: giving a held key does nothing. */
+export type KeyPhase = "absent" | "held"
+export type KeyMachineEvent = { type: "GIVE" | "TAKE" }
+
+export const keyMachine = defineMachine<KeyPhase, KeyMachineEvent>({
+  id: "key",
+  initial: "absent",
+  states: {
+    absent: {
+      on: { GIVE: "held" },
+      description: "Not in the van; `{ has }` conditions on it fail.",
+    },
+    held: { on: { TAKE: "absent" }, description: "In the van; `{ has }` conditions on it hold." },
+  },
+  events: {
+    GIVE: "A give-key outcome, or a traveler bought it.",
+    TAKE: "A take-key outcome.",
+  },
+})
+
 export const TRIP_MACHINES = [
   tripMachine,
   siteMachine,
   voteMachine,
   junctionMachine,
   layerMachine,
+  keyMachine,
 ] as const

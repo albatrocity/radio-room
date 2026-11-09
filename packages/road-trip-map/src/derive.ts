@@ -1,5 +1,7 @@
 import type { OpenRoomShopRequest, PhysicalMediaCarry, PhysicalMediaStock } from "@repo/types"
+import { conditionHolds, type ConditionFacts } from "./conditions"
 import type { SiteShopOffer, SkipDefault, TripMap, TripSite, TripTuning } from "./schema"
+import { tripKeyIdForDefinition } from "./tripKeyItems"
 
 /** Destination mile tolerance when comparing against the derived route length. */
 export const ROUTE_END_TOLERANCE_MILES = 0.05
@@ -81,12 +83,22 @@ export function stocksRecords(stock: PhysicalMediaStock | undefined): stock is P
   return Boolean(stock && (stock.library || stock.picks?.length))
 }
 
-/** The site's shop contents, or `null` when it sells nothing. */
-export function siteShopRequest(site: {
-  shop?: { offers?: SiteShopOffer[] }
-  services?: { physicalMedia?: PhysicalMediaStock }
-}): SiteShopRequest | null {
-  const offers = site.shop?.offers ?? []
+/**
+ * The site's shop contents, or `null` when it sells nothing. Offers go out
+ * without their `when`. With `facts` (a stop opening, ADR 0230), offers whose
+ * `when` fails and offers for key items the van already holds are dropped;
+ * without it (authoring, lint), the whole pool is listed.
+ */
+export function siteShopRequest(
+  site: {
+    shop?: { offers?: SiteShopOffer[] }
+    services?: { physicalMedia?: PhysicalMediaStock }
+  },
+  facts?: ConditionFacts,
+): SiteShopRequest | null {
+  const offers = (site.shop?.offers ?? [])
+    .filter((offer) => !facts || offerAvailable(offer, facts))
+    .map(({ when: _when, ...offer }) => offer)
   const stock = site.services?.physicalMedia
   const physicalMedia = stocksRecords(stock) ? stock : undefined
   if (offers.length === 0 && !physicalMedia) return null
@@ -94,6 +106,12 @@ export function siteShopRequest(site: {
     ...(offers.length > 0 ? { offers } : {}),
     ...(physicalMedia ? { physicalMedia } : {}),
   }
+}
+
+function offerAvailable(offer: SiteShopOffer, facts: ConditionFacts): boolean {
+  const key = tripKeyIdForDefinition(offer.definitionId)
+  if (key !== undefined && facts.hasKey(key)) return false
+  return conditionHolds(offer.when, facts)
 }
 
 /** The name a site's shop goes by: its `shop.title`, else the site's name. */
@@ -104,10 +122,15 @@ export function siteShopTitle(site: { name: string; shop?: { title?: string } })
 /**
  * The `shopAccess.openRoomShop` request for a site's stop: its offers and bin,
  * buyback, sample, title, and opening message. Null when it sells nothing.
- * Shared by the runtime and the Game Studio simulator.
+ * `facts` filters the offers as in `siteShopRequest`. Shared by the runtime
+ * and the Game Studio simulator.
  */
-export function siteOpenRoomShopRequest(site: TripSite, scopeId: string): OpenRoomShopRequest | null {
-  const request = siteShopRequest(site)
+export function siteOpenRoomShopRequest(
+  site: TripSite,
+  scopeId: string,
+  facts?: ConditionFacts,
+): OpenRoomShopRequest | null {
+  const request = siteShopRequest(site, facts)
   if (!request) return null
   return {
     scopeId,

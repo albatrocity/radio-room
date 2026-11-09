@@ -8,6 +8,7 @@ import {
   VAN_FUEL_ITEMS,
   vanFuelItem,
   tripGuideItem,
+  isTripKeyItemShortId,
   isTripMapItemShortId,
   tripMapForItem,
   TRIP_GUIDE_ITEMS,
@@ -164,6 +165,10 @@ export function routeItemUse(
   now = Date.now(),
   userId?: string,
 ): RoadTripItemUse {
+  // Key items ride in the van (ADR 0230). A stack left on a person does nothing.
+  if (isTripKeyItemShortId(shortId)) {
+    return { kind: "refused", message: "That rides in the van." }
+  }
   const read = userId !== undefined ? routeRead(state, shortId, userId) : null
   if (read) return read.kind === "read" ? { kind: "read", shortId, learned: read.learned } : read
   const fuel = vanFuelItem(shortId)

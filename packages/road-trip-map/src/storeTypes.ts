@@ -149,6 +149,17 @@ export type TripStoreIncident = {
   resolvesWith: string[]
 }
 
+/** A key item in the van (ADR 0230), for the Van tab's "In the van" list. */
+export type TripStoreVanKeyItem = {
+  id: string
+  name: string
+  icon: string
+  description?: string
+  /** Who put it there: a site, an event, a traveler who used or bought something, or the host. */
+  givenBy: string
+  at: number
+}
+
 /** Van tab (M7 `van_sheet`): installed parts and what's shaping speed and burn. */
 export type TripStoreVanSheet = {
   parts: TripStoreVanPart[]
@@ -160,6 +171,8 @@ export type TripStoreVanSheet = {
   incident?: TripStoreIncident
   /** Incidents waiting for the current one (or a stop) to end. */
   queued: number
+  /** Key items in the van, in the order they arrived; absent when it holds none (ADR 0230). */
+  keyItems?: TripStoreVanKeyItem[]
 }
 
 export type TripStore = {

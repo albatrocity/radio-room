@@ -1,5 +1,12 @@
-import type { LinearPath, PathMap, TripMap, TripSite } from "@repo/road-trip-map"
-import { formatShare, resolveSiteSettings, siteShopRequest, sortedSites } from "@repo/road-trip-map"
+import type { ConditionFacts, LinearPath, PathMap, TripMap, TripSite } from "@repo/road-trip-map"
+import {
+  formatShare,
+  narrativeCaseIndex,
+  narrativeForCase,
+  resolveSiteSettings,
+  siteShopRequest,
+  sortedSites,
+} from "@repo/road-trip-map"
 import type { VoteTarget } from "./flow/events"
 import type { SiteRuntime, TripFund, TripLogEvent, TripState } from "./state"
 
@@ -34,6 +41,12 @@ export type TripEffect =
   | { type: "book-buff"; userId: string; shortId: string }
   /** The trip is over: take reader-scope book buffs back off these travelers. */
   | { type: "forget-books"; userIds: string[] }
+  /**
+   * A `give-item` outcome (ADR 0230): `qty` of `item` (a full definition id) to
+   * every online traveler, or to one of them. `pick` seeds the random choice
+   * (`giveItemsRecipients`), so the plugin and the simulator agree.
+   */
+  | { type: "give-items"; item: string; to: "everyone" | "random"; qty: number; pick: string }
 
 export type TransitionContext = {
   now: number
@@ -133,16 +146,55 @@ export function exitTitle(site: TripSite): string {
   return `EXIT ${Math.round(site.mile)} · ${site.name.toUpperCase()}`
 }
 
-/** Chat prose for a stop. Blank copy posts nothing. */
-export function siteNarrative(site: TripSite): string | undefined {
-  const text = site.narrative?.trim()
-  return text ? text : undefined
+/** A site runtime's record of which narrative cases posted (ADR 0230). */
+type PostedCases = Pick<SiteRuntime, "narrativeCase" | "departNarrativeCase">
+
+/** The arrival case that holds now, to record on the site as it posts (ADR 0230). */
+export function visitNarrativeCase(site: TripSite, facts: ConditionFacts): number | undefined {
+  return narrativeCaseIndex(site.narrativeCases, facts)
 }
 
-/** Chat prose for leaving a stop (ADR 0226). Blank copy posts nothing. */
-export function siteDepartNarrative(site: TripSite): string | undefined {
-  const text = site.departNarrative?.trim()
-  return text ? text : undefined
+/** The departure case that holds now, to record on the site as it posts (ADR 0230). */
+export function departNarrativeCase(site: TripSite, facts: ConditionFacts): number | undefined {
+  return narrativeCaseIndex(site.departNarrativeCases, facts)
+}
+
+function blankless<T extends { text: string }>(resolved: T | undefined): T | undefined {
+  const text = resolved?.text.trim()
+  return resolved && text ? { ...resolved, text } : undefined
+}
+
+function visitText(site: TripSite, caseIndex: number | undefined) {
+  return blankless(
+    narrativeForCase(
+      site.narrativeCases,
+      { text: site.narrative, variant: site.narrativeVariant },
+      caseIndex,
+    ),
+  )
+}
+
+function departText(site: TripSite, caseIndex: number | undefined) {
+  return blankless(
+    narrativeForCase(
+      site.departNarrativeCases,
+      { text: site.departNarrative, variant: site.departNarrativeVariant },
+      caseIndex,
+    ),
+  )
+}
+
+/**
+ * Chat prose for a stop: the narrative case that posted (`runtime.narrativeCase`),
+ * else `narrative`. Blank copy posts nothing.
+ */
+export function siteNarrative(site: TripSite, runtime?: PostedCases): string | undefined {
+  return visitText(site, runtime?.narrativeCase)?.text
+}
+
+/** Chat prose for leaving a stop (ADR 0226): the departure case that posted, else `departNarrative`. */
+export function siteDepartNarrative(site: TripSite, runtime?: PostedCases): string | undefined {
+  return departText(site, runtime?.departNarrativeCase)?.text
 }
 
 export type TripNarrativeEntry = {
@@ -162,18 +214,18 @@ export type TripNarrativeEntry = {
  */
 export function tripNarrative(
   map: TripMap,
-  sites: Record<string, { visitedAt?: number; leftAt?: number }>,
+  sites: Record<string, { visitedAt?: number; leftAt?: number } & PostedCases>,
 ): TripNarrativeEntry[] {
   return map.sites
     .flatMap((site) => {
       const runtime = sites[site.id]
       const base = { siteId: site.id, name: site.name, icon: site.icon }
       const entries: TripNarrativeEntry[] = []
-      const visit = siteNarrative(site)
+      const visit = siteNarrative(site, runtime)
       if (runtime?.visitedAt !== undefined && visit) {
         entries.push({ ...base, moment: "visit", at: runtime.visitedAt, body: visit })
       }
-      const depart = siteDepartNarrative(site)
+      const depart = siteDepartNarrative(site, runtime)
       if (runtime?.leftAt !== undefined && depart) {
         entries.push({ ...base, moment: "depart", at: runtime.leftAt, body: depart })
       }
@@ -192,18 +244,53 @@ function siteNarrate(
   return { type: "narrate", body, ...(variant ? { variant } : {}) }
 }
 
-/** Posted beside the exit sign, not as one. Only when the van actually stops. */
-export function narrate(site: TripSite): TripEffect | null {
-  const body = siteNarrative(site)
-  if (!body) return null
-  return siteNarrate(body, site.icon, site.narrativeVariant)
+/**
+ * Posted beside the exit sign, not as one. Only when the van actually stops.
+ * `caseIndex`: the narrative case recorded on the site as it arrived (ADR 0230).
+ */
+export function narrate(site: TripSite, caseIndex?: number): TripEffect | null {
+  const resolved = visitText(site, caseIndex)
+  if (!resolved) return null
+  return siteNarrate(resolved.text, site.icon, resolved.variant)
 }
 
 /** Posted as the van pulls back onto the road, before departure outcomes. */
-export function departNarrate(site: TripSite): TripEffect | null {
-  const body = siteDepartNarrative(site)
-  if (!body) return null
-  return siteNarrate(body, site.icon, site.departNarrativeVariant)
+export function departNarrate(site: TripSite, caseIndex?: number): TripEffect | null {
+  const resolved = departText(site, caseIndex)
+  if (!resolved) return null
+  return siteNarrate(resolved.text, site.icon, resolved.variant)
+}
+
+/**
+ * Who a `give-items` effect reaches (ADR 0230): every online traveler, or one
+ * picked from them by the trip seed and the effect's `pick`.
+ */
+export function giveItemsRecipients(
+  effect: Extract<TripEffect, { type: "give-items" }>,
+  online: readonly string[],
+  seed: number,
+): string[] {
+  if (online.length === 0) return []
+  if (effect.to === "everyone") return [...online]
+  return [online[seededIndex(seed, effect.pick, online.length)]!]
+}
+
+/** The road sign after a `give-items` effect ran; null when nobody got anything. */
+export function giveItemsSign(
+  effect: Extract<TripEffect, { type: "give-items" }>,
+  item: { name: string; icon?: string },
+  recipients: readonly string[],
+): Extract<TripEffect, { type: "sign" }> | null {
+  if (recipients.length === 0) return null
+  const what = effect.qty > 1 ? `${effect.qty}× ${item.name}` : item.name
+  const who = effect.to === "everyone" ? "Everyone" : (recipients[0] ?? "Someone")
+  return {
+    type: "sign",
+    variant: "success",
+    title: `${who} got ${what}`,
+    body: effect.to === "everyone" ? "Check your inventory." : `It's in ${who}'s inventory.`,
+    ...(item.icon ? { icon: item.icon } : {}),
+  }
 }
 
 /** Chat meta for a `narrate` effect. An `icon` means the author picked the site message. */

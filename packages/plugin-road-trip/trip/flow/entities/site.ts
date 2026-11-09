@@ -3,13 +3,15 @@ import { isDestination, resolveSiteSettings } from "@repo/road-trip-map"
 import {
   ARRIVAL_MILE_EPSILON,
   departNarrate,
+  departNarrativeCase,
   findSite,
   milesLabel,
   pullOffHold,
   type TransitionContext,
   type TripEffect,
+  visitNarrativeCase,
 } from "../../helpers"
-import type { SiteRuntime, SkipVotes, TripState } from "../../state"
+import { conditionFacts, type SiteRuntime, type SkipVotes, type TripState } from "../../state"
 import { parkAt } from "../../stops"
 import type { FlowAcc, FlowEntity } from "../dispatch"
 import type { TripFlowEvent } from "../events"
@@ -32,6 +34,19 @@ function patchSite(acc: FlowAcc, id: string, patch: Partial<SiteRuntime>): FlowA
     ...acc,
     next: { ...acc.next, sites: { ...acc.next.sites, [id]: { ...runtime, ...patch } } },
   }
+}
+
+/**
+ * The van stops here: revealed, `visitedAt`, and the arrival narrative case that
+ * holds now (ADR 0230), recorded so every narrator and replay posts the same text.
+ */
+function markVisited(acc: FlowAcc, ctx: TransitionContext, site: TripSite): FlowAcc {
+  const narrativeCase = visitNarrativeCase(site, conditionFacts(acc.next))
+  return patchSite(acc, site.id, {
+    revealed: true,
+    visitedAt: ctx.now,
+    ...(narrativeCase !== undefined ? { narrativeCase } : {}),
+  })
 }
 
 /** Mark a site revealed; an optional, non-mystery site ahead gets a "Coming up" sign. */
@@ -234,7 +249,7 @@ export const siteEntity: FlowEntity<SitePhase, SiteMachineEvent> = {
       const site = findSite(ctx.map, id)
       const before = acc.next.sites[id]
       if (!site || !before) return acc
-      const marked = patchSite(acc, id, { revealed: true, visitedAt: ctx.now })
+      const marked = markVisited(acc, ctx, site)
       const parked =
         event.type === "SITE_ARRIVE" && from === "stopping"
           ? parkAt(marked, ctx, site, {
@@ -259,9 +274,14 @@ export const siteEntity: FlowEntity<SitePhase, SiteMachineEvent> = {
       if (event.type === "SITE_LEAVE") {
         if (acc.next.status !== "driving") return acc
         const site = findSite(ctx.map, id)
-        const left = patchSite(acc, id, { leftAt: ctx.now })
-        if (!site) return left
-        const narrative = departNarrate(site)
+        if (!site) return patchSite(acc, id, { leftAt: ctx.now })
+        // Checked before `onDepart` runs, like the outcomes' own `when`s (ADR 0230).
+        const departCase = departNarrativeCase(site, conditionFacts(acc.next))
+        const left = patchSite(acc, id, {
+          leftAt: ctx.now,
+          ...(departCase !== undefined ? { departNarrativeCase: departCase } : {}),
+        })
+        const narrative = departNarrate(site, departCase)
         const narrated = narrative ? { ...left, effects: [...left.effects, narrative] } : left
         return site.onDepart?.length
           ? emit(narrated, {
@@ -275,7 +295,7 @@ export const siteEntity: FlowEntity<SitePhase, SiteMachineEvent> = {
       const site = findSite(ctx.map, id)
       const before = acc.next.sites[id]
       if (!site || !before) return acc
-      const marked = patchSite(acc, id, { revealed: true, visitedAt: ctx.now })
+      const marked = markVisited(acc, ctx, site)
       const logged = before.revealed
         ? marked
         : {

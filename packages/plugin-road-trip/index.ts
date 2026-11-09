@@ -27,6 +27,8 @@ import {
   siteOpenRoomShopRequest,
   siteShopRequest,
   triggerableIncidentIdSchema,
+  tripKeyIdForDefinition,
+  tripKeyItemDefinitions,
   tripMapItemDefinitions,
   BOOK_BUFFS,
   BOOK_COPY,
@@ -60,6 +62,7 @@ import {
 import { PARKED_AT_START } from "./trip/ledger"
 import { buildStatusLines, buildTripStore, type TripStatusLines } from "./trip/projection"
 import {
+  conditionFacts,
   createTripState,
   TRIP_STORAGE_KEYS,
   type FundPayment,
@@ -109,7 +112,14 @@ import {
   useIncidentItem,
 } from "./trip/incidents"
 import { openTripMap, revealAhead } from "./trip/guide"
-import { LEVY_RETRY_MS, LEVY_STALE_MS, narrateMessageMeta, tripNarrative } from "./trip/helpers"
+import {
+  giveItemsRecipients,
+  giveItemsSign,
+  LEVY_RETRY_MS,
+  LEVY_STALE_MS,
+  narrateMessageMeta,
+  tripNarrative,
+} from "./trip/helpers"
 import { formatTripTimelineMarkdown } from "./export/formatTripTimelineMarkdown"
 import { poolCardView } from "./presenters"
 
@@ -263,7 +273,8 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     }
     this.on("POLL_CLOSED", (data) => this.handlePollClosed(data))
     this.on("GAME_ECONOMY_SCALE_CHANGED", (data) => {
-      if (data.roomId === context.roomId) this.costScaleCache = { value: data.costScale, at: Date.now() }
+      if (data.roomId === context.roomId)
+        this.costScaleCache = { value: data.costScale, at: Date.now() }
     })
     this.on("GAME_SESSION_ENDED", async () => {
       this.costScaleCache = null
@@ -275,6 +286,8 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
       this.costScaleCache = null
       await this.mutateTrip(gameSessionStarted)
     })
+    // A bought key item moves into the van (ADR 0230). Checked after the sale.
+    this.on("INVENTORY_ITEM_ACQUIRED", (data) => this.intakeBoughtKey(data))
     this.onConfigChange(async ({ config, previousConfig }) => {
       if (config?.enabled !== previousConfig?.enabled) await this.syncVanPlayback()
     })
@@ -291,11 +304,14 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     )
   }
 
-  /** The loaded trip's maps as inventory items (ADR 0227), so shops can sell them. */
+  /**
+   * The loaded trip's maps (ADR 0227) and key items (ADR 0230) as inventory
+   * items, so shops can sell them.
+   */
   private async registerTripMapItems(map?: TripMap): Promise<void> {
     if (!this.context) return
     const source = map ?? (await this.trips.readMap())?.map
-    const definitions = tripMapItemDefinitions(source)
+    const definitions = [...tripMapItemDefinitions(source), ...tripKeyItemDefinitions(source)]
     if (definitions.length > 0) this.context.inventory.registerItemDefinitions(definitions)
   }
 
@@ -413,7 +429,9 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
         return
       }
     }
-    console.warn(`[road-trip] settle didn't converge in ${this.context?.roomId}; next change re-arms`)
+    console.warn(
+      `[road-trip] settle didn't converge in ${this.context?.roomId}; next change re-arms`,
+    )
   }
 
   /** Arm solved thresholds, skipping unchanged future ones; cancel ones no longer wanted. */
@@ -496,11 +514,48 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
           case "forget-books":
             await this.forgetBooks(effect.userIds)
             break
+          case "give-items":
+            await this.giveItems(effect, state)
+            break
         }
       } catch (error) {
         console.error(`[road-trip] effect ${effect.type} failed in ${roomId}:`, error)
       }
     }
+  }
+
+  /**
+   * A `give-item` outcome (ADR 0230): the item to every online traveler, or to
+   * one of them, then a road sign naming who got it.
+   */
+  private async giveItems(
+    effect: Extract<TripEffect, { type: "give-items" }>,
+    state: TripState,
+  ): Promise<void> {
+    if (!this.context) return
+    const { api, inventory, roomId } = this.context
+    const recipients = giveItemsRecipients(effect, await api.getOnlineUserIds(roomId), state.seed)
+    const given = await Promise.all(
+      recipients.map(async (userId) =>
+        (await inventory.giveItem(userId, effect.item, effect.qty, undefined, "plugin"))
+          ? userId
+          : null,
+      ),
+    )
+    const got = given.filter((userId): userId is string => userId !== null)
+    if (got.length === 0) return
+    const definition = await inventory.getItemDefinition(effect.item)
+    const usernames = effect.to === "random" ? await this.usernames(got) : new Map<string, string>()
+    const names = got.map((userId) => usernames.get(userId) ?? "Someone")
+    const sign = giveItemsSign(
+      effect,
+      {
+        name: definition?.name ?? effect.item,
+        ...(definition?.icon ? { icon: definition.icon } : {}),
+      },
+      names,
+    )
+    if (sign) await this.tripAnnounce(sign.variant, sign.title, sign.body, sign.icon)
   }
 
   /** Status messages go through here so they render as road signs (D25). Narrative does not. */
@@ -534,7 +589,8 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
         goal: fund.cost,
         closesAt: fund.endsAt,
       })
-      if (!opened.ok) console.warn(`[road-trip] ${fund.purpose} pool didn't open: ${opened.message}`)
+      if (!opened.ok)
+        console.warn(`[road-trip] ${fund.purpose} pool didn't open: ${opened.message}`)
       return
     }
     const { api, roomId } = this.context
@@ -661,7 +717,11 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
    * Refused while an automatic levy is still being collected.
    */
   private async waiveIncidentFund(state: TripState, fund: TripFund): Promise<ActionResult> {
-    if (fund.mode === "automatic" && fund.levyStartedAt !== undefined && fund.collected === undefined) {
+    if (
+      fund.mode === "automatic" &&
+      fund.levyStartedAt !== undefined &&
+      fund.collected === undefined
+    ) {
       return { success: false, message: "Still collecting. Try again in a moment." }
     }
     if (fund.mode === "voluntary") {
@@ -673,9 +733,15 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     } else {
       for (const payment of fund.paid ?? []) {
         if (payment.amount > 0) {
-          await this.game.addScore(payment.userId, "coin", payment.amount, `road-trip:${fund.purpose}:refund`, {
-            intent: "exact",
-          })
+          await this.game.addScore(
+            payment.userId,
+            "coin",
+            payment.amount,
+            `road-trip:${fund.purpose}:refund`,
+            {
+              intent: "exact",
+            },
+          )
         }
       }
     }
@@ -840,7 +906,10 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   ): Promise<string | null> {
     if (!this.context) return null
     const site = map.sites.find((s) => s.id === siteId)
-    const request = site ? siteOpenRoomShopRequest(site, scopeId) : null
+    const state = await this.trips.readState()
+    const request = site
+      ? siteOpenRoomShopRequest(site, scopeId, state ? conditionFacts(state) : undefined)
+      : null
     if (!site || !request) return null
     const result = await this.context.api.requestCapability(
       this.context.roomId,
@@ -851,12 +920,44 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     if (result.ok && result.value.ok) return null
     const reason = result.ok ? (result.value.ok ? "" : result.value.reason) : result.reason
     return reason === "disabled"
-        ? `Item Shops is disabled, so ${site.name}'s shop didn't open`
-        : reason === "no-session"
-          ? `No game session, so ${site.name}'s shop didn't open`
-          : reason === "unavailable"
-            ? `${site.name}'s shop isn't available in this room, so it didn't open`
-            : `${site.name}'s shop didn't open (${reason})`
+      ? `Item Shops is disabled, so ${site.name}'s shop didn't open`
+      : reason === "no-session"
+        ? `No game session, so ${site.name}'s shop didn't open`
+        : reason === "unavailable"
+          ? `${site.name}'s shop isn't available in this room, so it didn't open`
+          : `${site.name}'s shop didn't open (${reason})`
+  }
+
+  /**
+   * A bought trip key moves from the buyer into the van (ADR 0230). With no
+   * running trip, or a key this map doesn't define, the item stays put.
+   * `KEY_GIVE` runs only after the remove, and does nothing when the van
+   * already holds the key.
+   */
+  private async intakeBoughtKey(
+    data: SystemEventPayload<"INVENTORY_ITEM_ACQUIRED">,
+  ): Promise<void> {
+    const context = this.context
+    if (!context || data.roomId !== context.roomId) return
+    const keyId = tripKeyIdForDefinition(data.item.definitionId)
+    if (!keyId) return
+    const state = await this.trips.readState()
+    if (!state || (state.status !== "loaded" && state.status !== "driving")) return
+    const stored = await this.mapFor(state)
+    if (!stored?.map.keyItems?.some((key) => key.id === keyId)) return
+    const removed = await context.inventory.removeItem(data.userId, data.item.itemId, 1)
+    if (!removed) return
+    const name = (await this.usernames([data.userId])).get(data.userId) ?? "Someone"
+    await this.mutateTrip(
+      this.forTrip(
+        state.tripId,
+        dispatch({
+          type: "KEY_GIVE",
+          key: keyId,
+          by: { kind: "purchase", userId: data.userId, name },
+        }),
+      ),
+    )
   }
 
   private async nudgeHost(map: TripMap, state: TripState): Promise<void> {

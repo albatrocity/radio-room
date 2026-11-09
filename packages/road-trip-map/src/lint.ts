@@ -17,7 +17,8 @@ import {
   type PhysicalMediaFormat,
   type PhysicalMediaStock,
 } from "@repo/types"
-import { outcomeSources } from "./flowOutline"
+import { conditionKeys } from "./conditions"
+import { conditionSources, outcomeSources } from "./flowOutline"
 import { eventTrigger, nearestMechanicAhead } from "./incidents"
 import {
   altRoute,
@@ -29,6 +30,7 @@ import {
   siteRoute,
 } from "./paths"
 import { MAIN_ROUTE_ID, type TripMap } from "./schema"
+import { tripKeyIdForDefinition, tripKeyItemDefinitionId } from "./tripKeyItems"
 import { vanConsumable } from "./van"
 
 export type TripMapIssueSeverity = "error" | "warning"
@@ -350,6 +352,89 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
   }
 
   issues.push(...lintBranches(map, paths.map((p) => p.path), capped))
+  issues.push(...lintKeyItems(map))
+  return issues
+}
+
+/** Key items and the conditions that read them (ADR 0230). */
+function lintKeyItems(map: TripMap): TripMapIssue[] {
+  const issues: TripMapIssue[] = []
+  const error = (code: string, message: string, path: string) =>
+    issues.push({ severity: "error", code, message, path })
+  const warn = (code: string, message: string, path: string) =>
+    issues.push({ severity: "warning", code, message, path })
+  const keys = map.keyItems ?? []
+  const keyIds = new Set<string>()
+  keys.forEach((key, index) => {
+    if (keyIds.has(key.id)) error("duplicate-key-id", `Key item id "${key.id}" is used more than once.`, `keyItems.${index}.id`)
+    keyIds.add(key.id)
+  })
+  const keyName = (id: string) => keys.find((k) => k.id === id)?.name ?? id
+
+  const sources = outcomeSources(map)
+  for (const { outcome, path, name } of sources) {
+    if ((outcome.kind === "give-key" || outcome.kind === "take-key") && !keyIds.has(outcome.key)) {
+      const verb = outcome.kind === "give-key" ? "gives" : "takes"
+      error("unknown-key", `${name} ${verb} key item "${outcome.key}", which this trip doesn't define.`, `${path}.key`)
+    }
+    if (outcome.kind === "give-item") {
+      const key = tripKeyIdForDefinition(outcome.item)
+      if (key !== undefined && !keyIds.has(key)) {
+        error("unknown-key", `${name} gives key item "${key}", which this trip doesn't define.`, `${path}.item`)
+      }
+    }
+  }
+  for (const { condition, path, name } of conditionSources(map)) {
+    for (const key of conditionKeys(condition)) {
+      if (!keyIds.has(key)) {
+        error("unknown-key", `${name} checks for key item "${key}", which this trip doesn't define.`, path)
+      }
+    }
+  }
+  map.sites.forEach((site, index) => {
+    ;(site.shop?.offers ?? []).forEach((offer, i) => {
+      const key = tripKeyIdForDefinition(offer.definitionId)
+      if (key !== undefined && !keyIds.has(key)) {
+        error("unknown-key", `${site.name} sells key item "${key}", which this trip doesn't define.`, `sites.${index}.shop.offers.${i}.definitionId`)
+      }
+    })
+  })
+
+  // A key nothing gives and no shop sells never reaches the van.
+  keys.forEach((key, index) => {
+    const given = sources.some((s) => s.outcome.kind === "give-key" && s.outcome.key === key.id)
+    const definitionId = tripKeyItemDefinitionId(key.id)
+    const sold = map.sites.some((site) => site.shop?.offers?.some((o) => o.definitionId === definitionId))
+    if (!given && !sold) {
+      warn("key-never-given", `Nothing gives ${key.name} and no shop sells it, so the van never holds it.`, `keyItems.${index}`)
+    }
+  })
+
+  // Snapshot semantics: every `when` in a list reads the van as the list starts,
+  // so an earlier give-key or take-key in the same list doesn't count.
+  const lists = new Map<string, typeof sources>()
+  for (const source of sources) {
+    const list = source.path.slice(0, source.path.lastIndexOf("."))
+    lists.set(list, [...(lists.get(list) ?? []), source])
+  }
+  for (const list of Array.from(lists.values())) {
+    list.forEach((source, i) => {
+      if (!source.outcome.when) return
+      const read = conditionKeys(source.outcome.when)
+      const changed = list
+        .slice(0, i)
+        .flatMap((s) => (s.outcome.kind === "give-key" || s.outcome.kind === "take-key" ? [s.outcome] : []))
+        .find((o) => read.includes(o.key))
+      if (changed) {
+        const verb = changed.kind === "give-key" ? "given" : "taken"
+        warn(
+          "condition-reads-same-list-grant",
+          `${source.name}: this outcome checks ${keyName(changed.key)}, which is ${verb} earlier in the same list. Conditions read the van as the list starts, so that change doesn't count yet.`,
+          `${source.path}.when`,
+        )
+      }
+    })
+  }
   return issues
 }
 

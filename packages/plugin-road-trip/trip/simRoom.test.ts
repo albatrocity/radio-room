@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import type { OpenRoomShopRequest } from "@repo/types"
-import { SAMPLE_TRIP_MAP, type TripMapInput, type TripStore } from "@repo/road-trip-map"
+import {
+  SAMPLE_BRANCH_MAP,
+  SAMPLE_TRIP_MAP,
+  type TripMapInput,
+  type TripStore,
+} from "@repo/road-trip-map"
 import { TripSimRoom, freezeStoreForRoom } from "./simRoom"
 import { MIN, T0, TripSim } from "./testSim"
 import { depart } from "./transitions"
@@ -223,5 +228,38 @@ describe("TripSimRoom", () => {
     const second = sim.snapshot()
     expect(second.version).toBeGreaterThan(first.version)
     expect(second.runId).toBe(first.runId)
+  })
+})
+
+describe("TripSimRoom key items and handouts (ADR 0230)", () => {
+  it("toggles a key item as the host, posting its found narrative once", () => {
+    const { sim } = room(SAMPLE_BRANCH_MAP)
+    expect(sim.keyItems()).toEqual([
+      { id: "trail-pass", name: "Trail Pass", icon: "🎟️", held: false },
+    ])
+    expect(sim.toggleKeyItem("trail-pass")).toBe(true)
+    expect(sim.keyItems()[0]?.held).toBe(true)
+    expect(sim.messages.at(-1)?.content).toMatch(/tears off a trail pass/)
+    const store = sim.storePayload().trip as TripStore
+    expect(store.vanSheet.keyItems?.map((k) => [k.id, k.givenBy])).toEqual([
+      ["trail-pass", "The host"],
+    ])
+    expect(sim.toggleKeyItem("trail-pass")).toBe(true)
+    expect(sim.keyItems()[0]?.held).toBe(false)
+  })
+
+  it("posts a give-item handout as a road sign naming the traveler", () => {
+    const map = structuredClone(SAMPLE_BRANCH_MAP)
+    map.sites.find((s) => s.id === "welcome-center")!.onVisit!.push({
+      kind: "give-item",
+      item: "road-trip:fix-a-flat",
+      to: "random",
+    })
+    const { sim } = room(map)
+    sim.depart()
+    for (let i = 0; i < 50 && sim.state.sites["welcome-center"]?.phase !== "parked"; i++) sim.step()
+    const userId = sim.sim.given[0]?.userId
+    expect(userId).toBeDefined()
+    expect(sim.messages.map((m) => m.meta?.title)).toContain(`${userId} got Fix-a-Flat`)
   })
 })

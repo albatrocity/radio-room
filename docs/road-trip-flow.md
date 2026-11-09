@@ -3,7 +3,8 @@
 # Road trip flow
 
 A trip is one statechart built from small flat machines ([ADR 0222](adrs/0222-trip-flow-and-branches.md)):
-the trip lifecycle runs beside one machine per site, junction (fork), layer, and vote. Every
+the trip lifecycle runs beside one machine per site, junction (fork), layer, vote, and key item
+([ADR 0230](adrs/0230-trip-conditions-and-key-items.md)). Every
 threshold, poll close, item use, outcome, and host action becomes a flow event; `dispatch`
 routes it to the entity below, which runs `interpret` (conditions) → the table (legal moves)
 → `onEnter` (effects).
@@ -11,9 +12,11 @@ routes it to the entity below, which runs `interpret` (conditions) → the table
 Ownership rules (enforced by `trip/flow/architecture.test.ts`):
 
 1. Only `dispatch` changes a machine: nothing outside `trip/flow/entities/` writes a phase or the trip status.
-2. Only `trip/flow/outcomes.ts` interprets outcomes (`unlock`, `lock`, `divert`).
+2. Only `trip/flow/outcomes.ts` interprets outcomes (`unlock`, `lock`, `divert`, `give-key`, `take-key`, `give-item`),
+   and it checks each outcome's `when` against the trip as the list started.
 3. Only `road-trip-map/src/paths.ts` reads authored miles: runtime code reads the path map
    (`ctx.map`, `pathFor(...)`), where sites and events sit at odometer miles.
+4. Only the van entity (`trip/flow/entities/van.ts`) writes the van's key items (`state.keyItems`).
 
 ## Flow events
 
@@ -38,12 +41,15 @@ Ownership rules (enforced by `trip/flow/architecture.test.ts`):
 | `ROUTE_END` | handler | The van reaches the end of a rejoining route; it continues on the target route. |
 | `LAYER_UNLOCK` | layer machine | An unlock outcome or one of the trip's maps; content behind the van is missed. |
 | `LAYER_LOCK` | layer machine | A lock outcome; open votes on its content cancel, commitments carry on. |
+| `KEY_GIVE` | key machine | A give-key outcome (or a bought key): it lands in the van with its found narrative; a held key stays put. |
+| `KEY_TAKE` | key machine | A take-key outcome: the key leaves the van. |
+| `ITEMS_GIVE` | handler | A give-item outcome: the plugin hands the item to every online traveler, or one at random. |
 | `VOTE_OPENED` | vote machine | The plugin opened the room poll. |
 | `VOTE_DEFERRED` | vote machine | Another poll holds the room; retry later. |
 | `VOTE_CLOSED` | vote machine | The vote closes with a tally, or with no poll (the default wins). |
 | `VOTE_CANCEL` | vote machine | The poll closes without a decision. |
 | `CHOICE_DECIDED` | handler | An event choice's winner: its outcomes and narrative apply, then the step advances. |
-| `APPLY_OUTCOMES` | handler | Expanded by outcomes.ts into LAYER_UNLOCK, LAYER_LOCK, and DIVERT. |
+| `APPLY_OUTCOMES` | handler | Expanded by outcomes.ts: each outcome whose `when` held as the list started becomes LAYER_UNLOCK, LAYER_LOCK, DIVERT, KEY_GIVE, KEY_TAKE, or ITEMS_GIVE. |
 
 ## Trip
 
@@ -232,3 +238,22 @@ stateDiagram-v2
 |---|---|
 | `locked` → `unlocked` on `UNLOCK` | An unlock outcome (site visit or departure, event, choice) or a trip map. |
 | `unlocked` → `locked` on `LOCK` | A lock outcome. |
+
+## Key
+
+```mermaid
+stateDiagram-v2
+  [*] --> absent
+  absent --> held: GIVE
+  held --> absent: TAKE
+```
+
+| State | Meaning |
+|---|---|
+| `absent` | Not in the van; `{ has }` conditions on it fail. |
+| `held` | In the van; `{ has }` conditions on it hold. |
+
+| Move | When |
+|---|---|
+| `absent` → `held` on `GIVE` | A give-key outcome, or a traveler bought it. |
+| `held` → `absent` on `TAKE` | A take-key outcome. |

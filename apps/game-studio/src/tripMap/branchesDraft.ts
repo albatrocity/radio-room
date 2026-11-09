@@ -3,6 +3,7 @@ import {
   linearize,
   roadTripItemId,
   startView,
+  tripKeyItemDefinitionId,
   tripMapItemShortId,
   type PathMap,
   type TripMap,
@@ -294,6 +295,55 @@ export function removeTripMap(draft: TripMapInput, mapId: string): TripMapInput 
     ...(layers ? { layers } : {}),
     ...(maps.length > 0 ? { maps } : {}),
   }
+}
+
+export type TripKeyItemDraft = NonNullable<TripMapInput["keyItems"]>[number]
+
+/** A key item the van can hold (ADR 0230). Conditions and shops refer to it by id. */
+export function addKeyItem(draft: TripMapInput): { draft: TripMapInput; keyId: string } {
+  const id = uniqueId(
+    (draft.keyItems ?? []).map((key) => key.id),
+    "key-item",
+  )
+  const item: TripKeyItemDraft = { id, name: "Key item", icon: "🔑" }
+  return { draft: { ...draft, keyItems: [...(draft.keyItems ?? []), item] }, keyId: id }
+}
+
+export function updateKeyItem(
+  draft: TripMapInput,
+  keyId: string,
+  patch: Partial<TripKeyItemDraft>,
+): TripMapInput {
+  return {
+    ...draft,
+    keyItems: (draft.keyItems ?? []).map((item) => {
+      if (item.id !== keyId) return item
+      const next: Record<string, unknown> = { ...item, ...patch }
+      for (const key of Object.keys(next)) if (next[key] === undefined) delete next[key]
+      return next as TripKeyItemDraft
+    }),
+  }
+}
+
+/** Remove a key: stops stop giving, taking, and selling it. Conditions that name it stay, and lint flags them. */
+export function removeKeyItem(draft: TripMapInput, keyId: string): TripMapInput {
+  const definitionId = tripKeyItemDefinitionId(keyId)
+  const pruned = mapOutcomes(
+    draft,
+    (outcome) =>
+      (outcome.kind === "give-key" || outcome.kind === "take-key") && outcome.key === keyId,
+  )
+  const sites = pruned.sites.map((site) => {
+    const offers = site.shop?.offers
+    if (!offers?.some((offer) => offer.definitionId === definitionId)) return site
+    return {
+      ...site,
+      shop: { ...site.shop, offers: offers.filter((offer) => offer.definitionId !== definitionId) },
+    }
+  })
+  const keyItems = (pruned.keyItems ?? []).filter((key) => key.id !== keyId)
+  const { keyItems: _drop, ...rest } = { ...pruned, sites }
+  return keyItems.length > 0 ? { ...rest, keyItems } : rest
 }
 
 const MAX_DRIVE_MINUTES = 24 * 60

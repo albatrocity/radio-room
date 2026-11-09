@@ -51,6 +51,55 @@ export const siteSkipPollSchema = z.object({
 })
 export type SiteSkipPoll = z.infer<typeof siteSkipPollSchema>
 
+/**
+ * A condition on site behavior (ADR 0230): an outcome, a narrative case, or a
+ * shop offer applies only when it holds. Leaves ask a fact about the trip; today
+ * the only one is `has` (the van holds that key item). `not`, `all`, and `any`
+ * combine them, at most 4 levels deep with 8 children per list.
+ */
+export type TripCondition =
+  | { has: string }
+  | { not: TripCondition }
+  | { all: TripCondition[] }
+  | { any: TripCondition[] }
+
+export const TRIP_CONDITION_MAX_DEPTH = 4
+export const TRIP_CONDITION_MAX_CHILDREN = 8
+
+/** How many levels a condition nests: a leaf is 1. */
+export function conditionDepth(condition: TripCondition): number {
+  if ("not" in condition) return 1 + conditionDepth(condition.not)
+  if ("all" in condition) return 1 + Math.max(0, ...condition.all.map(conditionDepth))
+  if ("any" in condition) return 1 + Math.max(0, ...condition.any.map(conditionDepth))
+  return 1
+}
+
+const conditionNodeSchema: z.ZodType<TripCondition, TripCondition> = z.lazy(() =>
+  z.union([
+    z.object({ has: siteIdSchema }).strict(),
+    z.object({ not: conditionNodeSchema }).strict(),
+    z.object({ all: z.array(conditionNodeSchema).min(1).max(TRIP_CONDITION_MAX_CHILDREN) }).strict(),
+    z.object({ any: z.array(conditionNodeSchema).min(1).max(TRIP_CONDITION_MAX_CHILDREN) }).strict(),
+  ]),
+)
+
+export const tripConditionSchema: z.ZodType<TripCondition, TripCondition> =
+  conditionNodeSchema.superRefine((condition, ctx) => {
+    if (conditionDepth(condition) > TRIP_CONDITION_MAX_DEPTH) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Conditions nest at most 4 levels deep.`,
+      })
+    }
+  })
+
+/** Full item definition id, e.g. `road-trip:fix-a-flat`. */
+const itemDefinitionIdSchema = z
+  .string()
+  .min(3)
+  .max(128)
+  .regex(/^[a-z0-9-]+:[A-Za-z0-9_.-]+$/, "Name a full item id like road-trip:fix-a-flat")
+
 /** Any registered item by full definition id (D14), e.g. `road-trip:fix-a-flat`. */
 export const shopOfferSchema = z.object({
   definitionId: z
@@ -62,6 +111,8 @@ export const shopOfferSchema = z.object({
   basePrice: z.number().int().min(0).max(100_000).optional(),
   /** Units each traveler can buy per stop (default 1). */
   stock: z.number().int().min(1).max(99).optional(),
+  /** Listed only when this holds as the shop opens (ADR 0230). */
+  when: tripConditionSchema.optional(),
 })
 export type SiteShopOffer = z.infer<typeof shopOfferSchema>
 
@@ -192,13 +243,42 @@ export const MAIN_ROUTE_ID = "main" as const
  * A state change a site visit, event, choice option, or item applies (ADR 0222).
  * Closed list, applied in order by the trip flow's `outcomes.ts` only.
  */
+/** Most copies of an item one `give-item` hands each recipient. */
+export const GIVE_ITEM_MAX_QTY = 3
+
+/** Applied only when this holds as the outcome list starts (ADR 0230). */
+const outcomeWhenSchema = tripConditionSchema.optional()
+
 export const tripOutcomeSchema = z.discriminatedUnion("kind", [
   /** Make a layer's sites and events ahead of the van live. */
-  z.object({ kind: z.literal("unlock"), layer: siteIdSchema }),
+  z.object({ kind: z.literal("unlock"), layer: siteIdSchema, when: outcomeWhenSchema }),
   /** Make a layer inert again; commitments (a decided stop, a running event) carry on. */
-  z.object({ kind: z.literal("lock"), layer: siteIdSchema }),
+  z.object({ kind: z.literal("lock"), layer: siteIdSchema, when: outcomeWhenSchema }),
   /** Decide a fork ahead as "take". */
-  z.object({ kind: z.literal("divert"), route: siteIdSchema }),
+  z.object({ kind: z.literal("divert"), route: siteIdSchema, when: outcomeWhenSchema }),
+  /**
+   * Put a key item (`map.keyItems`) in the van (ADR 0230). `narrative` is
+   * posted instead of the key's `foundNarrative`. A key already held stays put.
+   */
+  z.object({
+    kind: z.literal("give-key"),
+    key: siteIdSchema,
+    narrative: z.string().min(1).max(2000).optional(),
+    when: outcomeWhenSchema,
+  }),
+  /** Take a key item out of the van. */
+  z.object({ kind: z.literal("take-key"), key: siteIdSchema, when: outcomeWhenSchema }),
+  /**
+   * Hand an inventory item to people (ADR 0230): every online room user, or
+   * one of them at random. Key items go in the van with `give-key` instead.
+   */
+  z.object({
+    kind: z.literal("give-item"),
+    item: itemDefinitionIdSchema,
+    to: z.enum(["everyone", "random"]),
+    qty: z.number().int().min(1).max(GIVE_ITEM_MAX_QTY).default(1),
+    when: outcomeWhenSchema,
+  }),
 ])
 export type TripOutcome = z.infer<typeof tripOutcomeSchema>
 export const tripOutcomesSchema = z.array(tripOutcomeSchema).max(8)
@@ -317,6 +397,19 @@ export const tripEventSchema = z.object({
 })
 export type TripEvent = z.infer<typeof tripEventSchema>
 
+/**
+ * A conditional site narrative (ADR 0230). The first case whose `when` holds
+ * replaces the site's `narrative` (or `departNarrative`); none falls back to it.
+ */
+export const narrativeCaseSchema = z.object({
+  when: tripConditionSchema,
+  text: z.string().min(1).max(2000),
+  /** Omitted: the site's own variant for that narrative. */
+  variant: siteNarrativeVariantSchema.optional(),
+})
+export type NarrativeCase = z.infer<typeof narrativeCaseSchema>
+export const NARRATIVE_CASES_MAX = 8
+
 export const siteSchema = z.object({
   id: siteIdSchema,
   /** Provenance only: which site-library preset the designer started from. */
@@ -332,6 +425,8 @@ export const siteSchema = z.object({
   narrative: z.string().min(1).max(2000).optional(),
   /** System message for `narrative`: an alert status, `site`, or omitted for plain. */
   narrativeVariant: siteNarrativeVariantSchema.optional(),
+  /** Arrival narratives by condition; the first match replaces `narrative` (ADR 0230). */
+  narrativeCases: z.array(narrativeCaseSchema).max(NARRATIVE_CASES_MAX).optional(),
   lore: z.string().max(4000).optional(),
   model: siteModelSchema.optional(),
   mile: z.number().min(0),
@@ -358,6 +453,8 @@ export const siteSchema = z.object({
   departNarrative: z.string().min(1).max(2000).optional(),
   /** System message for `departNarrative`: an alert status, `site`, or omitted for plain. */
   departNarrativeVariant: siteNarrativeVariantSchema.optional(),
+  /** Departure narratives by condition; the first match replaces `departNarrative` (ADR 0230). */
+  departNarrativeCases: z.array(narrativeCaseSchema).max(NARRATIVE_CASES_MAX).optional(),
 })
 export type TripSite = z.infer<typeof siteSchema>
 
@@ -390,6 +487,25 @@ export const tripMapItemSchema = z.object({
   coinValue: z.number().int().min(0).max(100_000).default(TRIP_MAP_DEFAULT_COIN_VALUE),
 })
 export type TripMapItem = z.infer<typeof tripMapItemSchema>
+
+/**
+ * A key item this trip defines (ADR 0230): the inventory item
+ * `road-trip:key-{id}`. It lives in the van, does nothing by itself, and is
+ * what `{ has }` conditions read. Held once: giving it again does nothing.
+ */
+export const TRIP_KEY_ITEM_DEFAULT_ICON = "🔑"
+
+export const tripKeyItemSchema = z.object({
+  id: siteIdSchema,
+  name: z.string().min(1).max(60),
+  icon: z.string().min(1).max(16).default(TRIP_KEY_ITEM_DEFAULT_ICON),
+  description: z.string().min(1).max(160).optional(),
+  /** Chat prose posted when it lands in the van. */
+  foundNarrative: z.string().min(1).max(2000).optional(),
+  /** Price when a shop sells it without a `basePrice`. */
+  coinValue: z.number().int().min(0).max(100_000).default(0),
+})
+export type TripKeyItem = z.infer<typeof tripKeyItemSchema>
 
 export const junctionDecisionSchema = z.enum(["take", "stay"])
 export type JunctionDecision = z.infer<typeof junctionDecisionSchema>
@@ -512,6 +628,7 @@ export const tripMapSchema = z.object({
   layers: z.array(tripLayerSchema).max(8).optional(),
   routes: z.array(tripAltRouteSchema).max(8).optional(),
   maps: z.array(tripMapItemSchema).max(16).optional(),
+  keyItems: z.array(tripKeyItemSchema).max(16).optional(),
 })
 
 /** A parsed map with defaults applied. */

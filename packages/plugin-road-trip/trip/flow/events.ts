@@ -25,6 +25,9 @@ export type OutcomeSource =
   /** The host (Game Studio's simulator; a future Quick Access control). */
   | { kind: "host" }
 
+/** Who put a key item in the van (ADR 0230): an outcome, or a traveler who bought it. */
+export type KeyItemSource = OutcomeSource | { kind: "purchase"; userId: string; name: string }
+
 export type TripFlowEvent =
   // Trip lifecycle
   | { type: "TRIP_DEPART" }
@@ -70,6 +73,18 @@ export type TripFlowEvent =
   // Layers
   | { type: "LAYER_UNLOCK"; layerId: string; by: OutcomeSource }
   | { type: "LAYER_LOCK"; layerId: string; by: OutcomeSource }
+  // The van's key items and item handouts (ADR 0230)
+  /** Put a key item in the van. `narrative` posts instead of the key's `foundNarrative`. */
+  | { type: "KEY_GIVE"; key: string; by: KeyItemSource; narrative?: string }
+  | { type: "KEY_TAKE"; key: string; by: OutcomeSource }
+  /** Hand an inventory item to every online traveler, or one at random (the plugin picks). */
+  | {
+      type: "ITEMS_GIVE"
+      item: string
+      to: "everyone" | "random"
+      qty: number
+      by: OutcomeSource
+    }
   // Votes (target-agnostic)
   | { type: "VOTE_OPENED"; target: VoteTarget; pollId: string; optionIds: string[] }
   | { type: "VOTE_DEFERRED"; target: VoteTarget; retryAt: number }
@@ -127,11 +142,17 @@ export const FLOW_EVENT_DOCS: Record<TripFlowEventType, string> = {
   ROUTE_END: "The van reaches the end of a rejoining route; it continues on the target route.",
   LAYER_UNLOCK: "An unlock outcome or one of the trip's maps; content behind the van is missed.",
   LAYER_LOCK: "A lock outcome; open votes on its content cancel, commitments carry on.",
+  KEY_GIVE:
+    "A give-key outcome (or a bought key): it lands in the van with its found narrative; a held key stays put.",
+  KEY_TAKE: "A take-key outcome: the key leaves the van.",
+  ITEMS_GIVE:
+    "A give-item outcome: the plugin hands the item to every online traveler, or one at random.",
   VOTE_OPENED: "The plugin opened the room poll.",
   VOTE_DEFERRED: "Another poll holds the room; retry later.",
   VOTE_CLOSED: "The vote closes with a tally, or with no poll (the default wins).",
   VOTE_CANCEL: "The poll closes without a decision.",
   CHOICE_DECIDED:
     "An event choice's winner: its outcomes and narrative apply, then the step advances.",
-  APPLY_OUTCOMES: "Expanded by outcomes.ts into LAYER_UNLOCK, LAYER_LOCK, and DIVERT.",
+  APPLY_OUTCOMES:
+    "Expanded by outcomes.ts: each outcome whose `when` held as the list started becomes LAYER_UNLOCK, LAYER_LOCK, DIVERT, KEY_GIVE, KEY_TAKE, or ITEMS_GIVE.",
 }

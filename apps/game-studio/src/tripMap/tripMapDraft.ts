@@ -28,6 +28,8 @@ import {
   siteFromPreset,
   TRIP_MAP_DEFAULT_COIN_VALUE,
   TRIP_MAP_DEFAULT_ICON,
+  TRIP_KEY_ITEM_DEFAULT_ICON,
+  tripKeyItemDefinitionId,
   tripMapItemShortId,
   tripMapSchema,
   type IncidentCostLine,
@@ -206,9 +208,22 @@ export function tripMapOffers(draft: Pick<TripMapInput, "maps">): OfferOption[] 
   }))
 }
 
-/** Every offer the editor can pick for this draft: the shared catalog plus its maps. */
-export function offerCatalogFor(draft: Pick<TripMapInput, "maps">): OfferOption[] {
-  return [...OFFER_CATALOG, ...tripMapOffers(draft)]
+/** This draft's key items as offers (ADR 0230). A purchase moves the key into the van. */
+export function tripKeyItemOffers(draft: Pick<TripMapInput, "keyItems">): OfferOption[] {
+  return (draft.keyItems ?? []).map((item) => ({
+    definitionId: tripKeyItemDefinitionId(item.id),
+    name: item.name,
+    icon: item.icon ?? TRIP_KEY_ITEM_DEFAULT_ICON,
+    coinValue: item.coinValue ?? 0,
+    plugin: "road-trip",
+    rarity: "common",
+    outsideShopNote: "Buying it moves the key into the van.",
+  }))
+}
+
+/** Every offer the editor can pick for this draft: the shared catalog, its maps, and its key items. */
+export function offerCatalogFor(draft: Pick<TripMapInput, "maps" | "keyItems">): OfferOption[] {
+  return [...OFFER_CATALOG, ...tripMapOffers(draft), ...tripKeyItemOffers(draft)]
 }
 
 /**
@@ -223,7 +238,8 @@ export function previewOfferSample(
   random: () => number,
   catalog: OfferOption[] = OFFER_CATALOG,
 ): string[] {
-  const byId = catalog === OFFER_CATALOG ? OFFER_BY_ID : new Map(catalog.map((o) => [o.definitionId, o]))
+  const byId =
+    catalog === OFFER_CATALOG ? OFFER_BY_ID : new Map(catalog.map((o) => [o.definitionId, o]))
   const pool = offers.flatMap((offer) => {
     const option = byId.get(offer.definitionId)
     return option ? [{ ...option, shortId: shortIdOf(option.definitionId) }] : []
@@ -278,7 +294,7 @@ export function parseDraft(
   departAt: number,
   roomType: TripRoomType = DEFAULT_TRIP_ROOM_TYPE,
 ): ParseTripMapResult {
-  const draftOffers = tripMapOffers(draft)
+  const draftOffers = [...tripMapOffers(draft), ...tripKeyItemOffers(draft)]
   return parseTripMap(draft, {
     validateShop: (req) => validateCatalogShop(req, roomType, draftOffers),
     departAt,
@@ -419,10 +435,14 @@ export type AddBlankSiteResult =
  * A site with no preset: the designer supplies the name and slug.
  * Description and icon are placeholders the inspector can replace.
  */
-export function addBlankSite(draft: TripMapInput, input: { name: string; slug: string }): AddBlankSiteResult {
+export function addBlankSite(
+  draft: TripMapInput,
+  input: { name: string; slug: string },
+): AddBlankSiteResult {
   const name = input.name.trim()
   const slug = input.slug.trim()
-  if (!name || name.length > 60) return { ok: false, error: "Name is required (60 characters max)." }
+  if (!name || name.length > 60)
+    return { ok: false, error: "Name is required (60 characters max)." }
   if (slug.length > 64 || !SITE_SLUG.test(slug)) {
     return { ok: false, error: "Slug is lowercase letters, digits, and dashes." }
   }
@@ -494,9 +514,7 @@ export function projectFuel(source: TripMap, costScale: number): FuelProjection 
       arrivalPct: plan.tankGallons > 0 ? stop.gallonsOnArrival / plan.tankGallons : 0,
       stops: stop.stops,
       gallons: stop.gallons,
-      cost: stop.stops
-        ? gasCost(stop.gallons, site.services!.gas!.pricePerGallon, costScale)
-        : 0,
+      cost: stop.stops ? gasCost(stop.gallons, site.services!.gas!.pricePerGallon, costScale) : 0,
     }
   })
   return {
@@ -587,7 +605,11 @@ export type EventEstimate = {
  * What an event would charge at the preview economy (no parts). A fuel event
  * is priced where the no-vote plan runs dry, or at the end of the route.
  */
-export function estimateEvent(source: TripMap, eventId: string, costScale: number): EventEstimate | null {
+export function estimateEvent(
+  source: TripMap,
+  eventId: string,
+  costScale: number,
+): EventEstimate | null {
   // Laid along the event's own route (ADR 0222), with every layer live.
   const route = source.events?.find((e) => e.id === eventId)?.route
   const map = linearize(source, {
@@ -657,7 +679,10 @@ export function siteArrivalEstimates(source: TripMap, departAt: number): Map<str
  * When each event starts, on the same terms as {@link siteArrivalEstimates}.
  * A fuel event maps to `null` when the tank never runs dry on its road.
  */
-export function eventArrivalEstimates(source: TripMap, departAt: number): Map<string, number | null> {
+export function eventArrivalEstimates(
+  source: TripMap,
+  departAt: number,
+): Map<string, number | null> {
   const paths = new Map<string, TripMap>()
   const arrivals = new Map<string, number | null>()
   for (const event of source.events ?? []) {

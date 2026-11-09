@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import { SAMPLE_BRANCH_MAP, type TripMapInput } from "@repo/road-trip-map"
 import { routeItemUse } from "../items"
 import { contextFor } from "./commit"
@@ -6,6 +6,7 @@ import { dispatch } from "./flow"
 import { openTripMap, revealAhead } from "./guide"
 import { skipIncidentStep, triggerIncident } from "./incidents"
 import { buildTripStore } from "./projection"
+import { normalizeTripState, type TripState } from "./state"
 import { MIN, T0, TripSim } from "./testSim"
 import { depart, endTrip } from "./transitions"
 
@@ -603,12 +604,208 @@ describe("flow guards", () => {
 
   it("starts with every layer locked and every fork ahead", () => {
     const sim = new TripSim(SAMPLE_BRANCH_MAP, T0)
-    expect(sim.state.layers).toEqual({ "local-tips": { phase: "locked" } })
+    expect(sim.state.layers).toEqual({
+      "local-tips": { phase: "locked" },
+      ridge: { phase: "locked" },
+    })
     expect(sim.state.junctions).toEqual({
       "scenic-byway": { phase: "ahead" },
       detour: { phase: "ahead" },
     })
     expect(sim.state.routeMiles).toBe(30)
     expect(MIN).toBe(60_000)
+  })
+})
+
+describe("key items and conditions (ADR 0230)", () => {
+  const PASS = "trail-pass"
+  const FOUND = /tears off a trail pass/
+  const CASE = /lifeguard spots the trail pass/
+  const FALLBACK = "The water's cold. Nobody admits it."
+
+  function bodies(sim: TripSim): string[] {
+    return sim.effects.flatMap(({ effect }) =>
+      effect.type === "narrate" ? [effect.body] : effect.type === "sign" ? [effect.title] : [],
+    )
+  }
+
+  /** Stop at Hidden Falls (it gives the Trail Pass on departure) and at the Swimming Hole. */
+  function toSwimmingHole(sim: TripSim, stopAtFalls: boolean): void {
+    sim.votes["hidden-falls"] = stopAtFalls ? { stop: 2, skip: 0 } : { stop: 0, skip: 2 }
+    sim.votes["swimming-hole"] = { stop: 2, skip: 0 }
+    stepUntil(sim, () => sim.state.sites["swimming-hole"]?.phase === "parked")
+    expect(sim.state.sites["swimming-hole"]?.phase).toBe("parked")
+  }
+
+  it("leaving Hidden Falls puts the key in the van: depart narrative, found narrative, Back on the road", () => {
+    const sim = start(
+      branchMap((map) => {
+        map.sites.find((s) => s.id === "hidden-falls")!.departNarrative = "Mist on the windshield."
+      }),
+    )
+    sim.votes["hidden-falls"] = { stop: 2, skip: 0 }
+    stepUntil(sim, () => sim.state.sites["hidden-falls"]?.phase === "parked")
+    expect(sim.state.keyItems).toEqual({})
+    stepUntil(sim, () => sim.state.sites["hidden-falls"]?.phase === "visited")
+    expect(sim.state.keyItems[PASS]).toEqual({
+      at: sim.now,
+      by: { kind: "site", id: "hidden-falls" },
+    })
+    const lines = bodies(sim)
+    const depart = lines.indexOf("Mist on the windshield.")
+    const found = lines.findIndex((line) => FOUND.test(line))
+    const back = lines.lastIndexOf("Back on the road")
+    expect(depart).toBeGreaterThanOrEqual(0)
+    expect(found).toBe(depart + 1)
+    expect(back).toBe(found + 1)
+
+    // The Van tab lists it with its giver.
+    const sheet = buildTripStore(sim.state, sim.map, sim.current, sim.now).vanSheet
+    expect(sheet.keyItems).toEqual([
+      {
+        id: PASS,
+        name: "Trail Pass",
+        icon: "🎟️",
+        description: "A ranger's pass from Hidden Falls.",
+        givenBy: "Hidden Falls",
+        at: sim.now,
+      },
+    ])
+  })
+
+  it("arriving with the key posts the matching narrative case and unlocks the layer", () => {
+    const sim = start()
+    toSwimmingHole(sim, true)
+    const lines = bodies(sim)
+    expect(lines.some((line) => CASE.test(line))).toBe(true)
+    expect(lines).not.toContain(FALLBACK)
+    expect(sim.state.layers.ridge?.phase).toBe("unlocked")
+    expect(sim.state.sites["swimming-hole"]?.narrativeCase).toBe(0)
+    expect(sim.given).toEqual([])
+    // The Trip tab replays the case that posted, not the plain narrative.
+    const store = buildTripStore(sim.state, sim.map, sim.current, sim.now)
+    expect(store.sites.find((s) => s.id === "swimming-hole")?.narrative).toMatch(CASE)
+    expect(store.sites.map((s) => s.id)).toContain("ridge-lookout")
+  })
+
+  it("arriving without the key posts the fallback, leaves the layer locked, and hands one traveler a Trip Guide", () => {
+    const sim = start()
+    toSwimmingHole(sim, false)
+    expect(sim.state.keyItems).toEqual({})
+    const lines = bodies(sim)
+    expect(lines).toContain(FALLBACK)
+    expect(lines.some((line) => CASE.test(line))).toBe(false)
+    expect(sim.state.layers.ridge?.phase).toBe("locked")
+    expect(sim.state.sites["swimming-hole"]?.narrativeCase).toBeUndefined()
+    expect(sim.given).toHaveLength(1)
+    expect(sim.given[0]).toMatchObject({ item: "road-trip:trip-guide", qty: 1 })
+    expect(["ada", "bo", "cy"]).toContain(sim.given[0]!.userId)
+    expect(buildTripStore(sim.state, sim.map, sim.current, sim.now).vanSheet.keyItems).toBeUndefined()
+  })
+
+  it("give-item to everyone calls giveItem once per online traveler; random calls it once", () => {
+    const everyone = start(
+      branchMap((map) => {
+        map.sites.find((s) => s.id === "welcome-center")!.onVisit!.push({
+          kind: "give-item",
+          item: "road-trip:fix-a-flat",
+          to: "everyone",
+          qty: 2,
+        })
+      }),
+    )
+    const giveItem = vi.fn()
+    everyone.giveItem = giveItem
+    everyone.online = ["ada", "bo"]
+    stepUntil(everyone, () => everyone.state.sites["welcome-center"]?.phase === "parked")
+    expect(giveItem.mock.calls).toEqual([
+      ["ada", "road-trip:fix-a-flat", 2],
+      ["bo", "road-trip:fix-a-flat", 2],
+    ])
+
+    const random = start(
+      branchMap((map) => {
+        map.sites.find((s) => s.id === "welcome-center")!.onVisit!.push({
+          kind: "give-item",
+          item: "road-trip:fix-a-flat",
+          to: "random",
+        })
+      }),
+    )
+    const once = vi.fn()
+    random.giveItem = once
+    stepUntil(random, () => random.state.sites["welcome-center"]?.phase === "parked")
+    expect(once).toHaveBeenCalledTimes(1)
+    expect(once.mock.calls[0]![2]).toBe(1)
+  })
+
+  it("take-key removes the key from the van", () => {
+    const sim = start(
+      branchMap((map) => {
+        map.sites.find((s) => s.id === "gas-stop")!.onVisit = [{ kind: "take-key", key: PASS }]
+      }),
+    )
+    sim.votes["hidden-falls"] = { stop: 2, skip: 0 }
+    sim.votes["gas-stop"] = { stop: 2, skip: 0 }
+    stepUntil(sim, () => sim.state.sites["hidden-falls"]?.phase === "visited")
+    expect(sim.state.keyItems[PASS]).toBeDefined()
+    stepUntil(sim, () => sim.state.sites["gas-stop"]?.phase === "parked")
+    expect(sim.state.keyItems).toEqual({})
+  })
+
+  it("giving a key the van already holds changes nothing and posts no second narrative", () => {
+    const sim = start()
+    expect(sim.setKeyItem(PASS, true)).toBe(true)
+    expect(bodies(sim).filter((line) => FOUND.test(line))).toHaveLength(1)
+    const held = sim.state.keyItems[PASS]
+    expect(held?.by).toEqual({ kind: "host" })
+    sim.votes["hidden-falls"] = { stop: 2, skip: 0 }
+    stepUntil(sim, () => sim.state.sites["hidden-falls"]?.phase === "visited")
+    expect(sim.state.sites["hidden-falls"]?.phase).toBe("visited")
+    expect(sim.state.keyItems[PASS]).toEqual(held)
+    expect(bodies(sim).filter((line) => FOUND.test(line))).toHaveLength(1)
+    expect(sim.setKeyItem(PASS, true)).toBe(false)
+  })
+
+  it("checks every when against the trip as the outcome list started (snapshot)", () => {
+    const sim = start(
+      branchMap((map) => {
+        map.sites.find((s) => s.id === "welcome-center")!.onVisit = [
+          { kind: "give-key", key: PASS, narrative: "The clerk hands over a pass." },
+          { kind: "unlock", layer: "local-tips", when: { has: PASS } },
+        ]
+      }),
+    )
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "parked")
+    expect(sim.state.keyItems[PASS]).toBeDefined()
+    expect(sim.state.layers["local-tips"]?.phase).toBe("locked")
+    // The outcome's own narrative replaces the key's found narrative.
+    const lines = bodies(sim)
+    expect(lines).toContain("The clerk hands over a pass.")
+    expect(lines.some((line) => FOUND.test(line))).toBe(false)
+  })
+
+  it("a departure narrative case is checked before onDepart runs", () => {
+    const sim = start(
+      branchMap((map) => {
+        const falls = map.sites.find((s) => s.id === "hidden-falls")!
+        falls.departNarrative = "Back to the van."
+        falls.departNarrativeCases = [{ when: { has: PASS }, text: "Pass already on the visor." }]
+      }),
+    )
+    sim.votes["hidden-falls"] = { stop: 2, skip: 0 }
+    stepUntil(sim, () => sim.state.sites["hidden-falls"]?.phase === "visited")
+    const lines = bodies(sim)
+    expect(lines).toContain("Back to the van.")
+    expect(lines).not.toContain("Pass already on the visor.")
+    expect(sim.state.sites["hidden-falls"]?.departNarrativeCase).toBeUndefined()
+  })
+
+  it("a trip state saved before key items reads with an empty van", () => {
+    const sim = new TripSim(SAMPLE_BRANCH_MAP, T0)
+    const { keyItems: _none, ...saved } = sim.state
+    const normalized = normalizeTripState(saved as TripState)
+    expect(normalized.keyItems).toEqual({})
+    expect(normalizeTripState(sim.state)).toBe(sim.state)
   })
 })

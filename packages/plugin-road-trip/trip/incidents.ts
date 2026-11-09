@@ -924,7 +924,7 @@ function towArrived(
         : site.description,
     },
   ]
-  const narrative = narrate(site)
+  const narrative = narrate(site, state.sites[siteId]?.narrativeCase)
   if (narrative) effects.push(narrative)
   effects.push(...shop.open)
   return result(enterStep({ next: state, log, effects }, ctx, atMechanic, incident.step + 1))

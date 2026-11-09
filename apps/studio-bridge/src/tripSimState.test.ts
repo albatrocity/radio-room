@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { SAMPLE_TRIP_MAP } from "@repo/road-trip-map"
+import { SAMPLE_BRANCH_MAP, SAMPLE_TRIP_MAP } from "@repo/road-trip-map"
 import { TripSimRoom } from "@repo/plugin-road-trip/sim"
 import type { ChatMessage } from "@repo/types/ChatMessage"
 import {
@@ -102,6 +102,23 @@ describe("trip sim relay", () => {
     expect(merged[0]?.content).toBe("early")
     expect(merged.at(-1)?.content).toBe("late")
     expect(merged).toHaveLength(2 + sim.messages.length)
+  })
+
+  it("relays the van's key items on the trip store (ADR 0230)", () => {
+    const sim = new TripSimRoom(SAMPLE_BRANCH_MAP, { roomId: ROOM })
+    sim.toggleKeyItem("trail-pass")
+    setTripSim(ROOM, sim.snapshot(), fixture)
+    const trip = getTripSim(ROOM)?.store.trip as {
+      vanSheet?: { keyItems?: { id: string; name: string; icon: string; givenBy: string }[] }
+    }
+    expect(trip.vanSheet?.keyItems).toEqual([
+      expect.objectContaining({
+        id: "trail-pass",
+        name: "Trail Pass",
+        icon: "🎟️",
+        givenBy: "The host",
+      }),
+    ])
   })
 
   it("validates the posted body", () => {

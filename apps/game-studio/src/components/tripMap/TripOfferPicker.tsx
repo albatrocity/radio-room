@@ -1,5 +1,16 @@
-import { Badge, Box, Button, Checkbox, Field, HStack, Input, NativeSelect, Stack, Text } from "@chakra-ui/react"
-import type { SiteShopOffer } from "@repo/road-trip-map"
+import {
+  Badge,
+  Box,
+  Button,
+  Checkbox,
+  Field,
+  HStack,
+  Input,
+  NativeSelect,
+  Stack,
+  Text,
+} from "@chakra-ui/react"
+import type { SiteShopOffer, TripCondition } from "@repo/road-trip-map"
 import { useState } from "react"
 import {
   OFFER_CATALOG,
@@ -8,6 +19,7 @@ import {
   previewOfferSample,
   type OfferOption,
 } from "../../tripMap/tripMapDraft"
+import { TripConditionField, type ConditionKey } from "./TripConditionField"
 
 const PLUGIN_LABEL: Record<OfferOption["plugin"], string> = {
   "item-shops": "Item Shops",
@@ -25,6 +37,8 @@ type Props = {
   onSampleChange: (sample: ShopSample | undefined) => void
   /** Items it can add; defaults to the shared catalog (pass `offerCatalogFor(draft)` for trip maps). */
   catalog?: OfferOption[]
+  /** Key items a `when` can name (ADR 0230). */
+  keys?: ConditionKey[]
 }
 
 /** mulberry32. A new seed on each preview click rolls a different traveler. */
@@ -49,6 +63,7 @@ function storedOffer(offer: SiteShopOffer): SiteShopOffer {
   const next: SiteShopOffer = { definitionId: offer.definitionId }
   if (offer.basePrice != null) next.basePrice = offer.basePrice
   if (offer.stock != null && offer.stock > 1) next.stock = offer.stock
+  if (offer.when) next.when = offer.when
   return next
 }
 
@@ -56,9 +71,19 @@ function roomChip(roomTypes: NonNullable<OfferOption["roomTypes"]>): string {
   return roomTypes.length === 1 ? `${roomTypes[0]} only` : roomTypes.join(", ")
 }
 
-function ToggleSample({ checked, onChange }: { checked: boolean; onChange: (on: boolean) => void }) {
+function ToggleSample({
+  checked,
+  onChange,
+}: {
+  checked: boolean
+  onChange: (on: boolean) => void
+}) {
   return (
-    <Checkbox.Root size="sm" checked={checked} onCheckedChange={(d) => onChange(d.checked === true)}>
+    <Checkbox.Root
+      size="sm"
+      checked={checked}
+      onCheckedChange={(d) => onChange(d.checked === true)}
+    >
       <Checkbox.HiddenInput />
       <Checkbox.Control>
         <Checkbox.Indicator />
@@ -95,6 +120,7 @@ export function TripOfferPicker({
   onChange,
   onSampleChange,
   catalog = OFFER_CATALOG,
+  keys = [],
 }: Props) {
   const [query, setQuery] = useState("")
   const [preview, setPreview] = useState<string[] | null>(null)
@@ -111,12 +137,26 @@ export function TripOfferPicker({
   const patchAt = (index: number, patch: Partial<SiteShopOffer>) => {
     onChange(offers.map((offer, i) => (i === index ? storedOffer({ ...offer, ...patch }) : offer)))
   }
+  const setWhen = (index: number, when: TripCondition | undefined) => {
+    onChange(
+      offers.map((offer, i) => {
+        if (i !== index) return offer
+        if (!when) {
+          const { when: _drop, ...rest } = offer
+          return storedOffer(rest)
+        }
+        return storedOffer({ ...offer, when })
+      }),
+    )
+  }
 
   return (
     <Stack gap="2">
       <HStack justify="space-between">
         <Text fontSize="xs" fontWeight="semibold" color="fg.muted">
-          {sample ? "Custom offers (a pool; each traveler sees a sample)" : "Custom offers (always on the shelf)"}
+          {sample
+            ? "Custom offers (a pool; each traveler sees a sample)"
+            : "Custom offers (always on the shelf)"}
         </Text>
         <Text fontSize="xs" color={atCap ? "orange.fg" : "fg.muted"}>
           {offers.length} / {cap}
@@ -128,7 +168,11 @@ export function TripOfferPicker({
             checked={sample != null}
             onChange={(on) => {
               setPreview(null)
-              onSampleChange(on ? { count: Math.min(3, Math.max(1, offers.length || 1)), weights: "rarity" } : undefined)
+              onSampleChange(
+                on
+                  ? { count: Math.min(3, Math.max(1, offers.length || 1)), weights: "rarity" }
+                  : undefined,
+              )
             }}
           />
         </Box>
@@ -173,7 +217,9 @@ export function TripOfferPicker({
               size="xs"
               variant="outline"
               disabled={offers.length === 0}
-              onClick={() => setPreview(previewOfferSample(offers, sample, mulberry32(Date.now()), catalog))}
+              onClick={() =>
+                setPreview(previewOfferSample(offers, sample, mulberry32(Date.now()), catalog))
+              }
             >
               Preview a traveler
             </Button>
@@ -192,137 +238,161 @@ export function TripOfferPicker({
         gap="3"
         alignItems="start"
       >
-      {offers.length > 0 ? (
-        <Stack gap="2">
-          {offers.map((offer, index) => {
-            const option = catalog.find((item) => item.definitionId === offer.definitionId)
-            return (
-              <Box key={`${offer.definitionId}:${index}`} borderWidth="1px" borderRadius="md" p="2">
-                <HStack justify="space-between" align="start" gap="2">
-                  <Stack gap="1" flex="1">
-                    <HStack gap="2" flexWrap="wrap">
-                      <Text fontSize="sm">
-                        {option?.plugin === "road-trip" ? `${option.icon} ` : ""}
-                        {option?.name ?? offer.definitionId}
-                      </Text>
-                      <Badge size="sm" variant="subtle">
-                        {option ? PLUGIN_LABEL[option.plugin] : "unknown"}
-                      </Badge>
-                    </HStack>
-                    {option ? <OfferChips option={option} /> : null}
-                    {option?.outsideShopNote ? (
-                      <Text fontSize="xs" color="fg.muted">
-                        {option.outsideShopNote}
-                      </Text>
-                    ) : null}
-                  </Stack>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    colorPalette="red"
-                    onClick={() => onChange(offers.filter((_, i) => i !== index))}
-                  >
-                    Remove
-                  </Button>
-                </HStack>
-                <HStack gap="2" mt="2">
-                  <Input
-                    size="xs"
-                    type="number"
-                    maxW="120px"
-                    aria-label={`Price for ${option?.name ?? offer.definitionId}`}
-                    placeholder={option ? `${option.coinValue} coins` : "coins"}
-                    value={offer.basePrice ?? ""}
-                    onChange={(e) => patchAt(index, { basePrice: optionalNumber(e.target.value) })}
-                  />
-                  <Input
-                    size="xs"
-                    type="number"
-                    min={1}
-                    maxW="90px"
-                    aria-label={`Stock for ${option?.name ?? offer.definitionId}`}
-                    placeholder="1"
-                    value={offer.stock ?? ""}
-                    onChange={(e) => patchAt(index, { stock: optionalNumber(e.target.value) })}
-                  />
-                </HStack>
-              </Box>
-            )
-          })}
-        </Stack>
-      ) : (
-        <Text fontSize="xs" color="fg.muted">
-          No offers yet. Records sold under Services stock their own bin.
-        </Text>
-      )}
-
-      <Stack gap="2">
-      <Input
-        size="sm"
-        placeholder="Add item — search by name or id"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        aria-label="Search items to add"
-      />
-      <Box maxH="240px" overflowY="auto" borderWidth="1px" borderRadius="md" p="2">
-        {matches.length === 0 ? (
-          <Text fontSize="xs" color="fg.muted">
-            No items match.
-          </Text>
-        ) : (
-          <Stack gap="3">
-            {PLUGINS.map((plugin) => {
-              const group = matches.filter((option) => option.plugin === plugin)
-              if (group.length === 0) return null
+        {offers.length > 0 ? (
+          <Stack gap="2">
+            {offers.map((offer, index) => {
+              const option = catalog.find((item) => item.definitionId === offer.definitionId)
               return (
-                <Stack key={plugin} gap="0">
-                  <Text fontSize="xs" fontWeight="semibold" color="fg.muted" px="2" pt="1" pb="1">
-                    {PLUGIN_LABEL[plugin]}
-                  </Text>
-                  {group.map((option) => (
-                    <HStack
-                      key={option.definitionId}
-                      role="button"
-                      tabIndex={atCap ? -1 : 0}
-                      aria-label={`Add ${option.name}`}
-                      aria-disabled={atCap}
-                      gap="2"
-                      align="center"
-                      flexWrap="wrap"
-                      px="2"
-                      py="1.5"
-                      borderTopWidth="1px"
-                      borderColor="border.muted"
-                      cursor={atCap ? "not-allowed" : "pointer"}
-                      _hover={atCap ? undefined : { bg: "bg.muted" }}
-                      onClick={() => {
-                        if (!atCap) onChange([...offers, { definitionId: option.definitionId }])
-                      }}
-                      onKeyDown={(event) => {
-                        if (atCap || (event.key !== "Enter" && event.key !== " ")) return
-                        event.preventDefault()
-                        onChange([...offers, { definitionId: option.definitionId }])
-                      }}
-                    >
-                      <Text fontSize="sm">
-                        {option.plugin === "road-trip" ? `${option.icon} ` : ""}
-                        {option.name}
-                      </Text>
-                      <OfferChips option={option} />
-                      {option.outsideShopNote ? (
+                <Box
+                  key={`${offer.definitionId}:${index}`}
+                  borderWidth="1px"
+                  borderRadius="md"
+                  p="2"
+                >
+                  <HStack justify="space-between" align="start" gap="2">
+                    <Stack gap="1" flex="1">
+                      <HStack gap="2" flexWrap="wrap">
+                        <Text fontSize="sm">
+                          {option?.plugin === "road-trip" ? `${option.icon} ` : ""}
+                          {option?.name ?? offer.definitionId}
+                        </Text>
+                        <Badge size="sm" variant="subtle">
+                          {option ? PLUGIN_LABEL[option.plugin] : "unknown"}
+                        </Badge>
+                      </HStack>
+                      {option ? <OfferChips option={option} /> : null}
+                      {option?.outsideShopNote ? (
                         <Text fontSize="xs" color="fg.muted">
                           {option.outsideShopNote}
                         </Text>
                       ) : null}
-                    </HStack>
-                  ))}
-                </Stack>
+                    </Stack>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      colorPalette="red"
+                      onClick={() => onChange(offers.filter((_, i) => i !== index))}
+                    >
+                      Remove
+                    </Button>
+                  </HStack>
+                  <HStack gap="2" mt="2">
+                    <Input
+                      size="xs"
+                      type="number"
+                      maxW="120px"
+                      aria-label={`Price for ${option?.name ?? offer.definitionId}`}
+                      placeholder={option ? `${option.coinValue} coins` : "coins"}
+                      value={offer.basePrice ?? ""}
+                      onChange={(e) =>
+                        patchAt(index, { basePrice: optionalNumber(e.target.value) })
+                      }
+                    />
+                    <Input
+                      size="xs"
+                      type="number"
+                      min={1}
+                      maxW="90px"
+                      aria-label={`Stock for ${option?.name ?? offer.definitionId}`}
+                      placeholder="1"
+                      value={offer.stock ?? ""}
+                      onChange={(e) => patchAt(index, { stock: optionalNumber(e.target.value) })}
+                    />
+                  </HStack>
+                  <Box mt="2">
+                    <Text fontSize="xs" color="fg.muted" mb="1">
+                      When
+                    </Text>
+                    <TripConditionField
+                      when={offer.when}
+                      keys={keys}
+                      onChange={(when) => setWhen(index, when)}
+                    />
+                  </Box>
+                </Box>
               )
             })}
           </Stack>
+        ) : (
+          <Text fontSize="xs" color="fg.muted">
+            No offers yet. Records sold under Services stock their own bin.
+          </Text>
         )}
-      </Box>
-      </Stack>
+
+        <Stack gap="2">
+          <Input
+            size="sm"
+            placeholder="Add item — search by name or id"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search items to add"
+          />
+          <Box maxH="240px" overflowY="auto" borderWidth="1px" borderRadius="md" p="2">
+            {matches.length === 0 ? (
+              <Text fontSize="xs" color="fg.muted">
+                No items match.
+              </Text>
+            ) : (
+              <Stack gap="3">
+                {PLUGINS.map((plugin) => {
+                  const group = matches.filter((option) => option.plugin === plugin)
+                  if (group.length === 0) return null
+                  return (
+                    <Stack key={plugin} gap="0">
+                      <Text
+                        fontSize="xs"
+                        fontWeight="semibold"
+                        color="fg.muted"
+                        px="2"
+                        pt="1"
+                        pb="1"
+                      >
+                        {PLUGIN_LABEL[plugin]}
+                      </Text>
+                      {group.map((option) => (
+                        <HStack
+                          key={option.definitionId}
+                          role="button"
+                          tabIndex={atCap ? -1 : 0}
+                          aria-label={`Add ${option.name}`}
+                          aria-disabled={atCap}
+                          gap="2"
+                          align="center"
+                          flexWrap="wrap"
+                          px="2"
+                          py="1.5"
+                          borderTopWidth="1px"
+                          borderColor="border.muted"
+                          cursor={atCap ? "not-allowed" : "pointer"}
+                          _hover={atCap ? undefined : { bg: "bg.muted" }}
+                          onClick={() => {
+                            if (!atCap) onChange([...offers, { definitionId: option.definitionId }])
+                          }}
+                          onKeyDown={(event) => {
+                            if (atCap || (event.key !== "Enter" && event.key !== " ")) return
+                            event.preventDefault()
+                            onChange([...offers, { definitionId: option.definitionId }])
+                          }}
+                        >
+                          <Text fontSize="sm">
+                            {option.plugin === "road-trip" ? `${option.icon} ` : ""}
+                            {option.name}
+                          </Text>
+                          <OfferChips option={option} />
+                          {option.outsideShopNote ? (
+                            <Text fontSize="xs" color="fg.muted">
+                              {option.outsideShopNote}
+                            </Text>
+                          ) : null}
+                        </HStack>
+                      ))}
+                    </Stack>
+                  )
+                })}
+              </Stack>
+            )}
+          </Box>
+        </Stack>
       </Box>
     </Stack>
   )

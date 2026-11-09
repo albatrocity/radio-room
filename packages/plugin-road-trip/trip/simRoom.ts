@@ -1,11 +1,18 @@
 import type { ChatMessage, OpenRoomShopRequest, Poll, PollHistoryEntry } from "@repo/types"
 import type { EscrowPoolState } from "@repo/plugin-base"
 import {
+  ROAD_TRIP_PLUGIN_NAME,
   siteOpenRoomShopRequest,
   siteShopRequest,
   siteShopTitle,
+  tripGuideItem,
+  tripKeyItemFor,
+  tripMapForItem,
   tripMapItemShortId,
   vanConsumable,
+  vanFuelItem,
+  vanPart,
+  type TripMap,
   type TripMapInput,
   type TripStore,
   type TriggerableIncidentId,
@@ -13,9 +20,9 @@ import {
 import { poolCardView } from "../presenters"
 import { dispatch, targetKey, type VoteTarget } from "./flow"
 import { buildStatusLines, buildTripStore } from "./projection"
-import type { SkipVotes, TripLogEntry } from "./state"
+import { conditionFacts, type SkipVotes, type TripLogEntry } from "./state"
 import { TripSim, type OpenPoll, type SimEvent, type SimStep } from "./testSim"
-import { narrateMessageMeta } from "./helpers"
+import { giveItemsSign, narrateMessageMeta } from "./helpers"
 import { depart, endTrip, type TripEffect } from "./transitions"
 import { skipIncidentStep, triggerIncident, useIncidentItem } from "./incidents"
 import { layersToUnlock, openTripMap } from "./guide"
@@ -75,6 +82,37 @@ export function effectToChat(effect: TripEffect, at: number): ChatMessage | null
   return null
 }
 
+/** An item's name for sim chat: road-trip items from the map and catalog, others by their short id. */
+function simItem(map: TripMap, definitionId: string): { name: string } {
+  const split = definitionId.indexOf(":")
+  const shortId = split >= 0 ? definitionId.slice(split + 1) : definitionId
+  if (definitionId.slice(0, split) === ROAD_TRIP_PLUGIN_NAME) {
+    const found =
+      tripMapForItem(map, shortId) ??
+      tripKeyItemFor(map, shortId) ??
+      vanPart(shortId) ??
+      vanConsumable(shortId) ??
+      tripGuideItem(shortId) ??
+      vanFuelItem(shortId)
+    if (found) return { name: found.name }
+  }
+  return { name: shortId }
+}
+
+/**
+ * A `give-items` effect as the plugin's road sign (ADR 0230), naming the sim's
+ * travelers by user id. `item` overrides the name lookup (e.g. Studio's catalog).
+ */
+export function giveItemsToChat(
+  effect: Extract<TripEffect, { type: "give-items" }>,
+  recipients: readonly string[],
+  item: { name: string; icon?: string },
+  at: number,
+): ChatMessage | null {
+  const sign = giveItemsSign(effect, item, recipients)
+  return sign ? effectToChat(sign, at) : null
+}
+
 /**
  * Move a store's sim-clock times onto the wall clock and stop the van, so the
  * Room UI (which interpolates from its own clock) shows the sim's position
@@ -104,7 +142,16 @@ export function freezeStoreForRoom(store: TripStore, simNow: number, wallNow: nu
   }
   const incident = store.vanSheet.incident
   if (incident?.endsAt !== undefined) {
-    frozen.vanSheet = { ...store.vanSheet, incident: { ...incident, endsAt: shift(incident.endsAt) } }
+    frozen.vanSheet = {
+      ...store.vanSheet,
+      incident: { ...incident, endsAt: shift(incident.endsAt) },
+    }
+  }
+  if (store.vanSheet.keyItems) {
+    frozen.vanSheet = {
+      ...frozen.vanSheet,
+      keyItems: store.vanSheet.keyItems.map((key) => ({ ...key, at: shift(key.at) })),
+    }
   }
   return frozen
 }
@@ -216,7 +263,8 @@ export class TripSimRoom {
   setTally(counts: number[]): void {
     const target = this.openPollTarget()
     if (!target) return
-    if (target.kind === "site") this.sim.votes[target.id] = { stop: counts[0] ?? 0, skip: counts[1] ?? 0 }
+    if (target.kind === "site")
+      this.sim.votes[target.id] = { stop: counts[0] ?? 0, skip: counts[1] ?? 0 }
     else this.sim.tallies[targetKey(target)] = counts
     this.after(true)
   }
@@ -252,6 +300,21 @@ export class TripSimRoom {
       icon: layer.icon,
       unlocked: this.state.layers[layer.id]?.phase === "unlocked",
     }))
+  }
+
+  /** The trip's key items (ADR 0230) and whether the van holds each. */
+  keyItems(): { id: string; name: string; icon: string; held: boolean }[] {
+    return (this.sim.map.keyItems ?? []).map((key) => ({
+      id: key.id,
+      name: key.name,
+      icon: key.icon,
+      held: this.state.keyItems[key.id] !== undefined,
+    }))
+  }
+
+  /** Put a key item in the van or take it out, as the host would. */
+  toggleKeyItem(keyId: string): boolean {
+    return this.after(this.sim.setKeyItem(keyId, this.state.keyItems[keyId] === undefined))
   }
 
   /** Unlock or lock a layer as the host would. */
@@ -367,11 +430,15 @@ export class TripSimRoom {
   private after(changed: boolean): boolean {
     const fresh = this.sim.effects.slice(this.effectCursor)
     this.effectCursor = this.sim.effects.length
-    for (const { effect } of fresh) {
+    for (const { effect, recipients } of fresh) {
       if (this.shops && this.runShopEffect(effect)) continue
       const at = Math.max(this.lastMessageAt + 1, this.clock())
       const message =
-        effect.type === "open-shop" ? this.shopChat(effect.siteId, at) : effectToChat(effect, at)
+        effect.type === "open-shop"
+          ? this.shopChat(effect.siteId, at)
+          : effect.type === "give-items"
+            ? giveItemsToChat(effect, recipients ?? [], simItem(this.sim.map, effect.item), at)
+            : effectToChat(effect, at)
       if (!message) continue
       this.lastMessageAt = at
       this.messages = [...this.messages, message]
@@ -389,7 +456,8 @@ export class TripSimRoom {
   private shopChat(siteId: string, at: number): ChatMessage | null {
     const site = this.sim.map.sites.find((s) => s.id === siteId)
     const opening = site?.shop?.openingMessage
-    if (!site || !siteShopRequest(site) || !opening) return null
+    const facts = conditionFacts(this.sim.state)
+    if (!site || !siteShopRequest(site, facts) || !opening) return null
     return systemChat(opening, { type: "alert", status: "info", title: siteShopTitle(site) }, at)
   }
 
@@ -402,7 +470,9 @@ export class TripSimRoom {
     }
     if (effect.type !== "open-shop") return false
     const site = this.sim.map.sites.find((s) => s.id === effect.siteId)
-    const request = site ? siteOpenRoomShopRequest(site, effect.scopeId) : null
+    const request = site
+      ? siteOpenRoomShopRequest(site, effect.scopeId, conditionFacts(this.sim.state))
+      : null
     if (request) {
       this.shops!.open(request)
       this.openShopScopeId = effect.scopeId
@@ -446,7 +516,10 @@ export class TripSimRoom {
       id: pollId,
       roomId: this.roomId,
       question: open.question,
-      options: open.options.map((label, i) => ({ id: `${pollId}:${open.optionKeys[i] ?? i}`, label })),
+      options: open.options.map((label, i) => ({
+        id: `${pollId}:${open.optionKeys[i] ?? i}`,
+        label,
+      })),
       status: "open",
       settings: { hideRunningTotal: false },
       createdAt: publishedAt,

@@ -7,16 +7,19 @@ import {
 } from "@repo/road-trip-map"
 import {
   addAltRoute,
+  addKeyItem,
   addLayer,
   addTripMap,
   moveRouteEnd,
   moveRouteFork,
   removeAltRoute,
+  removeKeyItem,
   removeLayer,
   removeTripMap,
   scaleTripDrive,
   trackLayout,
   updateAltRoute,
+  updateKeyItem,
   updateLayer,
   updateTripMap,
 } from "./branchesDraft"
@@ -49,6 +52,30 @@ describe("trip map drafts (ADR 0227)", () => {
     expect(draft.maps).toBeUndefined()
     expect(draft.layers![0]!.maps).toBeUndefined()
     expect(draft.sites.find((s) => s.id === "gas-stop")!.shop!.offers).toEqual([])
+  })
+})
+
+describe("key item drafts (ADR 0230)", () => {
+  it("adds a key a site gives on departure and sells, and removing it drops both", () => {
+    let draft = structuredClone(SAMPLE_TRIP_MAP)
+    const added = addKeyItem(draft)
+    draft = updateKeyItem(added.draft, added.keyId, {
+      name: "Ticket stub",
+      foundNarrative: "Tucked in the visor.",
+    })
+    expect(offerCatalogFor(draft).map((option) => option.name)).toContain("Ticket stub")
+    draft = updateSite(draft, "gas-n-go", {
+      onDepart: [{ kind: "give-key", key: added.keyId }],
+      shop: { offers: [{ definitionId: `road-trip:key-${added.keyId}` }] },
+    })
+    expect(
+      parseDraft(draft, Date.now()).issues.filter((issue) => issue.severity === "error"),
+    ).toEqual([])
+    draft = removeKeyItem(draft, added.keyId)
+    expect(draft.keyItems).toBeUndefined()
+    const gas = draft.sites.find((site) => site.id === "gas-n-go")!
+    expect(gas.onDepart).toBeUndefined()
+    expect(gas.shop!.offers).toEqual([])
   })
 })
 
@@ -100,7 +127,8 @@ describe("branch drafts (ADR 0222)", () => {
       onDepart: [{ kind: "lock", layer: "local-tips" }],
     })
     draft = removeLayer(draft, "local-tips")
-    expect(draft.layers).toBeUndefined()
+    // The sample's Ridge path layer (ADR 0230) stays.
+    expect(draft.layers?.map((l) => l.id)).toEqual(["ridge"])
     expect(draft.sites.find((s) => s.id === "hidden-falls")!.layer).toBeUndefined()
     expect(draft.sites.find((s) => s.id === "welcome-center")!.onVisit).toBeUndefined()
     expect(draft.sites.find((s) => s.id === "gas-stop")!.onDepart).toBeUndefined()
@@ -129,6 +157,7 @@ describe("scaleTripDrive", () => {
       ["hidden-falls", 16],
       ["gas-stop", 24],
       ["swimming-hole", 54],
+      ["ridge-lookout", 57],
       ["overlook", 4],
       ["diner", 40],
       ["arena", 60],
@@ -150,19 +179,31 @@ describe("scaleTripDrive", () => {
     source.events = [
       ...source.events!,
       { id: "dry", name: "Out of gas", icon: "⛽", trigger: "fuel" },
-      { id: "jam", name: "Jam", icon: "🚗", mile: 5, effect: { kind: "slow", factor: 0.5 }, durationMinutes: 3 },
+      {
+        id: "jam",
+        name: "Jam",
+        icon: "🚗",
+        mile: 5,
+        effect: { kind: "slow", factor: 0.5 },
+        durationMinutes: 3,
+      },
     ]
     const result = scaleTripDrive(source, 45)
     if (!result.ok) throw new Error(result.error)
     const { draft } = result
     expect(draft.events!.find((e) => e.id === "dry")!.mile).toBeUndefined()
-    expect(draft.events!.find((e) => e.id === "jam")).toMatchObject({ mile: 7.5, durationMinutes: 3 })
+    expect(draft.events!.find((e) => e.id === "jam")).toMatchObject({
+      mile: 7.5,
+      durationMinutes: 3,
+    })
     expect(draft.sites.find((s) => s.id === "diner")!.parkMinutes).toBe(5)
     expect(draft.tuning).toEqual(source.tuning)
   })
 
   it("refuses a drive time that would push an alternate past 24 hours", () => {
-    const source = updateAltRoute(structuredClone(SAMPLE_BRANCH_MAP), "scenic-byway", { driveMinutes: 60 })
+    const source = updateAltRoute(structuredClone(SAMPLE_BRANCH_MAP), "scenic-byway", {
+      driveMinutes: 60,
+    })
     const before = structuredClone(source)
     const result = scaleTripDrive(source, 24 * 60)
     expect(result).toEqual({ ok: false, error: "Scenic Byway would drive longer than 24 hours." })

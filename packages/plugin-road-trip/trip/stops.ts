@@ -105,7 +105,7 @@ export function parkAt(
         ? `Parked for ${minutes} min. ${siteShopTitle(site)} is open.`
         : `Parked for ${minutes} min. ${site.description}`,
   })
-  const narrative = narrate(site)
+  const narrative = narrate(site, state.sites[site.id]?.narrativeCase)
   if (narrative) effects.push(narrative)
   effects.push(...shop.open)
   if (gas) effects.push(gas.effect)

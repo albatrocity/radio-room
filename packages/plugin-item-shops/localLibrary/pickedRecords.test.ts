@@ -176,6 +176,15 @@ describe("validateRoomShopRequest with picks", () => {
     ).toEqual({ ok: true })
   })
 
+  it("accepts a registered trip key item (ADR 0230)", () => {
+    expect(
+      validateRoomShopRequest(
+        { offers: [{ definitionId: "road-trip:key-trail-pass", basePrice: 12 }] },
+        { definitionIds: new Set(["road-trip:key-trail-pass"]) },
+      ),
+    ).toEqual({ ok: true })
+  })
+
   it("rejects an empty stock with no offers", () => {
     expect(
       validateRoomShopRequest({ physicalMedia: { picks: [] } }, known({ available: 0 })).ok,
