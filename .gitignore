@@ -115,3 +115,5 @@ _old/
 .bugbash.json
 .bugbash/
 .playwright-cli/
+
+apps/game-studio/maps/
