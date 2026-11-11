@@ -2285,6 +2285,11 @@ app.get("/api/plugins", (_req, res) => {
   res.status(200).json({ plugins: pluginSchemas })
 })
 
+/** Lobby offline copy reads ready shows; an empty list uses the third-Thursday fallback. */
+app.get("/api/public/scheduling/ready-shows", (_req, res) => {
+  res.status(200).json({ shows: [] })
+})
+
 /** Late-joiner hydration for all plugin component stores (`pluginComponentMachine`). */
 app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
   const roomId = req.params.roomId

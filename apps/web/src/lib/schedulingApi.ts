@@ -23,6 +23,18 @@ function toSearchParams(obj: Record<string, unknown>): URLSearchParams {
   return params
 }
 
+export type PublicReadyShow = {
+  id: string
+  title: string | null
+  startTime: string | null
+}
+
+export async function fetchPublicReadyShows(): Promise<PublicReadyShow[]> {
+  const res = await api.get("api/public/scheduling/ready-shows")
+  const data = await res.json<{ shows: PublicReadyShow[] }>()
+  return data.shows
+}
+
 export async function fetchShows(filters: ShowFilters = {}): Promise<ShowDTO[]> {
   const res = await api.get("api/scheduling/shows", {
     searchParams: toSearchParams(filters as Record<string, unknown>),
