@@ -161,6 +161,9 @@ export class AuthHandlers {
 
     socket.request.session.user = newUser
     socket.request.session.save()
+    if (newUser.userId === socket.data.userId) {
+      socket.data.username = newUser.username
+    }
 
     // Emit via SystemEvents so LobbyBroadcaster and plugins receive USER_JOINED
     if (socket.context.systemEvents) {

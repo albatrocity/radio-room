@@ -96,6 +96,7 @@ getComponentSchema(): PluginComponentSchema {
 | `nowPlayingInfo`  | Inline with now playing details      | No                     |
 | `nowPlayingBadge` | Badge area near title                | No                     |
 | `nowPlayingArt`   | Overlay on album art                 | No                     |
+| `playerControls`  | Player controls bar, after playlist / play / volume (desktop and mobile) | No |
 | `playlistItem`    | Per-track in playlist                | Yes (track data)       |
 | `userList`        | User list section                    | No                     |
 | `userListItem`    | Per-user in list                     | Yes (user data)        |
@@ -112,7 +113,7 @@ getComponentSchema(): PluginComponentSchema {
 | `heading`          | Section heading            | `content`, `level`                                              |
 | `emoji`            | Emoji display              | `emoji`, `size`                                                 |
 | `icon`             | Icon display               | `icon`, `size`, `color`                                         |
-| `button`           | Clickable button           | `label`, `icon`, `opensModal`, `action`                         |
+| `button`           | Clickable button           | `label`, `icon`, `iconOnly`, `opensModal`, `action`, `confirmMessage` |
 | `badge`            | Status badge               | `label`, `variant`, `icon`, `tooltip`                           |
 | `leaderboard`      | Ranked list                | `dataKey`, `title`, `rowTemplate`, `maxItems`                   |
 | `countdown`        | Timer display              | `startKey`, `duration`, `text`, `pausedRemainingKey?`           |

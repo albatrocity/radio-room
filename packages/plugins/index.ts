@@ -15,6 +15,7 @@ import createVolumeManagerPlugin from "@repo/plugin-volume-manager"
 import createQueueThemePlugin from "@repo/plugin-queue-theme"
 import createTheFedPlugin from "@repo/plugin-the-fed"
 import createLyricHeroPlugin from "@repo/plugin-lyric-hero"
+import createSkipperPlugin from "@repo/plugin-skipper"
 
 /**
  * Every room plugin. The API registers these; studio-bridge reads their schemas.
@@ -37,4 +38,5 @@ export const pluginFactories: PluginFactory[] = [
   createQueueThemePlugin,
   createTheFedPlugin,
   createLyricHeroPlugin,
+  createSkipperPlugin,
 ]

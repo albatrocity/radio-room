@@ -8,6 +8,11 @@ import {
   type TrackPreviewGenerationResult,
 } from "../data/trackPreviews"
 import { BRIDGE_UNREACHABLE_MESSAGE, fetchResolvedMediaItemTracks } from "./mediaItemTracks"
+import {
+  checkLocalTrackPlaylistMembership,
+  fetchTrackPreview,
+  getBridgeRpcClient,
+} from "@repo/adapter-bridge"
 
 type BrowseFailure = { ok: false; message: string }
 
@@ -82,16 +87,12 @@ async function authorizeLocalCatalogPreview(params: {
   const playlistIds = shelves?.playlistIds
   const albumIds = shelves?.albumIds
 
-  const { getBridgeRpcClient, checkLocalTrackPlaylistMembership } = await import(
-    "@repo/adapter-bridge"
-  )
   const rpc = getBridgeRpcClient(roomId)
   if (!rpc) {
     return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
   }
 
-  const hasShelfFilter =
-    (playlistIds?.length ?? 0) > 0 || (albumIds?.length ?? 0) > 0
+  const hasShelfFilter = (playlistIds?.length ?? 0) > 0 || (albumIds?.length ?? 0) > 0
   const memberOf = await checkLocalTrackPlaylistMembership({
     rpc,
     trackId,
@@ -99,11 +100,7 @@ async function authorizeLocalCatalogPreview(params: {
     albumIds: albumIds ?? [],
   })
 
-  if (
-    hasShelfFilter &&
-    memberOf.playlistIds.length === 0 &&
-    memberOf.albumIds.length === 0
-  ) {
+  if (hasShelfFilter && memberOf.playlistIds.length === 0 && memberOf.albumIds.length === 0) {
     return { ok: false, message: "You can't preview that track" }
   }
 
@@ -156,9 +153,7 @@ function trackFromPreviewMeta(meta: {
     id: "",
     title: meta.title,
     urls: [],
-    artists: meta.artist
-      ? [{ id: "", title: meta.artist, urls: [] }]
-      : [],
+    artists: meta.artist ? [{ id: "", title: meta.artist, urls: [] }] : [],
     album: {
       id: "",
       title: meta.album ?? "",
@@ -186,10 +181,7 @@ export async function getTrackPreview(params: {
   trackId: string
   mediaKey?: string
   source?: string
-}): Promise<
-  | { ok: true; url: string; durationMs: number; cached: boolean }
-  | BrowseFailure
-> {
+}): Promise<{ ok: true; url: string; durationMs: number; cached: boolean } | BrowseFailure> {
   const { context, roomId, userId, trackId } = params
   const id = trackId?.trim() ?? ""
   if (!id) {
@@ -217,11 +209,9 @@ export async function getTrackPreview(params: {
 
   const { fingerprintTrack } = await import("../../services/mediaFingerprint")
   const { resolveMediaLibraryId } = await import("../bridge/bridgeDaemonId")
-  const {
-    getPreviewPointer,
-    headPreviewByFingerprint,
-    ensurePreviewObject,
-  } = await import("../../services/MediaObjectCache")
+  const { getPreviewPointer, headPreviewByFingerprint, ensurePreviewObject } = await import(
+    "../../services/MediaObjectCache"
+  )
 
   const libraryId = await resolveMediaLibraryId({ context, roomId })
   const fingerprintHash = knownTrack ? fingerprintTrack(knownTrack) : null
@@ -261,7 +251,6 @@ export async function getTrackPreview(params: {
 
   const generation = (async (): Promise<TrackPreviewGenerationResult> => {
     try {
-      const { getBridgeRpcClient, fetchTrackPreview } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) {
         return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }
@@ -300,9 +289,7 @@ export async function getTrackPreview(params: {
       return { ok: true, url: stored.url, durationMs: clip.durationMs, previewId }
     } catch (error: unknown) {
       const message =
-        error instanceof Error && error.message
-          ? error.message
-          : "Failed to generate track preview"
+        error instanceof Error && error.message ? error.message : "Failed to generate track preview"
       return { ok: false, message }
     }
   })()
@@ -314,10 +301,7 @@ export async function getTrackPreview(params: {
 async function previewResultFromGeneration(
   generation: Promise<TrackPreviewGenerationResult>,
   cached: boolean,
-): Promise<
-  | { ok: true; url: string; durationMs: number; cached: boolean }
-  | BrowseFailure
-> {
+): Promise<{ ok: true; url: string; durationMs: number; cached: boolean } | BrowseFailure> {
   try {
     const result = await generation
     if (!result.ok) return result

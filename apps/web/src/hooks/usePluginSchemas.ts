@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useCallback, useEffect, useSyncExternalStore } from "react"
 import { getPluginSchemas } from "../lib/serverApi"
 import type { PluginSchemaInfo } from "@repo/types/Plugin"
 
@@ -9,68 +9,72 @@ interface UsePluginSchemasResult {
   refetch: () => Promise<void>
 }
 
-// Global cache for plugin schemas - shared across all hook instances
-let cachedSchemas: PluginSchemaInfo[] | null = null
-let fetchPromise: Promise<PluginSchemaInfo[]> | null = null
+type SchemaCacheState = {
+  schemas: PluginSchemaInfo[] | null
+  error: Error | null
+  isFetching: boolean
+}
+
+// Module-level cache shared by every hook instance; a refetch updates all of them.
+let state: SchemaCacheState = { schemas: null, error: null, isFetching: false }
+let fetchPromise: Promise<void> | null = null
+const listeners = new Set<() => void>()
+
+function setState(next: Partial<SchemaCacheState>): void {
+  state = { ...state, ...next }
+  listeners.forEach((listener) => listener())
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+function getSnapshot(): SchemaCacheState {
+  return state
+}
+
+function fetchSchemas(): Promise<void> {
+  if (fetchPromise) return fetchPromise
+  setState({ isFetching: true, error: null })
+  fetchPromise = getPluginSchemas()
+    .then((response) => {
+      setState({ schemas: response.plugins, isFetching: false })
+    })
+    .catch((err) => {
+      setState({
+        error: err instanceof Error ? err : new Error("Failed to fetch plugin schemas"),
+        isFetching: false,
+      })
+    })
+    .finally(() => {
+      fetchPromise = null
+    })
+  return fetchPromise
+}
 
 /**
  * Hook to fetch plugin schemas from the server.
  * Returns the list of registered plugins with their config schemas.
- * Uses a global cache to prevent re-fetching on component remounts.
+ * Fetched once per page load; `refetch` replaces the list for every hook instance.
  */
 export function usePluginSchemas(): UsePluginSchemasResult {
-  const [schemas, setSchemas] = useState<PluginSchemaInfo[]>(cachedSchemas ?? [])
-  const [isLoading, setIsLoading] = useState(cachedSchemas === null)
-  const [error, setError] = useState<Error | null>(null)
-  const mountedRef = useRef(true)
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot)
 
-  const fetchSchemas = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // If there's already a fetch in progress, reuse it
-      if (!fetchPromise) {
-        fetchPromise = getPluginSchemas().then((response) => {
-          cachedSchemas = response.plugins
-          return response.plugins
-        })
-      }
-
-      const plugins = await fetchPromise
-      if (mountedRef.current) {
-        setSchemas(plugins)
-      }
-    } catch (err) {
-      fetchPromise = null // Clear failed promise so we can retry
-      if (mountedRef.current) {
-        setError(err instanceof Error ? err : new Error("Failed to fetch plugin schemas"))
-      }
-    } finally {
-      if (mountedRef.current) {
-        setIsLoading(false)
-      }
+  useEffect(() => {
+    if (state.schemas === null && !state.isFetching) {
+      void fetchSchemas()
     }
   }, [])
 
-  useEffect(() => {
-    mountedRef.current = true
-    // Only fetch if we don't have cached data
-    if (cachedSchemas === null) {
-      fetchSchemas()
-    }
-    return () => {
-      mountedRef.current = false
-    }
-  }, [fetchSchemas])
+  const refetch = useCallback(() => fetchSchemas(), [])
 
-  const refetch = useCallback(async () => {
-    // Force a fresh fetch
-    cachedSchemas = null
-    fetchPromise = null
-    await fetchSchemas()
-  }, [fetchSchemas])
-
-  return { schemas, isLoading, error, refetch }
+  return {
+    schemas: snapshot.schemas ?? EMPTY,
+    isLoading: snapshot.schemas === null && snapshot.error === null,
+    error: snapshot.error,
+    refetch,
+  }
 }
 
+const EMPTY: PluginSchemaInfo[] = []

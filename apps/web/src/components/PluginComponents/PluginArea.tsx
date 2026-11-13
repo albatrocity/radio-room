@@ -19,6 +19,8 @@ interface PluginAreaProps {
   color?: string
   /** Item-level context for per-item areas (e.g., user data for userListItem) */
   itemContext?: Record<string, unknown>
+  /** Width of the area wrapper; use "auto" inside toolbars so it doesn't stretch */
+  width?: string
 }
 
 interface PluginComponents {
@@ -50,6 +52,7 @@ export function PluginArea({
   spacing = 2,
   color,
   itemContext,
+  width = "100%",
 }: PluginAreaProps) {
   const { schemas, isLoading } = usePluginSchemas()
   const pluginConfigs = usePluginAreaConfigs()
@@ -99,7 +102,8 @@ export function PluginArea({
       direction={direction}
       gap={spacing}
       color={color}
-      width="100%"
+      width={width}
+      flexShrink={width === "auto" ? 0 : undefined}
       px={isAboveChat ? 3 : undefined}
       py={isAboveChat ? 2 : undefined}
       align={isAboveChat || direction === "row" ? "center" : "stretch"}

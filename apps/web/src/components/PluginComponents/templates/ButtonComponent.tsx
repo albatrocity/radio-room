@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { Button, Popover, Text } from "@chakra-ui/react"
+import { Button, IconButton, Popover, Portal, Text } from "@chakra-ui/react"
 import { getIcon } from "../icons"
 import { SvgIcon } from "../../ui/svg-icon"
 import { usePluginComponentContext } from "../context"
@@ -26,6 +26,7 @@ interface ButtonTemplateComponentProps extends ButtonComponentProps {
 export function ButtonTemplateComponent({
   label,
   icon,
+  iconOnly,
   opensModal,
   action,
   confirmMessage,
@@ -72,47 +73,63 @@ export function ButtonTemplateComponent({
     }
   }
 
-  const buttonNode = (
-    <Button
-      size={size}
-      variant={variant as never}
-      colorPalette={colorPalette}
-      loading={isLoading}
-      disabled={disabled}
-      onClick={handleClick}
-    >
-      {IconComponent ? <SvgIcon icon={IconComponent} mr={1} /> : null}
-      {label}
-    </Button>
-  )
+  const buttonNode =
+    iconOnly && IconComponent ? (
+      <IconButton
+        size={size}
+        variant={variant as never}
+        colorPalette={colorPalette}
+        loading={isLoading}
+        disabled={disabled}
+        onClick={handleClick}
+        aria-label={label}
+        title={label}
+      >
+        <SvgIcon icon={IconComponent} />
+      </IconButton>
+    ) : (
+      <Button
+        size={size}
+        variant={variant as never}
+        colorPalette={colorPalette}
+        loading={isLoading}
+        disabled={disabled}
+        onClick={handleClick}
+      >
+        {IconComponent ? <SvgIcon icon={IconComponent} mr={1} /> : null}
+        {label}
+      </Button>
+    )
 
   if (action && confirmMessage) {
     return (
       <Popover.Root open={confirmOpen} onOpenChange={(e) => setConfirmOpen(e.open)}>
         <Popover.Trigger asChild>{buttonNode}</Popover.Trigger>
-        <Popover.Positioner>
-          <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }} color="fg">
-            <Popover.Arrow />
-            <Popover.Body>
-              <Text fontSize="sm">{confirmMessage}</Text>
-            </Popover.Body>
-            <Popover.Footer justifyContent="flex-end" display="flex">
-              <Button variant="plain" size="sm" onClick={() => setConfirmOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                colorPalette="primary"
-                onClick={() => {
-                  setConfirmOpen(false)
-                  dispatchAction()
-                }}
-                loading={isLoading}
-              >
-                {confirmText || "Confirm"}
-              </Button>
-            </Popover.Footer>
-          </Popover.Content>
-        </Popover.Positioner>
+        <Portal>
+          <Popover.Positioner>
+            <Popover.Content css={{ "--popover-bg": "{colors.appBg}" }} color="fg">
+              <Popover.Arrow />
+              <Popover.Body>
+                <Text fontSize="sm">{confirmMessage}</Text>
+              </Popover.Body>
+              <Popover.Footer justifyContent="flex-end" display="flex">
+                <Button variant="plain" size="sm" onClick={() => setConfirmOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  colorPalette="primary"
+                  onClick={() => {
+                    setConfirmOpen(false)
+                    dispatchAction()
+                  }}
+                  loading={isLoading}
+                >
+                  {confirmText || "Confirm"}
+                </Button>
+              </Popover.Footer>
+            </Popover.Content>
+          </Popover.Positioner>
+        </Portal>
       </Popover.Root>
     )
   }

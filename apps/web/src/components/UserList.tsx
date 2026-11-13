@@ -118,6 +118,8 @@ const UserList = ({ onEditUser, showHeading = true, showStatus = true }: UserLis
               currentUser={currentUser}
               onEditUser={onEditUser}
               showStatus={showStatus}
+              assignablePersonas={isAdmin ? assignablePersonas : undefined}
+              onTogglePersona={isAdmin ? handleTogglePersona : undefined}
             />
           )}
           {otherListeners.map((x) => (

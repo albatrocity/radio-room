@@ -7,6 +7,20 @@ import type {
   PluginCatalogTrack,
 } from "@repo/types"
 import { PluginCapability } from "./PluginCapability"
+import {
+  checkLocalTrackPlaylistMembership,
+  checkLocalTrackPlaylistMembershipBatch,
+  getBridgeRpcClient,
+  getLocalAlbumComments,
+  getLocalAlbumCoverArt,
+  getLocalPlaylistCoverArt,
+  invalidateLocalLibraryCache,
+  listLibraryAlbums,
+  listLocalAlbumTrackIds,
+  listLocalPlaylistTrackIds,
+  listLocalPlaylistTracks,
+  listLocalPlaylists,
+} from "@repo/adapter-bridge"
 
 function parseDataUri(dataUri: string): { mimeType: string; base64Data: string } | null {
   const match = /^data:([^;,]+);base64,(.+)$/.exec(dataUri)
@@ -323,9 +337,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
       return empty
     }
     try {
-      const { getBridgeRpcClient, checkLocalTrackPlaylistMembership } = await import(
-        "@repo/adapter-bridge"
-      )
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return empty
       return await checkLocalTrackPlaylistMembership({
@@ -352,9 +363,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
   }): Promise<Map<string, { playlistIds: string[]; albumIds: string[] }>> {
     const empty = new Map<string, { playlistIds: string[]; albumIds: string[] }>()
     try {
-      const { getBridgeRpcClient, checkLocalTrackPlaylistMembershipBatch } = await import(
-        "@repo/adapter-bridge"
-      )
       const rpc = getBridgeRpcClient(params.roomId)
       if (!rpc) return empty
       return await checkLocalTrackPlaylistMembershipBatch({
@@ -375,7 +383,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     roomId: string,
   ): Promise<Array<{ id: string; name: string; songCount?: number; comment?: string }>> {
     try {
-      const { getBridgeRpcClient, listLocalPlaylists } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return []
       return await listLocalPlaylists({ rpc })
@@ -398,9 +405,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     const ids = Array.from(new Set(playlistIds.map((id) => id.trim()).filter(Boolean)))
     if (ids.length === 0) return {}
     try {
-      const { getBridgeRpcClient, getLocalPlaylistCoverArt, listLocalPlaylists } = await import(
-        "@repo/adapter-bridge"
-      )
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return {}
 
@@ -495,7 +499,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     }>
   > {
     try {
-      const { getBridgeRpcClient, listLibraryAlbums } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return []
       return await listLibraryAlbums({ rpc })
@@ -515,9 +518,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     const ids = Array.from(new Set(albumIds.map((id) => id.trim()).filter(Boolean)))
     if (ids.length === 0) return {}
     try {
-      const { getBridgeRpcClient, getLocalAlbumCoverArt, listLibraryAlbums } = await import(
-        "@repo/adapter-bridge"
-      )
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return {}
 
@@ -606,7 +606,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     const ids = [...new Set(albumIds.map((id) => id.trim()).filter(Boolean))]
     if (ids.length === 0) return {}
     try {
-      const { getBridgeRpcClient, getLocalAlbumComments } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return {}
       return await getLocalAlbumComments({ rpc, albumIds: ids })
@@ -624,7 +623,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     const id = albumId.trim()
     if (!id) return []
     try {
-      const { getBridgeRpcClient, listLocalAlbumTrackIds } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return []
       return await listLocalAlbumTrackIds({ rpc, albumId: id })
@@ -644,9 +642,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
       const libraryId = await resolveMediaLibraryId({ context: this.context, roomId })
       await invalidateCoverPointersForLibrary(this.context, libraryId)
 
-      const { getBridgeRpcClient, invalidateLocalLibraryCache } = await import(
-        "@repo/adapter-bridge"
-      )
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return true
       return await invalidateLocalLibraryCache({ rpc })
@@ -661,7 +656,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     playlistId: string,
   ): Promise<import("@repo/types").MetadataSourceTrack[]> {
     try {
-      const { getBridgeRpcClient, listLocalPlaylistTracks } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return []
       return await listLocalPlaylistTracks({ rpc, playlistId })
@@ -680,7 +674,6 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     playlistId: string,
   ): Promise<Array<{ id: string; albumId?: string }>> {
     try {
-      const { getBridgeRpcClient, listLocalPlaylistTrackIds } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return []
       return await listLocalPlaylistTrackIds({ rpc, playlistId })
@@ -690,4 +683,3 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     }
   }
 }
-

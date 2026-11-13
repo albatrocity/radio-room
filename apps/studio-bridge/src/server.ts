@@ -71,6 +71,7 @@ import {
   stubSearchTracks,
 } from "./stubMetadataCatalog.js"
 import { ROUND_ROBIN_PREVIEW_PLUGIN, buildStubRoundRobinComponentState } from "./stubRoundRobin.js"
+import { SKIPPER_PREVIEW_PLUGIN, buildStubSkipperState, runStubSkipperAction } from "./stubSkipper.js"
 import {
   VOLUME_MANAGER_PLUGIN,
   buildStubVolumeComponentState,
@@ -1439,6 +1440,27 @@ function wireSocketHandlers(io: IOServer): void {
           })
           return
         }
+        if (data.pluginName === SKIPPER_PREVIEW_PLUGIN) {
+          const { success, message, nextSnap } = runStubSkipperAction(
+            getBridgeSnapshot(),
+            roomId,
+            userId,
+            data.action,
+          )
+          if (nextSnap) {
+            setBridgeSnapshot(withNormalizedSplitKey(nextSnap))
+            broadcastRefresh(io, roomId)
+            io.to(roomSocketPath(roomId)).emit("event", {
+              type: `PLUGIN:${SKIPPER_PREVIEW_PLUGIN}:SKIP_STATUS`,
+              data: buildStubSkipperState(getBridgeSnapshot(), roomId),
+            })
+          }
+          socket.emit("event", {
+            type: "PLUGIN_ACTION_RESULT",
+            data: { success, message },
+          })
+          return
+        }
         if (data.pluginName === VOLUME_MANAGER_PLUGIN) {
           const { success, message, events } = runStubVolumeAction(roomId, data.action, data.params)
           for (const ev of events) {
@@ -2299,6 +2321,7 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
       [VOLUME_MANAGER_PLUGIN]: buildStubVolumeComponentState(roomId),
       [ROUND_ROBIN_PREVIEW_PLUGIN]: buildStubRoundRobinComponentState(roomId),
       [LYRIC_HERO_PREVIEW_PLUGIN]: buildStubLyricHeroComponentState(roomId),
+      [SKIPPER_PREVIEW_PLUGIN]: buildStubSkipperState(getBridgeSnapshot(), roomId),
     },
   })
 })
@@ -2315,7 +2338,9 @@ app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
           ? buildStubRoundRobinComponentState(roomId)
           : pluginName === LYRIC_HERO_PREVIEW_PLUGIN
             ? buildStubLyricHeroComponentState(roomId)
-            : {}
+            : pluginName === SKIPPER_PREVIEW_PLUGIN
+              ? buildStubSkipperState(getBridgeSnapshot(), roomId)
+              : {}
   res.status(200).json({ state })
 })
 

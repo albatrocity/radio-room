@@ -23,6 +23,7 @@ import {
   listMediaItemTracks as listMediaItemTracksOp,
 } from "../operations/dj/trackPreview"
 import { searchTracksAcrossSources } from "../operations/dj/searchTracks"
+import { getBridgeRpcClient, listLocalPlaylists } from "@repo/adapter-bridge"
 
 /**
  * Socket.io adapter for the DJService
@@ -325,7 +326,6 @@ export class DJHandlers {
         socket.emit("event", { type: "BRIDGE_LOCAL_PLAYLISTS", data: { playlists: [] } })
         return
       }
-      const { getBridgeRpcClient, listLocalPlaylists } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       const playlists = rpc ? await listLocalPlaylists({ rpc }) : []
       socket.emit("event", {
@@ -482,10 +482,7 @@ export class DJHandlers {
    * Browse tracks on a held Physical Media item. `mediaKey` is resolved from
    * the caller's inventory grants — never a client-supplied playlist id (ADR 0099).
    */
-  browseMediaItem = async (
-    { socket }: HandlerConnections,
-    payload: { mediaKey: string },
-  ) => {
+  browseMediaItem = async ({ socket }: HandlerConnections, payload: { mediaKey: string }) => {
     const { roomId, userId } = socket.data
     const result = await browseMediaItemOp({
       context: this.context,
@@ -511,10 +508,7 @@ export class DJHandlers {
     })
   }
 
-  listMediaItemTracks = async (
-    { socket }: HandlerConnections,
-    payload: { mediaKey: string },
-  ) => {
+  listMediaItemTracks = async ({ socket }: HandlerConnections, payload: { mediaKey: string }) => {
     const { roomId, userId } = socket.data
     const result = await listMediaItemTracksOp({
       context: this.context,
@@ -571,9 +565,7 @@ export class DJHandlers {
     } catch (error: unknown) {
       console.error("Error getting track preview:", error)
       const message =
-        error instanceof Error && error.message
-          ? error.message
-          : "Failed to generate track preview"
+        error instanceof Error && error.message ? error.message : "Failed to generate track preview"
       socket.emit("event", {
         type: "GET_TRACK_PREVIEW_FAILURE",
         data: { message },
@@ -863,10 +855,7 @@ export class DJHandlers {
   /**
    * Cancel a plugin-held (deferred) queue pick (ADR 0101).
    */
-  cancelHeldQueue = async (
-    { socket }: HandlerConnections,
-    { trackId }: { trackId: string },
-  ) => {
+  cancelHeldQueue = async ({ socket }: HandlerConnections, { trackId }: { trackId: string }) => {
     try {
       const { roomId, userId } = socket.data
       const key = typeof trackId === "string" ? trackId.trim() : ""
@@ -937,10 +926,7 @@ export class DJHandlers {
     }
   }
 
-  setQueueSplit = async (
-    { socket }: HandlerConnections,
-    { belowKey }: { belowKey: string },
-  ) => {
+  setQueueSplit = async ({ socket }: HandlerConnections, { belowKey }: { belowKey: string }) => {
     try {
       const { roomId, userId } = socket.data
       if (typeof belowKey !== "string" || belowKey.length === 0) {
@@ -1083,10 +1069,7 @@ export class DJHandlers {
     }
   }
 
-  seekPlayback = async (
-    { socket }: HandlerConnections,
-    { positionMs }: { positionMs: number },
-  ) => {
+  seekPlayback = async ({ socket }: HandlerConnections, { positionMs }: { positionMs: number }) => {
     try {
       const { roomId, userId } = socket.data
       const result = await this.djService.seekPlayback(roomId, userId, positionMs)

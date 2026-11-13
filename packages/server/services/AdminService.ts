@@ -183,18 +183,6 @@ export class AdminService {
       return { error, user: null, users: [] }
     }
 
-    if (targetUserId === callerUserId) {
-      return {
-        error: {
-          status: 400,
-          error: "Bad Request",
-          message: "Cannot change your own persona assignments.",
-        },
-        user: null,
-        users: [],
-      }
-    }
-
     const personaSvc = this.context.personas as PersonaService | undefined
     if (!personaSvc) {
       return {

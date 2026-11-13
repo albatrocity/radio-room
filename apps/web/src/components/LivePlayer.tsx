@@ -10,6 +10,7 @@ import ButtonPlaylist from "./ButtonPlaylist"
 import ButtonPolls from "./ButtonPolls"
 import PlayPauseButton from "./PlayPauseButton"
 import AdminControls from "./AdminControls"
+import { PluginArea } from "./PluginComponents/PluginArea"
 import {
   useAudioSend,
   useDuckGain,
@@ -151,6 +152,7 @@ const LivePlayer = ({
                   )}
                 </IconButton>
               )}
+              <PluginArea area="playerControls" width="auto" />
             </HStack>
             <Box hideBelow="sm" w="100%" pr={3}>
               <Slider.Root

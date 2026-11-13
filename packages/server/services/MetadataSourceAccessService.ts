@@ -7,6 +7,7 @@ import type {
 import { labelForMetadataSource } from "@repo/types"
 import { filterMetadataSourcesByBridgeCapability } from "@repo/utils"
 import { findRoom, isRoomAdmin } from "../operations/data"
+import { getOrCreateCapabilityCache } from "@repo/adapter-bridge"
 
 /**
  * Evaluates who may search/queue metadata sources on bridge rooms (ADR 0088).
@@ -183,7 +184,6 @@ export class MetadataSourceAccessService {
 
     if (resolved.playbackControllerId === "bridge") {
       try {
-        const { getOrCreateCapabilityCache } = await import("@repo/adapter-bridge")
         const capability = getOrCreateCapabilityCache(this.context.redis.pubClient, roomId)
         await capability.start()
         ids = filterMetadataSourcesByBridgeCapability({

@@ -5,6 +5,19 @@ Headings: ## Month YYYY
 Sections: ### New   ### Fixed
 -->
 
+## November 2026
+
+Recap of what’s new since the October show.
+
+### New
+
+- Admins can designate users as Skippers. Skippers can skip the currently playing track, optionally up to a limited number of times.
+
+### Fixed
+
+- New features and buttons now show up without refreshing the page.
+- After changing your name, messages about your actions use your new name.
+
 ## October 2026
 
 Recap of what’s new since the September show.

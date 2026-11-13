@@ -72,6 +72,8 @@ services:
       - ASSET_CDN_BASE_URL=${ASSET_CDN_BASE_URL}
       - NEWSLETTER_LOGO_URL=${NEWSLETTER_LOGO_URL}
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      # Bearer for /api/device/* and the /device socket (ADR 0204); must match the DJ Mac pack config.
+      - DEVICE_INGRESS_SECRET=${DEVICE_INGRESS_SECRET}
     depends_on:
       - redis
       - postgres

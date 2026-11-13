@@ -29,6 +29,7 @@ export type PluginComponentArea =
   | "nowPlayingArt" // Overlay on the release artwork
   | "nowPlayingBadge" // Badges/indicators next to the now playing title
   | "nowPlaying" // General now playing area
+  | "playerControls" // Inline with the playlist / play / volume controls bar
   | "userListItem" // Next to each user in the user list
   | "userList" // Top/bottom of the user list
   | "gameStateTab" // Tab content in the user's game state modal
@@ -173,8 +174,11 @@ export type PluginButtonColorPalette =
  * confirmation popover.
  */
 export interface ButtonComponentProps {
+  /** Visible text; with `iconOnly`, the accessible name only. */
   label: string
   icon?: LucideIconName
+  /** Render just the icon (requires `icon`). */
+  iconOnly?: boolean
   opensModal?: string
   /** Plugin action identifier - dispatched via `EXECUTE_PLUGIN_ACTION`. */
   action?: string
