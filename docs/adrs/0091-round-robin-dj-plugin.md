@@ -42,3 +42,4 @@ Individual deputize/undepetize previously emitted only socket `START/END_DEPUTY_
 - [`packages/server/operations/dj/publishDeputyDjChanged.ts`](../../packages/server/operations/dj/publishDeputyDjChanged.ts)
 - [0101. Queue-add undo and Round Robin turn restore](0101-queue-add-undo-and-round-robin-turn-restore.md)
 - [0151. Round Robin forward-and-back mode](0151-round-robin-forward-and-back-mode.md)
+- [0208. Round Robin roster opt-out and reset](0208-round-robin-roster-opt-out-and-reset.md)

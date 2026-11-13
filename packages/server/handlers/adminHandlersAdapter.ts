@@ -3,7 +3,8 @@ import { activateRoomSegment, type PresetApplyMode } from "../operations/activat
 import { injectSegmentTracksToQueue } from "../operations/injectSegmentTracksToQueue"
 import * as scheduling from "../services/SchedulingService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
-import { HandlerConnections, AppContext } from "@repo/types"
+import { HandlerConnections, AppContext, type DeputyBulkAction } from "@repo/types"
+import { applyAdminDeputyBulkAction } from "../operations/room/applyAdminDeputyBulkAction"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
 import { pubUserJoined } from "../operations/sockets/users"
@@ -483,6 +484,28 @@ export class AdminHandlers {
         roomId: socket.data.roomId,
         data: { user: result.user, users: result.users },
         context,
+      })
+    }
+  }
+
+  /**
+   * Deputize or de-deputize every user currently in the room (admin only).
+   */
+  applyDeputyBulkAction = async (
+    { socket }: HandlerConnections,
+    action: DeputyBulkAction | undefined,
+  ) => {
+    const result = await applyAdminDeputyBulkAction({
+      context: socket.context,
+      roomId: socket.data.roomId,
+      userId: socket.data.userId,
+      action,
+    })
+
+    if (!result.ok) {
+      socket.emit("event", {
+        type: "ERROR_OCCURRED",
+        data: result.error,
       })
     }
   }

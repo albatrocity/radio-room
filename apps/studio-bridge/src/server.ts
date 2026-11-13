@@ -454,6 +454,75 @@ function wireSocketHandlers(io: IOServer): void {
       })
     })
 
+    socket.on(
+      "APPLY_DEPUTY_BULK_ACTION",
+      (data: { action?: "deputize_all" | "dedeputize_all" } | undefined) => {
+        const roomId = socket.data.roomId as string | undefined
+        const callerId = socket.data.userId as string | undefined
+        const snap = getBridgeSnapshot()
+        const action = data?.action
+        if (
+          !roomId ||
+          !callerId ||
+          !snap ||
+          snap.roomId !== roomId ||
+          (action !== "deputize_all" && action !== "dedeputize_all")
+        ) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 400,
+              error: "Bad Request",
+              message: "Invalid deputy bulk action.",
+            },
+          })
+          return
+        }
+        const caller = snap.users.find((u) => u.userId === callerId)
+        if (!caller?.isAdmin) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 403,
+              error: "Forbidden",
+              message: "You are not a room admin.",
+            },
+          })
+          return
+        }
+        const isDeputyDj = action === "deputize_all"
+        const users = snap.users.map((u) => ({ ...u, isDeputyDj }))
+        setBridgeSnapshot({ ...snap, users })
+        const roomPath = roomSocketPath(roomId)
+        const user = users[0]
+        if (user) {
+          io.to(roomPath).emit("event", {
+            type: "USER_JOINED",
+            data: { roomId, user, users },
+          })
+        }
+        io.to(roomPath).emit("event", {
+          type: "DEPUTY_BULK_APPLIED",
+          data: { roomId, action },
+        })
+        io.to(roomPath).emit("event", {
+          type: "MESSAGE_RECEIVED",
+          data: {
+            roomId,
+            message: {
+              user: { username: "system", id: "system", userId: "system" },
+              content:
+                action === "deputize_all"
+                  ? "All users have been promoted to deputy DJs"
+                  : "All deputy DJ sessions have ended",
+              meta: { type: "alert", status: "info" },
+              timestamp: new Date().toISOString(),
+            },
+          },
+        })
+      },
+    )
+
     socket.on("DESIGNATE_ADMIN", (targetUserId: string) => {
       const roomId = socket.data.roomId as string | undefined
       const snap = getBridgeSnapshot()

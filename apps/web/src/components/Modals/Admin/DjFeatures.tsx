@@ -6,6 +6,7 @@ import {
   Field,
   DialogBody,
   DialogFooter,
+  HStack,
   RadioGroup,
   VStack,
 } from "@chakra-ui/react"
@@ -139,6 +140,35 @@ function DjFeatures() {
                 <Field.HelperText>
                   When enabled, users will be automatically deputized as DJs when they join. You can
                   still revoke DJ access as normal.
+                </Field.HelperText>
+              </Field.Root>
+
+              <Field.Root>
+                <HStack gap={2} flexWrap="wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      send({ type: "APPLY_DEPUTY_BULK_ACTION", action: "dedeputize_all" })
+                    }
+                  >
+                    De-deputize all users
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      send({ type: "APPLY_DEPUTY_BULK_ACTION", action: "deputize_all" })
+                    }
+                  >
+                    Deputize all users
+                  </Button>
+                </HStack>
+                <Field.HelperText>
+                  Deputize all promotes everyone currently in the room. De-deputize all removes
+                  deputy DJ access. Both apply immediately.
                 </Field.HelperText>
               </Field.Root>
 

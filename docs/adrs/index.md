@@ -213,6 +213,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0205](0205-newsletter-signup-guards.md) | Newsletter signup guards (POST-only confirm, form token, honeypot, Redis caps) | Accepted |
 | [0206](0206-skipper-persona-plugin.md) | Skipper persona plugin (delegated skip with a waiting track) | Accepted |
 | [0207](0207-single-adapter-bridge-module-instance.md) | One `@repo/adapter-bridge` module instance in the API (static imports only) | Accepted |
+| [0208](0208-round-robin-roster-opt-out-and-reset.md) | Round Robin roster opt-out and reset rounds | Accepted |
 
 ## Creating a New ADR
 

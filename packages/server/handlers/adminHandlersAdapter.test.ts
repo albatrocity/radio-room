@@ -13,6 +13,10 @@ const dataMocks = vi.hoisted(() => ({
   buildQueueChangedData: vi.fn(),
 }))
 
+const deputyBulkMocks = vi.hoisted(() => ({
+  applyAdminDeputyBulkAction: vi.fn(),
+}))
+
 // Mock dependencies
 vi.mock("../services/AdminService")
 vi.mock("../operations/data/pluginConfigs", () => ({
@@ -27,6 +31,9 @@ vi.mock("../operations/data", () => ({
   getRoomUsers: dataMocks.getRoomUsers,
   removeOnlineUser: dataMocks.removeOnlineUser,
   buildQueueChangedData: dataMocks.buildQueueChangedData,
+}))
+vi.mock("../operations/room/applyAdminDeputyBulkAction", () => ({
+  applyAdminDeputyBulkAction: deputyBulkMocks.applyAdminDeputyBulkAction,
 }))
 
 describe("AdminHandlers", () => {
@@ -94,6 +101,8 @@ describe("AdminHandlers", () => {
     dataMocks.findRoom.mockResolvedValue(mockRoom)
     dataMocks.getRoomUsers.mockResolvedValue([])
     dataMocks.removeOnlineUser.mockResolvedValue(undefined)
+    deputyBulkMocks.applyAdminDeputyBulkAction.mockResolvedValue({ ok: true })
+
     dataMocks.buildQueueChangedData.mockResolvedValue({
       roomId: "room123",
       queue: [],
@@ -338,6 +347,48 @@ describe("AdminHandlers", () => {
         },
       })
       expect(roomSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("applyDeputyBulkAction", () => {
+    test("forwards the action to the operation", async () => {
+      await adminHandlers.applyDeputyBulkAction(
+        { socket: mockSocket, io: mockIo },
+        "deputize_all",
+      )
+
+      expect(deputyBulkMocks.applyAdminDeputyBulkAction).toHaveBeenCalledWith({
+        context: mockSocket.context,
+        roomId: "room123",
+        userId: "admin123",
+        action: "deputize_all",
+      })
+      expect(mockSocket.emit).not.toHaveBeenCalled()
+    })
+
+    test("emits ERROR_OCCURRED when the operation rejects the caller", async () => {
+      deputyBulkMocks.applyAdminDeputyBulkAction.mockResolvedValueOnce({
+        ok: false,
+        error: {
+          status: 403,
+          error: "Forbidden",
+          message: "You are not a room admin.",
+        },
+      })
+
+      await adminHandlers.applyDeputyBulkAction(
+        { socket: mockSocket, io: mockIo },
+        "dedeputize_all",
+      )
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("event", {
+        type: "ERROR_OCCURRED",
+        data: {
+          status: 403,
+          error: "Forbidden",
+          message: "You are not a room admin.",
+        },
+      })
     })
   })
 })

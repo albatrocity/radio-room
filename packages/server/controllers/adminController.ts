@@ -1,6 +1,7 @@
 import { Server } from "socket.io"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
+import type { DeputyBulkAction } from "@repo/types"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createAdminHandlers } from "../handlers/adminHandlersAdapter"
 
@@ -73,6 +74,16 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
     "INJECT_SEGMENT_TRACKS",
     async (data: { showSegmentId: string; placement: "top" | "bottom" }) => {
       await handlers.injectSegmentTracks(connections, data)
+    },
+  )
+
+  /**
+   * Deputize or de-deputize every user currently in the room (admin only).
+   */
+  socket.on(
+    "APPLY_DEPUTY_BULK_ACTION",
+    async (data: { action?: DeputyBulkAction } | undefined) => {
+      await handlers.applyDeputyBulkAction(connections, data?.action)
     },
   )
 
