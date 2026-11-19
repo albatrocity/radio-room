@@ -51,6 +51,7 @@ export class RpcServer {
           artist: p.artist != null ? String(p.artist) : undefined,
           album: p.album != null ? String(p.album) : undefined,
           volumePercent: typeof p.volumePercent === "number" ? p.volumePercent : undefined,
+          deferNowPlaying: p.deferNowPlaying === true,
         })
         return null
       case "play":

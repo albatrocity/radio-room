@@ -1,4 +1,4 @@
-import { useMemo, useRef, useCallback, memo, useState, useEffect, Fragment } from "react"
+import { useMemo, useRef, useCallback, memo, Fragment } from "react"
 import {
   Box,
   Button,
@@ -20,15 +20,7 @@ import { isSortable } from "@dnd-kit/react/sortable"
 import { move } from "@dnd-kit/helpers"
 import { canonicalQueueTrackKey, type QueueItem as SharedQueueItem } from "@repo/types/Queue"
 import { GripVertical, EyeOff } from "lucide-react"
-import {
-  LuPlay,
-  LuPause,
-  LuX,
-  LuSquareSplitVertical,
-  LuArrowUpToLine,
-  LuArrowUp,
-  LuLock,
-} from "react-icons/lu"
+import { LuX, LuSquareSplitVertical, LuArrowUpToLine, LuArrowUp, LuLock } from "react-icons/lu"
 import { QueueItem } from "../types/Queue"
 import {
   useQueueList,
@@ -47,14 +39,13 @@ import { virtualizerOverscan } from "../lib/virtualizerOverscan"
 import ScrollShadowViewport from "./ScrollShadowViewport"
 import ButtonAddToQueue from "./ButtonAddToQueue"
 import RedactedQueueTracksPreview from "./RedactedQueueTracksPreview"
+import ShowMusicControlButton from "./ShowMusicControlButton"
 import { Tooltip } from "./ui/tooltip"
 import { getQueueCountDisplay, isQueueTracksRedacted, isQueueTracksVisible } from "../lib/queueDisplayVisibility"
 import type { Room } from "../types/Room"
 
 const ITEM_HEIGHT = 70
 const MAX_LIST_HEIGHT = 200
-
-type SpotifyPlaybackState = "playing" | "paused" | "stopped"
 
 export const ROOM_QUEUE_SORTABLE_GROUP = "room-queue"
 export const QUEUE_SPLIT_DIVIDER_ID = "queue-split-divider"
@@ -338,97 +329,6 @@ function QueuedTracksSection() {
   const canResumeOrEmptyControls = isAppControlled && (isRoomCreator || isAdmin)
   const canReorder = useCanReorderQueue()
 
-  const [spotifyPlaybackState, setSpotifyPlaybackState] = useState<SpotifyPlaybackState | null>(
-    null,
-  )
-  /** Mid-track pause can be resumed even when the Redis queue is empty. */
-  const [playbackCanResume, setPlaybackCanResume] = useState(false)
-  const [playbackTogglePending, setPlaybackTogglePending] = useState(false)
-
-  useEffect(() => {
-    if (!canResumeOrEmptyControls) return
-
-    const onEvent = (payload: {
-      type?: string
-      data?: {
-        state?: SpotifyPlaybackState
-        message?: string
-        action?: string
-        trackTitle?: string
-        canResume?: boolean
-      }
-    }) => {
-      if (payload.type === "PLAYBACK_STATE" && payload.data?.state) {
-        setSpotifyPlaybackState(payload.data.state)
-        setPlaybackCanResume(payload.data.canResume === true)
-      }
-      if (payload.type === "PLAYBACK_STATE_CHANGED" && payload.data?.state) {
-        setSpotifyPlaybackState(payload.data.state)
-        // State-only event — refresh canResume (mid-track vs finished)
-        emitToSocket("GET_PLAYBACK_STATE", {})
-      }
-      if (payload.type === "GET_PLAYBACK_STATE_FAILURE") {
-        setSpotifyPlaybackState(null)
-        setPlaybackCanResume(false)
-      }
-      if (payload.type === "TOGGLE_PLAYBACK_SUCCESS") {
-        setPlaybackTogglePending(false)
-        if (payload.data?.state) {
-          setSpotifyPlaybackState(payload.data.state)
-        }
-        if (typeof payload.data?.canResume === "boolean") {
-          setPlaybackCanResume(payload.data.canResume)
-        } else if (payload.data?.state === "playing") {
-          setPlaybackCanResume(true)
-        }
-        if (payload.data?.action === "advanced" && payload.data.trackTitle) {
-          toast({
-            title: "Now playing",
-            description: payload.data.trackTitle,
-            type: "success",
-            duration: 3000,
-          })
-        }
-      }
-      if (payload.type === "TOGGLE_PLAYBACK_FAILURE") {
-        setPlaybackTogglePending(false)
-        toast({
-          title: "Couldn't control playback",
-          description: payload.data?.message,
-          type: "error",
-          duration: 4000,
-        })
-      }
-    }
-
-    socket.on("event", onEvent)
-    emitToSocket("GET_PLAYBACK_STATE", {})
-
-    return () => {
-      socket.off("event", onEvent)
-    }
-  }, [canResumeOrEmptyControls])
-
-  const handleTogglePlayback = useCallback(() => {
-    setPlaybackTogglePending(true)
-    let timeoutId: number
-    const onEvent = (payload: { type?: string }) => {
-      if (
-        payload.type === "TOGGLE_PLAYBACK_SUCCESS" ||
-        payload.type === "TOGGLE_PLAYBACK_FAILURE"
-      ) {
-        socket.off("event", onEvent)
-        window.clearTimeout(timeoutId)
-      }
-    }
-    socket.on("event", onEvent)
-    timeoutId = window.setTimeout(() => {
-      socket.off("event", onEvent)
-      setPlaybackTogglePending(false)
-    }, 10000)
-    emitToSocket("TOGGLE_PLAYBACK", {})
-  }, [])
-
   const showQueueTracks = isQueueTracksVisible(room, isAdmin)
   const queueTracksRedacted = isQueueTracksRedacted(room, isAdmin)
   const queueTracksHiddenFromListeners = isAdmin && room?.showQueueTracks === false
@@ -689,19 +589,6 @@ function QueuedTracksSection() {
 
   const badgeCount = virtualRowCount
 
-  const showMusicPlayDisabled =
-    playbackTogglePending ||
-    (spotifyPlaybackState !== "playing" && queue.length === 0 && !playbackCanResume)
-
-  const showMusicPlaybackTooltip =
-    spotifyPlaybackState === "playing"
-      ? "Pause show music playback on Spotify"
-      : queue.length === 0 && !playbackCanResume
-        ? "Nothing in the queue to play"
-        : queue.length === 0
-          ? "Resume show music"
-          : "Resume show music or start the next queued track"
-
   return (
     <Box
       background="primary.subtle/20"
@@ -740,27 +627,7 @@ function QueuedTracksSection() {
                 <Checkbox.Label fontSize="xs">Auto-advance</Checkbox.Label>
               </Checkbox.Root>
             )}
-            {canResumeOrEmptyControls && (
-              <Tooltip content={showMusicPlaybackTooltip} positioning={{ placement: "top" }}>
-                <Box as="span" display="inline-flex">
-                  <IconButton
-                    aria-label={
-                      spotifyPlaybackState === "playing"
-                        ? "Pause show music playback"
-                        : "Play show music"
-                    }
-                    variant="outline"
-                    colorPalette="primary"
-                    size="xs"
-                    onClick={handleTogglePlayback}
-                    loading={playbackTogglePending}
-                    disabled={showMusicPlayDisabled}
-                  >
-                    {spotifyPlaybackState === "playing" ? <LuPause /> : <LuPlay />}
-                  </IconButton>
-                </Box>
-              </Tooltip>
-            )}
+            {canResumeOrEmptyControls && <ShowMusicControlButton />}
             {showAddSplit && (
               <Tooltip content="Add queue split" positioning={{ placement: "top" }}>
                 <Button

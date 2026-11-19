@@ -243,6 +243,11 @@ export async function registerBridgeForRoom(params: {
     roomId,
     rpc,
     activeSource,
+    capability,
+    clearUserPause: async () => {
+      const { clearUserPause } = await import("@repo/server/operations/playback/userPause")
+      await clearUserPause({ context, roomId })
+    },
     getSpotifyDelegate: async () => {
       const ctrl = await adapterService.getRoomPlaybackControllerByService(roomId, "spotify")
       return ctrl?.api ?? null

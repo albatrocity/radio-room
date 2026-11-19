@@ -20,6 +20,10 @@ vi.mock("../lib/toasts", () => ({ toast: vi.fn() }))
 import { CATALOG_BROWSE_EVENT_TYPES, catalogBrowseMachine } from "./catalogBrowseMachine"
 import { MEDIA_ITEM_TRACKS_EVENT_TYPES, mediaItemTracksMachine } from "./mediaItemTracksMachine"
 import { QUEUE_EVENT_TYPES, queueMachine } from "./queueMachine"
+import {
+  SHOW_MUSIC_CONTROL_EVENT_TYPES,
+  showMusicControlMachine,
+} from "./showMusicControlMachine"
 import { TRACK_SEARCH_EVENT_TYPES, trackSearchMachine } from "./trackSearchMachine"
 
 /**
@@ -60,6 +64,12 @@ const cases: Array<{
     allowlist: MEDIA_ITEM_TRACKS_EVENT_TYPES,
     locallySent: ["FETCH", "RESET"],
   },
+  {
+    name: "showMusicControlMachine",
+    machine: showMusicControlMachine,
+    allowlist: [...SHOW_MUSIC_CONTROL_EVENT_TYPES],
+    locallySent: ["ACTIVATE", "DEACTIVATE", "TOGGLE"],
+  },
 ]
 
 describe("socket event allowlists", () => {
@@ -70,7 +80,13 @@ describe("socket event allowlists", () => {
       expect(handled.length).toBeGreaterThan(0)
 
       const expected = handled
-        .filter((type) => !locallySent.includes(type) && !LIFECYCLE_EVENT_TYPES.includes(type))
+        .filter(
+          (type) =>
+            !locallySent.includes(type) &&
+            !LIFECYCLE_EVENT_TYPES.includes(type) &&
+            // Delayed transitions are local timers, not socket hub events.
+            !type.startsWith("xstate.after."),
+        )
         .sort()
       expect([...allowlist].sort()).toEqual(expected)
     },

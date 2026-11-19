@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest"
 import {
   shouldAdvanceToNextQueueItem,
   canResumeCurrentTrack,
+  isConfirmedFinishAfterUserPause,
   PLAYBACK_END_THRESHOLD_MS,
   MID_TRACK_RESUME_MIN_MS,
 } from "./playbackHelpers"
@@ -112,6 +113,83 @@ describe("shouldAdvanceToNextQueueItem", () => {
           durationMs: null,
         },
         queue,
+      ),
+    ).toBe(true)
+  })
+
+  it("resumes with a user-pause record even when the live snapshot is blank", () => {
+    expect(
+      shouldAdvanceToNextQueueItem(
+        {
+          state: "paused",
+          track: null,
+          progressMs: null,
+          durationMs: null,
+          observed: false,
+        },
+        queue,
+        {
+          userPause: { trackId: "t1", progressMs: 45_000, durationMs: 180_000 },
+        },
+      ),
+    ).toBe(false)
+  })
+
+  it("resumes with a user-pause record when position reads as 0 mid-show", () => {
+    expect(
+      shouldAdvanceToNextQueueItem(
+        {
+          state: "paused",
+          track: { id: "t1" },
+          progressMs: 0,
+          durationMs: 180_000,
+        },
+        queue,
+        {
+          userPause: { trackId: "t1", progressMs: 60_000, durationMs: 180_000 },
+        },
+      ),
+    ).toBe(false)
+  })
+
+  it("advances when the user-pause record was near the end and progress reset", () => {
+    expect(
+      shouldAdvanceToNextQueueItem(
+        {
+          state: "paused",
+          track: { id: "t1" },
+          progressMs: 0,
+          durationMs: 180_000,
+        },
+        queue,
+        {
+          userPause: { trackId: "t1", progressMs: 179_000, durationMs: 180_000 },
+        },
+      ),
+    ).toBe(true)
+  })
+})
+
+describe("isConfirmedFinishAfterUserPause", () => {
+  it("is false for a blank snapshot after a mid-track pause", () => {
+    expect(
+      isConfirmedFinishAfterUserPause(
+        { state: "paused", track: null, progressMs: null, durationMs: null },
+        { trackId: "t1", progressMs: 40_000, durationMs: 180_000 },
+      ),
+    ).toBe(false)
+  })
+
+  it("is true when the live snapshot is near the end", () => {
+    expect(
+      isConfirmedFinishAfterUserPause(
+        {
+          state: "paused",
+          track: { id: "t1" },
+          progressMs: 180_000 - PLAYBACK_END_THRESHOLD_MS,
+          durationMs: 180_000,
+        },
+        { trackId: "t1", progressMs: 60_000, durationMs: 180_000 },
       ),
     ).toBe(true)
   })

@@ -216,6 +216,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0208](0208-round-robin-roster-opt-out-and-reset.md) | Round Robin roster opt-out and reset rounds | Accepted |
 | [0209](0209-segment-cue-delivery.md) | Segment cues fan out on the local device sockets and across API processes | Accepted |
 | [0210](0210-skipper-own-track-skip.md) | Skipper own-track skip (`skipOwnTracks` without persona) | Accepted |
+| [0211](0211-user-pause-and-play-start-hold.md) | User pause and play-start hold for app-controlled advance | Accepted |
 
 ## Creating a New ADR
 

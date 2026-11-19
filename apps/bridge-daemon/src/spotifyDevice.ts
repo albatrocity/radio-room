@@ -227,7 +227,7 @@ export class SpotifyDeviceHost {
         if (
           cached &&
           Date.now() - cached.at < 4000 &&
-          cached.state.state === "playing" &&
+          cached.state.state !== "stopped" &&
           !this.endedForTrackId
         ) {
           return cached.state
@@ -242,10 +242,16 @@ export class SpotifyDeviceHost {
         trackId: snapshot.trackId,
         volumePercent: snapshot.volumePercent,
       }
-      if (next.state === "playing" && next.durationMs && next.durationMs > 0) {
+      // Keep a mid-track position across pause so a null getCurrentState during
+      // resume still reports something to resume (ADR 0211).
+      if (
+        next.durationMs != null &&
+        next.durationMs > 0 &&
+        next.progressMs != null &&
+        next.progressMs >= 0 &&
+        next.state !== "stopped"
+      ) {
         this.lastGoodPlayback = { state: next, at: Date.now() }
-      } else {
-        this.lastGoodPlayback = null
       }
       return next
     } catch (e) {

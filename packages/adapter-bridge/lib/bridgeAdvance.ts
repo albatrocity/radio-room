@@ -2,6 +2,12 @@ import type { AppContext, JobApi, JobRegistration, PlaybackControllerApi, QueueI
 import { lastEndedKey } from "./protocol"
 import type { BridgeCapabilityCache } from "./capability"
 import {
+  getPlayTrackStart,
+  shouldCountStuckNoMedia,
+  shouldHoldForUserPause,
+  shouldIgnoreEndedForPlayStart,
+} from "./advanceWatchdog"
+import {
   canonicalTrackId,
   endedSourceMatchesActive,
   endedTrackIsStale,
@@ -143,12 +149,36 @@ export function createBridgeAdvanceJob(params: {
     return lastKnownTrackId
   }
 
+  async function readUserPauseHold(): Promise<boolean> {
+    try {
+      const { getUserPause } = await import("@repo/server/operations/playback/userPause")
+      return !!(await getUserPause({ context, roomId }))
+    } catch {
+      return false
+    }
+  }
+
   async function shouldApplyEnded(ended: {
     source?: string
     trackId?: string
     at?: number
   }): Promise<boolean> {
     const { source: endedSource, trackId: endedTrackId, at } = ended
+    if (shouldHoldForUserPause(await readUserPauseHold())) {
+      console.log(`[bridge-advance] ignoring ENDED while user pause is held for room ${roomId}`)
+      return false
+    }
+    if (
+      shouldIgnoreEndedForPlayStart({
+        endedTrackId,
+        start: getPlayTrackStart(roomId),
+      })
+    ) {
+      console.log(
+        `[bridge-advance] ignoring stale ENDED for ${endedTrackId} after commanded play in room ${roomId}`,
+      )
+      return false
+    }
     const now = Date.now()
     if (
       endSignalIsSpent({
@@ -194,6 +224,19 @@ export function createBridgeAdvanceJob(params: {
     if (Date.now() - lastAdvanceAt < 1500) return
     advancing = true
     try {
+      if (
+        shouldHoldForUserPause(await readUserPauseHold()) &&
+        (reason === "idle-start" ||
+          reason === "stuck-stopped" ||
+          reason === "ended-event" ||
+          reason === "state-ended" ||
+          reason === "state-probe" ||
+          reason === "playback-probe")
+      ) {
+        console.log(`[bridge-advance] holding advance (${reason}) during user pause for room ${roomId}`)
+        return
+      }
+
       const { findRoom } = await import("@repo/server/operations/data")
       const {
         addToQueue,
@@ -206,6 +249,7 @@ export function createBridgeAdvanceJob(params: {
       const { isAppControlledPlayback, isQueueAutoAdvanceEnabled } = await import(
         "@repo/server/lib/roomTypeHelpers"
       )
+      const { clearUserPause } = await import("@repo/server/operations/playback/userPause")
 
       const room = await findRoom({ context, roomId })
       if (!room || !isAppControlledPlayback(room) || !isQueueAutoAdvanceEnabled(room)) {
@@ -216,6 +260,8 @@ export function createBridgeAdvanceJob(params: {
       if (existingDispatched && !isForceAdvanceReason(reason)) {
         return
       }
+
+      await clearUserPause({ context, roomId })
 
       if (shouldAnnounceCannotPlay(reason, endedReason)) {
         await announceCannotPlay(existingDispatched, { skipping: true })
@@ -421,7 +467,11 @@ export function createBridgeAdvanceJob(params: {
           })
         }
 
-        if (lastState && lastStateShouldAdvance(lastState, activeSource, currentTrackId)) {
+        if (
+          lastState &&
+          lastStateShouldAdvance(lastState, activeSource, currentTrackId) &&
+          !shouldHoldForUserPause(await readUserPauseHold())
+        ) {
           await advanceToNext(
             lastState.state === "playing" ? "state-probe" : "state-ended",
           )
@@ -474,7 +524,10 @@ export function createBridgeAdvanceJob(params: {
             })
           }
 
+          const userPauseHeld = shouldHoldForUserPause(await readUserPauseHold())
+
           if (
+            !userPauseHeld &&
             isNaturalFinish(
               {
                 state: playback.state,
@@ -496,6 +549,12 @@ export function createBridgeAdvanceJob(params: {
           const dispatched = await getDispatchedTrack({ context, roomId })
           const queue = await getQueue({ context, roomId })
           const expectingPlayback = !!dispatched || queue.some((i) => !i.locked)
+          const start = getPlayTrackStart(roomId)
+          const mayCountStuck = shouldCountStuckNoMedia({
+            userPause: userPauseHeld,
+            start,
+            now: Date.now(),
+          })
 
           if (playback.observed === false) {
             // No view of the transport (device gone / SDK detached). Skipping cannot
@@ -507,7 +566,7 @@ export function createBridgeAdvanceJob(params: {
                 `[bridge-advance] playback unobservable for ${unobservedPolls} polls in room ${roomId} — holding (not skipping)`,
               )
             }
-          } else if (expectingPlayback && !hasPlayableMedia(playback)) {
+          } else if (expectingPlayback && !hasPlayableMedia(playback) && mayCountStuck) {
             unobservedPolls = 0
             stuckNoMediaPolls += 1
             if (stuckNoMediaPolls >= STUCK_NO_MEDIA_POLLS) {
@@ -521,7 +580,7 @@ export function createBridgeAdvanceJob(params: {
                   `[bridge-advance] stuck no-media (${stuckNoMediaPolls} polls, state=${playback.state}) — skipping`,
                 )
                 await advanceToNext("stuck-stopped")
-              } else {
+              } else if (!userPauseHeld) {
                 console.log(
                   `[bridge-advance] idle with a queue (${stuckNoMediaPolls} polls, state=${playback.state}) — starting next track`,
                 )
@@ -529,9 +588,23 @@ export function createBridgeAdvanceJob(params: {
               }
               return
             }
+          } else if (expectingPlayback && !hasPlayableMedia(playback) && !mayCountStuck) {
+            // Startup grace after a commanded play — do not accumulate stuck polls yet.
+            stuckNoMediaPolls = 0
+            unobservedPolls = 0
           } else if (hasPlayableMedia(playback) && playback.state === "playing") {
             stuckNoMediaPolls = 0
             unobservedPolls = 0
+            if (userPauseHeld) {
+              try {
+                const { clearUserPause } = await import(
+                  "@repo/server/operations/playback/userPause"
+                )
+                await clearUserPause({ context, roomId })
+              } catch {
+                /* ignore */
+              }
+            }
           }
         } catch {
           /* daemon/spotify unavailable — exponential backoff on next probe */
