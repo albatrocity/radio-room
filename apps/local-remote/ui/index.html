@@ -285,6 +285,7 @@
 
     <fieldset>
       <legend>OSC (active segment)</legend>
+      <p id="segmentCue" class="hint" aria-live="polite">Segment socket: checking…</p>
       <div class="row">
         <input id="oscEnabled" type="checkbox" />
         <label for="oscEnabled" style="margin: 0">Enabled</label>
@@ -1280,6 +1281,16 @@
           const r = await fetch("/api/status");
           const s = await r.json();
           $("status").textContent = JSON.stringify(s, null, 2);
+          const cue = $("segmentCue");
+          if (cue) {
+            const connected = !!s.segment_socket_connected;
+            const err = s.segment_socket_last_error ? " " + s.segment_socket_last_error + "." : "";
+            const note = s.last_segment_note
+              ? " Last cue: " + s.last_segment_note
+              : " No segment cue yet.";
+            cue.textContent =
+              "Segment socket: " + (connected ? "connected." : "not connected." + err) + note;
+          }
           const br = s.bridge;
           if (br) {
             $("bridgeSupervisorStatus").textContent =

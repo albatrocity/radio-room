@@ -78,10 +78,14 @@ export function watchDeviceRoom(id: string, roomId: string): void {
   socket.role = "segment"
 }
 
-export function emitToDeviceSockets(roomId: string, event: string, payload: unknown): void {
+export function emitToDeviceSockets(roomId: string, event: string, payload: unknown): number {
+  let delivered = 0
   sockets.forEach((socket) => {
-    if (socket.roomId === roomId) socket.emit(event, payload)
+    if (socket.roomId !== roomId) return
+    socket.emit(event, payload)
+    delivered += 1
   })
+  return delivered
 }
 
 export function deviceRoomPresent(roomId: string): boolean {

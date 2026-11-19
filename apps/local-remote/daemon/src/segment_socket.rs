@@ -1,5 +1,6 @@
 use crate::logic::{
-    osc_for_segment_ids, segment_cue_from_label, should_fire_segment_osc, OscSkip, SegmentCue,
+    osc_for_segment_ids, same_segment_cue, segment_cue_from_label, should_fire_segment_osc,
+    OscSkip, SegmentCue,
 };
 use crate::osc_send::send_osc_datagram;
 use crate::state::SharedState;
@@ -17,9 +18,10 @@ use tracing::{error, info, warn};
 struct SeenSegment {
     id: String,
     at: u64,
+    cue: SegmentCue,
 }
 
-/// Listen for segment activation on `/device` and fire Farrago OSC when the id changes.
+/// Listen for segment activation on `/device` and fire the mapped Farrago tile.
 pub async fn run_segment_socket(state: SharedState) {
     let mut backoff_secs: u64 = 1;
     let seen = Arc::new(Mutex::new(None::<SeenSegment>));
@@ -97,18 +99,22 @@ async fn watch_once(
             let expect_snapshot = expect_snapshot_for_open.clone();
             async move {
                 expect_snapshot.store(true, Ordering::SeqCst);
-                match socket.emit("watch", json!({ "roomId": room_id })).await {
-                    Ok(()) => {
-                        state.set_segment_socket_connected(true);
-                        state.set_segment_socket_error(None);
-                        info!(room_id = %room_id, "segment socket watching");
+                // Emit off this callback. rust_socketio holds its callback lock
+                // until the handler returns, and awaiting here stalls the read loop.
+                tokio::spawn(async move {
+                    match socket.emit("watch", json!({ "roomId": room_id })).await {
+                        Ok(()) => {
+                            state.set_segment_socket_connected(true);
+                            state.set_segment_socket_error(None);
+                            info!(room_id = %room_id, "segment socket watching");
+                        }
+                        Err(e) => {
+                            state.set_segment_socket_connected(false);
+                            state.set_segment_socket_error(Some(format!("watch failed: {e}")));
+                            warn!(error = %e, "segment watch emit failed");
+                        }
                     }
-                    Err(e) => {
-                        state.set_segment_socket_connected(false);
-                        state.set_segment_socket_error(Some(format!("watch failed: {e}")));
-                        warn!(error = %e, "segment watch emit failed");
-                    }
-                }
+                });
             }
             .boxed()
         })
@@ -172,6 +178,9 @@ async fn apply_segment(
     let previous_id = {
         let guard = seen.lock().await;
         if let Some(previous) = guard.as_ref() {
+            if same_segment_cue(previous.at, &previous.id, previous.cue, at, &segment_id, cue) {
+                return;
+            }
             if at > 0 && previous.at > 0 && at < previous.at {
                 drop(guard);
                 if first_after_watch {
@@ -198,6 +207,7 @@ async fn apply_segment(
         *guard = Some(SeenSegment {
             id: segment_id.clone(),
             at,
+            cue,
         });
     }
 

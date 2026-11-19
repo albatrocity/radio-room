@@ -1,7 +1,9 @@
 # 0204. Device trust boundary
 
 **Date:** 2026-10-14
-**Status:** Accepted
+**Status:** Partially superseded by [0209](0209-segment-cue-delivery.md) (how a segment cue reaches the DJ Mac). The rest of this decision stands.
+
+**Current rule:** Segment cues still travel on `/device`, but delivery is the local device socket map plus the socket.io room plus Redis channel `device:segment-cue`. See [ADR 0209](0209-segment-cue-delivery.md). Do not emit only to the room.
 
 ## Context
 

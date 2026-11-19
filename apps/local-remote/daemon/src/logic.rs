@@ -30,6 +30,18 @@ pub fn segment_cue_from_label(label: Option<&str>, first_after_watch: bool) -> S
     }
 }
 
+/// Same `at` means the API delivered one cue twice (local socket and room).
+pub fn same_segment_cue(
+    previous_at: u64,
+    previous_id: &str,
+    previous_cue: SegmentCue,
+    at: u64,
+    segment_id: &str,
+    cue: SegmentCue,
+) -> bool {
+    at > 0 && previous_at == at && previous_id == segment_id && previous_cue == cue
+}
+
 /// Snapshot plays only when the segment id changed. An activation always plays.
 pub fn should_fire_segment_osc(
     previous_segment_id: Option<&str>,
@@ -149,6 +161,34 @@ mod tests {
             Some("3"),
             "4",
             SegmentCue::Snapshot
+        ));
+    }
+
+    #[test]
+    fn duplicate_delivery_of_one_cue_is_the_same_at() {
+        assert!(same_segment_cue(
+            10,
+            "4",
+            SegmentCue::Activation,
+            10,
+            "4",
+            SegmentCue::Activation
+        ));
+        assert!(!same_segment_cue(
+            10,
+            "4",
+            SegmentCue::Snapshot,
+            10,
+            "4",
+            SegmentCue::Activation
+        ));
+        assert!(!same_segment_cue(
+            10,
+            "4",
+            SegmentCue::Activation,
+            11,
+            "4",
+            SegmentCue::Activation
         ));
     }
 

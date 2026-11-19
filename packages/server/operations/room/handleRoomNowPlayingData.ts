@@ -33,6 +33,7 @@ import {
   isAppControlledPlayback,
   isHybridRadioRoom,
 } from "../../lib/roomTypeHelpers"
+import { acquireNowPlayingLock, runNowPlayingTurn } from "./nowPlayingTurn"
 
 type HandleRoomNowPlayingDataParams = {
   context: AppContext
@@ -53,7 +54,49 @@ type HandleRoomNowPlayingDataParams = {
  * 6. Updates playlist/queue
  * 7. Emits events via SystemEvents
  */
-export default async function handleRoomNowPlayingData({
+/**
+ * Serialize a room's now-playing transition, then emit.
+ * Events flush after the turn releases so a plugin handler can submit the
+ * next track without deadlocking on this room's turn.
+ */
+export default async function handleRoomNowPlayingData(params: HandleRoomNowPlayingDataParams) {
+  const pending: Array<() => Promise<void>> = []
+  const context = deferSystemEventEmits(params.context, pending)
+  try {
+    return await runNowPlayingTurn(params.roomId, async () => {
+      const release = await acquireNowPlayingLock(context, params.roomId)
+      if (!release) return null
+      try {
+        return await persistRoomNowPlaying({ ...params, context })
+      } finally {
+        await release()
+      }
+    })
+  } finally {
+    for (const flush of pending) {
+      await flush()
+    }
+  }
+}
+
+function deferSystemEventEmits(
+  context: AppContext,
+  pending: Array<() => Promise<void>>,
+): AppContext {
+  const systemEvents = context.systemEvents
+  if (!systemEvents) return context
+  return {
+    ...context,
+    systemEvents: {
+      isEmittingToPlugins: (roomId) => systemEvents.isEmittingToPlugins?.(roomId) ?? false,
+      emit: async (roomId, event, data) => {
+        pending.push(() => systemEvents.emit(roomId, event, data))
+      },
+    },
+  }
+}
+
+async function persistRoomNowPlaying({
   context,
   roomId,
   submission,
@@ -326,36 +369,87 @@ function isSameTrack(
   }
 
   // Bridge/app-controlled: queue stamps catalog mediaSource (spotify/youtube/…) while
-  // Shoutcast/ICY later re-submits as shoutcast/rtmp. Only this cross-source case is
-  // collapsed — never fuzzy-match two catalog plays or two stream plays by title alone.
+  // Shoutcast/ICY or the device now-playing post later re-submits as shoutcast/rtmp.
   if (
-    !isCatalogMediaSourceType(current.nowPlaying.mediaSource.type) ||
-    !isStreamMediaSourceType(submission.sourceType)
+    isCatalogMediaSourceType(current.nowPlaying.mediaSource.type) &&
+    isStreamMediaSourceType(submission.sourceType)
   ) {
-    return false
+    if (
+      submission.stationMeta?.title &&
+      current.stationMeta?.title &&
+      current.stationMeta.title === submission.stationMeta.title
+    ) {
+      return true
+    }
+    return sameTitleAndArtist(
+      current.nowPlaying.track?.title,
+      current.nowPlaying.track?.artists?.[0]?.title,
+      submission.title,
+      submission.artist,
+    )
   }
 
+  // Two stream reports of one play: device now-playing (rtmp, id is artist-title-album)
+  // and ICY (shoutcast, id is a hash of the raw title) arrive as different media ids.
+  // A station title that names a different song still starts a new play.
   if (
-    submission.stationMeta?.title &&
-    current.stationMeta?.title &&
-    current.stationMeta.title === submission.stationMeta.title
+    isStreamMediaSourceType(current.nowPlaying.mediaSource.type) &&
+    isStreamMediaSourceType(submission.sourceType)
   ) {
-    return true
+    const currentStation = current.stationMeta?.title
+    const nextStation = submission.stationMeta?.title
+    if (currentStation && nextStation) {
+      return sameStationPlay(currentStation, nextStation)
+    }
+    return sameTitleAndArtist(
+      current.nowPlaying.track?.title,
+      current.nowPlaying.track?.artists?.[0]?.title,
+      submission.title,
+      submission.artist,
+    )
   }
 
-  const currentTitle = current.nowPlaying.track?.title?.toLowerCase().trim()
-  const submissionTitle = submission.title?.toLowerCase().trim()
-  if (!currentTitle || !submissionTitle || currentTitle !== submissionTitle) {
-    return false
-  }
+  return false
+}
 
-  const currentArtist =
-    current.nowPlaying.track?.artists?.[0]?.title?.toLowerCase().trim() || ""
-  const submissionArtist = (submission.artist ?? "").toLowerCase().trim()
-  if (!currentArtist || !submissionArtist) {
-    return true
-  }
-  return currentArtist === submissionArtist
+/** Drop parenthetical suffixes so "Song" and "Song (Remastered)" are one play. */
+function normalizePlayLabel(value: string | undefined | null): string {
+  if (!value) return ""
+  return value
+    .toLowerCase()
+    .replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
+    .replace(/[’']/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function sameTitleAndArtist(
+  currentTitle: string | undefined,
+  currentArtist: string | undefined,
+  nextTitle: string | undefined,
+  nextArtist: string | undefined,
+): boolean {
+  const titleA = normalizePlayLabel(currentTitle)
+  const titleB = normalizePlayLabel(nextTitle)
+  if (!titleA || !titleB || titleA !== titleB) return false
+  const artistA = normalizePlayLabel(currentArtist)
+  const artistB = normalizePlayLabel(nextArtist)
+  // One side has not filled the artist in yet (device post, then ICY).
+  if (!artistA || !artistB) return true
+  return artistA === artistB
+}
+
+function parsedStationLabels(raw: string): { title: string; artist: string } {
+  const parts = raw.split("|").map((part) => part.trim())
+  return { title: parts[0] ?? "", artist: parts[1] ?? "" }
+}
+
+/** Same song when ICY gains an album field; a different title|artist is a new play. */
+function sameStationPlay(currentStation: string, nextStation: string): boolean {
+  if (currentStation.trim() === nextStation.trim()) return true
+  const current = parsedStationLabels(currentStation)
+  const next = parsedStationLabels(nextStation)
+  return sameTitleAndArtist(current.title, current.artist, next.title, next.artist)
 }
 
 type FindQueuedTrackParams = {
