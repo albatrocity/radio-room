@@ -5,6 +5,14 @@ Headings: ## Month YYYY
 Sections: ### New   ### Fixed
 -->
 
+## December 2026
+
+Recap of what’s new since the November show.
+
+### New
+
+- Config to allow users to skip songs that they have queued.
+
 ## November 2026
 
 Recap of what’s new since the October show.

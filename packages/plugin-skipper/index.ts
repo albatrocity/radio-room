@@ -36,9 +36,10 @@ type SkipCheck =
   | { ok: false; message: string }
 
 /**
- * Skipper (ADR 0206): admins assign the Skipper persona; holders may skip the
- * current track while another track is waiting in an app-controlled queue.
- * With queue auto-advance off, a skip pauses the current track instead.
+ * Skipper (ADR 0206, 0210): admins assign the Skipper persona; holders may skip
+ * the current track while another track is waiting in an app-controlled queue.
+ * With `skipOwnTracks`, the listener who queued the now-playing track may skip
+ * it without the persona. With queue auto-advance off, a skip pauses instead.
  */
 export class SkipperPlugin extends BasePlugin<SkipperConfig> {
   name = SKIPPER_PLUGIN_NAME
@@ -98,19 +99,13 @@ export class SkipperPlugin extends BasePlugin<SkipperConfig> {
       return { success: false, message: `Unknown action: ${action}` }
     }
     if (!this.context) return { success: false, message: "Plugin not ready" }
+    if (!initiator?.userId) {
+      return { success: false, message: "Only a Skipper can skip" }
+    }
 
     const config = await this.getConfig()
     if (!config?.enabled) {
       return { success: false, message: "Skipper is not enabled" }
-    }
-
-    if (!initiator?.userId || !(await this.holdsPersona(initiator.userId))) {
-      return { success: false, message: "Only a Skipper can skip" }
-    }
-
-    const limit = config.skipLimit ?? 0
-    if (limit > 0 && (await this.skipsUsed(initiator.userId)) >= limit) {
-      return { success: false, message: "You've used all of your skips" }
     }
 
     const check = await this.checkSkippable()
@@ -118,11 +113,35 @@ export class SkipperPlugin extends BasePlugin<SkipperConfig> {
       return { success: false, message: check.message }
     }
 
-    // Claim the skip before acting so concurrent clicks can't both spend the last one.
-    const used = limit > 0 ? await this.context.storage.inc(skipCountKey(initiator.userId)) : 0
-    if (limit > 0 && used > limit) {
-      await this.context.storage.dec(skipCountKey(initiator.userId))
-      return { success: false, message: "You've used all of your skips" }
+    const isSkipper = await this.holdsPersona(initiator.userId)
+    const limit = config.skipLimit ?? 0
+    const skipperHasSkips =
+      isSkipper && (limit <= 0 || (await this.skipsUsed(initiator.userId)) < limit)
+    const isOwnTrack =
+      !!config.skipOwnTracks && check.nowPlaying.addedBy?.userId === initiator.userId
+
+    if (!skipperHasSkips && !isOwnTrack) {
+      if (isSkipper && limit > 0) {
+        return { success: false, message: "You've used all of your skips" }
+      }
+      return { success: false, message: "Only a Skipper can skip" }
+    }
+
+    // Persona skips claim the allowance; own-track skips do not.
+    let used = 0
+    let countingThisSkip = false
+    if (skipperHasSkips && limit > 0) {
+      // Claim before acting so concurrent clicks can't both spend the last one.
+      used = await this.context.storage.inc(skipCountKey(initiator.userId))
+      if (used > limit) {
+        await this.context.storage.dec(skipCountKey(initiator.userId))
+        if (!isOwnTrack) {
+          return { success: false, message: "You've used all of your skips" }
+        }
+        // Exhausted mid-race on their own track: continue without counting.
+      } else {
+        countingThisSkip = true
+      }
     }
 
     const skipperName = await this.currentUsername(initiator)
@@ -131,24 +150,24 @@ export class SkipperPlugin extends BasePlugin<SkipperConfig> {
     if (!check.autoAdvance) {
       const paused = await this.context.playback.pausePlayback(this.context.roomId)
       if (!paused.success) {
-        if (limit > 0) await this.context.storage.dec(skipCountKey(initiator.userId))
+        if (countingThisSkip) await this.context.storage.dec(skipCountKey(initiator.userId))
         return paused
       }
       this.playbackState = "paused"
       await this.publishStore()
       await this.announce(`${skipperName} skipped "${title}" (paused; queue auto-advance is off)`)
-      await this.afterSkip(initiator.userId, limit, used)
+      if (countingThisSkip) await this.afterSkip(initiator.userId, limit, used)
       return { success: true, message: "Paused" }
     }
 
     try {
       await this.context.queue.skipTrack(this.context.roomId, check.nowPlaying.mediaSource.trackId)
     } catch (error) {
-      if (limit > 0) await this.context.storage.dec(skipCountKey(initiator.userId))
+      if (countingThisSkip) await this.context.storage.dec(skipCountKey(initiator.userId))
       throw error
     }
     await this.announce(`${skipperName} skipped "${title}"`)
-    await this.afterSkip(initiator.userId, limit, used)
+    if (countingThisSkip) await this.afterSkip(initiator.userId, limit, used)
     return { success: true, message: "Skipped" }
   }
 
@@ -206,7 +225,10 @@ export class SkipperPlugin extends BasePlugin<SkipperConfig> {
     }
     if (wasEnabled !== isEnabled) {
       await this.publishStore({ force: true })
-    } else if (data.previousConfig?.skipLimit !== data.config?.skipLimit) {
+    } else if (
+      data.previousConfig?.skipLimit !== data.config?.skipLimit ||
+      data.previousConfig?.skipOwnTracks !== data.config?.skipOwnTracks
+    ) {
       await this.publishStore()
     }
   }
@@ -287,6 +309,12 @@ export class SkipperPlugin extends BasePlugin<SkipperConfig> {
     return { ok: true, nowPlaying, autoAdvance }
   }
 
+  private ownTrackUserIds(config: SkipperConfig, check: SkipCheck): string[] {
+    if (!config.skipOwnTracks || !check.ok) return []
+    const userId = check.nowPlaying.addedBy?.userId
+    return userId ? [userId] : []
+  }
+
   private async buildStore(): Promise<SkipperStore> {
     if (!this.context) return { ...EMPTY_SKIPPER_STORE }
     const config = await this.getConfig()
@@ -296,13 +324,14 @@ export class SkipperPlugin extends BasePlugin<SkipperConfig> {
       this.personas.getUsersWithPersona(SKIPPER_PERSONA_ID),
       this.checkSkippable(),
     ])
+    const ownTrackUserIds = this.ownTrackUserIds(config, check)
     const limit = config.skipLimit ?? 0
     if (limit <= 0 || holders.length === 0) {
-      return { skipperUserIds: holders, canSkip: check.ok }
+      return { skipperUserIds: holders, ownTrackUserIds, canSkip: check.ok }
     }
     const counts = await this.context.storage.mget(holders.map(skipCountKey))
     const skipperUserIds = holders.filter((_, i) => (Number(counts[i]) || 0) < limit)
-    return { skipperUserIds, canSkip: check.ok }
+    return { skipperUserIds, ownTrackUserIds, canSkip: check.ok }
   }
 
   private async publishStore(options?: { force?: boolean }): Promise<void> {

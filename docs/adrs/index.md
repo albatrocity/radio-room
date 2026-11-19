@@ -211,10 +211,11 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0203](0203-departed-user-record-ttl.md) | Departed listener user records kept for two days | Accepted |
 | [0204](0204-device-trust-boundary.md) | Device trust boundary (HTTP now-playing, `/device` socket for playback and segment cues) | Partially superseded by [0209](0209-segment-cue-delivery.md) (segment cue delivery) |
 | [0205](0205-newsletter-signup-guards.md) | Newsletter signup guards (POST-only confirm, form token, honeypot, Redis caps) | Accepted |
-| [0206](0206-skipper-persona-plugin.md) | Skipper persona plugin (delegated skip with a waiting track) | Accepted |
+| [0206](0206-skipper-persona-plugin.md) | Skipper persona plugin (delegated skip with a waiting track) | Partially superseded by [0210](0210-skipper-own-track-skip.md) (own-track skip) |
 | [0207](0207-single-adapter-bridge-module-instance.md) | One `@repo/adapter-bridge` module instance in the API (static imports only) | Accepted |
 | [0208](0208-round-robin-roster-opt-out-and-reset.md) | Round Robin roster opt-out and reset rounds | Accepted |
 | [0209](0209-segment-cue-delivery.md) | Segment cues fan out on the local device sockets and across API processes | Accepted |
+| [0210](0210-skipper-own-track-skip.md) | Skipper own-track skip (`skipOwnTracks` without persona) | Accepted |
 
 ## Creating a New ADR
 

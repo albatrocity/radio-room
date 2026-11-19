@@ -1,7 +1,7 @@
 # 0206. Skipper persona plugin
 
 **Date:** 2026-11-13
-**Status:** Accepted
+**Status:** Partially superseded by [0210](0210-skipper-own-track-skip.md) (own-track skip without persona; second button via `ownTrackUserIds`)
 
 ## Context
 
@@ -30,3 +30,4 @@ The request also asked for a configurable sound on the DJ Mac when a track is sk
 
 - [`packages/plugin-skipper/`](../../packages/plugin-skipper/)
 - [0057. User personas](0057-user-personas-system.md), [0091. Round Robin DJ](0091-round-robin-dj-plugin.md), [0201. Plugin capability interfaces](0201-plugin-capability-interfaces.md)
+- [0210. Skipper own-track skip](0210-skipper-own-track-skip.md) — optional `skipOwnTracks` without persona

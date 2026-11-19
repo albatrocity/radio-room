@@ -6,11 +6,17 @@ import { SKIPPER_PERSONA_FULL_ID, type SkipperConfig } from "./types"
 
 const ROOM = "room-1"
 
-function item(trackId: string, pin?: { pluginName: string; blockId: string }): QueueItem {
+function item(
+  trackId: string,
+  options?: { pin?: { pluginName: string; blockId: string }; addedBy?: string },
+): QueueItem {
   return {
     title: `Song ${trackId}`,
     mediaSource: { type: "spotify", trackId },
-    ...(pin ? { pin } : {}),
+    ...(options?.pin ? { pin: options.pin } : {}),
+    ...(options?.addedBy
+      ? { addedBy: { userId: options.addedBy, username: options.addedBy } }
+      : {}),
   } as unknown as QueueItem
 }
 
@@ -37,7 +43,7 @@ function createHarness(): Harness {
     nowPlaying: item("current") as QueueItem | null,
     playbackMode: "app-controlled",
     queueAutoAdvance: undefined,
-    config: { enabled: true, skipLimit: 0 } as SkipperConfig,
+    config: { enabled: true, skipLimit: 0, skipOwnTracks: false } as SkipperConfig,
     emitted: [] as { event: string; data: Record<string, unknown> }[],
     store: new Map<string, string>(),
   } as Harness
@@ -148,7 +154,7 @@ describe("SkipperPlugin", () => {
   })
 
   test("skip button is gated on canSkip and the viewer holding the persona", () => {
-    const [button] = getComponentSchema().components
+    const [button, ownButton] = getComponentSchema().components
     expect(button).toMatchObject({
       type: "button",
       area: "playerControls",
@@ -162,6 +168,17 @@ describe("SkipperPlugin", () => {
         { field: "skipperUserIds", includes: "viewer.userId" },
       ]),
     )
+    expect(ownButton).toMatchObject({
+      id: "skipper-skip-own",
+      action: "skip",
+    })
+    expect(ownButton!.showWhen).toEqual(
+      expect.arrayContaining([
+        { field: "canSkip", value: true },
+        { field: "ownTrackUserIds", includes: "viewer.userId" },
+        { field: "skipperUserIds", notIncludes: "viewer.userId" },
+      ]),
+    )
   })
 
   test("publishes holders when the Skipper persona is assigned or removed", async () => {
@@ -173,7 +190,7 @@ describe("SkipperPlugin", () => {
     })
     expect(h.emitted.at(-1)).toEqual({
       event: "SKIP_STATUS",
-      data: { skipperUserIds: ["u1"], canSkip: true },
+      data: { skipperUserIds: ["u1"], ownTrackUserIds: [], canSkip: true },
     })
 
     h.holders = []
@@ -182,7 +199,11 @@ describe("SkipperPlugin", () => {
       personaId: SKIPPER_PERSONA_FULL_ID,
       userId: "u1",
     })
-    expect(h.emitted.at(-1)?.data).toEqual({ skipperUserIds: [], canSkip: true })
+    expect(h.emitted.at(-1)?.data).toEqual({
+      skipperUserIds: [],
+      ownTrackUserIds: [],
+      canSkip: true,
+    })
   })
 
   test("tells the user privately when they gain or lose Skipper", async () => {
@@ -232,7 +253,7 @@ describe("SkipperPlugin", () => {
     })
 
     test("false when another plugin pins the current track", async () => {
-      h.nowPlaying = item("current", { pluginName: "queue-theme", blockId: "b" })
+      h.nowPlaying = item("current", { pin: { pluginName: "queue-theme", blockId: "b" } })
       await fire(h, "QUEUE_CHANGED", { queue: [] })
       expect(h.emitted.at(-1)?.data.canSkip).toBe(false)
     })
@@ -240,11 +261,12 @@ describe("SkipperPlugin", () => {
     test("true with a waiting track", async () => {
       await fire(h, "QUEUE_CHANGED", { queue: [] })
       expect(h.emitted.at(-1)?.data.canSkip).toBe(true)
+      expect(h.emitted.at(-1)?.data.ownTrackUserIds).toEqual([])
     })
 
     test("nothing is published while disabled", async () => {
       const off = createHarness()
-      off.config = { enabled: false, skipLimit: 0 }
+      off.config = { enabled: false, skipLimit: 0, skipOwnTracks: false }
       await new SkipperPlugin().register(off.context)
       await fire(off, "QUEUE_CHANGED", { queue: [] })
       expect(off.emitted).toHaveLength(0)
@@ -296,7 +318,7 @@ describe("SkipperPlugin", () => {
 
     test("rejects a track pinned by another plugin", async () => {
       grant(h, "u1")
-      h.nowPlaying = item("current", { pluginName: "queue-theme", blockId: "b" })
+      h.nowPlaying = item("current", { pin: { pluginName: "queue-theme", blockId: "b" } })
       const result = await plugin.executeAction("skip", { userId: "u1", username: "U" })
       expect(result.success).toBe(false)
       expect(h.context.queue.skipTrack).not.toHaveBeenCalled()
@@ -351,7 +373,7 @@ describe("SkipperPlugin", () => {
 
     test("rejects when disabled", async () => {
       grant(h, "u1")
-      h.config = { enabled: false, skipLimit: 0 }
+      h.config = { enabled: false, skipLimit: 0, skipOwnTracks: false }
       await fire(h, "CONFIG_CHANGED", {
         roomId: ROOM,
         pluginName: "skipper",
@@ -363,12 +385,94 @@ describe("SkipperPlugin", () => {
     })
   })
 
+  describe("skipOwnTracks", () => {
+    async function withOwnTracks(skipOwnTracks: boolean, extras?: Partial<SkipperConfig>) {
+      h = createHarness()
+      h.config = { enabled: true, skipLimit: 0, skipOwnTracks, ...extras }
+      h.nowPlaying = item("current", { addedBy: "owner" })
+      plugin = new SkipperPlugin()
+      await plugin.register(h.context)
+    }
+
+    beforeEach(() => withOwnTracks(true))
+
+    test("publishes the queuer in ownTrackUserIds when the flag is on", async () => {
+      await fire(h, "QUEUE_CHANGED", { queue: [] })
+      expect(h.emitted.at(-1)?.data).toEqual({
+        skipperUserIds: [],
+        ownTrackUserIds: ["owner"],
+        canSkip: true,
+      })
+    })
+
+    test("keeps ownTrackUserIds empty when the flag is off", async () => {
+      await withOwnTracks(false)
+      await fire(h, "QUEUE_CHANGED", { queue: [] })
+      expect(h.emitted.at(-1)?.data.ownTrackUserIds).toEqual([])
+      const result = await plugin.executeAction("skip", { userId: "owner", username: "Owner" })
+      expect(result).toEqual({ success: false, message: "Only a Skipper can skip" })
+      expect(h.context.queue.skipTrack).not.toHaveBeenCalled()
+    })
+
+    test("lets the queuer skip without the persona or a skip count", async () => {
+      const result = await plugin.executeAction("skip", { userId: "owner", username: "Owner" })
+      expect(result.success).toBe(true)
+      expect(h.context.queue.skipTrack).toHaveBeenCalledWith(ROOM, "current")
+      expect(h.store.size).toBe(0)
+      expect(h.context.personas.remove).not.toHaveBeenCalled()
+      expect(h.context.api.sendUserSystemMessage).not.toHaveBeenCalled()
+      expect(h.context.api.sendSystemMessage).toHaveBeenCalledWith(
+        ROOM,
+        'Owner skipped "Song current"',
+        { type: "alert", status: "info" },
+      )
+    })
+
+    test("rejects a different listener even when the flag is on", async () => {
+      const result = await plugin.executeAction("skip", { userId: "other", username: "Other" })
+      expect(result).toEqual({ success: false, message: "Only a Skipper can skip" })
+      expect(h.context.queue.skipTrack).not.toHaveBeenCalled()
+    })
+
+    test("an exhausted Skipper can still skip their own track without counting", async () => {
+      await withOwnTracks(true, { skipLimit: 1 })
+      grant(h, "owner")
+      h.store.set("skips-used:owner", "1")
+      await fire(h, "QUEUE_CHANGED", { queue: [] })
+      expect(h.emitted.at(-1)?.data).toEqual({
+        skipperUserIds: [],
+        ownTrackUserIds: ["owner"],
+        canSkip: true,
+      })
+
+      const result = await plugin.executeAction("skip", { userId: "owner", username: "Owner" })
+      expect(result.success).toBe(true)
+      expect(h.store.get("skips-used:owner")).toBe("1")
+      expect(h.context.personas.remove).not.toHaveBeenCalled()
+      expect(h.context.api.sendUserSystemMessage).not.toHaveBeenCalled()
+    })
+
+    test("a Skipper with skips remaining still spends the allowance on their own track", async () => {
+      await withOwnTracks(true, { skipLimit: 2 })
+      grant(h, "owner")
+      const result = await plugin.executeAction("skip", { userId: "owner", username: "Owner" })
+      expect(result.success).toBe(true)
+      expect(h.store.get("skips-used:owner")).toBe("1")
+      expect(h.context.api.sendUserSystemMessage).toHaveBeenCalledWith(
+        ROOM,
+        "owner",
+        "You have 1 skip left.",
+        expect.objectContaining({ status: "info" }),
+      )
+    })
+  })
+
   describe("skip limit", () => {
     const skip = () => plugin.executeAction("skip", { userId: "u1", username: "U" })
 
     async function withLimit(skipLimit: number) {
       h = createHarness()
-      h.config = { enabled: true, skipLimit }
+      h.config = { enabled: true, skipLimit, skipOwnTracks: false }
       plugin = new SkipperPlugin()
       await plugin.register(h.context)
       grant(h, "u1")
@@ -409,7 +513,11 @@ describe("SkipperPlugin", () => {
       await skip()
       await skip()
       expect(h.store.has("skips-used:u1")).toBe(false)
-      expect(h.emitted.at(-1)?.data).toEqual({ skipperUserIds: [], canSkip: true })
+      expect(h.emitted.at(-1)?.data).toEqual({
+        skipperUserIds: [],
+        ownTrackUserIds: [],
+        canSkip: true,
+      })
     })
 
     test("an admin removing the persona still sends the plain notice", async () => {
