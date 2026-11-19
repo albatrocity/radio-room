@@ -14,6 +14,7 @@ import {
   unregisterDeviceSocket,
   watchDeviceRoom,
 } from "@repo/adapter-bridge"
+import { bindDeviceNamespace, deviceSegmentRoom } from "./deviceSegmentFanout"
 import { activeSegmentForDevice } from "../operations/activeSegmentForDevice"
 import {
   clearDevicePresence,
@@ -42,6 +43,7 @@ type DeviceSocket = Socket & {
  */
 export function attachDeviceNamespace(io: Server, context: AppContext): void {
   const nsp = io.of("/device")
+  bindDeviceNamespace(nsp)
 
   nsp.use(async (socket, next) => {
     try {
@@ -112,6 +114,11 @@ export function attachDeviceNamespace(io: Server, context: AppContext): void {
     socket.on("watch", (payload: unknown) => {
       const roomId = readRoomId(payload)
       if (!roomId) return
+      const previous = deviceSocket.data.sessionRoomId
+      if (previous && previous !== roomId) {
+        void socket.leave(deviceSegmentRoom(previous))
+      }
+      void socket.join(deviceSegmentRoom(roomId))
       watchDeviceRoom(socket.id, roomId)
       deviceSocket.data.sessionRoomId = roomId
       void pushSegmentSnapshot(context, socket, roomId)
@@ -234,7 +241,7 @@ async function onDisconnect(socket: DeviceSocket, context: AppContext): Promise<
 
 async function pushSegmentSnapshot(context: AppContext, socket: Socket, roomId: string): Promise<void> {
   const payload = await activeSegmentForDevice(context, roomId)
-  socket.emit("segment", payload)
+  socket.emit("segment", { ...payload, cue: "snapshot" })
 }
 
 async function releaseRoom(socket: DeviceSocket, context: AppContext): Promise<void> {

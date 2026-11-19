@@ -5,9 +5,11 @@ import {
   watchDeviceRoom,
 } from "@repo/adapter-bridge"
 import { DeviceSegmentBroadcaster } from "./DeviceSegmentBroadcaster"
+import { resetDeviceNamespaceForTests } from "../deviceSegmentFanout"
 
 afterEach(() => {
   resetDeviceSessionsForTests()
+  resetDeviceNamespaceForTests()
 })
 
 describe("DeviceSegmentBroadcaster", () => {
@@ -31,9 +33,10 @@ describe("DeviceSegmentBroadcaster", () => {
     })
 
     expect(events).toHaveLength(1)
-    const [event, payload] = events[0] as [string, { segmentId: string; at: number }]
+    const [event, payload] = events[0] as [string, { segmentId: string; at: number; cue: string }]
     expect(event).toBe("segment")
     expect(payload.segmentId).toBe("4")
+    expect(payload.cue).toBe("activation")
     expect(payload.at).toEqual(expect.any(Number))
   })
 })

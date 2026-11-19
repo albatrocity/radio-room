@@ -13,7 +13,7 @@ Extend **`apps/local-remote`** with an optional **soundboard** feature:
 
 1. **Config** — `features.soundboard.enabled` and `features.soundboard.oscListenPort`. When enabled, **`features.osc` must also be enabled**; existing `osc.host` / `osc.port` continue to target Farrago **OSC Input** for outbound commands (`/ping`, `/set/.../play`).
 2. **UDP listener** — Bind `0.0.0.0:oscListenPort` and decode incoming OSC with **`rosc`**, updating an in-memory **Farrago board** model from addresses like `/set/{n}/tile/{x}/{y}/{title|color|play|…}` and `/set/selected/tile/...`.
-3. **HTTP** — Serve **`GET /soundboard`** (embedded static HTML) and **`GET /api/soundboard/state`** (JSON snapshot). **`POST /api/soundboard/ping`** sends `/ping` to Farrago Input; tile updates arrive asynchronously on the listener. **`POST /api/soundboard/play`** / **`stop`** send float args to `/set/.../play` (numeric set or `useSelectedSet` for `/set/selected/...`).
+3. **HTTP** — Serve **`GET /soundboard`** (embedded static HTML) and **`GET /api/soundboard/state`** (JSON snapshot). **`POST /api/soundboard/ping`** sends `/ping` to Farrago Input; tile updates arrive asynchronously on the listener. **`POST /api/soundboard/play`** / **`stop`** send an OSC **integer** (`1` / `0`) to `/set/.../play` (numeric set or `useSelectedSet` for `/set/selected/...`). Farrago ignores a float on these button controls.
 4. **UI** — Single-page HTML (no separate frontend build), consistent with the existing config UI pattern.
 
 Operators must set Farrago **OSC Output** to `127.0.0.1:{oscListenPort}` (or the machine running local-remote).
