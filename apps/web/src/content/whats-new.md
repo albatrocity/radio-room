@@ -13,6 +13,11 @@ Recap of what’s new since the November show.
 
 - Config to allow users to skip songs that they have queued.
 
+### Fixed
+
+- Issue where the playlist would track multiple instances of the same track, making it really hard to read
+- A pause/resume bug that often skipped tracks unintentionally
+
 ## November 2026
 
 Recap of what’s new since the October show.
