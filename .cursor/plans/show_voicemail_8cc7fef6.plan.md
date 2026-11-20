@@ -4,22 +4,22 @@ overview: Replace the paid phone voicemail line with an anonymous browser record
 todos:
   - id: adr-schema
     content: ADR 0214, voicemail table, segment.role, migration and types
-    status: pending
+    status: completed
   - id: upload-api
     content: Public presign/complete, HeadObject confirm, Redis rate limit, tests
-    status: pending
+    status: completed
   - id: homepage-recorder
-    content: "Offline lobby MediaRecorder, remove tel: link, browser check"
-    status: pending
+    content: Offline lobby recorder with telephone-band pass, local playback, and re-record before submit
+    status: completed
   - id: segment-role
     content: Scheduler role field and activeSegmentRole on activate/clear
-    status: pending
+    status: completed
   - id: admin-deck
     content: Admin deck lists a chosen time range, plays in the browser, and hides rows
-    status: pending
+    status: completed
   - id: dj-mac-playback
     content: Generic playUrl sidechain channel on the TTS device; voicemail deck replaces; enqueue and dry modes ship for a future plugin host
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -42,10 +42,11 @@ Express + Socket.IO in `packages/server`, Postgres via Drizzle (`packages/db`), 
 - "Scrub like any other audio" means a playhead on the voicemail deck, not the room Now Playing scrubber. `SEEK_PLAYBACK` seeks the active queue source (often Spotify) and an `ENDED` from that source advances the queue ([`bridgeAdvance.ts`](packages/adapter-bridge/lib/bridgeAdvance.ts)). The URL channel must not do either.
 - Programme audio keeps playing. A voicemail always uses `tts.audioDevice`, the sidechain Audio Hijack already ducks ([ADR 0178](docs/adrs/0178-media-bridge-tts-say-output.md), Loopback **Ducking** in [ADR 0109](docs/adrs/0109-local-remote-loopback-sidechain-ducking.md)). It does not pause Spotify, library mpv, or YouTube. A future plugin caller of `playUrl` would use that same device with `duck: true`, and a second mpv on the default output with `duck: false`.
 - Non-bridge playback is the admin machine's speakers (their broadcast mix). Other listeners' browsers do not play the file. That path has no Audio Hijack duck.
+- The stored object already sounds like a phone. The recorder band-limits and compands before `MediaRecorder`, so the admin `<audio>` element, the preview, and the DJ Mac all play the same bytes. No ffmpeg on the API, and no mpv audio filter at playback.
 
 ## In scope
 
-- Homepage recorder, max 2:00, presigned PUT, rate limit, thank-you state.
+- Homepage recorder, max 2:00, shaped like a phone call. The caller plays the take and can re-record before submit. Submit is the presigned PUT. Rate limit and thank-you state follow a successful send.
 - Postgres `voicemail` rows and a segment `role` of `standard` | `voicemail`.
 - Scheduler control to mark a segment as voicemails.
 - Admin deck while that segment is active: list, play, pause, scrub, hide.
@@ -121,7 +122,17 @@ Room-admin socket events, answered on the requesting socket only (not a room bro
 
 ## UX
 
-Homepage, only in the existing offline branch of `LobbyContent`: a "Leave a voicemail" control. Record with `MediaRecorder` (`audio/webm;codecs=opus`, else `audio/mp4`, else `audio/ogg`) and `audioBitsPerSecond: 96000`, so a 2:00 recording stays near 1.5MB in every browser rather than close to the 4MB cap (Safari's default AAC bitrate can approach it). Hard-stop at 2:00 with a visible countdown. When the recording is WebM, rewrite its header in the browser before preview and upload so it carries a duration and cues (for example with `ts-ebml`), and upload the patched blob. MP4 and Ogg upload as recorded. Preview the blob, optional label, then upload. Unsupported browsers get a short "this browser can't record" line. Success replaces the control with a thank-you until reload. The recorder is absent whenever a public room is in the lobby.
+Homepage, only in the existing offline branch of `LobbyContent`: a "Leave a voicemail" control. The mic goes through an `AudioWorklet` before `MediaRecorder`, and that worklet is what makes it sound like a call. North American PSTN and the voicemail systems that sit on it use a 300–3400 Hz channel at 8 kHz, then G.711 μ-law (μ = 255, 8-bit). The worklet does that to the PCM and expands it back to linear samples:
+
+- Mix to mono.
+- Low-pass and decimate to 8000 Hz, then hold those samples back up to the `AudioContext` rate so `MediaRecorder` still has a clock. A 300 Hz high-pass runs on the 8 kHz stream. One biquad is too gentle for a telephone filter; cascade two high-passes and two low-passes.
+- Quantize through μ-law and expand back. That is the compression. The file stays Opus, AAC, or Ogg, which every player already decodes. AMR-NB and GSM 6.10 are the other voicemail codecs; they are a worse fit here because Safari and the admin `<audio>` element do not play them reliably.
+
+`MediaRecorder` then records that stream (`audio/webm;codecs=opus`, else `audio/mp4`, else `audio/ogg`) at `audioBitsPerSecond: 32000`. The band is already 8 kHz, so 32 kbps is enough and a 2:00 take is a few hundred KB. Hard-stop at 2:00 with a visible countdown. When the recording is WebM, rewrite its header in the browser before the review step so it carries a duration and cues (for example with `ts-ebml`). MP4 and Ogg stay as recorded. If the worklet cannot start, record through cascaded `BiquadFilter` high-pass and low-pass nodes at the same corner frequencies. That keeps the band and drops the μ-law grit.
+
+Stopping, or hitting 2:00, lands on a review step. Nothing has been uploaded. An `<audio>` element plays the local blob, so the caller hears the phone sound and can scrub it. Re-record drops that blob and returns to the record control. Send is the only action that presigns, PUTs, and completes. The optional label sits on this step. Re-record does not call the API, so it does not spend a rate-limit slot. A failed send stays on review with the same take, so they can retry without recording again.
+
+Unsupported browsers get a short "this browser can't record" line. A successful send replaces the control with a thank-you until reload. The recorder is absent whenever a public room is in the lobby. There is no full-band option.
 
 Scheduler: role field on create ([`CreateSegmentModal.tsx`](apps/scheduler/src/components/segments/CreateSegmentModal.tsx)) and on the segment detail editor. Default Standard. One segment set to Voicemails is placed on a show like any other segment. No migration seed row.
 
@@ -131,7 +142,7 @@ Room: while `activeSegmentRole === "voicemail"` and `useIsAdmin`, a deck in the 
 
 ## State management
 
-Lobby recorder is local React state in a new component. No XState machine: it is a one-shot form with no socket stream. The deck can be local state plus socket request/response from the admin handlers; it does not need a room-wide actor. Bridge connected stays `useMediaBridgeConnected()`.
+Lobby recorder is local React state in a new component: idle, recording, review, uploading, sent. No XState machine and no socket stream. The blob exists only in review and uploading. Re-record returns to idle and revokes the object URL. The deck can be local state plus socket request/response from the admin handlers; it does not need a room-wide actor. Bridge connected stays `useMediaBridgeConnected()`.
 
 ## Security
 
@@ -145,7 +156,7 @@ Lobby recorder is local React state in a new component. No XState machine: it is
 
 ### 1. ADR and schema
 
-Record ADR 0214 (private voicemail objects, segment role, a generic bridge URL sidechain that ducks the bed and does not advance the queue) and add it to [`docs/adrs/index.md`](docs/adrs/index.md). Add `voicemail` and `segment.role` in `packages/db`, generate the next drizzle migration, and add types in `packages/types`.
+Record ADR 0214 (private voicemail objects, segment role, a browser telephone-band pass before upload, a generic bridge URL sidechain that ducks the bed and does not advance the queue) and add it to [`docs/adrs/index.md`](docs/adrs/index.md). Add `voicemail` and `segment.role` in `packages/db`, generate the next drizzle migration, and add types in `packages/types`.
 
 Files: `docs/adrs/0214-show-voicemail.md`, `docs/adrs/index.md`, `packages/db/src/schema/scheduling.ts`, new voicemail schema, `packages/types/Scheduling.ts`, new `packages/types/Voicemail.ts`.
 
@@ -165,9 +176,9 @@ Depends on: phase 1.
 
 ### 3. Homepage recorder
 
-New `VoicemailRecorder` used by the offline branch of [`Lobby.tsx`](apps/web/src/components/Lobby/Lobby.tsx). Remove the `tel:` clause. Client helpers in [`apps/web/src/lib/serverApi.ts`](apps/web/src/lib/serverApi.ts) for presign and complete. PUT the blob to the signed URL, then complete.
+New `VoicemailRecorder` used by the offline branch of [`Lobby.tsx`](apps/web/src/components/Lobby/Lobby.tsx). The telephone pass lives in a small worklet plus a pure helper (decimate, high-pass, μ-law round-trip) under `apps/web/src/lib/`, and the recorder feeds `MediaRecorder` from the worklet's stream. Remove the `tel:` clause. Client helpers in [`apps/web/src/lib/serverApi.ts`](apps/web/src/lib/serverApi.ts) for presign and complete. PUT happens only from the review step's Send action.
 
-Done means: with no public room, the homepage shows the recorder and not the phone link; with a public room, neither the recorder nor the phone link shows. API tests from phase 2 still pass. Browser check of the offline lobby (recording itself needs a microphone; if the tool browser has none, confirm the control renders and say the capture could not be exercised).
+Done means: a unit test of the pure helper keeps a 1 kHz tone and attenuates a 6 kHz tone, and a μ-law round-trip of a quiet sample uses only the coarse 8-bit steps. With no public room, the homepage shows the recorder and not the phone link; with a public room, neither the recorder nor the phone link shows. Stopping a take shows play and re-record, and re-record does not call presign. API tests from phase 2 still pass. Browser check of the offline lobby (recording itself needs a microphone; if the tool browser has none, confirm the control renders and say the capture and review steps could not be exercised).
 
 Depends on: phase 2.
 
@@ -214,6 +225,7 @@ Depends on: phase 5.
 - Two URL players, each with its own queue of 8. `replace` clears only the player it targets. TTS still mixes with ducked URLs on the sidechain device. A dry URL does not wait behind a voicemail.
 - Old DJ Mac packs keep working for music. Voicemail falls back to the admin's speakers until the pack is updated, and until `tts.audioDevice` is set.
 - Client-reported duration can lie. The size cap and the player's real duration are the bounds; no ffprobe in v1.
+- The telephone pass is only as close as an 8 kHz μ-law channel. It will not match one carrier's AMR-NB recording. A browser that cannot start the worklet still band-limits, without the companding. The caller hears whichever path ran, because preview plays the blob that will be uploaded.
 - Chrome's `MediaRecorder` WebM has no duration and no cues. In a browser `<audio>` element, `duration` reads `Infinity` until the file has played through, and seeking is unreliable. mpv also seeks poorly in a cue-less WebM. "The player uses the file's real duration once loaded" does not hold for the most common caller browser, which is why the recorder patches WebM duration and cues in the browser before upload (UX section). A file that skips the patch, such as a hand-crafted upload, can still be unseekable; the size and duration caps bound that.
 - The presign must store and sign the base MIME (`audio/webm`), not the recorder's `audio/webm;codecs=opus`, and the client must PUT with exactly that `Content-Type`, or S3 rejects the signature and `HeadObject` will not match.
 - mpv with `--keep-open=always` may not emit `end-file` at a natural EOF (it can pause on the last frame and set `eof-reached` instead). Confirm how library mpv actually ends today before relying on `end-file` to start a queued URL; observing `eof-reached` may be needed.
@@ -224,6 +236,7 @@ Depends on: phase 5.
 None. Resolved in review (2026-10-19):
 
 - WebM duration and seeking: patch the header in the browser before upload. No ffmpeg on the API.
+- Telephone sound: the browser applies an 8 kHz G.711 μ-law pass before upload. Playback does not filter again.
 - Plugin bridge output: dropped from this work. `playUrl` still ships with `enqueue` and `duck: false`, and a future plugin API goes on `context.playback`.
 - Inbox access: any room admin, only while a voicemail segment is active in that room.
 - Off-air: no public lobby room. A show in a non-public room does not hide the recorder.

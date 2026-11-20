@@ -30,7 +30,9 @@ type LinkWait = {
   roomId: string
   code: string
   timer: NodeJS.Timeout
-  finish: (result: { ok: true; daemonId: string; roomId: string } | { ok: false; error: string }) => void
+  finish: (
+    result: { ok: true; daemonId: string; roomId: string } | { ok: false; error: string },
+  ) => void
 }
 
 let linkWait: LinkWait | null = null

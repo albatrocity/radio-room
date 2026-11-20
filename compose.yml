@@ -22,7 +22,6 @@ services:
       - CHOKIDAR_USEPOLLING=true
       # Use 127.0.0.1 (loopback) instead of localhost per Spotify's requirements
       - VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3000}
-      - VITE_VOICEMAIL_NUMBER=${VITE_VOICEMAIL_NUMBER:-}
       - VITE_CONTACT_EMAIL=${VITE_CONTACT_EMAIL:-}
       # Internal Docker network URL for Vite proxy (server-side)
       - API_INTERNAL_URL=http://api:3000
@@ -72,6 +71,7 @@ services:
       - ASSET_CDN_BASE_URL=${ASSET_CDN_BASE_URL}
       - NEWSLETTER_LOGO_URL=${NEWSLETTER_LOGO_URL}
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - VOICEMAIL_IP_HMAC_SECRET=${VOICEMAIL_IP_HMAC_SECRET}
       # Bearer for /api/device/* and the /device socket (ADR 0204); must match the DJ Mac pack config.
       - DEVICE_INGRESS_SECRET=${DEVICE_INGRESS_SECRET}
     depends_on:

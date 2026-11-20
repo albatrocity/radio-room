@@ -148,9 +148,7 @@ describe("local browse Redis cache", () => {
 
   it("fetchLocalPlaylistTracks caches ok results and not failures", async () => {
     const cache = memoryCache()
-    call
-      .mockRejectedValueOnce(new Error("timeout"))
-      .mockResolvedValueOnce([{ id: "t1" }])
+    call.mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce([{ id: "t1" }])
 
     const fail = await fetchLocalPlaylistTracks({
       rpc,

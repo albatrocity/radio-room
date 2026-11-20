@@ -23,10 +23,7 @@ const GET_PLAYBACK_TIMEOUT_MS = 2500
  */
 const PREPARE_SPOTIFY_TIMEOUT_MS = 15_000
 
-function hasPlayableMedia(playback: {
-  progressMs?: number | null
-  durationMs?: number | null
-}) {
+function hasPlayableMedia(playback: { progressMs?: number | null; durationMs?: number | null }) {
   return (
     playback.durationMs != null &&
     playback.durationMs > 0 &&

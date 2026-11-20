@@ -162,6 +162,8 @@ describe("activateRoomSegment", () => {
         room: expect.objectContaining({
           activeSegmentId: "seg-1",
           activeShowSegmentId: "placement-1",
+          // Default role mapping (ADR 0212): missing `role` falls back to standard.
+          activeSegmentRole: "standard",
         }),
       }),
     )
@@ -770,6 +772,125 @@ describe("activateRoomSegment", () => {
     expect(startSession).toHaveBeenCalledWith(
       "r1",
       expect.objectContaining({ name: "Round 1", mode: "individual", segmentId: "seg-1" }),
+    )
+  })
+
+  it("sets activeSegmentRole to voicemail when the segment role is voicemail (ADR 0212)", async () => {
+    m.findShowById.mockReset().mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          id: "placement-1",
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Voicemails",
+            pluginPreset: null,
+            roomSettingsOverride: null,
+            role: "voicemail",
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(baseRoom({ activeSegmentId: null, announceActiveSegment: false }))
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "seg-1",
+          activeSegmentRole: "voicemail",
+          announceActiveSegment: false,
+        }),
+      )
+
+    const r = await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(r.ok).toBe(true)
+    expect(m.saveRoom).toHaveBeenCalledWith(
+      expect.objectContaining({
+        room: expect.objectContaining({
+          activeSegmentId: "seg-1",
+          activeShowSegmentId: "placement-1",
+          activeSegmentRole: "voicemail",
+        }),
+      }),
+    )
+  })
+
+  it("overwrites a prior voicemail role with standard when activating a standard segment", async () => {
+    m.findShowById.mockReset().mockResolvedValueOnce({
+      id: "show-1",
+      segments: [
+        {
+          id: "placement-1",
+          segmentId: "seg-1",
+          segment: {
+            id: "seg-1",
+            title: "Intro",
+            pluginPreset: null,
+            roomSettingsOverride: null,
+            role: "standard",
+            duration: 5,
+            status: "ready",
+            description: null,
+            isRecurring: false,
+            createdBy: "u1",
+            assignedTo: null,
+            assignee: null,
+            createdAt: "",
+            updatedAt: "",
+          },
+        },
+      ],
+    })
+    m.findRoom
+      .mockReset()
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "seg-prev",
+          activeSegmentRole: "voicemail",
+          announceActiveSegment: false,
+        }),
+      )
+      .mockResolvedValueOnce(
+        baseRoom({
+          activeSegmentId: "seg-1",
+          activeSegmentRole: "standard",
+          announceActiveSegment: false,
+        }),
+      )
+
+    const r = await activateRoomSegment({
+      context,
+      roomId: "r1",
+      userId: "u1",
+      segmentId: "seg-1",
+      presetMode: "skip",
+    })
+
+    expect(r.ok).toBe(true)
+    expect(m.saveRoom).toHaveBeenCalledWith(
+      expect.objectContaining({
+        room: expect.objectContaining({
+          activeSegmentId: "seg-1",
+          activeSegmentRole: "standard",
+        }),
+      }),
     )
   })
 

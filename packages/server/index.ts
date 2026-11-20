@@ -56,6 +56,10 @@ import {
   completeMusicUploadHandler,
   failMusicUploadHandler,
 } from "./controllers/musicUploadController"
+import {
+  presignVoicemailHandler,
+  completeVoicemailHandler,
+} from "./controllers/voicemailController"
 import { getTrackStatsHandler } from "./controllers/trackStatsController"
 import { getPublicReadyShowById, getPublicReadyShows } from "./routes/publicSchedulingRoutes"
 import { createSchedulingRouter, getSchedulingShowByIdHandler } from "./routes/schedulingRouter"
@@ -246,6 +250,9 @@ export class RadioRoomServer {
       .post("/api/rooms/:roomId/music-uploads/presign", presignMusicUploadHandler)
       .post("/api/rooms/:roomId/music-uploads/complete", completeMusicUploadHandler)
       .post("/api/rooms/:roomId/music-uploads/fail", failMusicUploadHandler)
+      // Public voicemail upload (ADR 0212): presign + HeadObject-confirmed complete.
+      .post("/api/voicemails/presign", presignVoicemailHandler)
+      .post("/api/voicemails/complete", completeVoicemailHandler)
       // Room image retrieval endpoint
       .get("/api/rooms/:roomId/images/:imageId", async (req, res) => {
         const { roomId, imageId } = req.params

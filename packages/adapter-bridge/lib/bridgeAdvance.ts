@@ -1,4 +1,10 @@
-import type { AppContext, JobApi, JobRegistration, PlaybackControllerApi, QueueItem } from "@repo/types"
+import type {
+  AppContext,
+  JobApi,
+  JobRegistration,
+  PlaybackControllerApi,
+  QueueItem,
+} from "@repo/types"
 import { lastEndedKey } from "./protocol"
 import type { BridgeCapabilityCache } from "./capability"
 import {
@@ -36,10 +42,7 @@ function isForceAdvanceReason(reason: string) {
   return reason === "ended-event" || reason === "stuck-stopped" || reason === "state-ended"
 }
 
-function hasPlayableMedia(playback: {
-  progressMs?: number | null
-  durationMs?: number | null
-}) {
+function hasPlayableMedia(playback: { progressMs?: number | null; durationMs?: number | null }) {
   return (
     playback.durationMs != null &&
     playback.durationMs > 0 &&
@@ -233,7 +236,9 @@ export function createBridgeAdvanceJob(params: {
           reason === "state-probe" ||
           reason === "playback-probe")
       ) {
-        console.log(`[bridge-advance] holding advance (${reason}) during user pause for room ${roomId}`)
+        console.log(
+          `[bridge-advance] holding advance (${reason}) during user pause for room ${roomId}`,
+        )
         return
       }
 
@@ -365,10 +370,7 @@ export function createBridgeAdvanceJob(params: {
 
   function desiredProbeIntervalMs(): number {
     if (rpcFailureCount > 0) {
-      return Math.min(
-        MAX_PROBE_BACKOFF_MS,
-        INITIAL_PROBE_BACKOFF_MS * 2 ** (rpcFailureCount - 1),
-      )
+      return Math.min(MAX_PROBE_BACKOFF_MS, INITIAL_PROBE_BACKOFF_MS * 2 ** (rpcFailureCount - 1))
     }
     // Tighten while watching for stuck/no-media or when duration says we're near the end
     if (stuckNoMediaPolls > 0) return NEAR_END_PROBE_INTERVAL_MS
@@ -459,7 +461,10 @@ export function createBridgeAdvanceJob(params: {
 
         // 3) Cheap near-end / volume checks from last STATE pub/sub (no RPC)
         const lastState = capability.getLastState()
-        if (lastState?.volumePercent != null && lastState.source === (activeSource ?? lastState.source)) {
+        if (
+          lastState?.volumePercent != null &&
+          lastState.source === (activeSource ?? lastState.source)
+        ) {
           await handlePlaybackVolumeChange({
             context,
             roomId,
@@ -472,9 +477,7 @@ export function createBridgeAdvanceJob(params: {
           lastStateShouldAdvance(lastState, activeSource, currentTrackId) &&
           !shouldHoldForUserPause(await readUserPauseHold())
         ) {
-          await advanceToNext(
-            lastState.state === "playing" ? "state-probe" : "state-ended",
-          )
+          await advanceToNext(lastState.state === "playing" ? "state-probe" : "state-ended")
           return
         }
 
@@ -538,9 +541,7 @@ export function createBridgeAdvanceJob(params: {
               previousKnown,
             )
           ) {
-            await advanceToNext(
-              playback.state === "playing" ? "playback-probe" : "state-ended",
-            )
+            await advanceToNext(playback.state === "playing" ? "playback-probe" : "state-ended")
             return
           }
 

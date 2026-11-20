@@ -9,9 +9,9 @@ import type { BridgeRpcClient } from "./rpcClient"
 
 describe("normalizeAlbumCommentsResult", () => {
   it("keeps trimmed non-empty strings and drops everything else", () => {
-    expect(
-      normalizeAlbumCommentsResult({ a: "  Notes  ", b: "   ", c: 3, d: null }),
-    ).toEqual({ a: "Notes" })
+    expect(normalizeAlbumCommentsResult({ a: "  Notes  ", b: "   ", c: 3, d: null })).toEqual({
+      a: "Notes",
+    })
     expect(normalizeAlbumCommentsResult([])).toEqual({})
     expect(normalizeAlbumCommentsResult(null)).toEqual({})
   })

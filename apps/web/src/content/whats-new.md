@@ -12,6 +12,7 @@ Recap of what’s new since the November show.
 ### New
 
 - Config to allow users to skip songs that they have queued.
+- Record voicemails anonymously straight from the homepage, without a phone call.
 
 ### Fixed
 

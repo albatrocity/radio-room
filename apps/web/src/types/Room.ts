@@ -57,6 +57,8 @@ export type Room = {
   allowChatImages?: boolean
   showId?: string | null
   activeSegmentId?: string | null
+  /** Role of the active segment; mirrors packages/types/Room.ts (ADR 0212). */
+  activeSegmentRole?: "standard" | "voicemail" | null
   activeShowSegmentId?: string | null
   showSchedulePublic?: boolean
   announceActiveSegment?: boolean

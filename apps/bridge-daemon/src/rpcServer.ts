@@ -3,6 +3,7 @@ import type { LocalDriver } from "./drivers/local"
 import { normalizeCoverVariants } from "./drivers/local"
 import type { Router } from "./router"
 import type { TtsService } from "./tts"
+import type { UrlSidechain } from "./drivers/urlPlayback"
 
 export class RpcServer {
   private unbind: (() => void) | null = null
@@ -13,6 +14,7 @@ export class RpcServer {
     private readonly router: Router,
     private readonly localDriver: LocalDriver | null,
     private readonly tts: TtsService | null = null,
+    private readonly urlSidechain: UrlSidechain | null = null,
   ) {}
 
   async start(): Promise<void> {
@@ -42,6 +44,48 @@ export class RpcServer {
 
   private async dispatch(req: BridgeRequest): Promise<unknown> {
     const p = req.params
+    // URL sidechain (ADR 0212). These must branch BEFORE the Router: URL
+    // players are deliberately absent from `Router.drivers`, so without this
+    // branch `pause`/`stop`/`seekTo`/`getPlayback` would look up `undefined`
+    // and silently no-op (or return `UNOBSERVED`), and `playUrl` would hit
+    // the "Unknown method" fallthrough.
+    if (req.method === "playUrl") {
+      if (!this.urlSidechain) throw new Error("URL playback is not available")
+      return this.urlSidechain.playUrl({
+        url: typeof p.url === "string" ? p.url : "",
+        mode: p.mode === "enqueue" ? "enqueue" : "replace",
+        duck: p.duck === true,
+      })
+    }
+    const sourceRaw = p.source != null ? String(p.source) : undefined
+    if (sourceRaw === "url") {
+      if (!this.urlSidechain) {
+        // Old pack / sidechain disabled → report UNOBSERVED for getPlayback so
+        // the deck falls back to <audio>; raise for mutating calls.
+        if (req.method === "getPlayback") {
+          return { state: "stopped", progressMs: null, durationMs: null, trackId: null, observed: false }
+        }
+        throw new Error("URL playback is not available")
+      }
+      switch (req.method) {
+        case "play":
+          await this.urlSidechain.resume()
+          return null
+        case "pause":
+          await this.urlSidechain.pause()
+          return null
+        case "stop":
+          await this.urlSidechain.stop()
+          return null
+        case "seekTo":
+          await this.urlSidechain.seekTo(Number(p.positionMs ?? 0))
+          return null
+        case "getPlayback":
+          return this.urlSidechain.getState()
+        default:
+          throw new Error(`Unsupported URL transport method: ${req.method}`)
+      }
+    }
     switch (req.method) {
       case "playTrack":
         await this.router.playTrack({

@@ -1,10 +1,7 @@
 import type { AppContext } from "@repo/types"
 import { deviceRoomPresent, emitToDeviceRoom } from "./deviceSession"
 import type { BridgeEvent } from "./protocol"
-import {
-  BRIDGE_SPOTIFY_TOKEN_TTL_SEC,
-  spotifyTokenKey,
-} from "./protocol"
+import { BRIDGE_SPOTIFY_TOKEN_TTL_SEC, spotifyTokenKey } from "./protocol"
 
 /** Avoid re-pushing a socket token on every advance tick. */
 const lastSocketPush = new Map<string, number>()
@@ -23,9 +20,7 @@ async function announceMissingSpotifyAuth(params: {
     // Still try to publish; missing hGet should not hide the admin banner.
   }
 
-  const { publishMetadataAuthError } = await import(
-    "@repo/server/operations/dj/metadataAuthError"
-  )
+  const { publishMetadataAuthError } = await import("@repo/server/operations/dj/metadataAuthError")
   try {
     await publishMetadataAuthError({
       context,

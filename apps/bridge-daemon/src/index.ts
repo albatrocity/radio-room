@@ -22,6 +22,9 @@ import { SpotifyDeviceHost } from "./spotifyDevice"
 import { startConfigServer } from "./configServer"
 import { StandbyControl } from "./standbyControl"
 import { TtsService } from "./tts"
+import { UrlSidechain } from "./drivers/urlPlayback"
+import { normalizeTtsAudioDevice } from "./tts"
+import { resolveMacBinary } from "./resolveMacBinary"
 
 type Session = {
   roomId: string
@@ -42,6 +45,20 @@ const ttsService = new TtsService(() => ({
   audioDevice: activeConfig.tts?.audioDevice,
   mpvPath: activeConfig.mpv?.path,
 }))
+
+/**
+ * Generic URL sidechain for `playUrl` (ADR 0212). Two mpv processes start
+ * lazily on the first `playUrl` call — not at connect — so the daemon stays
+ * lightweight until voicemail (or a future plugin caller) uses it.
+ *
+ * Reuses the ADR 0178 TTS device as the ducked destination. When
+ * `tts.audioDevice` is unset, the ducked player rejects RPCs and the admin
+ * deck falls back to `<audio>`.
+ */
+const urlSidechain = new UrlSidechain({
+  getMpvPath: () => resolveMacBinary("mpv", activeConfig.mpv?.path ?? "mpv"),
+  getDuckedAudioDevice: () => normalizeTtsAudioDevice(activeConfig.tts?.audioDevice),
+})
 
 function getStatus() {
   return {
@@ -199,6 +216,7 @@ async function connect(roomId: string, config: BridgeDaemonConfig = activeConfig
     router,
     localDriver,
     ttsService,
+    urlSidechain,
   )
 
   await rpc.start()
@@ -278,6 +296,7 @@ function installSignalHandlers() {
   const shutdown = () => {
     void disconnect()
       .then(() => stopDevice())
+      .then(() => urlSidechain.shutdown().catch(() => {}))
       .then(() => process.exit(0))
   }
   process.on("SIGINT", shutdown)

@@ -524,6 +524,7 @@ export async function createSegment(data: CreateSegmentRequest, createdBy: strin
         privatePluginContent: data.privatePluginContent ?? null,
         gameSessionPreset: data.gameSessionPreset ?? null,
         roomSettingsOverride: data.roomSettingsOverride ?? null,
+        role: data.role ?? "standard",
         status: data.status ?? "draft",
         createdBy,
       })
@@ -554,6 +555,7 @@ export async function updateSegment(id: string, data: UpdateSegmentRequest) {
       values.privatePluginContent = data.privatePluginContent
     if (data.gameSessionPreset !== undefined) values.gameSessionPreset = data.gameSessionPreset
     if (data.roomSettingsOverride !== undefined) values.roomSettingsOverride = data.roomSettingsOverride
+    if (data.role !== undefined) values.role = data.role
     if (data.status !== undefined) values.status = data.status
 
     if (data.assignedTo !== undefined) {

@@ -217,6 +217,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0209](0209-segment-cue-delivery.md) | Segment cues fan out on the local device sockets and across API processes | Accepted |
 | [0210](0210-skipper-own-track-skip.md) | Skipper own-track skip (`skipOwnTracks` without persona) | Accepted |
 | [0211](0211-user-pause-and-play-start-hold.md) | User pause and play-start hold for app-controlled advance | Accepted |
+| [0212](0212-show-voicemail.md) | Show voicemail (anonymous recorder, segment role, bridge URL sidechain) | Accepted |
 
 ## Creating a New ADR
 

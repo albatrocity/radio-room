@@ -27,6 +27,8 @@ export type SegmentRoomSettingsOverride = {
 
 export type ShowStatus = "draft" | "ready" | "published"
 export type SegmentStatus = "draft" | "ready" | "archived"
+/** Room behavior while the segment is active (ADR 0212). */
+export type SegmentRole = "standard" | "voicemail"
 export type TagType = "segment" | "show"
 export type RoomExportStatus = "draft" | "published"
 
@@ -138,6 +140,8 @@ export interface SegmentDTO {
   roomSettingsOverride: SegmentRoomSettingsOverride | null
   /** CDN URL used as the Now Playing cover while active in streaming mode (ADR 0195). */
   imageUrl: string | null
+  /** Room behavior while active (ADR 0212). */
+  role: SegmentRole
   status: SegmentStatus
   createdBy: string
   assignedTo: string | null
@@ -244,6 +248,8 @@ export interface CreateSegmentRequest {
   gameSessionPreset?: (Partial<GameSessionConfig> & { name: string }) | null
   privatePluginContent?: SegmentPrivatePluginContent | null
   roomSettingsOverride?: SegmentRoomSettingsOverride | null
+  /** Defaults to `standard` when omitted (ADR 0212). */
+  role?: SegmentRole
   status?: SegmentStatus
   tagIds?: string[]
 }
@@ -258,6 +264,7 @@ export interface UpdateSegmentRequest {
   gameSessionPreset?: (Partial<GameSessionConfig> & { name: string }) | null
   privatePluginContent?: SegmentPrivatePluginContent | null
   roomSettingsOverride?: SegmentRoomSettingsOverride | null
+  role?: SegmentRole
   status?: SegmentStatus
   tagIds?: string[]
   /** Set to a platform admin user id, or `null` to clear assignee. */

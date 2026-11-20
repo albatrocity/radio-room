@@ -17,6 +17,7 @@ import { Logo } from "../ui/logo"
 import { LobbyRoom } from "../../machines/lobbyMachine"
 import RoomPublicMeta from "../RoomPublicMeta"
 import { initializeRoom } from "../../actors/roomLifecycle"
+import { VoicemailRecorder } from "./VoicemailRecorder"
 
 export default function Lobby() {
   const rooms = useLobbyRooms()
@@ -176,30 +177,20 @@ function LobbyContent({ room, onJoin }: { room: LobbyRoom | undefined; onJoin: (
   return (
     <Box colorPalette="action">
       {showOffline && (
-        <Text color="colorPalette.contrast" textAlign="center">
-          Listening Room is offline.{nextShowTime ? ` The next show is ${nextShowTime}.` : ""} Check out the{" "}
-          <Link
-            textDecoration="underline"
-            color="colorPalette.contrast"
-            href="https://archive.listeningroom.club"
-          >
-            archive
-          </Link>{" "}
-          for past shows
-          {import.meta.env.VITE_VOICEMAIL_NUMBER && (
-            <>
-              , and{" "}
-              <Link
-                textDecoration="underline"
-                color="colorPalette.contrast"
-                href={`tel:${import.meta.env.VITE_VOICEMAIL_NUMBER}`}
-              >
-                leave us a voicemail
-              </Link>
-            </>
-          )}
-          .
-        </Text>
+        <VStack gap={4} align="stretch">
+          <Text color="colorPalette.contrast" textAlign="center">
+            Listening Room is offline.{nextShowTime ? ` The next show is ${nextShowTime}.` : ""} Check out the{" "}
+            <Link
+              textDecoration="underline"
+              color="colorPalette.contrast"
+              href="https://archive.listeningroom.club"
+            >
+              archive
+            </Link>{" "}
+            for past shows.
+          </Text>
+          <VoicemailRecorder />
+        </VStack>
       )}
       {room && <RoomPublicMeta {...room} onJoin={onJoin} />}
     </Box>

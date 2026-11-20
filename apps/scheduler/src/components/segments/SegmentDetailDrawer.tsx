@@ -14,7 +14,7 @@ import {
 } from "@chakra-ui/react"
 import { useForm } from "@tanstack/react-form"
 import { useSegment, useUpdateSegment, useDeleteSegment } from "../../hooks/useSegments"
-import type { SegmentDTO, SegmentStatus } from "@repo/types"
+import type { SegmentDTO, SegmentRole, SegmentStatus } from "@repo/types"
 import { TagCombobox } from "../tags/TagCombobox"
 import { SegmentPluginConfigEditor } from "./SegmentPluginConfigEditor"
 import { SegmentPluginPresetEditor } from "./SegmentPluginPresetEditor"
@@ -33,6 +33,11 @@ const STATUS_OPTIONS: { value: SegmentStatus; label: string }[] = [
   { value: "archived", label: "Archived" },
 ]
 
+const ROLE_OPTIONS: { value: SegmentRole; label: string }[] = [
+  { value: "standard", label: "Standard" },
+  { value: "voicemail", label: "Voicemails" },
+]
+
 function segmentToFormDefaults(segment: SegmentDTO) {
   return {
     title: segment.title,
@@ -41,6 +46,7 @@ function segmentToFormDefaults(segment: SegmentDTO) {
       segment.duration !== null && segment.duration !== undefined ? String(segment.duration) : "",
     isRecurring: segment.isRecurring,
     status: segment.status,
+    role: segment.role,
     tagIds: segment.tags?.map((t) => t.id) ?? [],
     pluginPreset: segment.pluginPreset,
     // Admin segment GET is role-gated and returns private content for editing (ADR 0068 §2).
@@ -74,6 +80,7 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
         duration,
         isRecurring: value.isRecurring,
         status: value.status,
+        role: value.role,
         tagIds: value.tagIds,
         pluginPreset: value.pluginPreset,
         privatePluginContent: value.privatePluginContent,
@@ -165,6 +172,37 @@ function SegmentDetailForm({ segment, onClose }: SegmentDetailFormProps) {
                   </option>
                 ))}
               </select>
+            </Box>
+          )}
+        </form.Field>
+
+        <form.Field name="role">
+          {(field) => (
+            <Box>
+              <Box mb={1} fontSize="sm" fontWeight="medium">
+                Role
+              </Box>
+              <select
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value as SegmentRole)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "6px",
+                  border: "1px solid var(--chakra-colors-border-muted)",
+                  background: "var(--chakra-colors-bg-panel)",
+                  color: "inherit",
+                }}
+              >
+                {ROLE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <Text fontSize="xs" color="fg.muted" mt={1}>
+                Voicemails opens the admin inbox in the room while active.
+              </Text>
             </Box>
           )}
         </form.Field>

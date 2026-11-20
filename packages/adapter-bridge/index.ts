@@ -5,10 +5,7 @@ import type {
   PlaybackControllerLifecycleCallbacks,
 } from "@repo/types"
 import { ActiveSourceStore } from "./lib/activeSource"
-import {
-  dropCapabilityCache,
-  getOrCreateCapabilityCache,
-} from "./lib/capability"
+import { dropCapabilityCache, getOrCreateCapabilityCache } from "./lib/capability"
 import { createBridgeAdvanceJob } from "./lib/bridgeAdvance"
 import { createBridgePlaybackApi } from "./lib/playbackControllerApi"
 import { BridgeRpcClient } from "./lib/rpcClient"
@@ -44,6 +41,13 @@ export type {
 export { listSayVoices, speakOnBridge } from "./lib/tts"
 export type { ListSayVoicesResult, SpeakOnBridgeResult } from "./lib/tts"
 export {
+  playUrlOnBridge,
+  pauseUrlOnBridge,
+  seekUrlOnBridge,
+  getUrlPlaybackOnBridge,
+} from "./lib/urlPlayback"
+export type { PlayUrlOnBridgeResult, UrlPlaybackState } from "./lib/urlPlayback"
+export {
   requestChannel,
   responseChannel,
   eventChannel,
@@ -61,7 +65,26 @@ export { requestBridgeLink, listOnlineBridgeDaemons } from "./lib/requestBridgeL
 export type { RequestBridgeLinkResult } from "./lib/requestBridgeLink"
 export { parseBridgeMediaId } from "./lib/parseBridgeMediaId"
 export { youtubeMetadataSource, createYoutubeMetadataApi } from "./lib/youtubeMetadata"
-export { localMetadataSource, registerLocalMetadataForRoom, checkLocalTrackPlaylistMembership, checkLocalTrackPlaylistMembershipBatch, listLocalPlaylists, listLibraryAlbums, listLocalPlaylistTracks, listLocalPlaylistTrackIds, listLocalAlbumTrackIds, fetchLocalPlaylistTracks, fetchLocalAlbumResult, fetchTrackPreview, getLocalPlaylistCoverArt, getLocalAlbumCoverArt, getLocalAlbumComments, invalidateLocalLibraryCache, normalizePlaylistCoverArtResult, LOCAL_COVER_ART_ID_BATCH } from "./lib/localMetadata"
+export {
+  localMetadataSource,
+  registerLocalMetadataForRoom,
+  checkLocalTrackPlaylistMembership,
+  checkLocalTrackPlaylistMembershipBatch,
+  listLocalPlaylists,
+  listLibraryAlbums,
+  listLocalPlaylistTracks,
+  listLocalPlaylistTrackIds,
+  listLocalAlbumTrackIds,
+  fetchLocalPlaylistTracks,
+  fetchLocalAlbumResult,
+  fetchTrackPreview,
+  getLocalPlaylistCoverArt,
+  getLocalAlbumCoverArt,
+  getLocalAlbumComments,
+  invalidateLocalLibraryCache,
+  normalizePlaylistCoverArtResult,
+  LOCAL_COVER_ART_ID_BATCH,
+} from "./lib/localMetadata"
 export type { TrackPreviewRpcResult, TrackPreviewFingerprintMeta } from "./lib/localMetadata"
 export type { LocalPlaylistTracksResult } from "./lib/localMetadata"
 export { BridgeRpcClient } from "./lib/rpcClient"
@@ -128,9 +151,7 @@ export const playbackController: PlaybackControllerAdapter = {
 
     try {
       // Room-scoped register is driven from AdapterService with context redis
-      throw new Error(
-        "Bridge room-scoped register must use registerBridgeForRoom (AdapterService)",
-      )
+      throw new Error("Bridge room-scoped register must use registerBridgeForRoom (AdapterService)")
     } catch (error) {
       await onError?.(error instanceof Error ? error : new Error(String(error)))
       throw error

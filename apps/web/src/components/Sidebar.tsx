@@ -5,6 +5,7 @@ import Listeners from "./Listeners"
 import AdminControls from "./AdminControls"
 import Banner from "./Banner"
 import RoomSchedulePanel from "./RoomSchedulePanel"
+import VoicemailDeck from "./VoicemailDeck"
 
 import { useIsAdmin, useAuthState, useModalsSend } from "../hooks/useActors"
 
@@ -48,6 +49,7 @@ const Sidebar = () => {
       >
         <Banner />
         <RoomSchedulePanel />
+        <VoicemailDeck />
         <Flex h="100%" minH={0} direction="column" overflow="hidden" flex="1 1 0">
           <Listeners onViewListeners={handleViewListeners} onEditUser={handleEditUser} />
         </Flex>

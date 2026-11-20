@@ -89,6 +89,20 @@ resource "aws_s3_bucket_lifecycle_configuration" "assets" {
       days = 90
     }
   }
+
+  # Private voicemails (presigned PUT/GET; not served via CloudFront). ADR 0212.
+  rule {
+    id     = "expire-voicemails-after-120-days"
+    status = "Enabled"
+
+    filter {
+      prefix = "voicemails/"
+    }
+
+    expiration {
+      days = 120
+    }
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -296,6 +310,13 @@ resource "aws_iam_user_policy" "sender_s3_put" {
         Effect   = "Allow"
         Action   = ["s3:GetObject"]
         Resource = "${aws_s3_bucket.assets.arn}/media/*"
+      },
+      {
+        # HeadObject + presigned GET for show voicemails (ADR 0212).
+        Sid      = "GetVoicemailObjects"
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "${aws_s3_bucket.assets.arn}/voicemails/*"
       },
       {
         # `aws s3 sync` of item GLBs from the production web build (ADR 0199).
