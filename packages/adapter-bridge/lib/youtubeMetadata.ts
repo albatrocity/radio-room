@@ -37,7 +37,9 @@ function mapSearchItem(item: {
   const channelTitle = item.snippet?.channelTitle ?? "YouTube"
   const thumbs = item.snippet?.thumbnails ?? {}
   const thumbUrl =
-    thumbs.high?.url ?? thumbs.medium?.url ?? thumbs.default?.url ??
+    thumbs.high?.url ??
+    thumbs.medium?.url ??
+    thumbs.default?.url ??
     `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
 
   return {
@@ -82,9 +84,7 @@ async function fetchYoutubeSearch(query: string, apiKey: string): Promise<Metada
       `search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(query)}`,
       apiKey,
     )
-    const items = (data.items ?? [])
-      .map(mapSearchItem)
-      .filter(Boolean) as MetadataSourceTrack[]
+    const items = (data.items ?? []).map(mapSearchItem).filter(Boolean) as MetadataSourceTrack[]
 
     const ids = items.map((t) => t.id).join(",")
     if (!ids) {
@@ -93,10 +93,7 @@ async function fetchYoutubeSearch(query: string, apiKey: string): Promise<Metada
     }
 
     try {
-      const details = await youtubeGetJson(
-        `videos?part=contentDetails,status&id=${ids}`,
-        apiKey,
-      )
+      const details = await youtubeGetJson(`videos?part=contentDetails,status&id=${ids}`, apiKey)
       const byId = new Map<string, any>()
       for (const v of details.items ?? []) {
         byId.set(v.id, v)
@@ -128,10 +125,7 @@ async function fetchYoutubeSearch(query: string, apiKey: string): Promise<Metada
   }
 }
 
-export function createYoutubeMetadataApi(
-  apiKey: string,
-  cache?: SimpleCache,
-): MetadataSourceApi {
+export function createYoutubeMetadataApi(apiKey: string, cache?: SimpleCache): MetadataSourceApi {
   return {
     async search(query: string) {
       if (!query.trim()) return []
@@ -169,9 +163,7 @@ export function createYoutubeMetadataApi(
       if (v.status?.embeddable === false) return null
       return {
         ...mapped,
-        duration: v.contentDetails?.duration
-          ? parseIsoDuration(v.contentDetails.duration)
-          : 0,
+        duration: v.contentDetails?.duration ? parseIsoDuration(v.contentDetails.duration) : 0,
       }
     },
   }

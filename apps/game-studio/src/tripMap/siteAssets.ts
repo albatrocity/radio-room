@@ -1,6 +1,6 @@
 import type { TripMapInput, TripMapIssue } from "@repo/road-trip-map"
 
-/** Client for the dev-server site asset middleware (`vite/siteAssetsPlugin.ts`, ADR 0210). */
+/** Client for the dev-server site asset middleware (`vite/siteAssetsPlugin.ts`, ADR 0218). */
 const BASE = "/__studio/assets"
 
 /** Required by the dev middleware's guard (`vite/studioRequestGuard.ts`). */

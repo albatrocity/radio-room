@@ -35,7 +35,7 @@ export type VanPartSpec = {
   speed?: number
   /** Fuel economy multiplier: 0.75 burns a third more per mile. */
   mpg?: number
-  /** Event families this part shrugs off (ADR 0220). */
+  /** Event families this part shrugs off (ADR 0228). */
   immuneTo?: EventFamily[]
   /** The sign posted when it shrugs one off. */
   immuneCopy?: { title: string; body: string }

@@ -15,7 +15,7 @@ import {
 } from "@repo/plugin-base"
 
 /**
- * Room shop rounds opened through the `shopAccess` capability (ADR 0206).
+ * Room shop rounds opened through the `shopAccess` capability (ADR 0214).
  * The scope marks the active round as owned by a caller (e.g. a road-trip
  * site stop) so only that caller's close ends it and auto-shop stands down.
  */
@@ -25,7 +25,7 @@ export type RoomShopScope = {
   scopeId: string
   /** Custom offers (D14) re-resolved for late joiners. */
   offers?: RoomShopOffer[]
-  /** The record bin (library filter plus picks), re-matched for late joiners (ADR 0214, 0216). */
+  /** The record bin (library filter plus picks), re-matched for late joiners (ADR 0222, 0224). */
   physicalMedia?: PhysicalMediaStock
   /** Buyback fraction for everything the shop buys back. Default 0. */
   buybackRate?: number
@@ -39,7 +39,7 @@ export type RoomShopScope = {
 
 /**
  * What a request's bin can stock here: derived records (and how many the
- * library filter matches), plus picks (ADR 0216).
+ * library filter matches), plus picks (ADR 0224).
  */
 export type PhysicalMediaAvailability = {
   derived: number
@@ -54,7 +54,7 @@ export type PhysicalMediaAvailability = {
 
 /**
  * Offers and/or a record bin. Unknown offers are errors. A bin this room
- * can't fill is a warning, so the same map still loads in any room (ADR 0207).
+ * can't fill is a warning, so the same map still loads in any room (ADR 0215).
  */
 export function validateRoomShopRequest(
   req: ValidateShopRequest,
@@ -101,7 +101,7 @@ function binWarnings(stock: PhysicalMediaStock, known: PhysicalMediaAvailability
   return warnings
 }
 
-/** A bin's picks, registered before the bin is stocked (ADR 0216). */
+/** A bin's picks, registered before the bin is stocked (ADR 0224). */
 export function picksOf(stock: PhysicalMediaStock | undefined): PhysicalMediaPick[] {
   return stock?.picks ?? []
 }

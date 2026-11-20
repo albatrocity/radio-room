@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   addDeputy,
   advanceRound,
+  resetRounds,
   applyAdminRobin,
   applyModeChange,
   canAccessSources,
@@ -13,6 +14,7 @@ import {
   isOrderedMode,
   recordSuccessfulQueue,
   restoreTurnToEndOfRound,
+  optOutOfRotation,
   removeUser,
   shouldUseExclusiveRobin,
   singleNewEligible,
@@ -126,6 +128,55 @@ describe("round-robin state", () => {
       // round 2, current a
       const t = removeUser(state, "a")
       expect(t.state.participants).toEqual(["b", "c"])
+      expect(getEligibleUserIds(t.state)).toEqual(["b"])
+    })
+  })
+
+  describe("optOutOfRotation", () => {
+    it("stays out when a later join would otherwise add the deputy back", () => {
+      let state = createInitialState("forwardAndBack", ["ross", "tim", "roger"])
+      state = optOutOfRotation(state, "tim").state
+      expect(state.participants).toEqual(["ross", "roger"])
+      expect(addDeputy(state, "tim")).toBe(state)
+
+      state = optOutOfRotation(state, "ross").state
+      expect(state.participants).toEqual(["roger"])
+      expect(getEligibleUserIds(state)).toEqual(["roger"])
+      expect(state.optedOutUserIds.sort()).toEqual(["ross", "tim"])
+
+      state = addDeputy(state, "tim", { bypassOptOut: true })
+      expect(state.participants).toEqual(["roger", "tim"])
+      expect(state.optedOutUserIds).toEqual(["ross"])
+    })
+  })
+
+  describe("resetRounds", () => {
+    it("opens round 1 with the current roster and drops a removed admin", () => {
+      let state = createInitialState("forwardAndBack", ["admin", "a", "b"])
+      state = removeUser(state, "admin").state
+      state = recordSuccessfulQueue(state, "a", false).state
+      state.round = 3
+      state.orderLocked = true
+      state.phase = "locked"
+      state.direction = -1
+
+      state = resetRounds(state)
+      expect(state).toMatchObject({
+        mode: "forwardAndBack",
+        phase: "open",
+        order: [],
+        participants: ["a", "b"],
+        queuedThisRound: [],
+        round: 1,
+        orderLocked: false,
+        direction: 1,
+        adminForcedUserId: null,
+      })
+
+      state = recordSuccessfulQueue(state, "a", true).state
+      const t = recordSuccessfulQueue(state, "b", true)
+      expect(t.state.round).toBe(2)
+      expect(t.state.direction).toBe(-1)
       expect(getEligibleUserIds(t.state)).toEqual(["b"])
     })
   })

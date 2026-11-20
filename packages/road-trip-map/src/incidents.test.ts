@@ -23,7 +23,7 @@ if (!parsed.ok) throw new Error("sample map must parse")
 const map = parsed.map
 
 /**
- * The step lists the closed incident switch produced before ADR 0220, kept as
+ * The step lists the closed incident switch produced before ADR 0228, kept as
  * the golden reference for the presets. Two intentional additions: slow steps
  * name the items that end them (formerly implied by the incident id), and the
  * fuel truck's wait is marked `refills`.

@@ -88,7 +88,7 @@ function numberOr(value: string): number | undefined {
 /**
  * Trip Map editor v1 (M8): route, site pins, inspector, site art published to the
  * CDN, shop and offers picker, projections, fuel curve and gas bill, trip
- * events (ADR 0220) with cost estimates, trip settings, lint, and Copy JSON /
+ * events (ADR 0228) with cost estimates, trip settings, lint, and Copy JSON /
  * save `maps/<id>.json`. Runs no plugin code;
  * only pure `@repo/road-trip-map` modules.
  */

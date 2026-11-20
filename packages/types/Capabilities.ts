@@ -1,5 +1,5 @@
 /**
- * Declared plugin capabilities (ADR 0206). A plugin declares what other
+ * Declared plugin capabilities (ADR 0214). A plugin declares what other
  * plugins may ask of it; the registry routes `api.requestCapability` calls to
  * whichever registered plugin declares the capability. There is no direct
  * plugin-instance lookup.
@@ -30,7 +30,7 @@ export type RoomShopSample = {
 /**
  * Open a room-wide shop round for a scope (e.g. a road-trip site stop). The
  * round's shop is composed: custom offers plus an optional record bin
- * (ADR 0214, 0216). At least one of `offers` / `physicalMedia` is required.
+ * (ADR 0222, 0224). At least one of `offers` / `physicalMedia` is required.
  */
 export type OpenRoomShopRequest = {
   /** Owner-chosen id; `closeRoomShop` only ends the round this scope opened. */
@@ -68,7 +68,7 @@ export type ValidateShopRequest = { offers?: RoomShopOffer[]; physicalMedia?: Ph
 
 /**
  * Formats everyone in the room can play without holding a device, e.g. the
- * van on a trip (ADR 0215). `gentle` skips wear for those formats (ADR 0166).
+ * van on a trip (ADR 0223). `gentle` skips wear for those formats (ADR 0166).
  */
 export type SharedPlayback = { formats: PhysicalMediaFormat[]; gentle?: boolean }
 

@@ -10,7 +10,7 @@ Started automatically via **`make game-studio`** alongside the Game Studio Vite 
 
 ## Road trip preview
 
-Set `STUDIO_BRIDGE_TRIP_PREVIEW=1` when starting the bridge (or connect with the `tripPreview=1` handshake query) to preview road-trip UI ([ADR 0205](../../docs/adrs/0205-road-trips-v1.md)) without the plugin:
+Set `STUDIO_BRIDGE_TRIP_PREVIEW=1` when starting the bridge (or connect with the `tripPreview=1` handshake query) to preview road-trip UI ([ADR 0213](../../docs/adrs/0213-road-trips-v1.md)) without the plugin:
 
 - the `road-trip-strip` above chat and the **Trip** Game State tab (with site detail), from a fixture trip on `SAMPLE_TRIP_MAP`
 - a road-sign skip poll and two road-sign system messages on login
@@ -20,7 +20,7 @@ Fixtures live in `src/stubRoadTrip.ts`.
 
 ### Trip simulator relay
 
-Game Studio's **Trip sim** page posts `{ roomId, snapshot }` to **`POST /trip-sim`** after every step ([ADR 0213](../../docs/adrs/0213-game-studio-trip-simulator.md)). `snapshot` is a `TripSimSnapshot` from `@repo/plugin-road-trip/sim` (store payload, trip chat lines, open poll, last closed poll), or `null` to clear it. It's kept beside the sandbox snapshot (`src/tripSimState.ts`), so `POST /sync` can't drop trip chat. While it's loaded:
+Game Studio's **Trip sim** page posts `{ roomId, snapshot }` to **`POST /trip-sim`** after every step ([ADR 0221](../../docs/adrs/0221-game-studio-trip-simulator.md)). `snapshot` is a `TripSimSnapshot` from `@repo/plugin-road-trip/sim` (store payload, trip chat lines, open poll, last closed poll), or `null` to clear it. It's kept beside the sandbox snapshot (`src/tripSimState.ts`), so `POST /sync` can't drop trip chat. While it's loaded:
 
 - the bridge emits `PLUGIN:road-trip:TRIP_UPDATED`, `MESSAGE_RECEIVED` for new lines, and `POLL_PUBLISHED` / `POLL_CLOSED` as the sim's exit poll opens and closes
 - LOGIN, `ROOM_DATA`, and `GET .../plugins/road-trip/components` merge the sim's chat, poll, and store, with no env flag
@@ -29,7 +29,7 @@ Game Studio's **Trip sim** page posts `{ roomId, snapshot }` to **`POST /trip-si
 
 ## Record picker lookups
 
-Game Studio's **Picked albums** editor ([ADR 0216](../../docs/adrs/0216-record-picks.md)) searches albums through three routes. These are the only bridge routes that reach the network:
+Game Studio's **Picked albums** editor ([ADR 0224](../../docs/adrs/0224-record-picks.md)) searches albums through three routes. These are the only bridge routes that reach the network:
 
 - `GET /records/search?q=` returns Spotify and local hits side by side, plus `unavailable` sources with the reason.
 - `GET /records/:source/:id` returns a ready `PhysicalMediaPick` with its format filled in. Spotify picks also carry lore; for Spotify, `id` may be an album URL or URI.

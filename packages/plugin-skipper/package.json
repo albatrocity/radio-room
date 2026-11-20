@@ -1,0 +1,30 @@
+{
+  "name": "@repo/plugin-skipper",
+  "version": "1.0.0",
+  "description": "Skipper plugin for Listening Room - admin-assigned persona that may skip the current track when another is waiting",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "prettier --write . && eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@repo/plugin-base": "*",
+    "@repo/types": "*",
+    "zod": "^4.4.2"
+  }
+}

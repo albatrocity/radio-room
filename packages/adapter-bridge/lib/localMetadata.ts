@@ -32,7 +32,10 @@ export function createLocalMetadataApi(deps: {
   roomId?: string
   cache?: SimpleCache
 }): MetadataSourceApi {
-  async function withRpc<T>(fn: (rpc: BridgeRpcClient, roomId: string) => Promise<T>, fallback: T): Promise<T> {
+  async function withRpc<T>(
+    fn: (rpc: BridgeRpcClient, roomId: string) => Promise<T>,
+    fallback: T,
+  ): Promise<T> {
     const roomId = deps.roomId
     if (!roomId) return fallback
     const rpc = deps.getRpcForRoom(roomId)
@@ -97,30 +100,36 @@ export function createLocalMetadataApi(deps: {
       return { entryMode: "index" as const, albumSearch: true }
     },
     async listArtists(params?: MetadataListArtistsParams): Promise<MetadataListArtistsResult> {
-      return withRpc(async (rpc) => {
-        const result = (await rpc.call("listArtists", {
-          source: "local",
-          query: params?.query,
-          offset: params?.offset,
-          limit: params?.limit,
-          ...(params?.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
-          ...(params?.albumIds?.length ? { albumIds: params.albumIds } : {}),
-        })) as MetadataListArtistsResult
-        return result?.items ? result : { items: [], total: 0 }
-      }, { items: [], total: 0 })
+      return withRpc(
+        async (rpc) => {
+          const result = (await rpc.call("listArtists", {
+            source: "local",
+            query: params?.query,
+            offset: params?.offset,
+            limit: params?.limit,
+            ...(params?.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
+            ...(params?.albumIds?.length ? { albumIds: params.albumIds } : {}),
+          })) as MetadataListArtistsResult
+          return result?.items ? result : { items: [], total: 0 }
+        },
+        { items: [], total: 0 },
+      )
     },
     async listAlbums(params?: MetadataListAlbumsParams): Promise<MetadataListAlbumsResult> {
-      return withRpc(async (rpc) => {
-        const result = (await rpc.call("listAlbums", {
-          source: "local",
-          query: params?.query,
-          offset: params?.offset,
-          limit: params?.limit,
-          ...(params?.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
-          ...(params?.albumIds?.length ? { albumIds: params.albumIds } : {}),
-        })) as MetadataListAlbumsResult
-        return result?.items ? result : { items: [], total: 0 }
-      }, { items: [], total: 0 })
+      return withRpc(
+        async (rpc) => {
+          const result = (await rpc.call("listAlbums", {
+            source: "local",
+            query: params?.query,
+            offset: params?.offset,
+            limit: params?.limit,
+            ...(params?.playlistIds?.length ? { playlistIds: params.playlistIds } : {}),
+            ...(params?.albumIds?.length ? { albumIds: params.albumIds } : {}),
+          })) as MetadataListAlbumsResult
+          return result?.items ? result : { items: [], total: 0 }
+        },
+        { items: [], total: 0 },
+      )
     },
     async getArtist(
       artistId: string,
@@ -265,7 +274,10 @@ export async function checkLocalTrackPlaylistMembership(params: {
   firstMatch?: boolean
 }): Promise<LocalTrackPlaylistMembership> {
   const { playlistIds, albumIds, includeTrackAlbumId, payload } = membershipRpcParams(params)
-  if (!params.trackId || (playlistIds.length === 0 && albumIds.length === 0 && !includeTrackAlbumId)) {
+  if (
+    !params.trackId ||
+    (playlistIds.length === 0 && albumIds.length === 0 && !includeTrackAlbumId)
+  ) {
     return EMPTY_MEMBERSHIP
   }
   if (!(await params.rpc.isPresent())) return EMPTY_MEMBERSHIP
@@ -636,12 +648,7 @@ export async function fetchLocalAlbumResult(params: {
 
   return withCachedJson({
     cache: params.cache,
-    key: metadataBrowseAlbumCacheKey(
-      params.roomId,
-      albumId,
-      params.playlistIds,
-      params.albumIds,
-    ),
+    key: metadataBrowseAlbumCacheKey(params.roomId, albumId, params.playlistIds, params.albumIds),
     ttlSeconds: LOCAL_BROWSE_CACHE_TTL_SEC,
     skipCache: (value) => value == null,
     fetch: fetchOnce,
@@ -835,9 +842,7 @@ export async function fetchTrackPreview(params: {
       ...(typeof rec.album === "string" ? { album: rec.album } : {}),
       ...(typeof rec.discNumber === "number" ? { discNumber: rec.discNumber } : {}),
       ...(typeof rec.trackNumber === "number" ? { trackNumber: rec.trackNumber } : {}),
-      ...(typeof rec.trackDurationMs === "number"
-        ? { trackDurationMs: rec.trackDurationMs }
-        : {}),
+      ...(typeof rec.trackDurationMs === "number" ? { trackDurationMs: rec.trackDurationMs } : {}),
     }
     return {
       ok: true,

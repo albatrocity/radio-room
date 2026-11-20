@@ -21,7 +21,7 @@ import { StudioRoom } from "./studioRoom"
 const ITEM_SHOPS_STUDIO_CONFIG = {
   ...defaultItemShopsConfig,
   enabled: true,
-  // Records come from the designer's Navidrome via studio-bridge (ADR 0216).
+  // Records come from the designer's Navidrome via studio-bridge (ADR 0224).
   deriveAlbumsAsPhysicalMedia: true,
 } as const
 

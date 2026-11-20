@@ -17,7 +17,7 @@ export const metadataSourceAccessGrantParamsSchema = z.object({
   userId: z.string(),
   sourceId: z.string(),
   action: metadataSourceAccessActionSchema,
-  /** The track being queued, when known; lets a grant cover one album (ADR 0216). */
+  /** The track being queued, when known; lets a grant cover one album (ADR 0224). */
   trackId: z.string().optional(),
 })
 export type MetadataSourceAccessGrantParams = z.infer<

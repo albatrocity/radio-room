@@ -394,7 +394,7 @@ export function startStubRoadTrip(
   return { type: "PLUGIN:road-trip:TRIP_UPDATED", data: storePayload(entry) }
 }
 
-/** Themed skip poll (Poll.presentation, ADR 0208) matching the driving fixture. */
+/** Themed skip poll (Poll.presentation, ADR 0216) matching the driving fixture. */
 export function buildStubRoadTripPoll(roomId: string): Poll {
   const now = Date.now()
   return {

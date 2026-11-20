@@ -1,7 +1,9 @@
 import type { MetadataSourceTrack } from "@repo/types"
 
 /** Minimal empty album used when a source has no album concept (YouTube). */
-export function emptyAlbum(overrides?: Partial<MetadataSourceTrack["album"]>): MetadataSourceTrack["album"] {
+export function emptyAlbum(
+  overrides?: Partial<MetadataSourceTrack["album"]>,
+): MetadataSourceTrack["album"] {
   return {
     id: "",
     title: "",
@@ -16,9 +18,6 @@ export function emptyAlbum(overrides?: Partial<MetadataSourceTrack["album"]>): M
   }
 }
 
-export function emptyArtist(
-  id: string,
-  title: string,
-): MetadataSourceTrack["artists"][number] {
+export function emptyArtist(id: string, title: string): MetadataSourceTrack["artists"][number] {
   return { id, title, urls: [] }
 }

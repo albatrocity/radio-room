@@ -2,7 +2,7 @@ import { labelForMetadataSource } from "@repo/types"
 
 /**
  * Browse-only source for held records when Local isn't browseable, so a picked
- * Spotify record (ADR 0216) is reachable without Local access. Never sent to
+ * Spotify record (ADR 0224) is reachable without Local access. Never sent to
  * the server as a metadata source.
  */
 export const RECORDS_BROWSE_SOURCE = "records"

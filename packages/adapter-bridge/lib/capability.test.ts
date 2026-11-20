@@ -9,7 +9,9 @@ function mockRedis(params: { presenceTtl: number; capabilities: string[] | null 
   }
   return {
     ttl: vi.fn(async (key: string) => (key.includes(":presence") ? params.presenceTtl : -2)),
-    get: vi.fn(async (key: string) => (key.includes(":capabilities") ? store.get("caps") ?? null : null)),
+    get: vi.fn(async (key: string) =>
+      key.includes(":capabilities") ? (store.get("caps") ?? null) : null,
+    ),
     duplicate: vi.fn(() => ({
       connect: vi.fn(async () => {}),
       subscribe: vi.fn(async () => {}),

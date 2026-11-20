@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Box, Grid, GridItem, Text, Spinner, VStack, Link, Container } from "@chakra-ui/react"
 import { Link as RouterLink, useNavigate } from "@tanstack/react-router"
 import {
@@ -9,13 +9,15 @@ import {
   usePreferredMetadataSource,
 } from "../../hooks/useActors"
 import { useAnimationsEnabled } from "../../hooks/useReducedMotion"
-import { getNextShowTime } from "../../lib/dates"
+import { getNextShowTime, nextUpcomingReadyShowTime } from "../../lib/dates"
+import { fetchPublicReadyShows } from "../../lib/schedulingApi"
 import { lobbyLogoArtworkUrl } from "../../lib/lobbyArtwork"
 import { setCurrentArtworkUrl } from "../../hooks/useDynamicTheme"
 import { Logo } from "../ui/logo"
 import { LobbyRoom } from "../../machines/lobbyMachine"
 import RoomPublicMeta from "../RoomPublicMeta"
 import { initializeRoom } from "../../actors/roomLifecycle"
+import { VoicemailRecorder } from "./VoicemailRecorder"
 
 export default function Lobby() {
   const rooms = useLobbyRooms()
@@ -151,38 +153,44 @@ export default function Lobby() {
 }
 
 function LobbyContent({ room, onJoin }: { room: LobbyRoom | undefined; onJoin: () => void }) {
-  const nextShowTime = useMemo(() => {
-    return getNextShowTime(new Date())
-  }, [])
   const isReady = useIsLobbyReady()
+  const showOffline = !room && isReady
+  const fallbackShowTime = useMemo(() => getNextShowTime(new Date()), [])
+  const [nextShowTime, setNextShowTime] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!showOffline) return
+    let cancelled = false
+    void fetchPublicReadyShows()
+      .then((shows) => {
+        if (cancelled) return
+        setNextShowTime(nextUpcomingReadyShowTime(shows, new Date()) ?? fallbackShowTime)
+      })
+      .catch(() => {
+        if (!cancelled) setNextShowTime(fallbackShowTime)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [showOffline, fallbackShowTime])
 
   return (
     <Box colorPalette="action">
-      {!room && isReady && (
-        <Text color="colorPalette.contrast" textAlign="center">
-          Listening Room is offline. The next show is {nextShowTime}. Check out the{" "}
-          <Link
-            textDecoration="underline"
-            color="colorPalette.contrast"
-            href="https://archive.listeningroom.club"
-          >
-            archive
-          </Link>{" "}
-          for past shows
-          {import.meta.env.VITE_VOICEMAIL_NUMBER && (
-            <>
-              , and{" "}
-              <Link
-                textDecoration="underline"
-                color="colorPalette.contrast"
-                href={`tel:${import.meta.env.VITE_VOICEMAIL_NUMBER}`}
-              >
-                leave us a voicemail
-              </Link>
-            </>
-          )}
-          .
-        </Text>
+      {showOffline && (
+        <VStack gap={4} align="stretch">
+          <Text color="colorPalette.contrast" textAlign="center">
+            Listening Room is offline.{nextShowTime ? ` The next show is ${nextShowTime}.` : ""} Check out the{" "}
+            <Link
+              textDecoration="underline"
+              color="colorPalette.contrast"
+              href="https://archive.listeningroom.club"
+            >
+              archive
+            </Link>{" "}
+            for past shows.
+          </Text>
+          <VoicemailRecorder />
+        </VStack>
       )}
       {room && <RoomPublicMeta {...room} onJoin={onJoin} />}
     </Box>

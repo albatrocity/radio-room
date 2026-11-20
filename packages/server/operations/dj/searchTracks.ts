@@ -8,6 +8,7 @@ import {
 import { AdapterService } from "../../services/AdapterService"
 import { findRoom } from "../data"
 import { publishMetadataAuthError } from "./metadataAuthError"
+import { getOrCreateCapabilityCache } from "@repo/adapter-bridge"
 
 export type SearchSourceResult = {
   success: boolean
@@ -81,7 +82,6 @@ export async function searchTracksAcrossSources(params: {
     sourceEntries = sourceEntries.filter(([name]) => accessible.has(name))
   } else if (room.playbackControllerId === "bridge") {
     try {
-      const { getOrCreateCapabilityCache } = await import("@repo/adapter-bridge")
       const { filterMetadataSourcesByBridgeCapability } = await import("@repo/utils")
       const capability = getOrCreateCapabilityCache(context.redis.pubClient, roomId)
       await capability.start()
@@ -117,11 +117,7 @@ export async function searchTracksAcrossSources(params: {
   const searchesLocal = sourceEntries.some(([name]) => name === "local")
   let localShelves: { playlistIds: string[]; albumIds: string[] } | undefined
   if (userId && searchesLocal && context.metadataSourceAccess?.getLocalCatalogShelves) {
-    localShelves = await context.metadataSourceAccess.getLocalCatalogShelves(
-      roomId,
-      userId,
-      room,
-    )
+    localShelves = await context.metadataSourceAccess.getLocalCatalogShelves(roomId, userId, room)
   } else if (userId && searchesLocal && context.metadataSourceAccess?.getLocalCatalogPlaylistIds) {
     const playlistIds = await context.metadataSourceAccess.getLocalCatalogPlaylistIds(
       roomId,

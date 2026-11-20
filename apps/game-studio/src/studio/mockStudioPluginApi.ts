@@ -644,7 +644,7 @@ export class MockStudioPluginApi implements PluginAPI {
 
   /**
    * The designer's Navidrome albums through studio-bridge, so site shops'
-   * library bins and local picks stock like a bridge room's (ADR 0216).
+   * library bins and local picks stock like a bridge room's (ADR 0224).
    * Empty when the bridge or Navidrome is unavailable.
    */
   async listLibraryAlbums(_roomId: string): Promise<LibraryAlbumRow[]> {

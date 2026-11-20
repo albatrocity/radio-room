@@ -16,7 +16,7 @@ The three scenarios break down into four separate concepts. Each one can ship on
 
 This keeps "parallel route" from becoming geometry: it is gating on the same road. Only exclusive routes need the path refactor.
 
-Assumes `.cursor/plans/trip_events` has landed, which provides `map.events`, `compileEventSteps`, beats, the snapshot, and ADR 0220. The new decisions go in **ADR 0221** (trip branches). Passengers get ADR 0222 when that phase starts. `schemaVersion` stays 1, because every field is optional.
+Assumes `.cursor/plans/trip_events` has landed, which provides `map.events`, `compileEventSteps`, beats, the snapshot, and ADR 0228. The new decisions go in **ADR 0229** (trip branches). Passengers get ADR 0222 when that phase starts. `schemaVersion` stays 1, because every field is optional.
 
 ## Schema (`packages/road-trip-map/src/schema.ts`)
 
@@ -31,7 +31,7 @@ tripOutcomeSchema = discriminatedUnion("kind", [
 map.layers?: max 8 [{ id, name, icon, unlockedNarrative?, lockedNarrative?,
                       unlockItems?: string[] /* item short ids that unlock it on use */ }]
 
-map.routes?: max 8 [{ id, name, icon?, driveMinutes,           // own length, authored in minutes (ADR 0207 d3)
+map.routes?: max 8 [{ id, name, icon?, driveMinutes,           // own length, authored in minutes (ADR 0215 d3)
   from: { route?: id /* default "main" */, mile },
   end: { kind: "rejoin", route?: id, mile } | { kind: "destination" },
   layer?: id,                                                  // the fork exists only while the layer is active
@@ -77,7 +77,7 @@ The following helpers become path-aware and keep their old signatures as single-
 - **Choice step** (`trip/incidents.ts`, `compileEventSteps`):
   - A `choice` resolution compiles to a timed `choice` step. Entering the step emits `open-poll`.
   - `POLL_CLOSED`, the step expiring, or a host skip resolves it with the tally or the default. It then applies the winning option's outcomes and narrative and advances the step.
-  - With `effect: stop` the van pulls over while the room votes. With no effect it keeps driving, which follows ADR 0220's rule for narrative-only events, except that a choice holds the incident slot.
+  - With `effect: stop` the van pulls over while the room votes. With no effect it keeps driving, which follows ADR 0228's rule for narrative-only events, except that a choice holds the incident slot.
 - **Tow** walks `pathAhead`. On arrival it re-anchors to the Mechanic's route. Forks passed on the hook are marked `passed` or `taken` according to the path's decision.
 - **Items** (`items/index.ts`, `van.ts`): `routeItemUse` gains an `unlock` route. A new consumable "Local Map" is consumed only if it unlocks a locked layer whose `unlockItems` lists it, matching how consumables work now. Buying an item still does nothing to the trip.
 - **Projection** (`trip/projection.ts`, `storeTypes.ts`): the client stays linear and spoiler-safe.
@@ -95,7 +95,7 @@ The following helpers become path-aware and keep their old signatures as single-
   - Pins drag within their own row, and the fork and rejoin handles drag too.
 - New `TripRouteInspector` and `TripLayerInspector`, modeled on `TripSiteInspector`. The site and event inspectors gain `route` and `layer` selects plus an outcomes editor. The event inspector gains the `choice` resolution editor.
 - `tripMapDraft.ts` gets `addRoute`, `moveRouteFork`, `moveRouteEnd`, `addLayer`, and `moveSite`/`moveEvent` scoped to a route.
-- Simulator (ADR 0213): `TripSim` and `simRoom` support junction and choice votes (generalize `setVotes`) and toggling layers. `describeTripSim` labels re-anchors and unlocks.
+- Simulator (ADR 0221): `TripSim` and `simRoom` support junction and choice votes (generalize `setVotes`) and toggling layers. `describeTripSim` labels re-anchors and unlocks.
 - `apps/studio-bridge/src/stubRoadTrip.ts` gets the new store fields.
 
 ## Lint (`packages/road-trip-map/src/lint.ts`)
@@ -118,7 +118,7 @@ The following helpers become path-aware and keep their old signatures as single-
 
 ## Phases
 
-1. **Layers and outcomes.** ADR 0221. Schema for `layers`, site and event `layer`, `onVisit`, event `outcomes` (`unlock`/`lock` only). Layer runtime, gating in thresholds and the projection, Local Map item, lint, and Studio layer sub-rows and inspector. Sample map: a Welcome Center that unlocks a "Local tips" layer with one site and one event.
+1. **Layers and outcomes.** ADR 0229. Schema for `layers`, site and event `layer`, `onVisit`, event `outcomes` (`unlock`/`lock` only). Layer runtime, gating in thresholds and the projection, Local Map item, lint, and Studio layer sub-rows and inspector. Sample map: a Welcome Center that unlocks a "Local tips" layer with one site and one event.
    - *Done:* a linear map's tests are unchanged. Visiting the Welcome Center unlocks the layer, and its site is then revealed, polled, and visited. The layer's event fires only when unlocked. The Map item is consumed only when it unlocks something. Locking mid-trip closes an open poll for that layer's content.
 2. **Routes and junction votes.** `paths.ts`, plus the path-aware helpers and the `anchor`. Junction poll and fork, route end (rejoin, return, destination), the `bypassed` phase, tow across junctions, the `divert` outcome, the poll helper refactor, projection on path miles, Studio route rows, the sim, and lint.
    - *Done:* a parity test shows that every derive helper gives identical results on the existing sample map. A shortcut vote "take" re-anchors at the fork, bypasses parent sites, and rejoins. "Stay" passes. Return and destination ends work. A tow carries the van across a rejoin. ETA and fuel follow the decided path. The client never sees an untaken route.

@@ -20,8 +20,10 @@ import { user } from "./auth"
 
 export const showStatusEnum = pgEnum("show_status", ["draft", "ready", "published"])
 export const segmentStatusEnum = pgEnum("segment_status", ["draft", "ready", "archived"])
+export const segmentRoleEnum = pgEnum("segment_role", ["standard", "voicemail"])
 export const tagTypeEnum = pgEnum("tag_type", ["segment", "show"])
 export const roomExportStatusEnum = pgEnum("room_export_status", ["draft", "published"])
+export const voicemailStatusEnum = pgEnum("voicemail_status", ["ready", "hidden"])
 
 // ---------------------------------------------------------------------------
 // Tables
@@ -66,6 +68,8 @@ export const segment = pgTable("segment", {
   roomSettingsOverride: jsonb("room_settings_override"),
   /** CDN URL shown as the Now Playing cover while active in streaming mode (ADR 0195). */
   imageUrl: text("image_url"),
+  /** Room behavior while active: standard schedule segment or voicemail inbox (ADR 0212). */
+  role: segmentRoleEnum("role").notNull().default("standard"),
   status: segmentStatusEnum("status").notNull().default("draft"),
   createdBy: text("created_by")
     .notNull()
@@ -75,6 +79,23 @@ export const segment = pgTable("segment", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
+
+export const voicemail = pgTable(
+  "voicemail",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    s3Key: text("s3_key").notNull(),
+    contentType: text("content_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    label: text("label"),
+    status: voicemailStatusEnum("status").notNull().default("ready"),
+  },
+  (table) => [index("voicemail_created_at_idx").on(table.createdAt)],
+)
 
 export const tag = pgTable(
   "tag",

@@ -171,7 +171,7 @@ describe("ItemShopsPlugin auto-shop", () => {
     expect(openShoppingRound).toHaveBeenCalled()
   })
 
-  describe("shopAccess room shops (ADR 0206)", () => {
+  describe("shopAccess room shops (ADR 0214)", () => {
     function setup(config = autoShopConfig()) {
       const created = createMockContext()
       ;(plugin as any).context = created.context

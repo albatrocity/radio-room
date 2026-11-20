@@ -5,6 +5,33 @@ Headings: ## Month YYYY
 Sections: ### New   ### Fixed
 -->
 
+## December 2026
+
+Recap of what’s new since the November show.
+
+### New
+
+- Config to allow users to skip songs that they have queued.
+- Record voicemails anonymously straight from the homepage, without a phone call.
+
+### Fixed
+
+- Issue where the playlist would track multiple instances of the same track, making it really hard to read
+- A pause/resume bug that often skipped tracks unintentionally
+
+## November 2026
+
+Recap of what’s new since the October show.
+
+### New
+
+- Admins can designate users as Skippers. Skippers can skip the currently playing track, optionally up to a limited number of times.
+
+### Fixed
+
+- New features and buttons now show up without refreshing the page.
+- After changing your name, messages about your actions use your new name.
+
 ## October 2026
 
 Recap of what’s new since the September show.

@@ -45,7 +45,7 @@ export type PollSettings = z.infer<typeof pollSettingsSchema>
 // =============================================================================
 
 /**
- * Themed look for a plugin-authored poll (ADR 0208). Only plugins can set it;
+ * Themed look for a plugin-authored poll (ADR 0216). Only plugins can set it;
  * the admin poll handler never accepts it. Voting is unchanged.
  */
 export const pollPresentationSchema = z.object({
@@ -61,7 +61,7 @@ export const pollPresentationSchema = z.object({
   resultsInChat: z.boolean().optional(),
   /**
    * Id of whatever the sign names (a trip site, for road-trip). Omitted when the
-   * sign must not identify it. Themes may open it; voting ignores it (ADR 0221).
+   * sign must not identify it. Themes may open it; voting ignores it (ADR 0229).
    */
   subjectId: z.string().min(1).max(64).optional(),
 })

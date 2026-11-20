@@ -181,7 +181,7 @@ function CatalogBrowse({
   }
   const albumSearch = caps.albumSearch
   const searchEntry = caps.entryMode === "search"
-  // My Records is a browse-only source holding just the collection (ADR 0216).
+  // My Records is a browse-only source holding just the collection (ADR 0224).
   const recordsOnly = sourceId === RECORDS_BROWSE_SOURCE
   const showMediaTab = (sourceId === "local" || recordsOnly) && myMedia.length > 0
   const showRootTabs = !recordsOnly && (albumSearch || showMediaTab) && level === "root"

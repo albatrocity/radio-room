@@ -142,10 +142,7 @@ export class BridgeCapabilityCache {
       }
       const result = bridgeEventSchema.safeParse(parsed)
       if (!result.success) {
-        console.warn(
-          `[bridge-capability] invalid event for ${this.roomId}:`,
-          result.error.message,
-        )
+        console.warn(`[bridge-capability] invalid event for ${this.roomId}:`, result.error.message)
         return
       }
       this.applyEvent(result.data)

@@ -21,7 +21,7 @@ import { skipIncidentStep, triggerIncident, useIncidentItem } from "./incidents"
 
 /**
  * What the Game Studio trip simulator posts to studio-bridge (`POST /trip-sim`,
- * ADR 0213). `store` is the road-trip plugin store payload; `messages` is every
+ * ADR 0221). `store` is the road-trip plugin store payload; `messages` is every
  * trip chat line so far; `poll` is the open skip poll.
  */
 export type TripSimSnapshot = {
@@ -136,7 +136,7 @@ export type SimShops = {
 }
 
 /**
- * The Game Studio trip simulator (ADR 0213): `TripSim` plus what the Room UI
+ * The Game Studio trip simulator (ADR 0221): `TripSim` plus what the Room UI
  * needs to show it. Chat lines get wall-clock timestamps as they're produced;
  * the skip poll and pool card are built with the plugin's own presenters.
  */
@@ -329,7 +329,7 @@ export class TripSimRoom {
   }
 
   /**
-   * Stands in for Item Shops opening the stop's round (ADR 0213 approximates
+   * Stands in for Item Shops opening the stop's round (ADR 0221 approximates
    * shops): the shop's opening message, as the room posts it. Nothing when it
    * has none.
    */

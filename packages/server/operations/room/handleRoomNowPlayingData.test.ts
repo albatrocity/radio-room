@@ -14,6 +14,7 @@ const m = vi.hoisted(() => ({
   getDispatchedTrack: vi.fn(),
   clearDispatchedTrack: vi.fn(),
   writeJsonToHset: vi.fn(),
+  buildQueueChangedData: vi.fn(async () => ({ queue: [] })),
 }))
 
 vi.mock("../data", () => ({
@@ -26,6 +27,7 @@ vi.mock("../data", () => ({
   removeFromQueue: m.removeFromQueue,
   getDispatchedTrack: m.getDispatchedTrack,
   clearDispatchedTrack: m.clearDispatchedTrack,
+  buildQueueChangedData: m.buildQueueChangedData,
 }))
 
 vi.mock("../data/utils", () => ({
@@ -418,5 +420,175 @@ describe("handleRoomNowPlayingData — bridge/shoutcast same-play dedup", () => 
     })
 
     expect(m.addTrackToRoomPlaylist).toHaveBeenCalled()
+  })
+
+  it("records one playlist row when device now-playing and ICY submit the same song together", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ fetchMeta: true, type: "radio" }))
+    let stored: unknown = null
+    m.getRoomCurrent.mockImplementation(async () => stored)
+    m.setRoomCurrent.mockImplementation(async ({ meta }: { meta: unknown }) => {
+      stored = meta
+    })
+    m.getQueue.mockResolvedValue([
+      {
+        title: "Melt!",
+        track: {
+          id: "spotify-id",
+          title: "Melt!",
+          artists: [{ id: "a", title: "Modern Love Child", urls: [] }],
+          album: {
+            id: "",
+            title: "Album",
+            urls: [],
+            artists: [],
+            releaseDate: "",
+            releaseDatePrecision: "year",
+            totalTracks: 0,
+            label: "",
+            images: [],
+          },
+          duration: 0,
+          trackNumber: 0,
+          discNumber: 0,
+          explicit: false,
+          popularity: 0,
+          urls: [],
+        },
+        mediaSource: { type: "spotify", trackId: "spotify-id" },
+        addedAt: 111,
+      },
+    ])
+
+    await Promise.all([
+      handleRoomNowPlayingData({
+        context,
+        roomId: "r1",
+        submission: {
+          trackId: "Modern Love Child-Melt!-Album",
+          sourceType: "rtmp",
+          title: "Melt!",
+          artist: "Modern Love Child",
+          album: "Album",
+        },
+      }),
+      handleRoomNowPlayingData({
+        context,
+        roomId: "r1",
+        submission: shoutcastSubmission,
+      }),
+      handleRoomNowPlayingData({
+        context,
+        roomId: "r1",
+        submission: {
+          trackId: "Modern Love Child-Melt!",
+          sourceType: "rtmp",
+          title: "Melt!",
+          artist: "Modern Love Child",
+        },
+      }),
+    ])
+
+    expect(m.addTrackToRoomPlaylist).toHaveBeenCalledTimes(1)
+    expect(m.addTrackToRoomPlaylist.mock.calls[0][0].item.addedAt).toBe(111)
+    expect(m.addTrackToRoomPlaylist.mock.calls[0][0].item.track.id).toBe("spotify-id")
+    const trackChanged = emit.mock.calls.filter((call) => call[1] === "TRACK_CHANGED")
+    expect(trackChanged).toHaveLength(1)
+  })
+
+  it("does not add another row when ICY gains an album field", async () => {
+    m.findRoom.mockResolvedValue(
+      baseRoom({ fetchMeta: true, type: "radio", playbackControllerId: "bridge" }),
+    )
+    m.getRoomCurrent.mockResolvedValue({
+      stationMeta: { title: "Melt! | Modern Love Child" },
+      nowPlaying: {
+        title: "Melt!",
+        track: {
+          id: "hash-short",
+          title: "Melt!",
+          artists: [{ id: "a", title: "Modern Love Child", urls: [] }],
+          album: {
+            id: "",
+            title: "",
+            urls: [],
+            artists: [],
+            releaseDate: "",
+            releaseDatePrecision: "year",
+            totalTracks: 0,
+            label: "",
+            images: [],
+          },
+          duration: 0,
+          trackNumber: 0,
+          discNumber: 0,
+          explicit: false,
+          popularity: 0,
+          urls: [],
+        },
+        mediaSource: { type: "shoutcast", trackId: "hash-short" },
+        addedAt: 1,
+      },
+    })
+
+    await handleRoomNowPlayingData({
+      context,
+      roomId: "r1",
+      submission: {
+        ...shoutcastSubmission,
+        trackId: "hash-with-album",
+        stationMeta: { title: "Melt! | Modern Love Child | Album", bitrate: "128" },
+      },
+    })
+
+    expect(m.addTrackToRoomPlaylist).not.toHaveBeenCalled()
+    expect(emit).not.toHaveBeenCalledWith("r1", "TRACK_CHANGED", expect.anything())
+  })
+
+  it("does not add another row when the device post gains an album", async () => {
+    m.findRoom.mockResolvedValue(baseRoom({ fetchMeta: true, type: "live" }))
+    m.getRoomCurrent.mockResolvedValue({
+      nowPlaying: {
+        title: "Melt!",
+        track: {
+          id: "Modern Love Child-Melt!",
+          title: "Melt!",
+          artists: [{ id: "a", title: "Modern Love Child", urls: [] }],
+          album: {
+            id: "unknown",
+            title: "",
+            urls: [],
+            artists: [],
+            releaseDate: "",
+            releaseDatePrecision: "year",
+            totalTracks: 0,
+            label: "",
+            images: [],
+          },
+          duration: 0,
+          trackNumber: 0,
+          discNumber: 0,
+          explicit: false,
+          popularity: 0,
+          urls: [],
+        },
+        mediaSource: { type: "rtmp", trackId: "Modern Love Child-Melt!" },
+        addedAt: 1,
+      },
+    })
+
+    await handleRoomNowPlayingData({
+      context,
+      roomId: "r1",
+      submission: {
+        trackId: "Modern Love Child-Melt!-Album",
+        sourceType: "rtmp",
+        title: "Melt!",
+        artist: "Modern Love Child",
+        album: "Album",
+      },
+    })
+
+    expect(m.addTrackToRoomPlaylist).not.toHaveBeenCalled()
+    expect(emit).not.toHaveBeenCalledWith("r1", "TRACK_CHANGED", expect.anything())
   })
 })

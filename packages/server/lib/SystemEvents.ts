@@ -60,18 +60,15 @@ export class SystemEvents implements ISystemEvents {
     data: SystemEventPayload<K>,
   ): Promise<void> {
     try {
-      // 1. Emit to Redis PubSub for cross-server communication
       await this.emitToPubSub(event, data)
-
-      // 2. Emit to Plugin System for in-process handlers
-      await this.emitToPlugins(roomId, event, data)
-
-      // 3. Emit to Broadcasters for socket channel delivery
-      this.emitToBroadcasters(roomId, event, data)
     } catch (error) {
-      console.error(`[SystemEvents] Error emitting ${event} for room ${roomId}:`, error)
-      // Don't throw - we want to continue even if one consumer fails
+      console.error(`[SystemEvents] Redis emission failed for ${event}:`, error)
     }
+
+    // Plugin and broadcaster failures are contained. A Redis error must not
+    // skip them: the device segment cue is a broadcaster.
+    await this.emitToPlugins(roomId, event, data)
+    this.emitToBroadcasters(roomId, event, data)
   }
 
   /**

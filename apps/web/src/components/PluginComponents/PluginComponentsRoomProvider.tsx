@@ -117,10 +117,12 @@ function PluginModalHost({
   )
 }
 
+const schemaRefetchAttempted = new Set<string>()
+
 export function PluginComponentsRoomProvider({ children }: { children: ReactNode }) {
   const room = useCurrentRoom()
   const roomId = room?.id
-  const { schemas, isLoading } = usePluginSchemas()
+  const { schemas, isLoading, refetch: refetchSchemas } = usePluginSchemas()
   const pluginConfigs = usePluginConfigs() || {}
   const currentUser = useCurrentUser()
   const isAdmin = useIsAdmin()
@@ -168,6 +170,19 @@ export function PluginComponentsRoomProvider({ children }: { children: ReactNode
     if (!roomId) return
     setPluginComponentRoomId(roomId)
   }, [roomId, pluginsWithComponents])
+
+  // Schemas are fetched once per page load. A plugin deployed after that shows up in
+  // room plugin configs first; refetch once per unknown name so its components render.
+  useEffect(() => {
+    if (isLoading) return
+    const known = new Set(schemas.map((s) => s.name))
+    const unknown = Object.keys(pluginConfigs).filter(
+      (name) => !known.has(name) && !schemaRefetchAttempted.has(name),
+    )
+    if (unknown.length === 0) return
+    unknown.forEach((name) => schemaRefetchAttempted.add(name))
+    void refetchSchemas()
+  }, [isLoading, schemas, pluginConfigs, refetchSchemas])
 
   const openModal = useCallback((pluginName: string, modalId: string) => {
     setOpenModals((prev) => {

@@ -1,5 +1,10 @@
 import type { AppContext, ResolvedPhysicalMediaItem, TaggedMetadataSourceTrack } from "@repo/types"
 import { withCachedJson } from "@repo/utils"
+import {
+  fetchLocalAlbumResult,
+  fetchLocalPlaylistTracks,
+  getBridgeRpcClient,
+} from "@repo/adapter-bridge"
 
 /** Daemon offline or never linked: the room has no bridge RPC client. */
 export const BRIDGE_UNREACHABLE_MESSAGE =
@@ -42,7 +47,7 @@ function sourceAlbumCacheKey(roomId: string, sourceId: string, albumId: string):
 
 /**
  * Tracks on an album in one of the room's non-local metadata sources (e.g. a
- * picked Spotify record, ADR 0216), through the room's credentials. Null when
+ * picked Spotify record, ADR 0224), through the room's credentials. Null when
  * the source isn't available or the album can't be fetched.
  */
 export async function fetchSourceAlbumTracks(params: {
@@ -91,7 +96,7 @@ export async function fetchResolvedMediaItemTracks(params: {
   /** Operation name for logs, e.g. `browseMediaItem`. */
   logLabel: string
   cache?: AppContext["cache"]
-  /** Required for albums on non-local sources (ADR 0216). */
+  /** Required for albums on non-local sources (ADR 0224). */
   context?: AppContext
 }): Promise<MediaItemTracksResult> {
   const { roomId, source, logLabel, cache } = params
@@ -111,9 +116,6 @@ export async function fetchResolvedMediaItemTracks(params: {
     return { ok: true, tracks }
   }
   try {
-    const { getBridgeRpcClient, fetchLocalPlaylistTracks, fetchLocalAlbumResult } = await import(
-      "@repo/adapter-bridge"
-    )
     const rpc = getBridgeRpcClient(roomId)
     if (!rpc) {
       return { ok: false, message: BRIDGE_UNREACHABLE_MESSAGE }

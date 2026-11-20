@@ -1,4 +1,5 @@
 import type { AppContext } from "@repo/types"
+import { getBridgeRpcClient, listSayVoices } from "@repo/adapter-bridge"
 
 /**
  * List macOS `say` voices from the linked Media Bridge daemon (ADR 0178).
@@ -10,7 +11,6 @@ export async function listMediaBridgeSayVoices(params: {
 }): Promise<{ voices: Array<{ id: string; name: string; locale: string }>; error?: string }> {
   const { context, roomId } = params
   try {
-    const { getBridgeRpcClient, listSayVoices } = await import("@repo/adapter-bridge")
     const rpc = getBridgeRpcClient(roomId)
     if (!rpc) {
       return {

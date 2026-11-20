@@ -287,7 +287,7 @@ describe("RoadTripPlugin", () => {
     })
   })
 
-  it("lends the van's formats while a map is loaded and enabled (ADR 0215)", async () => {
+  it("lends the van's formats while a map is loaded and enabled (ADR 0223)", async () => {
     const { plugin, h } = await setup()
     const playback = () =>
       h.shopCalls.filter((c) => c[2] === "setSharedPlayback").map((c) => c.slice(3))

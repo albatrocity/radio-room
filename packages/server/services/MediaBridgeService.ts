@@ -4,6 +4,7 @@ import {
   publishMediaBridgeStatus,
   readMediaBridgeConnected,
 } from "../operations/bridge/publishMediaBridgeStatus"
+import { getOrCreateCapabilityCache, requestBridgeLink } from "@repo/adapter-bridge"
 
 /**
  * Media Bridge link + presence for bridge playback rooms (ADR 0082 / 0083).
@@ -40,7 +41,6 @@ export class MediaBridgeService {
     }
 
     try {
-      const { requestBridgeLink } = await import("@repo/adapter-bridge")
       const result = await requestBridgeLink({
         redis: this.context.redis.pubClient as any,
         roomId,
@@ -57,7 +57,6 @@ export class MediaBridgeService {
       try {
         let services: string[] | undefined
         try {
-          const { getOrCreateCapabilityCache } = await import("@repo/adapter-bridge")
           const capability = getOrCreateCapabilityCache(this.context.redis.pubClient, roomId)
           await capability.start()
           services = Array.from(capability.getAvailableServices())
@@ -118,7 +117,6 @@ export class MediaBridgeService {
 
     let services: string[] | undefined
     try {
-      const { getOrCreateCapabilityCache } = await import("@repo/adapter-bridge")
       const capability = getOrCreateCapabilityCache(this.context.redis.pubClient, roomId)
       await capability.start()
       // Only expose services after CAPABILITIES — empty array means "none enabled"

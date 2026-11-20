@@ -20,8 +20,8 @@ todos:
   - id: studio-ui
     content: Services toggle with format checks and genre chips, Record shop preset, remove the catalog shop picker and per-shop presets
     status: completed
-  - id: adr-0214
-    content: Write ADR 0214 (carry, shopIds removal) and ADR 0215 (van playback); mark 0206 and 0207 partially superseded
+  - id: adr-0222
+    content: Write ADR 0222 (carry, shopIds removal) and ADR 0223 (van playback); mark 0214 and 0215 partially superseded
     status: completed
 isProject: false
 ---
@@ -93,7 +93,7 @@ flowchart LR
 
 **Trip sites.** The site shop is always `offersOnlyShop(scope)`. When the scope has `physicalMedia`, the shop gets `distinctOffers: true` and the matched records as `availableItems`, so the normal catalog sample draws 3. `shop.offers` go through `appendExtraOffers` exactly as today. `resolveRoundAssignment` rebuilds the shop from the scope for late joiners.
 
-`openRoomShop` returns `unavailable` when the bin is empty (or the room has no derived catalog) and no offer survives room gating. The van still parks with the existing warning. `validateShop` turns "no records match" and "no local library in this room" into warnings, never errors, so the same map loads in any room (ADR 0207).
+`openRoomShop` returns `unavailable` when the bin is empty (or the room has no derived catalog) and no offer survives room gating. The van still parks with the existing warning. `validateShop` turns "no records match" and "no local library in this room" into warnings, never errors, so the same map loads in any room (ADR 0215).
 
 **Studio.** Services in [`TripSiteInspector.tsx`](apps/game-studio/src/components/tripMap/TripSiteInspector.tsx): toggle, four format checks, genre chips (type a name, add, remove). Helper text: genres must match the album's Navidrome genre; tick the toggle with no format or genre to sell every record; other goods go under Shop. The catalog shop checkbox list goes away.
 
@@ -167,7 +167,7 @@ Depends on: phases 2 and 3.
 
 Intent: while a trip map is loaded, queue gating treats the van's formats as playable. The map sets them in `tuning.vanPlayback: { formats, gentle }`; `formats` defaults to all four and `gentle` to `false`. Owning the record is still required. Records wear as usual unless `gentle` is true, which makes the van work like a hi-fi device ([ADR 0166](docs/adrs/0166-hifi-playback-devices-skip-wear.md)).
 
-Design: Item Shops owns gating, so Road Trip tells it. Add `setSharedPlayback(ownerId, { formats, gentle })` to `shopAccess`; an empty `formats` list clears that owner. Item Shops keeps one entry per owner in plugin storage. It unions every entry's formats into `playableFormats(items)` at the single server-side check in `validateQueueRequest` ([`localLibrary/index.ts`](packages/plugin-item-shops/localLibrary/index.ts), around line 723), and the formats of entries with `gentle: true` into `gentlePlayableFormats(inv.items)` in `wearRecordForQueue`. Road Trip calls it with `resolveTripTuning(map).vanPlayback` when a map loads, and with `[]` when it unloads. A held hi-fi device still skips wear even when the van doesn't. "Map loaded" is trip mode (ADR 0205, D2), so this matches "during trips" without tracking departure. Room scoping comes from the plugin storage already being per room.
+Design: Item Shops owns gating, so Road Trip tells it. Add `setSharedPlayback(ownerId, { formats, gentle })` to `shopAccess`; an empty `formats` list clears that owner. Item Shops keeps one entry per owner in plugin storage. It unions every entry's formats into `playableFormats(items)` at the single server-side check in `validateQueueRequest` ([`localLibrary/index.ts`](packages/plugin-item-shops/localLibrary/index.ts), around line 723), and the formats of entries with `gentle: true` into `gentlePlayableFormats(inv.items)` in `wearRecordForQueue`. Road Trip calls it with `resolveTripTuning(map).vanPlayback` when a map loads, and with `[]` when it unloads. A held hi-fi device still skips wear even when the van doesn't. "Map loaded" is trip mode (ADR 0213, D2), so this matches "during trips" without tracking departure. Room scoping comes from the plugin storage already being per room.
 
 Head starts for loadouts (see "Future: trip loadouts"):
 
@@ -194,11 +194,11 @@ Depends on: phase 4.
 
 Intent: record why carry lives on services and shop entries, why trips stopped naming catalog shops, and how the van counts as a playback device.
 
-Files: `docs/adrs/0214-physical-media-carry.md`, `docs/adrs/0215-van-shared-playback-formats.md` (amends [0160](docs/adrs/0160-playback-device-gating.md): devices are no longer the only source of playable formats), [`docs/adrs/index.md`](docs/adrs/index.md); set [0206](docs/adrs/0206-declared-plugin-capabilities.md) and [0207](docs/adrs/0207-trip-maps-portable-json.md) to "Partially superseded by [0214]" with a short note on what changed (`shopIds` on `shopAccess`; the catalog shop picker and per-shop site presets).
+Files: `docs/adrs/0222-physical-media-carry.md`, `docs/adrs/0223-van-shared-playback-formats.md` (amends [0160](docs/adrs/0160-playback-device-gating.md): devices are no longer the only source of playable formats), [`docs/adrs/index.md`](docs/adrs/index.md); set [0214](docs/adrs/0214-declared-plugin-capabilities.md) and [0215](docs/adrs/0215-trip-maps-portable-json.md) to "Partially superseded by [0222]" with a short note on what changed (`shopIds` on `shopAccess`; the catalog shop picker and per-shop site presets).
 
-Done means: index lists 0214 and 0215 as Accepted, 0206 and 0207 show the partial supersede, and 0160 notes the amendment.
+Done means: index lists 0222 and 0223 as Accepted, 0214 and 0215 show the partial supersede, and 0160 notes the amendment.
 
-Depends on: none. Write 0214 with phase 4 and 0215 with phase 5 so each decision matches the code.
+Depends on: none. Write 0222 with phase 4 and 0223 with phase 5 so each decision matches the code.
 
 ## Future: trip loadouts
 

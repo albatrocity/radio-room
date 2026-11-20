@@ -14,7 +14,7 @@ import {
 } from "./physicalMedia"
 
 /**
- * Designer-picked records (ADR 0216). A pick is a snapshot of one album on a
+ * Designer-picked records (ADR 0224). A pick is a snapshot of one album on a
  * metadata source; it becomes a record SKU once it resolves to an album this
  * room can play.
  */

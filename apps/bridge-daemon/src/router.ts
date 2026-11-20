@@ -17,6 +17,8 @@ const UNOBSERVED: DriverState = { ...STOPPED, observed: false }
 export class Router {
   private active: Driver | null = null
   private meta = new Map<string, { title?: string; artist?: string; album?: string }>()
+  /** Wait for observed playing before posting now-playing (ADR 0211). */
+  private pendingNowPlayingTrackId: string | null = null
 
   constructor(
     private readonly drivers: Map<string, Driver>,
@@ -42,8 +44,35 @@ export class Router {
           progressMs: state.progressMs,
           durationMs: state.durationMs,
           volumePercent: state.volumePercent ?? null,
+          trackId: state.trackId ?? null,
         })
+        void this.flushDeferredNowPlaying(state)
       })
+    }
+  }
+
+  private async flushDeferredNowPlaying(state: DriverState): Promise<void> {
+    const pendingId = this.pendingNowPlayingTrackId
+    if (!pendingId) return
+    if (state.state !== "playing") return
+    if (
+      state.durationMs == null ||
+      state.durationMs <= 0 ||
+      state.progressMs == null ||
+      state.progressMs < 0
+    ) {
+      return
+    }
+    if (state.trackId && state.trackId !== pendingId) return
+    this.pendingNowPlayingTrackId = null
+    const meta = this.meta.get(pendingId) ?? {}
+    try {
+      await this.nowPlaying.publish(this.roomId, {
+        ...meta,
+        mediaSource: { type: this.active?.source ?? "local", trackId: pendingId },
+      })
+    } catch (error) {
+      console.warn("[router] deferred now-playing publish failed:", error)
     }
   }
 
@@ -58,6 +87,8 @@ export class Router {
     artist?: string
     album?: string
     volumePercent?: number
+    /** When true, wait for a playing STATE with media before posting (ADR 0211). */
+    deferNowPlaying?: boolean
   }): Promise<void> {
     const driver = this.drivers.get(params.source)
     if (!driver) throw new Error(`No driver for source ${params.source}`)
@@ -93,6 +124,12 @@ export class Router {
     await driver.play()
     this.active = driver
 
+    if (params.deferNowPlaying) {
+      this.pendingNowPlayingTrackId = params.trackId
+      return
+    }
+
+    this.pendingNowPlayingTrackId = null
     await this.nowPlaying.publish(this.roomId, {
       title,
       artist,

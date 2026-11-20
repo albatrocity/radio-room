@@ -7,6 +7,11 @@ import {
 } from "@repo/types"
 import { findRoom } from "../operations/data"
 import { handlePlaybackStateChange } from "../operations/playback/handlePlaybackStateChange"
+import {
+  getBridgeRpcClient,
+  registerBridgeForRoom,
+  registerLocalMetadataForRoom,
+} from "@repo/adapter-bridge"
 
 /**
  * Service configuration registry
@@ -202,7 +207,6 @@ export class AdapterService {
 
     // Bridge: no OAuth clientId; room-scoped wiring via registerBridgeForRoom
     if (serviceName === "bridge") {
-      const { registerBridgeForRoom } = await import("@repo/adapter-bridge")
       const playbackController = await registerBridgeForRoom({
         roomId,
         context: this.context,
@@ -354,9 +358,6 @@ export class AdapterService {
           // For local: re-wire with room RPC if bridge is available
           if (sourceId === "local") {
             try {
-              const { getBridgeRpcClient, registerLocalMetadataForRoom } = await import(
-                "@repo/adapter-bridge"
-              )
               const rpc = getBridgeRpcClient(roomId)
               if (rpc) {
                 const wired = registerLocalMetadataForRoom({
@@ -550,9 +551,6 @@ export class AdapterService {
     if (sourceType === "youtube" || sourceType === "local") {
       try {
         if (sourceType === "local") {
-          const { getBridgeRpcClient, registerLocalMetadataForRoom } = await import(
-            "@repo/adapter-bridge"
-          )
           const rpc = getBridgeRpcClient(roomId)
           if (rpc) {
             return registerLocalMetadataForRoom({

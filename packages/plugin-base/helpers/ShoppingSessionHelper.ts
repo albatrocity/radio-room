@@ -35,7 +35,7 @@ import { resolveEconomy, scalePrice } from "@repo/game-logic"
 
 const KEYS = ITEM_SHOPS_SESSION_STORAGE_KEYS
 
-/** Shop id prefix for a composed room shop: custom offers and/or a record bin (ADR 0214). */
+/** Shop id prefix for a composed room shop: custom offers and/or a record bin (ADR 0222). */
 export const ROOM_SHOP_ID_PREFIX = "room-shop:"
 
 /**

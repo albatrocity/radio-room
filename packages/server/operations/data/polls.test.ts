@@ -130,7 +130,7 @@ describe("polls data layer", () => {
     expect(loaded).toEqual(poll)
   })
 
-  it("round-trips a plugin presentation (ADR 0208)", async () => {
+  it("round-trips a plugin presentation (ADR 0216)", async () => {
     const poll = makePoll({
       presentation: { theme: "road-trip", variant: "info", eyebrow: "EXIT 8", headline: "FARMERS MARKET", footnote: "No votes = pull off", subjectId: "farmers-market" },
     })

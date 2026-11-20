@@ -145,7 +145,7 @@ const COST_SCALE_TTL_MS = 30_000
 const MAX_SETTLE_PASSES = 3
 
 /**
- * Road Trip (ADR 0205): a van drives a Trip Map's route in real time. Progress
+ * Road Trip (ADR 0213): a van drives a Trip Map's route in real time. Progress
  * is a ledger of legs; every change goes through `mutateTrip`, which re-solves
  * and re-arms durable schedules. Nothing ticks.
  */
@@ -176,7 +176,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     return new TripStorage(this.context.storage)
   }
 
-  /** Voluntary-mode escrow (ADR 0209). Only a host-waived incident fund refunds it. */
+  /** Voluntary-mode escrow (ADR 0217). Only a host-waived incident fund refunds it. */
   private get tripPool(): EscrowPoolHelper {
     if (!this.context) throw new Error("[road-trip] context not initialised")
     return new EscrowPoolHelper(
@@ -240,7 +240,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
 
   /**
    * The van is a playback device while a map is loaded and the plugin is
-   * enabled (ADR 0215); otherwise Road Trip's shared playback is cleared.
+   * enabled (ADR 0223); otherwise Road Trip's shared playback is cleared.
    */
   private async syncVanPlayback(): Promise<void> {
     if (!this.context) return
@@ -435,7 +435,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   }
 
   // ---------------------------------------------------------------------------
-  // Funds (ADR 0209): automatic levy or voluntary pool, settled into resolveFund
+  // Funds (ADR 0217): automatic levy or voluntary pool, settled into resolveFund
   // ---------------------------------------------------------------------------
 
   /** Runs once, after the CAS that opened the fund step. */
@@ -1204,7 +1204,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   }
 
   // ---------------------------------------------------------------------------
-  // Room export (ADR 0211)
+  // Room export (ADR 0219)
   // ---------------------------------------------------------------------------
 
   async augmentRoomExport(_exportData: RoomExportData): Promise<PluginExportAugmentation> {

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url"
 import { parseEnv } from "node:util"
 
 /**
- * Credentials for the record picker's lookups (ADR 0216), from what a dev
+ * Credentials for the record picker's lookups (ADR 0224), from what a dev
  * machine already has, so the picker works without a studio-bridge `.env`:
  *
  * - Spotify: `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` from the process,

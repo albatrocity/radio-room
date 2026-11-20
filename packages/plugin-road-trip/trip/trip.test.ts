@@ -949,7 +949,7 @@ describe("van and incidents (Phase 3)", () => {
   })
 })
 
-describe("trip events (ADR 0220)", () => {
+describe("trip events (ADR 0228)", () => {
   const narrations = (sim: TripSim) =>
     sim.effects.flatMap(({ effect }) => (effect.type === "narrate" ? [effect.body] : []))
 

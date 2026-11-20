@@ -325,7 +325,7 @@ export function hasLintErrors(issues: TripMapIssue[]): boolean {
   return issues.some((issue) => issue.severity === "error")
 }
 
-/** Trip event rules (ADR 0220). */
+/** Trip event rules (ADR 0228). */
 function lintEvents(map: TripMap, destinationMile: number): TripMapIssue[] {
   const issues: TripMapIssue[] = []
   const events = map.events ?? []

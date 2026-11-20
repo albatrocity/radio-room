@@ -59,7 +59,7 @@ export const PICK_SOURCE_LABEL: Record<PickableRecordSource, string> = {
   local: "Library",
 }
 
-/** One pick per album and format, matching how rooms key them (ADR 0216). */
+/** One pick per album and format, matching how rooms key them (ADR 0224). */
 export function pickKey(pick: Pick<PhysicalMediaPick, "source" | "id" | "format">): string {
   return `${pick.source}:${pick.id}:${pick.format ?? ""}`
 }
@@ -79,7 +79,7 @@ export function loadDraft(): TripMapInput {
   return structuredClone(SAMPLE_TRIP_MAP)
 }
 
-/** Old `scriptedEvents` drafts become `events` (ADR 0220). */
+/** Old `scriptedEvents` drafts become `events` (ADR 0228). */
 export function liftDraft(raw: unknown): TripMapInput {
   return liftLegacyTripMap(raw) as TripMapInput
 }

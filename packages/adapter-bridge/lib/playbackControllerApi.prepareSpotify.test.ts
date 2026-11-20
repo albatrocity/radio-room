@@ -48,7 +48,8 @@ describe("bridge Spotify lease preparation", () => {
 
     await api.playTrack("spotify:track:abc")
 
-    expect(calls).toEqual(["prepareSpotify", "delegate.playTrack"])
+    // getPlayback runs first so the start hold can record the track we left.
+    expect(calls).toEqual(["getPlayback", "prepareSpotify", "delegate.playTrack"])
   })
 
   it("renews before resuming, which hits the same stale lease", async () => {

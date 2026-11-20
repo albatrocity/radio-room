@@ -231,7 +231,7 @@ export function connectStudioBridgeControl(
   }
 }
 
-/** One album the record picker lists (ADR 0216); `coverUrl` is for the picker only. */
+/** One album the record picker lists (ADR 0224); `coverUrl` is for the picker only. */
 export type StudioRecordHit = Omit<PhysicalMediaPick, "format" | "lore"> & { coverUrl?: string }
 
 export type StudioRecordSearch = {

@@ -1,7 +1,82 @@
 use crate::config::Config;
 use crate::events::SegmentActivated;
-use crate::osc_send::default_args_to_osc;
+use crate::osc_send::args_for_osc_address;
 use rosc::OscType;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SegmentCue {
+    /// Join / reconnect push. Do not replay a theme the Mac already played.
+    Snapshot,
+    /// Someone activated a segment, including a repeat of the one already on.
+    Activation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OscSkip {
+    Empty,
+    RoomMismatch,
+    OscDisabled,
+    Unmapped,
+}
+
+/// Tag on the socket payload wins. Untagged events use the join heuristic:
+/// the first push after `watch` is the snapshot.
+pub fn segment_cue_from_label(label: Option<&str>, first_after_watch: bool) -> SegmentCue {
+    match label {
+        Some("snapshot") => SegmentCue::Snapshot,
+        Some("activation") => SegmentCue::Activation,
+        _ if first_after_watch => SegmentCue::Snapshot,
+        _ => SegmentCue::Activation,
+    }
+}
+
+/// Same `at` means the API delivered one cue twice (local socket and room).
+pub fn same_segment_cue(
+    previous_at: u64,
+    previous_id: &str,
+    previous_cue: SegmentCue,
+    at: u64,
+    segment_id: &str,
+    cue: SegmentCue,
+) -> bool {
+    at > 0 && previous_at == at && previous_id == segment_id && previous_cue == cue
+}
+
+/// Snapshot plays only when the segment id changed. An activation always plays.
+pub fn should_fire_segment_osc(
+    previous_segment_id: Option<&str>,
+    segment_id: &str,
+    cue: SegmentCue,
+) -> bool {
+    if segment_id.is_empty() {
+        return false;
+    }
+    match cue {
+        SegmentCue::Activation => true,
+        SegmentCue::Snapshot => previous_segment_id != Some(segment_id),
+    }
+}
+
+pub fn osc_for_segment_ids(
+    cfg: &Config,
+    room_id: &str,
+    segment_id: &str,
+) -> Result<(String, Vec<OscType>), OscSkip> {
+    if segment_id.is_empty() {
+        return Err(OscSkip::Empty);
+    }
+    if !cfg.room_id.is_empty() && cfg.room_id != room_id {
+        return Err(OscSkip::RoomMismatch);
+    }
+    if !cfg.features.osc.enabled {
+        return Err(OscSkip::OscDisabled);
+    }
+    let Some(addr) = cfg.features.osc.segment_map.get(segment_id).cloned() else {
+        return Err(OscSkip::Unmapped);
+    };
+    let args = args_for_osc_address(&addr, &cfg.features.osc.default_args);
+    Ok((addr, args))
+}
 
 /// If this active-segment payload should trigger an OSC send, return `(address, args)`.
 pub fn osc_action_for_segment(
@@ -9,20 +84,7 @@ pub fn osc_action_for_segment(
     payload: &str,
 ) -> Option<(String, Vec<OscType>)> {
     let seg = SegmentActivated::from_json(payload).ok()?;
-    if !cfg.room_id.is_empty() && cfg.room_id != seg.room_id {
-        return None;
-    }
-    if !cfg.features.osc.enabled {
-        return None;
-    }
-    let addr = cfg
-        .features
-        .osc
-        .segment_map
-        .get(&seg.segment_id)
-        .cloned()?;
-    let args = default_args_to_osc(&cfg.features.osc.default_args);
-    Some((addr, args))
+    osc_for_segment_ids(cfg, &seg.room_id, &seg.segment_id).ok()
 }
 
 #[cfg(test)]
@@ -44,7 +106,106 @@ mod tests {
         let a = osc_action_for_segment(&cfg, payload);
         let (path, args) = a.expect("some");
         assert_eq!(path, "/set/selected/tile/0/0/play");
-        assert_eq!(args.len(), 1);
+        assert_eq!(args, vec![OscType::Int(1)]);
+    }
+
+    #[test]
+    fn play_sends_integer_one_when_default_args_empty() {
+        let mut cfg = Config::default();
+        cfg.room_id = "room-a".to_string();
+        cfg.features.osc.enabled = true;
+        cfg.features.osc.port = 8090;
+        cfg.features.osc.segment_map.insert(
+            "4".to_string(),
+            "/set/0/tile/0/4/play".to_string(),
+        );
+        let payload = r#"{"roomId":"room-a","showId":"s","segmentId":"4","segmentTitle":"x"}"#;
+        let (_path, args) = osc_action_for_segment(&cfg, payload).expect("some");
+        assert_eq!(args, vec![OscType::Int(1)]);
+    }
+
+    #[test]
+    fn volume_path_stays_float() {
+        let mut cfg = Config::default();
+        cfg.room_id = "room-a".to_string();
+        cfg.features.osc.enabled = true;
+        cfg.features.osc.port = 8090;
+        cfg.features.osc.default_args = vec![0.4];
+        cfg.features.osc.segment_map.insert(
+            "4".to_string(),
+            "/set/0/tile/0/4/volume".to_string(),
+        );
+        let payload = r#"{"roomId":"room-a","showId":"s","segmentId":"4","segmentTitle":"x"}"#;
+        let (_path, args) = osc_action_for_segment(&cfg, payload).expect("some");
+        assert_eq!(args, vec![OscType::Float(0.4)]);
+    }
+
+    #[test]
+    fn activation_replays_the_segment_already_on() {
+        assert!(should_fire_segment_osc(
+            Some("4"),
+            "4",
+            SegmentCue::Activation
+        ));
+    }
+
+    #[test]
+    fn snapshot_does_not_replay_the_same_segment() {
+        assert!(!should_fire_segment_osc(
+            Some("4"),
+            "4",
+            SegmentCue::Snapshot
+        ));
+        assert!(should_fire_segment_osc(None, "4", SegmentCue::Snapshot));
+        assert!(should_fire_segment_osc(
+            Some("3"),
+            "4",
+            SegmentCue::Snapshot
+        ));
+    }
+
+    #[test]
+    fn duplicate_delivery_of_one_cue_is_the_same_at() {
+        assert!(same_segment_cue(
+            10,
+            "4",
+            SegmentCue::Activation,
+            10,
+            "4",
+            SegmentCue::Activation
+        ));
+        assert!(!same_segment_cue(
+            10,
+            "4",
+            SegmentCue::Snapshot,
+            10,
+            "4",
+            SegmentCue::Activation
+        ));
+        assert!(!same_segment_cue(
+            10,
+            "4",
+            SegmentCue::Activation,
+            11,
+            "4",
+            SegmentCue::Activation
+        ));
+    }
+
+    #[test]
+    fn untagged_join_is_a_snapshot_and_later_events_activate() {
+        assert_eq!(
+            segment_cue_from_label(None, true),
+            SegmentCue::Snapshot
+        );
+        assert_eq!(
+            segment_cue_from_label(None, false),
+            SegmentCue::Activation
+        );
+        assert_eq!(
+            segment_cue_from_label(Some("activation"), true),
+            SegmentCue::Activation
+        );
     }
 
     #[test]

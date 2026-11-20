@@ -70,7 +70,7 @@ export function siteShopScopeId(tripId: string, siteId: string): string {
   return `trip:${tripId}:site:${siteId}`
 }
 
-/** A site opens a shop when it lists custom offers or sells records (ADR 0214). */
+/** A site opens a shop when it lists custom offers or sells records (ADR 0222). */
 export function hasSiteShop(site: TripSite): boolean {
   return siteShopRequest(site) !== null
 }
@@ -181,7 +181,7 @@ export function nextSiteAhead(state: TripState, map: TripMap, mile: number): Tri
 
 /**
  * Once the room pulls off at an optional site, signs and skip polls for sites
- * this close past it wait until the van leaves the stop (ADR 0217).
+ * this close past it wait until the van leaves the stop (ADR 0225).
  */
 export const PULL_OFF_HOLD_MILES = 3
 

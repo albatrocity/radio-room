@@ -174,7 +174,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
 
   private shopping!: ShoppingSessionHelper
 
-  /** Room shop rounds for other plugins, e.g. road-trip site stops (ADR 0206). */
+  /** Room shop rounds for other plugins, e.g. road-trip site stops (ADR 0214). */
   readonly capabilities: PluginCapabilities = {
     shopAccess: {
       openRoomShop: (req) => this.openRoomShop(req),
@@ -908,7 +908,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     return { eligible, extras, ...(scope.sample ? { sample: scope.sample } : {}) }
   }
 
-  /** The scope's composed shop with its record bin stocked (ADR 0214, 0216). */
+  /** The scope's composed shop with its record bin stocked (ADR 0222, 0224). */
   private scopedShop(scope: RoomShopScope): ItemShopsShopCatalogEntry {
     return withPhysicalMediaStock(
       offersOnlyShop(scope),
@@ -917,7 +917,7 @@ export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
     )
   }
 
-  /** Resolve picks into record SKUs and resync catalogs when any changed (ADR 0216). */
+  /** Resolve picks into record SKUs and resync catalogs when any changed (ADR 0224). */
   private async registerPicks(picks: readonly PhysicalMediaPick[]): Promise<void> {
     if (await this.localLibrary.registerPicks(picks)) await this.resyncDerivedCatalogs()
   }

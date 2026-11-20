@@ -1,5 +1,5 @@
 /**
- * Browser-safe entry for the Game Studio trip simulator (ADR 0213). Must not
+ * Browser-safe entry for the Game Studio trip simulator (ADR 0221). Must not
  * import `./index` (the plugin), only the pure trip runtime and presenters.
  */
 export {

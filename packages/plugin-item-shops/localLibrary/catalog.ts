@@ -30,8 +30,8 @@ export function buildEffectiveItemCatalog(
 }
 
 /**
- * A shop with its `physicalMedia` bin appended to `availableItems` (ADR 0214,
- * 0216): matching library records plus stockable picks, in one pool. Records
+ * A shop with its `physicalMedia` bin appended to `availableItems` (ADR 0222,
+ * 0224): matching library records plus stockable picks, in one pool. Records
  * are one-off copies, so a stocked bin samples distinct offers.
  */
 export function withPhysicalMediaStock(
@@ -53,7 +53,7 @@ export function withPhysicalMediaStock(
   return { ...shop, availableItems: [...shop.availableItems, ...bin], distinctOffers: true }
 }
 
-/** Picks that defined-in-code shops carry, registered like a site's (ADR 0216). */
+/** Picks that defined-in-code shops carry, registered like a site's (ADR 0224). */
 export function codeShopPicks(): PhysicalMediaPick[] {
   return SHOP_CATALOG.flatMap((shop) => shop.physicalMedia?.picks ?? [])
 }

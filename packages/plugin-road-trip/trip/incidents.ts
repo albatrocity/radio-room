@@ -55,7 +55,7 @@ import {
 /**
  * The incident engine (M4): one incident at a time, one step at a time,
  * every step ending on its own (D22). Incidents start from trip events
- * compiled by `compileEventSteps` (ADR 0220). Pure, like `./transitions`.
+ * compiled by `compileEventSteps` (ADR 0228). Pure, like `./transitions`.
  */
 
 type Acc = { next: TripState; log: TripLogEvent[]; effects: TripEffect[] }

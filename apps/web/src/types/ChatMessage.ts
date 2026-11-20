@@ -17,7 +17,7 @@ export type ChatMessage = {
     maskedUserIds?: string[]
     /** Label token replaced when piercing `maskedUserIds` (default `"Somebody"`). */
     maskedLabel?: string
-    /** Themed system message renderer (ADR 0208); unknown themes render plain. */
+    /** Themed system message renderer (ADR 0216); unknown themes render plain. */
     theme?: PresentationTheme
     icon?: string
     action?: ChatMessageAction

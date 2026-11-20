@@ -80,10 +80,10 @@ import {
   type SharedPlaybackFormats,
 } from "./sharedPlayback"
 
-/** Resolved picks by record shortId (ADR 0216), so sold records outlive the stop. */
+/** Resolved picks by record shortId (ADR 0224), so sold records outlive the stop. */
 export const PICKED_RECORDS_KEY = "record-picks:v1"
 
-/** What a request's picks can stock in this room (ADR 0216). */
+/** What a request's picks can stock in this room (ADR 0224). */
 export type PickAvailability = {
   total: number
   available: number
@@ -119,7 +119,7 @@ export function sourceAlbumKey(ref: RecordAlbumRef): string {
 
 /**
  * The album a non-local queued track sits on, read from the media source's own
- * track data (ADR 0216). Local tracks match by Navidrome membership instead.
+ * track data (ADR 0224). Local tracks match by Navidrome membership instead.
  */
 export function sourceAlbumOf(item: QueueItem): RecordAlbumRef | undefined {
   const sourceId = item.mediaSource?.type
@@ -151,7 +151,7 @@ function nowPlayingFrameOf(
 export class LocalLibraryModule {
   grantCatalog: ItemCatalogEntry[] = ITEM_CATALOG.filter((e) => e.localLibraryGrant)
   derivedPhysicalMedia: ItemCatalogEntry[] = []
-  /** Record SKUs for resolved picks (ADR 0216). */
+  /** Record SKUs for resolved picks (ADR 0224). */
   pickedRecords: ItemCatalogEntry[] = []
   private resolvedPicks = new Map<string, ResolvedPick>()
   /** pickKey → record shortId for picks that resolved. */
@@ -193,7 +193,7 @@ export class LocalLibraryModule {
     }
   }
 
-  /** Shop stock for picks: resolved, from a source the room offers (ADR 0216). */
+  /** Shop stock for picks: resolved, from a source the room offers (ADR 0224). */
   readonly pickStock: PickStock = (picks) => {
     const byShortId = new Map(this.pickedRecords.map((e) => [e.definition.shortId, e] as const))
     const out: { shortId: string; coinValue: number }[] = []
@@ -234,7 +234,7 @@ export class LocalLibraryModule {
   }
 
   /**
-   * Resolve picks against this room and keep their SKUs (ADR 0216). Re-derives
+   * Resolve picks against this room and keep their SKUs (ADR 0224). Re-derives
    * every pick so edited snapshots (lore, format) win. Returns whether any
    * record definition changed, so callers resync catalogs.
    */
@@ -530,7 +530,7 @@ export class LocalLibraryModule {
    */
   applyAlbumLore(loreByAlbumId: Readonly<Record<string, string>>): string[] {
     return this.patchLocalAlbumRecords((entry, albumId) => {
-      // A designer's lore on a pick wins over the album comment (ADR 0216).
+      // A designer's lore on a pick wins over the album comment (ADR 0224).
       if (this.resolvedPicks.get(entry.definition.shortId)?.pick.lore) return entry
       const lore = loreByAlbumId[albumId]?.trim()
       if (!lore || entry.definition.lore === lore) return entry
@@ -838,7 +838,7 @@ export class LocalLibraryModule {
 
   /**
    * Sleeves for tracks on a non-local source, matched by album against picked
-   * records' `recordAlbum` (ADR 0216). No RPC: the queued track already names
+   * records' `recordAlbum` (ADR 0224). No RPC: the queued track already names
    * its album. Keyed by {@link sourceAlbumKey}; when several picks share an
    * album (LP and CD), the first by shortId wins.
    */
@@ -882,7 +882,7 @@ export class LocalLibraryModule {
 
   /**
    * A held picked record unlocks queueing its own album's tracks on a
-   * restricted non-local source (ADR 0216). Search and track-less checks
+   * restricted non-local source (ADR 0224). Search and track-less checks
    * abstain, so a record never opens the whole catalog.
    */
   private async grantSourceRecordAccess(
@@ -940,7 +940,7 @@ export class LocalLibraryModule {
     }
   }
 
-  /** `shopAccess.setSharedPlayback` (ADR 0215). Empty `formats` clears the owner. */
+  /** `shopAccess.setSharedPlayback` (ADR 0223). Empty `formats` clears the owner. */
   async setSharedPlayback(ownerId: string, playback: SharedPlayback): Promise<void> {
     const context = this.getContext()
     if (!context) return
@@ -1078,7 +1078,7 @@ export class LocalLibraryModule {
 
   /**
    * Queueing from a restricted non-local source with a held picked record
-   * (ADR 0216): same device check and wear as a library record. A track no
+   * (ADR 0224): same device check and wear as a library record. A track no
    * held record covers passes, so other plugins' grants still work.
    */
   private async validateSourceRecordQueue(

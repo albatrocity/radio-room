@@ -50,6 +50,12 @@ export interface RoundRobinState {
   order: string[]
   /** All participating deputies (roster). */
   participants: string[]
+  /**
+   * Deputies removed via the Robin persona. `USER_JOINED` from a persona toggle
+   * must not put them back. Missing on old JSON → none. Cleared by deputize or
+   * an admin assigning Robin.
+   */
+  optedOutUserIds: string[]
   queuedThisRound: string[]
   currentIndex: number
   adminForcedUserId: string | null

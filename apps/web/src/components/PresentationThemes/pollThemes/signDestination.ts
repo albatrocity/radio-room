@@ -17,7 +17,7 @@ type NamedSite = Pick<TripStoreSite, "id" | "name" | "state">
 /**
  * The trip site a pull-off poll's `presentation.subjectId` points at, when the
  * store has revealed it. A mystery poll omits the id, and an unrevealed site
- * has no name here, so the sign stays inert (ADR 0221).
+ * has no name here, so the sign stays inert (ADR 0229).
  */
 export function signDestination(
   sites: readonly NamedSite[],

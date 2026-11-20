@@ -28,7 +28,7 @@ function Check({
   )
 }
 
-/** `tuning.vanPlayback`: the van is a playback device while the map is loaded (ADR 0215). */
+/** `tuning.vanPlayback`: the van is a playback device while the map is loaded (ADR 0223). */
 export function TripVanPlayback({ draft, onChange }: Props) {
   const formats = draft.tuning?.vanPlayback?.formats ?? PHYSICAL_MEDIA_FORMATS
   const toggle = (format: PhysicalMediaFormat, checked: boolean) =>

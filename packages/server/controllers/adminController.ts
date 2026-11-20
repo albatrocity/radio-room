@@ -1,8 +1,16 @@
 import { Server } from "socket.io"
 import { User } from "@repo/types/User"
 import { Room } from "@repo/types/Room"
+import type { DeputyBulkAction } from "@repo/types"
 import { SocketWithContext } from "../lib/socketWithContext"
 import { createAdminHandlers } from "../handlers/adminHandlersAdapter"
+import {
+  createVoicemailAdminHandlers,
+  type HideVoicemailPayload,
+  type ListVoicemailsPayload,
+  type PlayVoicemailPayload,
+  type SeekVoicemailPayload,
+} from "../handlers/voicemailAdminHandlersAdapter"
 
 /**
  * Admin Controller - Manages room administration events
@@ -13,6 +21,7 @@ import { createAdminHandlers } from "../handlers/adminHandlersAdapter"
 export function createAdminController(socket: SocketWithContext, io: Server): void {
   // Create handler instance once - it's reused for all events on this socket
   const handlers = createAdminHandlers(socket.context)
+  const voicemailHandlers = createVoicemailAdminHandlers(socket.context)
 
   // Create connections object once in closure - no need to pass repeatedly
   const connections = { socket, io }
@@ -77,6 +86,16 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
   )
 
   /**
+   * Deputize or de-deputize every user currently in the room (admin only).
+   */
+  socket.on(
+    "APPLY_DEPUTY_BULK_ACTION",
+    async (data: { action?: DeputyBulkAction } | undefined) => {
+      await handlers.applyDeputyBulkAction(connections, data?.action)
+    },
+  )
+
+  /**
    * Clear the room's playlist
    */
   socket.on("CLEAR_PLAYLIST", async () => {
@@ -136,6 +155,38 @@ export function createAdminController(socket: SocketWithContext, io: Server): vo
       await handlers.setEconomyScale(connections, data)
     },
   )
+
+  /**
+   * Voicemail admin deck (ADR 0212, phase 5). Allowed only to room admins while
+   * the room's active segment role is `voicemail`. The handlers reject
+   * otherwise via `*_FAILURE` events on the requesting socket.
+   */
+  socket.on("LIST_VOICEMAILS", async (data: ListVoicemailsPayload | undefined) => {
+    await voicemailHandlers.listVoicemails(connections, data)
+  })
+
+  socket.on("PLAY_VOICEMAIL", async (data: PlayVoicemailPayload | undefined) => {
+    await voicemailHandlers.playVoicemail(connections, data)
+  })
+
+  socket.on("HIDE_VOICEMAIL", async (data: HideVoicemailPayload | undefined) => {
+    await voicemailHandlers.hideVoicemail(connections, data)
+  })
+
+  // Phase 5 stubs: the admin browser owns transport. These reply with
+  // BRIDGE_UNAVAILABLE so the deck keeps using its local `<audio>` element.
+  // Phase 6 swaps the bodies in to call bridge RPC (source: "url").
+  socket.on("PAUSE_VOICEMAIL", async () => {
+    await voicemailHandlers.pauseVoicemail(connections)
+  })
+
+  socket.on("SEEK_VOICEMAIL", async (data: SeekVoicemailPayload | undefined) => {
+    await voicemailHandlers.seekVoicemail(connections, data)
+  })
+
+  socket.on("GET_VOICEMAIL_PLAYBACK", async () => {
+    await voicemailHandlers.getVoicemailPlayback(connections)
+  })
 
   /**
    * Execute a plugin action

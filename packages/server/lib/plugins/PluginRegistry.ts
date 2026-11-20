@@ -134,10 +134,10 @@ export class PluginRegistry {
   /** Room-scoped plugin instances: roomId -> pluginName -> instance */
   private roomPlugins: Map<string, Map<string, RoomPluginInstance>> = new Map()
 
-  /** Declared capability → providing plugin name (ADR 0206). */
+  /** Declared capability → providing plugin name (ADR 0214). */
   private capabilityProviders: Map<PluginCapabilityName, string> = new Map()
 
-  /** Plugins whose schedules fire regardless of `enabled` (ADR 0205). */
+  /** Plugins whose schedules fire regardless of `enabled` (ADR 0213). */
   private schedulesIgnoreEnabled: Set<string> = new Set()
 
   private api: PluginAPIImpl
@@ -175,7 +175,7 @@ export class PluginRegistry {
 
   /**
    * Route a capability call to the room's instance of the declaring plugin
-   * (ADR 0206). Initializes the provider on demand; never throws.
+   * (ADR 0214). Initializes the provider on demand; never throws.
    */
   async requestCapability(
     roomId: string,

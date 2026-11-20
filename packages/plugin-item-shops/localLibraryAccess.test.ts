@@ -1399,7 +1399,7 @@ describe("ItemShopsPlugin local library grants", () => {
       )
     })
 
-    describe("shared playback (the trip van, ADR 0215)", () => {
+    describe("shared playback (the trip van, ADR 0223)", () => {
       function cdWithoutDevice() {
         return setup({
           extraItems: [cdStack()],

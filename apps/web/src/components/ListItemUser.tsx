@@ -110,10 +110,11 @@ const ListItemUser = ({
   // The listener list always shows the true username — never a presented
   // identity, even for the subject themselves (ADR 0150 §3).
   const displayName = user.username || "anonymous"
+  // On their own row admins get persona toggles only (no self-demote or self-kick).
+  const canTogglePersonas = !!onTogglePersona && assignablePersonas.length > 0
   const showAdminMenu =
-    !isSelf &&
     currentUser?.isAdmin &&
-    (onKickUser || onDesignateAdmin || onTogglePersona || assignablePersonas.length > 0)
+    (isSelf ? canTogglePersonas : onKickUser || onDesignateAdmin || canTogglePersonas)
 
   const peekButton = (
     <Tooltip content="Peek inventory" positioning={{ placement: "top" }}>
@@ -227,7 +228,7 @@ const ListItemUser = ({
                 <Portal>
                   <Menu.Positioner>
                     <Menu.Content>
-                      {onDesignateAdmin && (
+                      {onDesignateAdmin && !isSelf && (
                         <Menu.Item value="admin" onClick={() => onDesignateAdmin(user.userId)}>
                           <Icon as={LuCrown} boxSize={4} />
                           {user.isAdmin ? "Remove admin" : "Make admin"}
@@ -249,7 +250,7 @@ const ListItemUser = ({
                             </Menu.Item>
                           )
                         })}
-                      {onKickUser && !isAdmin && (
+                      {onKickUser && !isAdmin && !isSelf && (
                         <Menu.Item
                           value="kick"
                           color="fg.error"

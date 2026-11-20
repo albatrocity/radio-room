@@ -545,7 +545,7 @@ export interface PollsPluginAPI {
     /** Relative duration from server now (ADR 0189). */
     durationMs?: number | null
     announce?: boolean
-    /** Themed look for the poll card (ADR 0208). Plugin-only; admins can't set it. */
+    /** Themed look for the poll card (ADR 0216). Plugin-only; admins can't set it. */
     presentation?: PollPresentation
   }): Promise<
     | { ok: true; poll: Poll }
@@ -912,7 +912,7 @@ export interface CatalogPluginAPI {
   }): Promise<Map<string, { playlistIds: string[]; albumIds: string[] }>>
 
   /**
-   * Track ids on an album in one of the room's metadata sources (ADR 0216).
+   * Track ids on an album in one of the room's metadata sources (ADR 0224).
    * Uses the room's credentials and the browse cache. Returns [] on failure.
    */
   getAlbumTrackIds(params: { roomId: string; sourceId: string; albumId: string }): Promise<string[]>
@@ -1079,7 +1079,7 @@ export interface PluginAPI {
   setPluginConfig(roomId: string, pluginName: string, config: any): Promise<void>
 
   /**
-   * Call a capability another plugin declares (ADR 0206). Routed by the
+   * Call a capability another plugin declares (ADR 0214). Routed by the
    * registry to the room's instance of the declaring plugin; there is no
    * direct plugin lookup. Returns `unsupported` when nothing declares it.
    */
@@ -1803,7 +1803,7 @@ export interface Plugin {
   getComponentState?(): Promise<PluginComponentState>
 
   /**
-   * Capabilities this plugin offers to other plugins (ADR 0206). Declared on
+   * Capabilities this plugin offers to other plugins (ADR 0214). Declared on
    * the instance; the registry indexes providers by key at registration and
    * routes `api.requestCapability` calls to the room's instance.
    */
@@ -1812,7 +1812,7 @@ export interface Plugin {
   /**
    * Deliver durable schedules even when room config has `enabled: false`.
    * For plugins whose runtime mode is independent of the flag (road-trip's
-   * loaded map, ADR 0205). Read once from the factory instance.
+   * loaded map, ADR 0213). Read once from the factory instance.
    */
   schedulesIgnoreEnabled?: boolean
 
@@ -1910,7 +1910,7 @@ export interface Plugin {
    * Grant a user access to a restricted metadata source (ADR 0088).
    * Called when evaluating search/queue access for bridge rooms.
    * Any plugin returning `"grant"` wins; errors/timeouts count as `"abstain"` (fail-closed).
-   * Queue checks pass `trackId`, so a grant can cover one album (ADR 0216).
+   * Queue checks pass `trackId`, so a grant can cover one album (ADR 0224).
    */
   grantMetadataSourceAccess?(params: {
     roomId: string

@@ -108,9 +108,19 @@ function setup(configOverrides: Partial<RoundRobinDjConfig> = {}) {
         assignedAt: new Date().toISOString(),
       })
     }),
-    remove: vi.fn(async (userId: string) => {
+    remove: vi.fn(async (userId: string, personaId: string = "robin") => {
       holders.delete(userId)
       assignments.delete(userId)
+      // PersonaService emits PERSONA_REMOVED for plugin-driven badge changes too.
+      const fullId = personaId.startsWith("plugin:")
+        ? personaId
+        : `plugin:round-robin-dj:${personaId}`
+      await emit(lifecycleHandlers, "PERSONA_REMOVED", {
+        roomId: ROOM,
+        userId,
+        personaId: fullId,
+        user: { userId, username: userId.toUpperCase() },
+      })
     }),
     getRoomPersonas: vi.fn(async () => []),
     getUserPersonas: vi.fn(async (userId: string) => {
@@ -249,9 +259,10 @@ describe("RoundRobinDjPlugin", () => {
     expect(lifecycleHandlers.has("USER_LEFT")).toBe(true)
     expect(lifecycleHandlers.has("USER_JOINED")).toBe(true)
     expect(lifecycleHandlers.has("PERSONA_ASSIGNED")).toBe(true)
+    expect(lifecycleHandlers.has("PERSONA_REMOVED")).toBe(true)
 
     const schema = plugin.getConfigSchema()
-    expect(schema.quickAccess).toEqual(["advanceRound"])
+    expect(schema.quickAccess).toEqual(["advanceRound", "resetRounds"])
     expect(schema.layout.some((i) => typeof i === "object" && i.type === "action")).toBe(true)
 
     const components = plugin.getComponentSchema()
@@ -695,6 +706,149 @@ describe("RoundRobinDjPlugin", () => {
 
     const state = JSON.parse((await storage.get(STATE_KEY))!)
     expect(state.adminForcedUserId).toBe("b")
+  })
+
+  it("clears an admin-forced Robin without dropping that deputy from the rotation", async () => {
+    const { plugin, context, storage, lifecycleHandlers, personas } = setup({
+      enabled: true,
+      mode: "nonSequential",
+    })
+    await plugin.register(context)
+
+    personas.getUserPersonas.mockResolvedValueOnce([
+      {
+        personaId: "plugin:round-robin-dj:robin",
+        assignedBy: "admin-1",
+        assignedAt: new Date().toISOString(),
+      },
+    ])
+    await emit(lifecycleHandlers, "PERSONA_ASSIGNED", {
+      roomId: ROOM,
+      userId: "b",
+      personaId: "plugin:round-robin-dj:robin",
+    })
+    await emit(lifecycleHandlers, "PERSONA_REMOVED", {
+      roomId: ROOM,
+      userId: "b",
+      personaId: "plugin:round-robin-dj:robin",
+      user: { userId: "b", username: "B" },
+    })
+
+    const state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.adminForcedUserId).toBeNull()
+    expect(state.participants.sort()).toEqual(["a", "b"])
+  })
+
+  it("drops an admin out of the rotation when their Robin persona is removed", async () => {
+    const { plugin, context, storage, lifecycleHandlers, api, personas } = setup({
+      enabled: true,
+      mode: "forwardAndBack",
+    })
+    api.getUsers.mockResolvedValue([
+      { userId: "admin-1", username: "Admin", isDeputyDj: true },
+      { userId: "a", username: "A", isDeputyDj: true },
+      { userId: "b", username: "B", isDeputyDj: true },
+    ] as User[])
+    await plugin.register(context)
+    personas.assign.mockClear()
+
+    await emit(lifecycleHandlers, "PERSONA_REMOVED", {
+      roomId: ROOM,
+      userId: "admin-1",
+      personaId: "plugin:round-robin-dj:robin",
+      user: { userId: "admin-1", username: "Admin" },
+    })
+
+    let state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.participants.sort()).toEqual(["a", "b"])
+    expect(state.optedOutUserIds).toEqual(["admin-1"])
+    expect(state.order).not.toContain("admin-1")
+
+    await emit(lifecycleHandlers, "USER_JOINED", {
+      roomId: ROOM,
+      user: { userId: "admin-1", username: "Admin", isDeputyDj: true },
+    })
+    state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.participants.sort()).toEqual(["a", "b"])
+    expect(personas.assign).not.toHaveBeenCalledWith("admin-1", "robin")
+    expect(personas.assign).not.toHaveBeenCalledWith("admin-1", "robin")
+    expect(api.sendSystemMessage).toHaveBeenCalledWith(
+      ROOM,
+      "Round Robin: ADMIN-1 left the rotation",
+      { type: "alert", status: "info" },
+    )
+
+    await emit(lifecycleHandlers, "QUEUE_CHANGED", {
+      roomId: ROOM,
+      queue: [queueItem("a", "t1")],
+    })
+    await emit(lifecycleHandlers, "QUEUE_CHANGED", {
+      roomId: ROOM,
+      queue: [queueItem("a", "t1", Date.now() - 1), queueItem("b", "t2")],
+    })
+
+    state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.participants.sort()).toEqual(["a", "b"])
+    expect(state.round).toBe(2)
+    expect(state.direction).toBe(-1)
+    expect(state.queuedThisRound).toEqual([])
+    expect(state.order[state.currentIndex]).toBe("b")
+  })
+
+  it("keeps a deputy in the rotation when the plugin moves the Robin badge", async () => {
+    const { plugin, context, storage, lifecycleHandlers } = setup({
+      enabled: true,
+      mode: "forwardAndBack",
+    })
+    await plugin.register(context)
+
+    await emit(lifecycleHandlers, "QUEUE_CHANGED", {
+      roomId: ROOM,
+      queue: [queueItem("a", "t1")],
+    })
+
+    const state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.participants.sort()).toEqual(["a", "b"])
+    expect(state.queuedThisRound).toEqual(["a"])
+    expect(state.order).toEqual(["a"])
+  })
+
+  it("resetRounds starts round 1 over with the current rotation", async () => {
+    const { plugin, context, storage, lifecycleHandlers } = setup({
+      enabled: true,
+      mode: "forwardAndBack",
+      autoAdvanceRounds: false,
+    })
+    await plugin.register(context)
+
+    await emit(lifecycleHandlers, "PERSONA_REMOVED", {
+      roomId: ROOM,
+      userId: "a",
+      personaId: "plugin:round-robin-dj:robin",
+      user: { userId: "a", username: "A" },
+    })
+    await emit(lifecycleHandlers, "QUEUE_CHANGED", {
+      roomId: ROOM,
+      queue: [queueItem("b", "t1")],
+    })
+
+    const denied = await plugin.executeAction("resetRounds", { userId: "b", username: "B" })
+    expect(denied.success).toBe(false)
+
+    const ok = await plugin.executeAction("resetRounds", {
+      userId: "admin-1",
+      username: "Admin",
+    })
+    expect(ok.success).toBe(true)
+
+    const state = JSON.parse((await storage.get(STATE_KEY))!)
+    expect(state.participants).toEqual(["b"])
+    expect(state.order).toEqual([])
+    expect(state.queuedThisRound).toEqual([])
+    expect(state.round).toBe(1)
+    expect(state.orderLocked).toBe(false)
+    expect(state.phase).toBe("open")
+    expect(state.direction).toBe(1)
   })
 
   it("advanceRound action requires admin and advances state", async () => {

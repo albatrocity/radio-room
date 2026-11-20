@@ -25,10 +25,7 @@ export function canonicalTrackId(id: string | null | undefined): string | null {
   return trimmed.startsWith(prefix) ? trimmed.slice(prefix.length) : trimmed
 }
 
-export function trackIdsEqual(
-  a: string | null | undefined,
-  b: string | null | undefined,
-): boolean {
+export function trackIdsEqual(a: string | null | undefined, b: string | null | undefined): boolean {
   const ca = canonicalTrackId(a)
   const cb = canonicalTrackId(b)
   if (!ca || !cb) return false
@@ -66,10 +63,7 @@ export function isApproachingEnd(
   )
 }
 
-function sameTrack(
-  current: TransportSnapshot,
-  previous: TransportSnapshot | null,
-): boolean {
+function sameTrack(current: TransportSnapshot, previous: TransportSnapshot | null): boolean {
   if (!current.trackId || !previous?.trackId) return true
   return trackIdsEqual(current.trackId, previous.trackId)
 }

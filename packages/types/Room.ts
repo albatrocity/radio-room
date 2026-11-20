@@ -84,6 +84,8 @@ export type Room = {
   showId?: string | null
   /** Currently active segment within the attached show */
   activeSegmentId?: string | null
+  /** Role of the active segment (`standard` | `voicemail`); set on activation (ADR 0212). */
+  activeSegmentRole?: "standard" | "voicemail" | null
   /** Placement id (`show_segment.id`) for the active segment; disambiguates duplicate segment instances */
   activeShowSegmentId?: string | null
   /** When true, non-admins see the show timeline in the room sidebar */

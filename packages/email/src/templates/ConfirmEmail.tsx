@@ -30,8 +30,8 @@ export function ConfirmEmail({ confirmUrl, logoUrl }: ConfirmEmailProps) {
           ) : null}
           <Heading style={heading}>Confirm your subscription</Heading>
           <Text style={text}>
-            Thanks for signing up for Listening Room updates. Click the button below to confirm your
-            email address.
+            Thanks for signing up for Listening Room updates. Click the button below to open a page
+            where you can confirm your email address.
           </Text>
           <Section style={buttonSection}>
             <Button href={confirmUrl} style={button}>

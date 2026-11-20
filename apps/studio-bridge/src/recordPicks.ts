@@ -20,7 +20,7 @@ import {
 } from "./recordSourceCredentials.js"
 
 /**
- * Album lookups behind Game Studio's record picker (ADR 0216). The only
+ * Album lookups behind Game Studio's record picker (ADR 0224). The only
  * studio-bridge routes that reach the network: Spotify with the app's client
  * credentials, the designer's Navidrome over Subsonic. Credentials come from
  * the env, the repo-root `.env`, or the bridge daemon's config
@@ -188,7 +188,7 @@ type SubsonicLibraryAlbum = SubsonicAlbum & {
 
 /**
  * The designer's Navidrome albums as `LibraryAlbumRow`s, so Game Studio's
- * sandbox can derive records like a bridge room does (ADR 0216). Empty when
+ * sandbox can derive records like a bridge room does (ADR 0224). Empty when
  * Navidrome isn't configured or reachable.
  */
 export async function listLibraryAlbums(): Promise<LibraryAlbumRow[]> {

@@ -50,6 +50,8 @@ import {
   restoreTurnToEndOfRound,
   rejectionReason,
   removeUser,
+  optOutOfRotation,
+  resetRounds,
   type StateTransition,
 } from "./state"
 import { HoldStore, recentLiveEnqueue } from "./holds"
@@ -84,6 +86,7 @@ export {
   applyAdminRobin,
   clearAdminRobin,
   advanceRound,
+  resetRounds,
   applyModeChange,
   shouldUseExclusiveRobin,
 } from "./state"
@@ -177,25 +180,29 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
   ): Promise<{ success: boolean; message?: string }> {
     if (!this.context) return { success: false, message: "Plugin not ready" }
 
+    if (action !== "advanceRound" && action !== "resetRounds") {
+      return { success: false, message: `Unknown action: ${action}` }
+    }
+
+    if (!initiator?.userId) {
+      return { success: false, message: "Admin required" }
+    }
+    const isAdmin = await this.context.api.isRoomAdmin(this.context.roomId, initiator.userId)
+    if (!isAdmin) {
+      return { success: false, message: "Admin required" }
+    }
+
+    const config = await this.getConfig()
+    if (!config?.enabled) {
+      return { success: false, message: "Round Robin DJ is not enabled" }
+    }
+
+    const state = await this.loadState()
+    if (!state) {
+      return { success: false, message: "No active round-robin state" }
+    }
+
     if (action === "advanceRound") {
-      if (!initiator?.userId) {
-        return { success: false, message: "Admin required" }
-      }
-      const isAdmin = await this.context.api.isRoomAdmin(this.context.roomId, initiator.userId)
-      if (!isAdmin) {
-        return { success: false, message: "Admin required" }
-      }
-
-      const config = await this.getConfig()
-      if (!config?.enabled) {
-        return { success: false, message: "Round Robin DJ is not enabled" }
-      }
-
-      const state = await this.loadState()
-      if (!state) {
-        return { success: false, message: "No active round-robin state" }
-      }
-
       const transition = advanceRound(state)
       await this.persistAndSync(transition, config)
       await this.context.api.sendSystemMessage(
@@ -206,7 +213,16 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
       return { success: true, message: `Advanced to round ${transition.state.round}` }
     }
 
-    return { success: false, message: `Unknown action: ${action}` }
+    await this.holds.clearHoldsForUsers(state.participants)
+    const next = resetRounds(state)
+    await this.saveState(next)
+    await this.finalizeAfterStateChange(next, config, { flush: false })
+    await this.context.api.sendSystemMessage(
+      this.context.roomId,
+      "Round Robin: rounds reset — round 1 is open",
+      { type: "alert", status: "info" },
+    )
+    return { success: true, message: "Reset to round 1" }
   }
 
   async collectQueueFollowUps(roomId: string): Promise<QueueFollowUp[]> {
@@ -494,16 +510,31 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
     const fullId = `plugin:${this.name}:${ROBIN_PERSONA_ID}`
     if (data.personaId !== fullId) return
 
+    // Turn changes remove Robin from whoever just queued. That is not an opt-out.
+    if (this.robin.isApplyingOwnPersonaChange()) return
+
     const state = await this.loadState()
     if (!state) return
-    if (state.adminForcedUserId !== data.userId) {
-      await this.robin.sync(state)
+
+    if (state.adminForcedUserId === data.userId) {
+      const next = clearAdminRobin(state)
+      await this.saveState(next)
+      await this.finalizeAfterStateChange(next, config)
       return
     }
 
-    const next = clearAdminRobin(state)
-    await this.saveState(next)
-    await this.finalizeAfterStateChange(next, config)
+    if (!state.participants.includes(data.userId)) return
+
+    await this.holds.clearHold(data.userId)
+    const transition = optOutOfRotation(state, data.userId)
+    await this.persistAndSync(transition, config)
+    const [user] = await this.context.api.getUsersByIds([data.userId])
+    const name = user?.username ?? "A deputy"
+    await this.context.api.sendSystemMessage(
+      this.context.roomId,
+      `Round Robin: ${name} left the rotation`,
+      { type: "alert", status: "info" },
+    )
   }
 
   // ==========================================================================
@@ -519,6 +550,7 @@ export class RoundRobinDjPlugin extends BasePlugin<RoundRobinDjConfig> {
       return null
     }
     value.direction = value.direction === -1 ? -1 : 1
+    value.optedOutUserIds = value.optedOutUserIds ?? []
     this.stateCache = value
     return this.stateCache
   }

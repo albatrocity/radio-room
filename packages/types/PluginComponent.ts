@@ -29,6 +29,7 @@ export type PluginComponentArea =
   | "nowPlayingArt" // Overlay on the release artwork
   | "nowPlayingBadge" // Badges/indicators next to the now playing title
   | "nowPlaying" // General now playing area
+  | "playerControls" // Inline with the playlist / play / volume controls bar
   | "userListItem" // Next to each user in the user list
   | "userList" // Top/bottom of the user list
   | "gameStateTab" // Tab content in the user's game state modal
@@ -178,8 +179,11 @@ export type PluginButtonColorPalette =
  * confirmation popover.
  */
 export interface ButtonComponentProps {
+  /** Visible text; with `iconOnly`, the accessible name only. */
   label: string
   icon?: LucideIconName
+  /** Render just the icon (requires `icon`). */
+  iconOnly?: boolean
   opensModal?: string
   /** Plugin action identifier - dispatched via `EXECUTE_PLUGIN_ACTION`. */
   action?: string
@@ -416,7 +420,7 @@ export interface LyricHeroCardComponentProps {
 }
 
 /**
- * Room-visible slice of an escrow pool (ADR 0209), built by the owning plugin
+ * Room-visible slice of an escrow pool (ADR 0217), built by the owning plugin
  * so `pool-card` stays copy-free. No per-user pledge rows beyond the top few.
  */
 export type PoolCardView = {
@@ -442,7 +446,7 @@ export type PoolCardView = {
 }
 
 /**
- * Props for the shared pool-card (ADR 0209): Kickstarter campaigns and road-trip
+ * Props for the shared pool-card (ADR 0217): Kickstarter campaigns and road-trip
  * voluntary funds. The view comes from the plugin store at `poolKey`; pledges
  * call `pledgeAction` with `{ amount }`.
  */
@@ -457,7 +461,7 @@ export interface PoolCardComponentProps {
 }
 
 /**
- * Props for the road-trip-strip (Road Trip, ADR 0205): one line in `aboveChat`
+ * Props for the road-trip-strip (Road Trip, ADR 0213): one line in `aboveChat`
  * with the route, the van dot interpolated locally, and the next site.
  */
 export interface RoadTripStripComponentProps {

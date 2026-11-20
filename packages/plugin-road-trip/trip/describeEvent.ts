@@ -4,7 +4,7 @@ import type { TripLogEntry } from "./state"
 type IncidentEntry = Extract<TripLogEntry, { kind: "incident" }>
 type PartEntry = Extract<TripLogEntry, { kind: "part-installed" }>
 
-/** The event's name and icon as logged; logs written before ADR 0220 fall back to the preset. */
+/** The event's name and icon as logged; logs written before ADR 0228 fall back to the preset. */
 function incidentLabel(entry: IncidentEntry): { name: string; icon: string } {
   const preset = isIncidentPresetId(entry.incident) ? INCIDENT_PRESETS[entry.incident] : undefined
   return {

@@ -1,5 +1,5 @@
 /**
- * Game Studio trip simulator relay (ADR 0213). Game Studio posts its
+ * Game Studio trip simulator relay (ADR 0221). Game Studio posts its
  * `TripSimSnapshot` to `POST /trip-sim`; it lives beside the sandbox snapshot so
  * a sandbox `POST /sync` can't drop trip chat. When present it replaces the
  * Road Trip fixture in `stubRoadTrip.ts`.

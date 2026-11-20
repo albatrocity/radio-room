@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { bridgeRequestSchema, BRIDGE_SAY_MAX_CHARS, sanitizeBridgeSayText, bridgeSayCodePointLength } from "./protocol"
+import {
+  bridgeRequestSchema,
+  BRIDGE_SAY_MAX_CHARS,
+  sanitizeBridgeSayText,
+  bridgeSayCodePointLength,
+} from "./protocol"
 
 describe("BRIDGE_SAY_MAX_CHARS", () => {
   it("is 100", () => {

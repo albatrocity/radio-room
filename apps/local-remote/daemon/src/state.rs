@@ -25,6 +25,7 @@ pub struct StatusSnapshot {
     pub last_osc_address: Option<String>,
     pub last_osc_error: Option<String>,
     pub last_osc_at_ms: Option<u128>,
+    pub last_segment_note: Option<String>,
     pub last_farrago_ping_at_ms: Option<u128>,
     pub now_playing: NowPlayingSnapshot,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -40,6 +41,7 @@ pub struct AppState {
     pub last_osc_address: RwLock<Option<String>>,
     pub last_osc_error: RwLock<Option<String>>,
     pub last_osc_at_ms: RwLock<Option<u128>>,
+    pub last_segment_note: RwLock<Option<String>>,
     pub last_farrago_ping_at_ms: RwLock<Option<u128>>,
     pub farrago_board: RwLock<FarragoBoard>,
     pub reconnect: Notify,
@@ -72,6 +74,7 @@ impl AppState {
             last_osc_address: RwLock::new(None),
             last_osc_error: RwLock::new(None),
             last_osc_at_ms: RwLock::new(None),
+            last_segment_note: RwLock::new(None),
             last_farrago_ping_at_ms: RwLock::new(None),
             farrago_board: RwLock::new(FarragoBoard::default()),
             reconnect: Notify::new(),
@@ -105,6 +108,7 @@ impl AppState {
             last_osc_address: self.last_osc_address.read().ok().and_then(|g| g.clone()),
             last_osc_error: self.last_osc_error.read().ok().and_then(|g| g.clone()),
             last_osc_at_ms: self.last_osc_at_ms.read().ok().and_then(|g| *g),
+            last_segment_note: self.last_segment_note.read().ok().and_then(|g| g.clone()),
             last_farrago_ping_at_ms: self
                 .last_farrago_ping_at_ms
                 .read()
@@ -131,6 +135,12 @@ impl AppState {
 
     pub fn set_segment_socket_connected(&self, ok: bool) {
         self.segment_socket_connected.store(ok, Ordering::SeqCst);
+    }
+
+    pub fn set_segment_note(&self, note: impl Into<String>) {
+        if let Ok(mut w) = self.last_segment_note.write() {
+            *w = Some(note.into());
+        }
     }
 
     pub fn set_segment_socket_error(&self, msg: Option<String>) {

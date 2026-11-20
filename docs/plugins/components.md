@@ -96,6 +96,7 @@ getComponentSchema(): PluginComponentSchema {
 | `nowPlayingInfo`  | Inline with now playing details      | No                     |
 | `nowPlayingBadge` | Badge area near title                | No                     |
 | `nowPlayingArt`   | Overlay on album art                 | No                     |
+| `playerControls`  | Player controls bar, after playlist / play / volume (desktop and mobile) | No |
 | `playlistItem`    | Per-track in playlist                | Yes (track data)       |
 | `userList`        | User list section                    | No                     |
 | `userListItem`    | Per-user in list                     | Yes (user data)        |
@@ -112,7 +113,7 @@ getComponentSchema(): PluginComponentSchema {
 | `heading`          | Section heading            | `content`, `level`                                              |
 | `emoji`            | Emoji display              | `emoji`, `size`                                                 |
 | `icon`             | Icon display               | `icon`, `size`, `color`                                         |
-| `button`           | Clickable button           | `label`, `icon`, `opensModal`, `action`                         |
+| `button`           | Clickable button           | `label`, `icon`, `iconOnly`, `opensModal`, `action`, `confirmMessage` |
 | `badge`            | Status badge               | `label`, `variant`, `icon`, `tooltip`                           |
 | `leaderboard`      | Ranked list                | `dataKey`, `title`, `rowTemplate`, `maxItems`                   |
 | `countdown`        | Timer display              | `startKey`, `duration`, `text`, `pausedRemainingKey?`           |
@@ -125,7 +126,7 @@ getComponentSchema(): PluginComponentSchema {
 | `inventory-grid`   | Item grid (often in modal) | `showQuantity`, `allowUse`, `allowTrade`, `filterSourcePlugin?` |
 | `item-badge`       | Owns-item indicator        | `definitionId`, `showQuantity`                                  |
 | `quiz-question-card` | Quiz above-chat card     | `questionKey?`, `hint?` (input placeholder)                     |
-| `pool-card`        | Coin pool card (`aboveChat`) | `pledgeAction`, `poolKey?` (store key with a `PoolCardView`, default `"pool"`), `pledgeLabel?`, `defaultAmount?`. Pledges call `pledgeAction` with `{ amount }` ([ADR 0209](../adrs/0209-trip-funds-escrow-pool-and-levy.md)) |
+| `pool-card`        | Coin pool card (`aboveChat`) | `pledgeAction`, `poolKey?` (store key with a `PoolCardView`, default `"pool"`), `pledgeLabel?`, `defaultAmount?`. Pledges call `pledgeAction` with `{ amount }` ([ADR 0217](../adrs/0217-trip-funds-escrow-pool-and-levy.md)) |
 | `lyric-hero-card`  | Lyric Hero above-chat card | `hint?` (guess-input placeholder); per-phrase copy is `store.puzzle.hint` |
 | `queue-theme-brief-card` | Queue Theme brief     | (none — reads `pluginUserState`)                                |
 | `bingo-card`       | Playlist Bingo card        | (none — reads `pluginUserState`)                                |
@@ -368,7 +369,7 @@ getComponentSchema(): PluginComponentSchema {
 
 Tabs render in **registration order**; the built-in **Inventory** tab is always first.
 
-A tab's `showWhen` checks config fields first, then the plugin's store. So a tab can follow live state, e.g. road-trip's Trip tab uses `showWhen: { field: "tripActive", value: true }` with `tripActive` in `storeKeys` ([ADR 0205](../adrs/0205-road-trips-v1.md)).
+A tab's `showWhen` checks config fields first, then the plugin's store. So a tab can follow live state, e.g. road-trip's Trip tab uses `showWhen: { field: "tripActive", value: true }` with `tripActive` in `storeKeys` ([ADR 0213](../adrs/0213-road-trips-v1.md)).
 
 By default the whole tab body scrolls. Set `fillHeight: true` on the tab to make its body fill the Game surface's height instead, the way the built-in Storage tab does. Each child is stretched to share that height and must scroll its own overflow. Road-trip's Trip panel uses this to keep its header fixed above a scrolling trip log that stays pinned to the newest entries.
 

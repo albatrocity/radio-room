@@ -40,6 +40,11 @@ vi.mock("./AdapterService", () => ({
 vi.mock("../operations/playback/handlePlaybackVolumeChange", () => ({
   handlePlaybackVolumeChange: vi.fn().mockResolvedValue({ emitted: true }),
 }))
+vi.mock("../operations/playback/userPause", () => ({
+  setUserPause: vi.fn().mockResolvedValue(undefined),
+  getUserPause: vi.fn().mockResolvedValue(null),
+  clearUserPause: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock("../operations/dj/publishDeputyDjChanged", () => ({
   publishDeputyDjChanged: vi.fn().mockResolvedValue(undefined),
 }))
@@ -79,6 +84,7 @@ import {
   userFactory,
 } from "@repo/factories"
 import { publishDeputyDjChanged } from "../operations/dj/publishDeputyDjChanged"
+import { getUserPause, setUserPause, clearUserPause } from "../operations/playback/userPause"
 
 describe("DJService", () => {
   let djService: DJService
@@ -459,6 +465,16 @@ describe("DJService", () => {
         canResume: true,
       })
       expect(pause).toHaveBeenCalled()
+      expect(setUserPause).toHaveBeenCalledWith(
+        expect.objectContaining({
+          roomId: "room123",
+          record: expect.objectContaining({
+            trackId: "t1",
+            progressMs: 30_000,
+            durationMs: 180_000,
+          }),
+        }),
+      )
     })
 
     test("resumes when paused mid-track", async () => {
@@ -486,6 +502,50 @@ describe("DJService", () => {
         canResume: true,
       })
       expect(play).toHaveBeenCalled()
+      expect(clearUserPause).toHaveBeenCalled()
+    })
+
+    test("resumes from user-pause record when live snapshot has no position", async () => {
+      vi.mocked(findRoom).mockResolvedValue(room)
+      vi.mocked(isRoomAdmin).mockResolvedValue(true)
+      vi.mocked(getUserPause).mockResolvedValue({
+        trackId: "t1",
+        progressMs: 45_000,
+        durationMs: 180_000,
+        pausedAt: Date.now(),
+      })
+      const play = vi.fn().mockResolvedValue(undefined)
+      const playTrack = vi.fn().mockResolvedValue(undefined)
+      const getPlayback = vi.fn().mockResolvedValue({
+        state: "paused" as const,
+        track: null,
+        progressMs: null,
+        durationMs: null,
+        observed: false,
+      })
+      vi.mocked(getQueue).mockResolvedValue([
+        queueItemFactory.build({
+          track: {
+            ...queueItemFactory.build().track,
+            urls: [{ type: "resource" as const, url: "spotify:track:abc" }],
+          },
+        }),
+      ])
+      // @ts-ignore
+      djService["adapterService"].getRoomPlaybackController = vi.fn().mockResolvedValue({
+        api: { getPlayback, pause: vi.fn(), play, playTrack },
+      })
+
+      const result = await djService.togglePlayback("room123", "user123")
+
+      expect(result).toEqual({
+        success: true,
+        state: "playing",
+        action: "resumed",
+        canResume: true,
+      })
+      expect(play).toHaveBeenCalled()
+      expect(playTrack).not.toHaveBeenCalled()
     })
 
     test("starts next queue item when previous track finished at progress 0", async () => {

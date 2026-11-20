@@ -147,7 +147,7 @@ export type LibraryAlbumListItem = {
   coverArt?: string
   /** Navidrome userRating (1–5) when present; drives Physical Media rarity (ADR 0111). */
   userRating?: number
-  /** Navidrome album genres; filters record bins (ADR 0214). */
+  /** Navidrome album genres; filters record bins (ADR 0222). */
   genres?: string[]
 }
 

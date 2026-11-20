@@ -4,6 +4,7 @@ import { useCreateSegment } from "../../hooks/useSegments"
 import type {
   PluginPreset,
   SegmentPrivatePluginContent,
+  SegmentRole,
   SegmentRoomSettingsOverride,
   SegmentStatus,
 } from "@repo/types"
@@ -36,6 +37,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
       durationMinutes: "",
       isRecurring: false,
       status: "draft" as SegmentStatus,
+      role: "standard" as SegmentRole,
       tagIds: [] as string[],
       pluginPreset: null as PluginPreset | null,
       privatePluginContent: null as SegmentPrivatePluginContent | null,
@@ -54,6 +56,7 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
         duration,
         isRecurring: value.isRecurring,
         status: value.status,
+        role: value.role,
         tagIds: value.tagIds,
         pluginPreset: value.pluginPreset,
         privatePluginContent: value.privatePluginContent,
@@ -136,6 +139,35 @@ export function CreateSegmentModal({ open, onClose }: CreateSegmentModalProps) {
                             type="number"
                           />
                         </label>
+                      </Box>
+                    )}
+                  </form.Field>
+                </Box>
+                <Box mb={4}>
+                  <form.Field name="role">
+                    {(field) => (
+                      <Box>
+                        <Box mb={1} fontSize="sm" fontWeight="medium">
+                          Role
+                        </Box>
+                        <select
+                          value={field.state.value}
+                          onChange={(e) => field.handleChange(e.target.value as SegmentRole)}
+                          style={{
+                            width: "100%",
+                            padding: "8px",
+                            borderRadius: "6px",
+                            border: "1px solid var(--chakra-colors-border-muted)",
+                            background: "var(--chakra-colors-bg-panel)",
+                            color: "inherit",
+                          }}
+                        >
+                          <option value="standard">Standard</option>
+                          <option value="voicemail">Voicemails</option>
+                        </select>
+                        <Text fontSize="xs" color="fg.muted" mt={1}>
+                          Voicemails opens the admin inbox in the room while active.
+                        </Text>
                       </Box>
                     )}
                   </form.Field>

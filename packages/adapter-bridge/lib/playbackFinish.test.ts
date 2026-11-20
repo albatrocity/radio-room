@@ -48,10 +48,7 @@ describe("isApproachingEnd", () => {
 describe("isNaturalFinish", () => {
   it("treats playing in the last second as ready to advance", () => {
     expect(
-      isNaturalFinish(
-        { state: "playing", progressMs: DURATION - 400, durationMs: DURATION },
-        null,
-      ),
+      isNaturalFinish({ state: "playing", progressMs: DURATION - 400, durationMs: DURATION }, null),
     ).toBe(true)
   })
 
@@ -116,9 +113,7 @@ describe("isNaturalFinish", () => {
 
   it("does not treat a tiny loading duration as near end", () => {
     expect(isNearEnd(0, 800)).toBe(false)
-    expect(
-      isNaturalFinish({ state: "paused", progressMs: 0, durationMs: 800 }, null),
-    ).toBe(false)
+    expect(isNaturalFinish({ state: "paused", progressMs: 0, durationMs: 800 }, null)).toBe(false)
   })
 
   it("finishes a 6s track instead of waiting for the stuck watchdog", () => {

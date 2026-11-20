@@ -354,7 +354,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * Trip simulator (ADR 0213): step a Trip Map one timeline event at a time with
+ * Trip simulator (ADR 0221): step a Trip Map one timeline event at a time with
  * the real trip runtime, and mirror each step into the Room UI preview through
  * studio-bridge. Decisions are made here; the room is read-only.
  */

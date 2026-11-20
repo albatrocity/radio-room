@@ -277,7 +277,7 @@ function ResolutionEntry({
   )
 }
 
-/** Event inspector (ADR 0220): presentation, trigger, effect, resolution chain, beats, cost. */
+/** Event inspector (ADR 0228): presentation, trigger, effect, resolution chain, beats, cost. */
 export function TripEventInspector({ event, estimate, walletShare, onChange, onRemove }: Props) {
   const fuel = eventTrigger(event) === "fuel"
   const family = event.family ?? "none"

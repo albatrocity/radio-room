@@ -24,7 +24,7 @@ const ICONS: Record<string, LucideIconName> = {
 
 /**
  * GLB filenames in `items/<shortId>/`, published to `assets/items/<shortId>/` by
- * `apps/web/scripts/syncItemModels.sh` alongside Item Shops (ADR 0199, 0210).
+ * `apps/web/scripts/syncItemModels.sh` alongside Item Shops (ADR 0199, 0218).
  */
 export const ITEM_MODELS: Partial<Record<string, string>> = {}
 
