@@ -13,10 +13,11 @@ import {
 } from "@repo/road-trip-map"
 import {
   ARRIVAL_MILE_EPSILON,
-  AUTOMATIC_FUND_HOLD_MS,
   BACK_ON_THE_ROAD,
   exitTitle,
   findSite,
+  fundHoldMs,
+  fundPoolTitle,
   narrate,
   fundShareCopy,
   milesLabel,
@@ -231,10 +232,7 @@ export const gameSessionStarted: Transition = (state) => {
   return {
     next: { ...state, blockers: state.blockers.filter((b) => b.kind !== "no-session") },
     log: [{ kind: "resume", reason: "no-session" }],
-    effects:
-      state.status === "driving"
-        ? [BACK_ON_THE_ROAD]
-        : [],
+    effects: state.status === "driving" ? [BACK_ON_THE_ROAD] : [],
   }
 }
 
@@ -398,7 +396,9 @@ function applyDecision(
     })
   }
   if (input.votes) {
-    effects.push(pollResultSign(site, resolveSiteSettings(map, site).mystery, decision, input.votes))
+    effects.push(
+      pollResultSign(site, resolveSiteSettings(map, site).mystery, decision, input.votes),
+    )
   }
   return { next, log, effects }
 }
@@ -467,8 +467,7 @@ function openGasFund(
   const cost = gasCost(gallons, price, ctx.costScale)
   if (cost <= 0) return null
   const mode = state.fundsMode
-  const holdMs =
-    mode === "automatic" ? AUTOMATIC_FUND_HOLD_MS : ctx.map.tuning.funds.windowMinutes * 60_000
+  const holdMs = fundHoldMs(mode, ctx.map)
   const id = `fund:${state.tripId}:${site.id}:${ctx.now}`
   const fund: TripFund = {
     id,
@@ -490,7 +489,7 @@ function openGasFund(
       until: fund.endsAt,
       siteId: site.id,
     },
-    effect: { type: "open-fund", fund, title: `Gas at ${site.name}` },
+    effect: { type: "open-fund", fund, title: fundPoolTitle(fund, ctx.map) },
     summary:
       mode === "automatic"
         ? `Pumping ${gal} gal: ${cost} coins.`

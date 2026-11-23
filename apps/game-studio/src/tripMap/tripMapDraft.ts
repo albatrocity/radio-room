@@ -30,7 +30,12 @@ import {
   type TripMapInput,
   type TripSite,
 } from "@repo/road-trip-map"
-import { ITEM_CATALOG, SHOP_CATALOG, validateRoomShopRequest } from "@repo/plugin-item-shops"
+import {
+  ITEM_CATALOG,
+  pickKey,
+  SHOP_CATALOG,
+  validateRoomShopRequest,
+} from "@repo/plugin-item-shops"
 import { sampleComposableOffers } from "@repo/game-logic"
 import {
   isPhysicalMediaDefinition,
@@ -38,7 +43,6 @@ import {
   type ItemRarity,
   PHYSICAL_MEDIA_FORMAT_LABELS,
   type PhysicalMediaFormat,
-  type PhysicalMediaPick,
   type PickableRecordSource,
 } from "@repo/types"
 import type { SiteShopSample } from "@repo/road-trip-map"
@@ -59,10 +63,7 @@ export const PICK_SOURCE_LABEL: Record<PickableRecordSource, string> = {
   local: "Library",
 }
 
-/** One pick per album and format, matching how rooms key them (ADR 0224). */
-export function pickKey(pick: Pick<PhysicalMediaPick, "source" | "id" | "format">): string {
-  return `${pick.source}:${pick.id}:${pick.format ?? ""}`
-}
+export { pickKey }
 
 /** studio-bridge base URL (`VITE_STUDIO_BRIDGE_URL`). */
 export function studioBridgeUrl(): string {
@@ -354,10 +355,14 @@ export type AddBlankSiteResult =
  * A site with no preset: the designer supplies the name and slug.
  * Description and icon are placeholders the inspector can replace.
  */
-export function addBlankSite(draft: TripMapInput, input: { name: string; slug: string }): AddBlankSiteResult {
+export function addBlankSite(
+  draft: TripMapInput,
+  input: { name: string; slug: string },
+): AddBlankSiteResult {
   const name = input.name.trim()
   const slug = input.slug.trim()
-  if (!name || name.length > 60) return { ok: false, error: "Name is required (60 characters max)." }
+  if (!name || name.length > 60)
+    return { ok: false, error: "Name is required (60 characters max)." }
   if (slug.length > 64 || !SITE_SLUG.test(slug)) {
     return { ok: false, error: "Slug is lowercase letters, digits, and dashes." }
   }
@@ -424,9 +429,7 @@ export function projectFuel(map: TripMap, costScale: number): FuelProjection {
       arrivalPct: plan.tankGallons > 0 ? stop.gallonsOnArrival / plan.tankGallons : 0,
       stops: stop.stops,
       gallons: stop.gallons,
-      cost: stop.stops
-        ? gasCost(stop.gallons, site.services!.gas!.pricePerGallon, costScale)
-        : 0,
+      cost: stop.stops ? gasCost(stop.gallons, site.services!.gas!.pricePerGallon, costScale) : 0,
     }
   })
   return {
@@ -516,7 +519,11 @@ export type EventEstimate = {
  * What an event would charge at the preview economy (no parts). A fuel event
  * is priced where the no-vote plan runs dry, or at the end of the route.
  */
-export function estimateEvent(map: TripMap, eventId: string, costScale: number): EventEstimate | null {
+export function estimateEvent(
+  map: TripMap,
+  eventId: string,
+  costScale: number,
+): EventEstimate | null {
   const event = map.events?.find((e) => e.id === eventId)
   if (!event) return null
   const mile =

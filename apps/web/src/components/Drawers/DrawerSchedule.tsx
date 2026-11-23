@@ -23,7 +23,7 @@ function DrawerSchedule() {
       <Box p="sm" overflow="auto" h="100%">
         <div>
           <RoomSchedulePanel />
-          <VoicemailDeck />
+          {isSheet ? <VoicemailDeck /> : null}
         </div>
       </Box>
     </Drawer>

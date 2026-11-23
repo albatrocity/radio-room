@@ -1,4 +1,7 @@
 import { z } from "zod"
+import { TRIP_STORE_KEYS } from "@repo/road-trip-map"
+
+export { TRIP_STORE_KEYS }
 
 export const PLUGIN_NAME = "road-trip"
 export const ROAD_TRIP_TAB_ID = "trip"
@@ -32,18 +35,6 @@ export const defaultRoadTripConfig: RoadTripConfig = {
   tripFuel: "—",
   tripWarnings: "None",
 }
-
-export const TRIP_STORE_KEYS = [
-  "tripActive",
-  "trip",
-  "tripPool",
-  "tripPoolOpen",
-  "tripProgress",
-  "tripEta",
-  "tripNextSite",
-  "tripFuel",
-  "tripWarnings",
-] as const
 
 /** Skip polls give up and apply the default this close to the exit (M1). */
 export const POLL_GIVE_UP_BEFORE_EXIT_MS = 15_000

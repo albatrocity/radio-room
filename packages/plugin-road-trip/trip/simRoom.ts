@@ -11,7 +11,9 @@ import {
   type TripStore,
   type TriggerableIncidentId,
 } from "@repo/road-trip-map"
+import { SKIP_POLL_OPTIONS } from "../types"
 import { poolCardView, skipPollPresentation } from "../presenters"
+import { fundPoolTitle } from "./helpers"
 import { project } from "./ledger"
 import { buildStatusLines, buildTripStore } from "./projection"
 import type { SkipVotes, TripLogEntry } from "./state"
@@ -107,7 +109,10 @@ export function freezeStoreForRoom(store: TripStore, simNow: number, wallNow: nu
   }
   const incident = store.vanSheet.incident
   if (incident?.endsAt !== undefined) {
-    frozen.vanSheet = { ...store.vanSheet, incident: { ...incident, endsAt: shift(incident.endsAt) } }
+    frozen.vanSheet = {
+      ...store.vanSheet,
+      incident: { ...incident, endsAt: shift(incident.endsAt) },
+    }
   }
   return frozen
 }
@@ -115,8 +120,7 @@ export function freezeStoreForRoom(store: TripStore, simNow: number, wallNow: nu
 function tally(pollId: string, votes: SkipVotes, closedAt: number): PollHistoryEntry["results"] {
   const stopId = `${pollId}:stop`
   const skipId = `${pollId}:skip`
-  const winners =
-    votes.stop === votes.skip ? [] : votes.stop > votes.skip ? [stopId] : [skipId]
+  const winners = votes.stop === votes.skip ? [] : votes.stop > votes.skip ? [stopId] : [skipId]
   return {
     pollId,
     totalVotes: votes.stop + votes.skip,
@@ -273,7 +277,7 @@ export class TripSimRoom {
     if (fund?.mode === "voluntary" && sim.state.status === "driving") {
       const pool: EscrowPoolState = {
         id: fund.id,
-        title: fund.purpose === "gas" ? "Gas money" : "Road trip money",
+        title: fundPoolTitle(fund, sim.map),
         goal: fund.cost,
         openedAt: fund.openedAt - sim.now + wallNow,
         closesAt: null,
@@ -401,10 +405,10 @@ export class TripSimRoom {
       id: pollId,
       roomId: this.roomId,
       question: urgency ? `${urgency}. ${question}` : question,
-      options: [
-        { id: `${pollId}:stop`, label: "Pull off" },
-        { id: `${pollId}:skip`, label: "Keep driving" },
-      ],
+      options: SKIP_POLL_OPTIONS.map((option, index) => ({
+        id: `${pollId}:${index === 0 ? "stop" : "skip"}`,
+        label: option.label,
+      })),
       status: "open",
       settings: { hideRunningTotal: false },
       createdAt: publishedAt,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useMachine } from "@xstate/react"
 import {
   Badge,
   Box,
@@ -16,11 +17,7 @@ import {
 import { LuPause, LuPlay, LuRefreshCcw, LuTrash2 } from "react-icons/lu"
 import type { VoicemailListItem } from "@repo/types"
 
-import {
-  emitToSocket,
-  subscribeById,
-  unsubscribeById,
-} from "../actors/socketActor"
+import { emitToSocket, subscribeById, unsubscribeById } from "../actors/socketActor"
 import {
   useCurrentRoom,
   useIsAdmin,
@@ -28,6 +25,7 @@ import {
   useSettings,
 } from "../hooks/useActors"
 import { toast } from "../lib/toasts"
+import { voicemailTransportMachine } from "../machines/voicemailTransportMachine"
 
 // ---------------------------------------------------------------------------
 // Payload shapes (match packages/server/handlers/voicemailAdminHandlersAdapter.ts)
@@ -162,12 +160,10 @@ function formatRelative(createdAt: string, now: number): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Admin-only voicemail deck (ADR 0212, plan phase 5). Rendered next to the
- * schedule panel whenever the room's active segment role is `voicemail` and the
- * viewer is a room admin. Transport is browser-local in phase 5: a single
- * `<audio>` element plays whichever row the admin selects. Phase 6 will route
- * playback through the bridge `playUrl` RPC and fall back here when the bridge
- * is unavailable.
+ * Admin-only voicemail deck (ADR 0212). Shown while the active segment role is
+ * `voicemail` and the viewer is a room admin. One instance mounts: the sidebar
+ * at `sm` and up, the schedule drawer below that. Playback is either the DJ
+ * Mac URL sidechain or this deck's `<audio>` element, never both.
  */
 export default function VoicemailDeck() {
   const isAdmin = useIsAdmin()
@@ -178,7 +174,9 @@ export default function VoicemailDeck() {
   const visible = isAdmin && isVoicemailSegment && !!room?.id
 
   // Datetime window: default last 30 days → now. Changing either refetches.
-  const [from, setFrom] = useState<Date>(() => new Date(Date.now() - DEFAULT_WINDOW_DAYS * MS_PER_DAY))
+  const [from, setFrom] = useState<Date>(
+    () => new Date(Date.now() - DEFAULT_WINDOW_DAYS * MS_PER_DAY),
+  )
   const [to, setTo] = useState<Date>(() => new Date())
   const fromValue = useMemo(() => toDatetimeLocal(from), [from])
   const toValue = useMemo(() => toDatetimeLocal(to), [to])
@@ -188,37 +186,14 @@ export default function VoicemailDeck() {
   const [listLoading, setListLoading] = useState(false)
   const [listError, setListError] = useState<string | null>(null)
 
-  // Player state. `playbackUrl` is the URL currently loaded into the <audio>
-  // element — it may be the row's original list URL, or a fresh presigned GET
-  // returned by PLAY_VOICEMAIL_RESULT.
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null)
-  const [playing, setPlaying] = useState(false)
-  const [positionMs, setPositionMs] = useState(0)
-  const [durationMs, setDurationMs] = useState(0)
-  const [playError, setPlayError] = useState<string | null>(null)
-  /**
-   * When true, the DJ Mac's URL sidechain owns playback. The browser `<audio>`
-   * element is muted / paused; transport flows through PAUSE_VOICEMAIL /
-   * SEEK_VOICEMAIL / GET_VOICEMAIL_PLAYBACK. Flips to false the moment the
-   * bridge disconnects, acks `bridgeOk: false`, or reports `observed: false`.
-   */
-  const [bridgeOwnsPlayback, setBridgeOwnsPlayback] = useState(false)
+  const [transport, sendTransport] = useMachine(voicemailTransportMachine)
+  const sendTransportRef = useRef(sendTransport)
+  sendTransportRef.current = sendTransport
+  const { owner, selectedId, playbackUrl, playing, positionMs, durationMs, playError } =
+    transport.context
+  const bridgeOwnsPlayback = owner === "bridge"
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  // Mirror of `selectedId` so the long-lived socket subscriber can read the
-  // current selection without re-subscribing on every selection change.
-  const selectedIdRef = useRef<string | null>(null)
-  useEffect(() => {
-    selectedIdRef.current = selectedId
-  }, [selectedId])
-
-  // Same pattern for `bridgeOwnsPlayback` — the GET_VOICEMAIL_PLAYBACK_RESULT
-  // handler only updates when the bridge still owns transport.
-  const bridgeOwnsPlaybackRef = useRef(false)
-  useEffect(() => {
-    bridgeOwnsPlaybackRef.current = bridgeOwnsPlayback
-  }, [bridgeOwnsPlayback])
 
   // Request LIST_VOICEMAILS. Called on mount + whenever the from/to window
   // changes while the deck is visible.
@@ -246,6 +221,7 @@ export default function VoicemailDeck() {
     subscribeById(subscriptionId, {
       send: (raw) => {
         const event = raw as DeckServerEvent
+        const send = sendTransportRef.current
         switch (event.type) {
           case "LIST_VOICEMAILS_RESULT": {
             setListLoading(false)
@@ -262,34 +238,27 @@ export default function VoicemailDeck() {
             return
           }
           case "PLAY_VOICEMAIL_RESULT": {
-            setPlayError(null)
-            setSelectedId(event.data.id)
-            setPlaybackUrl(event.data.url)
-            setDurationMs(event.data.durationMs)
-            setPositionMs(0)
-            // Bridge owns transport only when the server attempted the RPC
-            // AND it acked ok. Otherwise we fall through to the browser
-            // `<audio>` path — same behavior as a disconnected bridge.
-            setBridgeOwnsPlayback(
-              event.data.bridgeAttempted === true && event.data.bridgeOk === true,
-            )
+            send({
+              type: "PLAY_RESULT",
+              data: {
+                id: event.data.id,
+                url: event.data.url,
+                durationMs: event.data.durationMs,
+                bridge: event.data.bridgeAttempted === true && event.data.bridgeOk === true,
+              },
+            })
             return
           }
           case "PLAY_VOICEMAIL_FAILURE": {
-            setPlayError(event.data.message || "Failed to start voicemail.")
-            setPlaying(false)
+            send({
+              type: "PLAY_FAILURE",
+              message: event.data.message || "Failed to start voicemail.",
+            })
             return
           }
           case "HIDE_VOICEMAIL_SUCCESS": {
             setItems((prev) => prev.filter((row) => row.id !== event.data.id))
-            // If the hidden row was selected, drop the player.
-            if (selectedIdRef.current === event.data.id) {
-              setSelectedId(null)
-              setPlaybackUrl(null)
-              setPlaying(false)
-              setPositionMs(0)
-              setBridgeOwnsPlayback(false)
-            }
+            send({ type: "HIDDEN", id: event.data.id })
             return
           }
           case "HIDE_VOICEMAIL_FAILURE": {
@@ -302,37 +271,28 @@ export default function VoicemailDeck() {
             return
           }
           case "PAUSE_VOICEMAIL_SUCCESS": {
-            // Bridge paused — stay in bridge mode and reflect it in local UI.
-            setPlaying(false)
+            send({ type: "BRIDGE_PAUSED" })
             return
           }
           case "SEEK_VOICEMAIL_SUCCESS": {
-            // Position already reflected optimistically in the slider handler.
             return
           }
           case "GET_VOICEMAIL_PLAYBACK_RESULT": {
-            // Observed=false indicates an old pack or disabled sidechain —
-            // fall back to <audio>, keeping the current presigned URL.
-            if (!event.data.observed) {
-              setBridgeOwnsPlayback(false)
-              return
-            }
-            if (!bridgeOwnsPlaybackRef.current) return
-            setPlaying(event.data.state === "playing")
-            if (event.data.progressMs != null) {
-              setPositionMs(event.data.progressMs)
-            }
-            if (event.data.durationMs != null && event.data.durationMs > 0) {
-              setDurationMs(event.data.durationMs)
-            }
+            send({
+              type: "PLAYBACK_POLL",
+              data: {
+                observed: event.data.observed,
+                state: event.data.state,
+                progressMs: event.data.progressMs,
+                durationMs: event.data.durationMs,
+              },
+            })
             return
           }
           case "PAUSE_VOICEMAIL_FAILURE":
           case "SEEK_VOICEMAIL_FAILURE":
           case "GET_VOICEMAIL_PLAYBACK_FAILURE": {
-            // Any transport failure flips us back to local <audio> so the
-            // admin's scrubber keeps working.
-            setBridgeOwnsPlayback(false)
+            send({ type: "TRANSPORT_FAILURE" })
             return
           }
         }
@@ -354,41 +314,32 @@ export default function VoicemailDeck() {
     setItems([])
     setTruncated(false)
     setListError(null)
-    setSelectedId(null)
-    setPlaybackUrl(null)
-    setPlaying(false)
-    setPositionMs(0)
-    setDurationMs(0)
-    setPlayError(null)
-    setBridgeOwnsPlayback(false)
-  }, [visible])
+    sendTransport({ type: "RESET" })
+  }, [visible, sendTransport])
 
-  // Bridge disconnect → immediately hand playback back to <audio>.
+  // Bridge disconnect hands playback back to <audio>.
   useEffect(() => {
-    if (!bridgeConnected) setBridgeOwnsPlayback(false)
-  }, [bridgeConnected])
+    if (!bridgeConnected) sendTransport({ type: "BRIDGE_LOST" })
+  }, [bridgeConnected, sendTransport])
 
   // Poll the ducked URL player while the bridge owns playback. The daemon
   // publishes no STATE events for URL players (ADR 0212), so the scrubber
   // relies on getPlayback instead.
   useEffect(() => {
-    if (!visible || !bridgeOwnsPlayback) return
+    if (!visible || owner !== "bridge") return
     emitToSocket("GET_VOICEMAIL_PLAYBACK", {})
     const id = window.setInterval(() => {
       emitToSocket("GET_VOICEMAIL_PLAYBACK", {})
     }, BRIDGE_POLL_INTERVAL_MS)
     return () => window.clearInterval(id)
-  }, [visible, bridgeOwnsPlayback])
+  }, [visible, owner])
 
-  // Auto-play when a new playbackUrl arrives (PLAY_VOICEMAIL_RESULT) and the
-  // bridge has NOT taken over. When the DJ Mac is playing, the browser
-  // `<audio>` element stays silent (no `play()` call) so the admin doesn't
-  // hear two copies.
+  // Auto-play when a new playbackUrl arrives and the bridge has not taken over.
+  // When the DJ Mac is playing, the browser element stays silent.
   useEffect(() => {
     const el = audioRef.current
     if (!el || !playbackUrl) return
-    if (bridgeOwnsPlayback) {
-      // Make sure any local playback from a prior row stops.
+    if (owner === "bridge") {
       try {
         el.pause()
       } catch {
@@ -396,15 +347,16 @@ export default function VoicemailDeck() {
       }
       return
     }
-    // Reload and play. Browsers reject play() from non-user-initiated effects
-    // on autoplay-restricted origins, but PLAY was triggered by a user click.
+    if (owner !== "local") return
     el.load()
     void el.play().catch((err) => {
       console.error("[VoicemailDeck] audio.play() rejected:", err)
-      setPlayError("Browser blocked playback. Try the controls directly.")
-      setPlaying(false)
+      sendTransport({
+        type: "LOCAL_ERROR",
+        message: "Browser blocked playback. Try the controls directly.",
+      })
     })
-  }, [playbackUrl, bridgeOwnsPlayback])
+  }, [playbackUrl, owner, sendTransport])
 
   const onFromChange = useCallback((value: string) => {
     const d = fromDatetimeLocal(value)
@@ -420,10 +372,13 @@ export default function VoicemailDeck() {
     requestList(from, to)
   }, [from, to, requestList])
 
-  const handlePlayRow = useCallback((row: VoicemailListItem) => {
-    setPlayError(null)
-    emitToSocket("PLAY_VOICEMAIL", { id: row.id })
-  }, [])
+  const handlePlayRow = useCallback(
+    (row: VoicemailListItem) => {
+      sendTransport({ type: "CLEAR_ERROR" })
+      emitToSocket("PLAY_VOICEMAIL", { id: row.id })
+    },
+    [sendTransport],
+  )
 
   const handleHide = useCallback((row: VoicemailListItem) => {
     emitToSocket("HIDE_VOICEMAIL", { id: row.id })
@@ -436,8 +391,8 @@ export default function VoicemailDeck() {
       // player keeps the file loaded between pauses.
       if (playing) {
         emitToSocket("PAUSE_VOICEMAIL", {})
-      } else if (selectedIdRef.current) {
-        emitToSocket("PLAY_VOICEMAIL", { id: selectedIdRef.current })
+      } else if (selectedId) {
+        emitToSocket("PLAY_VOICEMAIL", { id: selectedId })
       }
       return
     }
@@ -450,13 +405,13 @@ export default function VoicemailDeck() {
     } else {
       el.pause()
     }
-  }, [bridgeOwnsPlayback, playing])
+  }, [bridgeOwnsPlayback, playing, selectedId])
 
   const handleSeek = useCallback(
     (valueMs: number) => {
       if (!Number.isFinite(valueMs)) return
       const clamped = Math.max(0, valueMs)
-      setPositionMs(clamped)
+      sendTransport({ type: "SEEK", positionMs: clamped })
       if (bridgeOwnsPlayback) {
         emitToSocket("SEEK_VOICEMAIL", { positionMs: clamped })
         return
@@ -469,25 +424,24 @@ export default function VoicemailDeck() {
         console.error("[VoicemailDeck] audio.currentTime failed:", err)
       }
     },
-    [bridgeOwnsPlayback],
+    [bridgeOwnsPlayback, sendTransport],
   )
 
-  // Audio element event wiring.
   const handleLoadedMetadata = useCallback(() => {
     const el = audioRef.current
-    if (!el) return
+    if (!el || owner !== "local") return
     // `duration` can be Infinity on WebM blobs that lack cues/duration metadata;
     // in that case keep whatever the server sent (durationMs) from PLAY_VOICEMAIL_RESULT.
     if (Number.isFinite(el.duration) && el.duration > 0) {
-      setDurationMs(Math.round(el.duration * 1000))
+      sendTransport({ type: "LOCAL_DURATION", durationMs: Math.round(el.duration * 1000) })
     }
-  }, [])
+  }, [owner, sendTransport])
 
   const handleTimeUpdate = useCallback(() => {
     const el = audioRef.current
-    if (!el) return
-    setPositionMs(Math.round(el.currentTime * 1000))
-  }, [])
+    if (!el || owner !== "local") return
+    sendTransport({ type: "LOCAL_TIME", positionMs: Math.round(el.currentTime * 1000) })
+  }, [owner, sendTransport])
 
   if (!visible) return null
 
@@ -499,13 +453,7 @@ export default function VoicemailDeck() {
   const selectedLabel = selectedRow?.label?.trim() || "Anonymous"
 
   return (
-    <Box
-      px={4}
-      py={3}
-      borderBottomWidth={1}
-      borderBottomColor="secondaryBorder"
-      w="100%"
-    >
+    <Box px={4} py={3} borderBottomWidth={1} borderBottomColor="secondaryBorder" w="100%">
       <VStack align="stretch" gap={2}>
         <HStack justify="space-between">
           <Heading as="h3" size="sm">
@@ -681,11 +629,7 @@ export default function VoicemailDeck() {
                 }
                 const el = audioRef.current
                 if (el) el.pause()
-                setPlaybackUrl(null)
-                setSelectedId(null)
-                setPlaying(false)
-                setPositionMs(0)
-                setBridgeOwnsPlayback(false)
+                sendTransport({ type: "STOP" })
               }}
             >
               Stop
@@ -693,25 +637,21 @@ export default function VoicemailDeck() {
           </VStack>
         )}
 
-        {/* Single shared audio element. Controls are driven by the buttons /
-            slider above so we can reuse the same UI whenever phase 6 adds the
-            bridge sidechain path. */}
         <audio
           ref={audioRef}
           src={playbackUrl ?? undefined}
           preload="metadata"
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
-          onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          onEnded={() => {
-            setPlaying(false)
-            setPositionMs(0)
-          }}
-          onError={() => {
-            setPlayError("Playback error. The URL may have expired — try Play again.")
-            setPlaying(false)
-          }}
+          onPlay={() => sendTransport({ type: "LOCAL_PLAYING", playing: true })}
+          onPause={() => sendTransport({ type: "LOCAL_PLAYING", playing: false })}
+          onEnded={() => sendTransport({ type: "LOCAL_ENDED" })}
+          onError={() =>
+            sendTransport({
+              type: "LOCAL_ERROR",
+              message: "Playback error. The URL may have expired — try Play again.",
+            })
+          }
           style={{ display: "none" }}
         />
       </VStack>

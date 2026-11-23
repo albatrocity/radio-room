@@ -58,11 +58,9 @@ import {
   fetchSiteAssetStatus,
   pendingAssetIssues,
   pendingAssetKey,
-  uploadSiteAsset,
-  type PendingSiteAssets,
-  type SiteAssetKind,
   type SiteAssetStatus,
 } from "../../tripMap/siteAssets"
+import { useSiteAssetUpload } from "./useSiteAssetUpload"
 import { TripFuelCurve } from "./TripFuelCurve"
 import { TripRouteTrack } from "./TripRouteTrack"
 import { TripSiteArt } from "./TripSiteArt"
@@ -95,11 +93,7 @@ function numberOr(value: string): number | undefined {
 const LINT_DEBOUNCE_MS = 250
 
 /** A site with no preset. Name and slug are typed here; the inspector fills in the rest. */
-function BlankSiteButton({
-  onAdd,
-}: {
-  onAdd: (name: string, slug: string) => string | null
-}) {
+function BlankSiteButton({ onAdd }: { onAdd: (name: string, slug: string) => string | null }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
@@ -198,7 +192,7 @@ export function TripMapEditor() {
   const [costScale, setCostScale] = useState(1)
   const [walletsTotal, setWalletsTotal] = useState(DEFAULT_PREVIEW_WALLETS)
   const [assetStatus, setAssetStatus] = useState<SiteAssetStatus | null>(null)
-  const [pendingAssets, setPendingAssets] = useState<PendingSiteAssets>({})
+  const { pendingAssets, uploadAsset, discardPending } = useSiteAssetUpload(setDraft)
 
   // Full parse (schema + lint + hash) and the localStorage write wait for typing to pause.
   const settledDraft = useDebouncedValue(draft, LINT_DEBOUNCE_MS)
@@ -212,7 +206,10 @@ export function TripMapEditor() {
   const resolved = useMemo(() => resolvedMap(draft), [draft])
   const parsed = useMemo(() => parseDraft(settledDraft, departAt), [settledDraft, departAt])
   const projection = resolved ? projectTrip(resolved, departAt) : null
-  const fuel = useMemo(() => (resolved ? projectFuel(resolved, costScale) : null), [resolved, costScale])
+  const fuel = useMemo(
+    () => (resolved ? projectFuel(resolved, costScale) : null),
+    [resolved, costScale],
+  )
   const selectedSiteId = selection?.kind === "site" ? selection.id : null
   const selectedEventId = selection?.kind === "event" ? selection.id : null
   const selected = draft.sites.find((s) => s.id === selectedSiteId)
@@ -228,47 +225,6 @@ export function TripMapEditor() {
   const errors = issues.filter((i) => i.severity === "error")
   const warnings = issues.filter((i) => i.severity === "warning")
   const exportBlocked = assetIssues.length > 0
-
-  const uploadAsset = async (siteId: string, kind: SiteAssetKind, file: File) => {
-    const key = pendingAssetKey(siteId, kind)
-    const previewUrl = URL.createObjectURL(file)
-    setPendingAssets((p) => {
-      if (p[key]) URL.revokeObjectURL(p[key].previewUrl)
-      return { ...p, [key]: { siteId, kind, previewUrl, status: "uploading" } }
-    })
-    const result = await uploadSiteAsset(kind, file)
-    if (result.ok) {
-      setDraft((d) =>
-        updateSite(d, siteId, kind === "image" ? { imageUrl: result.url } : { model: { url: result.url } }),
-      )
-      setPendingAssets((p) => {
-        if (p[key]?.previewUrl !== previewUrl) return p
-        URL.revokeObjectURL(previewUrl)
-        const { [key]: _done, ...rest } = p
-        return rest
-      })
-      toaster.create({
-        title: result.reused ? "Already on the CDN" : "Published to the CDN",
-        type: "success",
-      })
-    } else {
-      setPendingAssets((p) =>
-        p[key]?.previewUrl === previewUrl
-          ? { ...p, [key]: { ...p[key], status: "failed", message: result.message } }
-          : p,
-      )
-    }
-  }
-
-  const discardPending = (siteId: string, kind: SiteAssetKind) => {
-    const key = pendingAssetKey(siteId, kind)
-    setPendingAssets((p) => {
-      if (!p[key]) return p
-      URL.revokeObjectURL(p[key].previewUrl)
-      const { [key]: _gone, ...rest } = p
-      return rest
-    })
-  }
 
   const copyJson = async () => {
     await navigator.clipboard.writeText(mapJson(draft))
@@ -437,11 +393,15 @@ export function TripMapEditor() {
             type="number"
             placeholder="15"
             value={
-              draft.tuning?.lowFuelPct !== undefined ? Math.round(draft.tuning.lowFuelPct * 100) : ""
+              draft.tuning?.lowFuelPct !== undefined
+                ? Math.round(draft.tuning.lowFuelPct * 100)
+                : ""
             }
             onChange={(e) => {
               const pct = numberOr(e.target.value)
-              setDraft(updateTuning(draft, { lowFuelPct: pct === undefined ? undefined : pct / 100 }))
+              setDraft(
+                updateTuning(draft, { lowFuelPct: pct === undefined ? undefined : pct / 100 }),
+              )
             }}
           />
         </Field.Root>
@@ -586,8 +546,8 @@ export function TripMapEditor() {
             />
           ) : (
             <Text fontSize="sm" color="fg.muted">
-              Select a pin to edit the site or event. Drag pins to set their mile; the destination stays at
-              the end.
+              Select a pin to edit the site or event. Drag pins to set their mile; the destination
+              stays at the end.
             </Text>
           )}
         </Box>
@@ -722,8 +682,8 @@ export function TripMapEditor() {
                 ))}
               </HStack>
               <Text fontSize="xs" color="fg.muted">
-                Start blank or from a preset, then rename and retune it. Hosts can still trigger the built-in
-                jam, flat, and breakdown live from Quick Access.
+                Start blank or from a preset, then rename and retune it. Hosts can still trigger the
+                built-in jam, flat, and breakdown live from Quick Access.
               </Text>
             </Stack>
           </Box>

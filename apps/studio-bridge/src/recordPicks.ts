@@ -18,10 +18,7 @@ import {
   navidromeConfig,
   type NavidromeConfig,
 } from "./recordSourceCredentials.js"
-import {
-  getOpenNavidromeLibraryFile,
-  isFileLibraryMode,
-} from "./recordLibrarySource.js"
+import { getOpenNavidromeLibraryFile, isFileLibraryMode } from "./recordLibrarySource.js"
 import type { NavidromeFileAlbum } from "./navidromeLibraryFile.js"
 
 /**
@@ -227,6 +224,63 @@ type SubsonicLibraryAlbum = SubsonicAlbum & {
   genres?: { name?: string }[]
 }
 
+/** Navidrome stars are 1–5. Same rule as `LocalDriver` in the bridge daemon. */
+function normalizeAlbumUserRating(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN
+  if (!Number.isFinite(n) || n < 1 || n > 5) return undefined
+  return Math.round(n)
+}
+
+/**
+ * Fill ratings `getAlbumList2` omitted from `getAlbumList?type=highest`.
+ * Matches `LocalDriver.listLibraryAlbums` (ADR 0111): a rating already on the
+ * alphabetical page wins.
+ */
+export function mergeAlbumUserRatings<T extends { id: string; userRating?: number }>(
+  rows: readonly T[],
+  ratingsFromHighest: ReadonlyMap<string, number>,
+): T[] {
+  return rows.map((row) => {
+    const userRating = normalizeAlbumUserRating(row.userRating) ?? ratingsFromHighest.get(row.id)
+    if (userRating == null) return row.userRating == null ? row : { ...row, userRating: undefined }
+    return userRating === row.userRating ? row : { ...row, userRating }
+  })
+}
+
+/**
+ * Rated albums only (`type=highest`). Child.userRating stays on the album
+ * object when getAlbumList2 omits OpenSubsonic extensions. Same overlay as
+ * `apps/bridge-daemon/src/drivers/local.ts` `LocalDriver.listLibraryAlbums`.
+ */
+async function fetchRatedAlbumUserRatings(config: NavidromeConfig): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  try {
+    for (let offset = 0; offset < LIBRARY_ALBUM_CAP; offset += LIBRARY_PAGE) {
+      const payload = await subsonic<{
+        albumList?: {
+          album?: { id?: string; userRating?: unknown } | { id?: string; userRating?: unknown }[]
+        }
+      }>(config, "getAlbumList", {
+        type: "highest",
+        size: String(LIBRARY_PAGE),
+        offset: String(offset),
+      })
+      const raw = payload.albumList?.album
+      const page = Array.isArray(raw) ? raw : raw ? [raw] : []
+      if (page.length === 0) break
+      for (const album of page) {
+        const id = album.id?.trim()
+        const userRating = normalizeAlbumUserRating(album.userRating)
+        if (id && userRating != null) out.set(id, userRating)
+      }
+      if (page.length < LIBRARY_PAGE) break
+    }
+  } catch (error) {
+    console.warn("[studio-bridge] getAlbumList type=highest failed", error)
+  }
+  return out
+}
+
 /**
  * The designer's Navidrome albums as `LibraryAlbumRow`s, so Game Studio's
  * sandbox can derive records like a bridge room does (ADR 0224 / 0230). Empty
@@ -239,6 +293,7 @@ export async function listLibraryAlbums(): Promise<LibraryAlbumRow[]> {
   }
   const navidrome = navidromeConfig()
   if (!navidrome) return []
+  const ratingsFromHighest = await fetchRatedAlbumUserRatings(navidrome)
   const rows: LibraryAlbumRow[] = []
   for (let offset = 0; offset < LIBRARY_ALBUM_CAP; offset += LIBRARY_PAGE) {
     const payload = await subsonic<{ albumList2?: { album?: SubsonicLibraryAlbum[] } }>(
@@ -264,7 +319,7 @@ export async function listLibraryAlbums(): Promise<LibraryAlbumRow[]> {
     }
     if (page.length < LIBRARY_PAGE) break
   }
-  return rows.slice(0, LIBRARY_ALBUM_CAP)
+  return mergeAlbumUserRatings(rows, ratingsFromHighest).slice(0, LIBRARY_ALBUM_CAP)
 }
 
 /**

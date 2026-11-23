@@ -163,6 +163,7 @@ export { SHOP_CATALOG } from "./shops"
 export { RECORD_STORE_SHOP } from "./localLibrary/shops/record-store"
 export { validateRoomShopRequest } from "./roomShop"
 export { inferPhysicalMediaFormat } from "./localLibrary/physicalMedia"
+export { pickKey } from "./localLibrary/pickedRecords"
 
 export class ItemShopsPlugin extends BasePlugin<ItemShopsConfig> {
   name = PLUGIN_NAME

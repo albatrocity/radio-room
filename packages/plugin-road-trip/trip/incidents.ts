@@ -22,9 +22,10 @@ import {
 } from "@repo/road-trip-map"
 import {
   ARRIVAL_MILE_EPSILON,
-  AUTOMATIC_FUND_HOLD_MS,
   BACK_ON_THE_ROAD,
   findSite,
+  fundHoldMs,
+  fundPoolTitle,
   fundShareCopy,
   milesLabel,
   openShopAt,
@@ -113,7 +114,12 @@ function prose(body: string | undefined, variant?: NarrativeVariant): TripEffect
 }
 
 /** Start a map event's timed narratives; `incidentId` drops them when that incident clears. */
-function startBeats(state: TripState, event: TripEvent, now: number, incidentId?: string): TripState {
+function startBeats(
+  state: TripState,
+  event: TripEvent,
+  now: number,
+  incidentId?: string,
+): TripState {
   if (!event.beats?.length || state.beatRuns.some((run) => run.eventId === event.id)) return state
   return {
     ...state,
@@ -224,10 +230,7 @@ function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident)
       {
         next: { ...state, incidentSeq: seq },
         log: [...acc.log, incidentEntry(named, "immune", { partId: part.shortId })],
-        effects: [
-          ...acc.effects,
-          { type: "sign", variant: "success", icon: part.emoji, ...copy },
-        ],
+        effects: [...acc.effects, { type: "sign", variant: "success", icon: part.emoji, ...copy }],
       },
       ctx,
     )
@@ -264,7 +267,12 @@ function beginIncident(acc: Acc, ctx: TransitionContext, queued: QueuedIncident)
 }
 
 /** An event that doesn't hold the van: its narrative and beats only. */
-function noteEvent(acc: Acc, ctx: TransitionContext, event: TripEvent, source: IncidentSource): Acc {
+function noteEvent(
+  acc: Acc,
+  ctx: TransitionContext,
+  event: TripEvent,
+  source: IncidentSource,
+): Acc {
   const narrative = prose(event.narrative, event.narrativeVariant)
   return {
     next: startBeats(acc.next, event, ctx.now),
@@ -452,8 +460,7 @@ function openIncidentFund(
   const cost = Math.round(step.baseCost * ctx.costScale)
   if (cost <= 0) return enterStep(acc, ctx, incident, incident.step + 1)
   const mode = state.fundsMode
-  const holdMs =
-    mode === "automatic" ? AUTOMATIC_FUND_HOLD_MS : ctx.map.tuning.funds.windowMinutes * 60_000
+  const holdMs = fundHoldMs(mode, ctx.map)
   const gallons =
     step.purpose === "delivery"
       ? Math.max(0, state.tankGallons - Math.max(0, gallonsLeft(state, ctx.gallonsUsed)))
@@ -479,7 +486,7 @@ function openIncidentFund(
   }
   const effects: TripEffect[] = [
     ...acc.effects,
-    { type: "open-fund", fund, title: `${label} · ${step.provider}` },
+    { type: "open-fund", fund, title: fundPoolTitle(fund, ctx.map) },
   ]
   if (announce) {
     effects.unshift({
@@ -641,7 +648,8 @@ export function fireScripted(eventId: string): Transition {
     const event = mileEvents(ctx.map).find((e) => e.id === eventId)
     if (!event || ctx.mile < event.mile - ARRIVAL_MILE_EPSILON) return null
     const next = { ...state, scriptedFired: [...state.scriptedFired, eventId] }
-    if (!event.effect) return result(noteEvent({ next, log: [], effects: [] }, ctx, event, "scripted"))
+    if (!event.effect)
+      return result(noteEvent({ next, log: [], effects: [] }, ctx, event, "scripted"))
     return startOrQueueIncident(next, ctx, {
       incident: event.id,
       source: "scripted",

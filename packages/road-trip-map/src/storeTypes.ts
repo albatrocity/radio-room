@@ -180,3 +180,21 @@ export function interpolateFuelGallons(trip: Pick<TripStore, "van" | "fuel">, no
   const burned = trip.van.mph * hours * trip.fuel.gallonsPerMile
   return Math.max(0, trip.fuel.anchorGallons - burned)
 }
+
+/**
+ * Plugin component store fields road-trip publishes. The first
+ * `ensurePluginComponentActor` call for a plugin wins for the room, so every
+ * subscriber (the component schema and the road-trip poll theme) passes this
+ * full list.
+ */
+export const TRIP_STORE_KEYS = [
+  "tripActive",
+  "trip",
+  "tripPool",
+  "tripPoolOpen",
+  "tripProgress",
+  "tripEta",
+  "tripNextSite",
+  "tripFuel",
+  "tripWarnings",
+] as const
