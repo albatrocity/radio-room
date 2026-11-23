@@ -944,6 +944,16 @@ export interface CatalogPluginAPI {
   listLibraryAlbums(roomId: string): Promise<LibraryAlbumRow[]>
 
   /**
+   * One Navidrome album by id, or album-search hits for a query (ADR 0224).
+   * Lean rows, same shape as {@link listLibraryAlbums}. [] when offline,
+   * unknown (old DJ Mac pack), or nothing matched. Does not page the library.
+   */
+  findLibraryAlbums(
+    roomId: string,
+    params: { id?: string; query?: string },
+  ): Promise<LibraryAlbumRow[]>
+
+  /**
    * Cover artwork URLs for Navidrome albums (`al-cover-…` image ids).
    */
   getLocalAlbumArtwork(

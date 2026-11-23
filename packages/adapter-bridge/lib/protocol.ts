@@ -28,6 +28,7 @@ export const bridgeRequestSchema = z.object({
     "listAlbumTrackIds",
     "getPlaylistCoverArt",
     "listLibraryAlbums",
+    "findLibraryAlbums",
     "getAlbumCoverArt",
     "getAlbumComments",
     "getTrackPreview",

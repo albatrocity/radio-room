@@ -16,6 +16,7 @@ import {
   getLocalAlbumCoverArt,
   getLocalPlaylistCoverArt,
   invalidateLocalLibraryCache,
+  findLibraryAlbums,
   listLibraryAlbums,
   listLocalAlbumTrackIds,
   listLocalPlaylistTrackIds,
@@ -499,6 +500,21 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     }
   }
 
+  /** Id lookup or album search. Never pages the library (ADR 0224). */
+  async findLibraryAlbums(
+    roomId: string,
+    params: { id?: string; query?: string },
+  ): Promise<LibraryAlbumRow[]> {
+    try {
+      const rpc = getBridgeRpcClient(roomId)
+      if (!rpc) return []
+      return await findLibraryAlbums({ rpc, id: params.id, query: params.query })
+    } catch (e) {
+      console.warn("[PluginAPI] findLibraryAlbums failed:", e)
+      return []
+    }
+  }
+
   /**
    * Album cover art URLs re-hosted in the room image store (`al-cover-…`).
    */
@@ -632,7 +648,12 @@ export class PluginCatalogAPI extends PluginCapability implements CatalogPluginA
     const { roomId, sourceId, albumId } = params
     if (sourceId === "local") return this.listLocalAlbumTrackIds(roomId, albumId)
     const { fetchSourceAlbumTracks } = await import("../../operations/dj/mediaItemTracks")
-    const tracks = await fetchSourceAlbumTracks({ context: this.context, roomId, sourceId, albumId })
+    const tracks = await fetchSourceAlbumTracks({
+      context: this.context,
+      roomId,
+      sourceId,
+      albumId,
+    })
     return tracks?.map((track) => track.id) ?? []
   }
 

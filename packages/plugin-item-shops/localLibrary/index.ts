@@ -238,10 +238,15 @@ export class LocalLibraryModule {
     const sources = await context.catalog.listMetadataSources(context.roomId)
     this.pickSources = new Set(sources.map((source) => source.id))
 
-    const library = picks.some((pick) => pick.source === "local") ? await this.libraryAlbums() : []
+    // One full-library read for the whole batch, and only when a search comes back empty.
+    let fallback: Promise<LibraryAlbumRow[]> | null = null
+    const fullLibrary = () => (fallback ??= this.libraryAlbums())
     let changed = false
     for (const pick of picks) {
-      const ref = resolvePick(pick, library)
+      const ref =
+        pick.source === "local"
+          ? await this.resolveLocalPick(pick, fullLibrary)
+          : resolvePick(pick, [])
       if (!ref) continue
       const entry = derivePickedRecord({ pick, ref })
       const shortId = entry.definition.shortId
@@ -278,6 +283,37 @@ export class LocalLibraryModule {
         },
       }
     })
+  }
+
+  /**
+   * Room album for a local pick (ADR 0224): `getAlbum` by id, then an album
+   * search with the same artist/title/year rules as `resolvePick`. The full
+   * library list runs once per batch, and only when a search returns nothing
+   * (or the DJ Mac has no `findLibraryAlbums`).
+   */
+  private async resolveLocalPick(
+    pick: PhysicalMediaPick,
+    fullLibrary: () => Promise<LibraryAlbumRow[]>,
+  ): Promise<RecordAlbumRef | null> {
+    const context = this.getContext()
+    const find = context?.catalog.findLibraryAlbums
+    if (!context || !find) return resolvePick(pick, await fullLibrary())
+
+    const id = pick.id.trim()
+    if (id) {
+      const byId = await find({ roomId: context.roomId, id })
+      const hit = byId.find((album) => album.id.trim() === id)
+      if (hit) return { sourceId: "local", albumId: hit.id.trim() }
+    }
+
+    const query = [pick.artist, pick.title]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(" ")
+    if (!query) return null
+    const hits = await find({ roomId: context.roomId, query })
+    if (hits.length > 0) return resolvePick(pick, hits)
+    return resolvePick(pick, await fullLibrary())
   }
 
   /** The room's library albums: last refresh's, else one fetch (bridge rooms only). */

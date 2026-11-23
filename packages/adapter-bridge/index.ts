@@ -72,6 +72,7 @@ export {
   checkLocalTrackPlaylistMembershipBatch,
   listLocalPlaylists,
   listLibraryAlbums,
+  findLibraryAlbums,
   listLocalPlaylistTracks,
   listLocalPlaylistTrackIds,
   listLocalAlbumTrackIds,

@@ -24,6 +24,13 @@ describe("bridgeRequestSchema TTS methods", () => {
         params: { text: "hi", voice: "Samantha" },
       }).success,
     ).toBe(true)
+    expect(
+      bridgeRequestSchema.safeParse({
+        id: "3",
+        method: "findLibraryAlbums",
+        params: { source: "local", query: "Gene Clark No Other" },
+      }).success,
+    ).toBe(true)
   })
 })
 

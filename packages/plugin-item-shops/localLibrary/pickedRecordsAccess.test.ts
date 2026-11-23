@@ -53,6 +53,15 @@ function setup(
     listLibraryAlbums: vi.fn(async () => [
       { id: "room-nd-7", name: "No Other", artist: "Gene Clark", year: 1974 },
     ]),
+    findLibraryAlbums: vi.fn(async (params: { id?: string; query?: string }) => {
+      if (params.id === "room-nd-7") {
+        return [{ id: "room-nd-7", name: "No Other", artist: "Gene Clark", year: 1974 }]
+      }
+      if (params.query && /no other/i.test(params.query)) {
+        return [{ id: "room-nd-7", name: "No Other", artist: "Gene Clark", year: 1974 }]
+      }
+      return []
+    }),
     getAlbumTrackIds: vi.fn(async ({ albumId }: { albumId: string }) =>
       albumId === ALBUM ? ["harvest-1", "harvest-2"] : [],
     ),
@@ -167,6 +176,26 @@ describe("picked records", () => {
     await expect(module.listPhysicalMediaItems("u1")).resolves.toEqual([
       expect.objectContaining({ mediaKey: HARVEST_ID, name: "LP: Harvest" }),
     ])
+  })
+
+  it("resolves a local pick by search and does not list the library", async () => {
+    const { module, catalog } = setup()
+    await module.registerPicks([NO_OTHER])
+    expect(catalog.findLibraryAlbums).toHaveBeenCalledWith({ roomId: ROOM, id: "studio-id" })
+    expect(catalog.findLibraryAlbums).toHaveBeenCalledWith({
+      roomId: ROOM,
+      query: "Gene Clark No Other",
+    })
+    expect(catalog.listLibraryAlbums).not.toHaveBeenCalled()
+    expect(module.albumMap()).toEqual({ "pm-local-lp-room-nd-7": "room-nd-7" })
+  })
+
+  it("lists the library once when search returns nothing", async () => {
+    const { module, catalog } = setup()
+    catalog.findLibraryAlbums.mockResolvedValue([])
+    await module.registerPicks([NO_OTHER, { ...NO_OTHER, id: "other", title: "White Light" }])
+    expect(catalog.listLibraryAlbums).toHaveBeenCalledTimes(1)
+    expect(module.albumMap()).toEqual({ "pm-local-lp-room-nd-7": "room-nd-7" })
   })
 
   it("routes a local pick through the album-scope library grant", async () => {

@@ -63,7 +63,13 @@ export class RpcServer {
         // Old pack / sidechain disabled → report UNOBSERVED for getPlayback so
         // the deck falls back to <audio>; raise for mutating calls.
         if (req.method === "getPlayback") {
-          return { state: "stopped", progressMs: null, durationMs: null, trackId: null, observed: false }
+          return {
+            state: "stopped",
+            progressMs: null,
+            durationMs: null,
+            trackId: null,
+            observed: false,
+          }
         }
         throw new Error("URL playback is not available")
       }
@@ -208,6 +214,13 @@ export class RpcServer {
       case "listLibraryAlbums": {
         if (String(p.source) !== "local" || !this.localDriver) return []
         return this.localDriver.listLibraryAlbums()
+      }
+      case "findLibraryAlbums": {
+        if (String(p.source) !== "local" || !this.localDriver) return []
+        return this.localDriver.findLibraryAlbums({
+          id: p.id != null ? String(p.id) : undefined,
+          query: p.query != null ? String(p.query) : undefined,
+        })
       }
       case "listPlaylistTracks": {
         if (String(p.source) !== "local" || !this.localDriver) return []

@@ -441,6 +441,34 @@ export function mapLocalLibraryAlbumRow(row: unknown): LocalLibraryAlbumListItem
  * List Navidrome albums on the connected bridge daemon (album-shelf SKU derivation).
  * Returns [] when offline / unknown method (old DJ Mac pack).
  */
+/**
+ * One album by id, or search3 album hits for a query (ADR 0224 pick matching).
+ * Returns [] when offline, the method is unknown (old DJ Mac pack), or nothing matched.
+ */
+export async function findLibraryAlbums(params: {
+  rpc: BridgeRpcClient
+  id?: string
+  query?: string
+}): Promise<LocalLibraryAlbumListItem[]> {
+  if (!(await params.rpc.isPresent())) return []
+  const id = params.id?.trim()
+  const query = params.query?.trim()
+  if (!id && !query) return []
+  try {
+    const result = (await params.rpc.call("findLibraryAlbums", {
+      source: "local",
+      ...(id ? { id } : {}),
+      ...(query ? { query } : {}),
+    })) as unknown
+    if (!Array.isArray(result)) return []
+    return result
+      .map(mapLocalLibraryAlbumRow)
+      .filter((row): row is LocalLibraryAlbumListItem => row != null)
+  } catch {
+    return []
+  }
+}
+
 export async function listLibraryAlbums(params: {
   rpc: BridgeRpcClient
 }): Promise<LocalLibraryAlbumListItem[]> {
