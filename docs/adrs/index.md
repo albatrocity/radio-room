@@ -229,12 +229,13 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0221](0221-game-studio-trip-simulator.md) | Game Studio trip simulator steps the pure trip runtime (`TripSim.stepNext`, `@repo/plugin-road-trip/sim`, `POST /trip-sim`) | Accepted (shop rounds amendment 2026-10-19) |
 | [0222](0222-physical-media-carry.md) | Physical media carry (`{ formats?, genres? }`) on trip site services and shop entries; record genres from Navidrome; trips stop naming catalog shops (partially supersedes 0214, 0215) | Accepted (amended by [0224](0224-record-picks.md): the carry moves under `library`) |
 | [0223](0223-van-shared-playback-formats.md) | The van shares playback formats while a trip map is loaded (`tuning.vanPlayback`, `shopAccess.setSharedPlayback`; amends 0160) | Accepted |
-| [0224](0224-record-picks.md) | Record picks: designer-chosen albums from any source (`PhysicalMediaPick`, `PhysicalMediaStock` = `library` carry + `picks`), track-scoped `grantMetadataSourceAccess` (`trackId`), `getAlbumTrackIds` (amends 0088, 0222) | Accepted |
+| [0224](0224-record-picks.md) | Record picks: designer-chosen albums from any source (`PhysicalMediaPick`, `PhysicalMediaStock` = `library` carry + `picks`), track-scoped `grantMetadataSourceAccess` (`trackId`), `getAlbumTrackIds` (amends 0088, 0222) | Accepted. Decision 10 partially superseded by [0230](0230-studio-navidrome-snapshot.md) |
 | [0225](0225-pull-off-sign-hold.md) | Pulling off holds signs and skip polls for sites within 3 mi past the stop until the van leaves (`pullOffHold`; amends 0213) | Accepted |
 | [0226](0226-system-message-actions-and-theme-icons.md) | System message `meta.action` button (game modal tab target via `navigateToTarget`), Lucide names in `meta.icon`, poll theme `optionIcon` (amends 0216) | Accepted |
 | [0227](0227-road-trip-van-motion-and-refill-window.md) | Room-scoped `roadTripVanMotionMachine` for van flourishes; `TripStore.fuel.refill` window animates the gauge during refuels | Accepted |
 | [0228](0228-trip-events.md) | Trip events: incidents composed from presets (`map.events`, `compileEventSteps`, families, beats; partially supersedes 0213 decision 12 and 0215's `scriptedEvents`) | Accepted |
 | [0229](0229-poll-presentation-subject-id.md) | Poll presentation `subjectId`: the id of whatever a plugin poll's sign names (amends 0216) | Accepted |
+| [0230](0230-studio-navidrome-snapshot.md) | Game Studio Navidrome snapshot: live Subsonic or read-only `navidrome.db`; pick id is `album.id` (partially supersedes [0224](0224-record-picks.md) decision 10) | Accepted |
 
 ## Creating a New ADR
 

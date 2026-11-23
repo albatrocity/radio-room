@@ -4,6 +4,7 @@ import { Button, Heading, HStack, IconButton } from "@chakra-ui/react"
 import { Map as MapIcon, Moon, Route, Sparkles, Sun, Users } from "lucide-react"
 import { studioPageHref, type StudioPage } from "../../hooks/useStudioPage"
 import { useColorMode } from "../ui/color-mode"
+import { RecordLibrarySourceControl } from "./RecordLibrarySourceControl"
 
 const PAGES: { page: StudioPage; label: string; icon: typeof Users }[] = [
   { page: "sandbox", label: "Sandbox", icon: Users },
@@ -15,7 +16,7 @@ export function StudioHeader({ page }: { page: StudioPage }) {
   const { colorMode, toggleColorMode } = useColorMode()
 
   return (
-    <HStack justify="space-between" gap="3" wrap="wrap">
+    <HStack justify="space-between" gap="3" wrap="wrap" align="flex-start">
       <HStack gap="4" wrap="wrap">
         <HStack gap="3">
           <Sparkles size={22} />
@@ -37,14 +38,17 @@ export function StudioHeader({ page }: { page: StudioPage }) {
           ))}
         </HStack>
       </HStack>
-      <IconButton
-        variant="ghost"
-        aria-label="Toggle color mode"
-        onClick={toggleColorMode}
-        title="Toggle theme"
-      >
-        {colorMode === "light" ? <Moon size={18} /> : <Sun size={18} />}
-      </IconButton>
+      <HStack gap="3" align="flex-start" wrap="wrap" justify="flex-end">
+        <RecordLibrarySourceControl />
+        <IconButton
+          variant="ghost"
+          aria-label="Toggle color mode"
+          onClick={toggleColorMode}
+          title="Toggle theme"
+        >
+          {colorMode === "light" ? <Moon size={18} /> : <Sun size={18} />}
+        </IconButton>
+      </HStack>
     </HStack>
   )
 }

@@ -18,13 +18,16 @@ import {
   navidromeConfig,
   type NavidromeConfig,
 } from "./recordSourceCredentials.js"
+import {
+  getOpenNavidromeLibraryFile,
+  isFileLibraryMode,
+} from "./recordLibrarySource.js"
+import type { NavidromeFileAlbum } from "./navidromeLibraryFile.js"
 
 /**
- * Album lookups behind Game Studio's record picker (ADR 0224). The only
- * studio-bridge routes that reach the network: Spotify with the app's client
- * credentials, the designer's Navidrome over Subsonic. Credentials come from
- * the env, the repo-root `.env`, or the bridge daemon's config
- * (`recordSourceCredentials.ts`).
+ * Album lookups behind Game Studio's record picker (ADR 0224 / 0230). Spotify
+ * uses app client credentials. Local albums come from live Subsonic or a
+ * read-only `navidrome.db` pointer (`recordLibrarySource.ts`).
  */
 
 /** A search row: what the picker lists before the designer adds it. */
@@ -83,7 +86,10 @@ async function subsonic<T>(
   return payload
 }
 
-function localHit(album: SubsonicAlbum): RecordSearchHit {
+function localHit(
+  album: Pick<SubsonicAlbum, "id" | "name" | "artist" | "year" | "songCount">,
+  opts: { cover: boolean } = { cover: true },
+): RecordSearchHit {
   return {
     source: "local",
     id: album.id,
@@ -91,11 +97,24 @@ function localHit(album: SubsonicAlbum): RecordSearchHit {
     artist: album.artist?.trim() || "Unknown artist",
     ...(album.year ? { year: album.year } : {}),
     trackCount: Math.max(1, album.songCount ?? 1),
-    coverUrl: `/records/local/${encodeURIComponent(album.id)}/cover`,
+    ...(opts.cover ? { coverUrl: `/records/local/${encodeURIComponent(album.id)}/cover` } : {}),
   }
 }
 
-async function searchLocal(config: NavidromeConfig, query: string): Promise<RecordSearchHit[]> {
+function fileAlbumHit(album: NavidromeFileAlbum): RecordSearchHit {
+  return localHit(
+    {
+      id: album.id,
+      name: album.name,
+      artist: album.artist,
+      ...(album.year ? { year: album.year } : {}),
+      songCount: album.songCount,
+    },
+    { cover: false },
+  )
+}
+
+async function searchLocalLive(config: NavidromeConfig, query: string): Promise<RecordSearchHit[]> {
   const payload = await subsonic<{ searchResult3?: { album?: SubsonicAlbum[] } }>(
     config,
     "search3",
@@ -106,7 +125,26 @@ async function searchLocal(config: NavidromeConfig, query: string): Promise<Reco
       songCount: "0",
     },
   )
-  return (payload.searchResult3?.album ?? []).map(localHit)
+  return (payload.searchResult3?.album ?? []).map((album) => localHit(album))
+}
+
+function searchLocalFile(query: string): RecordSearchHit[] {
+  const file = getOpenNavidromeLibraryFile()
+  if (!file) {
+    throw new Error("Choose a navidrome.db file in the Game Studio header")
+  }
+  return file.searchAlbums(query).map(fileAlbumHit)
+}
+
+async function searchLocal(query: string): Promise<RecordSearchHit[]> {
+  if (isFileLibraryMode()) return searchLocalFile(query)
+  const navidrome = navidromeConfig()
+  if (!navidrome) {
+    throw new Error(
+      "Set up the Media Bridge daemon's Navidrome login, or NAVIDROME_URL/USER/PASSWORD",
+    )
+  }
+  return searchLocalLive(navidrome, query)
 }
 
 function credentialsMessage(error: unknown): string {
@@ -123,14 +161,9 @@ export async function searchRecords(query: string): Promise<RecordSearchResult> 
   const out: RecordSearchResult = { results: [], unavailable: [] }
   if (!trimmed) return out
 
-  const navidrome = navidromeConfig()
   const [spotify, local] = await Promise.allSettled([
     searchSpotifyAlbums(trimmed),
-    navidrome
-      ? searchLocal(navidrome, trimmed)
-      : Promise.reject(
-          new Error("Set up the Media Bridge daemon's Navidrome login, or NAVIDROME_URL/USER/PASSWORD"),
-        ),
+    searchLocal(trimmed),
   ])
   if (spotify.status === "fulfilled") {
     out.results.push(
@@ -166,6 +199,14 @@ export async function getRecordPick(source: string, id: string): Promise<Physica
     return pick ? withPickFormat(pick) : null
   }
   if (source === "local") {
+    if (isFileLibraryMode()) {
+      const file = getOpenNavidromeLibraryFile()
+      if (!file) return null
+      const album = file.getAlbum(id)
+      if (!album) return null
+      const { coverUrl: _cover, ...pick } = fileAlbumHit(album)
+      return withPickFormat(pick)
+    }
     const navidrome = navidromeConfig()
     if (!navidrome) return null
     const payload = await subsonic<{ album?: SubsonicAlbum }>(navidrome, "getAlbum", { id })
@@ -188,10 +229,14 @@ type SubsonicLibraryAlbum = SubsonicAlbum & {
 
 /**
  * The designer's Navidrome albums as `LibraryAlbumRow`s, so Game Studio's
- * sandbox can derive records like a bridge room does (ADR 0224). Empty when
- * Navidrome isn't configured or reachable.
+ * sandbox can derive records like a bridge room does (ADR 0224 / 0230). Empty
+ * when the active local source isn't configured or reachable.
  */
 export async function listLibraryAlbums(): Promise<LibraryAlbumRow[]> {
+  if (isFileLibraryMode()) {
+    const file = getOpenNavidromeLibraryFile()
+    return file ? file.listAlbums(LIBRARY_ALBUM_CAP) : []
+  }
   const navidrome = navidromeConfig()
   if (!navidrome) return []
   const rows: LibraryAlbumRow[] = []
@@ -222,8 +267,12 @@ export async function listLibraryAlbums(): Promise<LibraryAlbumRow[]> {
   return rows.slice(0, LIBRARY_ALBUM_CAP)
 }
 
-/** A local album's cover, proxied so the designer's Navidrome password stays server-side. */
+/**
+ * A local album's cover, proxied so the designer's Navidrome password stays
+ * server-side. File mode has no cover bytes (ADR 0230).
+ */
 export async function fetchLocalCover(id: string): Promise<Response | null> {
+  if (isFileLibraryMode()) return null
   const navidrome = navidromeConfig()
   if (!navidrome) return null
   const response = await fetch(subsonicUrl(navidrome, "getCoverArt", { id, size: "300" }))

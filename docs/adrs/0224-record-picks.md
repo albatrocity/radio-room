@@ -1,7 +1,7 @@
 # 0224. Record picks: designer-chosen albums from any source as Physical Media
 
 **Date:** 2026-10-19
-**Status:** Accepted
+**Status:** Accepted. Decision 10 partially superseded by [0230](0230-studio-navidrome-snapshot.md) (live or `navidrome.db` for Game Studio local lookups).
 
 ## Context
 
@@ -46,6 +46,7 @@ This matters most in bridge rooms where Spotify is `restricted` ([0088](0088-met
     - **From the room's library**: formats and genres.
     - **Picked albums**: one search box over Spotify and the designer's Navidrome, a format select, and editable lore.
     - Lookups go through studio-bridge (`/records/*`), using Spotify client credentials and Subsonic. Each source is on only when its env is set.
+    - **Partially superseded by [0230](0230-studio-navidrome-snapshot.md):** local lookups may also read a designer-chosen `navidrome.db` snapshot; pick `id` remains `album.id`.
 
 ## Consequences
 
@@ -63,3 +64,4 @@ This matters most in bridge rooms where Spotify is `restricted` ([0088](0088-met
 - [0155. Physical Media condition, wear, and conversion](0155-physical-media-condition-wear-and-conversion.md)
 - [0222. Physical media carry](0222-physical-media-carry.md)
 - [0223. The van shares playback formats](0223-van-shared-playback-formats.md)
+- [0230. Game Studio Navidrome snapshot](0230-studio-navidrome-snapshot.md)

@@ -29,14 +29,18 @@ Game Studio's **Trip sim** page posts `{ roomId, snapshot }` to **`POST /trip-si
 
 ## Record picker lookups
 
-Game Studio's **Picked albums** editor ([ADR 0224](../../docs/adrs/0224-record-picks.md)) searches albums through three routes. These are the only bridge routes that reach the network:
+Game Studio's **Picked albums** editor ([ADR 0224](../../docs/adrs/0224-record-picks.md), [ADR 0230](../../docs/adrs/0230-studio-navidrome-snapshot.md)) searches albums through these routes. Spotify and live Navidrome are the only ones that reach the network:
 
 - `GET /records/search?q=` returns Spotify and local hits side by side, plus `unavailable` sources with the reason.
 - `GET /records/:source/:id` returns a ready `PhysicalMediaPick` with its format filled in. Spotify picks also carry lore; for Spotify, `id` may be an album URL or URI.
-- `GET /records/local/:id/cover` proxies a Navidrome cover, so the password stays in the bridge.
+- `GET /records/local/:id/cover` proxies a Navidrome cover, so the password stays in the bridge. **File mode returns 404** (no cover bytes on the designer machine).
 - `GET /records/library` lists your Navidrome albums (up to 2000) as `LibraryAlbumRow`s. Game Studio's sandbox derives its records from them, so trip-sim shop stops stock like a bridge room.
+- `GET /records/source` and `PUT /records/source` switch the local catalog between **live** Subsonic and a **file** pointer to `navidrome.db`. The choice is stored in `~/.config/listening-room-bridge/studio-library.json`.
+- `POST /records/source/browse` (localhost only) opens a macOS file chooser and returns the POSIX path.
 
-Each source is on only when its env is set. `make game-studio` exports `apps/studio-bridge/.env` into the bridge when it exists (gitignored):
+Local album `id` is always Navidrome's `album.id` — the same string Subsonic returns for that database. Use a copy of the DJ Mac's `navidrome.db` when authoring picks that must resolve in the room; a different library's file will not match existing map picks.
+
+Spotify is on when its env is set. Live Navidrome uses env or the Media Bridge daemon config. `make game-studio` exports `apps/studio-bridge/.env` into the bridge when it exists (gitignored):
 
 ```bash
 SPOTIFY_CLIENT_ID=…

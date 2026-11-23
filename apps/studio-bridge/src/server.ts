@@ -86,6 +86,12 @@ import {
 } from "./stubVolumeManager.js"
 import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
 import { fetchLocalCover, getRecordPick, listLibraryAlbums, searchRecords } from "./recordPicks.js"
+import {
+  getRecordLibrarySourceStatus,
+  setRecordLibrarySource,
+  type RecordLibraryMode,
+} from "./recordLibrarySource.js"
+import { browseNavidromeDbPath } from "./browseNavidromeDbPath.js"
 
 const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
 
@@ -2523,18 +2529,64 @@ app.get("/rooms/:roomId", (req, res) => {
   })
 })
 
-/** Game Studio's record picker: Spotify and local album search (ADR 0224). */
+/** Game Studio's record picker: Spotify and local album search (ADR 0224 / 0230). */
 app.get("/records/search", async (req, res) => {
   const query = typeof req.query.q === "string" ? req.query.q : ""
   res.status(200).json(await searchRecords(query))
 })
 
-/** The designer's Navidrome albums, for Game Studio's sandbox library (ADR 0224). */
+/** The designer's Navidrome albums, for Game Studio's sandbox library (ADR 0224 / 0230). */
 app.get("/records/library", async (_req, res) => {
   try {
     res.status(200).json({ albums: await listLibraryAlbums() })
   } catch (error: unknown) {
     res.status(503).json({ albums: [], error: error instanceof Error ? error.message : "Library failed" })
+  }
+})
+
+/** Active local library source: live Subsonic or a navidrome.db file (ADR 0230). */
+app.get("/records/source", (_req, res) => {
+  res.status(200).json(getRecordLibrarySourceStatus())
+})
+
+app.put("/records/source", (req, res) => {
+  const mode = req.body?.mode
+  if (mode !== "live" && mode !== "file") {
+    res.status(400).json({ error: 'Expected mode "live" or "file"' })
+    return
+  }
+  const path =
+    req.body?.path === null
+      ? null
+      : typeof req.body?.path === "string"
+        ? req.body.path
+        : undefined
+  try {
+    res.status(200).json(
+      setRecordLibrarySource({ mode: mode as RecordLibraryMode, path }),
+    )
+  } catch (error: unknown) {
+    res.status(400).json({
+      ...getRecordLibrarySourceStatus(),
+      error: error instanceof Error ? error.message : "Could not switch library source",
+    })
+  }
+})
+
+/** macOS file chooser for a navidrome.db path (localhost only). */
+app.post("/records/source/browse", async (req, res) => {
+  const remote = req.socket.remoteAddress
+  if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
+    res.status(403).json({ error: "Forbidden" })
+    return
+  }
+  try {
+    const result = await browseNavidromeDbPath()
+    res.status(200).json(result)
+  } catch (error: unknown) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Could not open file chooser",
+    })
   }
 })
 
