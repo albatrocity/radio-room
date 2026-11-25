@@ -751,6 +751,35 @@ describe("RoadTripPlugin", () => {
     ).toBe(true)
   })
 
+  it("queues narrative sounds room-wide with ducking (ADR 0240)", async () => {
+    const go = "https://cdn.listeningroom.club/assets/maps/sounds/go.mp3"
+    const arrive = "https://cdn.listeningroom.club/assets/maps/sounds/arrive.mp3"
+    const map = JSON.parse(BASE_MAP_JSON) as typeof SAMPLE_TRIP_MAP
+    map.narrativeSounds = [{ trigger: "departure", url: go }]
+    map.sites.find((site) => site.id === "record-store")!.narrativeSounds = [
+      { trigger: "arrival", url: arrive },
+    ]
+    const { plugin, h } = await setup()
+    await plugin.executeAction("loadMap", ADMIN, { mapJson: JSON.stringify(map) })
+    h.api.queueSoundEffect.mockClear()
+    expect(await plugin.executeAction("depart", ADMIN)).toMatchObject({ success: true })
+    expect(h.api.queueSoundEffect).toHaveBeenCalledWith({
+      url: go,
+      volume: 0.6,
+      duck: true,
+    })
+
+    await runUntil(plugin, h, T0 + 2.5 * MIN)
+    h.votes.set(h.activePoll!.id, { "opt-stop": 1, "opt-skip": 0 })
+    h.api.queueSoundEffect.mockClear()
+    await runUntil(plugin, h, T0 + 4 * MIN + 1)
+    expect(h.api.queueSoundEffect).toHaveBeenCalledWith({
+      url: arrive,
+      volume: 0.6,
+      duck: true,
+    })
+  })
+
   it("voluntary mode: anyone chips in, and meeting the goal fills up early", async () => {
     const { plugin, h } = await setup()
     await plugin.executeAction("loadMap", ADMIN, { mapJson: BASE_MAP_JSON })

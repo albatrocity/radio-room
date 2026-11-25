@@ -24,6 +24,7 @@ import {
   type TripMapInput,
   type TripOutcome,
 } from "@repo/road-trip-map"
+import { NarrativeSoundsEditor } from "./NarrativeSoundsEditor"
 import { TripOutcomesEditor, TripPlacementFields } from "./TripBranchFields"
 import { TripConditionField } from "./TripConditionField"
 import { TripOfferPicker } from "./TripOfferPicker"
@@ -34,6 +35,10 @@ import {
   type FuelProjectionStop,
   type TripSiteDraft,
 } from "../../tripMap/tripMapDraft"
+import type {
+  PendingNarrativeSounds,
+  SiteAssetStatus,
+} from "../../tripMap/siteAssets"
 
 const DEFAULT_GAS_PRICE = 8
 
@@ -46,8 +51,13 @@ type Props = {
   gasStop?: FuelProjectionStop
   /** When the van reaches this site, if the draft parses. */
   arrivalAt?: number
-  /** Image and 3D model section (`TripSiteArt`), owned by the editor's upload state. */
+  /** Look & lore section (`TripSiteArt`), owned by the editor's upload state. */
   art: ReactNode
+  assetStatus: SiteAssetStatus | null
+  pendingSounds: PendingNarrativeSounds
+  setPendingSounds: (
+    update: (prev: PendingNarrativeSounds) => PendingNarrativeSounds,
+  ) => void
   onChange: (patch: Partial<TripSiteDraft>) => void
   onRemove: () => void
 }
@@ -245,6 +255,9 @@ export function TripSiteInspector({
   gasStop,
   arrivalAt,
   art,
+  assetStatus,
+  pendingSounds,
+  setPendingSounds,
   onChange,
   onRemove,
 }: Props) {
@@ -409,19 +422,19 @@ export function TripSiteInspector({
               onChange={(onDepart) => onChange({ onDepart })}
             />
           </Stack>
+          <NarrativeSoundsEditor
+            scope="site"
+            siteId={site.id}
+            sounds={site.narrativeSounds ?? []}
+            destination={destination}
+            assetStatus={assetStatus}
+            pendingSounds={pendingSounds}
+            setPendingSounds={setPendingSounds}
+            onChange={(narrativeSounds) => onChange({ narrativeSounds })}
+          />
         </Stack>
       </Box>
       {art}
-      <Field.Root>
-        <Field.Label fontSize="xs">Lore (Markdown, shown once visited)</Field.Label>
-        <Textarea
-          size="sm"
-          rows={3}
-          maxLength={4000}
-          value={site.lore ?? ""}
-          onChange={(e) => onChange({ lore: e.target.value || undefined })}
-        />
-      </Field.Root>
 
       {!destination ? (
         <Box borderWidth="1px" borderRadius="md" p="3">

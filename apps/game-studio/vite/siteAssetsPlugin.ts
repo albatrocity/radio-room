@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto"
 import type { IncomingMessage, ServerResponse } from "node:http"
 import type { Plugin } from "vite"
+import { checkSound } from "./soundAsset"
 import { rejectStudioRequest } from "./studioRequestGuard"
 
 const ROUTE = "/__studio/assets"
-const KEY_PREFIX = "assets/maps/sites/"
+const SITE_KEY_PREFIX = "assets/maps/sites/"
+const SOUND_KEY_PREFIX = "assets/maps/sounds/"
 const MAX_INPUT_BYTES = 20 * 1024 * 1024
 const MAX_MODEL_BYTES = 2 * 1024 * 1024
 const IMAGE_MAX_EDGE = 1600
@@ -21,7 +23,7 @@ export type SiteAssetsOptions = {
   profile?: string
 }
 
-type AssetKind = "image" | "model"
+type AssetKind = "image" | "model" | "sound"
 
 class HttpError extends Error {
   constructor(
@@ -98,13 +100,13 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
 }
 
 /**
- * Dev-only middleware that publishes Trip Map site art to the asset CDN with the
- * designer's own AWS credentials, so no keys ever reach the browser (ADR 0218).
- * Keys are content-addressed (`assets/maps/sites/<sha256>.<ext>`), so identical
- * bytes are a no-op and objects can be cached forever without invalidation.
+ * Dev-only middleware that publishes Trip Map site art and narrative sounds to
+ * the asset CDN with the designer's own AWS credentials, so no keys ever reach
+ * the browser (ADR 0218, 0240). Keys are content-addressed, so identical bytes
+ * are a no-op and objects can be cached forever without invalidation.
  *
  * - `GET  /__studio/assets` → `{ configured, cdnBaseUrl, message? }`
- * - `POST /__studio/assets?kind=image|model` (raw body) → `{ url, key, bytes, reused }`
+ * - `POST /__studio/assets?kind=image|model|sound` (raw body) → `{ url, key, bytes, reused }`
  */
 export function siteAssetsPlugin(options: SiteAssetsOptions): Plugin {
   const cdnBase = options.cdnBaseUrl.replace(/\/+$/, "")
@@ -131,9 +133,29 @@ export function siteAssetsPlugin(options: SiteAssetsOptions): Plugin {
   }
 
   const publish = async (kind: AssetKind, input: Buffer) => {
-    const body = kind === "image" ? await processImage(input) : checkGlb(input)
-    const ext = kind === "image" ? "webp" : "glb"
-    const key = `${KEY_PREFIX}${createHash("sha256").update(body).digest("hex")}.${ext}`
+    let body: Buffer
+    let ext: string
+    let contentType: string
+    let keyPrefix: string
+    if (kind === "image") {
+      body = await processImage(input)
+      ext = "webp"
+      contentType = "image/webp"
+      keyPrefix = SITE_KEY_PREFIX
+    } else if (kind === "model") {
+      body = checkGlb(input)
+      ext = "glb"
+      contentType = "model/gltf-binary"
+      keyPrefix = SITE_KEY_PREFIX
+    } else {
+      const sound = checkSound(input)
+      if (!sound.ok) throw new HttpError(sound.status, sound.message)
+      body = sound.body
+      ext = sound.format.ext
+      contentType = sound.format.contentType
+      keyPrefix = SOUND_KEY_PREFIX
+    }
+    const key = `${keyPrefix}${createHash("sha256").update(body).digest("hex")}.${ext}`
     const url = `${cdnBase}/${key}`
     const { HeadObjectCommand, PutObjectCommand } = await import("@aws-sdk/client-s3")
     const s3 = await client()
@@ -150,7 +172,7 @@ export function siteAssetsPlugin(options: SiteAssetsOptions): Plugin {
         Bucket: options.bucket,
         Key: key,
         Body: body,
-        ContentType: kind === "image" ? "image/webp" : "model/gltf-binary",
+        ContentType: contentType,
         CacheControl: "public, max-age=31536000, immutable",
       }),
     )
@@ -177,8 +199,8 @@ export function siteAssetsPlugin(options: SiteAssetsOptions): Plugin {
               return
             }
             const kind = new URL(req.url ?? "/", "http://studio").searchParams.get("kind")
-            if (kind !== "image" && kind !== "model") {
-              throw new HttpError(400, "kind must be image or model.")
+            if (kind !== "image" && kind !== "model" && kind !== "sound") {
+              throw new HttpError(400, "kind must be image, model, or sound.")
             }
             const input = await readBody(req, MAX_INPUT_BYTES)
             if (input.length === 0) throw new HttpError(400, "The upload was empty.")
@@ -196,7 +218,7 @@ export function siteAssetsPlugin(options: SiteAssetsOptions): Plugin {
               })
             } else if ((error as { name?: string }).name === "AccessDenied") {
               sendJson(res, 403, {
-                message: `AWS denied the upload; your profile needs the map-designer policy on ${options.bucket}/${KEY_PREFIX}.`,
+                message: `AWS denied the upload; your profile needs the map-designer policy on ${options.bucket}/assets/maps/.`,
               })
             } else {
               sendJson(res, 500, { message: String((error as Error).message ?? error) })

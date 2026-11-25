@@ -245,6 +245,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0237](0237-trip-books-gas-canister-weighted-votes.md) | Trip books (series levels, reader buffs cleared at trip end, van knowledge credited on incident signs), a driving-only Gas Canister that tops up without resolving anything, multipliers on positive gains only, `shop:price` modifiers, and one-shot weighted poll votes | Accepted |
 | [0238](0238-site-system-message.md) | Site system messages: the site narrative System message select can post the info-alert row with the site icon (amends 0220) | Accepted |
 | [0239](0239-trip-conditions-and-key-items.md) | Trip conditions (`when` on outcomes, narrative cases, and shop offers; snapshot semantics; `ConditionFacts`) and trip key items (`map.keyItems`, `road-trip:key-{id}`, held by the van; `give-key`, `take-key`, `give-item` outcomes) | Accepted |
+| [0240](0240-narrative-sound-effects.md) | Narrative sound effects (`narrativeSounds` on sites and the trip map; Game Studio CDN upload for mp3/wav/ogg) | Accepted |
 
 ## Creating a New ADR
 

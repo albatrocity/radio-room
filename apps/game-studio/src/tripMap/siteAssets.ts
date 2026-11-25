@@ -7,6 +7,7 @@ const BASE = "/__studio/assets"
 const STUDIO_HEADERS = { "X-Studio-Request": "1" }
 
 export type SiteAssetKind = "image" | "model"
+export type StudioAssetKind = SiteAssetKind | "sound"
 
 export type SiteAssetStatus = { configured: boolean; cdnBaseUrl?: string; message?: string }
 
@@ -21,14 +22,31 @@ export type PendingSiteAsset = {
 
 export type PendingSiteAssets = Record<string, PendingSiteAsset>
 
+/** A narrative sound row still publishing (ADR 0240). The draft never holds a blob URL. */
+export type PendingNarrativeSound = {
+  /** `site:{siteId}:{index}` or `trip:{index}`. */
+  key: string
+  label: string
+  status: "uploading" | "failed"
+  message?: string
+}
+
+export type PendingNarrativeSounds = Record<string, PendingNarrativeSound>
+
 export function pendingAssetKey(siteId: string, kind: SiteAssetKind): string {
   return `${siteId}:${kind}`
+}
+
+export function pendingSoundKey(scope: "trip" | "site", index: number, siteId?: string): string {
+  return scope === "trip" ? `trip:${index}` : `site:${siteId}:${index}`
 }
 
 export const ASSET_ACCEPT: Record<SiteAssetKind, string> = {
   image: "image/png,image/jpeg,image/webp,image/avif,image/gif",
   model: ".glb,model/gltf-binary",
 }
+
+export const SOUND_ACCEPT = "audio/mpeg,audio/mp3,audio/wav,audio/wave,audio/x-wav,audio/ogg,.mp3,.wav,.ogg"
 
 export async function fetchSiteAssetStatus(): Promise<SiteAssetStatus> {
   try {
@@ -45,7 +63,7 @@ export async function fetchSiteAssetStatus(): Promise<SiteAssetStatus> {
 }
 
 export async function uploadSiteAsset(
-  kind: SiteAssetKind,
+  kind: StudioAssetKind,
   file: Blob,
 ): Promise<{ ok: true; url: string; reused: boolean } | { ok: false; message: string }> {
   try {
@@ -87,4 +105,17 @@ export function pendingAssetIssues(
       siteId: asset.siteId,
     }]
   })
+}
+
+/** Unpublished narrative sounds block Copy JSON and save the same way as site art. */
+export function pendingSoundIssues(pending: PendingNarrativeSounds): TripMapIssue[] {
+  return Object.values(pending).map((sound) => ({
+    severity: "error" as const,
+    code: sound.status === "uploading" ? "asset-uploading" : "asset-upload-failed",
+    message:
+      sound.status === "uploading"
+        ? `${sound.label} is still uploading.`
+        : `${sound.label} didn't publish: ${sound.message ?? "unknown error"}`,
+    path: sound.key,
+  }))
 }

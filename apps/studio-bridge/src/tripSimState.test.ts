@@ -127,4 +127,32 @@ describe("trip sim relay", () => {
       true,
     )
   })
+
+  it("emits SOUND_EFFECT_QUEUED for new narrative sounds on the same run", () => {
+    const go = "https://cdn.listeningroom.club/assets/maps/sounds/go.mp3"
+    const map = structuredClone(SAMPLE_TRIP_MAP)
+    map.narrativeSounds = [{ trigger: "departure", url: go }]
+    const sim = new TripSimRoom(map, { roomId: ROOM })
+    setTripSim(ROOM, sim.snapshot(), fixture)
+    sim.depart()
+    const events = setTripSim(ROOM, sim.snapshot(), fixture)
+    expect(events.filter((e) => e.type === "SOUND_EFFECT_QUEUED")).toEqual([
+      {
+        type: "SOUND_EFFECT_QUEUED",
+        data: { roomId: ROOM, url: go, volume: 0.6, duck: true },
+      },
+    ])
+  })
+
+  it("does not replay the previous run's sounds on reset", () => {
+    const go = "https://cdn.listeningroom.club/assets/maps/sounds/go.mp3"
+    const map = structuredClone(SAMPLE_TRIP_MAP)
+    map.narrativeSounds = [{ trigger: "departure", url: go }]
+    const first = new TripSimRoom(map, { roomId: ROOM, clock: () => 1_000 })
+    first.depart()
+    setTripSim(ROOM, first.snapshot(), fixture)
+    const second = new TripSimRoom(SAMPLE_TRIP_MAP, { roomId: ROOM, clock: () => 5_000 })
+    const events = setTripSim(ROOM, second.snapshot(), fixture)
+    expect(events.filter((e) => e.type === "SOUND_EFFECT_QUEUED")).toHaveLength(0)
+  })
 })

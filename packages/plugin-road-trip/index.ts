@@ -474,6 +474,10 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
           case "narrate":
             await api.sendSystemMessage(roomId, effect.body, narrateMessageMeta(effect))
             break
+          case "sound":
+            // Clients drop this when Sound effects is off (soundEffectsMachine).
+            await api.queueSoundEffect({ url: effect.url, volume: 0.6, duck: true })
+            break
           case "open-shop":
             await this.openSiteShop(map, effect.siteId, effect.scopeId)
             break

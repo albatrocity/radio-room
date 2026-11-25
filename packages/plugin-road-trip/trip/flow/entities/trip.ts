@@ -1,5 +1,5 @@
 import { parkPlan, resolveSiteSettings } from "@repo/road-trip-map"
-import { findSite, milesLabel, narrate, type TripEffect } from "../../helpers"
+import { findSite, milesLabel, narrate, narrativeSounds, type TripEffect } from "../../helpers"
 import { closeOpenWork } from "../../stops"
 import type { FlowAcc, FlowEntity } from "../dispatch"
 import { tripMachine, type TripMachineEvent, type TripPhase } from "../machines"
@@ -60,6 +60,7 @@ export const tripEntity: FlowEntity<TripPhase, TripMachineEvent> = {
             title: `On the road · ${map.title}`,
             body: `${milesLabel(state.routeMiles)} to go.`,
           },
+          ...narrativeSounds(map, "departure"),
         ],
       }
       const startReveals = map.sites.filter((site) => {
@@ -135,6 +136,7 @@ function arrive(
           ]
         : []),
       ...(narrative ? [narrative] : []),
+      ...(site ? narrativeSounds(site, "arrival") : []),
       { type: "nudge-host" },
     ],
   }

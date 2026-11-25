@@ -1,4 +1,12 @@
-import type { ConditionFacts, LinearPath, PathMap, TripMap, TripSite } from "@repo/road-trip-map"
+import type {
+  ConditionFacts,
+  LinearPath,
+  PathMap,
+  SiteNarrativeSoundTrigger,
+  TripMap,
+  TripNarrativeSoundTrigger,
+  TripSite,
+} from "@repo/road-trip-map"
 import {
   FUND_PURPOSE_LABELS,
   formatShare,
@@ -26,6 +34,8 @@ export type TripEffect =
    * (ADR 0229): that line posts with the site glyph. `variant` is an alert status.
    */
   | { type: "narrate"; body: string; variant?: SignVariant; icon?: string }
+  /** Room-wide sound effect (ADR 0240); the plugin queues it after the CAS. */
+  | { type: "sound"; url: string }
   | { type: "open-shop"; siteId: string; scopeId: string }
   | { type: "close-shop"; scopeId: string }
   | { type: "close-poll"; pollId: string }
@@ -283,6 +293,20 @@ export function departNarrate(site: TripSite, caseIndex?: number): TripEffect | 
   const resolved = departText(site, caseIndex)
   if (!resolved) return null
   return siteNarrate(resolved.text, site.icon, resolved.variant)
+}
+
+/**
+ * Sound effects for a site or trip moment (ADR 0240). Plays even when the
+ * matching narrative is blank. Several entries with the same trigger queue in
+ * array order.
+ */
+export function narrativeSounds(
+  source: { narrativeSounds?: readonly { trigger: string; url: string }[] } | undefined,
+  trigger: SiteNarrativeSoundTrigger | TripNarrativeSoundTrigger,
+): Extract<TripEffect, { type: "sound" }>[] {
+  return (source?.narrativeSounds ?? [])
+    .filter((entry) => entry.trigger === trigger)
+    .map((entry) => ({ type: "sound" as const, url: entry.url }))
 }
 
 /**

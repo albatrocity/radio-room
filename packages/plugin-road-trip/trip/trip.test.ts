@@ -276,6 +276,64 @@ describe("trip playable (Phase 1)", () => {
     })
   })
 
+  it("queues narrative sounds on arrival, site leave, and trip departure (ADR 0240)", () => {
+    const arrivalA = "https://cdn.listeningroom.club/assets/maps/sounds/arrive-a.mp3"
+    const arrivalB = "https://cdn.listeningroom.club/assets/maps/sounds/arrive-b.mp3"
+    const leave = "https://cdn.listeningroom.club/assets/maps/sounds/leave.mp3"
+    const go = "https://cdn.listeningroom.club/assets/maps/sounds/go.mp3"
+    const sim = new TripSim(
+      noGas((map) => {
+        map.narrativeSounds = [{ trigger: "departure", url: go }]
+        const record = map.sites.find((site) => site.id === "record-store")!
+        record.narrativeSounds = [
+          { trigger: "arrival", url: arrivalA },
+          { trigger: "arrival", url: arrivalB },
+          { trigger: "departure", url: leave },
+        ]
+        const stand = map.sites.find((site) => site.id === "farmers-market")!
+        stand.narrativeSounds = [
+          { trigger: "arrival", url: "https://cdn.listeningroom.club/assets/maps/sounds/skip.mp3" },
+        ]
+        stand.skipPoll = { default: "skip" }
+      }),
+    )
+    sim.votes["record-store"] = { stop: 1, skip: 0 }
+    sim.apply(depart)
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual({ type: "sound", url: go })
+
+    sim.runUntil(T0 + 4 * MIN + 1)
+    expect(sim.state.sites["record-store"]?.phase).toBe("parked")
+    const urls = () =>
+      sim.effects
+        .filter(({ effect }) => effect.type === "sound")
+        .map(({ effect }) => (effect.type === "sound" ? effect.url : ""))
+    expect(urls()).toEqual([go, arrivalA, arrivalB])
+
+    sim.runUntil(T0 + 8 * MIN + 1)
+    expect(sim.state.sites["record-store"]?.phase).toBe("visited")
+    expect(urls()).toEqual([go, arrivalA, arrivalB, leave])
+
+    sim.runUntil(T0 + 13 * MIN)
+    expect(sim.state.sites["farmers-market"]?.phase).toBe("skipped")
+    expect(urls()).toEqual([go, arrivalA, arrivalB, leave])
+  })
+
+  it("queues arrival sounds even when the narrative is blank", () => {
+    const chime = "https://cdn.listeningroom.club/assets/maps/sounds/chime.mp3"
+    const sim = new TripSim(
+      noGas((map) => {
+        const record = map.sites.find((site) => site.id === "record-store")!
+        delete record.narrative
+        record.narrativeSounds = [{ trigger: "arrival", url: chime }]
+      }),
+    )
+    sim.votes["record-store"] = { stop: 1, skip: 0 }
+    sim.apply(depart)
+    sim.runUntil(T0 + 4 * MIN + 1)
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual({ type: "sound", url: chime })
+    expect(sim.effects.some(({ effect }) => effect.type === "narrate")).toBe(false)
+  })
+
   it("pulls off with no votes when the site overrides the map default", () => {
     const sim = new TripSim(noGas((m) => (m.sites[0]!.skipPoll = { default: "stop" })))
     sim.apply(depart)

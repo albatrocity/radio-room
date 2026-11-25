@@ -602,6 +602,47 @@ describe("site art (Phase 4)", () => {
       ),
     ).toHaveLength(1)
   })
+
+  it("accepts narrative sounds and rejects a bad url or map arrival trigger", () => {
+    const sound = "https://cdn.listeningroom.club/assets/maps/sounds"
+    const input = clone()
+    input.sites[0]!.narrativeSounds = [
+      { trigger: "arrival", url: `${sound}/a.mp3` },
+      { trigger: "departure", url: `${sound}/b.mp3` },
+    ]
+    input.narrativeSounds = [{ trigger: "departure", url: `${sound}/go.mp3` }]
+    expect(parseTripMap(input).ok).toBe(true)
+
+    input.sites[0]!.narrativeSounds = [{ trigger: "arrival", url: "http://example.com/a.mp3" }]
+    expect(parseTripMap(input).ok).toBe(false)
+
+    const arrivalOnMap = clone()
+    arrivalOnMap.narrativeSounds = [
+      { trigger: "arrival" as "departure", url: `${sound}/a.mp3` },
+    ]
+    expect(parseTripMap(arrivalOnMap).ok).toBe(false)
+
+    const tooMany = clone()
+    tooMany.sites[0]!.narrativeSounds = Array.from({ length: 9 }, (_, i) => ({
+      trigger: "arrival" as const,
+      url: `${sound}/${i}.mp3`,
+    }))
+    expect(parseTripMap(tooMany).ok).toBe(false)
+  })
+
+  it("warns about narrative sounds that aren't on the asset CDN", () => {
+    const input = clone()
+    input.sites[0]!.narrativeSounds = [
+      { trigger: "arrival", url: "https://example.com/chime.mp3" },
+    ]
+    input.narrativeSounds = [{ trigger: "departure", url: "https://example.com/go.mp3" }]
+    const result = parseTripMap(input)
+    expect(result.ok).toBe(true)
+    expect(result.issues.filter((i) => i.code === "non-cdn-asset").map((i) => i.path)).toEqual([
+      "narrativeSounds.0.url",
+      "sites.0.narrativeSounds.0.url",
+    ])
+  })
 })
 
 describe("site spacing", () => {

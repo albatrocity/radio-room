@@ -105,10 +105,25 @@ export function lintTripMap(map: TripMap, deps: LintTripMapDeps = {}): TripMapIs
   const assetOrigin = `${(deps.assetBaseUrl ?? DEFAULT_ASSET_CDN_BASE_URL).replace(/\/+$/, "")}/`
   const seen = new Set<string>()
   const vanFormats = resolveTripTuning(map).vanPlayback.formats
+  map.narrativeSounds?.forEach((sound, soundIndex) => {
+    if (sound.url && !sound.url.startsWith(assetOrigin)) {
+      issues.push({
+        severity: "warning",
+        code: "non-cdn-asset",
+        message: `Trip departure sound ${soundIndex + 1} isn't on the asset CDN; publish it from Game Studio so it can't move or vanish.`,
+        path: `narrativeSounds.${soundIndex}.url`,
+      })
+    }
+  })
   map.sites.forEach((site, index) => {
     const assets = [
       { label: "image", url: site.imageUrl, path: `sites.${index}.imageUrl` },
       { label: "3D model", url: site.model?.url, path: `sites.${index}.model.url` },
+      ...(site.narrativeSounds ?? []).map((sound, soundIndex) => ({
+        label: `${sound.trigger} sound`,
+        url: sound.url,
+        path: `sites.${index}.narrativeSounds.${soundIndex}.url`,
+      })),
     ]
     for (const asset of assets) {
       if (asset.url && !asset.url.startsWith(assetOrigin)) {

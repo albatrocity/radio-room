@@ -211,6 +211,32 @@ export type SiteNarrativeVariant = z.infer<typeof siteNarrativeVariantSchema>
 export const SITE_NARRATIVE_VARIANTS = siteNarrativeVariantSchema.options
 
 /**
+ * When a narrative sound plays (ADR 0240). Distinct from an event's `trigger`
+ * (`mile` | `fuel`).
+ */
+export const siteNarrativeSoundTriggerSchema = z.enum(["arrival", "departure"])
+export type SiteNarrativeSoundTrigger = z.infer<typeof siteNarrativeSoundTriggerSchema>
+export const SITE_NARRATIVE_SOUND_TRIGGERS = siteNarrativeSoundTriggerSchema.options
+
+/** Trip departure only; an arrival sting belongs on the destination site. */
+export const tripNarrativeSoundTriggerSchema = z.enum(["departure"])
+export type TripNarrativeSoundTrigger = z.infer<typeof tripNarrativeSoundTriggerSchema>
+
+export const NARRATIVE_SOUNDS_MAX = 8
+
+export const siteNarrativeSoundSchema = z.object({
+  trigger: siteNarrativeSoundTriggerSchema,
+  url: httpsUrlSchema,
+})
+export type SiteNarrativeSound = z.infer<typeof siteNarrativeSoundSchema>
+
+export const tripNarrativeSoundSchema = z.object({
+  trigger: tripNarrativeSoundTriggerSchema,
+  url: httpsUrlSchema,
+})
+export type TripNarrativeSound = z.infer<typeof tripNarrativeSoundSchema>
+
+/**
  * Which van parts and consumables an event answers to (ADR 0228): `jam` (horn,
  * CB Radio), `flat` (Road-Grip Tires, Fix-a-Flat), `engine`, or `none`.
  */
@@ -455,6 +481,11 @@ export const siteSchema = z.object({
   departNarrativeVariant: siteNarrativeVariantSchema.optional(),
   /** Departure narratives by condition; the first match replaces `departNarrative` (ADR 0230). */
   departNarrativeCases: z.array(narrativeCaseSchema).max(NARRATIVE_CASES_MAX).optional(),
+  /**
+   * Sound effects queued on arrival or site departure (ADR 0240). Several may
+   * share a trigger; they play in array order even when the prose is blank.
+   */
+  narrativeSounds: z.array(siteNarrativeSoundSchema).max(NARRATIVE_SOUNDS_MAX).optional(),
 })
 export type TripSite = z.infer<typeof siteSchema>
 
@@ -629,6 +660,11 @@ export const tripMapSchema = z.object({
   routes: z.array(tripAltRouteSchema).max(8).optional(),
   maps: z.array(tripMapItemSchema).max(16).optional(),
   keyItems: z.array(tripKeyItemSchema).max(16).optional(),
+  /**
+   * Sound effects queued on trip departure (ADR 0240). Trigger is only
+   * `departure`; an arrival clip belongs on the destination site.
+   */
+  narrativeSounds: z.array(tripNarrativeSoundSchema).max(NARRATIVE_SOUNDS_MAX).optional(),
 })
 
 /** A parsed map with defaults applied. */

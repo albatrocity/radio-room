@@ -82,9 +82,12 @@ import {
   fetchSiteAssetStatus,
   pendingAssetIssues,
   pendingAssetKey,
+  pendingSoundIssues,
+  type PendingNarrativeSounds,
   type SiteAssetStatus,
 } from "../../tripMap/siteAssets"
 import { useSiteAssetUpload } from "./useSiteAssetUpload"
+import { NarrativeSoundsEditor } from "./NarrativeSoundsEditor"
 import { TripFuelCurve } from "./TripFuelCurve"
 import { TripFlowPanel } from "./TripFlowPanel"
 import { TripLayerInspector } from "./TripLayerInspector"
@@ -226,6 +229,7 @@ export function TripMapEditor() {
   const scaleFrom = useRef<TripMapInput | null>(null)
   const [walletsTotal, setWalletsTotal] = useState(DEFAULT_PREVIEW_WALLETS)
   const [assetStatus, setAssetStatus] = useState<SiteAssetStatus | null>(null)
+  const [pendingSounds, setPendingSounds] = useState<PendingNarrativeSounds>({})
   const { pendingAssets, uploadAsset, discardPending } = useSiteAssetUpload(setDraft)
 
   // Full parse (schema + lint + hash) and the localStorage write wait for typing to pause.
@@ -275,7 +279,10 @@ export function TripMapEditor() {
   const selectEvent = (eventId: string | null) => {
     setSelection(eventId ? { kind: "event", id: eventId } : null)
   }
-  const assetIssues = pendingAssetIssues(draft, pendingAssets)
+  const assetIssues = [
+    ...pendingAssetIssues(draft, pendingAssets),
+    ...pendingSoundIssues(pendingSounds),
+  ]
   const issues = [...assetIssues, ...parsed.issues]
   const errors = issues.filter((i) => i.severity === "error")
   const warnings = issues.filter((i) => i.severity === "warning")
@@ -325,7 +332,7 @@ export function TripMapEditor() {
             size="xs"
             variant="outline"
             disabled={exportBlocked}
-            title={exportBlocked ? "Finish or discard site art uploads first" : undefined}
+            title={exportBlocked ? "Finish or discard uploads first" : undefined}
             onClick={() => void copyJson()}
           >
             Copy JSON
@@ -334,7 +341,7 @@ export function TripMapEditor() {
             size="xs"
             variant="outline"
             disabled={exportBlocked}
-            title={exportBlocked ? "Finish or discard site art uploads first" : undefined}
+            title={exportBlocked ? "Finish or discard uploads first" : undefined}
             onClick={() => void saveFile()}
           >
             Save maps/{draft.id}.json
@@ -540,6 +547,16 @@ export function TripMapEditor() {
             </Field.HelperText>
           </Field.Root>
         </SimpleGrid>
+        <Box mt="4">
+          <NarrativeSoundsEditor
+            scope="trip"
+            sounds={draft.narrativeSounds ?? []}
+            assetStatus={assetStatus}
+            pendingSounds={pendingSounds}
+            setPendingSounds={setPendingSounds}
+            onChange={(narrativeSounds) => setDraft((d) => ({ ...d, narrativeSounds }))}
+          />
+        </Box>
       </Box>
 
       <Box borderWidth="1px" borderRadius="md" p="3">
@@ -768,6 +785,9 @@ export function TripMapEditor() {
                   onDiscardPending={(kind) => discardPending(selected.id, kind)}
                 />
               }
+              assetStatus={assetStatus}
+              pendingSounds={pendingSounds}
+              setPendingSounds={setPendingSounds}
               onChange={(patch) => setDraft((d) => updateSite(d, selected.id, patch))}
               onRemove={() => {
                 setDraft((d) => removeSite(d, selected.id))

@@ -6,6 +6,7 @@ import {
   departNarrativeCase,
   findSite,
   milesLabel,
+  narrativeSounds,
   pullOffHold,
   type TransitionContext,
   type TripEffect,
@@ -282,7 +283,15 @@ export const siteEntity: FlowEntity<SitePhase, SiteMachineEvent> = {
           ...(departCase !== undefined ? { departNarrativeCase: departCase } : {}),
         })
         const narrative = departNarrate(site, departCase)
-        const narrated = narrative ? { ...left, effects: [...left.effects, narrative] } : left
+        const sounds = narrativeSounds(site, "departure")
+        const narrated = {
+          ...left,
+          effects: [
+            ...left.effects,
+            ...(narrative ? [narrative] : []),
+            ...sounds,
+          ],
+        }
         return site.onDepart?.length
           ? emit(narrated, {
               type: "APPLY_OUTCOMES",

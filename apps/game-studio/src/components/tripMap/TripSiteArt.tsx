@@ -1,4 +1,15 @@
-import { Box, Button, Field, HStack, Image, Input, SimpleGrid, Stack, Text } from "@chakra-ui/react"
+import {
+  Box,
+  Button,
+  Field,
+  HStack,
+  Image,
+  Input,
+  SimpleGrid,
+  Stack,
+  Text,
+  Textarea,
+} from "@chakra-ui/react"
 import { ModelViewer } from "@repo/model-viewer"
 import { useRef, useState, type DragEvent, type ReactNode } from "react"
 import {
@@ -107,8 +118,8 @@ function DropZone({
 }
 
 /**
- * Site art (Phase 4, ADR 0218): drop or pick an image / GLB, preview it from a blob
- * URL while the dev server publishes it to the CDN, then store the CDN URL.
+ * Site look & lore (ADR 0218): image / GLB publish to the CDN, plus Markdown
+ * lore. Image, model, and lore are all shown once the stop is visited.
  */
 export function TripSiteArt({
   site,
@@ -131,96 +142,117 @@ export function TripSiteArt({
   return (
     <Box borderWidth="1px" borderRadius="md" p="3">
       <Text fontSize="sm" fontWeight="semibold" mb="2">
-        Art
+        Look & lore
       </Text>
       {uploadsOff ? (
         <Text fontSize="xs" color="yellow.fg" mb="2">
           {assetStatus?.message} You can still paste CDN URLs below.
         </Text>
       ) : null}
-      <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
-        <Stack gap="2">
-          <DropZone
-            kind="image"
-            disabled={uploadsOff}
-            pending={pendingImage}
-            onUpload={onUpload}
-            onDiscardPending={onDiscardPending}
-          >
-            {imageSrc ? (
-              <Image src={imageSrc} alt={site.name} maxH="180px" objectFit="contain" borderRadius="sm" />
-            ) : (
-              empty("image")
-            )}
-          </DropZone>
-          <Field.Root>
-            <Field.Label fontSize="xs">Image URL</Field.Label>
-            <HStack gap="1" w="full">
-              <Input
-                size="sm"
-                placeholder="https://cdn.listeningroom.club/…"
-                value={site.imageUrl ?? ""}
-                onChange={(e) => onChange({ imageUrl: e.target.value.trim() || undefined })}
-              />
-              {site.imageUrl ? (
-                <Button size="xs" variant="ghost" onClick={() => onChange({ imageUrl: undefined })}>
-                  Clear
-                </Button>
-              ) : null}
-            </HStack>
-            <Field.HelperText fontSize="xs">{LABELS.image.hint}</Field.HelperText>
-          </Field.Root>
-        </Stack>
-
-        <Stack gap="2">
-          <DropZone
-            kind="model"
-            disabled={uploadsOff}
-            pending={pendingModel}
-            onUpload={onUpload}
-            onDiscardPending={onDiscardPending}
-          >
-            {modelSrc ? (
-              <Box w="full" maxW="220px" onClick={(e) => e.stopPropagation()}>
-                <ModelViewer
-                  key={modelSrc}
-                  src={modelSrc}
-                  alt={`${site.name} model`}
-                  mode="stage"
-                  spin={false}
-                  fallback={
-                    <Text fontSize="xs" color="fg.muted">
-                      {site.icon} Model preview unavailable
-                    </Text>
-                  }
+      <Stack gap="3">
+        <SimpleGrid columns={{ base: 1, md: 2 }} gap="3">
+          <Stack gap="2">
+            <DropZone
+              kind="image"
+              disabled={uploadsOff}
+              pending={pendingImage}
+              onUpload={onUpload}
+              onDiscardPending={onDiscardPending}
+            >
+              {imageSrc ? (
+                <Image
+                  src={imageSrc}
+                  alt={site.name}
+                  maxH="180px"
+                  objectFit="contain"
+                  borderRadius="sm"
                 />
-              </Box>
-            ) : (
-              empty("model")
-            )}
-          </DropZone>
-          <Field.Root>
-            <Field.Label fontSize="xs">3D model URL</Field.Label>
-            <HStack gap="1" w="full">
-              <Input
-                size="sm"
-                placeholder="https://cdn.listeningroom.club/….glb"
-                value={site.model?.url ?? ""}
-                onChange={(e) => {
-                  const url = e.target.value.trim()
-                  onChange({ model: url ? { url } : undefined })
-                }}
-              />
-              {site.model ? (
-                <Button size="xs" variant="ghost" onClick={() => onChange({ model: undefined })}>
-                  Clear
-                </Button>
-              ) : null}
-            </HStack>
-            <Field.HelperText fontSize="xs">{LABELS.model.hint}</Field.HelperText>
-          </Field.Root>
-        </Stack>
-      </SimpleGrid>
+              ) : (
+                empty("image")
+              )}
+            </DropZone>
+            <Field.Root>
+              <Field.Label fontSize="xs">Image URL</Field.Label>
+              <HStack gap="1" w="full">
+                <Input
+                  size="sm"
+                  placeholder="https://cdn.listeningroom.club/…"
+                  value={site.imageUrl ?? ""}
+                  onChange={(e) => onChange({ imageUrl: e.target.value.trim() || undefined })}
+                />
+                {site.imageUrl ? (
+                  <Button size="xs" variant="ghost" onClick={() => onChange({ imageUrl: undefined })}>
+                    Clear
+                  </Button>
+                ) : null}
+              </HStack>
+              <Field.HelperText fontSize="xs">{LABELS.image.hint}</Field.HelperText>
+            </Field.Root>
+          </Stack>
+
+          <Stack gap="2">
+            <DropZone
+              kind="model"
+              disabled={uploadsOff}
+              pending={pendingModel}
+              onUpload={onUpload}
+              onDiscardPending={onDiscardPending}
+            >
+              {modelSrc ? (
+                <Box w="full" maxW="220px" onClick={(e) => e.stopPropagation()}>
+                  <ModelViewer
+                    key={modelSrc}
+                    src={modelSrc}
+                    alt={`${site.name} model`}
+                    mode="stage"
+                    spin={false}
+                    fallback={
+                      <Text fontSize="xs" color="fg.muted">
+                        {site.icon} Model preview unavailable
+                      </Text>
+                    }
+                  />
+                </Box>
+              ) : (
+                empty("model")
+              )}
+            </DropZone>
+            <Field.Root>
+              <Field.Label fontSize="xs">3D model URL</Field.Label>
+              <HStack gap="1" w="full">
+                <Input
+                  size="sm"
+                  placeholder="https://cdn.listeningroom.club/….glb"
+                  value={site.model?.url ?? ""}
+                  onChange={(e) => {
+                    const url = e.target.value.trim()
+                    onChange({ model: url ? { url } : undefined })
+                  }}
+                />
+                {site.model ? (
+                  <Button size="xs" variant="ghost" onClick={() => onChange({ model: undefined })}>
+                    Clear
+                  </Button>
+                ) : null}
+              </HStack>
+              <Field.HelperText fontSize="xs">{LABELS.model.hint}</Field.HelperText>
+            </Field.Root>
+          </Stack>
+        </SimpleGrid>
+        <Field.Root>
+          <Field.Label fontSize="xs">Lore</Field.Label>
+          <Textarea
+            size="sm"
+            rows={3}
+            maxLength={4000}
+            value={site.lore ?? ""}
+            onChange={(e) => onChange({ lore: e.target.value || undefined })}
+          />
+          <Field.HelperText fontSize="xs">
+            Markdown. Shown on the site detail once visited, with the image and model.
+          </Field.HelperText>
+        </Field.Root>
+      </Stack>
     </Box>
   )
 }

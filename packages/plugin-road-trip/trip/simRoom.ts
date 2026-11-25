@@ -40,6 +40,11 @@ export type TripSimSnapshot = {
   runId: string
   store: Record<string, unknown>
   messages: ChatMessage[]
+  /**
+   * Sound effects queued so far this run (ADR 0240). Parallel to `messages`;
+   * studio-bridge diffs new entries and emits `SOUND_EFFECT_QUEUED`.
+   */
+  sounds: { url: string }[]
   poll: Poll | null
   /** The last skip poll that closed, with its tally. */
   lastClosedPoll: PollHistoryEntry | null
@@ -188,6 +193,7 @@ export class TripSimRoom {
   readonly roomId: string
   readonly runId: string
   messages: ChatMessage[] = []
+  sounds: { url: string }[] = []
   poll: Poll | null = null
   lastClosedPoll: PollHistoryEntry | null = null
   version = 0
@@ -421,6 +427,7 @@ export class TripSimRoom {
       runId: this.runId,
       store: this.storePayload(),
       messages: this.messages,
+      sounds: this.sounds,
       poll: this.poll,
       lastClosedPoll: this.lastClosedPoll,
     }
@@ -431,6 +438,10 @@ export class TripSimRoom {
     const fresh = this.sim.effects.slice(this.effectCursor)
     this.effectCursor = this.sim.effects.length
     for (const { effect, recipients } of fresh) {
+      if (effect.type === "sound") {
+        this.sounds = [...this.sounds, { url: effect.url }]
+        continue
+      }
       if (this.shops && this.runShopEffect(effect)) continue
       const at = Math.max(this.lastMessageAt + 1, this.clock())
       const message =

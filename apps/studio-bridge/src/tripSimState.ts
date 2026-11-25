@@ -27,7 +27,8 @@ export function isTripSimSnapshot(value: unknown): value is TripSimSnapshot {
     typeof v.version === "number" &&
     !!v.store &&
     typeof v.store === "object" &&
-    Array.isArray(v.messages)
+    Array.isArray(v.messages) &&
+    Array.isArray(v.sounds)
   )
 }
 
@@ -98,6 +99,18 @@ export function setTripSim(
   const added = sameRun ? next!.messages.slice(prev!.messages.length) : (next?.messages ?? [])
   for (const message of added) {
     events.push({ type: "MESSAGE_RECEIVED", data: { roomId, message } })
+  }
+
+  // Narrative sounds (ADR 0240): append on the same run; on a new run emit that
+  // run's clips only (never the previous run's).
+  const addedSounds = sameRun
+    ? next!.sounds.slice(prev!.sounds.length)
+    : (next?.sounds ?? [])
+  for (const sound of addedSounds) {
+    events.push({
+      type: "SOUND_EFFECT_QUEUED",
+      data: { roomId, url: sound.url, volume: 0.6, duck: true },
+    })
   }
 
   if (nextPoll && nextPoll.id !== prevPoll?.id) {

@@ -163,6 +163,31 @@ describe("layers (ADR 0222)", () => {
     expect(sim.state.sites["welcome-center"]?.leftAt).toBeUndefined()
   })
 
+  it("queues site departure sounds on leave, not when ending while parked", () => {
+    const leave = "https://cdn.listeningroom.club/assets/maps/sounds/leave.mp3"
+    const sim = start(
+      branchMap((map) => {
+        map.sites[0]!.narrativeSounds = [{ trigger: "departure", url: leave }]
+      }),
+    )
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "parked")
+    expect(sim.effects.some(({ effect }) => effect.type === "sound")).toBe(false)
+    stepUntil(sim, () => sim.state.sites["welcome-center"]?.phase === "visited")
+    expect(sim.effects.map(({ effect }) => effect)).toContainEqual({ type: "sound", url: leave })
+
+    const parked = start(
+      branchMap((map) => {
+        map.sites[0]!.narrativeSounds = [{ trigger: "departure", url: leave }]
+      }),
+    )
+    stepUntil(parked, () => parked.state.sites["welcome-center"]?.phase === "parked")
+    parked.effects = []
+    expect(parked.apply(endTrip)).toBe(true)
+    expect(parked.effects.some(({ effect }) => effect.type === "sound" && effect.url === leave)).toBe(
+      false,
+    )
+  })
+
   it("ending the trip while parked does not apply onDepart", () => {
     const sim = start(
       branchMap((map) => {

@@ -37,6 +37,7 @@ import {
   milesLabel,
   openShopAt,
   narrate,
+  narrativeSounds,
   seededIndex,
   type Transition,
   type TransitionContext,
@@ -928,6 +929,7 @@ function towArrived(
   ]
   const narrative = narrate(site, state.sites[siteId]?.narrativeCase)
   if (narrative) effects.push(narrative)
+  effects.push(...narrativeSounds(site, "arrival"))
   effects.push(...shop.open)
   return result(enterStep({ next: state, log, effects }, ctx, atMechanic, incident.step + 1))
 }

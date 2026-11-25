@@ -6,6 +6,7 @@ import {
   AUTOMATIC_FUND_HOLD_MS,
   exitTitle,
   narrate,
+  narrativeSounds,
   openShopAt,
   type TransitionContext,
   type TripEffect,
@@ -107,6 +108,7 @@ export function parkAt(
   })
   const narrative = narrate(site, state.sites[site.id]?.narrativeCase)
   if (narrative) effects.push(narrative)
+  effects.push(...narrativeSounds(site, "arrival"))
   effects.push(...shop.open)
   if (gas) effects.push(gas.effect)
   const blockers = [...state.blockers.filter((b) => b.kind !== "parked"), blocker]

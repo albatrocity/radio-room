@@ -24,7 +24,10 @@
       "windowMinutes": 3
     },
     "vanPlayback": {
-      "formats": ["CD", "TAPE"]
+      "formats": [
+        "CD",
+        "TAPE"
+      ]
     }
   },
   "sites": [
@@ -62,7 +65,8 @@
           "weights": "rarity"
         }
       },
-      "narrative": "Hank is no longer with us, but his ghost is still overcharging for repairs."
+      "narrative": "Hank is no longer with us, but his ghost is still overcharging for repairs.",
+      "narrativeVariant": "site"
     },
     {
       "name": "Harmony Fuel",
@@ -129,7 +133,7 @@
       "name": "Sister Anne's",
       "description": "A singular Kansas City establishment. Good coffee and records, with plenty of local selections.",
       "icon": "☕️",
-      "mile": 7.6,
+      "mile": 7.2,
       "narrative": "You enter to the smell of delicious baked goods and drop coffee. You look up to the counter and spot Stick pulling his 6th espresso shot to \"see how it tastes\". ",
       "lore": "A charming coffee and records shop sporting one of the worst websites of all time.",
       "services": {
@@ -329,8 +333,8 @@
         "buybackRate": 0.4
       },
       "revealMiles": 1,
-      "narrativeVariant": "site",
-      "departNarrativeVariant": "site"
+      "departNarrativeVariant": "site",
+      "narrativeVariant": "site"
     },
     {
       "name": "Scenic Overlook",
@@ -356,7 +360,10 @@
         },
         "physicalMedia": {
           "library": {
-            "formats": ["CD", "TAPE"]
+            "formats": [
+              "CD",
+              "TAPE"
+            ]
           }
         }
       },
@@ -392,9 +399,10 @@
         "buybackRate": 0.8
       },
       "id": "gas-n-go",
-      "mile": 64,
+      "mile": 64.2,
       "presetId": "gas-station",
-      "narrative": "Smells like burnt oil, gin, and cigarettes in here. But they have a decent selection of records."
+      "narrative": "Smells like burnt oil, gin, and cigarettes in here. But they have a decent selection of records.",
+      "narrativeVariant": "site"
     },
     {
       "name": "Stinker's Gas",
@@ -428,7 +436,12 @@
       "services": {
         "physicalMedia": {
           "library": {
-            "formats": ["CD", "LP", "TAPE", "45"]
+            "formats": [
+              "CD",
+              "LP",
+              "TAPE",
+              "45"
+            ]
           },
           "picks": [
             {
@@ -449,7 +462,7 @@
         "buybackRate": 0.1
       },
       "id": "record-shop",
-      "mile": 91.2,
+      "mile": 91.4,
       "presetId": "record-shop"
     },
     {
@@ -478,7 +491,7 @@
         "buybackRate": 0.5
       },
       "id": "gas-n-go-5",
-      "mile": 77.6,
+      "mile": 78.4,
       "presetId": "gas-station"
     },
     {
@@ -554,7 +567,8 @@
         "buybackRate": 1,
         "title": "Big Terry's Truck Slop",
         "openingMessage": "A bunch of stuff for sale, not all of it's quality"
-      }
+      },
+      "narrativeVariant": "site"
     },
     {
       "id": "jarvis-electronics",
@@ -610,7 +624,7 @@
         ]
       },
       "narrative": "The van pulls into one of the 50 available parking spaces. This lot is huge: it must be an artifact from a bygone era. As you step out of the van, you spot a 4' yellow and purple slug with probing antennae: it's Jarvis. He's ecstatic at the opportunity to sell you some electronics.",
-      "narrativeVariant": "info",
+      "narrativeVariant": "site",
       "departNarrative": "As you start to leave Jarvis calls out: he's got some recommendations for some nearby places that he thinks \"you guys would really, really enjoy\". He hands you a map.",
       "departNarrativeVariant": "success",
       "onDepart": [
@@ -714,12 +728,15 @@
       "services": {
         "physicalMedia": {
           "library": {
-            "formats": ["CD", "TAPE"]
+            "formats": [
+              "CD",
+              "TAPE"
+            ]
           }
         }
       },
       "narrative": "The van creeps up to the front of a giant warehouse. An elderly orange and white, long-haired cat sulks out of the front door. He's gruff on the inside and fluff on the outside. This must be Peepaw. He circles around the van, assessing its capabilities. \"Come inside\", he says. \"I've got what you need.\" He disappears into the warehouse.",
-      "narrativeVariant": "info",
+      "narrativeVariant": "site",
       "parkMinutes": 5
     },
     {
@@ -812,7 +829,10 @@
       "services": {
         "physicalMedia": {
           "library": {
-            "formats": ["CD", "TAPE"]
+            "formats": [
+              "CD",
+              "TAPE"
+            ]
           }
         }
       },
@@ -917,7 +937,8 @@
       "id": "record-shop-3",
       "mile": 60.8,
       "presetId": "record-shop",
-      "layer": "local-tips"
+      "layer": "local-tips",
+      "narrativeVariant": "site"
     },
     {
       "id": "darby-s-snack-emporium",
@@ -969,14 +990,15 @@
       "revealMiles": 1,
       "skipPoll": {
         "leadMinutes": 1
-      }
+      },
+      "narrativeVariant": "site"
     },
     {
       "id": "garage-sale",
       "name": "Garage Sale",
       "description": "Cardboard sign with balloons attached to it. Treasures ahead?",
       "icon": "📍",
-      "mile": 100,
+      "mile": 99.8,
       "layer": "local-tips",
       "narrative": "You pull up to a modest ranch house with a rat sitting outside. He welcomes you as the sale winds down: \"Hey guys I'm kinda beat but I'd really like to get rid of this stuff. Go ahead and take what you want.\" He motions towards the giant pile of junk on his lawn.",
       "narrativeVariant": "site",
@@ -1162,7 +1184,7 @@
       "id": "traffic-jam",
       "presetId": "traffic-jam",
       "mile": 51.2,
-      "narrativeVariant": "info"
+      "narrativeVariant": "warning"
     },
     {
       "name": "Stuck in the mud",
@@ -1214,7 +1236,9 @@
       "id": "local-tips",
       "name": "Jarvis' Street Savvy",
       "icon": "🗺️",
-      "unlockItems": ["local-map"]
+      "unlockItems": [
+        "local-map"
+      ]
     }
   ]
 }
