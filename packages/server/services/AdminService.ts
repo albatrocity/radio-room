@@ -183,18 +183,6 @@ export class AdminService {
       return { error, user: null, users: [] }
     }
 
-    if (targetUserId === callerUserId) {
-      return {
-        error: {
-          status: 400,
-          error: "Bad Request",
-          message: "Cannot change your own persona assignments.",
-        },
-        user: null,
-        users: [],
-      }
-    }
-
     const personaSvc = this.context.personas as PersonaService | undefined
     if (!personaSvc) {
       return {
@@ -342,6 +330,11 @@ export class AdminService {
     if ("showId" in values && values.showId === null) {
       delete (newSettings as { activeSegmentId?: string | null }).activeSegmentId
       delete (newSettings as { activeShowSegmentId?: string | null }).activeShowSegmentId
+      delete (newSettings as { activeSegmentRole?: Room["activeSegmentRole"] }).activeSegmentRole
+    }
+
+    if ("activeSegmentId" in values && values.activeSegmentId === null) {
+      delete (newSettings as { activeSegmentRole?: Room["activeSegmentRole"] }).activeSegmentRole
     }
 
     if ("showId" in values) {
@@ -476,10 +469,15 @@ export class AdminService {
 
     const scheduleFieldsToClear: string[] = []
     if ("showId" in values && values.showId === null) {
-      scheduleFieldsToClear.push("showId", "activeSegmentId", "activeShowSegmentId")
+      scheduleFieldsToClear.push(
+        "showId",
+        "activeSegmentId",
+        "activeShowSegmentId",
+        "activeSegmentRole",
+      )
     }
     if ("activeSegmentId" in values && values.activeSegmentId === null) {
-      scheduleFieldsToClear.push("activeSegmentId", "activeShowSegmentId")
+      scheduleFieldsToClear.push("activeSegmentId", "activeShowSegmentId", "activeSegmentRole")
     }
     if ("activeShowSegmentId" in values && values.activeShowSegmentId === null) {
       scheduleFieldsToClear.push("activeShowSegmentId")

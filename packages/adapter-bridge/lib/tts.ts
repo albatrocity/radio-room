@@ -12,9 +12,7 @@ export type ListSayVoicesResult = {
   voices: BridgeSayVoice[]
 }
 
-export type SpeakOnBridgeResult =
-  | { ok: true; queued: true }
-  | { ok: false; message: string }
+export type SpeakOnBridgeResult = { ok: true; queued: true } | { ok: false; message: string }
 
 /**
  * List installed macOS `say` voices via the Media Bridge daemon (ADR 0178).

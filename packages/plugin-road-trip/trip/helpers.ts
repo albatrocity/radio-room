@@ -1,5 +1,6 @@
 import type { ConditionFacts, LinearPath, PathMap, TripMap, TripSite } from "@repo/road-trip-map"
 import {
+  FUND_PURPOSE_LABELS,
   formatShare,
   narrativeCaseIndex,
   narrativeForCase,
@@ -83,6 +84,29 @@ export const ARRIVAL_MILE_EPSILON = 0.02
 /** Automatic mode holds the van this long while it "pumps" (M2 Funds and the van). */
 export const AUTOMATIC_FUND_HOLD_MS = 20_000
 
+/** How long a fund step holds the van. Automatic is a short pump; voluntary uses the map window. */
+export function fundHoldMs(
+  mode: TripFund["mode"],
+  map: { tuning: { funds: { windowMinutes: number } } },
+): number {
+  return mode === "automatic" ? AUTOMATIC_FUND_HOLD_MS : map.tuning.funds.windowMinutes * 60_000
+}
+
+/**
+ * Pool title for an open fund. Live `open-fund` effects and the trip sim both
+ * use this, so Game Studio's pool card matches a room.
+ */
+export function fundPoolTitle(
+  fund: Pick<TripFund, "purpose" | "siteId" | "provider">,
+  map: { sites: readonly { id: string; name?: string }[] },
+): string {
+  if (fund.purpose === "gas") {
+    const site = map.sites.find((entry) => entry.id === fund.siteId)
+    return `Gas at ${site?.name ?? "the station"}`
+  }
+  return `${FUND_PURPOSE_LABELS[fund.purpose]} · ${fund.provider ?? "the mechanic"}`
+}
+
 /** A fund whose levy is still recording re-checks after this long. */
 export const LEVY_RETRY_MS = 3_000
 
@@ -111,7 +135,7 @@ export function siteShopScopeId(tripId: string, siteId: string): string {
   return `trip:${tripId}:site:${siteId}`
 }
 
-/** A site opens a shop when it lists custom offers or sells records (ADR 0214). */
+/** A site opens a shop when it lists custom offers or sells records (ADR 0222). */
 export function hasSiteShop(site: TripSite): boolean {
   return siteShopRequest(site) !== null
 }
@@ -341,7 +365,7 @@ export function nextSiteAhead(state: TripState, map: TripMap, mile: number): Tri
 
 /**
  * Once the room pulls off at an optional site, signs and skip polls for sites
- * this close past it wait until the van leaves the stop (ADR 0217).
+ * this close past it wait until the van leaves the stop (ADR 0225).
  */
 export const PULL_OFF_HOLD_MILES = 3
 

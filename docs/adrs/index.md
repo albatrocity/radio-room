@@ -93,7 +93,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0085](0085-multi-source-search-relevance-ranking.md) | Multi-source DJ search relevance ranking | Accepted |
 | [0086](0086-metadata-search-result-cache.md) | Metadata search result cache (SimpleCache + YouTube first) | Accepted |
 | [0087](0087-room-bridge-media-source-policy.md) | Room-level Media Bridge source policy (metadataSourceIds toggles) | Accepted |
-| [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog host); amended by [0216](0216-record-picks.md) (`trackId` on queue grants) |
+| [0088](0088-metadata-source-access-grants.md) | Metadata source access (room baseline + plugin grants) | Partially superseded by [0201](0201-plugin-capability-interfaces.md) (catalog host); amended by [0224](0224-record-picks.md) (`trackId` on queue grants) |
 | [0089](0089-metadata-source-content-browse.md) | Metadata source content browse (artists → albums → tracks) | Partially superseded by [0090](0090-hybrid-metadata-catalog-browse.md) |
 | [0090](0090-hybrid-metadata-catalog-browse.md) | Hybrid metadata catalog browse (search-entry + Search entity rows) | Accepted |
 | [0091](0091-round-robin-dj-plugin.md) | Round Robin DJ plugin (turn eligibility, Robin persona, DEPUTY_DJ_CHANGED) | Partially superseded by [0101](0101-queue-add-undo-and-round-robin-turn-restore.md) |
@@ -165,7 +165,7 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0157](0157-physical-media-condition-artwork.md) | Physical Media condition artwork as an overlay modifier | Partially superseded by [0165](0165-physical-media-queue-condition-snapshot.md) (§2 Now Playing always-mint) |
 | [0158](0158-shopping-session-condition-bounds.md) | Shopping session condition bounds (Record Store min/max) | Accepted |
 | [0159](0159-physical-media-restoration-items.md) | Physical Media restoration items (CD Cleaner, Dust Cloth, Pencil; `mediaOrigin` + `mediaOriginTitle` on convert) | Accepted. Amended by [0170](0170-broken-media-dead-weight.md) |
-| [0160](0160-playback-device-gating.md) | Playback-device gating (third slot pool, `playbackFormats`) | Accepted. Amended by [0166](0166-hifi-playback-devices-skip-wear.md) and [0215](0215-van-shared-playback-formats.md) (room-shared formats) |
+| [0160](0160-playback-device-gating.md) | Playback-device gating (third slot pool, `playbackFormats`) | Accepted. Amended by [0166](0166-hifi-playback-devices-skip-wear.md) and [0223](0223-van-shared-playback-formats.md) (room-shared formats) |
 | [0161](0161-spotify-device-readiness-on-demand.md) | Spotify SDK device readiness is prepared on demand, not by reload-looping | Accepted |
 | [0162](0162-economy-scale-for-game-sessions.md) | Economy scale for game sessions (`costScale` / `earnScale`, `intent: "exact"`) | Accepted |
 | [0163](0163-the-fed-economy-controller.md) | The Fed — optional plugin driving `costScale` toward target affordability | Accepted |
@@ -209,33 +209,42 @@ This directory contains Architectural Decision Records (ADRs) for the Listening 
 | [0201](0201-plugin-capability-interfaces.md) | Plugin capability interfaces (`context.polls`, `schedule`, `queue`, `playback`, `catalog`) | Accepted |
 | [0202](0202-plugin-registry-package-and-generic-settings-state.md) | Plugin registry package (`@repo/plugins`) and generic `settings.plugin` state | Accepted |
 | [0203](0203-departed-user-record-ttl.md) | Departed listener user records kept for two days | Accepted |
-| [0204](0204-device-trust-boundary.md) | Device trust boundary (HTTP now-playing, `/device` socket for playback and segment cues) | Accepted |
-| [0205](0205-road-trips-v1.md) | Road trips v1: ledger of legs, trip mode as a loaded map, sites as timed stops, van parts and incidents (+ `schedulesIgnoreEnabled`, store-aware tab `showWhen`, Quick Access live status, plugin detail frame) | Partially superseded by [0212](0212-site-narrative-chat.md) (decision 9) and [0220](0220-trip-events.md) (decision 12's closed incident catalog); the rest stands |
-| [0206](0206-declared-plugin-capabilities.md) | Declared plugin capabilities (`requestCapability`); Item Shops `shopAccess` with custom offers | Accepted (composed-offer amendment 2026-10-16). Partially superseded by [0214](0214-physical-media-carry.md) (`shopIds` removed) |
-| [0207](0207-trip-maps-portable-json.md) | Trip Maps as portable JSON (`@repo/road-trip-map`, `parseTripMap`, Game Studio editor) | Accepted (composed site shops amendment 2026-10-16). Partially superseded by [0214](0214-physical-media-carry.md) (catalog shop picker and per-shop presets removed) and [0220](0220-trip-events.md) (`scriptedEvents` replaced by `events`) |
-| [0208](0208-presentation-themes.md) | Presentation themes for system messages and plugin-authored polls | Accepted |
-| [0209](0209-trip-funds-escrow-pool-and-levy.md) | Trip funds: shared `EscrowPoolHelper` and proportional levy in plugin-base, `pool-card`, short funds still served, fuel on the ledger (amends [0188](0188-kickstarter-campaigns-coin-escrow.md)) | Accepted |
-| [0210](0210-shared-model-viewer-and-studio-site-assets.md) | Shared `@repo/model-viewer` (sole `three` importer) for items and sites; Game Studio publishes content-addressed site art to the CDN with designer credentials (extends 0199, amends 0207) | Accepted |
-| [0211](0211-trip-timeline-room-export.md) | Trip timeline in the room export | Accepted |
-| [0212](0212-site-narrative-chat.md) | Site narrative is chat prose, not a road sign | Accepted (arrival order amendment 2026-10-19). Amended by [0229](0229-site-system-message.md) (arrival and departure render as `site` messages) |
-| [0213](0213-game-studio-trip-simulator.md) | Game Studio trip simulator steps the pure trip runtime (`TripSim.stepNext`, `@repo/plugin-road-trip/sim`, `POST /trip-sim`) | Accepted (shop rounds amendment 2026-10-19) |
-| [0214](0214-physical-media-carry.md) | Physical media carry (`{ formats?, genres? }`) on trip site services and shop entries; record genres from Navidrome; trips stop naming catalog shops (partially supersedes 0206, 0207) | Accepted (amended by [0216](0216-record-picks.md): the carry moves under `library`) |
-| [0215](0215-van-shared-playback-formats.md) | The van shares playback formats while a trip map is loaded (`tuning.vanPlayback`, `shopAccess.setSharedPlayback`; amends 0160) | Accepted |
-| [0216](0216-record-picks.md) | Record picks: designer-chosen albums from any source (`PhysicalMediaPick`, `PhysicalMediaStock` = `library` carry + `picks`), track-scoped `grantMetadataSourceAccess` (`trackId`), `getAlbumTrackIds` (amends 0088, 0214) | Accepted |
-| [0217](0217-pull-off-sign-hold.md) | Pulling off holds signs and skip polls for sites within 3 mi past the stop until the van leaves (`pullOffHold`; amends 0205) | Accepted |
-| [0218](0218-system-message-actions-and-theme-icons.md) | System message `meta.action` button (game modal tab target via `navigateToTarget`), Lucide names in `meta.icon`, poll theme `optionIcon` (amends 0208) | Accepted |
-| [0219](0219-road-trip-van-motion-and-refill-window.md) | Room-scoped `roadTripVanMotionMachine` for van flourishes; `TripStore.fuel.refill` window animates the gauge during refuels | Accepted |
-| [0220](0220-trip-events.md) | Trip events: incidents composed from presets (`map.events`, `compileEventSteps`, families, beats; partially supersedes 0205 decision 12 and 0207's `scriptedEvents`) | Accepted |
-| [0221](0221-poll-presentation-subject-id.md) | Poll presentation `subjectId`: the id of whatever a plugin poll's sign names (amends 0208) | Accepted |
-| [0222](0222-trip-flow-and-branches.md) | Trip flow (one statechart of flat typed machines behind `dispatch`) and trip branches: layers, routes, outcomes, choices (`linearize`, `describeTripFlow`; amends 0205 d5 and 0220) | Partially superseded by [0227](0227-trip-defined-maps.md) |
-| [0223](0223-site-departure-outcomes.md) | Site `onDepart` outcomes apply when the van leaves a stop, while the trip is still driving (amends 0222) | Accepted |
-| [0224](0224-site-parked-status.md) | Site `parkedStatus` replaces the van's "Parked" word while stopped there | Accepted |
-| [0225](0225-poll-presentation-body.md) | Poll presentation `body`: the sentence under a themed poll's headline (amends 0208) | Accepted |
-| [0226](0226-site-departure-narrative.md) | Site `departNarrative` posts when the van leaves a stop, before `onDepart` outcomes; `narrative` is the on-visit prose (amends 0212, 0223) | Accepted |
-| [0227](0227-trip-defined-maps.md) | Trip-defined maps (`map.maps`, `road-trip:map-{id}`) unlock every locked layer that opts in via `layers[].maps`; replaces Local Map and `unlockItems` (partially supersedes 0222) | Accepted |
-| [0228](0228-trip-books-gas-canister-weighted-votes.md) | Trip books (series levels, reader buffs cleared at trip end, van knowledge credited on incident signs), a driving-only Gas Canister that tops up without resolving anything, multipliers on positive gains only, `shop:price` modifiers, and one-shot weighted poll votes | Accepted |
-| [0229](0229-site-system-message.md) | Site system messages: the site narrative System message select can post the info-alert row with the site icon (amends 0212) | Accepted |
-| [0230](0230-trip-conditions-and-key-items.md) | Trip conditions (`when` on outcomes, narrative cases, and shop offers; snapshot semantics; `ConditionFacts`) and trip key items (`map.keyItems`, `road-trip:key-{id}`, held by the van; `give-key`, `take-key`, `give-item` outcomes) | Accepted |
+| [0204](0204-device-trust-boundary.md) | Device trust boundary (HTTP now-playing, `/device` socket for playback and segment cues) | Partially superseded by [0209](0209-segment-cue-delivery.md) (segment cue delivery) |
+| [0205](0205-newsletter-signup-guards.md) | Newsletter signup guards (POST-only confirm, form token, honeypot, Redis caps) | Accepted |
+| [0206](0206-skipper-persona-plugin.md) | Skipper persona plugin (delegated skip with a waiting track) | Partially superseded by [0210](0210-skipper-own-track-skip.md) (own-track skip) |
+| [0207](0207-single-adapter-bridge-module-instance.md) | One `@repo/adapter-bridge` module instance in the API (static imports only) | Accepted |
+| [0208](0208-round-robin-roster-opt-out-and-reset.md) | Round Robin roster opt-out and reset rounds | Accepted |
+| [0209](0209-segment-cue-delivery.md) | Segment cues fan out on the local device sockets and across API processes | Accepted |
+| [0210](0210-skipper-own-track-skip.md) | Skipper own-track skip (`skipOwnTracks` without persona) | Accepted |
+| [0211](0211-user-pause-and-play-start-hold.md) | User pause and play-start hold for app-controlled advance | Accepted |
+| [0212](0212-show-voicemail.md) | Show voicemail (anonymous recorder, segment role, bridge URL sidechain) | Accepted |
+| [0213](0213-road-trips-v1.md) | Road trips v1: ledger of legs, trip mode as a loaded map, sites as timed stops, van parts and incidents (+ `schedulesIgnoreEnabled`, store-aware tab `showWhen`, Quick Access live status, plugin detail frame) | Partially superseded by [0220](0220-site-narrative-chat.md) (decision 9) and [0228](0228-trip-events.md) (decision 12's closed incident catalog); the rest stands |
+| [0214](0214-declared-plugin-capabilities.md) | Declared plugin capabilities (`requestCapability`); Item Shops `shopAccess` with custom offers | Accepted (composed-offer amendment 2026-10-16). Partially superseded by [0222](0222-physical-media-carry.md) (`shopIds` removed) |
+| [0215](0215-trip-maps-portable-json.md) | Trip Maps as portable JSON (`@repo/road-trip-map`, `parseTripMap`, Game Studio editor) | Accepted (composed site shops amendment 2026-10-16). Partially superseded by [0222](0222-physical-media-carry.md) (catalog shop picker and per-shop presets removed) and [0228](0228-trip-events.md) (`scriptedEvents` replaced by `events`) |
+| [0216](0216-presentation-themes.md) | Presentation themes for system messages and plugin-authored polls | Accepted |
+| [0217](0217-trip-funds-escrow-pool-and-levy.md) | Trip funds: shared `EscrowPoolHelper` and proportional levy in plugin-base, `pool-card`, short funds still served, fuel on the ledger (amends [0188](0188-kickstarter-campaigns-coin-escrow.md)) | Accepted |
+| [0218](0218-shared-model-viewer-and-studio-site-assets.md) | Shared `@repo/model-viewer` (sole `three` importer) for items and sites; Game Studio publishes content-addressed site art to the CDN with designer credentials (extends 0199, amends 0215) | Accepted |
+| [0219](0219-trip-timeline-room-export.md) | Trip timeline in the room export | Accepted |
+| [0220](0220-site-narrative-chat.md) | Site narrative is chat prose, not a road sign | Accepted (arrival order amendment 2026-10-19). Amended by [0238](0238-site-system-message.md) (arrival and departure render as `site` messages) |
+| [0221](0221-game-studio-trip-simulator.md) | Game Studio trip simulator steps the pure trip runtime (`TripSim.stepNext`, `@repo/plugin-road-trip/sim`, `POST /trip-sim`) | Accepted (shop rounds amendment 2026-10-19) |
+| [0222](0222-physical-media-carry.md) | Physical media carry (`{ formats?, genres? }`) on trip site services and shop entries; record genres from Navidrome; trips stop naming catalog shops (partially supersedes 0214, 0215) | Accepted (amended by [0224](0224-record-picks.md): the carry moves under `library`) |
+| [0223](0223-van-shared-playback-formats.md) | The van shares playback formats while a trip map is loaded (`tuning.vanPlayback`, `shopAccess.setSharedPlayback`; amends 0160) | Accepted |
+| [0224](0224-record-picks.md) | Record picks: designer-chosen albums from any source (`PhysicalMediaPick`, `PhysicalMediaStock` = `library` carry + `picks`), track-scoped `grantMetadataSourceAccess` (`trackId`), `getAlbumTrackIds` (amends 0088, 0222) | Accepted. Decision 10 partially superseded by [0230](0230-studio-navidrome-snapshot.md) |
+| [0225](0225-pull-off-sign-hold.md) | Pulling off holds signs and skip polls for sites within 3 mi past the stop until the van leaves (`pullOffHold`; amends 0213) | Accepted |
+| [0226](0226-system-message-actions-and-theme-icons.md) | System message `meta.action` button (game modal tab target via `navigateToTarget`), Lucide names in `meta.icon`, poll theme `optionIcon` (amends 0216) | Accepted |
+| [0227](0227-road-trip-van-motion-and-refill-window.md) | Room-scoped `roadTripVanMotionMachine` for van flourishes; `TripStore.fuel.refill` window animates the gauge during refuels | Accepted |
+| [0228](0228-trip-events.md) | Trip events: incidents composed from presets (`map.events`, `compileEventSteps`, families, beats; partially supersedes 0213 decision 12 and 0215's `scriptedEvents`) | Accepted |
+| [0229](0229-poll-presentation-subject-id.md) | Poll presentation `subjectId`: the id of whatever a plugin poll's sign names (amends 0216) | Accepted |
+| [0230](0230-studio-navidrome-snapshot.md) | Game Studio Navidrome snapshot: live Subsonic or read-only `navidrome.db`; pick id is `album.id` (partially supersedes [0224](0224-record-picks.md) decision 10) | Accepted |
+| [0231](0231-trip-flow-and-branches.md) | Trip flow (one statechart of flat typed machines behind `dispatch`) and trip branches: layers, routes, outcomes, choices (`linearize`, `describeTripFlow`; amends 0213 d5 and 0228) | Partially superseded by [0236](0236-trip-defined-maps.md) |
+| [0232](0232-site-departure-outcomes.md) | Site `onDepart` outcomes apply when the van leaves a stop, while the trip is still driving (amends 0231) | Accepted |
+| [0233](0233-site-parked-status.md) | Site `parkedStatus` replaces the van's "Parked" word while stopped there | Accepted |
+| [0234](0234-poll-presentation-body.md) | Poll presentation `body`: the sentence under a themed poll's headline (amends 0216) | Accepted |
+| [0235](0235-site-departure-narrative.md) | Site `departNarrative` posts when the van leaves a stop, before `onDepart` outcomes; `narrative` is the on-visit prose (amends 0220, 0232) | Accepted |
+| [0236](0236-trip-defined-maps.md) | Trip-defined maps (`map.maps`, `road-trip:map-{id}`) unlock every locked layer that opts in via `layers[].maps`; replaces Local Map and `unlockItems` (partially supersedes 0231) | Accepted |
+| [0237](0237-trip-books-gas-canister-weighted-votes.md) | Trip books (series levels, reader buffs cleared at trip end, van knowledge credited on incident signs), a driving-only Gas Canister that tops up without resolving anything, multipliers on positive gains only, `shop:price` modifiers, and one-shot weighted poll votes | Accepted |
+| [0238](0238-site-system-message.md) | Site system messages: the site narrative System message select can post the info-alert row with the site icon (amends 0220) | Accepted |
+| [0239](0239-trip-conditions-and-key-items.md) | Trip conditions (`when` on outcomes, narrative cases, and shop offers; snapshot semantics; `ConditionFacts`) and trip key items (`map.keyItems`, `road-trip:key-{id}`, held by the van; `give-key`, `take-key`, `give-item` outcomes) | Accepted |
 
 ## Creating a New ADR
 

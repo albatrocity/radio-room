@@ -52,13 +52,13 @@ export const itemDefinitionAuthoringSchema = z.object({
 
 export type ItemDefinitionAuthoring = z.infer<typeof itemDefinitionAuthoringSchema>
 
-/** Zod shape of `PhysicalMediaCarry` for trip maps and capability requests (ADR 0214). */
+/** Zod shape of `PhysicalMediaCarry` for trip maps and capability requests (ADR 0222). */
 export const physicalMediaCarrySchema = z.object({
   formats: z.array(z.enum(PHYSICAL_MEDIA_FORMATS)).max(PHYSICAL_MEDIA_FORMATS.length).optional(),
   genres: z.array(z.string().trim().min(1).max(60)).max(12).optional(),
 })
 
-/** Zod shape of `PhysicalMediaPick` (ADR 0216). */
+/** Zod shape of `PhysicalMediaPick` (ADR 0224). */
 export const physicalMediaPickSchema = z.object({
   source: z.enum(PICKABLE_RECORD_SOURCES),
   id: z.string().trim().min(1).max(200),
@@ -71,7 +71,7 @@ export const physicalMediaPickSchema = z.object({
   lore: z.string().trim().min(1).max(2000).optional(),
 })
 
-/** Zod shape of `PhysicalMediaStock` (ADR 0216). */
+/** Zod shape of `PhysicalMediaStock` (ADR 0224). */
 export const physicalMediaStockSchema = z.object({
   library: physicalMediaCarrySchema.optional(),
   picks: z.array(physicalMediaPickSchema).max(MAX_RECORD_PICKS).optional(),

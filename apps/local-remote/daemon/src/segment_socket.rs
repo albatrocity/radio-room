@@ -1,10 +1,14 @@
-use crate::logic::osc_action_for_segment;
+use crate::logic::{
+    osc_for_segment_ids, same_segment_cue, segment_cue_from_label, should_fire_segment_osc,
+    OscSkip, SegmentCue,
+};
 use crate::osc_send::send_osc_datagram;
 use crate::state::SharedState;
 use futures_util::FutureExt;
 use rust_socketio::asynchronous::ClientBuilder;
 use rust_socketio::Payload;
 use serde_json::{json, Value};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -14,9 +18,10 @@ use tracing::{error, info, warn};
 struct SeenSegment {
     id: String,
     at: u64,
+    cue: SegmentCue,
 }
 
-/// Listen for segment activation on `/device` and fire Farrago OSC when the id changes.
+/// Listen for segment activation on `/device` and fire the mapped Farrago tile.
 pub async fn run_segment_socket(state: SharedState) {
     let mut backoff_secs: u64 = 1;
     let seen = Arc::new(Mutex::new(None::<SeenSegment>));
@@ -78,6 +83,9 @@ async fn watch_once(
     let room_for_open = room_id.clone();
     let state_for_open = state.clone();
     let state_for_close = state.clone();
+    let expect_snapshot = Arc::new(AtomicBool::new(false));
+    let expect_snapshot_for_open = expect_snapshot.clone();
+    let expect_snapshot_for_events = expect_snapshot.clone();
     let client = ClientBuilder::new(base)
         .namespace("/device")
         .reconnect_on_disconnect(true)
@@ -88,16 +96,25 @@ async fn watch_once(
         .on("open", move |_payload, socket| {
             let room_id = room_for_open.clone();
             let state = state_for_open.clone();
+            let expect_snapshot = expect_snapshot_for_open.clone();
             async move {
-                if socket
-                    .emit("watch", json!({ "roomId": room_id }))
-                    .await
-                    .is_ok()
-                {
-                    state.set_segment_socket_connected(true);
-                    state.set_segment_socket_error(None);
-                    info!(room_id = %room_id, "segment socket watching");
-                }
+                expect_snapshot.store(true, Ordering::SeqCst);
+                // Emit off this callback. rust_socketio holds its callback lock
+                // until the handler returns, and awaiting here stalls the read loop.
+                tokio::spawn(async move {
+                    match socket.emit("watch", json!({ "roomId": room_id })).await {
+                        Ok(()) => {
+                            state.set_segment_socket_connected(true);
+                            state.set_segment_socket_error(None);
+                            info!(room_id = %room_id, "segment socket watching");
+                        }
+                        Err(e) => {
+                            state.set_segment_socket_connected(false);
+                            state.set_segment_socket_error(Some(format!("watch failed: {e}")));
+                            warn!(error = %e, "segment watch emit failed");
+                        }
+                    }
+                });
             }
             .boxed()
         })
@@ -112,11 +129,13 @@ async fn watch_once(
         .on("segment", move |payload, _client| {
             let state = state_for_events.clone();
             let seen = seen_for_events.clone();
+            let expect_snapshot = expect_snapshot_for_events.clone();
             async move {
                 let Some(text) = payload_text(&payload) else {
+                    state.set_segment_note("segment event had no JSON payload");
                     return;
                 };
-                apply_segment(&state, &seen, &text).await;
+                apply_segment(&state, &seen, &expect_snapshot, &text).await;
             }
             .boxed()
         })
@@ -137,39 +156,67 @@ async fn watch_once(
     Ok(())
 }
 
-async fn apply_segment(state: &SharedState, seen: &Mutex<Option<SeenSegment>>, text: &str) {
-    let Ok(value) = serde_json::from_str::<Value>(text) else {
+async fn apply_segment(
+    state: &SharedState,
+    seen: &Mutex<Option<SeenSegment>>,
+    expect_snapshot: &AtomicBool,
+    text: &str,
+) {
+    let Some(value) = parse_segment_value(text) else {
+        state.set_segment_note("segment event was not a JSON object");
         return;
     };
     let at = value.get("at").and_then(|v| v.as_u64()).unwrap_or(0);
-    let segment_id = value
-        .get("segmentId")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
+    let room_id = json_string(&value, "roomId");
+    let segment_id = json_string(&value, "segmentId");
+    let first_after_watch = expect_snapshot.swap(false, Ordering::SeqCst);
+    let cue = segment_cue_from_label(
+        value.get("cue").and_then(|v| v.as_str()),
+        first_after_watch,
+    );
 
-    {
+    let previous_id = {
         let guard = seen.lock().await;
         if let Some(previous) = guard.as_ref() {
-            if at > 0 && at < previous.at {
+            if same_segment_cue(previous.at, &previous.id, previous.cue, at, &segment_id, cue) {
                 return;
             }
-            if segment_id == previous.id {
+            if at > 0 && previous.at > 0 && at < previous.at {
+                drop(guard);
+                if first_after_watch {
+                    expect_snapshot.store(true, Ordering::SeqCst);
+                }
+                state.set_segment_note("ignored an older segment cue");
                 return;
             }
         }
-    }
+        guard.as_ref().map(|previous| previous.id.clone())
+    };
 
     state.record_incoming("segment", text);
+    info!(
+        segment_id = %segment_id,
+        room_id = %room_id,
+        cue = ?cue,
+        "segment cue"
+    );
+
+    let fire = should_fire_segment_osc(previous_id.as_deref(), &segment_id, cue);
     {
         let mut guard = seen.lock().await;
         *guard = Some(SeenSegment {
             id: segment_id.clone(),
             at,
+            cue,
         });
     }
 
-    if segment_id.is_empty() {
+    if !fire {
+        let note = match cue {
+            SegmentCue::Snapshot => format!("joined on segment {segment_id}; not replaying"),
+            SegmentCue::Activation => "segment cue had no id".to_string(),
+        };
+        state.set_segment_note(note);
         return;
     }
 
@@ -177,17 +224,56 @@ async fn apply_segment(state: &SharedState, seen: &Mutex<Option<SeenSegment>>, t
         Ok(g) => g.clone(),
         Err(_) => return,
     };
-    let Some((addr, args)) = osc_action_for_segment(&cfg, text) else {
-        return;
+    let (addr, args) = match osc_for_segment_ids(&cfg, &room_id, &segment_id) {
+        Ok(action) => action,
+        Err(reason) => {
+            let note = match reason {
+                OscSkip::Empty => "segment cue had no id".to_string(),
+                OscSkip::RoomMismatch => format!(
+                    "segment {segment_id} is for room {room_id}; this Mac is watching {}",
+                    cfg.room_id
+                ),
+                OscSkip::OscDisabled => {
+                    "OSC is disabled in the saved config. Save & apply with OSC enabled.".to_string()
+                }
+                OscSkip::Unmapped => format!(
+                    "segment {segment_id} has no saved Farrago mapping. Save & apply the row, then activate again."
+                ),
+            };
+            warn!(%note, "segment cue did not send OSC");
+            state.set_segment_note(note);
+            return;
+        }
     };
     let host = cfg.features.osc.host.clone();
     let port = cfg.features.osc.port;
     match send_osc_datagram(&host, port, &addr, &args).await {
-        Ok(_) => state.record_osc_ok(&addr),
+        Ok(bytes) => {
+            info!(address = %addr, ?args, bytes, "segment activation sent OSC");
+            state.record_osc_ok(&addr);
+            state.set_segment_note(format!("played {addr} for segment {segment_id}"));
+        }
         Err(e) => {
             state.record_osc_error(format!("osc send: {e:#}"));
+            state.set_segment_note(format!("OSC send failed: {e:#}"));
             error!(error = %e, "OSC send failed");
         }
+    }
+}
+
+fn parse_segment_value(text: &str) -> Option<Value> {
+    let value: Value = serde_json::from_str(text).ok()?;
+    match value {
+        Value::String(inner) => serde_json::from_str(&inner).ok(),
+        other => Some(other),
+    }
+}
+
+fn json_string(value: &Value, key: &str) -> String {
+    match value.get(key) {
+        Some(Value::String(text)) => text.clone(),
+        Some(Value::Number(number)) => number.to_string(),
+        _ => String::new(),
     }
 }
 

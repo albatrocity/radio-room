@@ -80,14 +80,14 @@ Segment rows added from the picker use **`segmentId`** from the show (the id on 
 
 local-remote connects to `{platformApiBaseUrl}/device` with `DEVICE_INGRESS_SECRET` and watches its room. The API pushes a `segment` event when a segment activates. The payload uses **camelCase** keys (`roomId`, `showId`, `segmentId`, `segmentTitle`). An empty `segmentId` means nothing is active. On connect, the API sends the segment that is already active.
 
-Set **room id**. An empty room id cannot be watched. OSC fires when the segment id changes and the segment map has an address.
+Set **room id**. An empty room id cannot be watched. OSC fires when a segment is activated, including a repeat of the segment that is already on, if the saved map has an address for that segment id. Press **Save & apply** after editing a row; the Test button sends the path on the form and does not use the saved map. A reconnect reports the segment that is already active and does not play it again. The status JSON field `last_segment_note` says what the last cue did.
 
 ## OSC mapping (Farrago example)
 
 1. In Farrago, enable **OSC Input** and choose a **port** (e.g. `8000`).
 2. In local-remote, set **OSC host** to `127.0.0.1` and **port** to the same value.
 3. Map each **segment id** (string, as sent on the `segment` event) to a **full OSC path** starting with `/`, e.g. `/set/selected/tile/0/0/play`. See [Farrago OSC manual](https://rogueamoeba.com/support/manuals/farrago/?page=osc) for addresses.
-4. Optional **default arguments**: comma-separated floats (e.g. `1` or `1.0`) appended as OSC float32 arguments on every send if the target expects a value.
+4. Optional **default arguments**: comma-separated numbers. Farrago `/play` and `/select` are sent as one OSC **integer** (`1` when the field is empty). A float is ignored by those controls. Other paths (for example `/volume`) stay float32.
 
 Only the active segment drives OSC. The device socket does not carry other platform events to local-remote.
 
@@ -126,18 +126,18 @@ curl -s -X POST http://127.0.0.1:9876/api/osc-test \
   -d '{"host":"127.0.0.1","port":8000,"address":"/ping","waitForReply":true,"replyTimeoutMs":500}'
 ```
 
-Example tile path with float args:
+Example tile path. `args: [1]` is sent as OSC integer `i` because the address ends in `/play`:
 
 ```bash
 curl -s -X POST http://127.0.0.1:9876/api/osc-test \
   -H 'Content-Type: application/json' \
-  -d '{"host":"127.0.0.1","port":8000,"address":"/set/selected/tile/0/0/play","args":[1.0],"waitForReply":true,"replyTimeoutMs":500}'
+  -d '{"host":"127.0.0.1","port":8090,"address":"/set/selected/tile/0/0/play","args":[1],"waitForReply":true,"replyTimeoutMs":500}'
 ```
 
 - **`address`** defaults to `/ping` ([Farrago documents](https://rogueamoeba.com/support/manuals/farrago/?page=osc) replies to ping for controller sync).
 - **`waitForReply`**: if true, waits for any UDP packet **on the same ephemeral socket**. **Farrago usually will not reply there**: it pushes OSC to the **OSC Output** destination in Settings, not back to the sender. So `replyReceived: false` is **normal** even when Farrago received the message. **`bytesSent` > 0** means your machine successfully sent UDP to that host:port.
 - **Same Mac as Farrago:** prefer host **`127.0.0.1`** (the LAN IP in Farrago’s dialog is mainly “where to aim from other devices”).
-- **Tiles not firing:** Farrago’s manual uses a **value** with addresses like `/set/selected/tile/0/0/select`—set **default args** to `1` or `1.0` for your `/play` or `/select` path. Confirm grid indices match your board.
+- **Tiles not firing:** `/play` and `/select` must be an OSC **integer** `1`, not a float. local-remote sends that integer (empty default args still send `1`). `replyReceived: false` does not mean Farrago missed the packet. Confirm the grid path and that **OSC Input** is enabled on the port you send to (Companion’s default is `8090`).
 
 ## Build release binary
 

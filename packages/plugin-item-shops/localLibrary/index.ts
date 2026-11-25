@@ -1,13 +1,10 @@
 import {
-  allowQueueRequest,
   parseArtworkFrame,
-  rejectQueueRequest,
   type ItemDefinition,
   type LibraryAlbumRow,
   type PhysicalMediaFormat,
   type PhysicalMediaPick,
   type MetadataSourceAccessGrantParams,
-  type UserInventory,
   type MetadataSourceAccessGrantResult,
   type PhysicalMediaItem,
   type PhysicalMediaNowPlayingFrame,
@@ -17,12 +14,8 @@ import {
   type QueueValidationResult,
   type RecordAlbumRef,
   type ResolvedPhysicalMediaItem,
-  type MediaCondition,
   type SharedPlayback,
-  PHYSICAL_MEDIA_CONDITION_KEY,
-  PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY,
 } from "@repo/types"
-import { brokenMediaConvertMetadata } from "@repo/game-logic"
 import type { ItemCatalogEntry, ItemShopsShopCatalogEntry } from "@repo/plugin-base/helpers"
 import { ITEM_CATALOG } from "../items/index"
 import {
@@ -38,13 +31,7 @@ import {
   derivePhysicalMediaItemsFromAlbums,
   parsePhysicalMediaName,
 } from "./physicalMedia"
-import { CONDITION_WEAR_RANK, degradeCondition, readItemCondition } from "./condition"
-import {
-  convertWearToastDescription,
-  intactWearToastDescription,
-  intactWearToastTitle,
-} from "./conditionMessaging"
-import { brokenMediaForRecord } from "../items/shared/brokenMedia"
+import { CONDITION_WEAR_RANK } from "./condition"
 import { pickRandomRestoreCandidateFromCatalog } from "../items/shared/restoreMedia"
 import {
   buildGrantCatalogEntries,
@@ -53,24 +40,15 @@ import {
   isLocalLibraryGrantShortId,
   listHeldLocalLibraryGrants,
   listHeldSourceRecords,
-  matchingDurableRecords,
-  pickGrantToConsume,
   playlistMapFromGrantConfig,
   resolveLocalCatalogScope,
-  LOCAL_LIBRARY_QUEUE_REJECT_REASON,
   type HeldLocalLibraryGrant,
-  type HeldRecordCopy,
   type HeldSourceRecord,
   type LocalCatalogScope,
 } from "./grants"
 import { derivePickedRecord, pickKey, resolvePick, type ResolvedPick } from "./pickedRecords"
+import { LocalLibraryQueueValidation } from "./queueValidation"
 import type { PickStock } from "./physicalMediaStock"
-import {
-  PLAYBACK_DEVICE_MISSING_REASON,
-  gentlePlayableFormats,
-  playableFormats,
-  requiresPlaybackDevice,
-} from "./playbackDevices"
 import {
   NO_SHARED_PLAYBACK,
   SHARED_PLAYBACK_KEY,
@@ -80,10 +58,10 @@ import {
   type SharedPlaybackFormats,
 } from "./sharedPlayback"
 
-/** Resolved picks by record shortId (ADR 0216), so sold records outlive the stop. */
+/** Resolved picks by record shortId (ADR 0224), so sold records outlive the stop. */
 export const PICKED_RECORDS_KEY = "record-picks:v1"
 
-/** What a request's picks can stock in this room (ADR 0216). */
+/** What a request's picks can stock in this room (ADR 0224). */
 export type PickAvailability = {
   total: number
   available: number
@@ -119,7 +97,7 @@ export function sourceAlbumKey(ref: RecordAlbumRef): string {
 
 /**
  * The album a non-local queued track sits on, read from the media source's own
- * track data (ADR 0216). Local tracks match by Navidrome membership instead.
+ * track data (ADR 0224). Local tracks match by Navidrome membership instead.
  */
 export function sourceAlbumOf(item: QueueItem): RecordAlbumRef | undefined {
   const sourceId = item.mediaSource?.type
@@ -151,7 +129,7 @@ function nowPlayingFrameOf(
 export class LocalLibraryModule {
   grantCatalog: ItemCatalogEntry[] = ITEM_CATALOG.filter((e) => e.localLibraryGrant)
   derivedPhysicalMedia: ItemCatalogEntry[] = []
-  /** Record SKUs for resolved picks (ADR 0216). */
+  /** Record SKUs for resolved picks (ADR 0224). */
   pickedRecords: ItemCatalogEntry[] = []
   private resolvedPicks = new Map<string, ResolvedPick>()
   /** pickKey → record shortId for picks that resolved. */
@@ -171,6 +149,22 @@ export class LocalLibraryModule {
     private readonly pluginName: string,
     private readonly getContext: () => PluginContext | undefined,
   ) {}
+
+  private queueValidation?: LocalLibraryQueueValidation
+
+  private queues(): LocalLibraryQueueValidation {
+    return (this.queueValidation ??= new LocalLibraryQueueValidation({
+      getContext: () => this.getContext(),
+      pluginName: this.pluginName,
+      grantCatalog: () => this.grantCatalog,
+      pickedRecords: () => this.pickedRecords,
+      playlistMap: (grants) => this.playlistMap(grants),
+      albumMap: () => this.albumMap(),
+      readSharedPlayback: () => this.readSharedPlayback(),
+      recordsCoveringTrack: (held, sourceId, trackId) =>
+        this.recordsCoveringTrack(held, sourceId, trackId),
+    }))
+  }
 
   applyConfig(grants: readonly LocalLibraryGrantConfig[]): {
     itemCatalog: ItemCatalogEntry[]
@@ -193,7 +187,7 @@ export class LocalLibraryModule {
     }
   }
 
-  /** Shop stock for picks: resolved, from a source the room offers (ADR 0216). */
+  /** Shop stock for picks: resolved, from a source the room offers (ADR 0224). */
   readonly pickStock: PickStock = (picks) => {
     const byShortId = new Map(this.pickedRecords.map((e) => [e.definition.shortId, e] as const))
     const out: { shortId: string; coinValue: number }[] = []
@@ -234,7 +228,7 @@ export class LocalLibraryModule {
   }
 
   /**
-   * Resolve picks against this room and keep their SKUs (ADR 0216). Re-derives
+   * Resolve picks against this room and keep their SKUs (ADR 0224). Re-derives
    * every pick so edited snapshots (lore, format) win. Returns whether any
    * record definition changed, so callers resync catalogs.
    */
@@ -244,10 +238,15 @@ export class LocalLibraryModule {
     const sources = await context.catalog.listMetadataSources(context.roomId)
     this.pickSources = new Set(sources.map((source) => source.id))
 
-    const library = picks.some((pick) => pick.source === "local") ? await this.libraryAlbums() : []
+    // One full-library read for the whole batch, and only when a search comes back empty.
+    let fallback: Promise<LibraryAlbumRow[]> | null = null
+    const fullLibrary = () => (fallback ??= this.libraryAlbums())
     let changed = false
     for (const pick of picks) {
-      const ref = resolvePick(pick, library)
+      const ref =
+        pick.source === "local"
+          ? await this.resolveLocalPick(pick, fullLibrary)
+          : resolvePick(pick, [])
       if (!ref) continue
       const entry = derivePickedRecord({ pick, ref })
       const shortId = entry.definition.shortId
@@ -284,6 +283,37 @@ export class LocalLibraryModule {
         },
       }
     })
+  }
+
+  /**
+   * Room album for a local pick (ADR 0224): `getAlbum` by id, then an album
+   * search with the same artist/title/year rules as `resolvePick`. The full
+   * library list runs once per batch, and only when a search returns nothing
+   * (or the DJ Mac has no `findLibraryAlbums`).
+   */
+  private async resolveLocalPick(
+    pick: PhysicalMediaPick,
+    fullLibrary: () => Promise<LibraryAlbumRow[]>,
+  ): Promise<RecordAlbumRef | null> {
+    const context = this.getContext()
+    const find = context?.catalog.findLibraryAlbums
+    if (!context || !find) return resolvePick(pick, await fullLibrary())
+
+    const id = pick.id.trim()
+    if (id) {
+      const byId = await find({ roomId: context.roomId, id })
+      const hit = byId.find((album) => album.id.trim() === id)
+      if (hit) return { sourceId: "local", albumId: hit.id.trim() }
+    }
+
+    const query = [pick.artist, pick.title]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(" ")
+    if (!query) return null
+    const hits = await find({ roomId: context.roomId, query })
+    if (hits.length > 0) return resolvePick(pick, hits)
+    return resolvePick(pick, await fullLibrary())
   }
 
   /** The room's library albums: last refresh's, else one fetch (bridge rooms only). */
@@ -530,7 +560,7 @@ export class LocalLibraryModule {
    */
   applyAlbumLore(loreByAlbumId: Readonly<Record<string, string>>): string[] {
     return this.patchLocalAlbumRecords((entry, albumId) => {
-      // A designer's lore on a pick wins over the album comment (ADR 0216).
+      // A designer's lore on a pick wins over the album comment (ADR 0224).
       if (this.resolvedPicks.get(entry.definition.shortId)?.pick.lore) return entry
       const lore = loreByAlbumId[albumId]?.trim()
       if (!lore || entry.definition.lore === lore) return entry
@@ -838,7 +868,7 @@ export class LocalLibraryModule {
 
   /**
    * Sleeves for tracks on a non-local source, matched by album against picked
-   * records' `recordAlbum` (ADR 0216). No RPC: the queued track already names
+   * records' `recordAlbum` (ADR 0224). No RPC: the queued track already names
    * its album. Keyed by {@link sourceAlbumKey}; when several picks share an
    * album (LP and CD), the first by shortId wins.
    */
@@ -882,7 +912,7 @@ export class LocalLibraryModule {
 
   /**
    * A held picked record unlocks queueing its own album's tracks on a
-   * restricted non-local source (ADR 0216). Search and track-less checks
+   * restricted non-local source (ADR 0224). Search and track-less checks
    * abstain, so a record never opens the whole catalog.
    */
   private async grantSourceRecordAccess(
@@ -940,7 +970,7 @@ export class LocalLibraryModule {
     }
   }
 
-  /** `shopAccess.setSharedPlayback` (ADR 0215). Empty `formats` clears the owner. */
+  /** `shopAccess.setSharedPlayback` (ADR 0223). Empty `formats` clears the owner. */
   async setSharedPlayback(ownerId: string, playback: SharedPlayback): Promise<void> {
     const context = this.getContext()
     if (!context) return
@@ -961,255 +991,7 @@ export class LocalLibraryModule {
     params: QueueValidationParams,
     config: { enabled: boolean; localLibraryGrants?: LocalLibraryGrantConfig[] },
   ): Promise<QueueValidationResult> {
-    const context = this.getContext()
-    if (!context || !config.enabled) return allowQueueRequest()
-    if (params.mediaSourceType !== "local") return this.validateSourceRecordQueue(params)
-
-    const room = await context.getRoom()
-    if (room?.metadataSourceAccess?.local !== "restricted") return allowQueueRequest()
-    if (await this.adminSkipsRecordGate(params)) return allowQueueRequest()
-
-    const grants = config.localLibraryGrants ?? DEFAULT_LOCAL_LIBRARY_GRANTS
-    const inv = await context.inventory.getInventory(params.userId)
-    const items = inv.items
-    const held = listHeldLocalLibraryGrants({
-      pluginName: this.pluginName,
-      items,
-      grantCatalog: this.grantCatalog,
-    })
-    if (held.length === 0) {
-      return rejectQueueRequest(LOCAL_LIBRARY_QUEUE_REJECT_REASON)
-    }
-
-    const playlistMap = this.playlistMap(grants)
-    const albumMap = this.albumMap()
-    const playlistHeld = held.filter((h) => h.grant.scope === "playlist")
-    const albumHeld = held.filter((h) => h.grant.scope === "album")
-    const playlistIdsForMembership = playlistHeld
-      .map((h) => (h.grant.scope === "playlist" ? playlistMap[h.grant.playlistKey]?.trim() : ""))
-      .filter((id): id is string => Boolean(id))
-    const albumIdsForMembership = albumHeld
-      .map((h) => (h.grant.scope === "album" ? albumMap[h.grant.albumKey]?.trim() : ""))
-      .filter((id): id is string => Boolean(id))
-
-    const trackInPlaylistKey: Record<string, boolean> = {}
-    const trackInAlbumKey: Record<string, boolean> = {}
-    if (playlistIdsForMembership.length > 0 || albumIdsForMembership.length > 0) {
-      const memberIds = await context.catalog.checkLocalTrackPlaylistMembership({
-        roomId: params.roomId,
-        trackId: params.trackId,
-        playlistIds: playlistIdsForMembership,
-        albumIds: albumIdsForMembership,
-      })
-      const playlistMemberSet = new Set(memberIds.playlistIds)
-      const albumMemberSet = new Set(memberIds.albumIds)
-      for (const h of playlistHeld) {
-        if (h.grant.scope !== "playlist") continue
-        const ndId = playlistMap[h.grant.playlistKey]?.trim()
-        trackInPlaylistKey[h.grant.playlistKey] = Boolean(ndId && playlistMemberSet.has(ndId))
-      }
-      for (const h of albumHeld) {
-        if (h.grant.scope !== "album") continue
-        const ndId = albumMap[h.grant.albumKey]?.trim()
-        trackInAlbumKey[h.grant.albumKey] = Boolean(ndId && albumMemberSet.has(ndId))
-      }
-    } else {
-      for (const h of playlistHeld) {
-        if (h.grant.scope === "playlist") {
-          trackInPlaylistKey[h.grant.playlistKey] = false
-        }
-      }
-      for (const h of albumHeld) {
-        if (h.grant.scope === "album") {
-          trackInAlbumKey[h.grant.albumKey] = false
-        }
-      }
-    }
-
-    const durableMatches = matchingDurableRecords(held, trackInPlaylistKey, trackInAlbumKey)
-    if (durableMatches.length > 0) {
-      const needsDevice = durableMatches.filter(requiresPlaybackDevice)
-      const shared = await this.readSharedPlayback()
-      // A library card or operator grant covers the track outright.
-      let snapshot: MediaCondition | undefined
-      if (needsDevice.length < durableMatches.length) {
-        snapshot = await this.wearRecordForQueue(params, durableMatches, inv, shared)
-      } else {
-        const devices = playableFormats(items, shared.formats)
-        const playable = needsDevice.filter((h) => h.mediaFormat && devices.has(h.mediaFormat))
-        if (playable.length === 0) {
-          return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
-        }
-        snapshot = await this.wearRecordForQueue(params, playable, inv, shared)
-      }
-      if (snapshot) {
-        return allowQueueRequest({
-          [PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY]: { condition: snapshot },
-        })
-      }
-      return allowQueueRequest()
-    }
-
-    const pick = pickGrantToConsume({ held, trackInPlaylistKey })
-    if (!pick) {
-      return rejectQueueRequest(LOCAL_LIBRARY_QUEUE_REJECT_REASON)
-    }
-
-    const removed = await context.inventory.removeItem(params.userId, pick.itemId, 1)
-    if (removed) {
-      await context.api.sendUserSystemMessage(
-        params.roomId,
-        params.userId,
-        `${pick.name} redeemed for a Library track.`,
-        { type: "alert", status: "success" },
-      )
-    }
-    return allowQueueRequest()
-  }
-
-  /** Admins skip record gating unless the session wears their records too. */
-  private async adminSkipsRecordGate(params: QueueValidationParams): Promise<boolean> {
-    const context = this.getContext()
-    if (!context) return false
-    if (!(await context.api.isRoomAdmin(params.roomId, params.userId))) return false
-    const session = await context.game.getActiveSession()
-    return session?.config.physicalMediaWearForAdmins === false
-  }
-
-  /**
-   * Queueing from a restricted non-local source with a held picked record
-   * (ADR 0216): same device check and wear as a library record. A track no
-   * held record covers passes, so other plugins' grants still work.
-   */
-  private async validateSourceRecordQueue(
-    params: QueueValidationParams,
-  ): Promise<QueueValidationResult> {
-    const context = this.getContext()
-    const sourceId = params.mediaSourceType
-    if (!context || !sourceId) return allowQueueRequest()
-    const room = await context.getRoom()
-    if (room?.playbackControllerId !== "bridge") return allowQueueRequest()
-    if (room.metadataSourceAccess?.[sourceId] !== "restricted") return allowQueueRequest()
-    if (await this.adminSkipsRecordGate(params)) return allowQueueRequest()
-
-    const inv = await context.inventory.getInventory(params.userId)
-    const held = listHeldSourceRecords({
-      pluginName: this.pluginName,
-      items: inv.items,
-      catalog: this.pickedRecords,
-    }).filter((h) => h.ref.sourceId === sourceId)
-    const covering = await this.recordsCoveringTrack(held, sourceId, params.trackId)
-    if (covering.length === 0) return allowQueueRequest()
-
-    const shared = await this.readSharedPlayback()
-    const devices = playableFormats(inv.items, shared.formats)
-    const playable = covering.filter((h) => !h.mediaFormat || devices.has(h.mediaFormat))
-    if (playable.length === 0) return rejectQueueRequest(PLAYBACK_DEVICE_MISSING_REASON)
-    const snapshot = await this.wearRecordForQueue(params, playable, inv, shared)
-    return snapshot
-      ? allowQueueRequest({ [PHYSICAL_MEDIA_NOW_PLAYING_FRAME_KEY]: { condition: snapshot } })
-      : allowQueueRequest()
-  }
-
-  /**
-   * Degrade (or convert) the worst matching playlist/album record. Never rejects.
-   * `matching` is already membership- and (when required) format-filtered.
-   * Returns the pre-wear condition snapshot for Now Playing (ADR 0165), or
-   * undefined when nothing wearable was spent (library-scope only, or gentle
-   * playback covered the format — ADR 0166).
-   */
-  private async wearRecordForQueue(
-    params: QueueValidationParams,
-    matching: HeldRecordCopy[],
-    inv: UserInventory,
-    shared: SharedPlaybackFormats,
-  ): Promise<MediaCondition | undefined> {
-    const context = this.getContext()
-    if (!context) return undefined
-
-    const wearable = matching.filter((h) => h.grant?.scope !== "library")
-    if (wearable.length === 0) return undefined
-
-    const gentle = gentlePlayableFormats(inv.items, shared.gentle)
-    if (wearable.some((h) => h.mediaFormat != null && gentle.has(h.mediaFormat))) {
-      return undefined
-    }
-
-    const items = inv.items
-    const byItemId = new Map(items.map((item) => [item.itemId, item]))
-    const ranked = wearable
-      .map((h) => {
-        const item = byItemId.get(h.itemId)
-        if (!item) return null
-        return { held: h, item, condition: readItemCondition(item) }
-      })
-      .filter((row): row is NonNullable<typeof row> => row != null)
-    ranked.sort((a, b) => {
-      const wear = CONDITION_WEAR_RANK[b.condition] - CONDITION_WEAR_RANK[a.condition]
-      if (wear !== 0) return wear
-      return a.held.itemId.localeCompare(b.held.itemId)
-    })
-    const chosen = ranked[0]
-    if (!chosen) return undefined
-
-    const snapshot = chosen.condition
-    const next = degradeCondition(chosen.condition)
-    const recordName = chosen.held.name
-    if (next) {
-      await context.inventory.updateItemMetadata(params.userId, chosen.held.itemId, {
-        [PHYSICAL_MEDIA_CONDITION_KEY]: next,
-      })
-      await context.api.sendUserToast(params.roomId, params.userId, {
-        title: intactWearToastTitle(recordName, next),
-        description: intactWearToastDescription(chosen.held.mediaFormat),
-        type: next === "poor" ? "warning" : "info",
-        source: "item-shops",
-      })
-      return snapshot
-    }
-
-    const broken = brokenMediaForRecord({
-      mediaFormat: chosen.held.mediaFormat,
-    })
-    await context.inventory.removeItem(params.userId, chosen.held.itemId, 1, {
-      degraded: true,
-    })
-
-    let given = null
-    if (broken) {
-      const remaining: UserInventory = {
-        ...inv,
-        items: inv.items.filter((item) => item.itemId !== chosen.held.itemId),
-      }
-      given = await context.inventory.giveItem(
-        params.userId,
-        definitionIdForShortId(this.pluginName, broken.shortId),
-        1,
-        brokenMediaConvertMetadata({
-          originDefinitionId: chosen.held.definitionId,
-          originRecordName: recordName,
-        }),
-        "plugin",
-        remaining,
-      )
-      if (!given) {
-        console.debug(
-          `[${this.pluginName}] no inventory slot for broken media ${broken.shortId} after converting ${recordName}`,
-        )
-      }
-    }
-    const transition = broken?.transitionMessage(recordName) ?? `${recordName} wore out.`
-    await context.api.sendUserToast(params.roomId, params.userId, {
-      title: transition,
-      description: convertWearToastDescription({
-        brokenShortId: broken?.shortId,
-        given: Boolean(given),
-      }),
-      type: "warning",
-      duration: 10_000,
-      source: "item-shops",
-    })
-    return snapshot
+    return this.queues().validateQueueRequest(params, config)
   }
 
   private async resolveUserLocalCatalogScope(

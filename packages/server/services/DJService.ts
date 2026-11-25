@@ -36,7 +36,16 @@ import { queueItemFactory } from "@repo/factories"
 import { AdapterService } from "./AdapterService"
 import { DefenseService } from "./DefenseService"
 import { isAppControlledPlayback } from "../lib/roomTypeHelpers"
-import { canResumeCurrentTrack, shouldAdvanceToNextQueueItem } from "../lib/playbackHelpers"
+import {
+  canResumeCurrentTrack,
+  isConfirmedFinishAfterUserPause,
+  shouldAdvanceToNextQueueItem,
+} from "../lib/playbackHelpers"
+import {
+  clearUserPause,
+  getUserPause,
+  setUserPause,
+} from "../operations/playback/userPause"
 import { publishDeputyDjChanged } from "../operations/dj/publishDeputyDjChanged"
 import { rewriteLocalTrackImages } from "../operations/dj/rewriteLocalTrackImages"
 import {
@@ -1193,11 +1202,15 @@ export class DJService {
           : null
       const volumePercent =
         typeof playback.volumePercent === "number" ? playback.volumePercent : null
+      const userPause = await getUserPause({ context: this.context, roomId })
+      const canResume = userPause
+        ? !isConfirmedFinishAfterUserPause(playback, userPause)
+        : canResumeCurrentTrack(playback)
       const value: PlaybackStateSuccess = {
         success: true,
         state: playback.state,
         trackId,
-        canResume: canResumeCurrentTrack(playback),
+        canResume,
         progressMs: playback.progressMs ?? null,
         durationMs: playback.durationMs ?? null,
         volumePercent,
@@ -1387,6 +1400,19 @@ export class DJService {
       const playback = await getPlayback()
 
       if (playback.state === "playing") {
+        const trackId =
+          playback.track && typeof playback.track === "object" && "id" in playback.track
+            ? String((playback.track as { id: string }).id)
+            : null
+        await setUserPause({
+          context: this.context,
+          roomId,
+          record: {
+            trackId,
+            progressMs: playback.progressMs ?? null,
+            durationMs: playback.durationMs ?? null,
+          },
+        })
         await api.pause()
         clearPlaybackStateCache(roomId)
         await recomputeAnchorsAfterTransport(this.context, roomId, { state: "paused" })
@@ -1394,18 +1420,21 @@ export class DJService {
           success: true as const,
           state: "paused" as const,
           action: "paused" as const,
-          canResume: canResumeCurrentTrack({ ...playback, state: "paused" }),
+          canResume: true,
         }
       }
 
+      const userPause = await getUserPause({ context: this.context, roomId })
       const queue = await getQueue({ context: this.context, roomId })
       if (
         shouldAdvanceToNextQueueItem(playback, queue, {
           queueAutoAdvance: room.queueAutoAdvance !== false,
+          userPause,
         })
       ) {
         const nextItem = queue.find((item) => !item.locked)
         if (nextItem) {
+          await clearUserPause({ context: this.context, roomId })
           const playResult = await this.playQueuedTrack(roomId, userId, nextItem.track.id)
           if (!playResult.success) {
             return playResult
@@ -1421,6 +1450,7 @@ export class DJService {
       }
 
       await api.play()
+      await clearUserPause({ context: this.context, roomId })
       clearPlaybackStateCache(roomId)
       await recomputeAnchorsAfterTransport(this.context, roomId, { state: "playing" })
       return {

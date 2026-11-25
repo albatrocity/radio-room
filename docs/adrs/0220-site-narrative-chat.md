@@ -1,0 +1,50 @@
+# 0220. Site narrative is chat prose, not a road sign
+
+**Date:** 2026-10-18
+**Status:** Accepted (amended by [0238](0238-site-system-message.md))
+
+## Context
+
+A stop already posts a road sign: where the van parked, for how long, and whether a shop or pump is open ([0213](0213-road-trips-v1.md), [0216](0216-presentation-themes.md)). That sign is one headline and one clamped line. A site also needs room for a paragraph of story, including sites with no shop.
+
+`shop.openingMessage` is the wrong place for that. It is shop copy, posted by Item Shops when a round opens, and a site with no shop never sends it. Putting the paragraph on the exit sign would truncate it and mix "where we stopped" with the story.
+
+## Decision
+
+1. **`site.narrative`** is an optional string on a Trip Map site, at most 2000 characters. It is independent of `description`, `lore`, and `shop.openingMessage`.
+2. **It posts only when the van stops there** (park, destination arrival, or a tow into a Mechanic). Driving past does not post it. Blank or whitespace-only copy posts nothing.
+3. **It is not a road sign.** Road-trip emits a `narrate` effect, and `runEffects` sends it with `sendSystemMessage` and `meta.type: "prose"`. Prose is a wrapping paragraph in chat. It does not go through `tripAnnounce` and does not use the `road-trip` theme. Status messages still do.
+4. **`shop.openingMessage` stays shop copy.** Item Shops still posts it when that shop opens. It is not a fallback for `narrative`.
+5. **`narrativeVariant`** is optional: `info`, `success`, `warning`, or `error`. When set, the prose message uses that system-alert status. When omitted, the paragraph posts on its own.
+
+## Consequences
+
+- Authors can narrate a stop that sells nothing. The exit sign stays a location marker.
+- Trip chat now has two voices: signs for status, prose for story. [0213](0213-road-trips-v1.md) decision 9's "every trip message is a road sign" does not cover `narrative`.
+- Old clients that do not know `type: "prose"` show the paragraph as an ordinary system message. The text still arrives.
+- Lore stays on the site detail page. Narrative is the chat line.
+
+## Amendment (2026-10-19): arrival order
+
+At a stop with a shop, chat reads top to bottom: the exit sign ("Parked for 4 min…"), then the site narrative, then the shop's opening message. `openShopAt` splits closing the previous scope's round (first) from opening this site's shop (after the narrative), in both `park` and a tow to the Mechanic. The Game Studio simulator posts only the shop's opening message, like the room, and no longer adds a generated "Sells …" summary (`describeSiteShop` is gone).
+
+## Amendment (2026-10-24): trip summary
+
+Narrative is also gathered into a trip summary, so the story isn't lost once it scrolls out of chat. A site's narrative posts exactly when the site gets `visitedAt`: parking, arriving at the destination, or a tow into a Mechanic. So `tripNarrative(map, state.sites)` builds the summary from visited sites with narrative copy, ordered by `visitedAt`, and nothing new is logged.
+
+- **Trip tab.** The projection puts `narrative` on visited `TripStoreSite`s, like `lore`. The Trip tab's site list shows each visited site's narrative under its row. Sites are in route order, which is the order the van visits them, so the list reads as a chronological log.
+- **Room export.** "Sites visited" becomes "Trip summary". Each visited site, in visit order, gets its clock time and description, then its narrative paragraph. The export data gains `narrative`.
+- **Game Studio.** studio-bridge's road-trip fixtures carry preview narrative on visited sites, because the sample map has none.
+- **Van events (2026-10-24).** `TripStore.events` adds part installs and incident steps from the trip log. They use the same wording as the export timeline (`trip/describeEvent.ts`). The Trip tab slots each event between sites by mile. The Trip tab sets the new `fillHeight` flag on its tab definition (`PluginTabComponent.fillHeight`), so it fills the Game surface the way the Storage tab does. Its header (title, meta, route line) stays fixed above the log. The log scrolls in its own `ScrollShadowViewport` and stays pinned to its newest entries with `use-stick-to-bottom`, like chat.
+
+## Amendment (2026-11-02): site messages
+
+[0238](0238-site-system-message.md) adds `site` to the system-message select on arrival and departure narrative. That choice posts as `meta.type: "site"` with the site's icon, in the info-alert row, and it is still not a road sign. Plain and the alert statuses stay as they were. Event and choice narrative stay `prose`.
+
+## See also
+
+- [0213. Road trips v1](0213-road-trips-v1.md)
+- [0215. Trip Maps as portable JSON](0215-trip-maps-portable-json.md)
+- [0216. Presentation themes](0216-presentation-themes.md)
+- [0235. Site departure narrative](0235-site-departure-narrative.md) — `narrative` is the on-visit prose; `departNarrative` posts on leave
+- [0238. Site system messages](0238-site-system-message.md) — arrival and departure render as `meta.type: "site"`

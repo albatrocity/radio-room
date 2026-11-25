@@ -30,6 +30,25 @@ type PlaylistEvent =
 
 let subscriptionCounter = 0
 
+/**
+ * A single queue add shares `addedAt` and catalog id. Overlapping now-playing
+ * reports of that play reuse both, so a second event must not become a second row.
+ * A later play of the same song has its own `addedAt`.
+ */
+function samePlaylistPlay(a: QueueItem, b: QueueItem): boolean {
+  if (a.playedAt != null && a.playedAt === b.playedAt) return true
+  return a.addedAt === b.addedAt && a.track.id === b.track.id
+}
+
+function withoutDuplicatePlays(items: QueueItem[]): QueueItem[] {
+  const kept: QueueItem[] = []
+  for (const item of items) {
+    if (kept.some((existing) => samePlaylistPlay(existing, item))) continue
+    kept.push(item)
+  }
+  return kept
+}
+
 export const playlistMachine = setup({
   types: {
     context: {} as PlaylistContext,
@@ -60,7 +79,7 @@ export const playlistMachine = setup({
     setData: assign({
       playlist: ({ event }) => {
         if (event.type === "INIT") {
-          return event.data.playlist || []
+          return withoutDuplicatePlays(event.data.playlist || [])
         }
         return []
       },
@@ -68,7 +87,7 @@ export const playlistMachine = setup({
     setPlaylist: assign({
       playlist: ({ event }) => {
         if (event.type === "PLAYLIST") {
-          return event.data
+          return withoutDuplicatePlays(event.data)
         }
         return []
       },
@@ -94,7 +113,11 @@ export const playlistMachine = setup({
         if (event.type !== "PLAYLIST_TRACK_ADDED") {
           return context.playlist
         }
-        return [...context.playlist, event.data.track]
+        const next = event.data.track
+        if (context.playlist.some((item) => samePlaylistPlay(item, next))) {
+          return context.playlist
+        }
+        return [...context.playlist, next]
       },
     }),
     updateTrackInPlaylist: assign({

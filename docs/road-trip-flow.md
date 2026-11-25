@@ -2,9 +2,9 @@
 
 # Road trip flow
 
-A trip is one statechart built from small flat machines ([ADR 0222](adrs/0222-trip-flow-and-branches.md)):
+A trip is one statechart built from small flat machines ([ADR 0231](adrs/0231-trip-flow-and-branches.md)):
 the trip lifecycle runs beside one machine per site, junction (fork), layer, vote, and key item
-([ADR 0230](adrs/0230-trip-conditions-and-key-items.md)). Every
+([ADR 0239](adrs/0239-trip-conditions-and-key-items.md)). Every
 threshold, poll close, item use, outcome, and host action becomes a flow event; `dispatch`
 routes it to the entity below, which runs `interpret` (conditions) → the table (legal moves)
 → `onEnter` (effects).

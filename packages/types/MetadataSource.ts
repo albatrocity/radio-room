@@ -207,7 +207,7 @@ export type ResolvedPhysicalMediaItem = {
   | {
       kind: "album"
       albumId: string
-      /** Metadata source holding the album; omitted = `"local"` (ADR 0216). */
+      /** Metadata source holding the album; omitted = `"local"` (ADR 0224). */
       sourceId?: string
     }
 )

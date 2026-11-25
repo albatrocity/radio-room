@@ -170,7 +170,7 @@ export type TripBooks = Partial<Record<BookSeries, Record<string, BookReader>>>
 
 export type IncidentSource = "host" | "scripted" | "fuel"
 
-/** What an incident keeps from its event when it starts (ADR 0220). */
+/** What an incident keeps from its event when it starts (ADR 0228). */
 export type IncidentSnapshot = {
   name: string
   icon: string
@@ -207,7 +207,7 @@ export type ActiveIncident = IncidentSnapshot & {
  */
 export type QueuedIncident = { incident: string; source: IncidentSource; eventId?: string }
 
-/** A map event's timed narratives (ADR 0220), dropped when its incident clears. */
+/** A map event's timed narratives (ADR 0228), dropped when its incident clears. */
 export type BeatRun = {
   eventId: string
   startedAt: number
@@ -323,7 +323,7 @@ export type TripLogEvent =
       kind: "incident"
       /** Event id. */
       incident: string
-      /** The event's name and icon when it ran (absent on logs written before ADR 0220). */
+      /** The event's name and icon when it ran (absent on logs written before ADR 0228). */
       name?: string
       icon?: string
       source: IncidentSource
@@ -474,7 +474,7 @@ export function normalizeTripState(state: TripState): TripState {
   }
 }
 
-/** An incident saved before ADR 0220 carried only its preset id. */
+/** An incident saved before ADR 0228 carried only its preset id. */
 function legacySnapshot(id: string): IncidentSnapshot {
   if (!isIncidentPresetId(id)) return { name: id, icon: "⚠️", family: "none", refuels: false }
   const preset = INCIDENT_PRESETS[id]

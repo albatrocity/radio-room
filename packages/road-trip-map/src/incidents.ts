@@ -11,7 +11,7 @@ import { compileVan, itemsResolving } from "./van"
 import { BOOK_BUFFS, type BookSeries, type VanKnowledge } from "./books"
 
 /**
- * Trip events (ADR 0220): authored data compiled to a short step list, run one
+ * Trip events (ADR 0228): authored data compiled to a short step list, run one
  * step at a time by the trip engine. Every step ends on its own (D22); items
  * make an incident shorter or cheaper. Pure, so Game Studio estimates costs
  * from it.
@@ -502,7 +502,7 @@ export function levyRate(cost: number, walletsTotal: number): number {
 }
 
 /**
- * Trip maps written before ADR 0220 list `scriptedEvents: { id, atMile, incident }`.
+ * Trip maps written before ADR 0228 list `scriptedEvents: { id, atMile, incident }`.
  * Trips haven't shipped, so lift them into `events` rather than migrate.
  * Unknown incidents lift to an event with no name, which the schema rejects.
  */

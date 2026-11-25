@@ -1,6 +1,6 @@
 import type { PhysicalMediaFormat, SharedPlayback } from "@repo/types"
 
-/** Plugin-storage key (room-scoped) for shared playback, one entry per owner (ADR 0215). */
+/** Plugin-storage key (room-scoped) for shared playback, one entry per owner (ADR 0223). */
 export const SHARED_PLAYBACK_KEY = "shared-playback"
 
 export type SharedPlaybackEntries = Record<string, SharedPlayback>

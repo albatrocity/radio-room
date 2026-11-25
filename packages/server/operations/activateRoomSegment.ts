@@ -139,6 +139,8 @@ export async function activateRoomSegment(params: {
     ...overridePatch,
     activeSegmentId: resolvedSegmentId,
     activeShowSegmentId: resolvedShowSegmentId,
+    // Always overwrite — a standard segment must not inherit a prior voicemail role (ADR 0212).
+    activeSegmentRole: segment.role ?? "standard",
   }
 
   await saveRoom({

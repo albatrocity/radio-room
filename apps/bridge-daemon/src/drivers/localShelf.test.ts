@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { LocalDriver } from "./local"
+import { LIBRARY_ALBUM_LIST_TTL_MS, LocalDriver } from "./local"
 
 const navidrome = {
   url: "http://nd.test",
@@ -187,7 +187,12 @@ describe("LocalDriver shelf browsing", () => {
               "subsonic-response": {
                 playlists: {
                   playlist: [
-                    { id: "nd-1", name: "[LP] Loveless", songCount: 11, comment: "  Discogs note  " },
+                    {
+                      id: "nd-1",
+                      name: "[LP] Loveless",
+                      songCount: 11,
+                      comment: "  Discogs note  ",
+                    },
                     { id: "nd-2", name: "Favorites", songCount: 40, comment: "" },
                     { id: "nd-3", name: "[CD] Kid A", songCount: 10 },
                   ],
@@ -333,7 +338,11 @@ describe("LocalDriver shelf browsing", () => {
             json: async () => ({ "subsonic-response": { albumList2: { album: [] } } }),
           } as unknown as Response
         }
-        if (url.includes("getAlbumList.view") && url.includes("type=highest") && url.includes("offset=0")) {
+        if (
+          url.includes("getAlbumList.view") &&
+          url.includes("type=highest") &&
+          url.includes("offset=0")
+        ) {
           return {
             ok: true,
             json: async () => ({
@@ -359,6 +368,112 @@ describe("LocalDriver shelf browsing", () => {
     const albums = await driver.listLibraryAlbums()
     expect(albums.find((a) => a.id === "al-1")?.userRating).toBe(5)
     expect(albums.find((a) => a.id === "al-2")?.userRating).toBeUndefined()
+  })
+
+  it("reuses a complete library list until the TTL or an invalidate", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000)
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getAlbumList2.view") && url.includes("offset=0")) {
+        return {
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              albumList2: { album: [{ id: "al-1", name: "Loveless", artist: "MBV" }] },
+            },
+          }),
+        } as unknown as Response
+      }
+      if (url.includes("getAlbumList2.view") || url.includes("getAlbumList.view")) {
+        return {
+          ok: true,
+          json: async () => ({
+            "subsonic-response": { albumList2: { album: [] }, albumList: { album: [] } },
+          }),
+        } as unknown as Response
+      }
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const driver = new LocalDriver(navidrome, mpv)
+    const firstPages = () =>
+      fetchMock.mock.calls.filter(
+        (call) =>
+          String(call[0]).includes("getAlbumList2.view") && String(call[0]).includes("offset=0"),
+      ).length
+
+    await driver.listLibraryAlbums()
+    await driver.listLibraryAlbums()
+    expect(firstPages()).toBe(1)
+
+    now.mockReturnValue(1_000 + LIBRARY_ALBUM_LIST_TTL_MS + 1)
+    await driver.listLibraryAlbums()
+    expect(firstPages()).toBe(2)
+
+    driver.invalidateLocalLibraryCache()
+    await driver.listLibraryAlbums()
+    expect(firstPages()).toBe(3)
+  })
+
+  it("does not cache a library list when an alphabetical page fails", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getAlbumList.view")) {
+        return {
+          ok: true,
+          json: async () => ({ "subsonic-response": { albumList: { album: [] } } }),
+        } as unknown as Response
+      }
+      return { ok: false, status: 500, json: async () => ({}) } as unknown as Response
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const driver = new LocalDriver(navidrome, mpv)
+    await driver.listLibraryAlbums()
+    await driver.listLibraryAlbums()
+    const pages = fetchMock.mock.calls.filter((call) =>
+      String(call[0]).includes("getAlbumList2.view"),
+    )
+    expect(pages).toHaveLength(2)
+  })
+
+  it("finds one album by id or search without listing the library", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("getAlbum.view") && url.includes("id=al-1")) {
+        return {
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              album: { id: "al-1", name: "Loveless", artist: "MBV", year: 1991 },
+            },
+          }),
+        } as unknown as Response
+      }
+      if (url.includes("search3.view")) {
+        expect(url).toContain("albumCount=50")
+        expect(url).toContain("songCount=0")
+        return {
+          ok: true,
+          json: async () => ({
+            "subsonic-response": {
+              searchResult3: {
+                album: { id: "al-9", name: "No Other", artist: "Gene Clark", year: 1974 },
+              },
+            },
+          }),
+        } as unknown as Response
+      }
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const driver = new LocalDriver(navidrome, mpv)
+
+    await expect(driver.findLibraryAlbums({ id: "al-1" })).resolves.toEqual([
+      { id: "al-1", name: "Loveless", artist: "MBV", year: 1991 },
+    ])
+    await expect(driver.findLibraryAlbums({ query: "Gene Clark No Other" })).resolves.toEqual([
+      { id: "al-9", name: "No Other", artist: "Gene Clark", year: 1974 },
+    ])
+    expect(fetchMock.mock.calls.every((call) => !String(call[0]).includes("getAlbumList"))).toBe(
+      true,
+    )
   })
 
   it("fetches album cover art without pl- prefix", async () => {
@@ -525,9 +640,9 @@ describe("LocalDriver shelf browsing", () => {
     const tracks = await driver.listPlaylistTracks("nd-lp")
     expect(tracks[0]?.images).toEqual([])
     expect(tracks[0]?.album.images[0]?.url).toMatch(/^data:image\/jpeg;base64,/)
-    expect(String(fetchMock.mock.calls.find((c) => String(c[0]).includes("getCoverArt"))?.[0])).toContain(
-      "size=640",
-    )
+    expect(
+      String(fetchMock.mock.calls.find((c) => String(c[0]).includes("getCoverArt"))?.[0]),
+    ).toContain("size=640")
   })
 
   it("listArtists without limit returns at most 50", async () => {
@@ -636,8 +751,24 @@ describe("LocalDriver shelf browsing", () => {
                 artist: "Don QuiKoné",
                 coverArt: "al-1",
                 song: [
-                  { id: "t1", title: "One", artist: "Don QuiKoné", albumId: "al-1", album: "Kountry", coverArt: "al-1", duration: 180 },
-                  { id: "t2", title: "Two", artist: "Don QuiKoné", albumId: "al-1", album: "Kountry", coverArt: "al-1", duration: 200 },
+                  {
+                    id: "t1",
+                    title: "One",
+                    artist: "Don QuiKoné",
+                    albumId: "al-1",
+                    album: "Kountry",
+                    coverArt: "al-1",
+                    duration: 180,
+                  },
+                  {
+                    id: "t2",
+                    title: "Two",
+                    artist: "Don QuiKoné",
+                    albumId: "al-1",
+                    album: "Kountry",
+                    coverArt: "al-1",
+                    duration: 200,
+                  },
                 ],
               },
             },

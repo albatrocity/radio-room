@@ -15,13 +15,13 @@ The scenarios break down into four concepts:
 
 This keeps "parallel route" from becoming geometry: it is gating on the same road. Only exclusive routes need the path refactor.
 
-**Passengers (the Hitchhiker) are out of scope.** They get their own plan and ADR 0223, which will add `board` and `drop` to the outcome union at that point.
+**Passengers (the Hitchhiker) are out of scope.** They get their own plan and a later ADR, which will add `board` and `drop` to the outcome union at that point.
 
-Assumes trip_events has landed (it has: ADR 0220). The new decisions are in **ADR 0222** (`docs/adrs/0222-trip-flow-and-branches.md`; 0221 was taken by the poll `subjectId` ADR). `schemaVersion` stays 1, because every field is optional.
+Assumes trip_events has landed (it has: ADR 0228). The new decisions are in **ADR 0231** (`docs/adrs/0231-trip-flow-and-branches.md`; 0229 was taken by the poll `subjectId` ADR). `schemaVersion` stays 1, because every field is optional.
 
 ## Architecture: the trip flow
 
-A trip is **one statechart built from small flat machines**. The **trip lifecycle** runs side by side with one region per entity: each site, each junction, each layer, and each vote. All of them take one event vocabulary, and one `dispatch` routes each event. The machines are typed tables in plain TypeScript. The engine is about 60 lines that we own. There is no XState: ADR 0205's model (pure transitions inside a CAS, durable schedules, nothing ticks) has no live process for an actor, and plain phase strings survive deploys mid-trip through `normalizeTripState`.
+A trip is **one statechart built from small flat machines**. The **trip lifecycle** runs side by side with one region per entity: each site, each junction, each layer, and each vote. All of them take one event vocabulary, and one `dispatch` routes each event. The machines are typed tables in plain TypeScript. The engine is about 60 lines that we own. There is no XState: ADR 0213's model (pure transitions inside a CAS, durable schedules, nothing ticks) has no live process for an actor, and plain phase strings survive deploys mid-trip through `normalizeTripState`.
 
 ```mermaid
 stateDiagram-v2
@@ -79,7 +79,7 @@ These rules are what keep branching logic in one place. Tests enforce them (`flo
 2. **Only `flow/outcomes.ts` interprets outcomes.** Every source (`onVisit`, event start, choice option, item) passes its `TripOutcome[]` to `outcomeEvents()`, which turns them into flow events. No other module switches on `outcome.kind`.
 3. **Only `road-trip-map/src/paths.ts` reads a raw `site.mile` or `event.mile`.** Everything else works on `PlacedSite` and `PlacedEvent`, which carry an odometer mile, from `contentOnPath(map, flowView(state))`. A source-scan test rejects `.mile` reads on map content in `plugin-road-trip/trip/` outside `flow/` geometry calls.
 
-Blockers and speed factors stay as ADR 0205's motion primitives. They are not machines. The incident **step sequencer** (`compileEventSteps` plus `advanceIncident`) is already a compiled linear sequence, so it stays as it is. Its one new rule: `incidents.ts` changes sites, junctions, and layers only by returning flow events, never by writing to them.
+Blockers and speed factors stay as ADR 0213's motion primitives. They are not machines. The incident **step sequencer** (`compileEventSteps` plus `advanceIncident`) is already a compiled linear sequence, so it stays as it is. Its one new rule: `incidents.ts` changes sites, junctions, and layers only by returning flow events, never by writing to them.
 
 ### Module sketches (load-bearing; implementing agents stay inside these)
 
@@ -104,7 +104,7 @@ packages/plugin-road-trip/trip/flow/
   index.ts            barrel: the only import surface for the rest of the plugin
 ```
 
-**`flow/machine.ts`: the engine.** Bounds, written into ADR 0222: machines are **flat** (no nesting, no history, no parallel inside a machine), tables list **only legal moves** (no guards or actions inside a table), and there are **no timers** (time comes from thresholds). If we ever need nesting or history, that's the signal to adopt XState.
+**`flow/machine.ts`: the engine.** Bounds, written into ADR 0231: machines are **flat** (no nesting, no history, no parallel inside a machine), tables list **only legal moves** (no guards or actions inside a table), and there are **no timers** (time comes from thresholds). If we ever need nesting or history, that's the signal to adopt XState.
 
 ```ts
 export type MachineEvent = { type: string }
@@ -208,7 +208,7 @@ export type VoteSpec = {
 export const VOTE_SPECS: Record<VoteTarget["kind"], VoteSpec>
 ```
 
-**The I/O boundary (`index.ts`).** The ADR 0205 rule stands: `index.ts` is the only module with side effects. For flow it has exactly three generic methods, and no per-kind poll handlers:
+**The I/O boundary (`index.ts`).** The ADR 0213 rule stands: `index.ts` is the only module with side effects. For flow it has exactly three generic methods, and no per-kind poll handlers:
 
 - `openVote(target)`: called on a `vote-due` threshold. It calls `VOTE_SPECS[kind].prompt`, then `createPoll`, then dispatches `VOTE_OPENED`, `VOTE_DEFERRED` (on a 409 while there's still time), or `VOTE_CLOSED` with no tally (the default).
 - `onPollClosed(data)`: finds the vote by `pollId` across sites, junctions, and the incident, then dispatches `VOTE_CLOSED` with the tally. It does nothing if the vote is no longer open.
@@ -230,7 +230,7 @@ const THRESHOLD_EVENTS: Record<ThresholdKind, (p: ThresholdPayload) => TripFlowE
 
 ### Docs for authors
 
-- **Code authors:** `docs/road-trip-flow.md` is generated from `machines.ts` by `npm run flow:docs` in `plugin-road-trip`. It has one Mermaid statechart per machine, plus a table of each event, which entities it reaches, and what each `onEnter` does (pulled from the JSDoc). `architecture.test.ts` fails when the file is stale. ADR 0222 links to it.
+- **Code authors:** `docs/road-trip-flow.md` is generated from `machines.ts` by `npm run flow:docs` in `plugin-road-trip`. It has one Mermaid statechart per machine, plus a table of each event, which entities it reaches, and what each `onEnter` does (pulled from the JSDoc). `architecture.test.ts` fails when the file is stale. ADR 0231 links to it.
 - **Map authors:** `describeTripFlow(map)` (`road-trip-map/src/flowOutline.ts`) returns a structured outline. It covers the route tree (forks, entry kind, default, rejoin or end), the layers with every source that unlocks or locks them (site `onVisit`, event, choice option, `unlockItems`), divert sources, and, for each path that lint enumerates, its miles, ETA, and fuel margin. Studio's map editor shows it in a **Flow** panel next to the route track. Lint uses the same outline for its "nothing unlocks it" and "nothing diverts to it" warnings, so the panel and lint can't disagree.
 
 ## Schema (`packages/road-trip-map/src/schema.ts`)
@@ -245,7 +245,7 @@ tripOutcomeSchema = discriminatedUnion("kind", [
 map.layers?: max 8 [{ id, name, icon, unlockedNarrative?, lockedNarrative?,
                       unlockItems?: string[] /* item short ids, e.g. "local-map" */ }]
 
-map.routes?: max 8 [{ id, name, icon?, driveMinutes,           // own length, authored in minutes (ADR 0207 d3)
+map.routes?: max 8 [{ id, name, icon?, driveMinutes,           // own length, authored in minutes (ADR 0223 d3)
   from: { route?: id /* default "main" */, mile },
   end: { kind: "rejoin", route?: id, mile } | { kind: "destination" },
   layer?: id,                                                  // gates the fork only
@@ -293,7 +293,7 @@ Each item below is owned by the entity named in brackets.
 - **Choice step** [incidents + vote]: compiled by `compileEventSteps` (`road-trip-map/src/incidents.ts`):
   - `effect: stop`: its own timed `choice` step in the sequence. The van stays pulled over while the room votes.
   - `effect: slow`: the slow step **hosts** the choice, as it carries `resolvesWith` today. The vote opens when the step starts, and the van crawls while the room votes. The step ends at whichever comes later, `durationMinutes` or `VOTE_CLOSED`. An item that ends the slow early drops the speed factor, but the step still waits for the vote. At most one choice per slow event.
-  - No effect: `compileEventSteps` currently returns `[]` when there is no effect. It gains an exception: a chain with a `choice` compiles to that `choice` step alone. The van keeps driving (ADR 0220's narrative-only rule), but the choice holds the incident slot.
+  - No effect: `compileEventSteps` currently returns `[]` when there is no effect. It gains an exception: a chain with a `choice` compiles to that `choice` step alone. The van keeps driving (ADR 0228's narrative-only rule), but the choice holds the incident slot.
   - `VOTE_CLOSED`, the timer, or a host skip resolves it. `VOTE_SPECS.choice.onDecided` emits `APPLY_OUTCOMES` with the winning option's outcomes, posts its narrative, and advances the step.
 - **Items** (`items/index.ts`, `van.ts`): `routeItemUse` takes the map (it currently takes only `state` and `shortId`). Using an item dispatches `APPLY_OUTCOMES` (Local Map) or `SITE_REVEAL` events (Trip Guide). Each is consumed only if it changes something. Buying an item still does nothing to the trip.
   - **Local Map** (`local-map`): unlocks the first locked layer, in authored order, whose `unlockItems` lists it. It's refused once none are left.
@@ -315,7 +315,7 @@ Each item below is owned by the entity named in brackets.
   - Pins drag within their own row, and the fork and rejoin handles drag too.
 - New `TripRouteInspector` and `TripLayerInspector`, modeled on `TripSiteInspector`. The site and event inspectors gain `route` and `layer` selects plus an outcomes editor. The event inspector gains the `choice` resolution editor.
 - `tripMapDraft.ts` gets `addRoute`, `moveRouteFork`, `moveRouteEnd`, `addLayer`, and `moveSite`/`moveEvent` scoped to a route.
-- Simulator (ADR 0213): `TripSim` and `simRoom` drive votes through the same `VOTE_SPECS` (generalize `setVotes` to a `VoteTarget`) and can toggle layers. `describeTripSim` labels flow events (re-anchors, unlocks, bypasses) from the dispatch log.
+- Simulator (ADR 0221): `TripSim` and `simRoom` drive votes through the same `VOTE_SPECS` (generalize `setVotes` to a `VoteTarget`) and can toggle layers. `describeTripSim` labels flow events (re-anchors, unlocks, bypasses) from the dispatch log.
 - `apps/studio-bridge/src/stubRoadTrip.ts` gets the new store fields.
 
 ## Lint (`packages/road-trip-map/src/lint.ts`)
@@ -339,7 +339,7 @@ Each item below is owned by the entity named in brackets.
 
 ## Phases
 
-0. **Trip flow, with no behavior change.** ADR 0222 (the flow section). Add `flow/machine.ts`, `machines.ts` (trip, site, vote), `events.ts`, `dispatch.ts`, `entities/trip.ts`, `site.ts`, `vote.ts`, and `outcomes.ts` as an empty union stub. Move every site-phase and status write into them. Narrow `withSite`'s patch type. Move `SiteRuntime` poll fields into `vote`, with `normalizeTripState` lifting them. Replace `handleSkipPoll`/`handlePollClosed` with `openVote`/`onPollClosed`/`tallyOpenVotes`, and rename `skip-poll` to `vote-due` (accepting the old id for already-armed schedules). Add generated `docs/road-trip-flow.md`, `machines.test.ts`, and `architecture.test.ts`.
+0. **Trip flow, with no behavior change.** ADR 0231 (the flow section). Add `flow/machine.ts`, `machines.ts` (trip, site, vote), `events.ts`, `dispatch.ts`, `entities/trip.ts`, `site.ts`, `vote.ts`, and `outcomes.ts` as an empty union stub. Move every site-phase and status write into them. Narrow `withSite`'s patch type. Move `SiteRuntime` poll fields into `vote`, with `normalizeTripState` lifting them. Replace `handleSkipPoll`/`handlePollClosed` with `openVote`/`onPollClosed`/`tallyOpenVotes`, and rename `skip-poll` to `vote-due` (accepting the old id for already-armed schedules). Add generated `docs/road-trip-flow.md`, `machines.test.ts`, and `architecture.test.ts`.
    - *Done:* `trip.test.ts`, `index.test.ts`, `simRoom.test.ts`, and the Studio sim pass unchanged, except for fixture field paths for `vote`. `architecture.test.ts` passes: no phase or status writes outside `flow/entities/`, and the docs are fresh. Every table state is reachable from its initial state.
 1. **Layers and outcomes.** The layer machine and `entities/layer.ts`, `outcomes.ts` (`unlock`/`lock`), and `paths.ts` with a single segment plus layer gating (`contentOnPath`, `flowView`). Thresholds and the projection move to placed content. Schema for `layers`, site and event `layer`, `onVisit`, and event `outcomes`. The Local Map and Trip Guide items, lint, `describeTripFlow` (layers part), and the Studio Flow panel, layer sub-rows, and inspector. Sample map: a Welcome Center that unlocks a "Local tips" layer with one site and one event.
    - *Done:* a linear map's tests are unchanged. Visiting the Welcome Center unlocks the layer, and its site is then revealed, polled, and visited. The layer's event fires only when unlocked. Unlocking a layer whose content is partly behind the van marks that part `bypassed`/fired, and nothing fires at once. Local Map is consumed only when it unlocks something, one layer per use in authored order. Trip Guide reveals every non-secret site ahead and is refused when there's nothing to reveal. Locking mid-trip cancels an open vote for that layer's content, while a site already in `stopping` still parks. The rule-3 scan passes.
@@ -372,20 +372,20 @@ Each item below is owned by the entity named in brackets.
   - Stamp a shortcut route and a layer, drag the fork and rejoin handles, then check that Copy JSON round-trips through `parseTripMap` and that the Flow panel lists both paths.
   - Run the simulator through a "take" vote and a "stay" vote and check that the room strip shows only the taken path.
 
-## ADR 0222 outline
+## ADR 0231 outline
 
-1. The trip is one statechart of flat typed machines (trip, site, junction, layer, vote) behind one `TripFlowEvent` vocabulary and one `dispatch`. No XState: the reasons are no live process (ADR 0205), plain phase strings that survive deploys, and no server dependency.
+1. The trip is one statechart of flat typed machines (trip, site, junction, layer, vote) behind one `TripFlowEvent` vocabulary and one `dispatch`. No XState: the reasons are no live process (ADR 0213), plain phase strings that survive deploys, and no server dependency.
 2. Engine bounds: flat, tables list legal moves only, no timers, effects only in `onEnter`, conditions only in `interpret`. Needing nesting or history means switching to XState. The engine has no plugin imports, and moves to `@repo/utils` when a second plugin needs it.
 3. The three ownership rules and how they're enforced.
 4. Layers, routes, outcomes, and choices as resolved below, with geometry in `paths.ts`.
-5. Links: `docs/road-trip-flow.md` (generated), and amendments to ADR 0205 d5 (transitions now include `dispatch`) and ADR 0220 (choice steps, no-effect exception).
+5. Links: `docs/road-trip-flow.md` (generated), and amendments to ADR 0213 d5 (transitions now include `dispatch`) and ADR 0228 (choice steps, no-effect exception).
 
 ## Resolved decisions
 
 - **Machine style**: typed tables, composed into one trip statechart behind one `dispatch`. No XState and no dependency. The engine is about 60 lines, kept in road-trip and liftable later. What contains the sprawl is the ownership rules, not a library.
 - **Phase 0**: move the existing status and site phases onto the flow before any branch work, gated by the existing suites. It's the main migration risk, and it's front-loaded.
 - **Author clarity**: a generated `docs/road-trip-flow.md` for code authors, and `describeTripFlow` plus a Studio Flow panel for map authors. Lint shares the outline.
-- **Passengers**: deferred to their own plan and ADR 0223. No `board`/`drop` until then.
+- **Passengers**: deferred to their own plan and a later ADR. No `board`/`drop` until then.
 - **Layer content behind the van at unlock**: marked missed (`bypassed`, or fired).
 - **Undecided forks**: treated as "stay" everywhere. The default applies only when the vote resolves.
 - **Tow across a fork**: an open vote resolves from its tally, unpolled forks are passed, and decided forks are honored. The Mechanic is chosen on the resulting path.
@@ -397,7 +397,7 @@ Each item below is owned by the entity named in brackets.
 ## Open risks
 
 - **Phase 0 churn**: moving `SiteRuntime` poll fields into `vote` touches test fixtures and live Redis state. `normalizeTripState` has to lift old fields, and the `skip-poll` threshold id must still be accepted for schedules armed before the deploy.
-- **The engine growing**: pressure to add guards or actions to tables is how a homegrown engine becomes a library. Reviewers hold to the ADR 0222 bounds.
+- **The engine growing**: pressure to add guards or actions to tables is how a homegrown engine becomes a library. Reviewers hold to the ADR 0231 bounds.
 - **Source-scan tests are regex-based**: rules 1 (status) and 3 (`.mile`) are checked by scanning source, which a creative rename can get around. The `withSite` type narrowing is the strong guarantee, and the scans are a backstop.
 - **Tow tally I/O**: settling a tow's forks reads `tallyPoll` outside the pure transition. If the poll closes in between, `onPollClosed` finds no open vote and does nothing.
 - **ETA and fuel jumps**: a winning "take" changes `routeMiles`, ETA, and fuel range all at once on the client. Consider a sign that explains it ("Shortcut: −12 mi").
@@ -406,7 +406,7 @@ Each item below is owned by the entity named in brackets.
 
 ## As built (2026-10-25)
 
-All phases (0–3) and the Studio work are implemented. ADR 0222 records the decisions, and `docs/road-trip-flow.md` is generated from the tables. Test counts: `plugin-road-trip` 134, `road-trip-map` 93, `game-studio` 26, all passing. The Studio editor and simulator were checked in the browser against the branching sample (`SAMPLE_BRANCH_MAP`).
+All phases (0–3) and the Studio work are implemented. ADR 0231 records the decisions, and `docs/road-trip-flow.md` is generated from the tables. Test counts: `plugin-road-trip` 134, `road-trip-map` 93, `game-studio` 26, all passing. The Studio editor and simulator were checked in the browser against the branching sample (`SAMPLE_BRANCH_MAP`).
 
 Where the build departs from the sketches above:
 

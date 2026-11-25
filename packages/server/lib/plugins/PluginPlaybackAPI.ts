@@ -1,6 +1,7 @@
 import type { PlaybackController, PlaybackPluginAPI, PluginPlaybackReadResult } from "@repo/types"
 import type { ObservedPlayback } from "../../operations/plugins/anchoredSchedules"
 import { PluginCapability } from "./PluginCapability"
+import { getBridgeRpcClient, listSayVoices, speakOnBridge } from "@repo/adapter-bridge"
 
 /** Scoped playback transport, volume, and Media Bridge speech (ADR 0201). */
 export class PluginPlaybackAPI extends PluginCapability implements PlaybackPluginAPI {
@@ -138,7 +139,6 @@ export class PluginPlaybackAPI extends PluginCapability implements PlaybackPlugi
     roomId: string,
   ): Promise<{ voices: Array<{ id: string; name: string; locale: string }> }> {
     try {
-      const { getBridgeRpcClient, listSayVoices } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) return { voices: [] }
       return await listSayVoices({ rpc })
@@ -153,7 +153,6 @@ export class PluginPlaybackAPI extends PluginCapability implements PlaybackPlugi
     params: { text: string; voice: string },
   ): Promise<{ ok: true } | { ok: false; message: string }> {
     try {
-      const { getBridgeRpcClient, speakOnBridge } = await import("@repo/adapter-bridge")
       const rpc = getBridgeRpcClient(roomId)
       if (!rpc) {
         return { ok: false, message: "The line is dead — the DJ Mac isn’t linked." }
@@ -170,4 +169,3 @@ export class PluginPlaybackAPI extends PluginCapability implements PlaybackPlugi
     }
   }
 }
-

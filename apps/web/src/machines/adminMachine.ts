@@ -42,6 +42,10 @@ export type AdminEvent =
       userId: string
     }
   | {
+      type: "APPLY_DEPUTY_BULK_ACTION"
+      action: "deputize_all" | "dedeputize_all"
+    }
+  | {
       type: "DESIGNATE_ADMIN"
       userId: string
     }
@@ -88,6 +92,10 @@ export const adminMachine = setup({
     deputizeDj: ({ event }) => {
       if (event.type !== "DEPUTIZE_DJ") return
       emitToSocket("DEPUTIZE_DJ", event.userId)
+    },
+    applyDeputyBulkAction: ({ event }) => {
+      if (event.type !== "APPLY_DEPUTY_BULK_ACTION") return
+      emitToSocket("APPLY_DEPUTY_BULK_ACTION", { action: event.action })
     },
     designateAdmin: ({ event }) => {
       if (event.type !== "DESIGNATE_ADMIN") return
@@ -158,6 +166,7 @@ export const adminMachine = setup({
         CLEAR_PLAYLIST: { actions: ["clearPlaylist"], guard: "isAdmin" },
         DELETE_ROOM: { target: ".deleting", guard: "isRoomCreator" },
         DEPUTIZE_DJ: { actions: ["deputizeDj"], guard: "isAdmin" },
+        APPLY_DEPUTY_BULK_ACTION: { actions: ["applyDeputyBulkAction"], guard: "isAdmin" },
         DESIGNATE_ADMIN: { actions: ["designateAdmin"], guard: "isRoomCreator" },
         TOGGLE_PERSONA: { actions: ["togglePersona"], guard: "isAdmin" },
       },

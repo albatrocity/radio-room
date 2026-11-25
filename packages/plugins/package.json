@@ -26,6 +26,7 @@
     "@repo/plugin-quiz-sessions": "*",
     "@repo/plugin-road-trip": "*",
     "@repo/plugin-round-robin-dj": "*",
+    "@repo/plugin-skipper": "*",
     "@repo/plugin-special-words": "*",
     "@repo/plugin-the-fed": "*",
     "@repo/plugin-volume-manager": "*",

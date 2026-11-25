@@ -41,7 +41,12 @@ import {
   type TripMapInput,
   type TripSite,
 } from "@repo/road-trip-map"
-import { ITEM_CATALOG, SHOP_CATALOG, validateRoomShopRequest } from "@repo/plugin-item-shops"
+import {
+  ITEM_CATALOG,
+  pickKey,
+  SHOP_CATALOG,
+  validateRoomShopRequest,
+} from "@repo/plugin-item-shops"
 import { sampleComposableOffers } from "@repo/game-logic"
 import {
   isPhysicalMediaDefinition,
@@ -49,7 +54,6 @@ import {
   type ItemRarity,
   PHYSICAL_MEDIA_FORMAT_LABELS,
   type PhysicalMediaFormat,
-  type PhysicalMediaPick,
   type PickableRecordSource,
 } from "@repo/types"
 import type { SiteShopSample } from "@repo/road-trip-map"
@@ -70,10 +74,7 @@ export const PICK_SOURCE_LABEL: Record<PickableRecordSource, string> = {
   local: "Library",
 }
 
-/** One pick per album and format, matching how rooms key them (ADR 0216). */
-export function pickKey(pick: Pick<PhysicalMediaPick, "source" | "id" | "format">): string {
-  return `${pick.source}:${pick.id}:${pick.format ?? ""}`
-}
+export { pickKey }
 
 /** studio-bridge base URL (`VITE_STUDIO_BRIDGE_URL`). */
 export function studioBridgeUrl(): string {
@@ -90,7 +91,7 @@ export function loadDraft(): TripMapInput {
   return structuredClone(SAMPLE_TRIP_MAP)
 }
 
-/** Old `scriptedEvents` drafts become `events` (ADR 0220). */
+/** Old `scriptedEvents` drafts become `events` (ADR 0228). */
 export function liftDraft(raw: unknown): TripMapInput {
   return liftLegacyTripMap(raw) as TripMapInput
 }

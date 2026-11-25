@@ -140,7 +140,7 @@ this.inventory.registerItemDefinitions([
 | `getAllItemDefinitions()`                                       | All definitions registered for the room.                                                                                                    |
 | `updateItemMetadata(userId, itemId, patch)`                     | Shallow-merge `patch` into an existing stack's `metadata`. Returns `null` if `itemId` is missing. Emits `INVENTORY_ITEM_UPDATED`.           |
 
-### Charging the room: levies and pools ([ADR 0209](../adrs/0209-trip-funds-escrow-pool-and-levy.md))
+### Charging the room: levies and pools ([ADR 0217](../adrs/0217-trip-funds-escrow-pool-and-levy.md))
 
 Don't write coin escrow by hand. `@repo/plugin-base` exports two fund helpers:
 

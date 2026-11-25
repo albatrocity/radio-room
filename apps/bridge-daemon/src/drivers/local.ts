@@ -76,10 +76,7 @@ export {
   mapNavidromeBrowseAlbum,
   type CoverArtUrlFn,
 } from "./localBrowse"
-export {
-  resolveLocalDisplayTitle,
-  titleFromFilename,
-} from "./localTags"
+export { resolveLocalDisplayTitle, titleFromFilename } from "./localTags"
 
 function md5(s: string) {
   return createHash("md5").update(s).digest("hex")
@@ -147,11 +144,17 @@ export type LibraryAlbumListItem = {
   coverArt?: string
   /** Navidrome userRating (1–5) when present; drives Physical Media rarity (ADR 0111). */
   userRating?: number
-  /** Navidrome album genres; filters record bins (ADR 0214). */
+  /** Navidrome album genres; filters record bins (ADR 0222). */
   genres?: string[]
 }
 
 const LIBRARY_ALBUM_PAGE_SIZE = 500
+
+/** Sleeve batches and catalog refresh share one pair of Subsonic walks. */
+export const LIBRARY_ALBUM_LIST_TTL_MS = 3 * 60 * 1000
+
+/** search3 album hits for a local pick. Artist + title stays well under this. */
+const LIBRARY_ALBUM_SEARCH_COUNT = 50
 
 export function normalizeCoverVariants(raw: unknown): CoverArtVariant[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) return undefined
@@ -170,6 +173,11 @@ export class LocalDriver implements Driver {
   private readonly coverCache: CoverArtCache
   /** coverArt keys discovered via listLibraryAlbums (albumId → coverArt). */
   private readonly albumCoverKeys = new Map<string, string>()
+  /** Full album list from the last complete crawl. */
+  private libraryAlbumList: { at: number; albums: LibraryAlbumListItem[] } | null = null
+  private libraryAlbumListInflight: Promise<LibraryAlbumListItem[]> | null = null
+  /** Bumped on invalidate so an in-flight crawl cannot refill the memo. */
+  private libraryAlbumListGeneration = 0
 
   constructor(
     private readonly navidrome: BridgeDaemonConfig["navidrome"],
@@ -180,7 +188,9 @@ export class LocalDriver implements Driver {
       this.fetchPlaylistEntries(playlistId),
     )
     this.albumCache = new AlbumMembershipCache((albumId) => this.fetchAlbumMembership(albumId))
-    this.coverCache = new CoverArtCache((coverKey, sizePx) => this.fetchCoverDataUri(coverKey, sizePx))
+    this.coverCache = new CoverArtCache((coverKey, sizePx) =>
+      this.fetchCoverDataUri(coverKey, sizePx),
+    )
   }
 
   async start(): Promise<void> {
@@ -198,6 +208,9 @@ export class LocalDriver implements Driver {
     this.albumCache.invalidate()
     this.albumCoverKeys.clear()
     this.coverCache.invalidate()
+    this.libraryAlbumList = null
+    this.libraryAlbumListInflight = null
+    this.libraryAlbumListGeneration++
   }
 
   async healthy(): Promise<boolean> {
@@ -224,10 +237,9 @@ export class LocalDriver implements Driver {
     return coverArtDataUriImages(key, dataUri)
   }
 
-  private async withBrowseCoverDataUris<T extends { images?: import("@repo/types").MetadataSourceUrl[] }>(
-    items: T[],
-    coverKeys: (string | undefined)[],
-  ): Promise<T[]> {
+  private async withBrowseCoverDataUris<
+    T extends { images?: import("@repo/types").MetadataSourceUrl[] },
+  >(items: T[], coverKeys: (string | undefined)[]): Promise<T[]> {
     const pairs = items.map((item, i) => ({ item, coverKey: coverKeys[i] }))
     return mapWithConcurrency(pairs, COVER_ART_CONCURRENCY, async ({ item, coverKey }) => ({
       ...item,
@@ -315,9 +327,7 @@ export class LocalDriver implements Driver {
    * Ordered track id (+ optional albumId) rows for a playlist — no mapSong / cover
    * fetches. Used for Physical Media playlist-over-album de-dup.
    */
-  async listPlaylistTrackIds(
-    playlistId: string,
-  ): Promise<Array<{ id: string; albumId?: string }>> {
+  async listPlaylistTrackIds(playlistId: string): Promise<Array<{ id: string; albumId?: string }>> {
     if (!this.navidrome.username || !playlistId.trim()) return []
     const membership = await this.playlistCache.get(playlistId)
     const out: Array<{ id: string; albumId?: string }> = []
@@ -534,6 +544,48 @@ export class LocalDriver implements Driver {
    */
   async listLibraryAlbums(): Promise<LibraryAlbumListItem[]> {
     if (!this.navidrome.username) return []
+    const cached = this.libraryAlbumList
+    if (cached && Date.now() - cached.at < LIBRARY_ALBUM_LIST_TTL_MS) return cached.albums
+    const inflight = this.libraryAlbumListInflight
+    if (inflight) return inflight
+    const generation = this.libraryAlbumListGeneration
+    const pending = this.fetchLibraryAlbums()
+      .then((result) => {
+        if (generation === this.libraryAlbumListGeneration && result.complete) {
+          this.libraryAlbumList = { at: Date.now(), albums: result.albums }
+        }
+        return result.albums
+      })
+      .finally(() => {
+        if (this.libraryAlbumListInflight === pending) this.libraryAlbumListInflight = null
+      })
+    this.libraryAlbumListInflight = pending
+    return pending
+  }
+
+  /**
+   * Id lookup (`getAlbum`) or album search (`search3`) for one local pick.
+   * Does not page the catalog. An id hit wins over `query`.
+   */
+  async findLibraryAlbums(params: {
+    id?: string
+    query?: string
+  }): Promise<LibraryAlbumListItem[]> {
+    if (!this.navidrome.username) return []
+    const id = params.id?.trim()
+    if (id) {
+      const album = await this.fetchLibraryAlbumById(id)
+      return album ? [album] : []
+    }
+    const query = params.query?.trim()
+    if (!query) return []
+    return this.searchLibraryAlbums(query)
+  }
+
+  private async fetchLibraryAlbums(): Promise<{
+    albums: LibraryAlbumListItem[]
+    complete: boolean
+  }> {
     const ratingsFromHighest = await this.fetchRatedAlbumUserRatings()
     const out: LibraryAlbumListItem[] = []
     let offset = 0
@@ -544,38 +596,77 @@ export class LocalDriver implements Driver {
       const res = await fetch(url)
       if (!res.ok) {
         console.warn(`[LocalDriver] getAlbumList2 failed: ${res.status}`)
-        break
+        return { albums: out, complete: false }
       }
       const data = (await res.json()) as any
       const raw = data?.["subsonic-response"]?.albumList2?.album
       const list: NavidromeAlbum[] = Array.isArray(raw) ? raw : raw ? [raw] : []
       if (list.length === 0) break
-      for (const a of list) {
-        const id = a?.id != null ? String(a.id) : ""
-        if (!id) continue
-        const coverArt = a.coverArt?.trim() || undefined
-        if (coverArt) this.albumCoverKeys.set(id, coverArt)
-        const userRating = normalizeAlbumUserRating(a.userRating) ?? ratingsFromHighest.get(id)
-        const year = parseSubsonicNumber(a.year)
-        const songCount = parseSubsonicNumber(a.songCount)
-        const genres = navidromeAlbumGenres(a)
-        out.push({
-          id,
-          name: String(a.name ?? id).trim() || id,
-          ...(a.artist != null && String(a.artist).trim()
-            ? { artist: String(a.artist).trim() }
-            : {}),
-          ...(year != null ? { year } : {}),
-          ...(songCount != null ? { songCount } : {}),
-          ...(coverArt ? { coverArt } : {}),
-          ...(userRating != null ? { userRating } : {}),
-          ...(genres.length > 0 ? { genres } : {}),
-        })
+      for (const album of list) {
+        const item = this.libraryAlbumItem(album, ratingsFromHighest)
+        if (item) out.push(item)
       }
       if (list.length < LIBRARY_ALBUM_PAGE_SIZE) break
       offset += LIBRARY_ALBUM_PAGE_SIZE
     }
-    return out
+    return { albums: out, complete: true }
+  }
+
+  private libraryAlbumItem(
+    album: NavidromeAlbum,
+    ratings?: ReadonlyMap<string, number>,
+  ): LibraryAlbumListItem | null {
+    const id = album?.id != null ? String(album.id) : ""
+    if (!id) return null
+    const coverArt = album.coverArt?.trim() || undefined
+    if (coverArt) this.albumCoverKeys.set(id, coverArt)
+    const userRating = normalizeAlbumUserRating(album.userRating) ?? ratings?.get(id)
+    const year = parseSubsonicNumber(album.year)
+    const songCount = parseSubsonicNumber(album.songCount)
+    const genres = navidromeAlbumGenres(album)
+    return {
+      id,
+      name: String(album.name ?? id).trim() || id,
+      ...(album.artist != null && String(album.artist).trim()
+        ? { artist: String(album.artist).trim() }
+        : {}),
+      ...(year != null ? { year } : {}),
+      ...(songCount != null ? { songCount } : {}),
+      ...(coverArt ? { coverArt } : {}),
+      ...(userRating != null ? { userRating } : {}),
+      ...(genres.length > 0 ? { genres } : {}),
+    }
+  }
+
+  private async fetchLibraryAlbumById(albumId: string): Promise<LibraryAlbumListItem | null> {
+    const url = `${this.navidrome.url}/rest/getAlbum.view?id=${encodeURIComponent(albumId)}&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      console.warn(`[LocalDriver] getAlbum ${albumId} failed: ${res.status}`)
+      return null
+    }
+    const data = (await res.json()) as any
+    const album = data?.["subsonic-response"]?.album as NavidromeAlbum | undefined
+    if (!album) return null
+    return this.libraryAlbumItem(album)
+  }
+
+  private async searchLibraryAlbums(query: string): Promise<LibraryAlbumListItem[]> {
+    const url =
+      `${this.navidrome.url}/rest/search3.view?query=${encodeURIComponent(query)}` +
+      `&artistCount=0&albumCount=${LIBRARY_ALBUM_SEARCH_COUNT}&songCount=0&${this.authParams()}`
+    const res = await fetch(url)
+    if (!res.ok) {
+      console.warn(`[LocalDriver] search3 albums failed: ${res.status}`)
+      return []
+    }
+    const data = (await res.json()) as any
+    const raw = data?.["subsonic-response"]?.searchResult3?.album
+    const list: NavidromeAlbum[] = Array.isArray(raw) ? raw : raw ? [raw] : []
+    return list.flatMap((album) => {
+      const item = this.libraryAlbumItem(album)
+      return item ? [item] : []
+    })
   }
 
   /**
@@ -732,9 +823,7 @@ export class LocalDriver implements Driver {
    * Prefers the file on disk via musicFolder + song path; falls back to authenticated
    * stream.view (same URL mpv uses) when the path cannot be resolved.
    */
-  async getTrackPreview(
-    trackId: string,
-  ): Promise<{
+  async getTrackPreview(trackId: string): Promise<{
     mimeType: "audio/mpeg"
     data: string
     durationMs: number
@@ -827,7 +916,7 @@ export class LocalDriver implements Driver {
       : track?.title || trackId
     const artist = !isPlaceholderArtist(incoming?.artist)
       ? String(incoming!.artist).trim()
-      : track?.artists?.[0]?.title ?? ""
+      : (track?.artists?.[0]?.title ?? "")
     const album = (incoming?.album ?? "").trim() || track?.album?.title || ""
     return { title, artist, album }
   }
@@ -862,9 +951,7 @@ export class LocalDriver implements Driver {
     return mapWithConcurrency(filtered, MAP_SONG_CONCURRENCY, (song) => this.mapSong(song))
   }
 
-  async listArtists(
-    params?: MetadataListArtistsParams,
-  ): Promise<MetadataListArtistsResult> {
+  async listArtists(params?: MetadataListArtistsParams): Promise<MetadataListArtistsResult> {
     if (!this.navidrome.username) return { items: [], total: 0 }
     if (this.isAlbumOnlyShelf(params?.playlistIds, params?.albumIds)) {
       return this.listArtistsForAlbumShelf(params)
@@ -931,13 +1018,14 @@ export class LocalDriver implements Driver {
     }
   }
 
-  async listAlbums(
-    params?: MetadataListAlbumsParams,
-  ): Promise<MetadataListAlbumsResult> {
+  async listAlbums(params?: MetadataListAlbumsParams): Promise<MetadataListAlbumsResult> {
     if (!this.navidrome.username) return { items: [], total: 0 }
     const query = params?.query?.trim()
     const offset = Math.max(0, params?.offset ?? 0)
-    const limit = Math.min(Math.max(params?.limit ?? LOCAL_BROWSE_PAGE_SIZE, 1), LOCAL_BROWSE_PAGE_SIZE)
+    const limit = Math.min(
+      Math.max(params?.limit ?? LOCAL_BROWSE_PAGE_SIZE, 1),
+      LOCAL_BROWSE_PAGE_SIZE,
+    )
 
     if (this.isAlbumOnlyShelf(params?.playlistIds, params?.albumIds)) {
       return this.listAlbumsForAlbumShelf(params, query, offset, limit)
@@ -1066,11 +1154,12 @@ export class LocalDriver implements Driver {
       artist: {
         id: String(artist.id),
         title: String(artist.name ?? artist.id).trim() || String(artist.id),
-        albumCount: membership || allow
-          ? albums.length
-          : typeof artist.albumCount === "number"
-            ? artist.albumCount
-            : albums.length,
+        albumCount:
+          membership || allow
+            ? albums.length
+            : typeof artist.albumCount === "number"
+              ? artist.albumCount
+              : albums.length,
         images: await this.resolveBrowseCoverImages(artistCoverKey),
       },
       albums,

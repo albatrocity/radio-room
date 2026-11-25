@@ -285,6 +285,7 @@
 
     <fieldset>
       <legend>OSC (active segment)</legend>
+      <p id="segmentCue" class="hint" aria-live="polite">Segment socket: checking…</p>
       <div class="row">
         <input id="oscEnabled" type="checkbox" />
         <label for="oscEnabled" style="margin: 0">Enabled</label>
@@ -307,20 +308,25 @@
         <strong>Success = UDP send OK</strong> (see <code>bytesSent</code>). Farrago often
         <strong>does not</strong> reply back to this app—it sends responses to
         <strong>OSC Output</strong>, so <code>replyReceived: false</code> is common and
-        <em>not</em> proof of failure. Same Mac as Farrago: try <code>127.0.0.1</code>. For
-        tiles, use <strong>default args</strong> (e.g. <code>1</code>) with
-        <code>/set/…/play</code> or <code>/select</code>. No save required for this button.
+        <em>not</em> proof of failure. Same Mac as Farrago: use <code>127.0.0.1</code> and the
+        <strong>OSC Input</strong> port. <code>/play</code> and <code>/select</code> are sent as
+        an integer <code>1</code> (a float is ignored). No save required for this button.
       </p>
 
-      <label for="defaultArgs">Default OSC arguments (comma-separated floats)</label>
-      <input id="defaultArgs" type="text" placeholder="e.g. 1 or 1.0" />
-      <p class="hint">Sent as float32 after the address on every trigger (many Farrago endpoints expect a value).</p>
+      <label for="defaultArgs">Default OSC arguments (comma-separated numbers)</label>
+      <input id="defaultArgs" type="text" placeholder="leave empty for play = 1" />
+      <p class="hint">
+        <code>/play</code> and <code>/select</code> are sent as one OSC integer
+        (<code>1</code> when this is empty, <code>0</code> to force off). Other paths are sent as float32.
+      </p>
 
       <label>Segment ID → Farrago tile</label>
       <p class="hint">
         Select a Farrago tile from the dropdown, or choose <strong>Custom path…</strong> for manual OSC entry.
-        Use <strong>Test</strong> on a row to send that path with the default args (same as a live trigger; no save
-        required). <strong>Refresh tiles</strong> fetches the latest tile list from Farrago.
+        Use <strong>Test</strong> to send that path immediately.
+        <strong>Save &amp; apply</strong> before a live activation: the segment cue uses the saved map, not the
+        unsaved row. Activating a segment plays its tile again, including the one already on.
+        <strong>Refresh tiles</strong> fetches the latest tile list from Farrago.
       </p>
       <div class="maps" id="segmentMap"></div>
       <div class="row">
@@ -1275,6 +1281,16 @@
           const r = await fetch("/api/status");
           const s = await r.json();
           $("status").textContent = JSON.stringify(s, null, 2);
+          const cue = $("segmentCue");
+          if (cue) {
+            const connected = !!s.segment_socket_connected;
+            const err = s.segment_socket_last_error ? " " + s.segment_socket_last_error + "." : "";
+            const note = s.last_segment_note
+              ? " Last cue: " + s.last_segment_note
+              : " No segment cue yet.";
+            cue.textContent =
+              "Segment socket: " + (connected ? "connected." : "not connected." + err) + note;
+          }
           const br = s.bridge;
           if (br) {
             $("bridgeSupervisorStatus").textContent =

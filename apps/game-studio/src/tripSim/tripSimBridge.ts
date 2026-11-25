@@ -3,7 +3,7 @@ import type { TripSimSnapshot } from "@repo/plugin-road-trip/sim"
 let warned = false
 
 /**
- * Post the trip simulator's state to studio-bridge (`POST /trip-sim`, ADR 0213).
+ * Post the trip simulator's state to studio-bridge (`POST /trip-sim`, ADR 0221).
  * `null` clears it, so the room falls back to the sandbox (or the fixture).
  */
 export async function postTripSim(

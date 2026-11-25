@@ -1,9 +1,14 @@
 import ky from "ky"
 import type {
   CompleteMusicUploadRequest,
+  CompleteVoicemailRequest,
+  CompleteVoicemailResponse,
   FailMusicUploadRequest,
+  NewsletterFormTokenResponse,
   PresignMusicUploadRequest,
   PresignMusicUploadResponse,
+  PresignVoicemailRequest,
+  PresignVoicemailResponse,
   RoomScheduleSnapshotDTO,
   SubscribeNewsletterRequest,
   SubscribeNewsletterResponse,
@@ -120,6 +125,10 @@ export async function getPluginComponentState(
 // =============================================================================
 // Newsletter
 // =============================================================================
+
+export async function getNewsletterFormToken() {
+  return api.get("api/newsletter/form-token").json<NewsletterFormTokenResponse>()
+}
 
 export async function subscribeNewsletter(body: SubscribeNewsletterRequest) {
   return api.post("api/newsletter/subscribe", { json: body }).json<SubscribeNewsletterResponse>()
@@ -290,4 +299,37 @@ export async function failMusicUpload(
       timeout: 30000,
     })
     .json<{ ok: true }>()
+}
+
+// =============================================================================
+// Voicemail (anonymous, public lobby — no session header)
+// =============================================================================
+
+/**
+ * Ask the server for a presigned S3 PUT URL for an anonymous voicemail
+ * recording (ADR 0212). The server returns the exact base MIME and byte
+ * length to use on the PUT; both must be echoed to S3 or the signature
+ * fails and HeadObject will mismatch at complete time.
+ */
+export async function presignVoicemail(
+  body: PresignVoicemailRequest,
+): Promise<PresignVoicemailResponse> {
+  return api
+    .post("api/voicemails/presign", {
+      json: body,
+      timeout: 30000,
+    })
+    .json<PresignVoicemailResponse>()
+}
+
+/** Finalize an uploaded voicemail; server HeadObjects and inserts the row. */
+export async function completeVoicemail(
+  body: CompleteVoicemailRequest,
+): Promise<CompleteVoicemailResponse> {
+  return api
+    .post("api/voicemails/complete", {
+      json: body,
+      timeout: 30000,
+    })
+    .json<CompleteVoicemailResponse>()
 }

@@ -82,11 +82,9 @@ import {
   fetchSiteAssetStatus,
   pendingAssetIssues,
   pendingAssetKey,
-  uploadSiteAsset,
-  type PendingSiteAssets,
-  type SiteAssetKind,
   type SiteAssetStatus,
 } from "../../tripMap/siteAssets"
+import { useSiteAssetUpload } from "./useSiteAssetUpload"
 import { TripFuelCurve } from "./TripFuelCurve"
 import { TripFlowPanel } from "./TripFlowPanel"
 import { TripLayerInspector } from "./TripLayerInspector"
@@ -117,7 +115,7 @@ function numberOr(value: string): number | undefined {
 /**
  * Trip Map editor v1 (M8): route, site pins, inspector, site art published to the
  * CDN, shop and offers picker, projections, fuel curve and gas bill, trip
- * events (ADR 0220) with cost estimates, trip settings, lint, and Copy JSON /
+ * events (ADR 0228) with cost estimates, trip settings, lint, and Copy JSON /
  * save `maps/<id>.json`. Runs no plugin code;
  * only pure `@repo/road-trip-map` modules.
  */
@@ -228,7 +226,7 @@ export function TripMapEditor() {
   const scaleFrom = useRef<TripMapInput | null>(null)
   const [walletsTotal, setWalletsTotal] = useState(DEFAULT_PREVIEW_WALLETS)
   const [assetStatus, setAssetStatus] = useState<SiteAssetStatus | null>(null)
-  const [pendingAssets, setPendingAssets] = useState<PendingSiteAssets>({})
+  const { pendingAssets, uploadAsset, discardPending } = useSiteAssetUpload(setDraft)
 
   // Full parse (schema + lint + hash) and the localStorage write wait for typing to pause.
   const settledDraft = useDebouncedValue(draft, LINT_DEBOUNCE_MS)
@@ -282,51 +280,6 @@ export function TripMapEditor() {
   const errors = issues.filter((i) => i.severity === "error")
   const warnings = issues.filter((i) => i.severity === "warning")
   const exportBlocked = assetIssues.length > 0
-
-  const uploadAsset = async (siteId: string, kind: SiteAssetKind, file: File) => {
-    const key = pendingAssetKey(siteId, kind)
-    const previewUrl = URL.createObjectURL(file)
-    setPendingAssets((p) => {
-      if (p[key]) URL.revokeObjectURL(p[key].previewUrl)
-      return { ...p, [key]: { siteId, kind, previewUrl, status: "uploading" } }
-    })
-    const result = await uploadSiteAsset(kind, file)
-    if (result.ok) {
-      setDraft((d) =>
-        updateSite(
-          d,
-          siteId,
-          kind === "image" ? { imageUrl: result.url } : { model: { url: result.url } },
-        ),
-      )
-      setPendingAssets((p) => {
-        if (p[key]?.previewUrl !== previewUrl) return p
-        URL.revokeObjectURL(previewUrl)
-        const { [key]: _done, ...rest } = p
-        return rest
-      })
-      toaster.create({
-        title: result.reused ? "Already on the CDN" : "Published to the CDN",
-        type: "success",
-      })
-    } else {
-      setPendingAssets((p) =>
-        p[key]?.previewUrl === previewUrl
-          ? { ...p, [key]: { ...p[key], status: "failed", message: result.message } }
-          : p,
-      )
-    }
-  }
-
-  const discardPending = (siteId: string, kind: SiteAssetKind) => {
-    const key = pendingAssetKey(siteId, kind)
-    setPendingAssets((p) => {
-      if (!p[key]) return p
-      URL.revokeObjectURL(p[key].previewUrl)
-      const { [key]: _gone, ...rest } = p
-      return rest
-    })
-  }
 
   const copyJson = async () => {
     await navigator.clipboard.writeText(mapJson(draft))

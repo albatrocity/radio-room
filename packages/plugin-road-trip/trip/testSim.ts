@@ -59,7 +59,7 @@ export type SimStep = { event: SimEvent; log: TripLogEntry[]; effects: TripEffec
 /**
  * In-memory trip runtime: the same transitions, commit, and thresholds as
  * `mutateTrip`, with schedules fired in time order. Used by tests and the
- * Game Studio trip simulator (ADR 0213).
+ * Game Studio trip simulator (ADR 0221).
  */
 export class TripSim {
   map: TripMap

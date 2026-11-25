@@ -13,6 +13,7 @@ import AdminControls from "./AdminControls"
 import ButtonAddToLibrary from "./ButtonAddToLibrary"
 import { useIsAdmin } from "../hooks/useActors"
 import ButtonSchedule from "./ButtonSchedule"
+import { PluginArea } from "./PluginComponents/PluginArea"
 import {
   configureRadioStreamPlayer,
   getRadioStreamPlayerDebug,
@@ -160,6 +161,7 @@ const RadioPlayer = ({
                   )}
                 </IconButton>
               )}
+              <PluginArea area="playerControls" width="auto" />
             </HStack>
             <Box hideBelow="sm" w="100%" pr={3} display={volumeSettable ? undefined : "none"}>
               <Slider.Root

@@ -32,8 +32,46 @@ function formatShowTime(year: number, month: number, day: number) {
   return `${dateLabel} at 8:00 PM`
 }
 
-// Third Thursday of the current month in America/Chicago, or next month if
-// that calendar day has already passed there. Show night itself is included.
+export type ReadyShowStart = {
+  startTime: string | null
+}
+
+function formatShowInstant(date: Date) {
+  const dateLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: SHOW_TIME_ZONE,
+    dateStyle: "long",
+  }).format(date)
+  const timeLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: SHOW_TIME_ZONE,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)
+  return `${dateLabel} at ${timeLabel}`
+}
+
+// Earliest ready show whose Chicago calendar day is today or later.
+// Show night stays on that show after its start time, until the Chicago day ends.
+// Returns null when every ready show is on an earlier Chicago day.
+export function nextUpcomingReadyShowTime(shows: readonly ReadyShowStart[], now: Date) {
+  const today = zonedYmd(now, SHOW_TIME_ZONE)
+  const todayKey = ymdKey(today.year, today.month, today.day)
+
+  let best: Date | null = null
+  for (const show of shows) {
+    if (!show.startTime) continue
+    const start = new Date(show.startTime)
+    if (Number.isNaN(start.getTime())) continue
+    const startDay = zonedYmd(start, SHOW_TIME_ZONE)
+    if (ymdKey(startDay.year, startDay.month, startDay.day) < todayKey) continue
+    if (!best || start.getTime() < best.getTime()) best = start
+  }
+
+  return best ? formatShowInstant(best) : null
+}
+
+// Fallback when no ready show is still upcoming: third Thursday of the current
+// month in America/Chicago, or next month if that calendar day has already
+// passed there. Show night itself is included.
 export function getNextShowTime(date: Date) {
   const today = zonedYmd(date, SHOW_TIME_ZONE)
   let year = today.year

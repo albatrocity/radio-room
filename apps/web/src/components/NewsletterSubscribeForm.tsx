@@ -1,12 +1,26 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Box, Button, Field, Flex, Input, Stack, Text, VStack } from "@chakra-ui/react"
 import { HTTPError } from "ky"
 
-import { subscribeNewsletter } from "../lib/serverApi"
+import { getNewsletterFormToken, subscribeNewsletter } from "../lib/serverApi"
 import { Tooltip } from "./ui/tooltip"
 
 type Props = {
   source?: string
+}
+
+/** Server tokens expire after 30 minutes; refresh well before that. */
+const FORM_TOKEN_REFRESH_MS = 20 * 60 * 1000
+const GENERIC_ERROR = "Something went wrong. Please try again."
+
+const honeypotStyle: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+  pointerEvents: "none",
 }
 
 async function getSubscribeErrorMessage(error: unknown): Promise<string> {
@@ -21,27 +35,47 @@ async function getSubscribeErrorMessage(error: unknown): Promise<string> {
     }
   }
 
-  return "Something went wrong. Please try again."
+  return GENERIC_ERROR
 }
 
 export default function NewsletterSubscribeForm({ source = "web" }: Props) {
   const [email, setEmail] = useState("")
+  const [honeypot, setHoneypot] = useState("")
+  const [formToken, setFormToken] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function refreshToken(isInitial: boolean) {
+      try {
+        const { token } = await getNewsletterFormToken()
+        if (!cancelled) setFormToken(token)
+      } catch {
+        // A failed refresh keeps the previous token, which is still valid for a while.
+        if (!cancelled && isInitial) setError(GENERIC_ERROR)
+      }
+    }
+
+    refreshToken(true)
+    const interval = window.setInterval(() => refreshToken(false), FORM_TOKEN_REFRESH_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!formToken) return
     setError(null)
     setIsSubmitting(true)
 
     try {
-      const result = await subscribeNewsletter({ email: email.trim(), source })
-      setSuccessMessage(
-        result.alreadySubscribed
-          ? "You're already subscribed to the newsletter."
-          : "Check your email to confirm your subscription.",
-      )
+      await subscribeNewsletter({ email: email.trim(), source, website: honeypot, formToken })
+      setSuccessMessage("Check your email to confirm your subscription.")
     } catch (submitError) {
       setError(await getSubscribeErrorMessage(submitError))
     } finally {
@@ -98,11 +132,22 @@ export default function NewsletterSubscribeForm({ source = "web" }: Props) {
               />
               {error && <Field.ErrorText>{error}</Field.ErrorText>}
             </Field.Root>
+            <div aria-hidden="true" style={honeypotStyle}>
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+              />
+            </div>
             <Button
               size="sm"
               type="submit"
               variant={{ base: "solid", _dark: "surface" }}
               loading={isSubmitting}
+              disabled={!formToken}
               color={{ base: "actionBgDark", _dark: "colorPalette.contrast" }}
             >
               Subscribe

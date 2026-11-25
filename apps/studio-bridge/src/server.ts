@@ -75,6 +75,7 @@ import {
   stubSearchTracks,
 } from "./stubMetadataCatalog.js"
 import { ROUND_ROBIN_PREVIEW_PLUGIN, buildStubRoundRobinComponentState } from "./stubRoundRobin.js"
+import { SKIPPER_PREVIEW_PLUGIN, buildStubSkipperState, runStubSkipperAction } from "./stubSkipper.js"
 import {
   VOLUME_MANAGER_PLUGIN,
   buildStubVolumeComponentState,
@@ -85,6 +86,12 @@ import {
 } from "./stubVolumeManager.js"
 import { applyUserUpdateToSnapshot, toggleVipOnUser, userHasVip } from "./personas.js"
 import { fetchLocalCover, getRecordPick, listLibraryAlbums, searchRecords } from "./recordPicks.js"
+import {
+  getRecordLibrarySourceStatus,
+  setRecordLibrarySource,
+  type RecordLibraryMode,
+} from "./recordLibrarySource.js"
+import { browseNavidromeDbPath } from "./browseNavidromeDbPath.js"
 
 const PORT = Number(process.env.STUDIO_BRIDGE_PORT ?? process.env.PORT ?? 3099)
 
@@ -114,7 +121,7 @@ function tripPreviewEnabled(socket: Socket): boolean {
   return raw === "1" || raw === "true"
 }
 
-/** Road Trip store: the Game Studio trip sim when loaded (ADR 0213), else the fixture. */
+/** Road Trip store: the Game Studio trip sim when loaded (ADR 0221), else the fixture. */
 function roadTripComponentState(roomId: string): Record<string, unknown> {
   return getTripSim(roomId)?.store ?? buildStubRoadTripComponentState(roomId)
 }
@@ -493,6 +500,75 @@ function wireSocketHandlers(io: IOServer): void {
         data: { roomId, user, users: nextSnap.users },
       })
     })
+
+    socket.on(
+      "APPLY_DEPUTY_BULK_ACTION",
+      (data: { action?: "deputize_all" | "dedeputize_all" } | undefined) => {
+        const roomId = socket.data.roomId as string | undefined
+        const callerId = socket.data.userId as string | undefined
+        const snap = getBridgeSnapshot()
+        const action = data?.action
+        if (
+          !roomId ||
+          !callerId ||
+          !snap ||
+          snap.roomId !== roomId ||
+          (action !== "deputize_all" && action !== "dedeputize_all")
+        ) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 400,
+              error: "Bad Request",
+              message: "Invalid deputy bulk action.",
+            },
+          })
+          return
+        }
+        const caller = snap.users.find((u) => u.userId === callerId)
+        if (!caller?.isAdmin) {
+          socket.emit("event", {
+            type: "ERROR_OCCURRED",
+            data: {
+              status: 403,
+              error: "Forbidden",
+              message: "You are not a room admin.",
+            },
+          })
+          return
+        }
+        const isDeputyDj = action === "deputize_all"
+        const users = snap.users.map((u) => ({ ...u, isDeputyDj }))
+        setBridgeSnapshot({ ...snap, users })
+        const roomPath = roomSocketPath(roomId)
+        const user = users[0]
+        if (user) {
+          io.to(roomPath).emit("event", {
+            type: "USER_JOINED",
+            data: { roomId, user, users },
+          })
+        }
+        io.to(roomPath).emit("event", {
+          type: "DEPUTY_BULK_APPLIED",
+          data: { roomId, action },
+        })
+        io.to(roomPath).emit("event", {
+          type: "MESSAGE_RECEIVED",
+          data: {
+            roomId,
+            message: {
+              user: { username: "system", id: "system", userId: "system" },
+              content:
+                action === "deputize_all"
+                  ? "All users have been promoted to deputy DJs"
+                  : "All deputy DJ sessions have ended",
+              meta: { type: "alert", status: "info" },
+              timestamp: new Date().toISOString(),
+            },
+          },
+        })
+      },
+    )
 
     socket.on("DESIGNATE_ADMIN", (targetUserId: string) => {
       const roomId = socket.data.roomId as string | undefined
@@ -1500,6 +1576,27 @@ function wireSocketHandlers(io: IOServer): void {
           })
           return
         }
+        if (data.pluginName === SKIPPER_PREVIEW_PLUGIN) {
+          const { success, message, nextSnap } = runStubSkipperAction(
+            getBridgeSnapshot(),
+            roomId,
+            userId,
+            data.action,
+          )
+          if (nextSnap) {
+            setBridgeSnapshot(withNormalizedSplitKey(nextSnap))
+            broadcastRefresh(io, roomId)
+            io.to(roomSocketPath(roomId)).emit("event", {
+              type: `PLUGIN:${SKIPPER_PREVIEW_PLUGIN}:SKIP_STATUS`,
+              data: buildStubSkipperState(getBridgeSnapshot(), roomId),
+            })
+          }
+          socket.emit("event", {
+            type: "PLUGIN_ACTION_RESULT",
+            data: { success, message },
+          })
+          return
+        }
         if (data.pluginName === VOLUME_MANAGER_PLUGIN) {
           const { success, message, events } = runStubVolumeAction(roomId, data.action, data.params)
           for (const ev of events) {
@@ -2346,6 +2443,11 @@ app.get("/api/plugins", (_req, res) => {
   res.status(200).json({ plugins: pluginSchemas })
 })
 
+/** Lobby offline copy reads ready shows; an empty list uses the third-Thursday fallback. */
+app.get("/api/public/scheduling/ready-shows", (_req, res) => {
+  res.status(200).json({ shows: [] })
+})
+
 /** Late-joiner hydration for all plugin component stores (`pluginComponentMachine`). */
 app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
   const roomId = req.params.roomId
@@ -2355,6 +2457,7 @@ app.get("/api/rooms/:roomId/plugins/components", (req, res) => {
       [ROUND_ROBIN_PREVIEW_PLUGIN]: buildStubRoundRobinComponentState(roomId),
       [LYRIC_HERO_PREVIEW_PLUGIN]: buildStubLyricHeroComponentState(roomId),
       [ROAD_TRIP_PREVIEW_PLUGIN]: roadTripComponentState(roomId),
+      [SKIPPER_PREVIEW_PLUGIN]: buildStubSkipperState(getBridgeSnapshot(), roomId),
     },
   })
 })
@@ -2371,7 +2474,9 @@ app.get("/api/rooms/:roomId/plugins/:pluginName/components", (req, res) => {
           ? buildStubLyricHeroComponentState(roomId)
           : pluginName === ROAD_TRIP_PREVIEW_PLUGIN
             ? roadTripComponentState(roomId)
-            : {}
+            : pluginName === SKIPPER_PREVIEW_PLUGIN
+              ? buildStubSkipperState(getBridgeSnapshot(), roomId)
+              : {}
   res.status(200).json({ state })
 })
 
@@ -2424,18 +2529,64 @@ app.get("/rooms/:roomId", (req, res) => {
   })
 })
 
-/** Game Studio's record picker: Spotify and local album search (ADR 0216). */
+/** Game Studio's record picker: Spotify and local album search (ADR 0224 / 0230). */
 app.get("/records/search", async (req, res) => {
   const query = typeof req.query.q === "string" ? req.query.q : ""
   res.status(200).json(await searchRecords(query))
 })
 
-/** The designer's Navidrome albums, for Game Studio's sandbox library (ADR 0216). */
+/** The designer's Navidrome albums, for Game Studio's sandbox library (ADR 0224 / 0230). */
 app.get("/records/library", async (_req, res) => {
   try {
     res.status(200).json({ albums: await listLibraryAlbums() })
   } catch (error: unknown) {
     res.status(503).json({ albums: [], error: error instanceof Error ? error.message : "Library failed" })
+  }
+})
+
+/** Active local library source: live Subsonic or a navidrome.db file (ADR 0230). */
+app.get("/records/source", (_req, res) => {
+  res.status(200).json(getRecordLibrarySourceStatus())
+})
+
+app.put("/records/source", (req, res) => {
+  const mode = req.body?.mode
+  if (mode !== "live" && mode !== "file") {
+    res.status(400).json({ error: 'Expected mode "live" or "file"' })
+    return
+  }
+  const path =
+    req.body?.path === null
+      ? null
+      : typeof req.body?.path === "string"
+        ? req.body.path
+        : undefined
+  try {
+    res.status(200).json(
+      setRecordLibrarySource({ mode: mode as RecordLibraryMode, path }),
+    )
+  } catch (error: unknown) {
+    res.status(400).json({
+      ...getRecordLibrarySourceStatus(),
+      error: error instanceof Error ? error.message : "Could not switch library source",
+    })
+  }
+})
+
+/** macOS file chooser for a navidrome.db path (localhost only). */
+app.post("/records/source/browse", async (req, res) => {
+  const remote = req.socket.remoteAddress
+  if (remote !== "127.0.0.1" && remote !== "::1" && remote !== "::ffff:127.0.0.1") {
+    res.status(403).json({ error: "Forbidden" })
+    return
+  }
+  try {
+    const result = await browseNavidromeDbPath()
+    res.status(200).json(result)
+  } catch (error: unknown) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : "Could not open file chooser",
+    })
   }
 })
 
@@ -2484,7 +2635,7 @@ app.post("/sync", (req, res) => {
   }
 })
 
-/** Game Studio trip simulator snapshot, or `snapshot: null` to clear it (ADR 0213). */
+/** Game Studio trip simulator snapshot, or `snapshot: null` to clear it (ADR 0221). */
 app.post("/trip-sim", (req, res) => {
   const roomId = typeof req.body?.roomId === "string" ? req.body.roomId : null
   const snapshot = req.body?.snapshot

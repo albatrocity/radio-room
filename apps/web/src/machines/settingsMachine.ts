@@ -28,6 +28,7 @@ export type SettingsContext = Pick<
   | "allowChatImages"
   | "showId"
   | "activeSegmentId"
+  | "activeSegmentRole"
   | "activeShowSegmentId"
   | "showSchedulePublic"
   | "announceActiveSegment"
@@ -72,6 +73,7 @@ const defaultContext: SettingsContext = {
   public: true,
   showId: undefined,
   activeSegmentId: undefined,
+  activeSegmentRole: undefined,
   activeShowSegmentId: undefined,
   title: "",
   fetchMeta: true,
@@ -168,6 +170,7 @@ export const settingsMachine = setup({
           allowChatImages: event.data.room.allowChatImages,
           showId: event.data.room.showId,
           activeSegmentId: event.data.room.activeSegmentId,
+          activeSegmentRole: event.data.room.activeSegmentRole,
           activeShowSegmentId: event.data.room.activeShowSegmentId,
           showSchedulePublic: event.data.room.showSchedulePublic,
           announceActiveSegment: event.data.room.announceActiveSegment,

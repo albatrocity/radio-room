@@ -65,7 +65,7 @@ const FormAddToQueue = ({
   const serverBrowseableSourceIds = useBrowseableMetadataSourceIds()
   const browseSourceCapabilities = useBrowseSourceCapabilities()
   const myMedia = useMyMedia()
-  // Held records sit under Local; without Local, they get their own entry (ADR 0216).
+  // Held records sit under Local; without Local, they get their own entry (ADR 0224).
   const browseableSourceIds = useMemo(() => {
     if (serverBrowseableSourceIds === null) return null
     if (serverBrowseableSourceIds.includes("local") || !myMedia?.length) {

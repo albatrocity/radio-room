@@ -132,7 +132,7 @@ export async function getEffectiveMetadataSources(params: {
     roomId,
     metadataSourceIds,
   })
-  // Held records only; a picked Spotify record lists even without Local (ADR 0216).
+  // Held records only; a picked Spotify record lists even without Local (ADR 0224).
   const myMedia = context.pluginRegistry?.listPhysicalMediaItems
     ? await context.pluginRegistry.listPhysicalMediaItems({ roomId, userId })
     : []
@@ -391,7 +391,7 @@ export async function browseMediaItem(params: {
   }
 
   // Local records still need Local search access. A record from another source
-  // (a picked Spotify album, ADR 0216) is its own authorization: it's held.
+  // (a picked Spotify album, ADR 0224) is its own authorization: it's held.
   const sourceId = resolved.kind === "album" ? (resolved.sourceId ?? "local") : "local"
   if (sourceId === "local" && context.metadataSourceAccess) {
     const allowed = await context.metadataSourceAccess.canAccess({

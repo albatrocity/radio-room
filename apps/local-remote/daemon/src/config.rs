@@ -300,7 +300,8 @@ pub struct OscFeature {
     /// Map segment id → full OSC path (e.g. `/set/selected/tile/0/0/play`).
     #[serde(default)]
     pub segment_map: HashMap<String, String>,
-    /// Appended as OSC float arguments on every send (e.g. `[1.0]` for Farrago toggles).
+    /// Extra numeric arguments. Farrago `/play` and `/select` are sent as one
+    /// OSC integer (`1` when this list is empty). Other paths stay float32.
     #[serde(default)]
     pub default_args: Vec<f32>,
 }

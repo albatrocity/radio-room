@@ -4,9 +4,11 @@ import type { AppContext } from "@repo/types"
 import MessageValidator from "sns-validator"
 import * as newsletter from "../services/NewsletterService"
 import { createPresignedUpload } from "../services/AssetUploadService"
+import { renderConfirmPage } from "./newsletterConfirmPage"
 import {
   NewsletterBadRequestError,
   NewsletterNotFoundError,
+  NewsletterRateLimitError,
 } from "../services/NewsletterService"
 
 function getAppContext(req: Request): AppContext | undefined {
@@ -142,27 +144,58 @@ export function createNewsletterRouter(): Router {
 // Public routes (mounted outside requireAdmin)
 // ---------------------------------------------------------------------------
 
-export async function subscribeNewsletterHandler(req: Request, res: Response) {
+export function newsletterFormTokenHandler(_req: Request, res: Response) {
   try {
-    const { email, source } = req.body ?? {}
-    const result = await newsletter.subscribe(email, source)
-    res.json({ ok: true, alreadySubscribed: result.alreadySubscribed })
+    res.set("Cache-Control", "no-store")
+    res.json({ token: newsletter.issueNewsletterFormToken() })
   } catch (error) {
     handleNewsletterError(res, error)
   }
 }
 
+export async function subscribeNewsletterHandler(req: Request, res: Response) {
+  try {
+    const { email, source, website, formToken } = req.body ?? {}
+    await newsletter.subscribe(
+      { email, source, website, formToken, ip: req.ip },
+      req.context.redis.pubClient,
+    )
+    res.json({ ok: true })
+  } catch (error) {
+    if (error instanceof NewsletterRateLimitError) {
+      res.status(429).json({ error: error.message })
+      return
+    }
+    handleNewsletterError(res, error)
+  }
+}
+
+/**
+ * Shows a confirm button and does not activate: mailbox scanners prefetch
+ * links in incoming mail, so only the POST below may subscribe someone.
+ */
+export function confirmNewsletterPageHandler(req: Request, res: Response) {
+  const token = typeof req.query.token === "string" ? req.query.token : ""
+  const email = typeof req.query.email === "string" ? req.query.email : ""
+  if (!token || !email) {
+    res.status(400).send("token and email are required")
+    return
+  }
+  res.set("Cache-Control", "no-store")
+  res.status(200).send(renderConfirmPage({ token, email }))
+}
+
 export async function confirmNewsletterHandler(req: Request, res: Response) {
   try {
-    const token = String(req.query.token ?? "")
-    const email = String(req.query.email ?? "")
+    const token = typeof req.body?.token === "string" ? req.body.token : ""
+    const email = typeof req.body?.email === "string" ? req.body.email : ""
     if (!token || !email) {
-      res.status(400).json({ error: "token and email are required" })
+      res.status(400).send("token and email are required")
       return
     }
     await newsletter.confirmSubscription(token, email)
     const appUrl = (process.env.APP_URL || "http://127.0.0.1:8000").replace(/\/$/, "")
-    res.redirect(`${appUrl}/newsletter/confirmed`)
+    res.redirect(303, `${appUrl}/newsletter/confirmed`)
   } catch (error) {
     if (error instanceof NewsletterBadRequestError) {
       res.status(400).send(error.message)

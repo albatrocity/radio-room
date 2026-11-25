@@ -15,7 +15,11 @@ type RedisLike = RedisClientType<any, any, any>
 export class BridgeRpcClient {
   private pending = new Map<
     string,
-    { resolve: (value: BridgeResponse) => void; reject: (err: Error) => void; timer: NodeJS.Timeout }
+    {
+      resolve: (value: BridgeResponse) => void
+      reject: (err: Error) => void
+      timer: NodeJS.Timeout
+    }
   >()
   private sub: RedisLike | null = null
   private started = false

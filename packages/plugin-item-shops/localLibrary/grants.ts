@@ -33,7 +33,7 @@ export type HeldLocalLibraryGrant = {
 }
 
 /**
- * A held record from a non-local source (a picked Spotify album, ADR 0216).
+ * A held record from a non-local source (a picked Spotify album, ADR 0224).
  * Shares the copy fields wear needs with {@link HeldLocalLibraryGrant}.
  */
 export type HeldSourceRecord = Omit<HeldLocalLibraryGrant, "grant"> & { ref: RecordAlbumRef }

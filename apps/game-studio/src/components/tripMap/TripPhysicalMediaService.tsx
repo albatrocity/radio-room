@@ -49,7 +49,7 @@ const SEARCH_DEBOUNCE_MS = 300
 const SPOTIFY_ALBUM_LINK = /(open\.spotify\.com\/(?:intl-[a-z-]+\/)?album\/|spotify:album:)/i
 
 /**
- * "Sells physical media" under a site's Services (ADR 0214, 0216): records from
+ * "Sells physical media" under a site's Services (ADR 0222, 0224): records from
  * the room's library, narrowed by format and genre, plus picked albums.
  */
 export function TripPhysicalMediaService({ stock: authored, onChange }: Props) {

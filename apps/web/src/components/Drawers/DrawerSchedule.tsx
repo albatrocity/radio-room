@@ -4,6 +4,7 @@ import Drawer from "../Drawer"
 import { useModalsSend, useIsModalOpen } from "../../hooks/useActors"
 import { useIsBelowSm } from "../../hooks/useIntegratedPanelPresentation"
 import RoomSchedulePanel from "../RoomSchedulePanel"
+import VoicemailDeck from "../VoicemailDeck"
 
 function DrawerSchedule() {
   const modalSend = useModalsSend()
@@ -22,6 +23,7 @@ function DrawerSchedule() {
       <Box p="sm" overflow="auto" h="100%">
         <div>
           <RoomSchedulePanel />
+          {isSheet ? <VoicemailDeck /> : null}
         </div>
       </Box>
     </Drawer>

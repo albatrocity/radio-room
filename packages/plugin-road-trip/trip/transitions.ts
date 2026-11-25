@@ -25,7 +25,7 @@ import {
 } from "./state"
 
 /**
- * Pure trip transitions (ADR 0205). `mutateTrip` runs them inside a CAS, so
+ * Pure trip transitions (ADR 0213). `mutateTrip` runs them inside a CAS, so
  * they must not touch I/O and may run more than once. Side effects are
  * returned as intents and executed once after the write succeeds. Incidents
  * live in `./incidents`. Phases (trip status, sites, votes) change only
@@ -110,10 +110,7 @@ export const gameSessionStarted: Transition = (state) => {
   return {
     next: { ...state, blockers: state.blockers.filter((b) => b.kind !== "no-session") },
     log: [{ kind: "resume", reason: "no-session" }],
-    effects:
-      state.status === "driving"
-        ? [BACK_ON_THE_ROAD]
-        : [],
+    effects: state.status === "driving" ? [BACK_ON_THE_ROAD] : [],
   }
 }
 
@@ -420,7 +417,7 @@ export function fuelLine(state: TripState, map: TripMap, level: FuelLevel): numb
   return level === "low" ? map.tuning.lowFuelPct * state.tankGallons : 0
 }
 
-/** Gas fell to `level` (M2). Empty starts the map's fuel event, else Out of Gas (M4, ADR 0220). */
+/** Gas fell to `level` (M2). Empty starts the map's fuel event, else Out of Gas (M4, ADR 0228). */
 export function fuelThreshold(level: FuelLevel): Transition {
   return (state, ctx) => {
     if (state.status !== "driving" || state.fuelFlags.includes(level)) return null

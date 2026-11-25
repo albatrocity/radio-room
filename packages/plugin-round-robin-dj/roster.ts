@@ -49,9 +49,11 @@ export class DeputyRosterLifecycle {
 
     const state = await this.deps.loadState()
     if (!state) return
-    if (state.participants.includes(userId)) return
 
-    await this.deps.saveState(addDeputy(state, userId))
+    const next = addDeputy(state, userId)
+    if (next === state) return
+
+    await this.deps.saveState(next)
     this.scheduleSync()
   }
 
@@ -68,7 +70,7 @@ export class DeputyRosterLifecycle {
     if (!state) return
 
     if (data.isDeputyDj) {
-      await this.deps.saveState(addDeputy(state, data.userId))
+      await this.deps.saveState(addDeputy(state, data.userId, { bypassOptOut: true }))
     } else {
       await this.deps.holds.clearHold(data.userId)
       const transition = removeUser(state, data.userId)
@@ -111,7 +113,7 @@ export class DeputyRosterLifecycle {
       }
     }
     for (const userId of deputies) {
-      state = addDeputy(state, userId)
+      state = addDeputy(state, userId, { bypassOptOut: true })
     }
 
     await this.deps.saveState(state)

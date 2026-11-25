@@ -29,9 +29,10 @@ import {
 import { flow, refresh, type Emit, type FlowHandler } from "./flow"
 import {
   ARRIVAL_MILE_EPSILON,
-  AUTOMATIC_FUND_HOLD_MS,
   BACK_ON_THE_ROAD,
   findSite,
+  fundHoldMs,
+  fundPoolTitle,
   fundShareCopy,
   milesLabel,
   openShopAt,
@@ -126,7 +127,12 @@ function prose(body: string | undefined, variant?: NarrativeVariant): TripEffect
 }
 
 /** Start a map event's timed narratives; `incidentId` drops them when that incident clears. */
-function startBeats(state: TripState, event: TripEvent, now: number, incidentId?: string): TripState {
+function startBeats(
+  state: TripState,
+  event: TripEvent,
+  now: number,
+  incidentId?: string,
+): TripState {
   if (!event.beats?.length || state.beatRuns.some((run) => run.eventId === event.id)) return state
   return {
     ...state,
@@ -275,10 +281,7 @@ function beginIncident(acc: Acc, rawCtx: TransitionContext, queued: QueuedIncide
       {
         next: { ...state, incidentSeq: seq },
         log: [...acc.log, incidentEntry(named, "immune", { partId: part.shortId })],
-        effects: [
-          ...acc.effects,
-          { type: "sign", variant: "success", icon: part.emoji, ...copy },
-        ],
+        effects: [...acc.effects, { type: "sign", variant: "success", icon: part.emoji, ...copy }],
       },
       ctx,
     )
@@ -552,8 +555,7 @@ function openIncidentFund(
   const cost = Math.round(step.baseCost * ctx.costScale)
   if (cost <= 0) return enterStep(acc, ctx, incident, incident.step + 1)
   const mode = state.fundsMode
-  const holdMs =
-    mode === "automatic" ? AUTOMATIC_FUND_HOLD_MS : ctx.map.tuning.funds.windowMinutes * 60_000
+  const holdMs = fundHoldMs(mode, ctx.map)
   const gallons =
     step.purpose === "delivery"
       ? Math.max(0, state.tankGallons - Math.max(0, gallonsLeft(state, ctx.gallonsUsed)))
@@ -579,7 +581,7 @@ function openIncidentFund(
   }
   const effects: TripEffect[] = [
     ...acc.effects,
-    { type: "open-fund", fund, title: `${label} · ${step.provider}` },
+    { type: "open-fund", fund, title: fundPoolTitle(fund, ctx.map) },
   ]
   if (announce) {
     effects.unshift({

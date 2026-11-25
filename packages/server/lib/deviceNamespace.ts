@@ -14,6 +14,7 @@ import {
   unregisterDeviceSocket,
   watchDeviceRoom,
 } from "@repo/adapter-bridge"
+import { bindDeviceNamespace, deviceSegmentRoom, startDeviceSegmentBus } from "./deviceSegmentFanout"
 import { activeSegmentForDevice } from "../operations/activeSegmentForDevice"
 import {
   clearDevicePresence,
@@ -42,6 +43,10 @@ type DeviceSocket = Socket & {
  */
 export function attachDeviceNamespace(io: Server, context: AppContext): void {
   const nsp = io.of("/device")
+  bindDeviceNamespace(nsp)
+  void startDeviceSegmentBus(context.redis).catch((error) => {
+    console.error("[device] segment cue bus failed", error)
+  })
 
   nsp.use(async (socket, next) => {
     try {
@@ -112,9 +117,22 @@ export function attachDeviceNamespace(io: Server, context: AppContext): void {
     socket.on("watch", (payload: unknown) => {
       const roomId = readRoomId(payload)
       if (!roomId) return
+      const previous = deviceSocket.data.sessionRoomId
+      // Record the room before any await so a cue in this turn hits the local map.
       watchDeviceRoom(socket.id, roomId)
       deviceSocket.data.sessionRoomId = roomId
-      void pushSegmentSnapshot(context, socket, roomId)
+      void (async () => {
+        try {
+          await joinSegmentRoom(socket, previous, roomId)
+        } catch (error) {
+          console.error(`[device] segment room join failed socket=${socket.id} room=${roomId}`, error)
+        }
+        try {
+          await pushSegmentSnapshot(context, socket, roomId)
+        } catch (error) {
+          console.error(`[device] segment snapshot failed socket=${socket.id} room=${roomId}`, error)
+        }
+      })()
     })
 
     socket.on("link", (payload: unknown) => {
@@ -232,9 +250,20 @@ async function onDisconnect(socket: DeviceSocket, context: AppContext): Promise<
   unregisterDeviceSocket(socket.id)
 }
 
+async function joinSegmentRoom(
+  socket: DeviceSocket,
+  previous: string | null | undefined,
+  roomId: string,
+): Promise<void> {
+  if (previous && previous !== roomId) {
+    await socket.leave(deviceSegmentRoom(previous))
+  }
+  await socket.join(deviceSegmentRoom(roomId))
+}
+
 async function pushSegmentSnapshot(context: AppContext, socket: Socket, roomId: string): Promise<void> {
   const payload = await activeSegmentForDevice(context, roomId)
-  socket.emit("segment", payload)
+  socket.emit("segment", { ...payload, cue: "snapshot" })
 }
 
 async function releaseRoom(socket: DeviceSocket, context: AppContext): Promise<void> {

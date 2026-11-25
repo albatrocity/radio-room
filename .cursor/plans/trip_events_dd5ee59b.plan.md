@@ -3,7 +3,7 @@ name: Trip events
 overview: "Turn the closed incident catalog into authored trip events, composed like sites: presets cover traffic jam, blown tire, engine failure, and out of gas, and the existing step engine keeps running them."
 todos:
   - id: schema-compiler
-    content: ADR 0220, event schema, presets, compileEventSteps, part/item copy, parse lift, lint, parity test
+    content: ADR 0228, event schema, presets, compileEventSteps, part/item copy, parse lift, lint, parity test
     status: completed
   - id: runtime
     content: "Run compiled events: narrative, beats, families, preserved incident behavior"
@@ -30,12 +30,12 @@ An **event** is the authored definition on the map. An **incident** remains the 
 
 ## Stack and conventions
 
-- Event schema, presets, and the compiler live in `@repo/road-trip-map`, beside sites ([ADR 0207](docs/adrs/0207-trip-maps-portable-json.md)). The plugin only runs steps.
-- Authoring stays in minutes ([ADR 0207](docs/adrs/0207-trip-maps-portable-json.md) decision 3). The compiler converts to milliseconds.
-- Start copy and timed beats post as chat prose through the existing `narrate` effect ([ADR 0212](docs/adrs/0212-site-narrative-chat.md)). Operational signs stay signs: item hints, fund costs, tow, and the cleared sign (the event’s `clearedNarrative`, or back on the road).
+- Event schema, presets, and the compiler live in `@repo/road-trip-map`, beside sites ([ADR 0215](docs/adrs/0215-trip-maps-portable-json.md)). The plugin only runs steps.
+- Authoring stays in minutes ([ADR 0215](docs/adrs/0215-trip-maps-portable-json.md) decision 3). The compiler converts to milliseconds.
+- Start copy and timed beats post as chat prose through the existing `narrate` effect ([ADR 0220](docs/adrs/0220-site-narrative-chat.md)). Operational signs stay signs: item hints, fund costs, tow, and the cleared sign (the event’s `clearedNarrative`, or back on the road).
 - Incident copy lives in data, not the engine. Cleared copy is on the event; immunity and item-resolved copy are on the part and consumable specs.
 - Events stay server-only until they happen, same as `scriptedEvents` today. Players see the icon on the sign and the strip, not the definition ahead of time.
-- New ADR **0220** (partially supersedes [0205](docs/adrs/0205-road-trips-v1.md) decision 12’s closed catalog and [0207](docs/adrs/0207-trip-maps-portable-json.md)’s `scriptedEvents` shape). `schemaVersion` stays `1`. `parseTripMap` lifts old `{ id, atMile, incident }` into the new shape, same approach as the physical-media carry lift. Trips have not shipped.
+- New ADR **0228** (partially supersedes [0213](docs/adrs/0213-road-trips-v1.md) decision 12’s closed catalog and [0215](docs/adrs/0215-trip-maps-portable-json.md)’s `scriptedEvents` shape). `schemaVersion` stays `1`. `parseTripMap` lifts old `{ id, atMile, incident }` into the new shape, same approach as the physical-media carry lift. Trips have not shipped.
 
 ## Assumptions
 
@@ -125,7 +125,7 @@ Lint, updated from [packages/road-trip-map/src/lint.ts](packages/road-trip-map/s
 
 ### 1. ADR, schema, presets, compiler
 
-Write [docs/adrs/0220-trip-events.md](docs/adrs/0220-trip-events.md) and index row. Add the event Zod objects to [packages/road-trip-map/src/schema.ts](packages/road-trip-map/src/schema.ts), presets, and `compileEventSteps` next to the current step types in [packages/road-trip-map/src/incidents.ts](packages/road-trip-map/src/incidents.ts). Lift `scriptedEvents` inside [packages/road-trip-map/src/parseTripMap.ts](packages/road-trip-map/src/parseTripMap.ts). Point lint and `incidentCostEstimate` at the compiler. Add `immuneCopy` and `resolvedCopy` to the part and consumable specs in [packages/road-trip-map/src/van.ts](packages/road-trip-map/src/van.ts). Update the sample map.
+Write [docs/adrs/0228-trip-events.md](docs/adrs/0228-trip-events.md) and index row. Add the event Zod objects to [packages/road-trip-map/src/schema.ts](packages/road-trip-map/src/schema.ts), presets, and `compileEventSteps` next to the current step types in [packages/road-trip-map/src/incidents.ts](packages/road-trip-map/src/incidents.ts). Lift `scriptedEvents` inside [packages/road-trip-map/src/parseTripMap.ts](packages/road-trip-map/src/parseTripMap.ts). Point lint and `incidentCostEstimate` at the compiler. Add `immuneCopy` and `resolvedCopy` to the part and consumable specs in [packages/road-trip-map/src/van.ts](packages/road-trip-map/src/van.ts). Update the sample map.
 
 **Done means:** a parity test captures today’s `incidentSteps` output before the switch is removed, then asserts that `compileEventSteps` on each preset deep-equals it for every built-in × a spread of miles (mechanic ahead, none ahead) × parts combination (none, horn, Road-Grip, AAA, all). This covers immunity, horn, tow vs shoulder, and delivery cost beyond the existing cases in [packages/road-trip-map/src/van.test.ts](packages/road-trip-map/src/van.test.ts). Old scripted-event JSON still parses. New lint codes fail the cases above.
 

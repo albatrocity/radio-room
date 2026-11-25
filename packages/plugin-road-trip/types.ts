@@ -1,4 +1,7 @@
 import { z } from "zod"
+import { TRIP_STORE_KEYS } from "@repo/road-trip-map"
+
+export { TRIP_STORE_KEYS }
 
 export const PLUGIN_NAME = "road-trip"
 export const ROAD_TRIP_TAB_ID = "trip"
@@ -8,7 +11,7 @@ export const ROAD_TRIP_VAN_TAB_ID = "van"
  * Config is small on purpose: trip mode is "a map is loaded" (D2), not
  * `enabled`. `enabled` only shows road-trip in the Quick Access menu. The
  * `trip*` fields are Quick Access status lines; their live values come from
- * the plugin store (ADR 0205), the config copies are only fallbacks.
+ * the plugin store (ADR 0213), the config copies are only fallbacks.
  */
 export const roadTripConfigSchema = z.object({
   enabled: z.boolean().default(false),
@@ -32,18 +35,6 @@ export const defaultRoadTripConfig: RoadTripConfig = {
   tripFuel: "—",
   tripWarnings: "None",
 }
-
-export const TRIP_STORE_KEYS = [
-  "tripActive",
-  "trip",
-  "tripPool",
-  "tripPoolOpen",
-  "tripProgress",
-  "tripEta",
-  "tripNextSite",
-  "tripFuel",
-  "tripWarnings",
-] as const
 
 /** Skip polls give up and apply the default this close to the exit (M1). */
 export const POLL_GIVE_UP_BEFORE_EXIT_MS = 15_000

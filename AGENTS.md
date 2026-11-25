@@ -74,7 +74,8 @@ listening-room/
 
 - Internal packages use `@repo/` prefix (e.g., `@repo/server`, `@repo/types`)
 - Adapters: `@repo/adapter-{name}` — `spotify`, `tidal`, `shoutcast`, `rtmp`, `bridge`. `applemusic` is on the shared source-type enum and has no adapter.
-- Plugins registered in `@repo/plugins` (`packages/plugins/index.ts`): `playlist-democracy`, `special-words`, `absent-dj`, `queue-hygiene`, `guess-the-tune`, `item-shops`, `loyalty-program`, `queue-pacer`, `quiz-sessions`, `playlist-bingo`, `round-robin-dj`, `music-upload`, `volume-manager`, `queue-theme`, `the-fed`, `lyric-hero`. Music Upload owns the persona and UI store; core owns presigned PUT REST ([ADR 0119](docs/adrs/0119-private-music-uploads-presign.md)).
+- Plugins registered in `@repo/plugins` (`packages/plugins/index.ts`): `playlist-democracy`, `special-words`, `absent-dj`, `queue-hygiene`, `guess-the-tune`, `item-shops`, `loyalty-program`, `queue-pacer`, `quiz-sessions`, `playlist-bingo`, `round-robin-dj`, `music-upload`, `volume-manager`, `queue-theme`, `the-fed`, `lyric-hero`, `skipper`, `road-trip`. Music Upload owns the persona and UI store; core owns presigned PUT REST ([ADR 0119](docs/adrs/0119-private-music-uploads-presign.md)).
+- Show voicemail is core, not a plugin ([ADR 0212](docs/adrs/0212-show-voicemail.md)). Anonymous upload is `packages/server/controllers/voicemailController.ts`. The admin inbox socket is `packages/server/handlers/voicemailAdminHandlersAdapter.ts`. The DJ Mac plays a message through bridge `playUrl`.
 
 ---
 

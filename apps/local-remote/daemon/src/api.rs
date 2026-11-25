@@ -1,7 +1,9 @@
 use crate::bridge_supervisor::proxy_to_child;
 use crate::config::{save, Config, DuckingFeature};
 use crate::farrago::FarragoBoardSnapshot;
-use crate::osc_send::{default_args_to_osc, run_osc_connection_test, send_osc_datagram};
+use crate::osc_send::{
+    args_for_osc_address, describe_osc_args, run_osc_connection_test, send_osc_datagram,
+};
 use crate::state::{SharedState, StatusSnapshot};
 use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -119,10 +121,7 @@ async fn post_osc_test(
         .unwrap_or("/ping")
         .trim()
         .to_string();
-    let args = match &req.args {
-        Some(a) => default_args_to_osc(a),
-        None => vec![],
-    };
+    let args = args_for_osc_address(&address, req.args.as_deref().unwrap_or(&[]));
 
     let wait_reply = req.wait_for_reply.unwrap_or(true);
     let reply_timeout_ms = req.reply_timeout_ms.unwrap_or(500).min(5000);
@@ -134,7 +133,7 @@ async fn post_osc_test(
             let note = if outcome.reply_received {
                 "UDP reply received on the same socket. OSC path to this host:port works."
             } else if wait_reply {
-                "UDP send succeeded. No reply on this socket is normal for Farrago: it usually sends OSC *output* to the address configured under OSC Output, not back to the sender's ephemeral port—so /ping updates may go nowhere visible unless Output is set. Next: confirm tile paths and add default args (e.g. 1) for /play or /select; same-machine runs can use 127.0.0.1."
+                "UDP send succeeded. No reply on this socket is normal for Farrago: it sends OSC output to the address configured under OSC Output, not back to the sender. /play and /select are sent as an OSC integer (1 = on); a float is ignored. Same-machine runs use 127.0.0.1 and Farrago's OSC Input port."
             } else {
                 "UDP send succeeded (reply wait disabled)."
             };
@@ -142,6 +141,7 @@ async fn post_osc_test(
                 "ok": true,
                 "target": format!("{host}:{port}"),
                 "address": address,
+                "args": describe_osc_args(&args),
                 "outcome": outcome,
                 "note": note,
             }))
@@ -536,7 +536,7 @@ async fn soundboard_tile_action(
     };
     let host = cfg.features.osc.host.as_str();
     let port = cfg.features.osc.port;
-    let args = vec![OscType::Float(arg)];
+    let args = vec![OscType::Int(if arg > 0.5 { 1 } else { 0 })];
     match send_osc_datagram(host, port, &addr, &args).await {
         Ok(bytes_sent) => {
             if arg > 0.5 {

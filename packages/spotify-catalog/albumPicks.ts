@@ -3,7 +3,7 @@ import type { PhysicalMediaPick } from "@repo/types"
 import { getSpotifyClientCredentialsToken } from "./getSpotifyClientCredentialsToken"
 
 /**
- * Album lookups for designer-picked records (ADR 0216), with the app's
+ * Album lookups for designer-picked records (ADR 0224), with the app's
  * client-credentials token. Game Studio searches through these and saves the
  * result into a trip map, so rooms never need them.
  */

@@ -6,7 +6,7 @@ import {
 } from "@repo/types"
 
 /**
- * Trip Map v1 (ADR 0207).
+ * Trip Map v1 (ADR 0215).
  */
 
 export const TRIP_MAP_SCHEMA_VERSION = 1 as const
@@ -129,7 +129,7 @@ export const SITE_SHOP_SHELF_CAP = 12
 export const SITE_SHOP_POOL_CAP = 40
 
 /**
- * A site's composed shop (ADR 0214, 0216): custom offers, plus the record bin
+ * A site's composed shop (ADR 0222, 0224): custom offers, plus the record bin
  * from `services.physicalMedia`. Sites never open Item Shops catalog shops.
  */
 export const siteShopSchema = z
@@ -169,7 +169,7 @@ export const siteServicesSchema = z.object({
   /** A Mechanic: Engine Failure tows here (M4). */
   mechanic: z.literal(true).optional(),
   /**
-   * The record bin (ADR 0214, 0216): designer `picks` plus, with `library`,
+   * The record bin (ADR 0222, 0224): designer `picks` plus, with `library`,
    * derived records matching its formats and genres (`library: {}` = every
    * record). Each traveler sees 3, beside the site's `shop.offers`.
    */
@@ -203,7 +203,7 @@ export type NarrativeVariant = z.infer<typeof narrativeVariantSchema>
 export const NARRATIVE_VARIANTS = narrativeVariantSchema.options
 
 /**
- * A site's arrival or departure line (ADR 0229). `site` posts the info-alert
+ * A site's arrival or departure line (ADR 0238). `site` posts the info-alert
  * row with the site's icon. The other values are alert statuses. Omitted is plain.
  */
 export const siteNarrativeVariantSchema = z.enum(["info", "success", "warning", "error", "site"])
@@ -211,7 +211,7 @@ export type SiteNarrativeVariant = z.infer<typeof siteNarrativeVariantSchema>
 export const SITE_NARRATIVE_VARIANTS = siteNarrativeVariantSchema.options
 
 /**
- * Which van parts and consumables an event answers to (ADR 0220): `jam` (horn,
+ * Which van parts and consumables an event answers to (ADR 0228): `jam` (horn,
  * CB Radio), `flat` (Road-Grip Tires, Fix-a-Flat), `engine`, or `none`.
  */
 export const eventFamilySchema = z.enum(["jam", "flat", "engine", "none"])
@@ -364,7 +364,7 @@ export const eventBeatSchema = z.object({
 })
 export type EventBeat = z.infer<typeof eventBeatSchema>
 
-/** A trip event (ADR 0220), composed like a site. Server-only: never sent to clients. */
+/** A trip event (ADR 0228), composed like a site. Server-only: never sent to clients. */
 export const tripEventSchema = z.object({
   id: siteIdSchema,
   /** Provenance only: which incident preset the designer started from. */
@@ -591,7 +591,7 @@ export const tripTuningSchema = z.object({
     })
     .default(DEFAULT_FUNDS),
   /**
-   * The van counts as a playback device while the map is loaded (ADR 0215).
+   * The van counts as a playback device while the map is loaded (ADR 0223).
    * `gentle` plays records without wear, like a hi-fi device.
    */
   vanPlayback: z

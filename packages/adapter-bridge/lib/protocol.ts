@@ -28,6 +28,7 @@ export const bridgeRequestSchema = z.object({
     "listAlbumTrackIds",
     "getPlaylistCoverArt",
     "listLibraryAlbums",
+    "findLibraryAlbums",
     "getAlbumCoverArt",
     "getAlbumComments",
     "getTrackPreview",
@@ -36,6 +37,16 @@ export const bridgeRequestSchema = z.object({
     "listSayVoices",
     /** Synthesize + queue TTS to configured CoreAudio device (ADR 0178). */
     "speak",
+    /**
+     * Generic URL sidechain playback (ADR 0212). Two daemon-side mpv instances,
+     * neither registered in the Router driver map:
+     *   - `duck: true` loads to the configured `tts.audioDevice` (Audio Hijack
+     *     already sidechains that device into the Loopback Ducking bus).
+     *   - `duck: false` plays dry on the default output.
+     * Transport (`pause` / `play` / `seekTo` / `stop` / `getPlayback` with
+     * `source: "url"`) is wired to the ducked player; the Router never sees it.
+     */
+    "playUrl",
   ]),
   params: z.record(z.string(), z.unknown()).default({}),
 })

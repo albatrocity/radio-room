@@ -130,7 +130,7 @@ describe("fetchResolvedMediaItemTracks", () => {
     })
   })
 
-  test("lists a picked record's album through the room's source (ADR 0216)", async () => {
+  test("lists a picked record's album through the room's source (ADR 0224)", async () => {
     getAlbum.mockResolvedValueOnce({ album: { id: "harvest" }, tracks: [{ id: "h1" }, { id: "h2" }] })
     const result = await fetchResolvedMediaItemTracks({
       roomId: "room1",

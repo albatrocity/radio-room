@@ -23,7 +23,7 @@ export const RECORD_STORE_FIXED_ITEMS: { shortId: string; coinValue: number }[] 
 /**
  * Theme: Physical Media and playback capability (derived records, broken SKUs,
  * cleaners, playback devices). Bridge-only; carries every derived record
- * (`physicalMedia: { library: {} }`, ADR 0214, 0216) plus extra playlist-scoped grant rows.
+ * (`physicalMedia: { library: {} }`, ADR 0222, 0224) plus extra playlist-scoped grant rows.
  * Assignment rarity: common (ADR 0175).
  */
 export const RECORD_STORE_SHOP: ItemShopsShopCatalogEntry = {

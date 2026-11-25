@@ -5,14 +5,17 @@ import Listeners from "./Listeners"
 import AdminControls from "./AdminControls"
 import Banner from "./Banner"
 import RoomSchedulePanel from "./RoomSchedulePanel"
+import VoicemailDeck from "./VoicemailDeck"
 
 import { useIsAdmin, useAuthState, useModalsSend } from "../hooks/useActors"
+import { useIsBelowSm } from "../hooks/useIntegratedPanelPresentation"
 
 const Sidebar = () => {
   const modalSend = useModalsSend()
   const authState = useAuthState()
   const isUnauthorized = authState === "unauthorized"
   const isAdmin = useIsAdmin()
+  const isBelowSm = useIsBelowSm()
 
   // Memoize callbacks
   const handleViewListeners = useCallback(
@@ -48,6 +51,7 @@ const Sidebar = () => {
       >
         <Banner />
         <RoomSchedulePanel />
+        {isBelowSm ? null : <VoicemailDeck />}
         <Flex h="100%" minH={0} direction="column" overflow="hidden" flex="1 1 0">
           <Listeners onViewListeners={handleViewListeners} onEditUser={handleEditUser} />
         </Flex>

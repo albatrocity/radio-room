@@ -1,6 +1,7 @@
 import { useCallback, type ReactNode } from "react"
 import { Box, HStack, Image, Text } from "@chakra-ui/react"
 import { CornerUpRight, MoveUp } from "lucide-react"
+import { TRIP_STORE_KEYS } from "@repo/road-trip-map"
 import type { Poll } from "@repo/types/Poll"
 import { openGameStateOnTab } from "../../../actors/modalsActor"
 import { useNow } from "../../../hooks/useActors"
@@ -21,22 +22,12 @@ const ROAD_TRIP_TRIP_TAB = "road-trip:trip"
 
 /**
  * Full road-trip store key list. The first `ensurePluginComponentActor` call
- * for a plugin wins for the room, so this must stay in step with `TRIP_STORE_KEYS`.
+ * for a plugin wins for the room, so this is the shared `TRIP_STORE_KEYS`.
  */
 const ROAD_TRIP_STORE_SPEC = [
   {
     pluginName: "road-trip",
-    storeKeys: [
-      "tripActive",
-      "trip",
-      "tripPool",
-      "tripPoolOpen",
-      "tripProgress",
-      "tripEta",
-      "tripNextSite",
-      "tripFuel",
-      "tripWarnings",
-    ],
+    storeKeys: [...TRIP_STORE_KEYS],
   },
 ]
 

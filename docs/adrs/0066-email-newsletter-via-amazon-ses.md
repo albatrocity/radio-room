@@ -32,6 +32,8 @@ Because our Postgres database is already the source of truth for subscribers and
 
 Unchanged from ADR 0065: subscriber ownership in Postgres, double opt-in, server-rendered `@repo/email` templates, and the scheduler composer UI.
 
+Abuse controls on the public subscribe and confirm routes (POST-only confirm, form token, honeypot, Redis caps) are in [ADR 0205](0205-newsletter-signup-guards.md).
+
 ## Consequences
 
 - Near-zero fixed cost; scales linearly (~$0.10 per 1,000 emails) with no tier cliffs.

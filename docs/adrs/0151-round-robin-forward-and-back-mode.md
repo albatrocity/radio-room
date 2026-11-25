@@ -41,3 +41,4 @@ Admin `deferOutOfTurnQueues` is available for both ordered modes.
 - [0091. Round Robin DJ plugin](0091-round-robin-dj-plugin.md)
 - [0101. Queue-add undo and Round Robin turn restore](0101-queue-add-undo-and-round-robin-turn-restore.md)
 - [`packages/plugin-round-robin-dj/`](../../packages/plugin-round-robin-dj/)
+- [0208. Round Robin roster opt-out and reset](0208-round-robin-roster-opt-out-and-reset.md)

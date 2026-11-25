@@ -5,12 +5,12 @@ import {
   type PhysicalMediaPick,
 } from "@repo/types"
 
-/** Shop stock for picks: shortIds of resolved picks this room can play (ADR 0216). */
+/** Shop stock for picks: shortIds of resolved picks this room can play (ADR 0224). */
 export type PickStock = (picks: readonly PhysicalMediaPick[]) => ShopAvailableItem[]
 
 export const NO_PICK_STOCK: PickStock = () => []
 
-/** Derived records in `carry`, as shop stock (ADR 0214). */
+/** Derived records in `carry`, as shop stock (ADR 0222). */
 export function matchingPhysicalMedia(
   entries: readonly ItemCatalogEntry[],
   carry: PhysicalMediaCarry,

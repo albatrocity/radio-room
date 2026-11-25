@@ -274,7 +274,7 @@ export const addToQueueUiMachine = setup({
     }),
     deepLinkMedia: assign(({ context, event }) => {
       if (event.type !== "DEEP_LINK_MEDIA") return {}
-      // Records live under Local when it's browseable, else under My Records (ADR 0216).
+      // Records live under Local when it's browseable, else under My Records (ADR 0224).
       const source = context.browseableSourceIds.includes("local")
         ? "local"
         : context.browseableSourceIds.includes(RECORDS_BROWSE_SOURCE)

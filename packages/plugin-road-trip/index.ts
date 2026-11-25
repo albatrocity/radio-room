@@ -11,15 +11,8 @@ import type {
   RoomExportData,
   SystemEventPayload,
 } from "@repo/types"
+import { BasePlugin, EscrowPoolHelper } from "@repo/plugin-base"
 import {
-  BasePlugin,
-  collectShares,
-  EscrowPoolHelper,
-  topContributors,
-  type EscrowPoolState,
-} from "@repo/plugin-base"
-import {
-  FUND_PURPOSE_LABELS,
   INCIDENT_PRESETS,
   isDestination,
   parseTripMap,
@@ -65,9 +58,7 @@ import {
   conditionFacts,
   createTripState,
   TRIP_STORAGE_KEYS,
-  type FundPayment,
   type StoredTripMap,
-  type TripFund,
   type TripState,
 } from "./trip/state"
 import { TripStorage } from "./trip/store"
@@ -84,20 +75,14 @@ import {
   endTrip,
   expireBlocker,
   finishPark,
-  formatShare,
   fuelThreshold,
   pourGas,
   gameSessionEnded,
   gameSessionStarted,
   pauseTrip,
-  extendFundHold,
-  recordLevy,
-  resolveFund,
-  startLevy,
   resumeTrip,
   revealSite,
   setFundsMode,
-  type FundOutcome,
   type SignVariant,
   type Transition,
   type TripEffect,
@@ -115,11 +100,10 @@ import { openTripMap, revealAhead } from "./trip/guide"
 import {
   giveItemsRecipients,
   giveItemsSign,
-  LEVY_RETRY_MS,
-  LEVY_STALE_MS,
   narrateMessageMeta,
   tripNarrative,
 } from "./trip/helpers"
+import { TripFundHost } from "./trip/fundHost"
 import { formatTripTimelineMarkdown } from "./export/formatTripTimelineMarkdown"
 import { poolCardView } from "./presenters"
 
@@ -202,7 +186,7 @@ function itemUsedMessage(route: ItemRoute, name: string): string {
 }
 
 /**
- * Road Trip (ADR 0205): a van drives a Trip Map's route in real time. Progress
+ * Road Trip (ADR 0213): a van drives a Trip Map's route in real time. Progress
  * is a ledger of legs; every change goes through `mutateTrip`, which re-solves
  * and re-arms durable schedules. Nothing ticks.
  */
@@ -233,7 +217,21 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     return new TripStorage(this.context.storage)
   }
 
-  /** Voluntary-mode escrow (ADR 0209). Only a host-waived incident fund refunds it. */
+  /** Coin levy and voluntary pool (ADR 0217). The CAS loop stays on this class. */
+  private get funds(): TripFundHost {
+    return new TripFundHost({
+      getContext: () => this.context,
+      trips: () => this.trips,
+      pool: () => this.tripPool,
+      game: () => this.game,
+      mutateTrip: (transition) => this.mutateTrip(transition),
+      forTrip: (tripId, transition) => this.forTrip(tripId, transition),
+      usernames: (userIds) => this.usernames(userIds),
+      settle: () => this.settle(),
+    })
+  }
+
+  /** Voluntary-mode escrow (ADR 0217). Only a host-waived incident fund refunds it. */
   private get tripPool(): EscrowPoolHelper {
     if (!this.context) throw new Error("[road-trip] context not initialised")
     return new EscrowPoolHelper(
@@ -279,7 +277,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     this.on("GAME_SESSION_ENDED", async () => {
       this.costScaleCache = null
       // An open pool closes and counts as short (M1 Status, D18).
-      await this.settleOpenFund()
+      await this.funds.settleOpenFund()
       await this.mutateTrip(gameSessionEnded)
     })
     this.on("GAME_SESSION_STARTED", async () => {
@@ -317,7 +315,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
 
   /**
    * The van is a playback device while a map is loaded and the plugin is
-   * enabled (ADR 0215); otherwise Road Trip's shared playback is cleared.
+   * enabled (ADR 0223); otherwise Road Trip's shared playback is cleared.
    */
   private async syncVanPlayback(): Promise<void> {
     if (!this.context) return
@@ -500,7 +498,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
             await this.openVote(state.tripId, effect.target)
             break
           case "open-fund":
-            await this.openFund(effect.fund, effect.title, state.tripId)
+            await this.funds.openFund(effect.fund, effect.title, state.tripId)
             break
           case "close-pool":
             await this.tripPool.close("trip-ended", { poolId: effect.fundId })
@@ -575,184 +573,6 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     })
   }
 
-  // ---------------------------------------------------------------------------
-  // Funds (ADR 0209): automatic levy or voluntary pool, settled into resolveFund
-  // ---------------------------------------------------------------------------
-
-  /** Runs once, after the CAS that opened the fund step. */
-  private async openFund(fund: TripFund, title: string, tripId: string): Promise<void> {
-    if (!this.context) return
-    if (fund.mode === "voluntary") {
-      const opened = await this.tripPool.open({
-        id: fund.id,
-        title,
-        goal: fund.cost,
-        closesAt: fund.endsAt,
-      })
-      if (!opened.ok)
-        console.warn(`[road-trip] ${fund.purpose} pool didn't open: ${opened.message}`)
-      return
-    }
-    const { api, roomId } = this.context
-    // Claim the fund before any coin moves. If it was settled or waived first, charge nobody.
-    if (!(await this.mutateTrip(this.forTrip(tripId, startLevy(fund.id))))) return
-    const payers = await api.getOnlineUserIds(roomId)
-    const result = await collectShares(this.game, {
-      cost: fund.cost,
-      reason: `road-trip:${fund.purpose}`,
-      payers,
-    })
-    const names = await this.usernames(result.perUser.map((p) => p.userId))
-    const paid: FundPayment[] = result.perUser.map((p) => ({
-      ...p,
-      name: names.get(p.userId) ?? "Someone",
-    }))
-    // Gas is announced by the fill-up sign when the fund settles. Other levies
-    // have no room line that names each payer's share.
-    if (fund.purpose !== "gas") {
-      const rate = formatShare(result.rate)
-      const label = FUND_PURPOSE_LABELS[fund.purpose]
-      await Promise.all(
-        paid.map((payment) =>
-          api.sendUserSystemMessage(
-            roomId,
-            payment.userId,
-            `${label} took ${rate} of everyone's wallet. Your share: ${payment.amount} coin${payment.amount === 1 ? "" : "s"}.`,
-            {
-              type: "alert",
-              status: "info",
-              title: "Road Trip",
-              theme: "road-trip",
-              icon: "🧾",
-            },
-          ),
-        ),
-      )
-    }
-    await this.mutateTrip(
-      this.forTrip(
-        tripId,
-        recordLevy(fund.id, {
-          collected: result.collected,
-          payers: paid.length,
-          rate: result.rate,
-          paid,
-        }),
-      ),
-    )
-  }
-
-  /**
-   * Settle the open fund step: close the pool (voluntary) or use the recorded
-   * levy (automatic), then fill up. Safe to call twice: `close` settles once
-   * and `resolveFund` is idempotent on the fund id.
-   */
-  private async settleOpenFund(fundId?: string): Promise<boolean> {
-    const state = await this.trips.readState()
-    const fund = state?.fund
-    if (!state || !fund || (fundId !== undefined && fund.id !== fundId)) return false
-    let outcome: FundOutcome
-    if (fund.mode === "voluntary") {
-      const closed = await this.tripPool.close("settled", { poolId: fund.id })
-      // Already closed: a retry of our own settle uses the record; a host waive owns a refund.
-      const pool = closed?.pool ?? (await this.tripPool.read())
-      if (!closed && pool?.id === fund.id && pool.closedReason === "refund") return false
-      outcome = poolOutcome(pool?.id === fund.id ? pool : null)
-    } else if (fund.levyStartedAt !== undefined && fund.collected === undefined) {
-      // The levy is still debiting (or recording). Never settle it as "0 collected".
-      if (Date.now() - fund.levyStartedAt < LEVY_STALE_MS) {
-        await this.mutateTrip(
-          this.forTrip(state.tripId, extendFundHold(fund.id, Date.now() + LEVY_RETRY_MS)),
-        )
-        return false
-      }
-      console.error(
-        `[road-trip] levy for ${fund.id} never recorded in ${this.context?.roomId}; settling without it`,
-      )
-      outcome = { collected: 0, payers: 0, abandonLevy: true }
-    } else {
-      outcome = {
-        collected: fund.collected ?? 0,
-        payers: fund.payers ?? 0,
-        ...(fund.paid ? { paid: fund.paid } : {}),
-      }
-    }
-    const saved = await this.mutateTrip(this.forTrip(state.tripId, resolveFund(fund.id, outcome)))
-    return saved !== null
-  }
-
-  /** Anyone in the room can chip in while a voluntary gas pool is open (D17). */
-  private async chipIn(
-    initiator: PluginActionInitiator | undefined,
-    params: Record<string, unknown> | undefined,
-  ): Promise<ActionResult> {
-    const userId = initiator?.userId
-    if (!userId) return { success: false, message: "Sign in to chip in." }
-    const state = await this.trips.readState()
-    const fund = state?.fund
-    if (!state || !fund || fund.mode !== "voluntary") {
-      return { success: false, message: "There's nothing to chip in for right now." }
-    }
-    const amount = Number(params?.amount)
-    const result = await this.tripPool.pledge(userId, amount, {
-      poolId: fund.id,
-      ...(initiator?.username ? { username: initiator.username } : {}),
-    })
-    if (!result.ok) return { success: false, message: result.message }
-    if (result.goalMet) await this.settleOpenFund(fund.id)
-    else await this.settle()
-    return {
-      success: true,
-      message: result.goalMet
-        ? fund.purpose === "gas"
-          ? "That covers it. Filling up!"
-          : "That covers it!"
-        : `Thanks! ${result.pool.raised} / ${result.pool.goal} coins.`,
-    }
-  }
-
-  /**
-   * Host waives the open incident fund (Quick Access "Skip incident step"):
-   * pledges or levy shares go back, then the incident moves on as if paid.
-   * Refused while an automatic levy is still being collected.
-   */
-  private async waiveIncidentFund(state: TripState, fund: TripFund): Promise<ActionResult> {
-    if (
-      fund.mode === "automatic" &&
-      fund.levyStartedAt !== undefined &&
-      fund.collected === undefined
-    ) {
-      return { success: false, message: "Still collecting. Try again in a moment." }
-    }
-    if (fund.mode === "voluntary") {
-      // Claim the pool first: if its deadline already settled it, the coins were spent.
-      const refund = await this.tripPool.refundAll({ poolId: fund.id })
-      if (!refund.claimed) {
-        return { success: false, message: "Too late: that fund was already settled." }
-      }
-    } else {
-      for (const payment of fund.paid ?? []) {
-        if (payment.amount > 0) {
-          await this.game.addScore(
-            payment.userId,
-            "coin",
-            payment.amount,
-            `road-trip:${fund.purpose}:refund`,
-            {
-              intent: "exact",
-            },
-          )
-        }
-      }
-    }
-    const saved = await this.mutateTrip(
-      this.forTrip(state.tripId, resolveFund(fund.id, { collected: 0, payers: 0, waived: true })),
-    )
-    return saved
-      ? { success: true, message: `${FUND_PURPOSE_LABELS[fund.purpose]} waived and refunded.` }
-      : { success: false, message: "Couldn't waive it." }
-  }
-
   private async skipIncidentStepAction(): Promise<ActionResult> {
     const state = await this.trips.readState()
     const incident = state?.incident
@@ -764,7 +584,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
       if (!fund || fund.incidentId !== incident.id) {
         return { success: false, message: "No incident fund is open." }
       }
-      return this.waiveIncidentFund(state, fund)
+      return this.funds.waiveIncidentFund(state, fund)
     }
     const saved = await this.mutateTrip(skipIncidentStep)
     return saved
@@ -1108,7 +928,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     const blocker = state.blockers.find((b) => b.id === blockerId)
     if (blocker?.kind === "fund") {
       if (state.fund && blocker.until !== undefined && blocker.until <= Date.now()) {
-        await this.settleOpenFund(state.fund.id)
+        await this.funds.settleOpenFund(state.fund.id)
       }
       return
     }
@@ -1213,7 +1033,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
     params?: Record<string, unknown>,
   ): Promise<ActionResult> {
     if (!this.context) return { success: false, message: "Plugin not initialized" }
-    if (action === "chipIn") return this.chipIn(initiator, params)
+    if (action === "chipIn") return this.funds.chipIn(initiator, params)
     const admin = await this.requireRoomAdminForAction(initiator)
     if (!admin.ok) return admin.result
     switch (action) {
@@ -1234,7 +1054,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
       case "leaveNow":
         return this.leaveNow()
       case "endTrip":
-        await this.settleOpenFund()
+        await this.funds.settleOpenFund()
         return this.simpleAction(endTrip, "Trip ended.", "There's no trip in progress.")
       case "switchFundsMode":
         return this.switchFundsMode()
@@ -1251,7 +1071,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
 
   /** End the stop early, settling a gas fund that's still holding the van. */
   private async leaveNow(): Promise<ActionResult> {
-    const settledFund = await this.settleOpenFund()
+    const settledFund = await this.funds.settleOpenFund()
     const left = await this.mutateTrip(finishPark())
     return left || settledFund
       ? { success: true, message: "Leaving now." }
@@ -1409,7 +1229,7 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   }
 
   // ---------------------------------------------------------------------------
-  // Room export (ADR 0211)
+  // Room export (ADR 0219)
   // ---------------------------------------------------------------------------
 
   async augmentRoomExport(_exportData: RoomExportData): Promise<PluginExportAugmentation> {
@@ -1448,17 +1268,6 @@ export class RoadTripPlugin extends BasePlugin<RoadTripConfig> {
   }
 }
 
-/** A closed pool's totals, per backer and in all. */
-function poolOutcome(pool: EscrowPoolState | null): FundOutcome {
-  if (!pool) return { collected: 0, payers: 0 }
-  const paid = topContributors(pool, Number.MAX_SAFE_INTEGER)
-  return {
-    collected: pool.raised,
-    payers: paid.length,
-    topContributors: paid.slice(0, 3),
-    paid,
-  }
-}
 function newTripId(): string {
   return `trip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }

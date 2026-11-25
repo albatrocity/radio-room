@@ -22,8 +22,8 @@ isProject: false
 
 | Layer | Hot path |
 |-------|----------|
-| Plugin publish | `RoadTripPlugin.buildPayload` still emits one `TRIP_UPDATED` per transition ([ADR 0205](docs/adrs/0205-road-trips-v1.md)). The trip-summary commit added `readLog()` on that path. |
-| Schedules | Beats arm at most 8 thresholds per running event and drop when the incident clears ([ADR 0220](docs/adrs/0220-trip-events.md)). Not a 1 Hz loop. |
+| Plugin publish | `RoadTripPlugin.buildPayload` still emits one `TRIP_UPDATED` per transition ([ADR 0213](docs/adrs/0213-road-trips-v1.md)). The trip-summary commit added `readLog()` on that path. |
+| Schedules | Beats arm at most 8 thresholds per running event and drop when the incident clears ([ADR 0228](docs/adrs/0228-trip-events.md)). Not a 1 Hz loop. |
 | Client ticker | `useNow` is one shared interval. The strip, Trip tab, and Van tab each call `useInterpolatedVanMile`. |
 | Van motion | `useRoadTripVanMotion` sends `SYNC` only when the phase string changes. Flourishes are a short CSS animation, not a rAF loop. |
 | Game State | `UserGameStateSurface` returns null when the surface is closed, so the tabs unmount. While it is open, `Tabs.Root` does not set `lazyMount` or `unmountOnExit`. |
@@ -67,10 +67,10 @@ Neither item is default-keep. Both are safe to defer. P0–P1 Now/Near: none.
 
 ## Explicit non-actions
 
-- The server still does not tick the van. Mile and fuel move on the client from the existing anchor (`interpolateVanMile`, `refillGallonsAt`). [ADR 0219](docs/adrs/0219-road-trip-van-motion-and-refill-window.md) did not add a socket per second.
+- The server still does not tick the van. Mile and fuel move on the client from the existing anchor (`interpolateVanMile`, `refillGallonsAt`). [ADR 0219](docs/adrs/0227-road-trip-van-motion-and-refill-window.md) did not add a socket per second.
 - `roadTripVanMotionMachine` does not re-render on the ticker. `SYNC` is sent only when `vanPhase` changes. The registry is one actor per trip key, torn down with the plugin component actors.
 - Beat thresholds are at most 8 per running event and are removed when the incident clears. They are not a schedule storm.
-- Visited narratives and van-event lines ride the existing full `TRIP_UPDATED` snapshot. A normal map is kilobytes per transition, sent to the room, not per second. Replacing that snapshot with deltas would fight [ADR 0205](docs/adrs/0205-road-trips-v1.md) and is not justified at this size.
+- Visited narratives and van-event lines ride the existing full `TRIP_UPDATED` snapshot. A normal map is kilobytes per transition, sent to the room, not per second. Replacing that snapshot with deltas would fight [ADR 0213](docs/adrs/0213-road-trips-v1.md) and is not justified at this size.
 - `stripContext` and `stripReadout` both run on the strip's existing 1 Hz render. That cost is noise. The duplication was a maintainability item, not a bottleneck.
 - Game Studio's event inspector and the Open Shop button are not on a room hot path.
 - `compileEventSteps` runs when an incident starts, not on a timer.

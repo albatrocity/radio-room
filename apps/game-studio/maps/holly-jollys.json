@@ -1,0 +1,1220 @@
+{
+  "schemaVersion": 1,
+  "id": "holly-jollys",
+  "title": "The Holly Jolly's Concert",
+  "revision": 1,
+  "route": {
+    "driveMinutes": 120,
+    "baseMph": 60,
+    "tanksPerTrip": 1.8,
+    "deadlineAt": "2026-11-19T19:12:00.000Z"
+  },
+  "tuning": {
+    "tankGallons": 15,
+    "lowFuelPct": 0.15,
+    "parkMinutes": 4,
+    "revealMiles": 3,
+    "skipPoll": {
+      "leadMinutes": 1.5,
+      "durationSec": 45,
+      "default": "skip"
+    },
+    "funds": {
+      "mode": "automatic",
+      "windowMinutes": 3
+    },
+    "vanPlayback": {
+      "formats": ["CD", "TAPE"]
+    }
+  },
+  "sites": [
+    {
+      "id": "concert",
+      "presetId": "destination-venue",
+      "name": "The Concert",
+      "description": "Lights, sound check, and a crowd waiting.",
+      "icon": "🎸",
+      "mile": 120,
+      "role": "destination"
+    },
+    {
+      "id": "hanks-garage",
+      "presetId": "mechanic",
+      "name": "Hank's Garage",
+      "description": "Nasty little auto shop",
+      "icon": "🔧",
+      "mile": 86,
+      "services": {
+        "mechanic": true
+      },
+      "shop": {
+        "title": "Hank's parts counter",
+        "offers": [
+          {
+            "definitionId": "road-trip:turbocharger"
+          },
+          {
+            "definitionId": "road-trip:road-grip-tires"
+          }
+        ],
+        "sample": {
+          "count": 3,
+          "weights": "rarity"
+        }
+      },
+      "narrative": "Hank is no longer with us, but his ghost is still overcharging for repairs."
+    },
+    {
+      "name": "Harmony Fuel",
+      "description": "An opportunity to refuel body, mind, and van",
+      "icon": "⛽",
+      "parkMinutes": 2,
+      "services": {
+        "gas": {
+          "pricePerGallon": 8
+        }
+      },
+      "shop": {
+        "title": "Quiktrip",
+        "offers": [
+          {
+            "definitionId": "road-trip:fix-a-flat"
+          },
+          {
+            "definitionId": "road-trip:aaa-card"
+          },
+          {
+            "definitionId": "item-shops:cold-beer"
+          },
+          {
+            "definitionId": "item-shops:tour-laminate"
+          },
+          {
+            "definitionId": "item-shops:cd-cleaner"
+          },
+          {
+            "definitionId": "item-shops:repulsive-seltzer"
+          },
+          {
+            "definitionId": "item-shops:coffee-pedal"
+          },
+          {
+            "definitionId": "item-shops:private-bathroom"
+          },
+          {
+            "definitionId": "item-shops:pizza-slice"
+          },
+          {
+            "definitionId": "item-shops:potato-chips"
+          },
+          {
+            "definitionId": "item-shops:beef-jerky"
+          },
+          {
+            "definitionId": "item-shops:antacid"
+          }
+        ],
+        "sample": {
+          "count": 3,
+          "weights": "rarity"
+        }
+      },
+      "id": "gas-n-go-2",
+      "mile": 27.2,
+      "presetId": "gas-station",
+      "narrativeVariant": "site"
+    },
+    {
+      "id": "sister-anne-s",
+      "name": "Sister Anne's",
+      "description": "A singular Kansas City establishment. Good coffee and records, with plenty of local selections.",
+      "icon": "☕️",
+      "mile": 7.6,
+      "narrative": "You enter to the smell of delicious baked goods and drop coffee. You look up to the counter and spot Stick pulling his 6th espresso shot to \"see how it tastes\". ",
+      "lore": "A charming coffee and records shop sporting one of the worst websites of all time.",
+      "services": {
+        "physicalMedia": {
+          "picks": [
+            {
+              "source": "local",
+              "id": "1CiZxXHjsZTyJKy1pRd5gu",
+              "title": "The Love of the Game",
+              "artist": "Perfect Spiral",
+              "trackCount": 13,
+              "format": "CD"
+            },
+            {
+              "source": "local",
+              "id": "2Efjv6apwWgrJvVMcpFLUf",
+              "title": "Kountry",
+              "artist": "Don QuiKoné",
+              "year": 2024,
+              "trackCount": 2,
+              "format": "CD",
+              "lore": "A familiar face on the cover of this dusty 45, but nobody seems to have any information on it."
+            },
+            {
+              "source": "local",
+              "id": "12o6JqXuEJml60DhdU3kAu",
+              "title": "long faced daze",
+              "artist": "yeomon",
+              "year": 2020,
+              "trackCount": 12,
+              "format": "CD"
+            },
+            {
+              "source": "local",
+              "id": "16FOtABZo4n6KDR225YiM1",
+              "title": "Sprinkler Man / I'm a Goner!",
+              "artist": "Fritz and Sons",
+              "year": 2025,
+              "trackCount": 2,
+              "format": "CD"
+            },
+            {
+              "source": "local",
+              "id": "3i2Qtd7NUGvYaQrTu8SP2S",
+              "title": "Listening Room October 2026",
+              "artist": "Fritz & Sons",
+              "year": 2026,
+              "trackCount": 5,
+              "format": "CD"
+            },
+            {
+              "source": "local",
+              "id": "1Mq3K3EgX5xsoce2LRyQIe",
+              "title": "Introducing...",
+              "artist": "Fullbloods",
+              "year": 2022,
+              "trackCount": 5,
+              "format": "CD"
+            },
+            {
+              "source": "spotify",
+              "id": "2erFiJJ0G3egH1WnT3g56J",
+              "title": "Good Morning (I Love You)",
+              "artist": "Eggs on Mars",
+              "year": 2026,
+              "trackCount": 10,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b273079cb5b4ec4d840ac8e3b049",
+              "lore": "Released 2026 on Enigmatic Brunch Records. ℗ 2026 Eggs on Mars",
+              "format": "CD"
+            },
+            {
+              "source": "spotify",
+              "id": "7l4YHawBHBxQPTOYF3dJqI",
+              "title": "The Great Conjunction",
+              "artist": "Daniel Gum",
+              "year": 2025,
+              "trackCount": 10,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b2737f20ee7b508dcdebf8ea3171",
+              "lore": "Released 2025 on 818710 Records DK2. ℗ 2025 Daniel Gum",
+              "format": "CD"
+            },
+            {
+              "source": "spotify",
+              "id": "5mLANM5yc95OjojxLets8W",
+              "title": "Blazing Prairie Star",
+              "artist": "Kirstie Lynn",
+              "year": 2026,
+              "trackCount": 6,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b273fcc2087889fe3c17862d87ad",
+              "format": "CD",
+              "lore": "Released 2026 on Manor Records. ℗ 2026 Plaid Dog Studios"
+            },
+            {
+              "source": "spotify",
+              "id": "1lv2Q6fHwDueRrF7bBsZJB",
+              "title": "Nos",
+              "artist": "Les Marmoppes",
+              "year": 2025,
+              "trackCount": 1,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b273f0eadf00a130b57b94294e9f",
+              "format": "CD",
+              "lore": "Released 2025 on Big Nip Records. ℗ 2025 Big Nip Records"
+            },
+            {
+              "source": "spotify",
+              "id": "56u9nsrU3bWA3kZMTDypco",
+              "title": "Ned's Night-Hole",
+              "artist": "Ned Stacie",
+              "year": 2025,
+              "trackCount": 5,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b273f5241e2ca464b1af438dd507",
+              "format": "TAPE",
+              "lore": "Released 2025 on Big Nip Records. ℗ 2025 Big Nip Records"
+            },
+            {
+              "source": "spotify",
+              "id": "0oK6z7b8UTBXVc30oQYbyG",
+              "title": "Smile in the Mirror",
+              "artist": "joel vs joel",
+              "year": 2025,
+              "trackCount": 11,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b273214233bd304f6e7fb821dbdb",
+              "lore": "Released 2025 on Enigmatic Brunch Records. ℗ 2025 joel vs joel",
+              "format": "CD"
+            },
+            {
+              "source": "spotify",
+              "id": "13P5OBtVwwkUycfw4aVH7W",
+              "title": "Chasm Spasm, Pt. 1",
+              "artist": "schemada",
+              "year": 2024,
+              "trackCount": 11,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b273770aa2e86a09c1acf22cd838",
+              "lore": "Released 2024 on parkour sound records. ℗ 2024 parkour sound records",
+              "format": "CD"
+            },
+            {
+              "source": "spotify",
+              "id": "6WzKicSNdPw8rphOnYQRNr",
+              "title": "Chasm Spasm, Pt. 2",
+              "artist": "schemada",
+              "year": 2025,
+              "trackCount": 13,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b27366bf6242a20c1a29f7762d3a",
+              "lore": "Released 2025 on parkour sound records. ℗ 2025 parkour sound records",
+              "format": "CD"
+            },
+            {
+              "source": "spotify",
+              "id": "4I9q7xNDSnFZGIhywFCY6O",
+              "title": "Superbowl",
+              "artist": "Alyssa Murray",
+              "year": 2023,
+              "trackCount": 1,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b2739f52deef47c513c1ed76603c",
+              "format": "CD",
+              "lore": "Released 2023 on LYSSA RECORDS. ℗ 2023 LYSSA RECORDS"
+            },
+            {
+              "source": "local",
+              "id": "3RNMHh7DY7WlBCJMeWvMvS",
+              "title": "Saturday Night",
+              "artist": "Deegan Poores",
+              "trackCount": 3,
+              "format": "CD"
+            },
+            {
+              "source": "local",
+              "id": "5D10RdHxVxHAMAgjMz4Y0C",
+              "title": "Love U 2",
+              "artist": "GHOSTY",
+              "year": 2013,
+              "trackCount": 1,
+              "format": "CD"
+            }
+          ]
+        }
+      },
+      "shop": {
+        "offers": [
+          {
+            "definitionId": "item-shops:scratched-cd"
+          },
+          {
+            "definitionId": "item-shops:coffee"
+          },
+          {
+            "definitionId": "item-shops:matcha-latte"
+          }
+        ],
+        "title": "Sister Anne's record bins",
+        "openingMessage": "Flip through and find something. There's also a bajillion CDs in the back.",
+        "sample": {
+          "count": 3,
+          "weights": "rarity"
+        },
+        "buybackRate": 0.4
+      },
+      "revealMiles": 1,
+      "narrativeVariant": "site",
+      "departNarrativeVariant": "site"
+    },
+    {
+      "name": "Scenic Overlook",
+      "description": "An incredible view awaits",
+      "icon": "🏞️",
+      "id": "scenic-overlook",
+      "mile": 37.2,
+      "presetId": "scenic-overlook",
+      "narrative": "The \"view\" is obstructed by a newly-constructed data center.",
+      "parkMinutes": 1,
+      "narrativeVariant": "site",
+      "skipPoll": {},
+      "revealMiles": 2
+    },
+    {
+      "name": "Gas n' Jazz",
+      "description": "A gas station that also sells records",
+      "icon": "⛽",
+      "parkMinutes": 2,
+      "services": {
+        "gas": {
+          "pricePerGallon": 8
+        },
+        "physicalMedia": {
+          "library": {
+            "formats": ["CD", "TAPE"]
+          }
+        }
+      },
+      "shop": {
+        "title": "Gas 'n' Go counter",
+        "offers": [
+          {
+            "definitionId": "road-trip:fix-a-flat"
+          },
+          {
+            "definitionId": "road-trip:aaa-card"
+          },
+          {
+            "definitionId": "item-shops:van-cubby"
+          },
+          {
+            "definitionId": "item-shops:9v-battery"
+          },
+          {
+            "definitionId": "item-shops:tour-laminate"
+          },
+          {
+            "definitionId": "item-shops:merch-cash-box"
+          },
+          {
+            "definitionId": "item-shops:cd-cleaner"
+          }
+        ],
+        "sample": {
+          "count": 3,
+          "weights": "rarity"
+        },
+        "buybackRate": 0.8
+      },
+      "id": "gas-n-go",
+      "mile": 64,
+      "presetId": "gas-station",
+      "narrative": "Smells like burnt oil, gin, and cigarettes in here. But they have a decent selection of records."
+    },
+    {
+      "name": "Stinker's Gas",
+      "description": "The smelliest gas in town",
+      "icon": "⛽",
+      "parkMinutes": 2,
+      "services": {
+        "gas": {
+          "pricePerGallon": 8
+        }
+      },
+      "shop": {
+        "title": "Gas 'n' Go counter",
+        "offers": [
+          {
+            "definitionId": "road-trip:fix-a-flat"
+          },
+          {
+            "definitionId": "road-trip:aaa-card"
+          }
+        ]
+      },
+      "id": "gas-n-go-3",
+      "mile": 109.2,
+      "presetId": "gas-station"
+    },
+    {
+      "name": "Love Garden",
+      "description": "Crates of used records and a hand-lettered genre map on the wall.",
+      "icon": "🦑",
+      "services": {
+        "physicalMedia": {
+          "library": {
+            "formats": ["CD", "LP", "TAPE", "45"]
+          },
+          "picks": [
+            {
+              "source": "spotify",
+              "id": "0B00KO0iRAVuy7dUEOTSuU",
+              "title": "Monkey Mind",
+              "artist": "Pearl & The Oysters",
+              "year": 2026,
+              "trackCount": 12,
+              "imageUrl": "https://i.scdn.co/image/ab67616d0000b273e1b43eed66c19dc9f531934d",
+              "format": "CD",
+              "lore": "Released 2026 on Stones Throw Records"
+            }
+          ]
+        }
+      },
+      "shop": {
+        "buybackRate": 0.1
+      },
+      "id": "record-shop",
+      "mile": 91.2,
+      "presetId": "record-shop"
+    },
+    {
+      "name": "Blueberry Gas",
+      "description": "A gas station attached to a blueberry field. Sells both.",
+      "icon": "⛽",
+      "parkMinutes": 2,
+      "services": {
+        "gas": {
+          "pricePerGallon": 8
+        }
+      },
+      "shop": {
+        "title": "Gas 'n' Go counter",
+        "offers": [
+          {
+            "definitionId": "road-trip:fix-a-flat"
+          },
+          {
+            "definitionId": "road-trip:aaa-card"
+          },
+          {
+            "definitionId": "item-shops:blueberries"
+          }
+        ],
+        "buybackRate": 0.5
+      },
+      "id": "gas-n-go-5",
+      "mile": 77.6,
+      "presetId": "gas-station"
+    },
+    {
+      "id": "big-terry-s-truck-stop",
+      "name": "Big Terry's Truck Stop",
+      "description": "Clean bathrooms, hot showers, cold chicken fried steak",
+      "icon": "🚛",
+      "mile": 46.4,
+      "parkMinutes": 5,
+      "services": {
+        "gas": {
+          "pricePerGallon": 6
+        }
+      },
+      "shop": {
+        "offers": [
+          {
+            "definitionId": "road-trip:road-grip-tires"
+          },
+          {
+            "definitionId": "road-trip:obnoxious-horn"
+          },
+          {
+            "definitionId": "road-trip:cb-radio"
+          },
+          {
+            "definitionId": "item-shops:private-bathroom"
+          },
+          {
+            "definitionId": "item-shops:rubber-band"
+          },
+          {
+            "definitionId": "item-shops:9v-battery"
+          },
+          {
+            "definitionId": "item-shops:lock-pick"
+          },
+          {
+            "definitionId": "item-shops:locksmiths-kit"
+          },
+          {
+            "definitionId": "item-shops:burner-phone"
+          },
+          {
+            "definitionId": "item-shops:tour-laminate"
+          },
+          {
+            "definitionId": "item-shops:trailer"
+          },
+          {
+            "definitionId": "item-shops:van-cubby"
+          },
+          {
+            "definitionId": "item-shops:road-case"
+          },
+          {
+            "definitionId": "item-shops:repulsive-seltzer"
+          },
+          {
+            "definitionId": "item-shops:warm-beer"
+          },
+          {
+            "definitionId": "item-shops:cold-beer"
+          },
+          {
+            "definitionId": "item-shops:pencil"
+          }
+        ],
+        "sample": {
+          "count": 3,
+          "weights": "rarity"
+        },
+        "buybackRate": 1,
+        "title": "Big Terry's Truck Slop",
+        "openingMessage": "A bunch of stuff for sale, not all of it's quality"
+      }
+    },
+    {
+      "id": "jarvis-electronics",
+      "name": "Jarvis' Electronics",
+      "description": "A stand-alone electronics shop somehow still in operation",
+      "icon": "📟",
+      "mile": 54,
+      "shop": {
+        "sample": {
+          "count": 3,
+          "weights": "rarity"
+        },
+        "offers": [
+          {
+            "definitionId": "item-shops:cd-player"
+          },
+          {
+            "definitionId": "item-shops:buffer-pedal"
+          },
+          {
+            "definitionId": "item-shops:x-ray"
+          },
+          {
+            "definitionId": "item-shops:burner-phone"
+          },
+          {
+            "definitionId": "item-shops:lock-pick"
+          },
+          {
+            "definitionId": "item-shops:locksmiths-kit"
+          },
+          {
+            "definitionId": "item-shops:9v-battery"
+          },
+          {
+            "definitionId": "item-shops:oscilloscope"
+          },
+          {
+            "definitionId": "item-shops:vu-meter"
+          },
+          {
+            "definitionId": "item-shops:beat-detector"
+          },
+          {
+            "definitionId": "item-shops:chromatic-tuner"
+          },
+          {
+            "definitionId": "road-trip:cb-radio"
+          },
+          {
+            "definitionId": "item-shops:tube-overdrive"
+          }
+        ]
+      },
+      "narrative": "The van pulls into one of the 50 available parking spaces. This lot is huge: it must be an artifact from a bygone era. As you step out of the van, you spot a 4' yellow and purple slug with probing antennae: it's Jarvis. He's ecstatic at the opportunity to sell you some electronics.",
+      "narrativeVariant": "info",
+      "departNarrative": "As you start to leave Jarvis calls out: he's got some recommendations for some nearby places that he thinks \"you guys would really, really enjoy\". He hands you a map.",
+      "departNarrativeVariant": "success",
+      "onDepart": [
+        {
+          "kind": "unlock",
+          "layer": "local-tips"
+        }
+      ]
+    },
+    {
+      "id": "peepaw-s-prepper-paradise",
+      "name": "Peepaw's Prepper Paradise",
+      "description": "Your one-stop shop for the end of civilization",
+      "icon": "🏴‍☠️",
+      "mile": 11.2,
+      "route": "shortcut",
+      "revealMiles": 2,
+      "shop": {
+        "sample": {
+          "count": 4,
+          "weights": "rarity"
+        },
+        "offers": [
+          {
+            "definitionId": "item-shops:trailer"
+          },
+          {
+            "definitionId": "item-shops:road-case"
+          },
+          {
+            "definitionId": "item-shops:mars-egg"
+          },
+          {
+            "definitionId": "item-shops:lock-pick"
+          },
+          {
+            "definitionId": "item-shops:burner-phone"
+          },
+          {
+            "definitionId": "item-shops:x-ray"
+          },
+          {
+            "definitionId": "item-shops:disguise"
+          },
+          {
+            "definitionId": "item-shops:honeypot"
+          },
+          {
+            "definitionId": "item-shops:black-bag"
+          },
+          {
+            "definitionId": "item-shops:locksmiths-kit"
+          },
+          {
+            "definitionId": "item-shops:9v-battery"
+          },
+          {
+            "definitionId": "item-shops:rubber-band"
+          },
+          {
+            "definitionId": "item-shops:oscilloscope"
+          },
+          {
+            "definitionId": "item-shops:beat-detector"
+          },
+          {
+            "definitionId": "item-shops:vu-meter"
+          },
+          {
+            "definitionId": "item-shops:chromatic-tuner"
+          },
+          {
+            "definitionId": "road-trip:trip-guide"
+          },
+          {
+            "definitionId": "item-shops:merch-cash-box"
+          },
+          {
+            "definitionId": "item-shops:pencil"
+          },
+          {
+            "definitionId": "item-shops:tangled-tape"
+          },
+          {
+            "definitionId": "road-trip:cb-radio"
+          },
+          {
+            "definitionId": "road-trip:road-grip-tires"
+          },
+          {
+            "definitionId": "road-trip:obnoxious-horn"
+          },
+          {
+            "definitionId": "road-trip:aero-spoiler"
+          },
+          {
+            "definitionId": "item-shops:cold-beer"
+          }
+        ]
+      },
+      "services": {
+        "physicalMedia": {
+          "library": {
+            "formats": ["CD", "TAPE"]
+          }
+        }
+      },
+      "narrative": "The van creeps up to the front of a giant warehouse. An elderly orange and white, long-haired cat sulks out of the front door. He's gruff on the inside and fluff on the outside. This must be Peepaw. He circles around the van, assessing its capabilities. \"Come inside\", he says. \"I've got what you need.\" He disappears into the warehouse.",
+      "narrativeVariant": "info",
+      "parkMinutes": 5
+    },
+    {
+      "id": "richard-prawn-s-super-pawn",
+      "name": "Señor Prawn's Super Pawn",
+      "description": "A roadside pawn shop",
+      "icon": "🦐",
+      "mile": 71.6,
+      "narrative": "It's a tiny space, yet it's stuffed with what appears to be a century's worth of treasure. Richard Prawn is behind the counter, ecstatic to have so many potential customers at once.",
+      "narrativeVariant": "site",
+      "services": {
+        "physicalMedia": {
+          "library": {}
+        }
+      },
+      "shop": {
+        "sample": {
+          "count": 4,
+          "weights": "rarity"
+        },
+        "offers": [
+          {
+            "definitionId": "item-shops:family-photo"
+          },
+          {
+            "definitionId": "item-shops:vu-meter"
+          },
+          {
+            "definitionId": "item-shops:chromatic-tuner"
+          },
+          {
+            "definitionId": "item-shops:oscilloscope"
+          },
+          {
+            "definitionId": "road-trip:aero-spoiler"
+          },
+          {
+            "definitionId": "item-shops:mars-egg"
+          },
+          {
+            "definitionId": "item-shops:road-case"
+          },
+          {
+            "definitionId": "item-shops:hifi-cd-player"
+          },
+          {
+            "definitionId": "item-shops:hifi-turntable"
+          },
+          {
+            "definitionId": "item-shops:hifi-tape-deck"
+          },
+          {
+            "definitionId": "item-shops:tube-overdrive"
+          },
+          {
+            "definitionId": "item-shops:fuzz-pedal"
+          },
+          {
+            "definitionId": "item-shops:compressor-pedal"
+          },
+          {
+            "definitionId": "item-shops:boost-pedal"
+          },
+          {
+            "definitionId": "item-shops:buffer-pedal"
+          },
+          {
+            "definitionId": "item-shops:sample-hold"
+          },
+          {
+            "definitionId": "item-shops:joker-pedal"
+          },
+          {
+            "definitionId": "item-shops:pencil"
+          },
+          {
+            "definitionId": "item-shops:cd-cleaner"
+          },
+          {
+            "definitionId": "item-shops:gate"
+          }
+        ]
+      },
+      "layer": "local-tips"
+    },
+    {
+      "name": "Belfry Legacy Media",
+      "description": "A quaint haunt specializing in CDs and Cassettes",
+      "icon": "🦇",
+      "services": {
+        "physicalMedia": {
+          "library": {
+            "formats": ["CD", "TAPE"]
+          }
+        }
+      },
+      "shop": {
+        "buybackRate": 0.1
+      },
+      "id": "record-shop-2",
+      "mile": 42,
+      "presetId": "record-shop",
+      "narrative": "The van pulls up to the third unit in an otherwise abandoned strip mall. Sun-bleached promotional posters plaster the windows: most are over a decade old. We open the front door. Light spills in and illuminates Bertie, the manager, handing upside down from the ceiling. \"Hey y'all, welcome in. Please pull the door closed behind you.\" She hands out flashlights and encourages us to flip through her inventory.",
+      "departNarrative": "Bertie waves goodbye, causing a gust of wind to rustle the posters clinging to the storefront windows.",
+      "lore": "Established by owner-operator Bertie Bat in 1996, rumors have it that the store still operates on the original inventory.",
+      "narrativeVariant": "site",
+      "departNarrativeVariant": "site"
+    },
+    {
+      "name": "Slimeball Records",
+      "description": "Rarities and one-offs. Everything is wet.",
+      "icon": "🐌",
+      "services": {
+        "physicalMedia": {
+          "picks": [
+            {
+              "source": "local",
+              "id": "2Efjv6apwWgrJvVMcpFLUf",
+              "title": "Kountry",
+              "artist": "Don QuiKoné",
+              "year": 2024,
+              "trackCount": 2,
+              "format": "45"
+            },
+            {
+              "source": "local",
+              "id": "0GbaOS1jmobBft46EJIBfL",
+              "title": "Memories",
+              "artist": "Tom Zart",
+              "year": 1999,
+              "trackCount": 28,
+              "format": "CD"
+            },
+            {
+              "source": "local",
+              "id": "2ap3dPHnSyiKXeWVrwxa7G",
+              "title": "Goofin' Off session",
+              "artist": "Video Age",
+              "year": 2023,
+              "trackCount": 3,
+              "format": "45"
+            },
+            {
+              "source": "local",
+              "id": "1QaR10Cc6qccLW9HMOqWKh",
+              "title": "From the Dugout",
+              "artist": "Perfect Pitch",
+              "trackCount": 21,
+              "format": "CD"
+            },
+            {
+              "source": "local",
+              "id": "19zVdepJExfXsfKGgqgw1x",
+              "title": "How It All Happened",
+              "artist": "The Experienced",
+              "trackCount": 1,
+              "format": "45"
+            },
+            {
+              "source": "local",
+              "id": "1YMBhlHTky4km7GoHVn5Ie",
+              "title": "I'd Wear That On a T-Shirt",
+              "artist": "Nika and Ross",
+              "year": 2021,
+              "trackCount": 1,
+              "format": "45"
+            },
+            {
+              "source": "local",
+              "id": "1Cjr2G0pfPlbgT5OZJ1khp",
+              "title": "In Pieces",
+              "artist": "Garth Brooks",
+              "year": 1993,
+              "trackCount": 10,
+              "format": "CD"
+            }
+          ]
+        }
+      },
+      "shop": {
+        "buybackRate": 0.5,
+        "sample": {
+          "count": 1,
+          "weights": "rarity"
+        },
+        "offers": [
+          {
+            "definitionId": "item-shops:cd-cleaner"
+          },
+          {
+            "definitionId": "item-shops:pencil"
+          }
+        ]
+      },
+      "id": "record-shop-3",
+      "mile": 60.8,
+      "presetId": "record-shop",
+      "layer": "local-tips"
+    },
+    {
+      "id": "darby-s-snack-emporium",
+      "name": "Darby's Snack Emporium",
+      "description": "A stop along the route.",
+      "icon": "🥨",
+      "mile": 15.2,
+      "shop": {
+        "offers": [
+          {
+            "definitionId": "item-shops:pizza-slice"
+          },
+          {
+            "definitionId": "item-shops:potato-chips"
+          },
+          {
+            "definitionId": "item-shops:beef-jerky"
+          },
+          {
+            "definitionId": "item-shops:neapolitan"
+          },
+          {
+            "definitionId": "item-shops:lemons"
+          },
+          {
+            "definitionId": "item-shops:cucumber-slices"
+          },
+          {
+            "definitionId": "item-shops:blueberries"
+          },
+          {
+            "definitionId": "item-shops:lychees"
+          },
+          {
+            "definitionId": "item-shops:green-peas"
+          },
+          {
+            "definitionId": "item-shops:tomatoes"
+          },
+          {
+            "definitionId": "item-shops:carrots"
+          },
+          {
+            "definitionId": "item-shops:cold-beer"
+          }
+        ]
+      },
+      "parkMinutes": 3,
+      "revealMiles": 1,
+      "skipPoll": {
+        "leadMinutes": 1
+      }
+    },
+    {
+      "id": "garage-sale",
+      "name": "Garage Sale",
+      "description": "Cardboard sign with balloons attached to it. Treasures ahead?",
+      "icon": "📍",
+      "mile": 100,
+      "layer": "local-tips",
+      "narrative": "You pull up to a modest ranch house with a rat sitting outside. He welcomes you as the sale winds down: \"Hey guys I'm kinda beat but I'd really like to get rid of this stuff. Go ahead and take what you want.\" He motions towards the giant pile of junk on his lawn.",
+      "narrativeVariant": "site",
+      "shop": {
+        "offers": [
+          {
+            "definitionId": "item-shops:tangled-tape",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:scratched-cd",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:dusty-record",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:cd-cleaner",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:dust-cloth",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:pencil",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:fuzz-pedal",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:tube-overdrive",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:compressor-pedal",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:buffer-pedal",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:sample-hold",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:joker-pedal",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:mars-egg",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:burner-phone",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:honeypot",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:disguise",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:locksmiths-kit",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:9v-battery",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:rubber-band",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:oscilloscope",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:vu-meter",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:beat-detector",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:chromatic-tuner",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:family-photo",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "road-trip:negotiating-for-dummies",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "road-trip:basics-of-automobile-mechanics",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "road-trip:defensive-driving",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "road-trip:advanced-automobile-mechanics",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:road-case",
+            "basePrice": 0
+          },
+          {
+            "definitionId": "item-shops:merch-cash-box",
+            "basePrice": 0
+          }
+        ],
+        "sample": {
+          "count": 3,
+          "weights": "rarity"
+        },
+        "title": "The rat's big pile of junk",
+        "openingMessage": "Dig through, it's all free"
+      },
+      "departNarrative": "The rat waves goodbye, happily unburdened. He picks up his to-do list and runs a line through the final remaining item: \"Swedish death cleaning\"",
+      "departNarrativeVariant": "site"
+    }
+  ],
+  "events": [
+    {
+      "name": "Blown tire",
+      "icon": "🛞",
+      "narrative": "BANG. The van limps onto the shoulder.",
+      "family": "flat",
+      "effect": {
+        "kind": "stop"
+      },
+      "resolution": [
+        {
+          "kind": "item",
+          "windowMinutes": 1
+        },
+        {
+          "kind": "fund",
+          "purpose": "roadside"
+        },
+        {
+          "kind": "wait",
+          "minutes": 1.5,
+          "label": "Changing the tire"
+        }
+      ],
+      "id": "flat-at-9",
+      "presetId": "blown-tire",
+      "mile": 81.6
+    },
+    {
+      "name": "Traffic jam",
+      "icon": "🚗",
+      "narrative": "Seems like there's some construction up ahead that's taking things down to two lanes instead of three. Seems manageable.",
+      "clearedNarrative": "Traffic clears. Back to cruising speed.",
+      "family": "jam",
+      "effect": {
+        "kind": "slow",
+        "factor": 0.75,
+        "label": "Moderate traffic"
+      },
+      "durationMinutes": 7,
+      "resolution": [
+        {
+          "kind": "item"
+        }
+      ],
+      "id": "traffic-jam",
+      "presetId": "traffic-jam",
+      "mile": 51.2,
+      "narrativeVariant": "info"
+    },
+    {
+      "name": "Stuck in the mud",
+      "icon": "🛻",
+      "clearedNarrative": "Back on solid ground. The van returns to the highway.",
+      "effect": {
+        "kind": "stop"
+      },
+      "durationMinutes": 8,
+      "resolution": [
+        {
+          "kind": "fund",
+          "purpose": "roadside",
+          "baseCost": 200,
+          "waivable": false,
+          "provider": "Truck-driving locals"
+        }
+      ],
+      "id": "traffic-jam-2",
+      "presetId": "traffic-jam",
+      "mile": 8.4,
+      "route": "shortcut",
+      "narrative": "For some reason, GPS routed the van through unmaintained county backroads. The van is stuck the muddy middle of a creek crossing. Some locals happen to be passing by and tow the van out with their rather large and impressive truck. They're friendly enough, but it's clear they're expecting some compensation.",
+      "narrativeVariant": "warning"
+    }
+  ],
+  "routes": [
+    {
+      "id": "shortcut",
+      "name": "Traffic Jam Ahead",
+      "driveMinutes": 12,
+      "from": {
+        "mile": 49.2
+      },
+      "end": {
+        "kind": "rejoin",
+        "mile": 58.4
+      },
+      "entry": {
+        "kind": "vote",
+        "default": "stay",
+        "question": "GPS is incessantly trying to reroute around traffic"
+      },
+      "icon": "⛕"
+    }
+  ],
+  "layers": [
+    {
+      "id": "local-tips",
+      "name": "Jarvis' Street Savvy",
+      "icon": "🗺️",
+      "unlockItems": ["local-map"]
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import ButtonPolls from "./ButtonPolls"
 import ButtonListeners from "./ButtonListeners"
 import ReactionCounter from "./ReactionCounter"
 import AdminControls from "./AdminControls"
+import { PluginArea } from "./PluginComponents/PluginArea"
 import { useIsAdmin } from "../hooks/useActors"
 
 type Props = {
@@ -37,10 +38,13 @@ export default function JukeboxControls({ trackId, hasPlaylist, onShowPlaylist }
       </Box>
       <Box background="actionBgDark" layerStyle="themeTransition">
         <Box>
-          <HStack px={2} justifyContent={hasPlaylist ? "space-between" : "flex-end"}>
-            {hasPlaylist && (
-              <ButtonPlaylist variant="bright" colorPalette="action" onClick={onShowPlaylist} />
-            )}
+          <HStack px={2} justifyContent="space-between">
+            <HStack>
+              {hasPlaylist && (
+                <ButtonPlaylist variant="bright" colorPalette="action" onClick={onShowPlaylist} />
+              )}
+              <PluginArea area="playerControls" width="auto" />
+            </HStack>
             <Box hideFrom="sm">
               <HStack>
                 {isAdmin && <AdminControls buttonColorScheme="action" />}

@@ -18,13 +18,13 @@ import {
   navidromeConfig,
   type NavidromeConfig,
 } from "./recordSourceCredentials.js"
+import { getOpenNavidromeLibraryFile, isFileLibraryMode } from "./recordLibrarySource.js"
+import type { NavidromeFileAlbum } from "./navidromeLibraryFile.js"
 
 /**
- * Album lookups behind Game Studio's record picker (ADR 0216). The only
- * studio-bridge routes that reach the network: Spotify with the app's client
- * credentials, the designer's Navidrome over Subsonic. Credentials come from
- * the env, the repo-root `.env`, or the bridge daemon's config
- * (`recordSourceCredentials.ts`).
+ * Album lookups behind Game Studio's record picker (ADR 0224 / 0230). Spotify
+ * uses app client credentials. Local albums come from live Subsonic or a
+ * read-only `navidrome.db` pointer (`recordLibrarySource.ts`).
  */
 
 /** A search row: what the picker lists before the designer adds it. */
@@ -83,7 +83,10 @@ async function subsonic<T>(
   return payload
 }
 
-function localHit(album: SubsonicAlbum): RecordSearchHit {
+function localHit(
+  album: Pick<SubsonicAlbum, "id" | "name" | "artist" | "year" | "songCount">,
+  opts: { cover: boolean } = { cover: true },
+): RecordSearchHit {
   return {
     source: "local",
     id: album.id,
@@ -91,11 +94,24 @@ function localHit(album: SubsonicAlbum): RecordSearchHit {
     artist: album.artist?.trim() || "Unknown artist",
     ...(album.year ? { year: album.year } : {}),
     trackCount: Math.max(1, album.songCount ?? 1),
-    coverUrl: `/records/local/${encodeURIComponent(album.id)}/cover`,
+    ...(opts.cover ? { coverUrl: `/records/local/${encodeURIComponent(album.id)}/cover` } : {}),
   }
 }
 
-async function searchLocal(config: NavidromeConfig, query: string): Promise<RecordSearchHit[]> {
+function fileAlbumHit(album: NavidromeFileAlbum): RecordSearchHit {
+  return localHit(
+    {
+      id: album.id,
+      name: album.name,
+      artist: album.artist,
+      ...(album.year ? { year: album.year } : {}),
+      songCount: album.songCount,
+    },
+    { cover: false },
+  )
+}
+
+async function searchLocalLive(config: NavidromeConfig, query: string): Promise<RecordSearchHit[]> {
   const payload = await subsonic<{ searchResult3?: { album?: SubsonicAlbum[] } }>(
     config,
     "search3",
@@ -106,7 +122,26 @@ async function searchLocal(config: NavidromeConfig, query: string): Promise<Reco
       songCount: "0",
     },
   )
-  return (payload.searchResult3?.album ?? []).map(localHit)
+  return (payload.searchResult3?.album ?? []).map((album) => localHit(album))
+}
+
+function searchLocalFile(query: string): RecordSearchHit[] {
+  const file = getOpenNavidromeLibraryFile()
+  if (!file) {
+    throw new Error("Choose a navidrome.db file in the Game Studio header")
+  }
+  return file.searchAlbums(query).map(fileAlbumHit)
+}
+
+async function searchLocal(query: string): Promise<RecordSearchHit[]> {
+  if (isFileLibraryMode()) return searchLocalFile(query)
+  const navidrome = navidromeConfig()
+  if (!navidrome) {
+    throw new Error(
+      "Set up the Media Bridge daemon's Navidrome login, or NAVIDROME_URL/USER/PASSWORD",
+    )
+  }
+  return searchLocalLive(navidrome, query)
 }
 
 function credentialsMessage(error: unknown): string {
@@ -123,14 +158,9 @@ export async function searchRecords(query: string): Promise<RecordSearchResult> 
   const out: RecordSearchResult = { results: [], unavailable: [] }
   if (!trimmed) return out
 
-  const navidrome = navidromeConfig()
   const [spotify, local] = await Promise.allSettled([
     searchSpotifyAlbums(trimmed),
-    navidrome
-      ? searchLocal(navidrome, trimmed)
-      : Promise.reject(
-          new Error("Set up the Media Bridge daemon's Navidrome login, or NAVIDROME_URL/USER/PASSWORD"),
-        ),
+    searchLocal(trimmed),
   ])
   if (spotify.status === "fulfilled") {
     out.results.push(
@@ -166,6 +196,14 @@ export async function getRecordPick(source: string, id: string): Promise<Physica
     return pick ? withPickFormat(pick) : null
   }
   if (source === "local") {
+    if (isFileLibraryMode()) {
+      const file = getOpenNavidromeLibraryFile()
+      if (!file) return null
+      const album = file.getAlbum(id)
+      if (!album) return null
+      const { coverUrl: _cover, ...pick } = fileAlbumHit(album)
+      return withPickFormat(pick)
+    }
     const navidrome = navidromeConfig()
     if (!navidrome) return null
     const payload = await subsonic<{ album?: SubsonicAlbum }>(navidrome, "getAlbum", { id })
@@ -186,14 +224,76 @@ type SubsonicLibraryAlbum = SubsonicAlbum & {
   genres?: { name?: string }[]
 }
 
+/** Navidrome stars are 1–5. Same rule as `LocalDriver` in the bridge daemon. */
+function normalizeAlbumUserRating(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN
+  if (!Number.isFinite(n) || n < 1 || n > 5) return undefined
+  return Math.round(n)
+}
+
+/**
+ * Fill ratings `getAlbumList2` omitted from `getAlbumList?type=highest`.
+ * Matches `LocalDriver.listLibraryAlbums` (ADR 0111): a rating already on the
+ * alphabetical page wins.
+ */
+export function mergeAlbumUserRatings<T extends { id: string; userRating?: number }>(
+  rows: readonly T[],
+  ratingsFromHighest: ReadonlyMap<string, number>,
+): T[] {
+  return rows.map((row) => {
+    const userRating = normalizeAlbumUserRating(row.userRating) ?? ratingsFromHighest.get(row.id)
+    if (userRating == null) return row.userRating == null ? row : { ...row, userRating: undefined }
+    return userRating === row.userRating ? row : { ...row, userRating }
+  })
+}
+
+/**
+ * Rated albums only (`type=highest`). Child.userRating stays on the album
+ * object when getAlbumList2 omits OpenSubsonic extensions. Same overlay as
+ * `apps/bridge-daemon/src/drivers/local.ts` `LocalDriver.listLibraryAlbums`.
+ */
+async function fetchRatedAlbumUserRatings(config: NavidromeConfig): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  try {
+    for (let offset = 0; offset < LIBRARY_ALBUM_CAP; offset += LIBRARY_PAGE) {
+      const payload = await subsonic<{
+        albumList?: {
+          album?: { id?: string; userRating?: unknown } | { id?: string; userRating?: unknown }[]
+        }
+      }>(config, "getAlbumList", {
+        type: "highest",
+        size: String(LIBRARY_PAGE),
+        offset: String(offset),
+      })
+      const raw = payload.albumList?.album
+      const page = Array.isArray(raw) ? raw : raw ? [raw] : []
+      if (page.length === 0) break
+      for (const album of page) {
+        const id = album.id?.trim()
+        const userRating = normalizeAlbumUserRating(album.userRating)
+        if (id && userRating != null) out.set(id, userRating)
+      }
+      if (page.length < LIBRARY_PAGE) break
+    }
+  } catch (error) {
+    console.warn("[studio-bridge] getAlbumList type=highest failed", error)
+  }
+  return out
+}
+
 /**
  * The designer's Navidrome albums as `LibraryAlbumRow`s, so Game Studio's
- * sandbox can derive records like a bridge room does (ADR 0216). Empty when
- * Navidrome isn't configured or reachable.
+ * sandbox can derive records like a bridge room does (ADR 0224 / 0230). Empty
+ * when the active local source isn't configured or reachable.
  */
 export async function listLibraryAlbums(): Promise<LibraryAlbumRow[]> {
+  if (isFileLibraryMode()) {
+    const file = getOpenNavidromeLibraryFile()
+    return file ? file.listAlbums(LIBRARY_ALBUM_CAP) : []
+  }
   const navidrome = navidromeConfig()
   if (!navidrome) return []
+  const ratingsFromHighest = await fetchRatedAlbumUserRatings(navidrome)
   const rows: LibraryAlbumRow[] = []
   for (let offset = 0; offset < LIBRARY_ALBUM_CAP; offset += LIBRARY_PAGE) {
     const payload = await subsonic<{ albumList2?: { album?: SubsonicLibraryAlbum[] } }>(
@@ -219,11 +319,15 @@ export async function listLibraryAlbums(): Promise<LibraryAlbumRow[]> {
     }
     if (page.length < LIBRARY_PAGE) break
   }
-  return rows.slice(0, LIBRARY_ALBUM_CAP)
+  return mergeAlbumUserRatings(rows, ratingsFromHighest).slice(0, LIBRARY_ALBUM_CAP)
 }
 
-/** A local album's cover, proxied so the designer's Navidrome password stays server-side. */
+/**
+ * A local album's cover, proxied so the designer's Navidrome password stays
+ * server-side. File mode has no cover bytes (ADR 0230).
+ */
 export async function fetchLocalCover(id: string): Promise<Response | null> {
+  if (isFileLibraryMode()) return null
   const navidrome = navidromeConfig()
   if (!navidrome) return null
   const response = await fetch(subsonicUrl(navidrome, "getCoverArt", { id, size: "300" }))

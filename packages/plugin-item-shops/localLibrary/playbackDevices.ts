@@ -53,7 +53,7 @@ function formatsFromHeld(
 
 /**
  * Union of `playbackFormats` across held device stacks, plus room-shared
- * formats such as the trip van's (ADR 0215).
+ * formats such as the trip van's (ADR 0223).
  */
 export function playableFormats(
   items: InventoryItem[],

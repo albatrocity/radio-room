@@ -48,6 +48,7 @@ import {
   clearRoomPlaylist,
   isAdminMember,
   isRoomAdmin,
+  hDelRoomDetailsFields,
 } from "../operations/data"
 import handleRoomNowPlayingData from "../operations/room/handleRoomNowPlayingData"
 import { makeStableTrackId } from "../lib/makeNowPlayingFromStationMeta"
@@ -306,6 +307,85 @@ describe("AdminService", () => {
         nextShowId: "show-b",
       })
       expect(mockRefreshRoomScheduleSnapshot).toHaveBeenCalledWith(mockContext, "room123")
+    })
+
+    test("clears activeSegmentRole from Redis when detaching the show (ADR 0212)", async () => {
+      const attached = roomFactory.build({
+        id: "room123",
+        creator: "admin123",
+        type: "jukebox",
+        fetchMeta: true,
+        showId: "show-a",
+        activeSegmentId: "seg-a",
+        activeShowSegmentId: "placement-a",
+        activeSegmentRole: "voicemail",
+      })
+      vi.mocked(findRoom)
+        .mockResolvedValueOnce(attached)
+        .mockResolvedValueOnce({ ...attached, showId: undefined })
+
+      await adminService.setRoomSettings("room123", "admin123", { showId: null })
+
+      expect(saveRoom).toHaveBeenCalledWith({
+        context: mockContext,
+        // Cleared keys should not leak back into Redis via the hash write.
+        room: expect.not.objectContaining({
+          activeSegmentId: expect.anything(),
+          activeShowSegmentId: expect.anything(),
+          activeSegmentRole: expect.anything(),
+        }),
+      })
+      expect(hDelRoomDetailsFields).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        fields: expect.arrayContaining([
+          "showId",
+          "activeSegmentId",
+          "activeShowSegmentId",
+          "activeSegmentRole",
+        ]),
+      })
+    })
+
+    test("clears activeSegmentRole from Redis when clearing the active segment alone (ADR 0212)", async () => {
+      const attached = roomFactory.build({
+        id: "room123",
+        creator: "admin123",
+        type: "jukebox",
+        fetchMeta: true,
+        showId: "show-a",
+        activeSegmentId: "seg-a",
+        activeShowSegmentId: "placement-a",
+        activeSegmentRole: "voicemail",
+      })
+      vi.mocked(findRoom)
+        .mockResolvedValueOnce(attached)
+        .mockResolvedValueOnce({
+          ...attached,
+          activeSegmentId: undefined,
+          activeShowSegmentId: undefined,
+          activeSegmentRole: undefined,
+        })
+
+      await adminService.setRoomSettings("room123", "admin123", {
+        activeSegmentId: null,
+      })
+
+      expect(saveRoom).toHaveBeenCalledWith({
+        context: mockContext,
+        room: expect.not.objectContaining({
+          activeSegmentRole: expect.anything(),
+        }),
+      })
+      expect(hDelRoomDetailsFields).toHaveBeenCalledWith({
+        context: mockContext,
+        roomId: "room123",
+        fields: expect.arrayContaining([
+          "activeSegmentId",
+          "activeShowSegmentId",
+          "activeSegmentRole",
+        ]),
+      })
     })
 
     test("adds youtube and local metadata sources when switching to bridge", async () => {

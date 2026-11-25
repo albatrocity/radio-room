@@ -1,6 +1,6 @@
 ---
 name: Codebase review — road trip
-overview: The last five commits follow ADRs 0218–0220. Remaining risk is local duplication in the trip editor and strip, plus ADR bodies that still describe the closed incident catalog.
+overview: The last five commits follow ADRs 0226–0228. Remaining risk is local duplication in the trip editor and strip, plus ADR bodies that still describe the closed incident catalog.
 todos:
   - id: r1
     content: "R1 — One selection in the trip map editor"
@@ -12,7 +12,7 @@ todos:
     content: "R3 — Move van phase out of the hook module"
     status: completed
   - id: r4
-    content: "R4 — Point superseded ADR paragraphs at 0218 and 0220"
+    content: "R4 — Point superseded ADR paragraphs at 0226 and 0228"
     status: completed
 isProject: false
 ---
@@ -36,7 +36,7 @@ Commits, oldest first: `fd13dce5` updated animations/UI, `65fa0825` Open Shop in
 | Game Studio | `TripEventInspector`, event pins on `TripRouteTrack`, draft helpers in `tripMapDraft.ts` |
 | studio-bridge | Incident fixture reads the sample map event (`mileEvents`) instead of a hardcoded catalog id |
 | Item shops | `OPEN_SHOP_ACTION` on room-shop and `ShoppingSessionHelper` opening meta |
-| Docs | ADRs 0218, 0219, 0220; 0205/0207/0208 status lines; `AGENTS.md`, `PLUGIN_DEVELOPMENT.md`, `components.md`, Game Studio README |
+| Docs | ADRs 0226, 0227, 0228; 0213/0215/0216 status lines; `AGENTS.md`, `PLUGIN_DEVELOPMENT.md`, `components.md`, Game Studio README |
 
 New public surfaces: `ChatMessageAction` (`@repo/types`), `PollTheme.optionIcon`, `PluginTabComponent.fillHeight`, `TripStore.fuel.refill`, `TripStore.events`, `compileEventSteps` / `eventFromPreset` / `fuelEvent`. No new Socket.IO events. Trip logic stays in the plugin ([ADR 0006](docs/adrs/0006-plugin-system-for-room-features.md)).
 
@@ -46,8 +46,8 @@ New public surfaces: `ChatMessageAction` (`@repo/types`), `PollTheme.optionIcon`
 |----|-----|-------|----------|-----------|
 | F1 | P1 | Editor selection is two ids that callers clear independently | `TripMapEditor` `selectedSiteId` / `selectedEventId` | Site and event inspectors, the route track, and the event list all coordinate through the parent. `selectSite` / `selectEvent` clear the other id, but `BlankSiteButton` calls `setSelectedSiteId` alone (around line 519) and site remove only clears the site id (around line 576). The render path hides a stale event while a site is selected (`selected ? … : selectedEvent`), so removing that site resurrects the previous event. Game Studio stays local React state ([ADR 0051](docs/adrs/0051-game-studio-client-sandbox.md)); this wants one union, not a machine. |
 | F2 | P1 | Live trip status is formatted twice | `stripContext` and `stripReadout` in `apps/web/src/components/PluginComponents/templates/roadTrip/tripView.ts` | Fund, incident, and parked each have two copies. `RoadTripStrip` uses `stripContext` for the accessible name and `stripReadout` for the row. `RoadTripTripPanel` uses `stripContext` under the header. Cruising speed landed in `stripReadout` and `tripTabTitle` only. The next live kind has to be edited in both functions, and `tripView.test.ts` already pins both. |
-| F3 | P2 | Van-motion machine imports a phase type from a hook module | `roadTripVanMotionMachine.ts` → `tripView.ts` `VanPhase` | [ADR 0004](docs/adrs/0004-state-machines-for-ui-and-socket-events.md) keeps machines as logic. The import is type-only today, but `tripView.ts` also owns `useTripStore` and `useInterpolatedVanMile`. The next edit in that file is one dropped `type` away from pulling hooks into the machine module graph. [ADR 0219](docs/adrs/0219-road-trip-van-motion-and-refill-window.md) already says the phase comes from `vanPhase(trip, mile)`. |
-| F4 | P2 | Superseded decision text still reads as current | [0205](docs/adrs/0205-road-trips-v1.md) decision 12, [0207](docs/adrs/0207-trip-maps-portable-json.md) Phase 3, [0208](docs/adrs/0208-presentation-themes.md) decision 4 | Status lines point at 0220 and 0218. The bodies still specify `scriptedEvents`, `incidentSteps` as the catalog, and a poll theme with no `optionIcon`. Agents are told to implement from those ADRs. 0212's trip-summary amendment is accurate; 0205 decision 9 still describes the Trip tab as a site list. |
+| F3 | P2 | Van-motion machine imports a phase type from a hook module | `roadTripVanMotionMachine.ts` → `tripView.ts` `VanPhase` | [ADR 0004](docs/adrs/0004-state-machines-for-ui-and-socket-events.md) keeps machines as logic. The import is type-only today, but `tripView.ts` also owns `useTripStore` and `useInterpolatedVanMile`. The next edit in that file is one dropped `type` away from pulling hooks into the machine module graph. [ADR 0227](docs/adrs/0227-road-trip-van-motion-and-refill-window.md) already says the phase comes from `vanPhase(trip, mile)`. |
+| F4 | P2 | Superseded decision text still reads as current | [0213](docs/adrs/0213-road-trips-v1.md) decision 12, [0215](docs/adrs/0215-trip-maps-portable-json.md) Phase 3, [0216](docs/adrs/0216-presentation-themes.md) decision 4 | Status lines point at 0228 and 0226. The bodies still specify `scriptedEvents`, `incidentSteps` as the catalog, and a poll theme with no `optionIcon`. Agents are told to implement from those ADRs. 0220's trip-summary amendment is accurate; 0213 decision 9 still describes the Trip tab as a site list. |
 
 ## Refactor plan (opt-out)
 
@@ -80,28 +80,28 @@ Each item is independent unless **Depends** says otherwise. Default: all include
 - **Done means:** `roadTripVanMotionMachine.ts` has no import from `components/`. `roadTripVanMotionMachine.test.ts` still passes.
 - **Risk:** Low. Type-only move, plus the pure `vanPhase` function.
 
-### R4 — Point superseded ADR paragraphs at 0218 and 0220
+### R4 — Point superseded ADR paragraphs at 0226 and 0228
 **Status:** completed
 - **Addresses:** F4
 - **Depends:** none
-- **Files:** `docs/adrs/0205-road-trips-v1.md` (decisions 9 and 12), `docs/adrs/0207-trip-maps-portable-json.md` (Phase 3 paragraph), `docs/adrs/0208-presentation-themes.md` (decision 4)
-- **Change:** Add a one-line lead on each superseded paragraph: decision 12 and 0207 Phase 3 follow [0220](docs/adrs/0220-trip-events.md) (`map.events`, `compileEventSteps`); the Trip tab log follows [0212](docs/adrs/0212-site-narrative-chat.md); poll `optionIcon` follows [0218](docs/adrs/0218-system-message-actions-and-theme-icons.md). Leave the old sentences in place as history. Do not rewrite 0220.
-- **Done means:** Someone opening 0205 or 0207 at the incident section sees 0220 before `scriptedEvents`. Status lines stay as they are.
+- **Files:** `docs/adrs/0213-road-trips-v1.md` (decisions 9 and 12), `docs/adrs/0215-trip-maps-portable-json.md` (Phase 3 paragraph), `docs/adrs/0216-presentation-themes.md` (decision 4)
+- **Change:** Add a one-line lead on each superseded paragraph: decision 12 and 0215 Phase 3 follow [0228](docs/adrs/0228-trip-events.md) (`map.events`, `compileEventSteps`); the Trip tab log follows [0220](docs/adrs/0220-site-narrative-chat.md); poll `optionIcon` follows [0226](docs/adrs/0226-system-message-actions-and-theme-icons.md). Leave the old sentences in place as history. Do not rewrite 0228.
+- **Done means:** Someone opening 0213 or 0215 at the incident section sees 0228 before `scriptedEvents`. Status lines stay as they are.
 - **Risk:** Low. Docs only. This is a drift note, not a new decision.
 
 ## Documentation updates
-- [ ] R4 — superseded paragraphs in 0205, 0207, and 0208
+- [ ] R4 — superseded paragraphs in 0213, 0215, and 0216
 - [ ] `AGENTS.md`, `PLUGIN_DEVELOPMENT.md`, `docs/plugins/components.md`, and `apps/game-studio/README.md` already match the code
 
 ## Explicit non-actions
 
-- `packages/road-trip-map/src/incidents.ts` and `packages/plugin-road-trip/trip/incidents.ts` keep their names. [0220](docs/adrs/0220-trip-events.md) puts the compiler in the map package and the running incident in the plugin. `AGENTS.md` already says so.
-- `IncidentSource` `"scripted"`, `scriptedFired`, and `scripted:<eventId>` thresholds stay. They are persisted trip state. 0220 did not rename them. `fireScripted` sets `incident` and `eventId` to the same map id on purpose (queue dedup vs preset id for host triggers).
+- `packages/road-trip-map/src/incidents.ts` and `packages/plugin-road-trip/trip/incidents.ts` keep their names. [0228](docs/adrs/0228-trip-events.md) puts the compiler in the map package and the running incident in the plugin. `AGENTS.md` already says so.
+- `IncidentSource` `"scripted"`, `scriptedFired`, and `scripted:<eventId>` thresholds stay. They are persisted trip state. 0228 did not rename them. `fireScripted` sets `incident` and `eventId` to the same map id on purpose (queue dedup vs preset id for host triggers).
 - `describeTripSim.ts` stays a designer trace (`step` names, sim events). Player and export copy stay in `describeEvent.ts`, which `formatTripTimelineMarkdown` and the store projection already share. The preset-name fallback is a few lines and the sentences differ on purpose.
 - No XState machine for the Game Studio map editor. The sandbox is component-local state. R1 is a union in `TripMapEditor`.
 - `apps/web/src/types/ChatMessage.ts` keeps mirroring `@repo/types` by hand. `action` already uses `ChatMessageAction` from the schema. The rest of that mirror predates these commits.
 - `TripEventInspector` stays one form. `RESOLUTION_FIELDS` is the extension point for a new resolution kind. Splitting it, or typing `withField` keys, can wait until a second caller exists.
-- Van-motion registry teardown, `TripStore.fuel.refill`, `navigateToTarget` for the shop button, and the studio-bridge fixture match 0218, 0219, and 0220. The compiler parity test in `packages/road-trip-map/src/incidents.test.ts` is the right pin for preset behavior.
+- Van-motion registry teardown, `TripStore.fuel.refill`, `navigateToTarget` for the shop button, and the studio-bridge fixture match 0226, 0227, and 0228. The compiler parity test in `packages/road-trip-map/src/incidents.test.ts` is the right pin for preset behavior.
 
 ## Opt-out checklist
 

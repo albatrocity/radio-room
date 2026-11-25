@@ -11,6 +11,17 @@ const advanceRoundAction = {
   showWhen: { field: "enabled", value: true },
 } satisfies PluginActionElement
 
+const resetRoundsAction = {
+  type: "action",
+  action: "resetRounds",
+  label: "Reset rounds",
+  variant: "outline",
+  confirmMessage:
+    "Start over at round 1 with the current rotation? Turn order and who has queued this round will be cleared.",
+  confirmText: "Reset rounds",
+  showWhen: { field: "enabled", value: true },
+} satisfies PluginActionElement
+
 export function getConfigSchema(): PluginConfigSchema {
   return {
     jsonSchema: z.toJSONSchema(roundRobinDjConfigSchema),
@@ -19,7 +30,7 @@ export function getConfigSchema(): PluginConfigSchema {
       {
         type: "text-block",
         content:
-          "Restrict deputy DJ queueing to rounds. Sequential and forward-and-back discover then lock turn order; non-sequential is first-come within each round. The Robin persona marks who may queue.",
+          "Restrict deputy DJ queueing to rounds. Sequential and forward-and-back discover then lock turn order; non-sequential is first-come within each round. The Robin persona marks who may queue. Removing Robin takes that person out of the rotation. Reset rounds starts round 1 over with whoever is still in it.",
         variant: "info",
       },
       "enabled",
@@ -27,6 +38,7 @@ export function getConfigSchema(): PluginConfigSchema {
       "autoAdvanceRounds",
       "deferOutOfTurnQueues",
       advanceRoundAction,
+      resetRoundsAction,
     ],
     fieldMeta: {
       enabled: {
@@ -64,7 +76,7 @@ export function getConfigSchema(): PluginConfigSchema {
         ],
       },
     },
-    quickAccess: ["advanceRound"],
+    quickAccess: ["advanceRound", "resetRounds"],
   }
 }
 

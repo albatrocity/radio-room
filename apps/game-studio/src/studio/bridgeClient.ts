@@ -231,7 +231,7 @@ export function connectStudioBridgeControl(
   }
 }
 
-/** One album the record picker lists (ADR 0216); `coverUrl` is for the picker only. */
+/** One album the record picker lists (ADR 0224); `coverUrl` is for the picker only. */
 export type StudioRecordHit = Omit<PhysicalMediaPick, "format" | "lore"> & { coverUrl?: string }
 
 export type StudioRecordSearch = {
@@ -279,4 +279,65 @@ export function studioRecordCover(baseUrl: string, pick: PhysicalMediaPick): str
   if (pick.imageUrl) return pick.imageUrl
   if (pick.source !== "local") return undefined
   return `${baseUrl.replace(/\/$/, "")}/records/local/${encodeURIComponent(pick.id)}/cover`
+}
+
+/** Live Subsonic or a navidrome.db file for local album lookups (ADR 0230). */
+export type StudioRecordLibraryMode = "live" | "file"
+
+export type StudioRecordLibrarySource = {
+  mode: StudioRecordLibraryMode
+  path: string | null
+  ok: boolean
+  albumCount?: number
+  error?: string
+}
+
+export async function getRecordLibrarySource(
+  baseUrl: string,
+): Promise<StudioRecordLibrarySource> {
+  const root = baseUrl.replace(/\/$/, "")
+  const res = await fetch(`${root}/records/source`).catch(() => {
+    throw new Error("studio-bridge isn't reachable. Run `make game-studio`.")
+  })
+  if (!res.ok) throw new Error(`Library source failed (${res.status})`)
+  return (await res.json()) as StudioRecordLibrarySource
+}
+
+export async function setRecordLibrarySource(
+  baseUrl: string,
+  next: { mode: StudioRecordLibraryMode; path?: string | null },
+): Promise<StudioRecordLibrarySource> {
+  const root = baseUrl.replace(/\/$/, "")
+  const res = await fetch(`${root}/records/source`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(next),
+  }).catch(() => {
+    throw new Error("studio-bridge isn't reachable. Run `make game-studio`.")
+  })
+  const body = (await res.json().catch(() => ({}))) as StudioRecordLibrarySource & {
+    error?: string
+  }
+  if (!res.ok) {
+    throw new Error(body.error ?? `Could not switch library source (${res.status})`)
+  }
+  return body
+}
+
+/** macOS file chooser via studio-bridge; paste the path when cancelled or unavailable. */
+export async function browseRecordLibraryPath(
+  baseUrl: string,
+): Promise<{ path: string } | { cancelled: true }> {
+  const root = baseUrl.replace(/\/$/, "")
+  const res = await fetch(`${root}/records/source/browse`, { method: "POST" }).catch(() => {
+    throw new Error("studio-bridge isn't reachable. Run `make game-studio`.")
+  })
+  const body = (await res.json().catch(() => ({}))) as {
+    path?: string
+    cancelled?: boolean
+    error?: string
+  }
+  if (!res.ok) throw new Error(body.error ?? `File chooser failed (${res.status})`)
+  if (body.cancelled || !body.path) return { cancelled: true }
+  return { path: body.path }
 }

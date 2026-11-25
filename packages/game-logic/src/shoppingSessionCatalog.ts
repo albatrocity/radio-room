@@ -151,7 +151,7 @@ export type ShopCatalogEntry = {
    */
   distinctOffers?: boolean
   /**
-   * The record bin this shop stocks beside `availableItems` (ADR 0214, 0216):
+   * The record bin this shop stocks beside `availableItems` (ADR 0222, 0224):
    * designer picks plus, with `library`, matching derived records
    * (`library: {}` = every record). Omitted = none.
    */
@@ -182,7 +182,7 @@ export type ItemCatalogEntry = {
   localLibraryGrant?: LocalLibraryGrant
   /**
    * A record whose album lives on a non-local source (a picked Spotify album,
-   * ADR 0216). Holding it unlocks that album's tracks when the source is restricted.
+   * ADR 0224). Holding it unlocks that album's tracks when the source is restricted.
    */
   recordAlbum?: RecordAlbumRef
   /**
@@ -433,7 +433,7 @@ export function applyLiveCostScale(
   return { ...instance, offers }
 }
 
-/** A room shop's custom offer: another plugin's item added to every instance (ADR 0206). */
+/** A room shop's custom offer: another plugin's item added to every instance (ADR 0214). */
 export type ShoppingExtraOffer = {
   definition: ItemDefinition
   /** Unscaled price. */

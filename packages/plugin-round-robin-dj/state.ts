@@ -23,6 +23,7 @@ function clone(state: RoundRobinState): RoundRobinState {
     order: [...state.order],
     participants: [...state.participants],
     queuedThisRound: [...state.queuedThisRound],
+    optedOutUserIds: [...(state.optedOutUserIds ?? [])],
     direction: normalizeDirection(state.direction),
     lastTurn: state.lastTurn ? { ...state.lastTurn } : undefined,
   }
@@ -44,6 +45,7 @@ export function createInitialState(
     round: 1,
     orderLocked: false,
     direction: 1,
+    optedOutUserIds: [],
   }
 }
 
@@ -319,9 +321,21 @@ export function recordSuccessfulQueue(
   }
 }
 
-export function addDeputy(state: RoundRobinState, userId: string): RoundRobinState {
-  if (state.participants.includes(userId)) return state
+export function addDeputy(
+  state: RoundRobinState,
+  userId: string,
+  options?: { bypassOptOut?: boolean },
+): RoundRobinState {
+  const optedOut = state.optedOutUserIds ?? []
+  if (optedOut.includes(userId) && !options?.bypassOptOut) return state
+  if (state.participants.includes(userId)) {
+    if (!options?.bypassOptOut || !optedOut.includes(userId)) return state
+  }
   const next = clone(state)
+  if (options?.bypassOptOut) {
+    next.optedOutUserIds = next.optedOutUserIds.filter((id) => id !== userId)
+  }
+  if (next.participants.includes(userId)) return next
   next.participants = [...next.participants, userId]
   if (isOrderedMode(next.mode)) {
     if (next.orderLocked || next.order.length > 0) {
@@ -374,11 +388,27 @@ export function removeUser(state: RoundRobinState, userId: string): StateTransit
 }
 
 /**
+ * Admin removed Robin: leave the rotation and stay out when persona toggles
+ * emit `USER_JOINED` for the same deputy.
+ */
+export function optOutOfRotation(state: RoundRobinState, userId: string): StateTransition {
+  const transition = removeUser(state, userId)
+  if (transition.state === state) return transition
+  const next = transition.state
+  if (!next.optedOutUserIds.includes(userId)) {
+    next.optedOutUserIds = [...next.optedOutUserIds, userId]
+  }
+  return { ...transition, state: next }
+}
+
+/**
  * Admin designates Robin: ordered modes reorder so they are current;
  * non-sequential forces exclusive eligibility until they queue.
+ * Clears an opt-out so the designation puts them back in the rotation.
  */
 export function applyAdminRobin(state: RoundRobinState, userId: string): StateTransition {
   const next = clone(state)
+  next.optedOutUserIds = next.optedOutUserIds.filter((id) => id !== userId)
   if (!next.participants.includes(userId)) {
     next.participants = [...next.participants, userId]
   }
@@ -424,6 +454,16 @@ export function clearAdminRobin(state: RoundRobinState): RoundRobinState {
   if (!state.adminForcedUserId) return state
   const next = clone(state)
   next.adminForcedUserId = null
+  return next
+}
+
+/**
+ * Drop turn progress and open round 1 with the current roster.
+ * Does not re-seed deputies who were removed from the rotation.
+ */
+export function resetRounds(state: RoundRobinState): RoundRobinState {
+  const next = createInitialState(state.mode, state.participants)
+  next.optedOutUserIds = [...(state.optedOutUserIds ?? [])]
   return next
 }
 

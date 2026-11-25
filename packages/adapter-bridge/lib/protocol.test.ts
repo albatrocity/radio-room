@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { bridgeRequestSchema, BRIDGE_SAY_MAX_CHARS, sanitizeBridgeSayText, bridgeSayCodePointLength } from "./protocol"
+import {
+  bridgeRequestSchema,
+  BRIDGE_SAY_MAX_CHARS,
+  sanitizeBridgeSayText,
+  bridgeSayCodePointLength,
+} from "./protocol"
 
 describe("BRIDGE_SAY_MAX_CHARS", () => {
   it("is 100", () => {
@@ -17,6 +22,13 @@ describe("bridgeRequestSchema TTS methods", () => {
         id: "2",
         method: "speak",
         params: { text: "hi", voice: "Samantha" },
+      }).success,
+    ).toBe(true)
+    expect(
+      bridgeRequestSchema.safeParse({
+        id: "3",
+        method: "findLibraryAlbums",
+        params: { source: "local", query: "Gene Clark No Other" },
       }).success,
     ).toBe(true)
   })

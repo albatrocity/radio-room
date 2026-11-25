@@ -12,7 +12,7 @@ export const chatMessageMetaSchema = z.object({
   /**
    * `alert` is a notice. `prose` is a wrapping paragraph, not a road sign.
    * `site` is a site's arrival or departure narrative: the info-alert row,
-   * with `icon` as the site glyph instead of the status indicator (ADR 0229).
+   * with `icon` as the site glyph instead of the status indicator (ADR 0238).
    */
   type: z.enum(["alert", "prose", "site"]).nullable().optional(),
   title: z.string().nullable().optional(),
@@ -24,7 +24,7 @@ export const chatMessageMetaSchema = z.object({
   maskedUserIds: z.array(z.string()).optional(),
   /** Label token replaced when piercing `maskedUserIds` (default `"Somebody"`). */
   maskedLabel: z.string().optional(),
-  /** Themed rendering for alert messages (ADR 0208); `status` picks the variant. */
+  /** Themed rendering for alert messages (ADR 0216); `status` picks the variant. */
   theme: presentationThemeSchema.optional(),
   /** Short glyph shown by themed renderers: an emoji, or a Lucide icon name ("Van"). */
   icon: z.string().max(16).optional(),

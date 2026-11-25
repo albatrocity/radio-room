@@ -93,7 +93,7 @@ export function isPhysicalMediaFormat(value: unknown): value is PhysicalMediaFor
 }
 
 /**
- * Which derived Physical Media a shop or trip site stocks (ADR 0214). Any listed
+ * Which derived Physical Media a shop or trip site stocks (ADR 0222). Any listed
  * format and any listed genre; a record must pass both. Empty or omitted = no limit.
  */
 export type PhysicalMediaCarry = {
@@ -101,7 +101,7 @@ export type PhysicalMediaCarry = {
   genres?: string[]
 }
 
-/** Metadata sources a designer can pick albums from (ADR 0216). */
+/** Metadata sources a designer can pick albums from (ADR 0224). */
 export const PICKABLE_RECORD_SOURCES = ["spotify", "local"] as const
 export type PickableRecordSource = (typeof PICKABLE_RECORD_SOURCES)[number]
 
@@ -109,7 +109,7 @@ export type PickableRecordSource = (typeof PICKABLE_RECORD_SOURCES)[number]
 export const MAX_RECORD_PICKS = 24
 
 /**
- * One designer-chosen album, snapshotted when picked (ADR 0216). The same shape
+ * One designer-chosen album, snapshotted when picked (ADR 0224). The same shape
  * for every source: `source` is a metadata source id and `id` is the album id
  * there. A `local` pick re-resolves against the room's library by id, then by
  * artist + title, since Navidrome ids belong to one server.
@@ -129,7 +129,7 @@ export type PhysicalMediaPick = {
 }
 
 /**
- * What a shop or trip site's record bin holds (ADR 0216): designer picks plus,
+ * What a shop or trip site's record bin holds (ADR 0224): designer picks plus,
  * when `library` is set, the derived records that carry matches (`{}` = all).
  */
 export type PhysicalMediaStock = {
@@ -438,7 +438,7 @@ export type LibraryAlbumRow = {
   coverArt?: string
   /** Navidrome userRating (1–5); drives Physical Media rarity (ADR 0111). */
   userRating?: number
-  /** Navidrome album genres; absent on stale DJ Mac packs (ADR 0214). */
+  /** Navidrome album genres; absent on stale DJ Mac packs (ADR 0222). */
   genres?: string[]
 }
 
@@ -524,9 +524,9 @@ export interface ItemDefinition {
    * Use this — not `artworkFrame` — to key format-specific behavior.
    */
   mediaFormat?: PhysicalMediaFormat
-  /** Navidrome genres on a derived record; filters record bins (ADR 0214). */
+  /** Navidrome genres on a derived record; filters record bins (ADR 0222). */
   genres?: string[]
-  /** The album a record plays, on whichever source it lives (ADR 0216). */
+  /** The album a record plays, on whichever source it lives (ADR 0224). */
   mediaAlbum?: RecordAlbumRef
   /**
    * Formats this item can play. Holding one is required to queue a track from a

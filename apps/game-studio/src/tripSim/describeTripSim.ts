@@ -13,7 +13,7 @@ function eventLabel(map: TripMap, eventId: string | undefined): string {
   return event ? `${event.icon} ${event.name}` : (eventId ?? "event")
 }
 
-/** Logged name and icon; entries from before ADR 0220 fall back to the preset. */
+/** Logged name and icon; entries from before ADR 0228 fall back to the preset. */
 function incidentLabel(entry: { incident: string; name?: string; icon?: string }): string {
   const preset = isIncidentPresetId(entry.incident) ? INCIDENT_PRESETS[entry.incident] : undefined
   return `${entry.icon ?? preset?.icon ?? "⚠️"} ${entry.name ?? preset?.name ?? entry.incident}`

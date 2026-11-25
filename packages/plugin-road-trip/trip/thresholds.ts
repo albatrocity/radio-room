@@ -65,7 +65,7 @@ export function routeTarget(routeId: string): string {
 const MIN_DELAY_MS = 500
 
 /**
- * Solve every threshold from the current leg (ADR 0205). Re-solved after every
+ * Solve every threshold from the current leg (ADR 0213). Re-solved after every
  * mutation; ids are fixed so re-arming replaces, and ids missing from the new
  * set are cancelled by the caller. `source` is the authored map; everything is
  * solved on the van's path (ADR 0222), at odometer miles.

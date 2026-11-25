@@ -1,6 +1,6 @@
 # 0112 -- Playback snapshots distinguish "unobservable" from "stopped"
 
-**Status:** Accepted
+**Status:** Accepted. Narrowed by [0211](0211-user-pause-and-play-start-hold.md) for user pause and the startup gap after a commanded play.
 
 ## Context
 
@@ -38,3 +38,4 @@ The trade-off is that a track which is genuinely unplayable *and* unobservable w
 ## See also
 
 - [0161](0161-spotify-device-readiness-on-demand.md) -- the blind-SDK reload applies only while Spotify is the expected source
+- [0211](0211-user-pause-and-play-start-hold.md) -- user pause and play-start hold so idle-start / stuck-skip do not burn the queue during pause or the gap after playTrack

@@ -28,7 +28,12 @@ const PlaylistWindow = ({ playlist, isSelectable, selected, onSelect, targetServ
   const getItemKey = useCallback(
     (index: number) => {
       const item = playlist[index]
-      return item ? `${item.addedAt}-${item.track.id}` : index
+      if (!item) return index
+      // playedAt is the playlist-row id. addedAt + track.id collide when one
+      // queue row is recorded more than once, and the virtualizer then paints
+      // those rows in the same slot.
+      if (item.playedAt != null) return `played-${item.playedAt}-${item.track.id}`
+      return `added-${item.addedAt}-${item.mediaSource.type}-${item.mediaSource.trackId}`
     },
     [playlist],
   )
