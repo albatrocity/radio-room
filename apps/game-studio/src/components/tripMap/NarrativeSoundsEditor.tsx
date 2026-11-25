@@ -37,6 +37,8 @@ type SharedProps = {
   setPendingSounds: (
     update: (prev: PendingNarrativeSounds) => PendingNarrativeSounds,
   ) => void
+  /** When true, the parent already shows the section title (Lifecycle card). */
+  hideTitle?: boolean
 }
 
 type Props = (SiteProps | TripProps) & SharedProps
@@ -135,9 +137,11 @@ export function NarrativeSoundsEditor(props: Props) {
 
   return (
     <Stack gap="2">
-      <Text fontSize="xs" fontWeight="semibold">
-        Sounds
-      </Text>
+      {props.hideTitle ? null : (
+        <Text fontSize="xs" fontWeight="medium" color="fg.muted">
+          Sounds
+        </Text>
+      )}
       <Text fontSize="xs" color="fg.muted">
         {props.scope === "trip"
           ? "Queued when the trip departs (the On the road sign). MP3, WAV, or Ogg, 2 MB max."

@@ -426,7 +426,7 @@
         ]
       },
       "id": "gas-n-go-3",
-      "mile": 109.2,
+      "mile": 109,
       "presetId": "gas-station"
     },
     {
@@ -1214,10 +1214,10 @@
   "routes": [
     {
       "id": "shortcut",
-      "name": "Traffic Jam Ahead",
+      "name": "Traffic Jam Reroute",
       "driveMinutes": 12,
       "from": {
-        "mile": 49.2
+        "mile": 49.4
       },
       "end": {
         "kind": "rejoin",

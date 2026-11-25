@@ -6,7 +6,7 @@ import {
   vanPart,
   type TripMap,
 } from "@repo/road-trip-map"
-import type { SimEvent, TripLogEntry, TripState } from "@repo/plugin-road-trip/sim"
+import type { SimEvent, TripEffect, TripLogEntry, TripState } from "@repo/plugin-road-trip/sim"
 
 function eventLabel(map: TripMap, eventId: string | undefined): string {
   const event = map.events?.find((e) => e.id === eventId)
@@ -183,4 +183,57 @@ export function formatElapsed(ms: number): string {
   const s = total % 60
   const mm = String(m).padStart(h > 0 ? 2 : 1, "0")
   return `${h > 0 ? `${h}:` : ""}${mm}:${String(s).padStart(2, "0")}`
+}
+
+/** A row in the Trip Sim timeline: log, narrative prose, or a sound effect. */
+export type SimTimelineRow =
+  | { kind: "log"; at: number; mile: number; text: string }
+  | { kind: "narrate"; at: number; text: string; variant?: string }
+  | { kind: "sound"; at: number; url: string; label: string }
+
+/** Last path segment of a sound URL, for the timeline. */
+export function soundEffectLabel(url: string): string {
+  try {
+    const path = new URL(url).pathname
+    const name = path.split("/").filter(Boolean).at(-1)
+    return name ? decodeURIComponent(name) : url
+  } catch {
+    const name = url.split("/").filter(Boolean).at(-1)
+    return name ?? url
+  }
+}
+
+/**
+ * Timeline for the sim panel: structural log entries plus narrative and sound
+ * effects (ADR 0240), oldest first. Same-`at` order is log → narrate → sound.
+ */
+export function buildSimTimeline(
+  log: readonly TripLogEntry[],
+  effects: readonly { at: number; effect: TripEffect }[],
+): SimTimelineRow[] {
+  const rows: SimTimelineRow[] = []
+  for (const entry of log) {
+    if (entry.kind === "site" && entry.phase === "revealed") continue
+    rows.push({
+      kind: "log",
+      at: entry.at,
+      mile: entry.mile,
+      text: describeLogEntry(entry),
+    })
+  }
+  for (const { at, effect } of effects) {
+    if (effect.type === "narrate") {
+      rows.push({
+        kind: "narrate",
+        at,
+        text: effect.body,
+        ...(effect.variant ? { variant: effect.variant } : effect.icon ? { variant: "site" } : {}),
+      })
+    } else if (effect.type === "sound") {
+      rows.push({ kind: "sound", at, url: effect.url, label: soundEffectLabel(effect.url) })
+    }
+  }
+  const rank = (row: SimTimelineRow) =>
+    row.kind === "log" ? 0 : row.kind === "narrate" ? 1 : 2
+  return rows.sort((a, b) => a.at - b.at || rank(a) - rank(b))
 }

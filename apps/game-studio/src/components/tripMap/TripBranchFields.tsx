@@ -123,7 +123,7 @@ export function TripOutcomesEditor({
     set(outcomes.map((outcome, i) => (i === index ? next : outcome)))
   return (
     <Stack gap="2">
-      <Text fontSize="xs" fontWeight="semibold">
+      <Text fontSize="xs" fontWeight="medium" color="fg.muted">
         {label}
       </Text>
       {outcomes.map((outcome, index) => {

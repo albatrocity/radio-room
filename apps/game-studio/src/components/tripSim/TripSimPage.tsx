@@ -22,11 +22,12 @@ import type { TripSimRoom } from "@repo/plugin-road-trip/sim"
 import { loadDraft, parseDraft } from "../../tripMap/tripMapDraft"
 import { listSavedTripMaps, loadSavedTripMap } from "../../tripMap/tripMapFiles"
 import {
-  describeLogEntry,
+  buildSimTimeline,
   describeSimEvent,
   describeVanKeys,
   formatClock,
   formatElapsed,
+  type SimTimelineRow,
 } from "../../tripSim/describeTripSim"
 import { clearTripSim, loadTripSim, runTripSim, useTripSim } from "../../tripSim/tripSimStore"
 
@@ -350,13 +351,51 @@ function Decisions({ room }: { room: TripSimRoom }) {
   )
 }
 
+function TimelineRow({
+  row,
+  departedAt,
+}: {
+  row: SimTimelineRow
+  departedAt: number | undefined
+}) {
+  return (
+    <HStack gap="3" align="start" fontSize="sm">
+      <Text color="fg.muted" minW="72px" fontFamily="mono" fontSize="xs" pt="0.5">
+        {departedAt !== undefined ? `T+${formatElapsed(row.at - departedAt)}` : ""}
+      </Text>
+      <Text color="fg.muted" minW="56px" fontFamily="mono" fontSize="xs" pt="0.5">
+        {row.kind === "log" ? `mi ${row.mile.toFixed(1)}` : ""}
+      </Text>
+      {row.kind === "log" ? (
+        <Text>{row.text}</Text>
+      ) : row.kind === "narrate" ? (
+        <Text>
+          <Text as="span" color="fg.muted">
+            📝{row.variant ? ` ${row.variant}` : ""} ·{" "}
+          </Text>
+          {row.text}
+        </Text>
+      ) : (
+        <Text>
+          <Text as="span" color="fg.muted">
+            🔊{" "}
+          </Text>
+          <Text as="span" fontFamily="mono" fontSize="xs">
+            {row.label}
+          </Text>
+        </Text>
+      )}
+    </HStack>
+  )
+}
+
 function SimPanel({ room }: { room: TripSimRoom }) {
   const { state, sim } = room
   const heldKeys = describeVanKeys(room.keyItems())
   const next = room.peekNext()
   const driving = state.status === "driving"
   const departedAt = state.departedAt
-  const log = room.log.filter((entry) => !(entry.kind === "site" && entry.phase === "revealed"))
+  const timeline = buildSimTimeline(room.log, sim.effects)
 
   return (
     <Stack gap="4">
@@ -438,21 +477,16 @@ function SimPanel({ room }: { room: TripSimRoom }) {
         </Stack>
         <Stack gap="2" borderWidth="1px" borderRadius="md" p="4" maxH="420px" overflowY="auto">
           <Heading size="sm">Timeline</Heading>
-          {log.length === 0 ? (
+          <Text fontSize="xs" color="fg.muted">
+            Stops and incidents, plus narrative prose and sound effects as they fire.
+          </Text>
+          {timeline.length === 0 ? (
             <Text fontSize="sm" color="fg.muted">
               No events yet.
             </Text>
           ) : (
-            [...log].reverse().map((entry, i) => (
-              <HStack key={`${entry.at}-${i}`} gap="3" align="start" fontSize="sm">
-                <Text color="fg.muted" minW="72px" fontFamily="mono" fontSize="xs" pt="0.5">
-                  {departedAt !== undefined ? `T+${formatElapsed(entry.at - departedAt)}` : ""}
-                </Text>
-                <Text color="fg.muted" minW="56px" fontFamily="mono" fontSize="xs" pt="0.5">
-                  mi {entry.mile.toFixed(1)}
-                </Text>
-                <Text>{describeLogEntry(entry)}</Text>
-              </HStack>
+            [...timeline].reverse().map((row, i) => (
+              <TimelineRow key={`${row.kind}-${row.at}-${i}`} row={row} departedAt={departedAt} />
             ))
           )}
         </Stack>

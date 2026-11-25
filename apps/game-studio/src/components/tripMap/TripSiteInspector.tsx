@@ -66,6 +66,40 @@ function narrativeVariant(value: string): SiteNarrativeVariant | undefined {
   return SITE_NARRATIVE_VARIANTS.find((variant) => variant === value)
 }
 
+/** Moment heading inside the Lifecycle card (above field labels). */
+function LifecycleSection({
+  title,
+  divided,
+  children,
+}: {
+  title: string
+  divided?: boolean
+  children: ReactNode
+}) {
+  return (
+    <Stack
+      gap="3"
+      pt={divided ? "4" : undefined}
+      borderTopWidth={divided ? "1px" : undefined}
+      borderColor="border"
+    >
+      <Text fontSize="sm" fontWeight="semibold" letterSpacing="tight">
+        {title}
+      </Text>
+      <Stack gap="3">{children}</Stack>
+    </Stack>
+  )
+}
+
+/** Quiet group label under a lifecycle section (Narrative cases, Outcomes). */
+function GroupLabel({ children }: { children: ReactNode }) {
+  return (
+    <Text fontSize="xs" fontWeight="medium" color="fg.muted">
+      {children}
+    </Text>
+  )
+}
+
 /** A chat narrative and its system-message variant, for one lifecycle moment. */
 function NarrativeFields({
   text,
@@ -81,7 +115,9 @@ function NarrativeFields({
   return (
     <>
       <Field.Root>
-        <Field.Label fontSize="xs">Narrative</Field.Label>
+        <Field.Label fontSize="xs" fontWeight="normal">
+          Narrative
+        </Field.Label>
         <Textarea
           size="sm"
           rows={4}
@@ -92,7 +128,9 @@ function NarrativeFields({
         <Field.HelperText fontSize="xs">{helper}</Field.HelperText>
       </Field.Root>
       <Field.Root maxW="240px">
-        <Field.Label fontSize="xs">System message</Field.Label>
+        <Field.Label fontSize="xs" fontWeight="normal">
+          System message
+        </Field.Label>
         <NativeSelect.Root size="sm">
           <NativeSelect.Field
             value={variant ?? ""}
@@ -154,9 +192,7 @@ function NarrativeCasesEditor({
   const set = (next: NarrativeCase[]) => onChange(next.length > 0 ? next : undefined)
   return (
     <Stack gap="2">
-      <Text fontSize="xs" fontWeight="semibold">
-        Narrative cases
-      </Text>
+      <GroupLabel>Narrative cases</GroupLabel>
       {cases.map((entry, index) => (
         <Stack key={index} gap="2" borderWidth="1px" borderRadius="md" p="2">
           <HStack justify="space-between">
@@ -196,7 +232,9 @@ function NarrativeCasesEditor({
             }
           />
           <Field.Root maxW="240px">
-            <Field.Label fontSize="xs">System message</Field.Label>
+            <Field.Label fontSize="xs" fontWeight="normal">
+              System message
+            </Field.Label>
             <NativeSelect.Root size="sm">
               <NativeSelect.Field
                 value={entry.variant ?? ""}
@@ -366,14 +404,11 @@ export function TripSiteInspector({
       </Field.Root>
 
       <Box borderWidth="1px" borderRadius="md" p="3">
-        <Text fontSize="sm" fontWeight="semibold" mb="2">
+        <Text fontSize="sm" fontWeight="semibold" mb="3">
           Lifecycle
         </Text>
-        <Stack gap="4">
-          <Stack gap="2">
-            <Text fontSize="xs" fontWeight="semibold">
-              On visit
-            </Text>
+        <Stack gap="0">
+          <LifecycleSection title="On visit">
             <NarrativeFields
               text={site.narrative}
               variant={site.narrativeVariant}
@@ -392,11 +427,8 @@ export function TripSiteInspector({
               outcomes={(site.onVisit ?? []) as TripOutcome[]}
               onChange={(onVisit) => onChange({ onVisit })}
             />
-          </Stack>
-          <Stack gap="2">
-            <Text fontSize="xs" fontWeight="semibold">
-              On departure
-            </Text>
+          </LifecycleSection>
+          <LifecycleSection title="On departure" divided>
             <NarrativeFields
               text={site.departNarrative}
               variant={site.departNarrativeVariant}
@@ -421,17 +453,20 @@ export function TripSiteInspector({
               outcomes={(site.onDepart ?? []) as TripOutcome[]}
               onChange={(onDepart) => onChange({ onDepart })}
             />
-          </Stack>
-          <NarrativeSoundsEditor
-            scope="site"
-            siteId={site.id}
-            sounds={site.narrativeSounds ?? []}
-            destination={destination}
-            assetStatus={assetStatus}
-            pendingSounds={pendingSounds}
-            setPendingSounds={setPendingSounds}
-            onChange={(narrativeSounds) => onChange({ narrativeSounds })}
-          />
+          </LifecycleSection>
+          <LifecycleSection title="Sounds" divided>
+            <NarrativeSoundsEditor
+              scope="site"
+              siteId={site.id}
+              sounds={site.narrativeSounds ?? []}
+              destination={destination}
+              assetStatus={assetStatus}
+              pendingSounds={pendingSounds}
+              setPendingSounds={setPendingSounds}
+              hideTitle
+              onChange={(narrativeSounds) => onChange({ narrativeSounds })}
+            />
+          </LifecycleSection>
         </Stack>
       </Box>
       {art}
